@@ -200,9 +200,11 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 	}
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.SPI:           new.Spi,
-		logfields.SourceIP:      new.Src,
-		logfields.DestinationIP: new.Dst,
+		logfields.SPI:              new.Spi,
+		logfields.SourceIP:         new.Src,
+		logfields.DestinationIP:    new.Dst,
+		logfields.TrafficDirection: getDirFromXfrmMark(new.Mark),
+		logfields.NodeID:           getNodeIDFromXfrmMark(new.Mark),
 	})
 
 	// Check if the XFRM state already exists
@@ -301,9 +303,11 @@ func xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmSta
 			}
 			deletedSomething = true
 			log.WithFields(logrus.Fields{
-				logfields.SPI:           s.Spi,
-				logfields.SourceIP:      s.Src,
-				logfields.DestinationIP: s.Dst,
+				logfields.SPI:              s.Spi,
+				logfields.SourceIP:         s.Src,
+				logfields.DestinationIP:    s.Dst,
+				logfields.TrafficDirection: getDirFromXfrmMark(s.Mark),
+				logfields.NodeID:           getNodeIDFromXfrmMark(s.Mark),
 			}).Info("Removed a conflicting XFRM state")
 		}
 	}
@@ -488,8 +492,10 @@ func deprioritizeOldOutPolicy(family int) {
 			p.Priority = oldXFRMOutPolicyPriority
 			if err := netlink.XfrmPolicyUpdate(&p); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
-					logfields.SourceCIDR:      p.Src,
-					logfields.DestinationCIDR: p.Dst,
+					logfields.SourceCIDR:       p.Src,
+					logfields.DestinationCIDR:  p.Dst,
+					logfields.TrafficDirection: getDirFromXfrmMark(p.Mark),
+					logfields.NodeID:           getNodeIDFromXfrmMark(p.Mark),
 				}).Error("Failed to deprioritize old XFRM policy")
 			}
 		}
@@ -1112,7 +1118,13 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) error {
 			continue
 		}
 
-		scopedLog = scopedLog.WithField(logfields.OldSPI, policySPI)
+		scopedLog = scopedLog.WithFields(logrus.Fields{
+			logfields.OldSPI:           policySPI,
+			logfields.SourceIP:         p.Src,
+			logfields.DestinationIP:    p.Dst,
+			logfields.TrafficDirection: getDirFromXfrmMark(p.Mark),
+			logfields.NodeID:           getNodeIDFromXfrmMark(p.Mark),
+		})
 		scopedLog.Info("Deleting stale XFRM policy")
 		if err := netlink.XfrmPolicyDel(&p); err != nil {
 			errs.Add(fmt.Errorf("failed to delete stale xfrm policy spi (%d): %w", policySPI, err))
