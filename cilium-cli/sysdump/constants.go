@@ -150,6 +150,7 @@ var (
 		"pprof-heap",
 		"pprof-cpu",
 	}
+	gopsTrace = "trace"
 
 	// Gateway API resource group versions used for sysdumping these
 	gatewayClass = schema.GroupVersionResource{
