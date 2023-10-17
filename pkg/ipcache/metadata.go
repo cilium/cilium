@@ -179,6 +179,9 @@ func (m *metadata) getLocked(prefix netip.Prefix) PrefixInfo {
 // Returns the CIDRs that were not yet processed, for example due to an
 // unexpected error while processing the identity updates for those CIDRs
 // The caller should attempt to retry injecting labels for those CIDRs.
+//
+// Note: do not call this function (except in tests)! Rather, calling
+// UpsertLabels() / UpsertMetadata() will trigger an update asynchronously.
 func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, err error) {
 	if ipc.IdentityAllocator == nil {
 		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
@@ -667,28 +670,51 @@ func (ipc *IPCache) TriggerLabelInjection() {
 	//           on upgrade that there are no connectivity drops when this
 	//           channel is preventing transient BPF entries.
 
-	// This controller is for retrying this operation in case it fails. It
-	// should eventually succeed.
-	ipc.UpdateController(
-		LabelInjectorName,
-		controller.ControllerParams{
-			Group:   injectLabelsControllerGroup,
-			Context: ipc.Configuration.Context,
-			DoFunc: func(ctx context.Context) error {
-				var err error
-
-				idsToModify := ipc.metadata.dequeuePrefixUpdates()
-				idsToModify, err = ipc.InjectLabels(ctx, idsToModify)
-				ipc.metadata.enqueuePrefixUpdates(idsToModify...)
-
-				return err
+	// set up the controller on first injection, so we don't start writing
+	// labels until desired. (Some tests rely on this).
+	ipc.injectLabelsSetup.Do(func() {
+		ipc.UpdateController(
+			LabelInjectorName,
+			controller.ControllerParams{
+				Group:            injectLabelsControllerGroup,
+				Context:          ipc.Configuration.Context,
+				DoFunc:           ipc.doLabelInjection,
+				MaxRetryInterval: 1 * time.Minute,
 			},
-			MaxRetryInterval: 1 * time.Minute,
-		},
-	)
+		)
+	})
+
+	ipc.controllers.TriggerController(LabelInjectorName)
+}
+
+// doLabelInjection injects updates for all queued prefixes.
+// Should only be called from the controller.
+func (ipc *IPCache) doLabelInjection(ctx context.Context) error {
+	var err error
+
+	idsToModify := ipc.metadata.dequeuePrefixUpdates()
+	idsToModify, err = ipc.InjectLabels(ctx, idsToModify)
+	ipc.metadata.enqueuePrefixUpdates(idsToModify...)
+
+	if !ipc.labelsInjectedClosed && err == nil && len(idsToModify) == 0 {
+		ipc.labelsInjectedClosed = true
+		close(ipc.labelsInjected)
+	}
+
+	return err
 }
 
 // ShutdownLabelInjection shuts down the controller in TriggerLabelInjection().
+// This is only used during testing.
 func (ipc *IPCache) ShutdownLabelInjection() error {
-	return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
+	err := ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
+
+	ipc.labelsInjectedClosed = false
+	ipc.labelsInjected = make(chan struct{})
+	ipc.injectLabelsSetup = sync.Once{}
+	return err
+}
+
+func (ipc *IPCache) WaitForFirstLabelInjection() {
+	<-ipc.labelsInjected
 }

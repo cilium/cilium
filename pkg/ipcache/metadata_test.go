@@ -357,7 +357,7 @@ func TestInjectExisting(t *testing.T) {
 	IPIdentityCache.UpsertLabels(prefix, labels.LabelKubeAPIServer, source.KubeAPIServer, resource)
 
 	// Need to wait for the label injector to finish; easiest just to remove it
-	IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+	IPIdentityCache.ShutdownLabelInjection()
 
 	// Ensure the source is now correctly understood in the ipcache
 	id, ok = IPIdentityCache.LookupByIP(prefix.String())
@@ -413,9 +413,9 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	identityReferences++
 	for i := 0; i < 2; i++ {
 		IPIdentityCache.UpsertLabels(prefix, labels, source.CustomResource, resource)
-		// Need to wait for the label injector to finish; easiest just to remove it
-		IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
 	}
+	// Need to wait for the label injector to finish; easiest just to remove it
+	IPIdentityCache.ShutdownLabelInjection()
 
 	// Ensure the source is now correctly understood in the ipcache
 	id, ok = IPIdentityCache.LookupByIP(prefix.String())
@@ -447,7 +447,7 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 
 	// Remove the identity allocation via newer APIs
 	IPIdentityCache.RemoveLabels(prefix, labels, resource)
-	IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+	IPIdentityCache.ShutdownLabelInjection()
 	identityReferences--
 	assert.Equal(t, identityReferences, 0)
 

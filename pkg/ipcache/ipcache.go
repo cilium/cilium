@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -128,6 +129,11 @@ type IPCache struct {
 	// references to identities and removing the corresponding IPCache
 	// entries if unused.
 	deferredPrefixRelease *asyncPrefixReleaser
+
+	// labelsInjected is closed when the first label injection is complete.
+	labelsInjected       chan struct{}
+	labelsInjectedClosed bool      // because closing channels is not idempotent
+	injectLabelsSetup    sync.Once // avoid unnecessary controller configuration
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -143,8 +149,10 @@ func NewIPCache(c *Configuration) *IPCache {
 		namedPorts:        types.NewNamedPortMultiMap(),
 		metadata:          newMetadata(),
 		Configuration:     c,
+		labelsInjected:    make(chan struct{}),
 	}
 	ipc.deferredPrefixRelease = newAsyncPrefixReleaser(c.Context, ipc, 1*time.Millisecond)
+
 	return ipc
 }
 

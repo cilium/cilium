@@ -342,6 +342,11 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		}
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
+
+			// Wait for the ipcache to write at least once before regenerating.
+			// Otherwise, there could be transient policy drops.
+			d.ipcache.WaitForFirstLabelInjection()
+
 			if err := ep.RegenerateAfterRestore(endpointsRegenerator); err != nil {
 				log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating during restore")
 				epRegenerated <- false
