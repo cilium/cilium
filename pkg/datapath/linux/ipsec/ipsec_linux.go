@@ -202,7 +202,7 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 		logfields.SourceIP:         new.Src,
 		logfields.DestinationIP:    new.Dst,
 		logfields.TrafficDirection: getDirFromXfrmMark(new.Mark),
-		logfields.NodeID:           getNodeIDFromXfrmMark(new.Mark),
+		logfields.NodeID:           getNodeIDAsHexFromXfrmMark(new.Mark),
 	})
 
 	// Check if the XFRM state already exists
@@ -293,7 +293,7 @@ func xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmSta
 					logfields.SourceIP:         s.Src,
 					logfields.DestinationIP:    s.Dst,
 					logfields.TrafficDirection: getDirFromXfrmMark(s.Mark),
-					logfields.NodeID:           getNodeIDFromXfrmMark(s.Mark),
+					logfields.NodeID:           getNodeIDAsHexFromXfrmMark(s.Mark),
 				}).Info("Removed a conflicting XFRM state")
 			} else {
 				return deletedSomething, fmt.Errorf("Failed to remove a conflicting XFRM state: %w", err)
@@ -484,7 +484,7 @@ func deprioritizeOldOutPolicy(family int) {
 					logfields.SourceCIDR:       p.Src,
 					logfields.DestinationCIDR:  p.Dst,
 					logfields.TrafficDirection: getDirFromXfrmMark(p.Mark),
-					logfields.NodeID:           getNodeIDFromXfrmMark(p.Mark),
+					logfields.NodeID:           getNodeIDAsHexFromXfrmMark(p.Mark),
 				}).Error("Failed to deprioritize old XFRM policy")
 			}
 		}
@@ -515,6 +515,10 @@ func getNodeIDFromXfrmMark(mark *netlink.XfrmMark) uint16 {
 		return 0
 	}
 	return uint16(mark.Value >> 16)
+}
+
+func getNodeIDAsHexFromXfrmMark(mark *netlink.XfrmMark) string {
+	return fmt.Sprintf("0x%x", getNodeIDFromXfrmMark(mark))
 }
 
 func getDirFromXfrmMark(mark *netlink.XfrmMark) dir {
@@ -1096,7 +1100,7 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 			logfields.SourceIP:         p.Src,
 			logfields.DestinationIP:    p.Dst,
 			logfields.TrafficDirection: getDirFromXfrmMark(p.Mark),
-			logfields.NodeID:           getNodeIDFromXfrmMark(p.Mark),
+			logfields.NodeID:           getNodeIDAsHexFromXfrmMark(p.Mark),
 		})
 		scopedLog.Info("Deleting stale XFRM policy")
 		if err := netlink.XfrmPolicyDel(&p); err != nil {
