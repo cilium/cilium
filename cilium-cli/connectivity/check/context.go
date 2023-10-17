@@ -896,7 +896,7 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, 
 	return cmd
 }
 
-func (ct *ConnectivityTest) CurlClientIPCommand(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
+func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
 	cmd := []string{"curl", "--silent", "--fail", "--show-error"}
 
 	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
@@ -907,7 +907,7 @@ func (ct *ConnectivityTest) CurlClientIPCommand(peer TestPeer, ipFam features.IP
 	}
 
 	cmd = append(cmd, opts...)
-	cmd = append(cmd, fmt.Sprintf("%s://%s%s/client-ip",
+	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
 		peer.Scheme(),
 		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
 		peer.Path()))
