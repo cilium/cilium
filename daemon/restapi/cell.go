@@ -7,7 +7,8 @@ import "github.com/cilium/cilium/pkg/hive/cell"
 
 var Cell = cell.Module(
 	"cilium-restapi",
-	"Cilium Agent API handlers",
+	"Cilium Agent API",
 
+	serverCell,
 	rateLimiterCell, // Request rate-limiting
 )

@@ -761,9 +761,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		"Use a single cluster route instead of per node routes")
 	option.BindEnv(vp, option.SingleClusterRouteName)
 
-	flags.String(option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
-	option.BindEnv(vp, option.SocketPath)
-
 	flags.String(option.StateDir, defaults.RuntimePath, "Directory path to store runtime state")
 	option.BindEnv(vp, option.StateDir)
 

@@ -1,6 +1,7 @@
-package cmd
+package restapi
 
 import (
+	"net"
 	"net/http"
 	"strings"
 
@@ -8,7 +9,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 
-	"github.com/go-openapi/loads"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
@@ -17,21 +18,31 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
-var apiServerCell = cell.Module(
+var serverCell = cell.Module(
 	"cilium-api-server",
 	"Serves the Cilium API",
 
+	cell.Config(APIServerConfig{}),
 	cell.Provide(newAPIServer),
 
 	hive.AppendHooks[*APIServer](),
 )
 
 type APIServer struct {
-	server http.Server
-
+	api            *restapi.CiliumAPIAPI
+	server         http.Server
+	config         APIServerConfig
 	mux            *http.ServeMux
 	grpcServer     *grpc.Server
 	swaggerHandler http.Handler
+}
+
+type APIServerConfig struct {
+	SocketPath string
+}
+
+func (def APIServerConfig) Flags(flags *pflag.FlagSet) {
+	flags.String("socket-path", def.SocketPath, "Sets the UNIX socket path for API connections")
 }
 
 func (s *APIServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -44,22 +55,41 @@ func (s *APIServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *APIServer) Start(hive.HookContext) error {
-	go s.server.ListenAndServe()
+	addr, err := net.ResolveUnixAddr("unix", s.config.SocketPath)
+	if err != nil {
+		return err
+	}
+	listener, err := net.ListenUnix("unix", addr)
+	if err != nil {
+		return err
+	}
+
+	s.swaggerHandler = s.api.Serve(nil)
+	s.server.Handler = h2c.NewHandler(s, &http2.Server{})
+
+	go s.server.Serve(listener)
 	return nil
 }
 
-func (s *APIServer) Stop(ctx hive.HookContext) error {
-	return s.server.Shutdown(ctx)
+func (s *APIServer) Stop(hive.HookContext) error {
+	return s.server.Close()
+}
+
+func (s *APIServer) GetAPI() *restapi.CiliumAPIAPI {
+	return s.api
 }
 
 type apiServerParams struct {
 	cell.In
 
+	Config   APIServerConfig
+	Spec     *server.Spec
 	Services []api.GRPCService `group:"grpc-services"`
 }
 
 func newAPIServer(p apiServerParams) (*APIServer, error) {
 	s := &APIServer{
+		config:     p.Config,
 		mux:        http.NewServeMux(),
 		grpcServer: grpc.NewServer(),
 	}
@@ -70,15 +100,9 @@ func newAPIServer(p apiServerParams) (*APIServer, error) {
 
 	s.mux.Handle("/", s.grpcServer)
 
-	spec, err := loads.Analyzed(server.SwaggerJSON, "")
-	if err != nil {
-		return nil, err
-	}
-	api := restapi.NewCiliumAPIAPI(spec)
-	s.swaggerHandler = api.Serve(nil)
+	s.api = restapi.NewCiliumAPIAPI(p.Spec.Document)
 
-	s.server.Addr = ":8456"
-	s.server.Handler = h2c.NewHandler(s, &http2.Server{})
+	// FIXME populate the API from handlers.
 
 	return s, nil
 }

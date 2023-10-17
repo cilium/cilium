@@ -86,10 +86,8 @@ var (
 		job.Cell,
 
 		// Cilium API served over UNIX sockets. Accessed by the 'cilium' utility (not cilium-cli).
-		server.Cell,
+		restapi.Cell,
 		cell.Invoke(configureAPIServer),
-
-		// Cilium API handlers
 		cell.Provide(ciliumAPIHandlers),
 
 		// Processes endpoint deletions that occurred while the agent was down.
@@ -157,9 +155,6 @@ var (
 		// It is used to provide support for Ingress, GatewayAPI and L7 network policies (e.g. HTTP).
 		envoy.Cell,
 
-		// Cilium REST API handlers
-		restapi.Cell,
-
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
 
@@ -194,11 +189,10 @@ var (
 	)
 )
 
-func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, swaggerSpec *server.Spec) {
-	s.EnabledListeners = []string{"unix"}
-	s.SocketPath = cfg.SocketPath
-	s.ReadTimeout = apiTimeout
-	s.WriteTimeout = apiTimeout
+func configureAPIServer(cfg *option.DaemonConfig, s *restapi.APIServer, swaggerSpec *server.Spec) {
+	// FIXME:
+	//s.ReadTimeout = apiTimeout
+	//s.WriteTimeout = apiTimeout
 
 	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
 	hint := "Consider enabling this API in " + server.AdminEnableFlag
