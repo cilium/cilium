@@ -437,6 +437,12 @@ Users (Alphabetically)
       L: https://blog.palark.com/why-cilium-for-kubernetes-networking/
       Q: @shurup
 
+    * N: Parseable
+      D: Parseable uses Tertragon for collecting and ingesting eBPF logs for Kubernetes clusters.
+      U: Security, eBPF, Tetragon 
+      L: https://www.parseable.io/blog/ebpf-log-analytics
+      Q: @nitisht
+
     * N: Plaid Inc
       D: Plaid is using Cilium as their CNI plugin in self-hosted Kubernetes on AWS.
       U: CNI, network policies
