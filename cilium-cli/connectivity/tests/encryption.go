@@ -286,7 +286,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 
 	var dstSniffer *leakSniffer
 	if serverHost != nil {
-		dstAddrFilter := strings.ReplaceAll(srcAddrFilter, "src", "dst")
+		dstAddrFilter := getFilter(ctx, t, server, serverHost, ipFam, srcAddr)
 		dstIface := getInterNodeIface(ctx, t, serverHost, ipFam, server.Address(ipFam), srcAddr)
 		dstFilter := fmt.Sprintf("src host %s and %s and %s", dstAddr, dstAddrFilter, protoFilter)
 
