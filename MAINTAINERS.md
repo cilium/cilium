@@ -17,6 +17,7 @@ Everybody listed is a committer as per governance definition.
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
+ * [Daneyon Hansen] (Solo.io)
  * [Deepesh Pathak]
  * [Dylan Reimerink] (Isovalent)
  * [Gilberto Bertin] (Isovalent)
@@ -80,6 +81,7 @@ project.
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
+[Daneyon Hansen]: https://github.com/danehans
 [Deepesh Pathak]: https://github.com/fristonio
 [Dylan Reimerink]: https://github.com/dylandreimerink
 [Eloy Coto]: https://github.com/eloycoto
