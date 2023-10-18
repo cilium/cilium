@@ -98,9 +98,17 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 //
 // The exact filter depends on the routing mode and some features. The common
 // structure is "src host $SRC_IP and dst host $DST_IP and $PROTO".
+//
+// WireGuard w/ tunnel: this is a special case. We are interested to see whether
+// any unencrypted VXLAN pkt is leaked on a native device.
 func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod,
 	server, serverHost *check.Pod,
 	ipFam features.IPFamily, reqType requestType) string {
+
+	tunnelEnabled := false
+	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok && tunnelStatus.Enabled {
+		tunnelEnabled = true
+	}
 
 	protoFilter := ""
 	switch reqType {
@@ -113,6 +121,36 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 		}
 	default:
 		t.Fatalf("Invalid request type: %d", reqType)
+	}
+
+	if enc, ok := t.Context().Feature(features.EncryptionPod); tunnelEnabled && ok &&
+		enc.Enabled && enc.Mode == "wireguard" {
+
+		// Captures the following:
+		// - Any VXLAN/Geneve pkt client host <-> server host. Such a pkt might
+		//   contain a leaked pod-to-pod unencrypted pkt. We could have made this
+		//   filter more fine-grained (i.e., to filter an inner pkt), but that
+		//   requires nasty filtering based on UDP offsets (pcap-filter doesn't
+		//   filtering of VXLAN/Geneve inner layers).
+		// - Any pkt client <-> server with a given proto. This might be useful
+		//   to catch any regression in the DP which makes the pkt to bypass
+		//   the VXLAN tunnel.
+		//
+		// Some explanations:
+		// - "udp[8:2] = 0x0800" compares the first two bytes of an UDP payload
+		//   against VXLAN commonly used flags. In addition we check against
+		//   the default Cilium's VXLAN port (8472).
+		// - To catch Geneve traffic we cannot use the "geneve" filter, as it shifts
+		//   offset of a filted packet which invalidates the later part of the
+		//   filter. Thus this poor UDP/6081 check.
+		tunnelFilter := "(udp and (udp[8:2] = 0x0800 or dst port 8472 or dst 6081))"
+		filter := fmt.Sprintf("(%s and host %s and host %s) or (host %s and host %s and %s)",
+			tunnelFilter,
+			clientHost.Address(features.IPFamilyV4), serverHost.Address(features.IPFamilyV4),
+			client.Address(ipFam), server.Address(ipFam), protoFilter)
+
+		return filter
+
 	}
 
 	filter := fmt.Sprintf("src host %s", client.Address(ipFam))
@@ -191,7 +229,7 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	}
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
-		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks)
+		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true)
 	})
 }
 
@@ -296,8 +334,8 @@ func (sniffer *leakSniffer) validate(ctx context.Context, a *check.Action, asser
 }
 
 func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
-	client, server, clientHost *check.Pod, serverHost *check.Pod, /* serverHost=nil disables the bidirectional check */
-	reqType requestType, ipFam features.IPFamily, assertNoLeaks bool,
+	client, server, clientHost *check.Pod, serverHost *check.Pod,
+	reqType requestType, ipFam features.IPFamily, assertNoLeaks, biDirCheck bool,
 ) {
 	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType)
 	srcIface := getInterNodeIface(ctx, t, client, clientHost, server, serverHost, ipFam)
@@ -308,7 +346,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	}
 
 	var dstSniffer *leakSniffer
-	if serverHost != nil {
+	if biDirCheck {
 		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType)
 		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam)
 
@@ -407,12 +445,30 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 	}
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		podToPodWGWithTunnel := false
+		if e, ok := t.Context().Feature(features.EncryptionPod); ok && e.Enabled && e.Mode == "wireguard" {
+			if n, ok := t.Context().Feature(features.EncryptionNode); ok && !n.Enabled {
+				if t, ok := t.Context().Feature(features.Tunnel); ok && t.Enabled {
+					podToPodWGWithTunnel = true
+				}
+			}
+		}
 		// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
 		// does not have a HTTP server running)
-		testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks)
+		if !podToPodWGWithTunnel {
+			// In tunnel case ignore this check which expects unencrypted pkts.
+			// The filter built for this check doesn't take into account that
+			// pod-to-remote-node is SNAT-ed. Thus 'host $SRC_HOST and host $DST_HOST and icmp'
+			// doesn't catch any pkt.
+			testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks, false)
+		}
 		// Test host-to-remote-host
-		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks)
-		// Test host-to-remote-pod
-		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks)
+		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks, true)
+		// Test host-to-remote-pod (going to be encrypted with WG pod-to-pod + tunnel)
+		hostToPodAssertNoLeaks := assertNoLeaks
+		if podToPodWGWithTunnel {
+			hostToPodAssertNoLeaks = true
+		}
+		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, &serverHost, requestHTTP, ipFam, hostToPodAssertNoLeaks, false)
 	})
 }
