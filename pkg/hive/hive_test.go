@@ -265,54 +265,51 @@ func TestProvideHealthReporter(t *testing.T) {
 	testCell := cell.Module(
 		"test",
 		"Test Module",
-		cell.Invoke(func(hr cell.HealthReporter) {
+		cell.Invoke(func(s cell.Scope) {
+			hr := cell.GetHealthReporter(s, "test")
 			hr.OK("all good")
-			hr.Stopped("done!")
+			hr.Stopped("stopped")
 		}),
 	)
 	testCell2 := cell.Module(
 		"test2",
 		"Test Module 2",
-		cell.Invoke(func(hr cell.HealthReporter) {
-			hr.Degraded("woops", fmt.Errorf("someerr"))
+		cell.Invoke(func(s cell.Scope) {
+			hr := cell.GetHealthReporter(s, "test")
+			hr.Degraded("degraded", nil)
 		}),
 	)
 	unknown := cell.Module(
 		"unknown",
 		"Reports no status",
-		cell.Invoke(func(cell.HealthReporter) {}),
+		cell.Invoke(func(s cell.Scope) {}),
 	)
 
-	var s1, s2, s3 *cell.Status
-	var all []cell.Status
+	var chp cell.Health
 	h := hive.New(
 		testCell,
-		cell.Module(
-			"wrap", "Wraps test modules",
-			testCell2,
-			unknown,
-		),
-		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner, hr cell.Health) {
+		testCell2,
+		unknown,
+		cell.Invoke(func(lc hive.Lifecycle, _ hive.Shutdowner, hp cell.Health) {
 			lc.Append(hive.Hook{
 				OnStop: func(hive.HookContext) error {
-					all = hr.All()
-					s1 = hr.Get([]string{"test"})
-					s2 = hr.Get([]string{"wrap", "test2"})
-					s3 = hr.Get([]string{"wrap", "unknown"})
+					chp = hp
 					return nil
 				}})
 		}),
 		shutdownOnStartCell,
 	)
+
 	assert.NoError(t, h.Run(), "expected Run to succeed")
-	assert.Len(t, all, 3, "expected two health reports")
-	assert.Equal(t, s1.Level, cell.StatusOK)
-	assert.Equal(t, s1.FullModuleID.String(), "test")
-	assert.Equal(t, s1.Err, nil)
+	s1 := chp.Get(cell.FullModuleID{"test"})
+	s2 := chp.Get(cell.FullModuleID{"test2"})
+	s3 := chp.Get(cell.FullModuleID{"unknown"})
+	assert.Len(t, chp.All(), 3, "expected two health reports")
+	assert.Equal(t, cell.StatusOK, s1.Level)
+	assert.Equal(t, s1.FullModuleID, cell.FullModuleID{"test"})
 	assert.True(t, s1.Stopped)
-	assert.Equal(t, s2.Level, cell.StatusDegraded)
-	assert.Equal(t, s2.FullModuleID.String(), "wrap.test2")
-	assert.Equal(t, s2.Err, fmt.Errorf("someerr"))
+	assert.Equal(t, cell.StatusDegraded, s2.Level)
+	assert.Equal(t, s2.FullModuleID, cell.FullModuleID{"test2"})
 	assert.Equal(t, s3.Level, cell.StatusUnknown)
 }
 
