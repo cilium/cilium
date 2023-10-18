@@ -2387,6 +2387,7 @@ definitions:
                 - None
                 - Native
                 - Generic
+                - Best-Effort
               portMin:
                 type: integer
               portMax:

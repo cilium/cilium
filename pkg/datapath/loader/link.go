@@ -11,7 +11,7 @@ import (
 
 func SetXDPMode(mode string) error {
 	switch mode {
-	case option.XDPModeNative:
+	case option.XDPModeNative, option.XDPModeBestEffort:
 		if option.Config.XDPMode == option.XDPModeLinkNone ||
 			option.Config.XDPMode == option.XDPModeLinkDriver {
 			option.Config.XDPMode = option.XDPModeLinkDriver

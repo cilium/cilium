@@ -260,7 +260,7 @@ const (
 	NodePortAlg = "node-port-algorithm"
 
 	// NodePortAcceleration indicates whether NodePort should be accelerated
-	// via XDP ("none", "generic" or "native")
+	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration = "node-port-acceleration"
 
 	// Alias to NodePortMode
@@ -874,6 +874,9 @@ const (
 	// XDPModeNative for loading progs with XDPModeLinkDriver
 	XDPModeNative = "native"
 
+	// XDPModeBestEffort for loading progs with XDPModeLinkDriver
+	XDPModeBestEffort = "best-effort"
+
 	// XDPModeGeneric for loading progs with XDPModeLinkGeneric
 	XDPModeGeneric = "testing-only"
 
@@ -1344,6 +1347,9 @@ const (
 
 	// NodePortAccelerationNative means we accelerate NodePort via native XDP in the driver (preferred)
 	NodePortAccelerationNative = XDPModeNative
+
+	// NodePortAccelerationBestEffort means we accelerate NodePort via native XDP in the driver (preferred), but will skip devices without driver support
+	NodePortAccelerationBestEffort = XDPModeBestEffort
 
 	// KubeProxyReplacementPartial specifies to enable only selected kube-proxy
 	// replacement features (might panic)
@@ -2047,7 +2053,7 @@ type DaemonConfig struct {
 	MaglevHashSeed string
 
 	// NodePortAcceleration indicates whether NodePort should be accelerated
-	// via XDP ("none", "generic" or "native")
+	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration string
 
 	// NodePortBindProtection rejects bind requests to NodePort service ports
