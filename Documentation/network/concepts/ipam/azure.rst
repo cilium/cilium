@@ -6,15 +6,15 @@
 
 .. _ipam_azure:
 
-##########
-Azure IPAM
-##########
+###################
+Azure IPAM (Legacy)
+###################
 
 .. note::
 
-   While still maintained for now, Azure IPAM is considered legacy and is not
-   compatible with AKS clusters created in `Bring your own CNI <https://docs.microsoft.com/en-us/azure/aks/use-byo-cni?tabs=azure-cli>`_
-   mode. Using BYOCNI is the preferred way to install Cilium on AKS.
+   While still maintained for now, Azure IPAM is considered legacy. The recommended way to install cilium on AKS is 
+   `Bring your own CNI <https://docs.microsoft.com/en-us/azure/aks/use-byo-cni?tabs=azure-cli>`_ or 
+   `Azure CNI Powered by Cilium <https://aka.ms/aks/cilium-dataplane>`_.
 
 The Azure IPAM allocator is specific to Cilium deployments running in the Azure
 cloud and performs IP allocation based on `Azure Private IP addresses
