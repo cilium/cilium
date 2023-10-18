@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -282,7 +283,7 @@ func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error
 	// If the ingress is being switched from dedicated to shared, we need to
 	// clean up the dedicated resources (service, endpoints, envoy config)
 	if oldLBMode && !newLBMode {
-		if err := ic.deleteResources(event.oldIngress); err != nil {
+		if err := ic.garbageCollectOwnedResources(event.oldIngress); err != nil {
 			log.WithError(err).Warn("Failed to delete resources for ingress")
 			return err
 		}
@@ -309,7 +310,7 @@ func (ic *Controller) handleIngressDeletedEvent(event ingressDeletedEvent) error
 	ic.secretManager.Add(event)
 
 	if ic.isEffectiveLoadbalancerModeDedicated(event.ingress) {
-		if err := ic.deleteResources(event.ingress); err != nil {
+		if err := ic.garbageCollectOwnedResources(event.ingress); err != nil {
 			log.WithError(err).Warn("Failed to delete resources for ingress")
 			return err
 		}
@@ -385,7 +386,7 @@ func (ic *Controller) handleCiliumIngressClassUpdatedEvent(event ciliumIngressCl
 			} else if hasEmptyIngressClass(ing) && !ic.isDefaultIngressClass {
 				// if we are no longer the default ingress class, we need to clean up
 				// the resources that we created for the ingress
-				if err := ic.deleteResources(ing); err != nil {
+				if err := ic.garbageCollectOwnedResources(ing); err != nil {
 					return err
 				}
 			}
@@ -409,7 +410,7 @@ func (ic *Controller) handleCiliumIngressClassDeletedEvent(event ciliumIngressCl
 			if hasEmptyIngressClass(ing) {
 				// if we are no longer the default ingress class, we need to clean up
 				// the resources that we created for the ingress
-				if err := ic.deleteResources(ing); err != nil {
+				if err := ic.garbageCollectOwnedResources(ing); err != nil {
 					return err
 				}
 			}
@@ -697,14 +698,17 @@ func deleteObjectIfExists[T any](obj metav1.Object, getByKey func(string) (T, bo
 		return err
 	}
 
-	if exists {
-		err = deleter(context.Background(), obj.GetName(), metav1.DeleteOptions{})
-		if err != nil {
-			log.WithError(err).WithField(logfields.Object, obj).Warn("Failed to delete object")
-			return err
-		}
-		log.WithField(logfields.Object, obj).Debug("Deleted object which was no longer tracked")
+	if !exists {
+		log.WithField(logfields.Object, obj).Debug("Object already deleted")
 		return nil
 	}
+
+	err = deleter(context.Background(), obj.GetName(), metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		log.WithError(err).WithField(logfields.Object, obj).Warn("Failed to delete object")
+		return err
+	}
+
+	log.WithField(logfields.Object, obj).Debug("Deleted object")
 	return nil
 }
