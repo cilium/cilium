@@ -279,11 +279,17 @@ func (i *defaultTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 			for _, port := range ports {
 				b := getBackendName(ns, name, port)
 				sortedClusterNames = append(sortedClusterNames, b)
-				envoyClusters[b], _ = NewHTTPCluster(b,
+				mutators := []ClusterMutator{
 					WithConnectionTimeout(5),
 					WithIdleTimeout(i.idleTimeoutSeconds),
 					WithClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
-					WithOutlierDetection(true))
+					WithOutlierDetection(true),
+				}
+
+				if isGRPCService(m, ns, name, port) {
+					mutators = append(mutators, WithProtocol(HTTPVersion2))
+				}
+				envoyClusters[b], _ = NewHTTPCluster(b, mutators...)
 			}
 		}
 	}
@@ -303,6 +309,24 @@ func (i *defaultTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 		res[i] = envoyClusters[name]
 	}
 
+	return res
+}
+
+func isGRPCService(m *model.Model, ns string, name string, port string) bool {
+	var res bool
+
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			if !r.IsGRPC {
+				continue
+			}
+			for _, be := range r.Backends {
+				if be.Name == name && be.Namespace == ns && be.Port != nil && be.Port.GetPort() == port {
+					return true
+				}
+			}
+		}
+	}
 	return res
 }
 
