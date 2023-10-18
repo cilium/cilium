@@ -171,7 +171,8 @@ func initKubeProxyReplacementOptions(tunnelConfig tunnel.Config) error {
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
-			option.Config.NodePortAcceleration != option.NodePortAccelerationNative {
+			option.Config.NodePortAcceleration != option.NodePortAccelerationNative &&
+			option.Config.NodePortAcceleration != option.NodePortAccelerationBestEffort {
 			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
 		}
 

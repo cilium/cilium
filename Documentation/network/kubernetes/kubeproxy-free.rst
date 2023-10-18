@@ -676,8 +676,10 @@ In case of a multi-device environment, where Cilium's device auto-detection sele
 more than a single device to expose NodePort or a user specifies multiple devices
 with ``devices``, the XDP acceleration is enabled on all devices. This means that
 each underlying device's driver must have native XDP support on all Cilium managed
-nodes. In addition, for performance reasons we recommend kernel >= 5.5 for
-the multi-device XDP acceleration.
+nodes. If you have an environment where some devices support XDP but others do not
+you can have XDP enabled on the supported devices by setting
+``loadBalancer.acceleration`` to ``best-effort``. In addition, for performance
+reasons we recommend kernel >= 5.5 for the multi-device XDP acceleration.
 
 A list of drivers supporting XDP can be found in :ref:`the XDP documentation<xdp_drivers>`.
 

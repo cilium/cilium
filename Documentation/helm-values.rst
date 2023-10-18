@@ -2211,7 +2211,11 @@
    * - :spelling:ignore:`loadBalancer`
      - Configure service load balancing
      - object
-     - ``{"l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}``
+     - ``{"acceleration":"disabled","l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}``
+   * - :spelling:ignore:`loadBalancer.acceleration`
+     - acceleration is the option to accelerate service handling via XDP Applicable values can be: disabled (do not use XDP), native (XDP BPF program is run directly out of the networking driver's early receive path), or best-effort (use native mode XDP acceleration on devices that support it).
+     - string
+     - ``"disabled"``
    * - :spelling:ignore:`loadBalancer.l7`
      - L7 LoadBalancer
      - object

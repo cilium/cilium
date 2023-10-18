@@ -27,7 +27,7 @@ import (
 
 func xdpModeToFlag(xdpMode string) link.XDPAttachFlags {
 	switch xdpMode {
-	case option.XDPModeNative, option.XDPModeLinkDriver:
+	case option.XDPModeNative, option.XDPModeLinkDriver, option.XDPModeBestEffort:
 		return link.XDPDriverMode
 	case option.XDPModeGeneric, option.XDPModeLinkGeneric:
 		return link.XDPGenericMode

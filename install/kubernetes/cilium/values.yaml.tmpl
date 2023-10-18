@@ -1840,8 +1840,11 @@ loadBalancer:
   # mode: snat
 
   # -- acceleration is the option to accelerate service handling via XDP
-  # e.g. native, disabled
-  # acceleration: disabled
+  # Applicable values can be: disabled (do not use XDP), native (XDP BPF
+  # program is run directly out of the networking driver's early receive
+  # path), or best-effort (use native mode XDP acceleration on devices
+  # that support it).
+  acceleration: disabled
 
   # -- dsrDispatch configures whether IP option or IPIP encapsulation is
   # used to pass a service IP and port to remote backend

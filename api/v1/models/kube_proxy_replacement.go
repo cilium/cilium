@@ -1134,7 +1134,7 @@ func (m *KubeProxyReplacementFeaturesNat46X64Service) UnmarshalBinary(b []byte) 
 type KubeProxyReplacementFeaturesNodePort struct {
 
 	// acceleration
-	// Enum: [None Native Generic]
+	// Enum: [None Native Generic Best-Effort]
 	Acceleration string `json:"acceleration,omitempty"`
 
 	// algorithm
@@ -1184,7 +1184,7 @@ var kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["None","Native","Generic"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["None","Native","Generic","Best-Effort"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -1202,6 +1202,9 @@ const (
 
 	// KubeProxyReplacementFeaturesNodePortAccelerationGeneric captures enum value "Generic"
 	KubeProxyReplacementFeaturesNodePortAccelerationGeneric string = "Generic"
+
+	// KubeProxyReplacementFeaturesNodePortAccelerationBestDashEffort captures enum value "Best-Effort"
+	KubeProxyReplacementFeaturesNodePortAccelerationBestDashEffort string = "Best-Effort"
 )
 
 // prop value enum

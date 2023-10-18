@@ -3699,7 +3699,8 @@ func init() {
                   "enum": [
                     "None",
                     "Native",
-                    "Generic"
+                    "Generic",
+                    "Best-Effort"
                   ]
                 },
                 "algorithm": {
@@ -9382,7 +9383,8 @@ func init() {
                   "enum": [
                     "None",
                     "Native",
-                    "Generic"
+                    "Generic",
+                    "Best-Effort"
                   ]
                 },
                 "algorithm": {
@@ -9564,7 +9566,8 @@ func init() {
               "enum": [
                 "None",
                 "Native",
-                "Generic"
+                "Generic",
+                "Best-Effort"
               ]
             },
             "algorithm": {
@@ -9733,7 +9736,8 @@ func init() {
           "enum": [
             "None",
             "Native",
-            "Generic"
+            "Generic",
+            "Best-Effort"
           ]
         },
         "algorithm": {

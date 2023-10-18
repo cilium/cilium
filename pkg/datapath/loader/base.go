@@ -249,8 +249,13 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 		if dev == wgTypes.IfaceName {
 			continue
 		}
+
 		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
-			return err
+			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
+				log.WithError(err).WithField(logfields.Device, dev).Info("Failed to attach XDP program, ignoring due to best-effort mode")
+			} else {
+				return fmt.Errorf("attaching XDP program to interface %s: %w", dev, err)
+			}
 		}
 	}
 	return nil
