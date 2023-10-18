@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
@@ -37,7 +36,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.New(&fakeConfig.Config{}, nil, manager.NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	nm, err = manager.New(&fakeConfig.Config{}, nil, manager.NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, IsNil)
 }
 

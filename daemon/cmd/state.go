@@ -305,8 +305,8 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 	}
 
 	if option.Config.EnableIPSec {
-		// If IPsec is enabled we need to restore the host endpoint before any
-		// other endpoint, to ensure a dropless upgrade.
+		// If IPsec is enabled on EKS or AKS, we need to restore the host
+		// endpoint before any other endpoint, to ensure a dropless upgrade.
 		// This code can be removed in v1.15.
 		// This is necessary because we changed how the IPsec encapsulation is
 		// done. In older version, bpf_lxc would pass the outer destination IP

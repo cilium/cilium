@@ -69,7 +69,6 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 			Kind:       source.Kind,
 			Name:       source.Name,
 			UID:        types.UID(source.UID),
-			Controller: model.AddressOf(true),
 		},
 	}
 	return cec, getService(source, ports), getEndpoints(*source), err
@@ -101,7 +100,6 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32) *core
 					Kind:       resource.Kind,
 					Name:       resource.Name,
 					UID:        types.UID(resource.UID),
-					Controller: model.AddressOf(true),
 				},
 			},
 		},
@@ -124,7 +122,6 @@ func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 					Kind:       resource.Kind,
 					Name:       resource.Name,
 					UID:        types.UID(resource.UID),
-					Controller: model.AddressOf(true),
 				},
 			},
 		},
@@ -134,7 +131,7 @@ func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 				// to the lb map when the service has no backends.
 				// Related github issue https://github.com/cilium/cilium/issues/19262
 				Addresses: []corev1.EndpointAddress{{IP: "192.192.192.192"}}, // dummy
-				Ports:     []corev1.EndpointPort{{Port: 9999}},               // dummy
+				Ports:     []corev1.EndpointPort{{Port: 9999}},               //dummy
 			},
 		},
 	}

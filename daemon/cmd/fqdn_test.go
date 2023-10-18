@@ -129,7 +129,7 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 		Cache:           fqdn.NewDNSCache(0),
 		UpdateSelectors: d.updateSelectors,
 	})
-	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil)
+	d.endpointManager = endpointmanager.New(&dummyEpSyncher{})
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),

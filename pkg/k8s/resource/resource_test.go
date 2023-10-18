@@ -251,29 +251,6 @@ func TestResource_WithFakeClient(t *testing.T) {
 	}
 }
 
-type createsAndDeletesListerWatcher struct {
-	events chan watch.Event
-}
-
-func (lw *createsAndDeletesListerWatcher) ResultChan() <-chan watch.Event {
-	return lw.events
-}
-
-func (lw *createsAndDeletesListerWatcher) Stop() {
-	close(lw.events)
-}
-
-func (*createsAndDeletesListerWatcher) List(options metav1.ListOptions) (k8sRuntime.Object, error) {
-	return &corev1.NodeList{}, nil
-}
-
-func (lw *createsAndDeletesListerWatcher) Watch(options metav1.ListOptions) (watch.Interface, error) {
-	return lw, nil
-}
-
-var _ cache.ListerWatcher = &createsAndDeletesListerWatcher{}
-var _ watch.Interface = &createsAndDeletesListerWatcher{}
-
 func TestResource_RepeatedDelete(t *testing.T) {
 	var (
 		nodeName = "some-node"
@@ -287,9 +264,9 @@ func TestResource_RepeatedDelete(t *testing.T) {
 			},
 		}
 
-		nodes resource.Resource[*corev1.Node]
+		nodes          resource.Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
 
-		lw     = createsAndDeletesListerWatcher{events: make(chan watch.Event, 100)}
 		events <-chan resource.Event[*corev1.Node]
 	)
 
@@ -297,11 +274,8 @@ func TestResource_RepeatedDelete(t *testing.T) {
 	defer cancel()
 
 	hive := hive.New(
-		cell.Provide(
-			func(lc hive.Lifecycle) resource.Resource[*corev1.Node] {
-				return resource.New[*corev1.Node](lc, &lw)
-			}),
-
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		nodesResource,
 		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
 			nodes = r
 
@@ -329,29 +303,24 @@ func TestResource_RepeatedDelete(t *testing.T) {
 		for i := 0; i < 1000; i++ {
 			node.ObjectMeta.ResourceVersion = fmt.Sprintf("%d", i)
 
-			lw.events <- watch.Event{
-				Type:   watch.Added,
-				Object: node.DeepCopy(),
-			}
+			fakeClient.KubernetesFakeClientset.Tracker().Create(
+				corev1.SchemeGroupVersion.WithResource("nodes"),
+				node.DeepCopy(), "")
 
-			// Sleep tiny amount to force a context switch
 			time.Sleep(time.Microsecond)
 
-			lw.events <- watch.Event{
-				Type:   watch.Deleted,
-				Object: node.DeepCopy(),
-			}
+			fakeClient.KubernetesFakeClientset.Tracker().Delete(
+				corev1.SchemeGroupVersion.WithResource("nodes"),
+				"", "some-node")
 
-			// Sleep tiny amount to force a context switch
 			time.Sleep(time.Microsecond)
 		}
 
 		// Create final copy of the object to mark the end of the test.
 		node.ObjectMeta.ResourceVersion = finalVersion
-		lw.events <- watch.Event{
-			Type:   watch.Added,
-			Object: node.DeepCopy(),
-		}
+		fakeClient.KubernetesFakeClientset.Tracker().Create(
+			corev1.SchemeGroupVersion.WithResource("nodes"),
+			node.DeepCopy(), "")
 	}()
 
 	var (

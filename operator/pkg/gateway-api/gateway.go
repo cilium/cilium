@@ -22,7 +22,6 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -79,10 +78,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch related namespace in allowed namespaces
 		Watches(&corev1.Namespace{},
 			r.enqueueRequestForAllowedNamespace()).
-		// Watch created and owned resources
-		Owns(&ciliumv2.CiliumEnvoyConfig{}).
-		Owns(&corev1.Service{}).
-		Owns(&corev1.Endpoints{}).
 		Complete(r)
 }
 

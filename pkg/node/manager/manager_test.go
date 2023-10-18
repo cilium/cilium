@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -208,7 +207,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	mngr.Subscribe(dp)
 	c.Assert(err, check.IsNil)
 
@@ -280,7 +279,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -362,7 +361,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fake.NewNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -383,7 +382,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fake.NewNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -415,7 +414,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	mngr.Subscribe(signalNodeHandler)
 	c.Assert(err, check.IsNil)
 	defer mngr.Stop(context.TODO())
@@ -459,7 +458,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 func (s *managerTestSuite) TestIpcache(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -507,7 +506,7 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -583,7 +582,7 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{RemoteNodeIdentity: true}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{RemoteNodeIdentity: true}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -659,7 +658,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{NodeEncryption: true, Encryption: true}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{NodeEncryption: true, Encryption: true}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -754,7 +753,7 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), cell.TestScope(&hivetest.MockHealthReporter{}))
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -850,7 +849,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 
 	baseBackgroundSyncInterval = 1 * time.Millisecond
 	hr := hivetest.NewMockHealthReporter()
-	m, err := New(&configMock{}, newIPcacheMock(), NewNodeMetrics(), cell.TestScope(hr))
+	m, err := New(&configMock{}, newIPcacheMock(), NewNodeMetrics(), hr)
 	assert.NoError(err)
 
 	m.nodes[nodeTypes.Identity{
@@ -870,11 +869,11 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	go func() {
 		<-nh1.NodeValidateImplementationEvent
 		s := <-hr.Wait()
-		assert.Equal(s.Event, "Degraded")
+		assert.Error(s.Err)
 		nh1.NodeValidateImplementationEventError = nil
 		<-nh1.NodeValidateImplementationEvent
 		s = <-hr.Wait()
-		assert.Equal(s.Event, "OK")
+		assert.NoError(s.Err)
 		close(done)
 	}()
 	// Start the manager
