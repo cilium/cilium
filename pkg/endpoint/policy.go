@@ -657,6 +657,7 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 // Should only be called with e.state at StateWaitingToRegenerate,
 // StateWaitingForIdentity, or StateRestoring
 func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	hr := e.GetReporter("datapath-regenerate")
 	done := make(chan bool, 1)
 
 	var (
@@ -707,7 +708,9 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 
 			if regenError != nil && !errors.Is(regenError, context.Canceled) {
 				e.getLogger().WithError(regenError).Error("endpoint regeneration failed")
+				hr.Degraded("Endpoint regeneration failed", regenError)
 			}
+			hr.OK(("Endpoint regeneration successful"))
 		} else {
 			// This may be unnecessary(?) since 'closing' of the results
 			// channel means that event has been cancelled?

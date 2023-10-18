@@ -71,6 +71,8 @@ func (m *BpfMetadata) validate(all bool) error {
 
 	// no validation rules for EnforcePolicyOnL7Lb
 
+	// no validation rules for ProxyId
+
 	if len(errors) > 0 {
 		return BpfMetadataMultiError(errors)
 	}
