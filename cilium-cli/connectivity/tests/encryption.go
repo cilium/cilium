@@ -76,31 +76,45 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 // getFilter constructs the source IP address filter we want to use for
 // capturing packet. If direct routing is used, the source IP is the client IP,
 // otherwise, either the client IP or the one associated with the egressing interface.
-func getFilter(ctx context.Context, t *check.Test, client,
-	clientHost *check.Pod, ipFam features.IPFamily, dstIP string,
-) string {
+func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod,
+	ipFam features.IPFamily, dstIP string, reqType requestType) string {
+
+	protoFilter := ""
+	switch reqType {
+	case requestHTTP:
+		protoFilter = "tcp"
+	case requestICMPEcho:
+		protoFilter = "icmp"
+		if ipFam == features.IPFamilyV6 {
+			protoFilter = "icmp6"
+		}
+	default:
+		t.Fatalf("Invalid request type: %d", reqType)
+	}
+
 	filter := fmt.Sprintf("src host %s", client.Address(ipFam))
-	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok &&
-		!tunnelStatus.Enabled {
-		return filter
+
+	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok && tunnelStatus.Enabled {
+		cmd := []string{
+			"/bin/sh", "-c",
+			fmt.Sprintf("ip -o route get %s | grep -oE 'src [^ ]*' | cut -d' ' -f2",
+				dstIP),
+		}
+		t.Debugf("Running %s", strings.Join(cmd, " "))
+		srcIP, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
+			clientHost.Pod.Name, "", cmd)
+		if err != nil {
+			t.Fatalf("Failed to get IP route: %s", err)
+		}
+
+		srcIPStr := strings.TrimRight(srcIP.String(), "\n\r")
+		if srcIPStr != client.Address(ipFam) {
+			filter = fmt.Sprintf("( %s or src host %s )", filter, srcIPStr)
+		}
 	}
 
-	cmd := []string{
-		"/bin/sh", "-c",
-		fmt.Sprintf("ip -o route get %s | grep -oE 'src [^ ]*' | cut -d' ' -f2",
-			dstIP),
-	}
-	t.Debugf("Running %s", strings.Join(cmd, " "))
-	srcIP, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
-		clientHost.Pod.Name, "", cmd)
-	if err != nil {
-		t.Fatalf("Failed to get IP route: %s", err)
-	}
+	filter = fmt.Sprintf("%s and %s", filter, protoFilter)
 
-	srcIPStr := strings.TrimRight(srcIP.String(), "\n\r")
-	if srcIPStr != client.Address(ipFam) {
-		filter = fmt.Sprintf("( %s or src host %s )", filter, srcIPStr)
-	}
 	return filter
 }
 
@@ -256,28 +270,15 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	client, server, clientHost *check.Pod, serverHost *check.Pod, /* serverHost=nil disables the bidirectional check */
 	reqType requestType, ipFam features.IPFamily, assertNoLeaks bool,
 ) {
-	protoFilter := ""
-	switch reqType {
-	case requestHTTP:
-		protoFilter = "tcp"
-	case requestICMPEcho:
-		protoFilter = "icmp"
-		if ipFam == features.IPFamilyV6 {
-			protoFilter = "icmp6"
-		}
-	default:
-		t.Fatalf("Invalid request type: %d", reqType)
-	}
-
 	srcAddr, dstAddr := client.Address(ipFam), server.Address(ipFam)
-	srcAddrFilter := getFilter(ctx, t, client, clientHost, ipFam, dstAddr)
+	srcAddrFilter := getFilter(ctx, t, client, clientHost, ipFam, dstAddr, reqType)
 	srcIface := getInterNodeIface(ctx, t, clientHost, ipFam, client.Address(ipFam), dstAddr)
 
 	// Capture egress traffic.
 	// Unfortunately, we cannot use "host %s and host %s" filter here,
 	// as IPsec recirculates replies to the iface netdev, which would
 	// make tcpdump to capture the pkts (false positive).
-	srcFilter := fmt.Sprintf("%s and dst host %s and %s", srcAddrFilter, dstAddr, protoFilter)
+	srcFilter := fmt.Sprintf("%s and dst host %s", srcAddrFilter, dstAddr)
 
 	srcSniffer, err := startLeakSniffer(ctx, t, clientHost, srcIface, srcFilter)
 	if err != nil {
@@ -286,9 +287,9 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 
 	var dstSniffer *leakSniffer
 	if serverHost != nil {
-		dstAddrFilter := getFilter(ctx, t, server, serverHost, ipFam, srcAddr)
+		dstAddrFilter := getFilter(ctx, t, server, serverHost, ipFam, srcAddr, reqType)
 		dstIface := getInterNodeIface(ctx, t, serverHost, ipFam, server.Address(ipFam), srcAddr)
-		dstFilter := fmt.Sprintf("src host %s and %s and %s", dstAddr, dstAddrFilter, protoFilter)
+		dstFilter := fmt.Sprintf("src host %s and %s", dstAddr, dstAddrFilter)
 
 		dstSniffer, err = startLeakSniffer(ctx, t, serverHost, dstIface, dstFilter)
 		if err != nil {
