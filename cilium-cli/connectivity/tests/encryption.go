@@ -31,7 +31,22 @@ const (
 // which interface the traffic is routed to. Additionally, we translate
 // the interface name to the tunneling interface name, if the route goes
 // through "cilium_host" and tunneling is enabled.
-func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod, ipFam features.IPFamily, srcIP, dstIP string) string {
+//
+// For WireGuard w/ tunneling we run the cmd with $DST_IP set to serverHost IP.
+// We cannot listen on the tunneling netdev, because the datapath first passes
+// a packet to the tunnel netdev, and only afterwards redirects to the WG netdev
+// for the encryption.
+func getInterNodeIface(ctx context.Context, t *check.Test,
+	client, clientHost, server, serverHost *check.Pod, ipFam features.IPFamily) string {
+
+	tunnelEnabled := false
+	tunnelMode := ""
+	if tunnelFeat, ok := t.Context().Feature(features.Tunnel); ok && tunnelFeat.Enabled {
+		tunnelEnabled = true
+		tunnelMode = tunnelFeat.Mode
+	}
+
+	srcIP, dstIP := client.Address(ipFam), server.Address(ipFam)
 	ipRouteGetCmd := fmt.Sprintf("ip -o route get %s from %s", dstIP, srcIP)
 	if srcIP != clientHost.Address(ipFam) {
 		// The "iif lo" part is required when the source address is not one
@@ -39,6 +54,12 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 		// "ip route" returns "RTNETLINK answers: Network is unreachable" in
 		// case the "from" address is not assigned to any local interface.
 		ipRouteGetCmd = fmt.Sprintf("%s iif lo", ipRouteGetCmd)
+	}
+
+	// TODO(brb) version check
+	// The WG w/ tunnel case:
+	if enc, ok := t.Context().Feature(features.EncryptionPod); ok && enc.Enabled && enc.Mode == "wireguard" {
+		ipRouteGetCmd = fmt.Sprintf("ip -o route get %s", serverHost.Address(ipFam))
 	}
 
 	cmd := []string{
@@ -54,11 +75,11 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 
 	device := strings.TrimRight(dev.String(), "\n\r")
 
-	if tunnelFeat, ok := t.Context().Feature(features.Tunnel); ok && tunnelFeat.Enabled {
+	if tunnelEnabled {
 		// When tunneling is enabled, and the traffic is routed to the cilium IP space
 		// we want to capture on the tunnel interface.
 		if device == defaults.HostDevice {
-			return "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
+			return "cilium_" + tunnelMode // E.g. cilium_vxlan
 		}
 
 		// When both tunneling and host firewall is enabled, traffic from a pod
@@ -66,7 +87,7 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 		// source identity.
 		if hf, ok := t.Context().Feature(features.HostFirewall); ok && hf.Enabled &&
 			clientHost.Address(ipFam) != srcIP {
-			return "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
+			return "cilium_" + tunnelMode // E.g. cilium_vxlan
 		}
 	}
 
@@ -278,9 +299,8 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	client, server, clientHost *check.Pod, serverHost *check.Pod, /* serverHost=nil disables the bidirectional check */
 	reqType requestType, ipFam features.IPFamily, assertNoLeaks bool,
 ) {
-	srcAddr, dstAddr := client.Address(ipFam), server.Address(ipFam)
 	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType)
-	srcIface := getInterNodeIface(ctx, t, clientHost, ipFam, client.Address(ipFam), dstAddr)
+	srcIface := getInterNodeIface(ctx, t, client, clientHost, server, serverHost, ipFam)
 
 	srcSniffer, err := startLeakSniffer(ctx, t, clientHost, srcIface, srcFilter)
 	if err != nil {
@@ -290,7 +310,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	var dstSniffer *leakSniffer
 	if serverHost != nil {
 		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType)
-		dstIface := getInterNodeIface(ctx, t, serverHost, ipFam, server.Address(ipFam), srcAddr)
+		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam)
 
 		dstSniffer, err = startLeakSniffer(ctx, t, serverHost, dstIface, dstFilter)
 		if err != nil {
@@ -389,10 +409,10 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
 		// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
 		// does not have a HTTP server running)
-		testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, nil, requestICMPEcho, ipFam, assertNoLeaks)
+		testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks)
 		// Test host-to-remote-host
-		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, nil, requestICMPEcho, ipFam, assertNoLeaks)
+		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks)
 		// Test host-to-remote-pod
-		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, nil, requestHTTP, ipFam, assertNoLeaks)
+		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks)
 	})
 }
