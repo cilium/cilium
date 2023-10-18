@@ -73,11 +73,13 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 	return device
 }
 
-// getFilter constructs the source IP address filter we want to use for
-// capturing packet. If direct routing is used, the source IP is the client IP,
-// otherwise, either the client IP or the one associated with the egressing interface.
+// getFilter constructs a tcpdump filter to capture leakages of unencrypted pkts.
+//
+// The exact filter depends on the routing mode and some features. The common
+// structure is "src host $SRC_IP and dst host $DST_IP and $PROTO".
 func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod,
-	ipFam features.IPFamily, dstIP string, reqType requestType) string {
+	server, serverHost *check.Pod,
+	ipFam features.IPFamily, reqType requestType) string {
 
 	protoFilter := ""
 	switch reqType {
@@ -93,6 +95,7 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	}
 
 	filter := fmt.Sprintf("src host %s", client.Address(ipFam))
+	dstIP := server.Address(ipFam)
 
 	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok && tunnelStatus.Enabled {
 		cmd := []string{
@@ -114,6 +117,11 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	}
 
 	filter = fmt.Sprintf("%s and %s", filter, protoFilter)
+
+	// Unfortunately, we cannot use "host %s and host %s" filter here,
+	// as IPsec recirculates replies to the iface netdev, which would
+	// make tcpdump to capture the pkts (false positive).
+	filter = fmt.Sprintf("%s and dst host %s", filter, dstIP)
 
 	return filter
 }
@@ -271,14 +279,8 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	reqType requestType, ipFam features.IPFamily, assertNoLeaks bool,
 ) {
 	srcAddr, dstAddr := client.Address(ipFam), server.Address(ipFam)
-	srcAddrFilter := getFilter(ctx, t, client, clientHost, ipFam, dstAddr, reqType)
+	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType)
 	srcIface := getInterNodeIface(ctx, t, clientHost, ipFam, client.Address(ipFam), dstAddr)
-
-	// Capture egress traffic.
-	// Unfortunately, we cannot use "host %s and host %s" filter here,
-	// as IPsec recirculates replies to the iface netdev, which would
-	// make tcpdump to capture the pkts (false positive).
-	srcFilter := fmt.Sprintf("%s and dst host %s", srcAddrFilter, dstAddr)
 
 	srcSniffer, err := startLeakSniffer(ctx, t, clientHost, srcIface, srcFilter)
 	if err != nil {
@@ -287,9 +289,8 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 
 	var dstSniffer *leakSniffer
 	if serverHost != nil {
-		dstAddrFilter := getFilter(ctx, t, server, serverHost, ipFam, srcAddr, reqType)
+		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType)
 		dstIface := getInterNodeIface(ctx, t, serverHost, ipFam, server.Address(ipFam), srcAddr)
-		dstFilter := fmt.Sprintf("src host %s and %s", dstAddr, dstAddrFilter)
 
 		dstSniffer, err = startLeakSniffer(ctx, t, serverHost, dstIface, dstFilter)
 		if err != nil {
