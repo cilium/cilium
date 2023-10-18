@@ -130,8 +130,8 @@ type manager struct {
 	// Manager.
 	controllerManager *controller.Manager
 
-	// healthReporter reports on the current health status of the node manager module.
-	healthReporter cell.HealthReporter
+	// healthScope reports on the current health status of the node manager module.
+	healthScope cell.Scope
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -239,7 +239,7 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics, healthReporter cell.HealthReporter) (*manager, error) {
+func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
@@ -247,7 +247,7 @@ func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics, healthRepor
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
 		metrics:           nodeMetrics,
-		healthReporter:    healthReporter,
+		healthScope:       healthScope,
 	}
 
 	return m, nil
@@ -348,10 +348,11 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 			m.metrics.DatapathValidations.Inc()
 		}
 
+		hr := cell.GetHealthReporter(m.healthScope, "background-sync")
 		if errs != nil {
-			m.healthReporter.Degraded("Failed to apply node validation", errs)
+			hr.Degraded("Failed to apply node validation", errs)
 		} else {
-			m.healthReporter.OK("Node validation successful")
+			hr.OK("Node validation successful")
 		}
 
 		select {

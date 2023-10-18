@@ -188,6 +188,7 @@ type endpointManagerParams struct {
 	Config          EndpointManagerConfig
 	Clientset       client.Clientset
 	MetricsRegistry *metrics.Registry
+	Scope           cell.Scope
 }
 
 type endpointManagerOut struct {
@@ -201,7 +202,7 @@ type endpointManagerOut struct {
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
 
-	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset})
+	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset}, p.Scope)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(hive.Hook{

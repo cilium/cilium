@@ -14,6 +14,6 @@ set -o nounset
 if [[ "$(iptables-save | grep -c AWS-SNAT-CHAIN)" != "0" ]];
 then
     echo 'Deleting iptables rules created by the AWS CNI VPC plugin'
-    iptables-save | grep -v AWS-SNAT-CHAIN | iptables-restore
+    iptables-save | grep -v 'AWS-SNAT-CHAIN|AWS-CONNMARK-CHAIN' | iptables-restore
 fi
 echo 'Done!'
