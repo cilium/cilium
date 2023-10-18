@@ -73,10 +73,10 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 	return device
 }
 
-// getSourceAddressFilter constructs the source IP address filter we want to use for
+// getFilter constructs the source IP address filter we want to use for
 // capturing packet. If direct routing is used, the source IP is the client IP,
 // otherwise, either the client IP or the one associated with the egressing interface.
-func getSourceAddressFilter(ctx context.Context, t *check.Test, client,
+func getFilter(ctx context.Context, t *check.Test, client,
 	clientHost *check.Pod, ipFam features.IPFamily, dstIP string,
 ) string {
 	filter := fmt.Sprintf("src host %s", client.Address(ipFam))
@@ -270,7 +270,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	}
 
 	srcAddr, dstAddr := client.Address(ipFam), server.Address(ipFam)
-	srcAddrFilter := getSourceAddressFilter(ctx, t, client, clientHost, ipFam, dstAddr)
+	srcAddrFilter := getFilter(ctx, t, client, clientHost, ipFam, dstAddr)
 	srcIface := getInterNodeIface(ctx, t, clientHost, ipFam, client.Address(ipFam), dstAddr)
 
 	// Capture egress traffic.
