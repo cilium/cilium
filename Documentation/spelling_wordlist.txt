@@ -56,7 +56,6 @@ JUnit
 Jakub
 Jenkinsfiles
 Jesper
-jobLabel
 KV
 KVstore
 Kata
@@ -322,6 +321,7 @@ gluecon
 gobpf
 golang
 gops
+goroutine
 goroutines
 grafana
 graphviz
@@ -387,6 +387,7 @@ jitter
 jle
 jlt
 jne
+jobLabel
 jq
 js
 jset

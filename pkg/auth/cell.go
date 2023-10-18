@@ -75,6 +75,7 @@ type authManagerParams struct {
 	Logger      logrus.FieldLogger
 	Lifecycle   hive.Lifecycle
 	JobRegistry job.Registry
+	Scope       cell.Scope
 
 	Config       config
 	AuthMap      authmap.Map
@@ -119,6 +120,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 	})
 
 	jobGroup := params.JobRegistry.NewGroup(
+		params.Scope,
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "auth")),
 	)

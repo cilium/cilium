@@ -33,10 +33,11 @@ type controlParams struct {
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger
 	Registry  job.Registry
+	Scope     cell.Scope
 }
 
 func registerControl(p controlParams) {
-	g := p.Registry.NewGroup()
+	g := p.Registry.NewGroup(p.Scope)
 	c := &control{p}
 	g.Add(job.OneShot("control-loop", c.controlLoop))
 	p.Lifecycle.Append(g)
@@ -46,7 +47,7 @@ type control struct {
 	controlParams
 }
 
-func (c *control) controlLoop(ctx context.Context) error {
+func (c *control) controlLoop(ctx context.Context, health cell.HealthReporter) error {
 	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 	for {

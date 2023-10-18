@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"runtime/pprof"
+	"strconv"
 	"sync"
 	"time"
 
@@ -37,7 +38,10 @@ var Cell = cell.Module(
 // A Registry creates Groups, it maintains references to these groups for the purposes of collecting information
 // centralized like metrics.
 type Registry interface {
-	NewGroup(opts ...groupOpt) Group
+	// NewGroup creates a new group of jobs which can be started and stopped together as part of the cells lifecycle.
+	// The provided scope is used to report health status of the jobs. A `cell.Scope` can be obtained via injection
+	// an object with the correct scope is provided by the closest `cell.Module`.
+	NewGroup(scope cell.Scope, opts ...groupOpt) Group
 }
 
 type registry struct {
@@ -64,7 +68,7 @@ func newRegistry(
 
 // NewGroup creates a new Group with the given `opts` options, which allows you to customize the behavior for the
 // group as a whole. For example by allowing you to add pprof labels to the group or by customizing the logger.
-func (c *registry) NewGroup(opts ...groupOpt) Group {
+func (c *registry) NewGroup(scope cell.Scope, opts ...groupOpt) Group {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -80,6 +84,7 @@ func (c *registry) NewGroup(opts ...groupOpt) Group {
 	g := &group{
 		options: options,
 		wg:      &sync.WaitGroup{},
+		scope:   scope,
 	}
 
 	c.groups = append(c.groups, g)
@@ -93,13 +98,15 @@ func (c *registry) NewGroup(opts ...groupOpt) Group {
 // is bound to the lifecycle of the cell.
 type Group interface {
 	Add(...Job)
+	// Scoped creates a scroped group, jobs added to this scoped group will appear as a sub scope in the health reporter
+	Scoped(name string) ScopedGroup
 	hive.HookInterface
 }
 
 // Job in an interface that describes a unit of work which can be added to a Group. This interface contains unexported
 // methods and thus can only be implemented by functions in this package such as OneShot, Timer, or Observer.
 type Job interface {
-	start(ctx context.Context, wg *sync.WaitGroup, options options)
+	start(ctx context.Context, wg *sync.WaitGroup, scope cell.Scope, options options)
 }
 
 type group struct {
@@ -111,6 +118,8 @@ type group struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	queuedJobs []Job
+
+	scope cell.Scope
 }
 
 type options struct {
@@ -150,7 +159,7 @@ func (jg *group) Start(_ hive.HookContext) error {
 	jg.wg.Add(len(jg.queuedJobs))
 	for _, job := range jg.queuedJobs {
 		pprof.Do(jg.ctx, jg.options.pprofLabels, func(ctx context.Context) {
-			go job.start(ctx, jg.wg, jg.options)
+			go job.start(ctx, jg.wg, jg.scope, jg.options)
 		})
 	}
 	// Nil the queue once we start so it can be GC'ed
@@ -182,6 +191,10 @@ func (jg *group) Stop(stopCtx hive.HookContext) error {
 }
 
 func (jg *group) Add(jobs ...Job) {
+	jg.add(jg.scope, jobs...)
+}
+
+func (jg *group) add(scope cell.Scope, jobs ...Job) {
 	jg.mu.Lock()
 	defer jg.mu.Unlock()
 
@@ -194,9 +207,30 @@ func (jg *group) Add(jobs ...Job) {
 	for _, j := range jobs {
 		jg.wg.Add(1)
 		pprof.Do(jg.ctx, jg.options.pprofLabels, func(ctx context.Context) {
-			go j.start(ctx, jg.wg, jg.options)
+			go j.start(ctx, jg.wg, scope, jg.options)
 		})
 	}
+}
+
+// Scoped creates a scroped group, jobs added to this scoped group will appear as a sub scope in the health reporter
+func (jg *group) Scoped(name string) ScopedGroup {
+	return &scopedGroup{
+		group: jg,
+		scope: cell.GetSubScope(jg.scope, name),
+	}
+}
+
+type ScopedGroup interface {
+	Add(jobs ...Job)
+}
+
+type scopedGroup struct {
+	group *group
+	scope cell.Scope
+}
+
+func (sg *scopedGroup) Add(jobs ...Job) {
+	sg.group.add(sg.scope, jobs...)
 }
 
 // OneShot creates a "One shot" job which can be added to a Group. The function passed to a one shot job is invoked
@@ -250,12 +284,14 @@ func WithMetrics() jobOneShotOpt {
 
 // OneShotFunc is the function type which is invoked by a one shot job. The given function is expected to exit as soon
 // as the context given to it expires, this is especially important for blocking or long running jobs.
-type OneShotFunc func(ctx context.Context) error
+type OneShotFunc func(ctx context.Context, health cell.HealthReporter) error
 
 type jobOneShot struct {
 	name string
 	fn   OneShotFunc
 	opts []jobOneShotOpt
+
+	health cell.HealthReporter
 
 	// If retry > 0, retry on error x times.
 	retry           int
@@ -264,12 +300,15 @@ type jobOneShot struct {
 	metrics         bool
 }
 
-func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options options) {
+func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, scope cell.Scope, options options) {
 	defer wg.Done()
 
 	for _, opt := range jos.opts {
 		opt(jos)
 	}
+
+	jos.health = cell.GetHealthReporter(scope, "job-"+jos.name)
+	defer jos.health.Stopped("one-shot job done")
 
 	l := options.logger.WithFields(logrus.Fields{
 		"name": jos.name,
@@ -304,7 +343,8 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options op
 			stat.Start()
 		}
 
-		err = jos.fn(ctx)
+		jos.health.OK("Running")
+		err = jos.fn(ctx, jos.health)
 
 		if jos.metrics {
 			sec := stat.End(true).Seconds()
@@ -313,9 +353,9 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options op
 		}
 
 		if err == nil {
-			l.Debug("one-shot job finished")
 			return
 		} else if !errors.Is(err, context.Canceled) {
+			jos.health.Degraded("one-shot job errored", err)
 			l.WithError(err).Error("one-shot job errored")
 			options.metrics.JobErrorsTotal.WithLabelValues(jos.name).Inc()
 		}
@@ -395,6 +435,8 @@ type jobTimer struct {
 	fn   TimerFunc
 	opts []timerOpt
 
+	health cell.HealthReporter
+
 	interval time.Duration
 	trigger  *trigger
 
@@ -402,12 +444,14 @@ type jobTimer struct {
 	shutdown hive.Shutdowner
 }
 
-func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, options options) {
+func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, scope cell.Scope, options options) {
 	defer wg.Done()
 
 	for _, opt := range jt.opts {
 		opt(jt)
 	}
+
+	jt.health = cell.GetHealthReporter(scope, "timer-job-"+jt.name)
 
 	l := options.logger.WithFields(logrus.Fields{
 		"name": jt.name,
@@ -423,12 +467,14 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, options optio
 	}
 
 	l.Debug("Starting timer job")
+	jt.health.OK("Primed")
 
 	stat := &spanstat.SpanStat{}
 
 	for {
 		select {
 		case <-ctx.Done():
+			jt.health.Stopped("timer job context done")
 			return
 		case <-timer.C:
 		case <-triggerChan:
@@ -440,14 +486,17 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, options optio
 
 		err := jt.fn(ctx)
 
-		sec := stat.End(true).Seconds()
-		options.metrics.TimerRunDuration.WithLabelValues(jt.name).Observe(sec)
+		total := stat.End(true).Total()
+		options.metrics.TimerRunDuration.WithLabelValues(jt.name).Observe(total.Seconds())
 		stat.Reset()
 
 		if err == nil {
+			jt.health.OK("OK (" + total.String() + ")")
 			l.Debug("Timer job finished")
 		} else if !errors.Is(err, context.Canceled) {
+			jt.health.Degraded("timer job errored", err)
 			l.WithError(err).Error("Timer job errored")
+
 			options.metrics.JobErrorsTotal.WithLabelValues(jt.name).Inc()
 			if jt.shutdown != nil {
 				jt.shutdown.Shutdown(hive.ShutdownWithError(err))
@@ -491,18 +540,24 @@ type jobObserver[T any] struct {
 	fn   ObserverFunc[T]
 	opts []observerOpt[T]
 
+	health cell.HealthReporter
+
 	observable stream.Observable[T]
 
 	// If not nil, call the shutdowner on error
 	shutdown hive.Shutdowner
 }
 
-func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, options options) {
+func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, scope cell.Scope, options options) {
 	defer wg.Done()
 
 	for _, opt := range jo.opts {
 		opt(jo)
 	}
+
+	jo.health = cell.GetHealthReporter(scope, "observer-job-"+jo.name)
+	reportTicker := time.NewTicker(10 * time.Second)
+	defer reportTicker.Stop()
 
 	l := options.logger.WithFields(logrus.Fields{
 		"name": jo.name,
@@ -510,6 +565,8 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, options
 	})
 
 	l.Debug("Observer job started")
+	jo.health.OK("Primed")
+	var msgCount uint64
 
 	done := make(chan struct{})
 
@@ -522,11 +579,16 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, options
 
 		err := jo.fn(ctx, t)
 
-		sec := stat.End(true).Seconds()
-		options.metrics.ObserverRunDuration.WithLabelValues(jo.name).Observe(sec)
+		total := stat.End(true).Total()
+		options.metrics.ObserverRunDuration.WithLabelValues(jo.name).Observe(total.Seconds())
 		stat.Reset()
 
-		if err != nil && !errors.Is(err, context.Canceled) {
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+
+			jo.health.Degraded("observer job errored", err)
 			l.WithError(err).Error("Observer job errored")
 			options.metrics.JobErrorsTotal.WithLabelValues(jo.name).Inc()
 			if jo.shutdown != nil {
@@ -534,6 +596,16 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, options
 					err,
 				))
 			}
+			return
+		}
+
+		msgCount++
+
+		// Don't report health for every event, only when we have not done so for a bit
+		select {
+		case <-reportTicker.C:
+			jo.health.OK("OK (" + total.String() + ") [" + strconv.FormatUint(msgCount, 10) + "]")
+		default:
 		}
 	}, func(e error) {
 		err = e
@@ -542,6 +614,7 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, options
 
 	<-done
 
+	jo.health.Stopped("observer job done")
 	if err != nil {
 		l.WithError(err).Error("Observer job stopped with an error")
 	} else {

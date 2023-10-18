@@ -75,6 +75,7 @@ type l2AnnouncerParams struct {
 	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB              *statedb.DB
 	JobRegistry          job.Registry
+	Scope                cell.Scope
 }
 
 // L2Announcer takes all L2 announcement policies and filters down to those that match the labels of the local node. It
@@ -88,7 +89,8 @@ type L2Announcer struct {
 	policyStore resource.Store[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	localNode   *v2.CiliumNode
 
-	jobgroup job.Group
+	jobgroup    job.Group
+	scopedGroup job.ScopedGroup
 
 	leaderChannel     chan leaderElectionEvent
 	devicesUpdatedSig chan struct{}
@@ -108,6 +110,7 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	announcer := &L2Announcer{
 		params: params,
 		jobgroup: params.JobRegistry.NewGroup(
+			params.Scope,
 			job.WithLogger(params.Logger),
 			job.WithPprofLabels(pprof.Labels("cell", "l2-announcer")),
 		),
@@ -122,6 +125,8 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 		return announcer
 	}
 
+	announcer.scopedGroup = announcer.jobgroup.Scoped("leader-election")
+
 	params.Lifecycle.Append(announcer.jobgroup)
 
 	if !params.DaemonConfig.EnableL2Announcements {
@@ -132,7 +137,9 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	}
 
 	announcer.jobgroup.Add(job.OneShot("l2-announcer run", announcer.run))
-	announcer.jobgroup.Add(job.Timer("l2-announcer lease-gc", announcer.leaseGC, time.Minute))
+	announcer.jobgroup.Add(job.Timer("l2-announcer lease-gc", func(ctx context.Context) error {
+		return announcer.leaseGC(ctx, nil)
+	}, time.Minute))
 
 	return announcer
 }
@@ -148,7 +155,7 @@ func (l2a *L2Announcer) DevicesChanged(devices []string) {
 	}
 }
 
-func (l2a *L2Announcer) run(ctx context.Context) error {
+func (l2a *L2Announcer) run(ctx context.Context, health cell.HealthReporter) error {
 	var err error
 	l2a.svcStore, err = l2a.params.Services.Store(ctx)
 	if err != nil {
@@ -233,7 +240,7 @@ loop:
 
 // Called periodically to garbage collect any leases which are no longer held by any agent.
 // This is needed since agents do not track leases for services that we no longer select.
-func (l2a *L2Announcer) leaseGC(ctx context.Context) error {
+func (l2a *L2Announcer) leaseGC(ctx context.Context, health cell.HealthReporter) error {
 	leaseClient := l2a.params.Clientset.CoordinationV1().Leases(l2a.leaseNamespace())
 	list, err := leaseClient.List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -703,7 +710,7 @@ func (l2a *L2Announcer) addSelectedService(svc *slim_corev1.Service, byPolicies 
 	l2a.selectedServices[serviceKey(svc)] = ss
 
 	// kick off leader election job
-	l2a.jobgroup.Add(job.OneShot(
+	l2a.scopedGroup.Add(job.OneShot(
 		fmt.Sprintf("leader-election/%s/%s", svc.Namespace, svc.Name),
 		ss.serviceLeaderElection),
 	)
@@ -1046,7 +1053,7 @@ type selectedService struct {
 	done   chan struct{}
 }
 
-func (ss *selectedService) serviceLeaderElection(ctx context.Context) error {
+func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cell.HealthReporter) error {
 	defer close(ss.done)
 
 	ss.ctx, ss.cancel = context.WithCancel(ctx)

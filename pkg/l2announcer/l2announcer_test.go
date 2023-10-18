@@ -48,17 +48,19 @@ func newFixture() *fixture {
 		tbl statedb.RWTable[*tables.L2AnnounceEntry]
 		db  *statedb.DB
 		jr  job.Registry
+		sk  cell.Scope
 	)
 
 	hive.New(
 		statedb.Cell,
 		tables.Cell,
 		job.Cell,
-		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Registry) {
+		cell.Module("test", "test", cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], s cell.Scope, j job.Registry) {
 			db = d
 			tbl = t
 			jr = j
-		}),
+			sk = s
+		})),
 	).Populate()
 
 	fakeSvcStore := &fakeStore[*slim_corev1.Service]{}
@@ -86,7 +88,8 @@ func newFixture() *fixture {
 	announcer := NewL2Announcer(params)
 	announcer.policyStore = fakePolicyStore
 	announcer.svcStore = fakeSvcStore
-	announcer.jobgroup = jr.NewGroup()
+	announcer.jobgroup = jr.NewGroup(sk)
+	announcer.scopedGroup = announcer.jobgroup.Scoped("leader-election")
 	announcer.jobgroup.Start(context.Background())
 
 	return &fixture{
