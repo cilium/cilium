@@ -45,13 +45,14 @@ func newAgentLivenessUpdater(
 	logger logrus.FieldLogger,
 	lifecycle hive.Lifecycle,
 	jobRegistry job.Registry,
+	scope cell.Scope,
 	configMap configmap.Map,
 	agentLivenessConfig agentLivenessConfig,
 ) {
 	// Discard even debug logs since this particular job is very noisy
 	log := logrus.New()
 	log.Out = io.Discard
-	group := jobRegistry.NewGroup(job.WithLogger(log))
+	group := jobRegistry.NewGroup(scope, job.WithLogger(log))
 
 	group.Add(job.Timer("agent-liveness-updater", func(_ context.Context) error {
 		mtime, err := bpf.GetMtime()

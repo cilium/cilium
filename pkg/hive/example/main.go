@@ -20,6 +20,7 @@ var (
 		helloHandlerCell,   // Handler for /hello
 		eventsHandlerCell,  // Handler for /events
 		exampleMetricsCell, // Register the metrics
+		jobsCell,           // Examples of jobs
 
 		// Constructors are lazy and only invoked if they are a dependency
 		// to an "invoke" function or an indirect dependency of a constructor

@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -78,6 +79,7 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 	}
 
 	jobGroup := params.JobRegistry.NewGroup(
+		params.Scope,
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "lbipam")),
 	)
@@ -100,8 +102,8 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 	}
 
 	jobGroup.Add(
-		job.OneShot("lbipam main", func(ctx context.Context) error {
-			lbIPAM.Run(ctx)
+		job.OneShot("lbipam main", func(ctx context.Context, health cell.HealthReporter) error {
+			lbIPAM.Run(ctx, health)
 			return nil
 		}),
 	)
@@ -150,14 +152,14 @@ func (ipam *LBIPAM) restart() {
 
 	// Re-start the main goroutine
 	ipam.jobGroup.Add(
-		job.OneShot("lbipam main", func(ctx context.Context) error {
-			ipam.Run(ctx)
+		job.OneShot("lbipam main", func(ctx context.Context, health cell.HealthReporter) error {
+			ipam.Run(ctx, health)
 			return nil
 		}),
 	)
 }
 
-func (ipam *LBIPAM) Run(ctx context.Context) {
+func (ipam *LBIPAM) Run(ctx context.Context, health cell.HealthReporter) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

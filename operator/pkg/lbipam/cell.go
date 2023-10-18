@@ -35,6 +35,7 @@ type LBIPAMParams struct {
 	LC          hive.Lifecycle
 	Shutdowner  hive.Shutdowner
 	JobRegistry job.Registry
+	Scope       cell.Scope
 
 	Clientset    k8sClient.Clientset
 	PoolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]

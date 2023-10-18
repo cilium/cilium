@@ -46,6 +46,7 @@ type params struct {
 	L2ResponderMap      l2respondermap.Map
 	NetLink             linkByNamer
 	JobRegistry         job.Registry
+	Scope               cell.Scope
 }
 
 type linkByNamer interface {
@@ -66,6 +67,7 @@ func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 	}
 
 	group := params.JobRegistry.NewGroup(
+		params.Scope,
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "l2-responder-reconciler")),
 	)
@@ -75,7 +77,7 @@ func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 	return &reconciler
 }
 
-func (p *l2ResponderReconciler) run(ctx context.Context) error {
+func (p *l2ResponderReconciler) run(ctx context.Context, health cell.HealthReporter) error {
 	log := p.params.Logger
 
 	// This timer triggers full reconciliation once in a while, in case partial reconciliation
