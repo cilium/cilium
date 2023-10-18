@@ -19,6 +19,16 @@ const (
 	httpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
 )
 
+type HTTPVersionType int
+
+const (
+	HTTPVersionDownstream HTTPVersionType = -1
+	HTTPVersionAuto       HTTPVersionType = 0
+	HTTPVersion1          HTTPVersionType = 1
+	HTTPVersion2          HTTPVersionType = 2
+	HTTPVersion3          HTTPVersionType = 3
+)
+
 type ClusterMutator func(*envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster
 
 // WithClusterLbPolicy sets the cluster's load balancing policy.
@@ -76,7 +86,39 @@ func WithIdleTimeout(seconds int) ClusterMutator {
 	}
 }
 
-// NewClusterWithDefaults same as NewHTTPCluster but has default mutation functions applied.
+func WithProtocol(protocolVersion HTTPVersionType) ClusterMutator {
+	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		options := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+		switch protocolVersion {
+		// Default protocol version in Envoy is HTTP1.1.
+		case HTTPVersion1, HTTPVersionAuto:
+			options.UpstreamProtocolOptions = &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
+				},
+			}
+		case HTTPVersion2:
+			options.UpstreamProtocolOptions = &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
+				},
+			}
+		case HTTPVersion3:
+			options.UpstreamProtocolOptions = &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http3ProtocolOptions{},
+				},
+			}
+		}
+
+		cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
+			httpProtocolOptionsType: toAny(options),
+		}
+		return cluster
+	}
+}
+
+// NewHTTPClusterWithDefaults same as NewHTTPCluster but has default mutation functions applied.
 func NewHTTPClusterWithDefaults(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutationFunc,
 		WithConnectionTimeout(5),
