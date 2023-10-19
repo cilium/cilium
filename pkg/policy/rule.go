@@ -432,13 +432,7 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 		}
 
 		for _, p := range r.GetPortProtocols() {
-			if p.Protocol != api.ProtoAny {
-				cnt, err := mergeIngressPortProto(policyCtx, ctx, fromEndpoints, auth, hostWildcardL7, r, p, p.Protocol, ruleLabels, resMap)
-				if err != nil {
-					return err
-				}
-				found += cnt
-			} else {
+			if p.Protocol.IsAny() {
 				cnt, err := mergeIngressPortProto(policyCtx, ctx, fromEndpoints, auth, hostWildcardL7, r, p, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return err
@@ -452,6 +446,12 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 				found += cnt
 
 				cnt, err = mergeIngressPortProto(policyCtx, ctx, fromEndpoints, auth, hostWildcardL7, r, p, api.ProtoSCTP, ruleLabels, resMap)
+				if err != nil {
+					return err
+				}
+				found += cnt
+			} else {
+				cnt, err := mergeIngressPortProto(policyCtx, ctx, fromEndpoints, auth, hostWildcardL7, r, p, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return err
 				}
@@ -651,13 +651,7 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 		}
 
 		for _, p := range r.GetPortProtocols() {
-			if p.Protocol != api.ProtoAny {
-				cnt, err := mergeEgressPortProto(policyCtx, ctx, toEndpoints, auth, r, p, p.Protocol, ruleLabels, resMap, fqdns)
-				if err != nil {
-					return err
-				}
-				found += cnt
-			} else {
+			if p.Protocol.IsAny() {
 				cnt, err := mergeEgressPortProto(policyCtx, ctx, toEndpoints, auth, r, p, api.ProtoTCP, ruleLabels, resMap, fqdns)
 				if err != nil {
 					return err
@@ -671,6 +665,12 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 				found += cnt
 
 				cnt, err = mergeEgressPortProto(policyCtx, ctx, toEndpoints, auth, r, p, api.ProtoSCTP, ruleLabels, resMap, fqdns)
+				if err != nil {
+					return err
+				}
+				found += cnt
+			} else {
+				cnt, err := mergeEgressPortProto(policyCtx, ctx, toEndpoints, auth, r, p, p.Protocol, ruleLabels, resMap, fqdns)
 				if err != nil {
 					return err
 				}
