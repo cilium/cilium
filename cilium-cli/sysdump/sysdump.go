@@ -1634,6 +1634,23 @@ func (c *Collector) getSPIRETasks() []Task {
 				return nil
 			},
 		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting the Cilium SPIRE server identity entries",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumSPIRENamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumSPIREServerLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get identity entries from Cilium SPIRE server pods")
+				}
+				if err := c.submitSpireEntriesTasks(FilterPods(p, c.NodeList)); err != nil {
+					return fmt.Errorf("failed to collect identity entries from Cilium SPIRE server pods")
+				}
+				return nil
+			},
+		},
 	}
 }
 
@@ -1980,6 +1997,39 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 			return nil
 		}); err != nil {
 			return fmt.Errorf("failed to submit 'hubble-flows' task for %q: %w", p.Name, err)
+		}
+	}
+	return nil
+}
+
+func (c *Collector) submitSpireEntriesTasks(pods []*corev1.Pod) error {
+	for _, p := range pods {
+		p := p
+		if err := c.Pool.Submit(fmt.Sprintf("spire-entries-"+p.Name), func(ctx context.Context) error {
+			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, spireServerContainerName)
+			if err != nil {
+				return fmt.Errorf("failed to pick exec target: %w", err)
+			}
+			defer func() {
+				err := cleanupFunc(ctx)
+				if err != nil {
+					c.logWarn("Failed to clean up exec target: %v", err)
+				}
+			}()
+
+			command := []string{"/opt/spire/bin/spire-server", "entry", "show", "-output", "json"}
+			o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, command)
+			if err != nil {
+				return fmt.Errorf("failed to collect 'spire-server' output for %q in namespace %q: %w", p.Name, p.Namespace, err)
+			}
+
+			if err := c.WriteBytes(fmt.Sprintf(ciliumSPIREServerEntriesFileName, p.Name), o.Bytes()); err != nil {
+				return fmt.Errorf("failed to write spireserver stdout for %q in namespace %q: %w", p.Name, p.Namespace, err)
+			}
+
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to submit SPIRE entries task for %q: %w", p.Name, err)
 		}
 	}
 	return nil
