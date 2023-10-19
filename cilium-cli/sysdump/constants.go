@@ -33,6 +33,7 @@ const (
 	hubbleRelayContainerName           = defaults.RelayContainerName
 	hubbleRelayDeploymentName          = defaults.RelayDeploymentName
 	hubbleUIDeploymentName             = defaults.HubbleUIDeploymentName
+	spireServerContainerName           = "spire-server"
 	redacted                           = "XXXXXX"
 )
 
@@ -51,6 +52,7 @@ const (
 	ciliumSPIREAgentConfigMapFileName        = "cilium-spire-agent-configmap-<ts>.yaml"
 	ciliumSPIREServerStatefulSetFileName     = "cilium-spire-server-statefulset-<ts>.yaml"
 	ciliumSPIREServerConfigMapFileName       = "cilium-spire-server-configmap-<ts>.yaml"
+	ciliumSPIREServerEntriesFileName         = "cilium-spire-server-entries-%s-<ts>.json"
 	ciliumIngressesFileName                  = "ciliumingresses-<ts>.yaml"
 	ciliumEgressNATPoliciesFileName          = "ciliumegressnatpolicies-<ts>.yaml"
 	ciliumEgressGatewayPoliciesFileName      = "ciliumegressgatewaypolicies-<ts>.yaml"
