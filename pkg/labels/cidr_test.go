@@ -13,6 +13,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/option"
@@ -449,4 +450,60 @@ func BenchmarkIPStringToLabel(b *testing.B) {
 			}
 		})
 	}
+}
+
+func TestGetPrintableModel(t *testing.T) {
+	assert.Equal(t,
+		[]string{"k8s:foo=bar"},
+		NewLabelsFromModel([]string{
+			"k8s:foo=bar",
+		}).GetPrintableModel(),
+	)
+
+	assert.Equal(t,
+		[]string{
+			"k8s:foo=bar",
+			"reserved:remote-node",
+		},
+		NewLabelsFromModel([]string{
+			"k8s:foo=bar",
+			"reserved:remote-node",
+		}).GetPrintableModel(),
+	)
+
+	assert.Equal(t,
+		[]string{
+			"k8s:foo=bar",
+			"reserved:remote-node",
+		},
+		NewLabelsFromModel([]string{
+			"k8s:foo=bar",
+			"reserved:remote-node",
+		}).GetPrintableModel(),
+	)
+
+	// Test multiple CIDRs, as well as other labels
+	cl := NewLabelsFromModel([]string{
+		"k8s:foo=bar",
+		"reserved:remote-node",
+	})
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.0.0.6/32")))
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.0.1.0/24")))
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("192.168.0.0/24")))
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("fc00:c111::5/128")))
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("fc00:c112::0/64")))
+	assert.Equal(t,
+		[]string{
+			"cidr:10.0.0.6/32",
+			"cidr:10.0.1.0/24",
+			"cidr:192.168.0.0/24",
+			"cidr:fc00:c111::5/128",
+			"cidr:fc00:c112::0/64",
+			"k8s:foo=bar",
+			"reserved:remote-node",
+			"reserved:world-ipv4",
+			"reserved:world-ipv6",
+		},
+		cl.GetPrintableModel(),
+	)
 }
