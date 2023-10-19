@@ -310,13 +310,26 @@ calculation is performed:
 
 .. code-block:: go
 
-     spec.ipam.pre-allocate - (len(spec.ipam.available) - len(status.ipam.used))
+     availableIPs := len(spec.ipam.pool)
+     neededIPs = max(spec.ipam.pre-allocate - (availableIPs - len(status.ipam.used)), spec.ipam.min-allocate - availableIPs)
+     if spec.ipam.max-allocate > 0 {
+      neededIPs = min(max(spec.ipam.max-allocate - availableIPs, 0), neededIPs)
+     }
 
 For excess IP calculation:
 
 .. code-block:: go
 
-     (len(spec.ipam.available) - len(status.ipam.used)) - (spec.ipam.pre-allocate + spec.ipam.max-above-watermark)
+     availableIPs := len(spec.ipam.pool)
+     upperBound := spec.ipam.min-allocate + spec.ipam.max-above-watermark
+     switch {
+     case availableIPs <= upperBound:
+       excessIPs = 0
+     case len(status.ipam.used) <= upperBound && len(status.ipam.used) + spec.ipam.pre-allocate <= upperBound:
+       excessIPs = availableIPs - upperBound
+     default:
+       excessIPs = max(availableIPs - len(status.ipam.used) - upperBound, 0)
+     }
 
 Upon detection of a deficit, the node is added to the list of nodes which
 require IP address allocation. When a deficit is detected using the interval
