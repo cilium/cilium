@@ -105,6 +105,9 @@ type StatusResponse struct {
 	// Status of proxy
 	Proxy *ProxyStatus `json:"proxy,omitempty"`
 
+	// Status of SRv6
+	Srv6 *Srv6 `json:"srv6,omitempty"`
+
 	// List of stale information in the status
 	Stale map[string]strfmt.DateTime `json:"stale,omitempty"`
 }
@@ -210,6 +213,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateProxy(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateSrv6(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -696,6 +703,25 @@ func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *StatusResponse) validateSrv6(formats strfmt.Registry) error {
+	if swag.IsZero(m.Srv6) { // not required
+		return nil
+	}
+
+	if m.Srv6 != nil {
+		if err := m.Srv6.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("srv6")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("srv6")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *StatusResponse) validateStale(formats strfmt.Registry) error {
 	if swag.IsZero(m.Stale) { // not required
 		return nil
@@ -813,6 +839,10 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 	}
 
 	if err := m.contextValidateProxy(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSrv6(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -1212,6 +1242,22 @@ func (m *StatusResponse) contextValidateProxy(ctx context.Context, formats strfm
 				return ve.ValidateName("proxy")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("proxy")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateSrv6(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Srv6 != nil {
+		if err := m.Srv6.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("srv6")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("srv6")
 			}
 			return err
 		}

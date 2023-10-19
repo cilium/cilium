@@ -4765,6 +4765,22 @@ func init() {
         }
       }
     },
+    "Srv6": {
+      "description": "Status of the SRv6\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "srv6EncapMode": {
+          "type": "string",
+          "enum": [
+            "SRH",
+            "Reduced"
+          ]
+        }
+      }
+    },
     "Status": {
       "description": "Status of an individual component",
       "type": "object",
@@ -4892,6 +4908,10 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
+        },
+        "srv6": {
+          "description": "Status of SRv6",
+          "$ref": "#/definitions/Srv6"
         },
         "stale": {
           "description": "List of stale information in the status",
@@ -10737,6 +10757,22 @@ func init() {
         }
       }
     },
+    "Srv6": {
+      "description": "Status of the SRv6\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "srv6EncapMode": {
+          "type": "string",
+          "enum": [
+            "SRH",
+            "Reduced"
+          ]
+        }
+      }
+    },
     "Status": {
       "description": "Status of an individual component",
       "type": "object",
@@ -10864,6 +10900,10 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
+        },
+        "srv6": {
+          "description": "Status of SRv6",
+          "$ref": "#/definitions/Srv6"
         },
         "stale": {
           "description": "List of stale information in the status",
