@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/api/v1/server"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -111,7 +111,7 @@ func (dq *deletionQueue) processQueuedDeletes(d *Daemon, ctx context.Context) er
 // unlockAfterAPIServer registers a start hook that runs after API server
 // has started and the deletion queue has been drained to unlock the
 // delete queue and thus allow CNI plugin to proceed.
-func unlockAfterAPIServer(lc hive.Lifecycle, _ *server.Server, dq *deletionQueue) {
+func unlockAfterAPIServer(lc hive.Lifecycle, _ *api.APIServer, dq *deletionQueue) {
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
 			if dq.lf != nil {

@@ -48,18 +48,11 @@ var Cell = cell.Module(
 	"cilium-api-server",
 	"cilium API server",
 
-	cell.Provide(
-		newForCell,
-	),
-
+	cell.Provide(newForCell),
 	APICell,
 )
 
-var APICell = cell.Module(
-	"cilium-api-api",
-	"Cilium API",
-	cell.Provide(newAPI),
-)
+var APICell = cell.Provide(newAPI)
 
 type apiParams struct {
 	cell.In

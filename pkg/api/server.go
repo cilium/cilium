@@ -1,9 +1,10 @@
-package restapi
+package api
 
 import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -11,15 +12,18 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/api/v1/server/restapi"
-	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/api/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
-var serverCell = cell.Module(
-	"cilium-api-server",
-	"Serves the Cilium API",
+const (
+	apiTimeout = 60 * time.Second
+)
+
+var ServerCell = cell.Module(
+	"api-server",
+	"API Server",
 
 	cell.Config(APIServerConfig{}),
 	cell.Provide(newAPIServer),
@@ -28,12 +32,11 @@ var serverCell = cell.Module(
 )
 
 type APIServer struct {
-	api            *restapi.CiliumAPIAPI
-	server         http.Server
-	config         APIServerConfig
-	mux            *http.ServeMux
-	grpcServer     *grpc.Server
-	swaggerHandler http.Handler
+	server          http.Server
+	config          APIServerConfig
+	mux             *http.ServeMux
+	grpcServer      *grpc.Server
+	fallbackHandler http.Handler
 }
 
 type APIServerConfig struct {
@@ -48,8 +51,8 @@ func (s *APIServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.ProtoMajor == 2 && strings.HasPrefix(
 		req.Header.Get("Content-Type"), "application/grpc") {
 		s.grpcServer.ServeHTTP(w, req)
-	} else if s.swaggerHandler != nil {
-		s.swaggerHandler.ServeHTTP(w, req)
+	} else if s.fallbackHandler != nil {
+		s.fallbackHandler.ServeHTTP(w, req)
 	}
 }
 
@@ -63,11 +66,6 @@ func (s *APIServer) Start(hive.HookContext) error {
 		return err
 	}
 
-	if s.api != nil {
-		s.swaggerHandler = s.api.Serve(nil)
-	}
-	s.server.Handler = h2c.NewHandler(s, &http2.Server{})
-
 	go s.server.Serve(listener)
 	return nil
 }
@@ -76,16 +74,15 @@ func (s *APIServer) Stop(hive.HookContext) error {
 	return s.server.Close()
 }
 
-func (s *APIServer) GetAPI() *restapi.CiliumAPIAPI {
-	return s.api
+func (s *APIServer) SetFallbackHandler(h http.Handler) {
+	s.fallbackHandler = h
 }
 
 type apiServerParams struct {
 	cell.In
 
 	Config   APIServerConfig
-	API      *restapi.CiliumAPIAPI
-	Services []api.GRPCService `group:"grpc-services"`
+	Services []types.GRPCService `group:"grpc-services"`
 }
 
 func newAPIServer(p apiServerParams) (*APIServer, error) {
@@ -93,13 +90,17 @@ func newAPIServer(p apiServerParams) (*APIServer, error) {
 		config:     p.Config,
 		mux:        http.NewServeMux(),
 		grpcServer: grpc.NewServer(),
-		api:        p.API,
 	}
 
 	for _, svc := range p.Services {
 		s.grpcServer.RegisterService(svc.Service, svc.Impl)
 	}
 
+	s.server.ReadTimeout = apiTimeout
+	s.server.WriteTimeout = apiTimeout
+
+	// Use the h2c handler to allow for unencrypted HTTP/2
+	s.server.Handler = h2c.NewHandler(s, &http2.Server{})
 	s.mux.Handle("/", s.grpcServer)
 
 	return s, nil

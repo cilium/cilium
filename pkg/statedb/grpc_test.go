@@ -1,4 +1,4 @@
-package restapi
+package statedb_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/api/v1/server/restapi"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -16,14 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
-// TestServer_StateDB tests the gRPC functionality of the API server using
-// StateDB as the guinea pig.
-//
-// TODO: Probably want to structure the server so that the gRPC part is agnostic
-// to the swagger CiliumAPIAPI so that e.g. pkg/statedb/grpc_test.go can
-// do this test. CiliumAPIAPI would be just layered on top as "fallback" HTTP/1.1
-// handler.
-func TestServer_StateDB(t *testing.T) {
+func TestStateDB_gRPC(t *testing.T) {
 	primIndex := statedb.Index[int, int]{
 		Name: "id",
 		FromObject: func(obj int) index.KeySet {
@@ -39,8 +32,7 @@ func TestServer_StateDB(t *testing.T) {
 	)
 
 	h := hive.New(
-		cell.Provide(func() *restapi.CiliumAPIAPI { return nil }),
-		serverCell,
+		api.ServerCell,
 		statedb.Cell,
 		statedb.NewTableCell[int]("test", primIndex),
 		cell.Invoke(func(db_ *statedb.DB, t statedb.RWTable[int]) {
@@ -50,7 +42,7 @@ func TestServer_StateDB(t *testing.T) {
 	)
 	hive.AddConfigOverride(
 		h,
-		func(cfg *APIServerConfig) {
+		func(cfg *api.APIServerConfig) {
 			os.Remove("/tmp/test.sock")
 			cfg.SocketPath = "/tmp/test.sock" // TODO tmpfile
 		})

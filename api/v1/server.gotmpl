@@ -40,11 +40,11 @@ var Cell = cell.Module(
 	"{{ dasherize .Name }}-server",
 	"{{ humanize .Name }} server",
 
-	cell.Provide(
-		newAPI,
-		newForCell,
-	),
+	cell.Provide(newForCell),
+	APICell,
 )
+
+var APICell = cell.Provide(newAPI)
 
 type apiParams struct {
 	cell.In

@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/cilium/cilium/pkg/api"
+	apiTypes "github.com/cilium/cilium/pkg/api/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	statedbGRPC "github.com/cilium/cilium/pkg/statedb/grpc"
 )
@@ -145,12 +145,12 @@ var _ statedbGRPC.StateDBServer = &grpcServer{}
 type grpcOut struct {
 	cell.Out
 
-	Service api.GRPCService `group:"grpc-services"`
+	Service apiTypes.GRPCService `group:"grpc-services"`
 }
 
 func newGRPCService(db *DB) grpcOut {
 	return grpcOut{
-		Service: api.GRPCService{
+		Service: apiTypes.GRPCService{
 			Service: &statedbGRPC.StateDB_ServiceDesc,
 			Impl:    &grpcServer{db: db},
 		},

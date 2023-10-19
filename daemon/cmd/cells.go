@@ -8,6 +8,7 @@ import (
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
+	ciliumAPI "github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
@@ -86,9 +87,10 @@ var (
 		job.Cell,
 
 		// Cilium API served over UNIX sockets. Accessed by the 'cilium' utility (not cilium-cli).
-		restapi.Cell,
-		cell.Invoke(configureAPIServer),
 		cell.Provide(ciliumAPIHandlers),
+		restapi.Cell,
+		api.ServerCell,
+		cell.Invoke(configureAPIServer),
 
 		// Processes endpoint deletions that occurred while the agent was down.
 		// This starts before the API server as ciliumAPIHandlers() depends on
@@ -189,11 +191,7 @@ var (
 	)
 )
 
-func configureAPIServer(cfg *option.DaemonConfig, s *restapi.APIServer, swaggerSpec *server.Spec) {
-	// FIXME:
-	//s.ReadTimeout = apiTimeout
-	//s.WriteTimeout = apiTimeout
-
+func configureAPIServer(cfg *option.DaemonConfig, s *api.APIServer, ciliumAPI *ciliumAPI.CiliumAPIAPI, swaggerSpec *server.Spec) {
 	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
 	hint := "Consider enabling this API in " + server.AdminEnableFlag
 	for _, requiredAPI := range []string{
@@ -211,6 +209,7 @@ func configureAPIServer(cfg *option.DaemonConfig, s *restapi.APIServer, swaggerS
 			}).Warning(msg)
 		}
 	}
-	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
+	api.DisableAPIs(swaggerSpec.DeniedAPIs, ciliumAPI.AddMiddlewareFor)
 
+	s.SetFallbackHandler(ciliumAPI.Serve(nil))
 }
