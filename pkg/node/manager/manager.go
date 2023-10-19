@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
-	cidrlabels "github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -420,7 +419,7 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 					if ok {
 						prefix, err := addr.Prefix(addr.BitLen())
 						if err == nil {
-							cidrLabels := cidrlabels.GetCIDRLabels(prefix)
+							cidrLabels := labels.GetCIDRLabels(prefix)
 							nodeLabels.MergeLabels(cidrLabels)
 						}
 					}
@@ -500,7 +499,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		// Add the CIDR labels for this node, if we allow selecting nodes by CIDR
 		if option.Config.PolicyCIDRMatchesNodes() {
 			lbls = labels.NewFrom(nodeLabels)
-			lbls.MergeLabels(cidrlabels.GetCIDRLabels(prefix))
+			lbls.MergeLabels(labels.GetCIDRLabels(prefix))
 		}
 
 		// Always associate the prefix with metadata, even though this may not

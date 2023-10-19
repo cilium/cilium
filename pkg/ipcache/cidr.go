@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -189,7 +188,7 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []netip.
 
 	toDelete := make([]netip.Prefix, 0, len(prefixes))
 	for _, prefix := range prefixes {
-		lbls := cidr.GetCIDRLabels(prefix)
+		lbls := labels.GetCIDRLabels(prefix)
 		id := ipc.IdentityAllocator.LookupIdentity(ctx, lbls)
 		if id == nil {
 			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())

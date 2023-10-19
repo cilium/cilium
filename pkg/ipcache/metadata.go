@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
-	cidrlabels "github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -462,7 +461,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// when we remove CIDR labels for identities that should not have them.
 	if restoredIdentity.Scope() == identity.IdentityScopeRemoteNode {
 		lbls.MergeLabels(labels.LabelRemoteNode)
-		cidrLabels := cidrlabels.GetCIDRLabels(prefix)
+		cidrLabels := labels.GetCIDRLabels(prefix)
 		lbls.MergeLabels(cidrLabels)
 	}
 
@@ -470,7 +469,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// then merge the CIDR-label.
 	if lbls.Has(labels.LabelHost[labels.IDNameHost]) &&
 		option.Config.PolicyCIDRMatchesNodes() {
-		cidrLabels := cidrlabels.GetCIDRLabels(prefix)
+		cidrLabels := labels.GetCIDRLabels(prefix)
 		lbls.MergeLabels(cidrLabels)
 	}
 
@@ -485,7 +484,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		// It is not allowed for nodes to have CIDR labels, unless policy-cidr-match-mode
 		// includes "nodes". Then CIDR labels are required.
 		if !option.Config.PolicyCIDRMatchesNodes() {
-			n = n.Remove(cidrlabels.GetCIDRLabels(prefix))
+			n = n.Remove(labels.GetCIDRLabels(prefix))
 		}
 		lbls = n
 	}
@@ -527,7 +526,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	if !lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) &&
 		!lbls.Has(labels.LabelHealth[labels.IDNameHealth]) &&
 		!lbls.Has(labels.LabelIngress[labels.IDNameIngress]) {
-		cidrLabels := cidrlabels.GetCIDRLabels(prefix)
+		cidrLabels := labels.GetCIDRLabels(prefix)
 		lbls.MergeLabels(cidrLabels)
 	}
 
