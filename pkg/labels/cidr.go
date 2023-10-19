@@ -195,3 +195,33 @@ func computeCIDRLabels(cache *simplelru.LRU[netip.Prefix, []Label], lbls Labels,
 
 	return results
 }
+
+// leafCIDRList is a map of CIDR to data, where only leaf CIDRs are present
+// in the map.
+type leafCIDRList[T any] map[netip.Prefix]T
+
+// insert conditionally adds a prefix to the leaf cidr list,
+// adding it only if the prefix is a leaf. Additionally, it removes
+// any now non-leaf cidr.
+func (ll leafCIDRList[T]) insert(newPrefix netip.Prefix, v T) {
+	// Check every existing leaf CIDR. Three possible cases:
+	// - an existing prefix contains this one: delete existing, add new
+	// - this new prefix contains an existing one: drop new prefix
+	// - no matches: add new
+	for existingPrefix := range ll {
+		// Is this a subset of an existing prefix? That means we've found a now non-leaf
+		// prefix -- swap it
+		if existingPrefix.Contains(newPrefix.Addr()) && existingPrefix.Bits() < newPrefix.Bits() {
+			delete(ll, existingPrefix)
+			// it is safe to stop here, since at most one prefix in the list could
+			// have contained this prefix.
+			break
+		}
+
+		// Is this a superset of an existing prefix? Then we're not a leaf; skip it
+		if newPrefix.Contains(existingPrefix.Addr()) && newPrefix.Bits() <= existingPrefix.Bits() {
+			return
+		}
+	}
+	ll[newPrefix] = v
+}
