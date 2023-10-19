@@ -560,8 +560,8 @@ data:
 {{- if hasKey .Values "egressMasqueradeInterfaces" }}
   egress-masquerade-interfaces: {{ .Values.egressMasqueradeInterfaces }}
 {{- end }}
-{{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
-  enable-ip-masq-agent: "true"
+{{- if hasKey .Values.ipMasqAgent "enabled" }}
+  enable-ip-masq-agent: {{ .Values.ipMasqAgent.enabled | quote }}
 {{- end }}
 
 {{- if .Values.encryption.enabled }}
@@ -656,7 +656,7 @@ data:
   enable-nat46x64-gateway: {{ .Values.nat46x64Gateway.enabled | quote }}
 {{- end }}
 
-{{- if and .Values.hostFirewall .Values.hostFirewall.enabled }}
+{{- if hasKey .Values.hostFirewall "enabled" }}
   enable-host-firewall: {{ .Values.hostFirewall.enabled | quote }}
 {{- end}}
 
@@ -784,10 +784,10 @@ data:
 {{- if .Values.endpointStatus.enabled }}
   endpoint-status: {{ required "endpointStatus.status required: policy, health, controllers, log and / or state. For 2 or more options use a space: \"policy health\"" .Values.endpointStatus.status | quote }}
 {{- end }}
-{{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
+{{- if hasKey .Values.endpointRoutes "enabled" }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
 {{- end }}
-{{- if and .Values.k8sNetworkPolicy .Values.k8sNetworkPolicy.enabled }}
+{{- if hasKey .Values.k8sNetworkPolicy "enabled" }}
   enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
 {{- end }}
 {{- if .Values.cni.configMap }}
@@ -1030,7 +1030,7 @@ data:
   k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
 {{- end }}
 
-{{- if and .Values.customCalls .Values.customCalls.enabled }}
+{{- if hasKey .Values.customCalls "enabled" }}
   # Enable tail call hooks for custom eBPF programs.
   enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
 {{- end }}
