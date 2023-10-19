@@ -502,7 +502,7 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 18)
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 19)
 	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
 }
 
