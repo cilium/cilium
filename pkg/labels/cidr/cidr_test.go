@@ -532,3 +532,58 @@ func BenchmarkIPStringToLabel(b *testing.B) {
 		})
 	}
 }
+
+func TestGetPrintableModel(t *testing.T) {
+	assert.Equal(t,
+		[]string{"k8s:foo=bar"},
+		labels.NewLabelsFromModel([]string{
+			"k8s:foo=bar",
+		}).GetPrintableModel(),
+	)
+
+	assert.Equal(t,
+		[]string{
+			"k8s:foo=bar",
+			"reserved:remote-node",
+		},
+		labels.NewLabelsFromModel([]string{
+			"k8s:foo=bar",
+			"reserved:remote-node",
+		}).GetPrintableModel(),
+	)
+
+	assert.Equal(t,
+		[]string{
+			"k8s:foo=bar",
+			"reserved:remote-node",
+		},
+		labels.NewLabelsFromModel([]string{
+			"k8s:foo=bar",
+			"reserved:remote-node",
+		}).GetPrintableModel(),
+	)
+
+	// Test multiple CIDRs, as well as other labels
+	cl := labels.NewLabelsFromModel([]string{
+		"k8s:foo=bar",
+		"reserved:remote-node",
+	})
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.0.0.6/32")))
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.0.1.0/24")))
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("192.168.0.0/24")))
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("fc00:c111::5/128")))
+	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("fc00:c112::0/64")))
+	assert.Equal(t,
+		[]string{
+			"cidr:10.0.0.6/32",
+			"cidr:10.0.1.0/24",
+			"cidr:192.168.0.0/24",
+			"cidr:fc00:c111::5/128",
+			"cidr:fc00:c112::0/64",
+			"k8s:foo=bar",
+			"reserved:remote-node",
+			"reserved:world",
+		},
+		cl.GetPrintableModel(),
+	)
+}

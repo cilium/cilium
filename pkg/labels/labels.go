@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
 	"sort"
 	"strings"
 
@@ -131,26 +131,24 @@ type Labels map[string]Label
 
 // GetPrintableModel turns the Labels into a sorted list of strings
 // representing the labels, with CIDRs deduplicated (ie, only provide the most
-// specific CIDR).
+// specific CIDRs).
 func (l Labels) GetPrintableModel() (res []string) {
-	cidr := ""
-	prefixLength := 0
+	// Aggregate list of "leaf" CIDRs
+	leafCIDRs := leafCIDRList[*Label]{}
 	for _, v := range l {
+		// If this is a CIDR label, filter out non-leaf CIDRs for human consumption
 		if v.Source == LabelSourceCIDR {
-			vStr := strings.Replace(v.String(), "-", ":", -1)
-			prefix := strings.Replace(v.Key, "-", ":", -1)
-			_, ipnet, _ := net.ParseCIDR(prefix)
-			ones, _ := ipnet.Mask.Size()
-			if ones > prefixLength {
-				cidr = vStr
-				prefixLength = ones
-			}
-			continue
+			v := v
+			prefixStr := strings.Replace(v.Key, "-", ":", -1)
+			prefix, _ := netip.ParsePrefix(prefixStr)
+			leafCIDRs.insert(prefix, &v)
+		} else {
+			// not a CIDR label, no magic needed
+			res = append(res, v.String())
 		}
-		res = append(res, v.String())
 	}
-	if cidr != "" {
-		res = append(res, cidr)
+	for _, val := range leafCIDRs {
+		res = append(res, strings.Replace(val.String(), "-", ":", -1))
 	}
 
 	sort.Strings(res)
@@ -674,4 +672,34 @@ func generateLabelString(source, key, value string) string {
 // the provided source, key, and value in the format "LabelSourceK8s:key=value".
 func GenerateK8sLabelString(k, v string) string {
 	return generateLabelString(LabelSourceK8s, k, v)
+}
+
+// leafCIDRList is a map of CIDR to data, where only leaf CIDRs are present
+// in the map.
+type leafCIDRList[T any] map[netip.Prefix]T
+
+// insert conditionally adds a prefix to the leaf cidr list,
+// adding it only if the prefix is a leaf. Additionally, it removes
+// any now non-leaf cidr.
+func (ll leafCIDRList[T]) insert(newPrefix netip.Prefix, v T) {
+	// Check every existing leaf CIDR. Three possible cases:
+	// - an existing prefix contains this one: delete existing, add new
+	// - this new prefix contains an existing one: drop new prefix
+	// - no matches: add new
+	for existingPrefix := range ll {
+		// Is this a subset of an existing prefix? That means we've found a now non-leaf
+		// prefix -- swap it
+		if existingPrefix.Contains(newPrefix.Addr()) && existingPrefix.Bits() < newPrefix.Bits() {
+			delete(ll, existingPrefix)
+			// it is safe to stop here, since at most one prefix in the list could
+			// have contained this prefix.
+			break
+		}
+
+		// Is this a superset of an existing prefix? Then we're not a leaf; skip it
+		if newPrefix.Contains(existingPrefix.Addr()) && newPrefix.Bits() <= existingPrefix.Bits() {
+			return
+		}
+	}
+	ll[newPrefix] = v
 }
