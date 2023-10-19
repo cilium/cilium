@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
@@ -49,7 +48,7 @@ func (s *APIServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.ProtoMajor == 2 && strings.HasPrefix(
 		req.Header.Get("Content-Type"), "application/grpc") {
 		s.grpcServer.ServeHTTP(w, req)
-	} else {
+	} else if s.swaggerHandler != nil {
 		s.swaggerHandler.ServeHTTP(w, req)
 	}
 }
@@ -64,7 +63,9 @@ func (s *APIServer) Start(hive.HookContext) error {
 		return err
 	}
 
-	s.swaggerHandler = s.api.Serve(nil)
+	if s.api != nil {
+		s.swaggerHandler = s.api.Serve(nil)
+	}
 	s.server.Handler = h2c.NewHandler(s, &http2.Server{})
 
 	go s.server.Serve(listener)
@@ -83,7 +84,7 @@ type apiServerParams struct {
 	cell.In
 
 	Config   APIServerConfig
-	Spec     *server.Spec
+	API      *restapi.CiliumAPIAPI
 	Services []api.GRPCService `group:"grpc-services"`
 }
 
@@ -92,6 +93,7 @@ func newAPIServer(p apiServerParams) (*APIServer, error) {
 		config:     p.Config,
 		mux:        http.NewServeMux(),
 		grpcServer: grpc.NewServer(),
+		api:        p.API,
 	}
 
 	for _, svc := range p.Services {
@@ -99,10 +101,6 @@ func newAPIServer(p apiServerParams) (*APIServer, error) {
 	}
 
 	s.mux.Handle("/", s.grpcServer)
-
-	s.api = restapi.NewCiliumAPIAPI(p.Spec.Document)
-
-	// FIXME populate the API from handlers.
 
 	return s, nil
 }

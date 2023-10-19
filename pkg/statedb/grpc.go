@@ -41,13 +41,15 @@ func (s *grpcServer) Get(req *statedbGRPC.QueryRequest, resp statedbGRPC.StateDB
 	// FIXME: panics in indexReadTxn now a problem
 	indexTxn := txn.getTxn().indexReadTxn(req.Table, req.Index)
 
+	fmt.Printf("Get %s/%s: 0x%x\n", req.Table, req.Index, req.Key)
+
 	iter := indexTxn.Root().Iterator()
 	iter.SeekPrefixWatch(req.Key)
 
 	for _, obj, ok := iter.Next(); ok; _, obj, ok = iter.Next() {
 		var buf bytes.Buffer
 		enc := gob.NewEncoder(&buf)
-		if err := enc.Encode(obj); err != nil {
+		if err := enc.Encode(obj.data); err != nil {
 			return fmt.Errorf("gob.Encode: %w", err)
 		}
 		resp.Send(&statedbGRPC.Object{
@@ -69,7 +71,7 @@ func (s *grpcServer) LowerBound(req *statedbGRPC.QueryRequest, resp statedbGRPC.
 	for _, obj, ok := iter.Next(); ok; _, obj, ok = iter.Next() {
 		var buf bytes.Buffer
 		enc := gob.NewEncoder(&buf)
-		if err := enc.Encode(obj); err != nil {
+		if err := enc.Encode(obj.data); err != nil {
 			return fmt.Errorf("gob.Encode: %w", err)
 		}
 		resp.Send(&statedbGRPC.Object{
@@ -174,13 +176,27 @@ func (t *RemoteTable[Obj]) Get(ctx context.Context, q Query[Obj]) (Iterator[Obj]
 	return &getIterator[Obj]{resp}, nil
 }
 
+func (t *RemoteTable[Obj]) LowerBound(ctx context.Context, q Query[Obj]) (Iterator[Obj], error) {
+	req := statedbGRPC.QueryRequest{
+		Table: t.tableName,
+		Index: q.index,
+		Key:   q.key,
+		Limit: 0,
+	}
+	resp, err := t.client.LowerBound(ctx, &req)
+	if err != nil {
+		return nil, err
+	}
+	return &getIterator[Obj]{resp}, nil
+}
+
 type getIterator[Obj any] struct {
 	Recver interface {
 		Recv() (*statedbGRPC.Object, error)
 	}
 }
 
-func (it *getIterator[Obj]) Next() (obj Obj, revision uint64, ok bool) {
+func (it *getIterator[Obj]) Next() (obj Obj, revision Revision, ok bool) {
 	protoObj, err := it.Recver.Recv()
 	if err != nil {
 		// FIXME handle errors with logging or use a different iterator interface?
@@ -208,7 +224,7 @@ type watchIterator[Obj any] struct {
 	}
 }
 
-func (it *watchIterator[Obj]) Next() (obj Obj, deleted bool, revision uint64, ok bool) {
+func (it *watchIterator[Obj]) Next() (obj Obj, deleted bool, revision Revision, ok bool) {
 	resp, err := it.Recver.Recv()
 	if err != nil {
 		// FIXME handle errors with logging or use a different iterator interface?
@@ -240,7 +256,11 @@ func NewRemoteTable[Obj any](client Client, table TableName) *RemoteTable[Obj] {
 	return &RemoteTable[Obj]{tableName: table, client: client}
 }
 
-type Client statedbGRPC.StateDBClient
+type Client struct {
+	statedbGRPC.StateDBClient
+
+	conn *grpc.ClientConn
+}
 
 func NewClient(addr string) (Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -251,7 +271,11 @@ func NewClient(addr string) (Client, error) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock())
 	if err != nil {
-		return nil, err
+		return Client{}, err
 	}
-	return Client(statedbGRPC.NewStateDBClient(conn)), nil
+	return Client{StateDBClient: statedbGRPC.NewStateDBClient(conn), conn: conn}, nil
+}
+
+func (c Client) Close() error {
+	return c.conn.Close()
 }

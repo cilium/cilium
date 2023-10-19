@@ -21,7 +21,7 @@ const (
 )
 
 func graveyardWorker(db *DB, gcRateLimitInterval time.Duration) {
-	limiter := rate.NewLimiter(gcRateLimitInterval, 1)
+	limiter := rate.NewLimiter(gcRateLimitInterval, 3)
 	defer limiter.Stop()
 	defer close(db.gcExited)
 
