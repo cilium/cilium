@@ -135,7 +135,7 @@ func (c *Client) onStart(_ hive.HookContext) error {
 				c.entry = entryv1.NewEntryClient(conn)
 				break
 			}
-			c.log.WithError(err).Errorf("Unable to connect to SPIRE server, attempt %d", attempts+1)
+			c.log.WithError(err).Warnf("Unable to connect to SPIRE server, attempt %d", attempts+1)
 			time.Sleep(backoffTime.Duration(attempts))
 		}
 		c.log.Info("Initialized SPIRE client")
@@ -159,7 +159,7 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 	source, err := workloadapi.NewX509Source(timeoutCtx,
 		workloadapi.WithClientOptions(
 			workloadapi.WithAddr(fmt.Sprintf("unix://%s", c.cfg.SpireAgentSocketPath)),
-			workloadapi.WithLogger(c.log),
+			workloadapi.WithLogger(newSpiffeLogWrapper(c.log)),
 		),
 	)
 	if err != nil {
