@@ -16,10 +16,14 @@ inputs:
     description: 'Cilium CLI executable name'
     required: true
     default: 'cilium'
+  skip-build:
+    description: 'Skip building CLI from source'
+    default: 'false'
 runs:
   using: "composite"
   steps:
     - name: Check if we should build the Cilium CLI from source
+      if: ${{ inputs.skip-build != 'true' }}
       id: build-cli
       shell: bash
       run: |
