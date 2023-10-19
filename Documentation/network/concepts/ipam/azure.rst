@@ -12,7 +12,8 @@ Azure IPAM (Legacy)
 
 .. note::
 
-   While still maintained for now, Azure IPAM is considered legacy. The recommended way to install cilium on AKS is 
+   While still maintained for now, Azure IPAM is considered legacy.
+   The recommended ways to install cilium on AKS are 
    `Bring your own CNI <https://docs.microsoft.com/en-us/azure/aks/use-byo-cni?tabs=azure-cli>`_ or 
    `Azure CNI Powered by Cilium <https://aka.ms/aks/cilium-dataplane>`_.
 
