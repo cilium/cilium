@@ -7,9 +7,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
+	"github.com/liggitt/tabwriter"
 	"github.com/spf13/cobra"
 
+	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/statedb"
 )
@@ -31,22 +35,81 @@ var statedbDumpCmd = &cobra.Command{
 	},
 }
 
-var statedbGetCmd = &cobra.Command{
-	Use:   "get",
-	Short: "Get",
+var statedbDevicesWatch bool
+
+var statedbDevicesCmd = &cobra.Command{
+	Use:   "devices",
+	Short: "Show the contents of devices table",
 	Run: func(cmd *cobra.Command, args []string) {
-		table, err := statedb.NewRemoteTable[*tables.Device]("devices", "localhost:8456")
+		client, err := statedb.NewClient(clientPkg.DefaultSockPath())
 		if err != nil {
-			panic(err)
+			Fatalf("NewClient: %s", err)
+		}
+		table := statedb.NewRemoteTable[*tables.Device](client, tables.DeviceTableName)
+
+		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', tabwriter.RememberWidths)
+		defer w.Flush()
+
+		fmt.Fprintf(w, "Name\tIndex\tSelected\tType\tMTU\tHWAddr\tFlags\tAddresses\n")
+
+		printDev := func(dev *tables.Device) {
+			fmt.Fprintf(w, "%s\t%d\t%v\t%s\t%d\t%s\t%s\t",
+				dev.Name, dev.Index, dev.Selected,
+				dev.Type, dev.MTU, dev.HardwareAddr, dev.Flags)
+			addrs := []string{}
+			for _, addr := range dev.Addrs {
+				addrs = append(addrs, addr.Addr.String())
+			}
+			fmt.Fprintf(w, "%s\n", strings.Join(addrs, ", "))
 		}
 
-		iter, err := table.Get(context.TODO(), tables.DeviceNameIndex.Query("lo"))
-		if err != nil {
-			panic(err)
-		}
+		if !statedbDevicesWatch {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
 
-		for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
-			fmt.Printf("%+v\n", obj)
+			iter, err := table.LowerBound(ctx, tables.DeviceNameIndex.Query(""))
+			if err != nil {
+				Fatalf("LowerBound: %s", err)
+			}
+			for dev, _, ok := iter.Next(); ok; dev, _, ok = iter.Next() {
+				printDev(dev)
+			}
+		} else {
+			iter, err := table.Watch(context.Background())
+			if err != nil {
+				Fatalf("Watch: %s", err)
+			}
+			type update struct {
+				dev     *tables.Device
+				deleted bool
+			}
+			updates := make(chan update)
+			go func() {
+				defer close(updates)
+				for dev, deleted, _, ok := iter.Next(); ok; dev, deleted, _, ok = iter.Next() {
+					updates <- update{dev, deleted}
+				}
+			}()
+
+			// Flush every 100 millis for more nicely aligned output.
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					w.Flush()
+				case u, ok := <-updates:
+					if !ok {
+						return
+					}
+					if u.deleted {
+						fmt.Fprintf(w, "%s\t%d\t(deleted)\t_\t_\t_\t_\t\n", u.dev.Name, u.dev.Index)
+					} else {
+						printDev(u.dev)
+					}
+				}
+			}
+
 		}
 	},
 }
@@ -54,7 +117,10 @@ var statedbGetCmd = &cobra.Command{
 func init() {
 	StatedbCmd.AddCommand(
 		statedbDumpCmd,
-		statedbGetCmd,
+		statedbDevicesCmd,
 	)
+
+	statedbDevicesCmd.Flags().BoolVarP(&statedbDevicesWatch, "watch", "", false, "Watch for changes")
+
 	RootCmd.AddCommand(StatedbCmd)
 }

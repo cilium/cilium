@@ -4,7 +4,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -13,19 +12,18 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/api/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-)
-
-const (
-	apiTimeout = 60 * time.Second
 )
 
 var ServerCell = cell.Module(
 	"api-server",
 	"API Server",
 
-	cell.Config(APIServerConfig{}),
+	cell.Config(APIServerConfig{
+		SocketPath: defaults.SockPath,
+	}),
 	cell.Provide(newAPIServer),
 
 	hive.AppendHooks[*APIServer](),
@@ -95,9 +93,6 @@ func newAPIServer(p apiServerParams) (*APIServer, error) {
 	for _, svc := range p.Services {
 		s.grpcServer.RegisterService(svc.Service, svc.Impl)
 	}
-
-	s.server.ReadTimeout = apiTimeout
-	s.server.WriteTimeout = apiTimeout
 
 	// Use the h2c handler to allow for unencrypted HTTP/2
 	s.server.Handler = h2c.NewHandler(s, &http2.Server{})

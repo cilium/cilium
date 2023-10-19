@@ -14,6 +14,8 @@ import (
 )
 
 var (
+	DeviceTableName = "devices"
+
 	DeviceIDIndex = statedb.Index[*Device, int]{
 		Name: "id",
 		FromObject: func(d *Device) index.KeySet {
@@ -46,7 +48,7 @@ var (
 	}
 
 	DeviceTableCell = statedb.NewProtectedTableCell[*Device](
-		"devices",
+		DeviceTableName,
 		DeviceIDIndex,
 		DeviceNameIndex,
 		DeviceSelectedIndex,

@@ -10,7 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/api/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -51,7 +51,7 @@ type apiServerParams struct {
 	cell.In
 
 	Log      logrus.FieldLogger
-	Services []api.GRPCService `group:"grpc-services"`
+	Services []types.GRPCService `group:"grpc-services"`
 }
 
 func newAPIServer(p apiServerParams) (*APIServer, error) {
