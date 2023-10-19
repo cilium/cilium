@@ -37,22 +37,12 @@ const (
 )
 
 type xfrmCollector struct {
-	xfrmStatFunc func() (procfs.XfrmStat, error)
-
 	// Inbound errors
 	xfrmErrorDesc *prometheus.Desc
 }
 
-// NewXFRMCollector returns a new prometheus.Collector for /proc/net/xfrm_stat
-// https://www.kernel.org/doc/Documentation/networking/xfrm_proc.txt
 func NewXFRMCollector() prometheus.Collector {
-	return newXFRMCollector(procfs.NewXfrmStat)
-}
-
-func newXFRMCollector(statFn func() (procfs.XfrmStat, error)) prometheus.Collector {
 	return &xfrmCollector{
-		xfrmStatFunc: statFn,
-
 		xfrmErrorDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_error"),
 			"Total number of xfrm errors",
@@ -66,7 +56,7 @@ func (x *xfrmCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
-	stats, err := x.xfrmStatFunc()
+	stats, err := procfs.NewXfrmStat()
 	if err != nil {
 		log.WithError(err).Error("Error while getting xfrm stats")
 		return
