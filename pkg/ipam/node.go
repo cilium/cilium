@@ -335,6 +335,12 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 		if availableIPs <= (minAllocate + maxAboveWatermark) {
 			return 0
 		}
+
+		// if usedIPs+preAllocate not over minAllocate + maxAboveWatermark, only care
+		// the ips out of minAllocate + maxAboveWatermark
+		if (usedIPs + preAllocate) <= (minAllocate + maxAboveWatermark) {
+			return availableIPs - minAllocate - maxAboveWatermark
+		}
 	}
 
 	// Once above the minimum allocation level, calculate based on

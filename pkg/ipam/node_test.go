@@ -39,7 +39,7 @@ var neededDef = []testNeededDef{
 var excessDef = []testExcessDef{
 	{0, 0, 0, 16, 0, 0},
 	{15, 0, 8, 16, 8, 0},
-	{17, 0, 8, 16, 0, 9}, // 17 used, 8 pre-allocate, 16 min-allocate => 1 excess
+	{17, 0, 8, 16, 0, 1}, // 17 used, 8 pre-allocate, 16 min-allocate => 1 excess
 	{20, 0, 8, 16, 4, 0}, // 20 used, 8 pre-allocate, 16 min-allocate, 4 max-above-watermark => 0 excess
 	{21, 0, 8, 0, 4, 9},  // 21 used, 8 pre-allocate, 4 max-above-watermark => 9 excess
 	{20, 0, 8, 20, 8, 0},

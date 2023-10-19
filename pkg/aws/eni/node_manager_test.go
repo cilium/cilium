@@ -437,7 +437,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
 
 	// Trigger resync manually, excess IPs should be released
-	// 10 used + 3 pre-allocate + 2 max-above-watermark => 15
+	// 10 used + 2 pre-allocate + 3 max-above-watermark => 15
 	node = mngr.Get("node3")
 	eniNode, castOK := node.Ops().(*Node)
 	c.Assert(castOK, check.Equals, true)
@@ -470,7 +470,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.Stats().AvailableIPs, check.Equals, 15)
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 13)
 	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
 }
 
