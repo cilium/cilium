@@ -322,6 +322,20 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "\n")
 	}
 
+	if sr.Srv6 != nil {
+		var fields []string
+
+		status := "Disabled"
+		fields = append(fields, status)
+
+		if sr.Srv6.Enabled {
+			fields[0] = "Enabled"
+			fields = append(fields, fmt.Sprintf("[encap-mode: %s]", sr.Srv6.Srv6EncapMode))
+		}
+
+		fmt.Fprintf(w, "SRv6:\t%s\n", strings.Join(fields, "\t"))
+	}
+
 	if sr.CniChaining != nil {
 		fmt.Fprintf(w, "CNI Chaining:\t%s\n", sr.CniChaining.Mode)
 	}

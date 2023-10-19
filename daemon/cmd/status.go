@@ -143,6 +143,13 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	return s
 }
 
+func (d *Daemon) getSRv6Status() *models.Srv6 {
+	return &models.Srv6{
+		Enabled:       option.Config.EnableSRv6,
+		Srv6EncapMode: option.Config.SRv6EncapMode,
+	}
+}
+
 func (d *Daemon) getIPV6BigTCPStatus() *models.IPV6BigTCP {
 	s := &models.IPV6BigTCP{
 		Enabled: option.Config.EnableIPv6BIGTCP,
@@ -1080,6 +1087,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 	d.statusResponse.CniChaining = d.getCNIChainingStatus()
 	d.statusResponse.IdentityRange = d.getIdentityRange()
+	d.statusResponse.Srv6 = d.getSRv6Status()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{StackdumpPath: "/run/cilium/state/agent.stack.gz"})
 

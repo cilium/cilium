@@ -2124,6 +2124,9 @@ definitions:
       clock-source:
         description: Status of clock source
         "$ref": "#/definitions/ClockSource"
+      srv6:
+        description: Status of SRv6
+        "$ref": "#/definitions/Srv6"
       stale:
         description: List of stale information in the status
         type: object
@@ -2875,6 +2878,20 @@ definitions:
       users:
         description: number of users of this selector in the cache
         type: integer
+  Srv6:
+    description: |-
+      Status of the SRv6
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      srv6EncapMode:
+        type: string
+        enum:
+          - SRH
+          - Reduced
   TraceSelector:
     description: Context describing a pair of source and destination identity
     type: object
