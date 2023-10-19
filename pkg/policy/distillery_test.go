@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -1405,8 +1404,8 @@ var (
 	lblWorldIP      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
 	hostIPv4        = api.CIDR("172.19.0.1/32")
 	hostIPv6        = api.CIDR("fc00:c111::3/64")
-	lblHostIPv4CIDR = cidr.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv4)))
-	lblHostIPv6CIDR = cidr.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv6)))
+	lblHostIPv4CIDR = labels.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv4)))
+	lblHostIPv6CIDR = labels.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv6)))
 
 	ruleL3AllowWorldIP = api.NewRule().WithIngressRules([]api.IngressRule{{
 		IngressCommonRule: api.IngressCommonRule{
@@ -1423,7 +1422,7 @@ var (
 	worldSubnetRule     = api.CIDRRule{
 		Cidr: worldSubnet,
 	}
-	lblWorldSubnet   = cidr.GetCIDRLabels(netip.MustParsePrefix(string(worldSubnet)))
+	lblWorldSubnet   = labels.GetCIDRLabels(netip.MustParsePrefix(string(worldSubnet)))
 	ruleL3DenySubnet = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{{
 		IngressCommonRule: api.IngressCommonRule{
 			FromCIDRSet: api.CIDRRuleSlice{worldSubnetRule},

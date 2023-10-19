@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -74,10 +73,10 @@ func (s *IdentityTestSuite) TestIsReservedIdentity(c *C) {
 
 func (s *IdentityTestSuite) TestRequiresGlobalIdentity(c *C) {
 	prefix := netip.MustParsePrefix("0.0.0.0/0")
-	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(prefix)), Equals, false)
+	c.Assert(RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)), Equals, false)
 
 	prefix = netip.MustParsePrefix("192.168.23.0/24")
-	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(prefix)), Equals, false)
+	c.Assert(RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)), Equals, false)
 
 	c.Assert(RequiresGlobalIdentity(labels.NewLabelsFromModel([]string{"k8s:foo=bar"})), Equals, true)
 }
@@ -88,11 +87,11 @@ func (s *IdentityTestSuite) TestScopeForLabels(c *C) {
 		scope NumericIdentity
 	}{
 		{
-			lbls:  cidr.GetCIDRLabels(netip.MustParsePrefix("0.0.0.0/0")),
+			lbls:  labels.GetCIDRLabels(netip.MustParsePrefix("0.0.0.0/0")),
 			scope: IdentityScopeLocal,
 		},
 		{
-			lbls:  cidr.GetCIDRLabels(netip.MustParsePrefix("192.168.23.0/24")),
+			lbls:  labels.GetCIDRLabels(netip.MustParsePrefix("192.168.23.0/24")),
 			scope: IdentityScopeLocal,
 		},
 		{
@@ -294,8 +293,8 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 		{
 			name: "cidr",
 			args: labels.Map2Labels(map[string]string{
-				labels.LabelWorld.String():              "",
-				cidr.GetCIDRLabels(cidrPrefix).String(): "",
+				labels.LabelWorld.String():                "",
+				labels.GetCIDRLabels(cidrPrefix).String(): "",
 			}, ""),
 			want: nil,
 		},

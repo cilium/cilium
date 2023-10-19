@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
-	cidrpkg "github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -85,7 +84,7 @@ func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 		if cidr == ipv6All {
 			hasIPv6AllBeenAdded = true
 		}
-		lbl, err := cidrpkg.IPStringToLabel(string(cidr))
+		lbl, err := labels.IPStringToLabel(string(cidr))
 		if err == nil {
 			slice = append(slice, NewESFromLabels(lbl))
 		}

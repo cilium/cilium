@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -91,8 +90,8 @@ func TestInjectLabels(t *testing.T) {
 	option.Config.PolicyCIDRMatchMode = []string{"nodes"}
 
 	// Insert CIDR labels for the remote nodes (this is done by the node manager, but we need to test that it goes through)
-	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid-cidr", cidr.GetCIDRLabels(inClusterPrefix))
-	IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.CustomResource, "node-uid-cidr", cidr.GetCIDRLabels(inClusterPrefix2))
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid-cidr", labels.GetCIDRLabels(inClusterPrefix))
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.CustomResource, "node-uid-cidr", labels.GetCIDRLabels(inClusterPrefix2))
 
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
 	assert.NoError(t, err)
@@ -399,7 +398,7 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	// This is to "force" a race condition
 	resource := types.NewResourceID(
 		types.ResourceKindCNP, "default", "policy")
-	labels := cidr.GetCIDRLabels(prefix)
+	labels := labels.GetCIDRLabels(prefix)
 	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
 
 	// Now, emulate policyAdd(), which calls AllocateCIDRs()
