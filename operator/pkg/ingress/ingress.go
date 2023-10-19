@@ -601,6 +601,8 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 				ing.GetDeletionTimestamp() != nil {
 				continue
 			}
+			// Move this to an if that checks if this is a passthrough Ingress
+			// This means we'll need an IngressPassthrough function probably.
 			m.HTTP = append(m.HTTP, ingestion.Ingress(*item, ic.defaultSecretNamespace, ic.defaultSecretName)...)
 		}
 	}
