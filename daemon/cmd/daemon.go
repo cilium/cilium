@@ -43,6 +43,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -93,6 +94,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -113,6 +115,7 @@ const (
 type Daemon struct {
 	ctx              context.Context
 	clientset        k8sClient.Clientset
+	db               *statedb.DB
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
 	svc              *service.Service
@@ -129,6 +132,7 @@ type Daemon struct {
 	ciliumHealth *health.CiliumHealth
 
 	deviceManager *linuxdatapath.DeviceManager
+	devices       statedb.Table[*datapathTables.Device]
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -501,12 +505,14 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d := Daemon{
 		ctx:               ctx,
 		clientset:         params.Clientset,
+		db:                params.DB,
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
 		mtuConfig:         mtuConfig,
 		datapath:          params.Datapath,
 		deviceManager:     params.DeviceManager,
+		devices:           params.Devices,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
@@ -1250,13 +1256,9 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 	}
 
 	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(devices, option.Config.LBDevInheritIPAddr); err != nil {
-			log.WithError(err).Warn("Failed to initialize NodePort addresses")
-		} else {
-			// Synchronize services and endpoints to reflect new addresses onto lbmap.
-			d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
-			d.controllers.TriggerController(syncHostIPsController)
-		}
+		// Synchronize services and endpoints to reflect new addresses onto lbmap.
+		d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
+		d.controllers.TriggerController(syncHostIPsController)
 	}
 
 	// Reload the datapath.

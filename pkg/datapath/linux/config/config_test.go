@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/ebpf/rlimit"
 
+	"github.com/cilium/cilium/pkg/datapath/fake"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -377,10 +378,10 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	a := dpdef.Map{"A": "1"}
 	var buffer bytes.Buffer
 
-	_, err := NewHeaderfileWriter([]dpdef.Map{a, a}, nil)
+	_, err := NewHeaderfileWriter(fake.NewNodeAddressing(), []dpdef.Map{a, a}, nil)
 	require.Error(t, err, "duplicate keys should be rejected")
 
-	cfg, err := NewHeaderfileWriter([]dpdef.Map{a}, nil)
+	cfg, err := NewHeaderfileWriter(fake.NewNodeAddressing(), []dpdef.Map{a}, nil)
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
 	require.Contains(t, buffer.String(), "define A 1\n")

@@ -1927,10 +1927,11 @@ type mockNodeAddressingFamily struct {
 	ips []net.IP
 }
 
-func (n *mockNodeAddressingFamily) Router() net.IP                    { panic("Not implemented") }
-func (n *mockNodeAddressingFamily) PrimaryExternal() net.IP           { panic("Not implemented") }
-func (n *mockNodeAddressingFamily) AllocationCIDR() *cidr.CIDR        { panic("Not implemented") }
-func (n *mockNodeAddressingFamily) LocalAddresses() ([]net.IP, error) { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) Router() net.IP                     { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) PrimaryExternal() net.IP            { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) AllocationCIDR() *cidr.CIDR         { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) LocalAddresses() ([]net.IP, error)  { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) DirectRouting() (int, net.IP, bool) { panic("Not implemented") }
 func (n *mockNodeAddressingFamily) LoadBalancerNodeAddresses() []net.IP {
 	return n.ips
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -77,11 +78,12 @@ var (
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
+	nodeAddressing     dptypes.NodeAddressing
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 }
 
-func NewHeaderfileWriter(nodeExtraDefines []dpdef.Map, nodeExtraDefineFns []dpdef.Fn) (*HeaderfileWriter, error) {
+func NewHeaderfileWriter(nodeAddressing dptypes.NodeAddressing, nodeExtraDefines []dpdef.Map, nodeExtraDefineFns []dpdef.Fn) (*HeaderfileWriter, error) {
 	merged := make(dpdef.Map)
 	for _, defines := range nodeExtraDefines {
 		if err := merged.Merge(defines); err != nil {
@@ -89,6 +91,7 @@ func NewHeaderfileWriter(nodeExtraDefines []dpdef.Map, nodeExtraDefineFns []dpde
 		}
 	}
 	return &HeaderfileWriter{
+		nodeAddressing:     nodeAddressing,
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: nodeExtraDefineFns,
 	}, nil
@@ -114,12 +117,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.EnableIPv6 {
 		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
 		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
-		fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6Addrs())
+		fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", h.nodeAddressing.IPv6().LoadBalancerNodeAddresses())
 		fmt.Fprintf(fw, "\n")
 	}
 	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4Router().String())
-	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4Addrs())
+	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", h.nodeAddressing.IPv4().LoadBalancerNodeAddresses())
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
 		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
@@ -564,34 +567,28 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 
 	if option.Config.DirectRoutingDeviceRequired() {
-		directRoutingIface := option.Config.DirectRoutingDevice
-		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
-		if err != nil {
-			return err
-		}
-		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", directRoutingIfIndex)
 		if option.Config.EnableIPv4 {
-			ip, ok := node.GetNodePortIPv4AddrsWithDevices()[directRoutingIface]
+			ifindex, ip, ok := h.nodeAddressing.IPv4().DirectRouting()
 			if !ok {
 				log.WithFields(logrus.Fields{
-					"directRoutingIface": directRoutingIface,
+					logfields.DirectRoutingDevice: option.Config.DirectRoutingDevice,
 				}).Fatal("Direct routing device's IPv4 address not found")
 			}
-
 			ipv4 := byteorder.NetIPv4ToHost32(ip)
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
+			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 		}
-
 		if option.Config.EnableIPv6 {
-			directRoutingIPv6, ok := node.GetNodePortIPv6AddrsWithDevices()[directRoutingIface]
+			ifindex, ip, ok := h.nodeAddressing.IPv6().DirectRouting()
 			if !ok {
-				log.WithFields(logrus.Fields{
-					"directRoutingIface": directRoutingIface,
-				}).Fatal("Direct routing device's IPv6 address not found")
+				log.
+					WithFields(logrus.Fields{
+						logfields.DirectRoutingDevice: option.Config.DirectRoutingDevice,
+					}).Fatal("Direct routing device's IPv6 address not found")
 			}
-
-			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
+			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
+			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip))
+			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 		}
 	} else {
 		var directRoutingIPv6 net.IP

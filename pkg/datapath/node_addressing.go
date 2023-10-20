@@ -7,6 +7,8 @@ import (
 	"context"
 	"net"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -14,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
-	"golang.org/x/sys/unix"
 )
 
 func (a addressFamilyIPv4) Router() net.IP {
@@ -50,6 +51,10 @@ func (a addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
 	return addrs
 }
 
+func (a addressFamilyIPv4) DirectRouting() (int, net.IP, bool) {
+	return a.directRouting(false)
+}
+
 func (a addressFamilyIPv6) Router() net.IP {
 	if n, err := a.localNode.Get(context.Background()); err == nil {
 		return n.GetCiliumInternalIP(true)
@@ -81,6 +86,10 @@ func (a addressFamilyIPv6) LoadBalancerNodeAddresses() []net.IP {
 	addrs := a.getExternalAddresses(a.db.ReadTxn(), true)
 	addrs = append(addrs, net.IPv6zero)
 	return addrs
+}
+
+func (a addressFamilyIPv6) DirectRouting() (int, net.IP, bool) {
+	return a.directRouting(true)
 }
 
 type linuxNodeAddressing struct {
@@ -129,6 +138,28 @@ func (na *linuxNodeAddressing) getLocalAddresses(txn statedb.ReadTxn, ipv6 bool)
 		}
 	}
 	return addrs, nil
+}
+
+func (na *linuxNodeAddressing) directRouting(ipv6 bool) (int, net.IP, bool) {
+	deviceName := option.Config.DirectRoutingDevice
+	if deviceName == "" {
+		return 0, nil, false
+	}
+	dev, _, ok := na.devicesTable.First(na.db.ReadTxn(), tables.DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
+	if !ok {
+		return 0, nil, false
+	}
+	var addr net.IP
+	for _, a := range dev.Addrs {
+		if ipv6 && a.Addr.Is6() {
+			addr = a.AsIP()
+			break
+		} else if !ipv6 && a.Addr.Is4() {
+			addr = a.AsIP()
+			break
+		}
+	}
+	return dev.Index, addr, true
 }
 
 type addressFamilyIPv4 struct{ *linuxNodeAddressing }

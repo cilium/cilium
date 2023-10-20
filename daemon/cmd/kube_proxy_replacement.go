@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -395,11 +394,6 @@ func finishKubeProxyReplacementInit() error {
 
 	if option.Config.DryMode {
 		return nil
-	}
-
-	if err := node.InitNodePortAddrs(option.Config.GetDevices(), option.Config.LBDevInheritIPAddr); err != nil {
-		msg := "failed to initialize NodePort addrs."
-		return fmt.Errorf(msg+" : %w", err)
 	}
 
 	// +-------------------------------------------------------+

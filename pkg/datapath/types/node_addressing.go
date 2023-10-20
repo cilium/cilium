@@ -31,6 +31,10 @@ type NodeAddressingFamily interface {
 	// LoadBalancerNodeAddresses lists all addresses on which HostPort and
 	// NodePort services should be responded to
 	LoadBalancerNodeAddresses() []net.IP
+
+	// DirectRouting returns the interface index and IP address for
+	// direct routing.
+	DirectRouting() (int, net.IP, bool)
 }
 
 // NodeAddressing implements addressing of a node
