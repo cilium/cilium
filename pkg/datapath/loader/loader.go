@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	Subsystem = "datapath-loader"
+	subsystem = "datapath-loader"
 
 	symbolFromEndpoint = "cil_from_container"
 	symbolToEndpoint   = "cil_to_container"
@@ -56,11 +56,11 @@ const (
 )
 
 const (
-	SecctxFromIpcacheDisabled = iota + 1
-	SecctxFromIpcacheEnabled
+	secctxFromIpcacheDisabled = iota + 1
+	secctxFromIpcacheEnabled
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
 // Loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
@@ -85,7 +85,7 @@ func NewLoader() *Loader {
 // the LocalNodeConfiguration.
 func (l *Loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
 	l.once.Do(func() {
-		l.templateCache = NewObjectCache(dp, nodeCfg)
+		l.templateCache = newObjectCache(dp, nodeCfg, option.Config.StateDir)
 		ignorePrefixes := ignoredELFPrefixes
 		if !option.Config.EnableIPv4 {
 			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
@@ -171,9 +171,9 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	}
 
 	if !option.Config.EnableHostLegacyRouting {
-		opts["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheEnabled)
+		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheEnabled)
 	} else {
-		opts["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheDisabled)
+		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
 	}
 
 	if option.Config.EnableNodePort {
@@ -307,7 +307,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	}
 	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
 	if err != nil {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
 			logfields.Veth: ep.InterfaceName(),
 		})
@@ -339,7 +339,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	finalize, err = replaceDatapath(ctx, defaults.SecondHostDevice, secondDevObjPath, progs, "")
 	if err != nil {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
 			logfields.Veth: defaults.SecondHostDevice,
 		})
@@ -385,7 +385,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 		finalize, err := replaceDatapath(ctx, device, netdevObjPath, progs, "")
 		if err != nil {
-			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+			scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: device,
 			})
@@ -433,7 +433,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 
 		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
 		if err != nil {
-			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+			scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
 			})
@@ -449,7 +449,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	}
 
 	if ep.RequireEndpointRoute() {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 			logfields.Veth: ep.InterfaceName(),
 		})
 		if ip := ep.IPv4Address(); ip.IsValid() {
@@ -505,7 +505,7 @@ func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 
 func (l *Loader) compileAndLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
 	stats.BpfCompilation.Start()
-	err := compileDatapath(ctx, dirs, ep.IsHost(), ep.Logger(Subsystem))
+	err := compileDatapath(ctx, dirs, ep.IsHost(), ep.Logger(subsystem))
 	stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return err

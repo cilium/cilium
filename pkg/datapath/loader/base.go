@@ -389,7 +389,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
-		if err := CompileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
+		if err := compileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
 			log.WithError(err).Fatal("failed to compile bpf_sock.c")
 		}
 		if err := socketlb.Enable(); err != nil {
@@ -407,7 +407,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Compile alignchecker program
-	if err := Compile(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
+	if err := compile(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
 		log.WithError(err).Fatal("alignchecker compile failed")
 	}
 	// Validate alignments of C and Go equivalent structs
