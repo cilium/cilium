@@ -1,0 +1,85 @@
+name: 'Create kops cluster'
+description: "Workflow that creates kops cluster"
+inputs:
+  cluster_name:
+    description: "Name of the cluster to create"
+    required: true
+  control_plane_size:
+    description: "Control plane node size"
+    required: true
+  control_plane_count:
+    description: "Number of control plane nodes"
+    required: true
+  node_size:
+    description: "Node size"
+    required: true
+  node_count:
+    description: "Number of nodes"
+    required: true
+  kops_state:
+    description: "Bucket where to store kops state"
+    required: true
+  project_id:
+    description: "GCP Project in which to create cluster"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Check if we should build the Cilium CLI from source
+      shell: bash
+      run: |
+        ./kops create cluster \
+          ${{ inputs.cluster_name }} \
+          --state ${{ inputs.kops_state }} \
+          --zones us-west1-a \
+          --project=${{ inputs.project_id }} \
+          --control-plane-count ${{ inputs.control_plane_count }} \
+          --control-plane-size ${{ inputs.control_plane_size }} \
+          --node-count ${{ inputs.node_count }} \
+          --node-size ${{ inputs.node_size }} \
+          --networking cni \
+          --yes
+
+    - name: Dump cluster config
+      shell: bash
+      run: |
+        ./kops get clusters \
+          ${{ inputs.cluster_name }} \
+          --state ${{ inputs.kops_state }} \
+          -o yaml
+
+    - name: Ensure cluster state matches config
+      shell: bash
+      run: |
+        ./kops update cluster \
+          ${{ inputs.cluster_name }} \
+          --state ${{ inputs.kops_state }} \
+          --yes
+
+    - name: Open Firewall rule for node-to-cp traffic
+      shell: bash
+      run: |
+        rule_name="node-to-master-${{ inputs.cluster_name }}"
+        rule_name="${rule_name//./-}"
+        gcloud compute firewall-rules update \
+          $rule_name \
+          --allow tcp,udp,icmp,esp,ah,sctp
+        # See https://github.com/kubernetes/perf-tests/issues/2319
+        # and https://docs.cilium.io/en/stable/operations/system_requirements/#firewall-rules.
+        # Rules could be added individually, but this is a bit simpler,
+        # matches the rules used by kops to manage cp-to-node and node-to-node
+        # traffic, and is an acceptable risk since the cluster is ephemeral and not
+        # running in prod.
+
+    - name: Get kubeconfig
+      shell: bash
+      run: |
+        ./kops export kubeconfig \
+          ${{ inputs.cluster_name }} \
+          --state ${{ inputs.kops_state }} \
+          --admin
+
+    - name: Wait for cluster control plane
+      shell: bash
+      run: |
+        until kubectl get nodes; do sleep 45s; done

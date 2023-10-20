@@ -1,0 +1,19 @@
+name: 'Cleanup kops cluster'
+description: "Workflow that cleans up kops cluster"
+inputs:
+  cluster_name:
+    description: "Name of the cluster to delete"
+    required: true
+  kops_state:
+    description: "Bucket with kops state"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Delete cluster
+      shell: bash
+      run: |
+          ./kops delete cluster \
+            ${{ inputs.cluster_name }} \
+            --state ${{ inputs.kops_state }} \
+            --yes

@@ -1,8 +1,8 @@
-name: Scale Test GCE
+name: Node throughput test
 
 on:
   schedule:
-    - cron: '39 0 * * 1,4'
+    - cron: '39 0 * * *'
 
 permissions:
   # To be able to access the repository with actions/checkout
@@ -34,8 +34,8 @@ env:
   go_version: 1.21.4
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
-  cluster_name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
-  cl2_config: ${{ github.workspace }}/.github/actions/scale-test-gce/cl2-config.yaml
+  test_name: node-throughput
+  cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
   CILIUM_CLI_MODE: helm
 
 jobs:
@@ -91,12 +91,9 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Kops
-        run: |
-          curl -L --remote-name-all https://github.com/kubernetes/kops/releases/download/${{ env.kops_version }}/kops-linux-amd64{,.sha256}
-          sed -i 's/$/ kops-linux-amd64/' kops-linux-amd64.sha256
-          sha256sum --check kops-linux-amd64.sha256
-          mv kops-linux-amd64 kops
-          chmod +x kops
+        uses: ./.github/actions/scale-tests/install-kops
+        with:
+          release_version: ${{ env.kops_version }}
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@f105ef0cdb3b102a020be1767fcc8a974898b7c6 # v1.2.0
@@ -128,75 +125,30 @@ jobs:
           ./kops version
           echo "--- gcloud ---"
           gcloud version
-      
-      # Control plane node size corresponds to related test in k8s OSS:
-      # https://github.com/kubernetes/test-infra/blob/275098e2666698d7e78b39c3716f202ea62f4b80/config/jobs/kubernetes/sig-scalability/sig-scalability-presets.yaml#L269
-      - name: Create cluster
-        run: |
-          ./kops create cluster \
-            ${{ env.cluster_name }} \
-            --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} \
-            --zones us-west1-a \
-            --project=${{ secrets.GCP_PERF_PROJECT_ID }} \
-            --control-plane-count 1 \
-            --control-plane-size n2-standard-4 \
-            --node-count 1 \
-            --node-size e2-standard-8 \
-            --networking cni \
-            --yes
-      
-      - name: Dump cluster config
-        run: |
-          ./kops get clusters \
-            ${{ env.cluster_name }} \
-            --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} \
-            -o yaml
 
-      - name: Ensure cluster state matches config
+      - name: Deploy cluster
         id: deploy-cluster
-        run: |
-          ./kops update cluster \
-            ${{ env.cluster_name }} \
-            --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} \
-            --yes
-  
-      - name: Open Firewall rule for node-to-cp traffic
-        run: |
-          rule_name="node-to-master-${{ env.cluster_name }}"
-          rule_name="${rule_name//./-}"
-          gcloud compute firewall-rules update \
-            $rule_name \
-            --allow tcp,udp,icmp,esp,ah,sctp
-          # See https://github.com/kubernetes/perf-tests/issues/2319
-          # and https://docs.cilium.io/en/stable/operations/system_requirements/#firewall-rules.
-          # Rules could be added individually, but this is a bit simpler,
-          # matches the rules used by kops to manage cp-to-node and node-to-node
-          # traffic, and is an acceptable risk since the cluster is ephemeral and not
-          # running in prod.
-      
-      - name: Get kubeconfig
-        run: |
-          ./kops export kubeconfig \
-            ${{ env.cluster_name }} \
-            --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} \
-            --admin \
-      
-      - name: Wait for cluster control plane
-        timeout-minutes: 20
-        run: |
-          until kubectl get nodes; do sleep 45s; done
+        uses: ./.github/actions/scale-tests/create-cluster
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          control_plane_size: n2-standard-4
+          control_plane_count: 1
+          node_size: e2-standard-8
+          node_count: 1
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
       
       - name: Install Cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for cluster to be ready
-        run: |
-          ./kops validate cluster \
-            ${{ env.cluster_name }} \
-            --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} \
-            --wait 20m \
-            --count 3
+        uses: ./.github/actions/scale-tests/validate-cluster
+        timeout-minutes: 20
+        with:
+          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -230,19 +182,15 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        run: |
-          ./kops delete cluster \
-            ${{ env.cluster_name }} \
-            --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} \
-            --yes
+        uses: ./.github/actions/scale-tests/cleanup-cluster
+        with:
+          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' }}
-        run: |
-          echo ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} >> ./run-url.txt
-          echo ${{ github.sha }} >> sha.txt
-          # BUILD_ID needs to be an integer
-          BUILD_ID="$(date +%s)"
-          EXPORT_DIR="${{ secrets.GCP_PERF_RESULTS_BUCKET }}/logs/scale-test-${{ github.ref_name }}/${BUILD_ID}"
-          gsutil -m cp -R cilium-sysdump-final.zip ./perf-tests/clusterloader2/report/* $EXPORT_DIR/artifacts/
-          gsutil -m cp sha.txt run-url.txt ./perf-tests/clusterloader2/cl2-output.txt  $EXPORT_DIR/
+        uses: ./.github/actions/scale-tests/export-results
+        with:
+          results_bucket: ${{ secrets.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./perf-tests/clusterloader2/report/*
+          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
