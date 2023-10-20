@@ -29,7 +29,7 @@ type linuxDatapath struct {
 	node           *linuxNodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
-	loader         *loader.Loader
+	loader         loader.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
 	bwmgr          bandwidth.Manager
@@ -43,6 +43,7 @@ type DatapathParams struct {
 	BWManager      bandwidth.Manager
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
+	Loader         loader.Loader
 }
 
 // NewDatapath creates a new Linux datapath
@@ -52,8 +53,8 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
 		config:          cfg,
-		loader:          loader.NewLoader(),
 		wgAgent:         p.WGAgent,
+		loader:          p.Loader,
 		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
 	}

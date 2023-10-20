@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/lock"
@@ -25,6 +27,9 @@ type Loader interface {
 	Reinitialize(ctx context.Context, o BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
 	DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error)
+	ELFSubstitutions(ep Endpoint) (map[string]uint64, map[string]string)
+	SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error)
+	ReinitializeXDP(ctx context.Context, o BaseProgramOwner, extraCArgs []string) error
 }
 
 // BaseProgramOwner is any type for which a loader is building base programs.
