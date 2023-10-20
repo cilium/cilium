@@ -115,7 +115,7 @@ type Daemon struct {
 	clientset        k8sClient.Clientset
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
-	svc              *service.Service
+	svc              service.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
 	policyUpdater    *policy.Updater
@@ -525,6 +525,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		clustermesh:          params.ClusterMesh,
 		monitorAgent:         params.MonitorAgent,
 		l2announcer:          params.L2Announcer,
+		svc:                  params.ServiceManager,
 		l7Proxy:              params.L7Proxy,
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
@@ -603,8 +604,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	d.endpointManager = params.EndpointManager
-
-	d.svc = service.NewService(&d, d.l7Proxy, d.datapath.LBMap())
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc, params.Resources.LocalPods)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
