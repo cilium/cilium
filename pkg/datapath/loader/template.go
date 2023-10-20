@@ -282,6 +282,6 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 // ELFSubstitutions fetches the set of variable and map substitutions that
 // must be implemented against an ELF template to configure the datapath for
 // the specified endpoint.
-func (l *Loader) ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
+func (l *loader) ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
 	return elfVariableSubstitutions(ep), elfMapSubstitutions(ep)
 }

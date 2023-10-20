@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -105,6 +106,9 @@ var Cell = cell.Module(
 	// MTU provides the MTU configuration of the node.
 	mtu.Cell,
 
+	// This cell provides the eBPF compiler/loader.
+	loader.Cell,
+
 	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
 		return dp.NodeIDs()
 	}),
@@ -166,6 +170,7 @@ func newDatapath(params datapathParams) types.Datapath {
 		NodeMap:        params.NodeMap,
 		NodeAddressing: params.NodeAddressing,
 		BWManager:      params.BandwidthManager,
+		Loader:         params.Loader,
 	}, datapathConfig)
 
 	params.LC.Append(hive.Hook{
@@ -206,4 +211,6 @@ type datapathParams struct {
 	ConfigWriter types.ConfigWriter
 
 	TunnelConfig tunnel.Config
+
+	Loader loader.Loader
 }
