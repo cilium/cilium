@@ -10,6 +10,11 @@
 #ifndef ___EP_CONFIG____
 #define ___EP_CONFIG____
 
+#ifndef LXC_MAC
+DEFINE_MAC(LXC_MAC, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff);
+#define LXC_MAC fetch_mac(LXC_MAC)
+#endif /* LXC_MAC */
+
 DEFINE_IPV6(LXC_IP, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
 
 #ifndef LXC_IPV4

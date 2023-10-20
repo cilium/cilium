@@ -4,22 +4,23 @@
 package option
 
 const (
-	PolicyTracing        = "PolicyTracing"
-	ConntrackAccounting  = "ConntrackAccounting"
-	ConntrackLocal       = "ConntrackLocal"
-	Debug                = "Debug"
-	DebugLB              = "DebugLB"
-	DebugPolicy          = "DebugPolicy"
-	DropNotify           = "DropNotification"
-	TraceNotify          = "TraceNotification"
-	TraceSockNotify      = "TraceSockNotification"
-	PolicyVerdictNotify  = "PolicyVerdictNotification"
-	PolicyAuditMode      = "PolicyAuditMode"
-	MonitorAggregation   = "MonitorAggregationLevel"
-	SourceIPVerification = "SourceIPVerification"
-	AlwaysEnforce        = "always"
-	NeverEnforce         = "never"
-	DefaultEnforcement   = "default"
+	PolicyTracing         = "PolicyTracing"
+	ConntrackAccounting   = "ConntrackAccounting"
+	ConntrackLocal        = "ConntrackLocal"
+	Debug                 = "Debug"
+	DebugLB               = "DebugLB"
+	DebugPolicy           = "DebugPolicy"
+	DropNotify            = "DropNotification"
+	TraceNotify           = "TraceNotification"
+	TraceSockNotify       = "TraceSockNotification"
+	PolicyVerdictNotify   = "PolicyVerdictNotification"
+	PolicyAuditMode       = "PolicyAuditMode"
+	MonitorAggregation    = "MonitorAggregationLevel"
+	SourceIPVerification  = "SourceIPVerification"
+	SourceMACVerification = "SourceMACVerification"
+	AlwaysEnforce         = "always"
+	NeverEnforce          = "never"
+	DefaultEnforcement    = "default"
 )
 
 var (
@@ -81,5 +82,10 @@ var (
 	specSourceIPVerification = Option{
 		Define:      "ENABLE_SIP_VERIFICATION",
 		Description: "Enable the check of the source IP on pod egress",
+	}
+
+	specSourceMACVerification = Option{
+		Define:      "ENABLE_SMAC_VERIFICATION",
+		Description: "Enable the check of the source MAC on pod egress",
 	}
 )

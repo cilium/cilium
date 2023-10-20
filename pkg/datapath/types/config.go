@@ -46,6 +46,7 @@ type LoadTimeConfiguration interface {
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
 	GetNodeMAC() mac.MAC
+	LXCMac() mac.MAC
 }
 
 // CompileTimeConfiguration provides datapath implementations a clean interface

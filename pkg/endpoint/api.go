@@ -127,6 +127,9 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		if ep.DatapathConfiguration.DisableSipVerification {
 			ep.updateAndOverrideEndpointOptions(option.OptionMap{option.SourceIPVerification: option.OptionDisabled})
 		}
+		if ep.DatapathConfiguration.DisableSmacVerification {
+			ep.updateAndOverrideEndpointOptions(option.OptionMap{option.SourceMACVerification: option.OptionDisabled})
+		}
 	}
 
 	if base.Labels != nil {

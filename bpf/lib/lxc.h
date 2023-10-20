@@ -57,4 +57,23 @@ int is_valid_lxc_src_ipv4(struct iphdr *ip4 __maybe_unused)
 }
 #endif /* ENABLE_SIP_VERIFICATION */
 
+#ifdef ENABLE_SMAC_VERIFICATION
+static __always_inline
+int is_valid_lxc_src_mac(struct __ctx_buff *ctx)
+{
+	union macaddr lxc_mac = LXC_MAC;
+	void *data = ctx_data(ctx), *data_end = ctx_data_end(ctx);
+	struct ethhdr *eth = data;
+	union macaddr *smac = NULL;
+	if (data + 12 > data_end)
+		return 1;
+	smac = (union macaddr *) &eth->h_source;
+	return !eth_addrcmp(smac, &lxc_mac);
+}
+#else /* ENABLE_SMAC_VERIFICATION */
+static __always_inline
+int is_valid_lxc_src_mac(struct __ctx_buff *ctx __maybe_unused) {
+	return 1;
+}
+#endif /* ENABLE_SMAC_VERIFICATION */
 #endif /* __LIB_LXC_H_ */

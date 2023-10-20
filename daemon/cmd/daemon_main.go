@@ -1329,6 +1329,7 @@ func initEnv(vp *viper.Viper) {
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 	option.Config.Opts.SetBool(option.SourceIPVerification, true)
+	option.Config.Opts.SetBool(option.SourceMACVerification, true)
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)
 	if err != nil {

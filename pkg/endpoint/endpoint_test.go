@@ -261,6 +261,16 @@ func (s *EndpointSuite) TestEndpointDatapathOptions(c *C) {
 	c.Assert(e.Options.GetValue(option.SourceIPVerification), Equals, option.OptionDisabled)
 }
 
+func (s *EndpointSuite) TestEndpointDatapathOptions(c *C) {
+	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
+		DatapathConfiguration: &models.EndpointDatapathConfiguration{
+			DisableSmacVerification: true,
+		},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(e.Options.GetValue(option.SourceMACVerification), Equals, option.OptionDisabled)
+}
+
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 	e := NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 

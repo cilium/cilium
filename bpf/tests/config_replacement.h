@@ -93,6 +93,12 @@
 #define NODE_MAC { { NODE_MAC_1, NODE_MAC_2 } }
 #endif
 
+#ifndef LXC_MAC
+#define LXC_MAC_1 (0xEF) << 24 | (0xBE) << 16 | (0xAD) << 8 | (0xDE)
+#define LXC_MAC_2 (0xEF) << 8 | (0xDE)
+#define LXC_MAC { { LXC_MAC_1, LXC_MAC_2 } }
+#endif
+
 #ifndef ROUTER_IP
 #define ROUTER_IP_1 bpf_htonl((0xbe) << 24 | (0xef) << 16 | (0) << 8 | (0))
 #define ROUTER_IP_2 bpf_htonl((0) << 24 | (0) << 16 | (0) << 8 | (0x01))

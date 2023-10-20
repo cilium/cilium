@@ -24,6 +24,10 @@ type EndpointDatapathConfiguration struct {
 	//
 	DisableSipVerification bool `json:"disable-sip-verification,omitempty"`
 
+	// Disable source MAC verification for the endpoint.
+	//
+	DisableSmacVerification bool `json:"disable-smac-verification,omitempty"`
+
 	// Indicates that IPAM is done external to Cilium. This will prevent the IP from being released and re-allocation of the IP address is skipped on restore.
 	//
 	ExternalIpam bool `json:"external-ipam,omitempty"`

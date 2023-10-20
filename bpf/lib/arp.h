@@ -89,5 +89,48 @@ error:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
+#ifdef ENABLE_SMAC_VERIFICATION
+static __always_inline int arp_validate_mac_spoof(const struct __ctx_buff *ctx)
+{
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+	struct arphdr *arp = data + ETH_HLEN;
+	struct ethhdr *eth = data;
+	union macaddr smac, lxc_mac = LXC_MAC;
+	struct arp_eth *arp_eth;
 
+	if (data + ETH_HLEN > data_end)
+		return CTX_ACT_OK;
+
+	smac = *(union macaddr *) &eth->h_source;
+	if (eth_addrcmp(&lxc_mac, &smac))
+		return DROP_INVALID_SMAC;
+
+	// Pass unknown packets to kernel.
+	if (data + ETH_HLEN + sizeof(*arp) + sizeof(*arp_eth) > data_end)
+		return CTX_ACT_OK;
+
+	arp_eth = data + ETH_HLEN + sizeof(*arp);
+	// Validate the ARP reply's sender hardware address
+	// against LXC MAC. If ENABLE_SIP_VERIFICATION is
+	// present, also validate the sender's IP against
+	// LXC IP.
+	if (arp->ar_op == bpf_htons(ARPOP_REPLY) &&
+		arp->ar_hrd == bpf_htons(ARPHRD_ETHER) &&
+		((memcmp(arp_eth->ar_sha, lxc_mac.addr, ETH_ALEN) != 0)
+#ifdef ENABLE_SIP_VERIFICATION
+		|| arp_eth->ar_sip != LXC_IPV4
+#endif /* ENABLE_SIP_VERIFICATION */
+		)) {
+			return DROP_INVALID_SMAC;
+	}
+
+	return CTX_ACT_OK;
+}
+#else /* ENABLE_SMAC_VERIFICATION */
+static __always_inline int arp_validate_mac_spoof(const struct __ctx_buff *ctx __maybe_unused) {
+	return CTX_ACT_OK;
+}
+
+#endif /* ENABLE_SMAC_VERIFICATION */
 #endif /* __LIB_ARP__ */
