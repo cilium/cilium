@@ -27,57 +27,58 @@ import (
 const templateWatcherQueueSize = 10
 
 var ignoredELFPrefixes = []string{
-	"2/",                         // Calls within the endpoint
-	"HOST_IP",                    // Global
-	"IPV6_NODEPORT",              // Global
-	"ROUTER_IP",                  // Global
-	"SNAT_IPV6_EXTERNAL",         // Global
-	"cilium_auth_map",            // Global
-	"cilium_call_policy",         // Global
-	"cilium_egresscall_policy",   // Global
-	"cilium_capture",             // Global
-	"cilium_ct",                  // All CT maps, including local
-	"cilium_encrypt_state",       // Global
-	"cilium_events",              // Global
-	"cilium_ipcache",             // Global
-	"cilium_ktime",               // Global
-	"cilium_lb",                  // Global
-	"cilium_lxc",                 // Global
-	"cilium_metrics",             // Global
-	"cilium_nodeport_neigh",      // All nodeport neigh maps
-	"cilium_node_map",            // Global
-	"cilium_policy",              // All policy maps
-	"cilium_proxy",               // Global
-	"cilium_runtime_config",      // Global
-	"cilium_signals",             // Global
-	"cilium_snat",                // All SNAT maps
-	"cilium_tail_call_buffer",    // Global
-	"cilium_tunnel",              // Global
-	"cilium_ipv4_frag_datagrams", // Global
-	"cilium_ipmasq",              // Global
-	"cilium_throttle",            // Global
-	"cilium_egress_gw_policy_v4", // Global
-	"cilium_srv6_policy_v4",      // Global
-	"cilium_srv6_policy_v6",      // Global
-	"cilium_srv6_vrf_v4",         // Global
-	"cilium_srv6_vrf_v6",         // Global
-	"cilium_srv6_state_v4",       // Global
-	"cilium_srv6_state_v6",       // Global
-	"cilium_srv6_sid",            // Global
-	"cilium_vtep_map",            // Global
-	"cilium_per_cluster_ct",      // Global
-	"cilium_world_cidrs4",        // Global
-	"cilium_l2_responder_v4",     // Global
-	"cilium_ratelimit",           // Global
-	"tc",                         // Program Section
-	"xdp",                        // Program Section
-	".BTF",                       // Debug
-	".BTF.ext",                   // Debug
-	".debug_ranges",              // Debug
-	".debug_info",                // Debug
-	".debug_line",                // Debug
-	".debug_frame",               // Debug
-	".debug_loc",                 // Debug
+	"2/",                          // Calls within the endpoint
+	"HOST_IP",                     // Global
+	"IPV6_NODEPORT",               // Global
+	"ROUTER_IP",                   // Global
+	"SNAT_IPV6_EXTERNAL",          // Global
+	"cilium_auth_map",             // Global
+	"cilium_call_policy",          // Global
+	"cilium_egresscall_policy",    // Global
+	"cilium_capture",              // Global
+	"cilium_ct",                   // All CT maps, including local
+	"cilium_encrypt_state",        // Global
+	"cilium_events",               // Global
+	"cilium_ipcache",              // Global
+	"cilium_ktime",                // Global
+	"cilium_lb",                   // Global
+	"cilium_lxc",                  // Global
+	"cilium_metrics",              // Global
+	"cilium_nodeport_neigh",       // All nodeport neigh maps
+	"cilium_node_map",             // Global
+	"cilium_policy",               // All policy maps
+	"cilium_proxy",                // Global
+	"cilium_runtime_config",       // Global
+	"cilium_signals",              // Global
+	"cilium_snat",                 // All SNAT maps
+	"cilium_tail_call_buffer",     // Global
+	"cilium_tunnel",               // Global
+	"cilium_ipv4_frag_datagrams",  // Global
+	"cilium_ipmasq",               // Global
+	"cilium_throttle",             // Global
+	"cilium_egress_gw_policy_v4",  // Global
+	"cilium_srv6_policy_v4",       // Global
+	"cilium_srv6_policy_v6",       // Global
+	"cilium_srv6_vrf_v4",          // Global
+	"cilium_srv6_vrf_v6",          // Global
+	"cilium_srv6_state_v4",        // Global
+	"cilium_srv6_state_v6",        // Global
+	"cilium_srv6_sid",             // Global
+	"cilium_vtep_map",             // Global
+	"cilium_per_cluster_ct",       // Global
+	"cilium_world_cidrs4",         // Global
+	"cilium_l2_responder_v4",      // Global
+	"cilium_ratelimit",            // Global
+	"cilium_mcast_group_v4_outer", // Global
+	"tc",                          // Program Section
+	"xdp",                         // Program Section
+	".BTF",                        // Debug
+	".BTF.ext",                    // Debug
+	".debug_ranges",               // Debug
+	".debug_info",                 // Debug
+	".debug_line",                 // Debug
+	".debug_frame",                // Debug
+	".debug_loc",                  // Debug
 	// Endpoint IPv6 address. It's possible for the template object to have
 	// these symbols while the endpoint doesn't, if IPv6 was just enabled and
 	// the endpoint restored.
