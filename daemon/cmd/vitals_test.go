@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -23,23 +22,22 @@ func TestVitalsToModuleHealth(t *testing.T) {
 			e: &models.ModuleHealth{
 				LastOk:      "n/a",
 				LastUpdated: "n/a",
+				Level:       "Unknown",
 			},
+			s: cell.Status{},
 		},
 		"happy": {
 			s: cell.Status{
-				Update: cell.Update{
-					FullModuleID: []string{"fred"},
-					Message:      "blee",
-					Err:          fmt.Errorf("zorg"),
-				},
-				Stopped: true,
-				Final:   "fred",
+				FullModuleID: cell.FullModuleID{"fred"},
+				Update:       mockUpdate{"blee", cell.StatusOK},
+				Stopped:      true,
 			},
 			e: &models.ModuleHealth{
 				Message:     "blee",
 				ModuleID:    "fred",
 				LastOk:      "n/a",
 				LastUpdated: "n/a",
+				Level:       "OK",
 			},
 		},
 	}
@@ -64,4 +62,22 @@ func TestVitalsToAgeHuman(t *testing.T) {
 		u := uu[k]
 		assert.Equal(t, u.e, toAgeHuman(u.t))
 	}
+}
+
+type mockUpdate struct {
+	msg   string
+	level cell.Level
+}
+
+func (m mockUpdate) Level() cell.Level {
+	return m.level
+}
+func (m mockUpdate) String() string {
+	return "blee"
+}
+func (m mockUpdate) JSON() ([]byte, error) {
+	return []byte(m.msg), nil
+}
+func (m mockUpdate) Timestamp() time.Time {
+	return time.Time{}
 }

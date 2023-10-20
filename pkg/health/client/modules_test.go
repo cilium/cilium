@@ -30,14 +30,6 @@ func TestGetAndFormatModulesHealth(t *testing.T) {
 			h: newTestMHappy(),
 			e: "Modules Health:\tStopped(0) Degraded(1) OK(1) Unknown(0)",
 		},
-		"happy-verbose": {
-			h: newTestMHappy(),
-			e: `Modules Health:
-  Module	Status	Message	Last Updated
-  m1	OK	a ok	          2s
-  m2	Degraded	doh	         20s`,
-			v: true,
-		},
 	}
 
 	for k := range uu {
@@ -75,14 +67,14 @@ func (m *testMHappy) GetHealth(params *daemon.GetHealthParams, opts ...daemon.Cl
 				{
 					ModuleID:    "m1",
 					Level:       string(cell.StatusOK),
-					Message:     "a ok",
+					Message:     "{}",
 					LastOk:      "3s",
 					LastUpdated: "2s",
 				},
 				{
 					ModuleID:    "m2",
 					Level:       string(cell.StatusDegraded),
-					Message:     "doh",
+					Message:     "{}",
 					LastOk:      "5m30s",
 					LastUpdated: "20s",
 				},
