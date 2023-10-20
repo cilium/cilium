@@ -18,6 +18,7 @@
 #include "lib/policy_log.h"
 #include "lib/pcap.h"
 #include "lib/trace_sock.h"
+#include "lib/mcast.h"
 
 /*
  * The __COUNTER__ macro expands to an integer value which is increasing every
@@ -85,3 +86,4 @@ add_type(struct tunnel_key);
 add_type(struct tunnel_value);
 add_type(struct auth_key);
 add_type(struct auth_info);
+add_type(struct mcast_subscriber_v4);
