@@ -7,6 +7,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -170,4 +172,16 @@ func (f *fakeLoader) HostDatapathInitialized() <-chan struct{} {
 
 func (f *fakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
 	return false, nil
+}
+
+func (f *fakeLoader) ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
+	return make(map[string]uint64), make(map[string]string)
+}
+
+func (f *fakeLoader) SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
+	panic("implement me")
+}
+
+func (f *fakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+	return nil
 }

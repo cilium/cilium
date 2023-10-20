@@ -46,7 +46,7 @@ const (
 	preFilterHeaderFileName = "filter_config.h"
 )
 
-func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
+func (l *loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
 	headerPath := filepath.Join(dir, netdevHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
@@ -63,7 +63,7 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 	return nil
 }
 
-func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
+func (l *loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 	nodeConfigPath := option.Config.GetNodeConfigPath()
 	f, err := os.Create(nodeConfigPath)
 	if err != nil {
@@ -168,7 +168,7 @@ func cleanIngressQdisc() error {
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
-func (l *Loader) reinitializeIPSec(ctx context.Context) error {
+func (l *loader) reinitializeIPSec(ctx context.Context) error {
 	if !option.Config.EnableIPSec {
 		return nil
 	}
@@ -209,7 +209,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	return nil
 }
 
-func (l *Loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
+func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
 	// tunnelConfig.Protocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.Protocol() == tunnel.Disabled {
@@ -246,7 +246,7 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 	return nil
 }
 
-func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
+func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
 	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode, bpf.CiliumPath())
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
@@ -274,7 +274,7 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 // ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+func (l *loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
 	o.GetCompilationLock().Lock()
 	defer o.GetCompilationLock().Unlock()
 	return l.reinitializeXDPLocked(ctx, extraCArgs)
@@ -284,7 +284,7 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	sysSettings := []sysctl.Setting{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
