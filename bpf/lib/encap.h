@@ -135,8 +135,15 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+			       __u8 encrypt_key __maybe_unused,
 			       __u32 seclabel, const struct trace_ctx *trace)
 {
+#ifdef ENABLE_IPSEC
+	if (encrypt_key)
+		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
+					 seclabel);
+#endif
+
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, NOT_VTEP_DST,
 						trace);
 }
@@ -199,6 +206,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 
 static __always_inline int
 encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
+			  __u8 encrypt_key __maybe_unused,
 			  __u32 seclabel, const struct trace_ctx *trace)
 {
 	struct tunnel_value *tunnel;
@@ -206,6 +214,12 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
+
+#ifdef ENABLE_IPSEC
+	if (encrypt_key)
+		return set_ipsec_encrypt(ctx, encrypt_key, tunnel->ip4,
+					 seclabel);
+#endif
 
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
 						NOT_VTEP_DST, trace);

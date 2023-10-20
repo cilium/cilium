@@ -199,6 +199,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	bool skip_redirect = false;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
+	__u8 encrypt_key __maybe_unused = 0;
+	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -290,12 +292,21 @@ skip_host_firewall:
 	if (!from_host)
 		return CTX_ACT_OK;
 
+#ifdef ENABLE_IPSEC
+	/* See IPv4 comment. */
+
+	dst = (union v6addr *) &ip6->daddr;
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+	if (from_ingress_proxy && info)
+		encrypt_key = get_min_encrypt_key(info->key);
+#endif
+
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      secctx, &trace);
+						      encrypt_key, secctx, &trace);
 	} else {
 		struct tunnel_key key = {};
 
@@ -307,7 +318,7 @@ skip_host_firewall:
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect_netdev(ctx, &key, secctx, &trace);
+		ret = encap_and_redirect_netdev(ctx, &key, encrypt_key, secctx, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -317,11 +328,19 @@ skip_host_firewall:
 
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
-	if (!info || (!tc_index_from_ingress_proxy(ctx) &&
+	if (!info || (!from_ingress_proxy &&
 		      info->sec_label == WORLD_ID)) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
+
+#if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
+	/* See IPv4 comment. */
+	if (from_ingress_proxy && info->tunnel_endpoint && encrypt_key)
+		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
+					 info->sec_label);
+#endif
+
 	return CTX_ACT_OK;
 }
 
@@ -453,6 +472,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret;
+	__u8 encrypt_key __maybe_unused = 0;
+	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -584,11 +605,19 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 skip_vtep:
 #endif
 
+#ifdef ENABLE_IPSEC
+	/* We encrypt host to remote pod packets only if they are from ingress proxy. */
+
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	if (from_ingress_proxy && info)
+		encrypt_key = get_min_encrypt_key(info->key);
+#endif
+
 #ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      secctx, &trace);
+						      encrypt_key, secctx, &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct tunnel_key key = {};
@@ -597,7 +626,7 @@ skip_vtep:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(ctx, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect_netdev(ctx, &key, secctx, &trace);
+		ret = encap_and_redirect_netdev(ctx, &key, encrypt_key, secctx, &trace);
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -606,7 +635,7 @@ skip_vtep:
 #endif
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-	if (!info || (!tc_index_from_ingress_proxy(ctx) &&
+	if (!info || (!from_ingress_proxy &&
 		      info->sec_label == WORLD_ID)) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
@@ -623,6 +652,14 @@ skip_vtep:
 		 */
 		return DROP_UNROUTABLE;
 	}
+
+#if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
+	/* We encrypt host to remote pod packets only if they are from ingress proxy. */
+	if (from_ingress_proxy && info->tunnel_endpoint && encrypt_key)
+		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
+					 info->sec_label);
+#endif
+
 	return CTX_ACT_OK;
 }
 
