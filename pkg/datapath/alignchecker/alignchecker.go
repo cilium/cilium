@@ -25,6 +25,23 @@ import (
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
+var (
+	toCheck      = map[string][]any{}
+	toCheckSizes = map[string][]any{}
+)
+
+func registerToCheck(c map[string][]any) {
+	for typ, str := range c {
+		toCheck[typ] = append(toCheck[typ], str...)
+	}
+}
+
+func registerToCheckSizes(c map[string][]any) {
+	for size, str := range c {
+		toCheckSizes[size] = append(toCheckSizes[size], str...)
+	}
+}
+
 // CheckStructAlignments checks whether size and offsets of the C and Go
 // structs for the datapath match.
 //
@@ -36,7 +53,14 @@ import (
 // `align:"$union1"`, etc.
 func CheckStructAlignments(path string) error {
 	// Validate alignments of C and Go equivalent structs
-	toCheck := map[string][]any{
+	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
+		return err
+	}
+	return check.CheckStructAlignments(path, toCheckSizes, false)
+}
+
+func init() {
+	registerToCheck(map[string][]any{
 		"ipv4_ct_tuple":        {ctmap.CtKey4{}, ctmap.CtKey4Global{}},
 		"ipv6_ct_tuple":        {ctmap.CtKey6{}, ctmap.CtKey6Global{}},
 		"ct_entry":             {ctmap.CtEntry{}},
@@ -93,11 +117,9 @@ func CheckStructAlignments(path string) error {
 		"vtep_value":             {vtep.VtepEndpointInfo{}},
 		"auth_key":               {authmap.AuthKey{}},
 		"auth_info":              {authmap.AuthInfo{}},
-	}
-	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
-		return err
-	}
-	toCheckSizes := map[string][]any{
+	})
+
+	registerToCheckSizes(map[string][]any{
 		"__u16": {
 			lbmap.Backend4Key{},
 			lbmap.Backend6Key{},
@@ -117,6 +139,5 @@ func CheckStructAlignments(path string) error {
 			srv6map.SIDValue{},
 		},
 		"__be32": {neighborsmap.Key4{}},
-	}
-	return check.CheckStructAlignments(path, toCheckSizes, false)
+	})
 }
