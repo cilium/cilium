@@ -72,7 +72,7 @@ func Test_removeOldRouterState(t *testing.T) {
 func createDevices(t *testing.T) {
 	t.Helper()
 
-	ciliumHost, ciliumNet, err := loader.SetupBaseDevice(1500)
+	ciliumHost, ciliumNet, err := loader.NewLoader().SetupBaseDevice(1500)
 	assert.NoError(t, err)
 	assert.NotNil(t, ciliumHost)
 	assert.NotNil(t, ciliumNet)

@@ -24,6 +24,7 @@ type Loader interface {
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
+	DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error)
 }
 
 // BaseProgramOwner is any type for which a loader is building base programs.
