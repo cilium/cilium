@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -37,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -1022,8 +1022,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, err
 	}
 
-	if err := loader.RestoreTemplates(option.Config.StateDir); err != nil {
-		log.WithError(err).Error("Unable to restore previous BPF templates")
+	// Simplest implementation: Just garbage-collect everything.
+	// In future we should make this smarter.
+	path := filepath.Join(option.Config.StateDir, defaults.TemplatesDir)
+	err = os.RemoveAll(path)
+	if err != nil && os.IsNotExist(err) {
+		log.WithError(&os.PathError{
+			Op:   "failed to remove old BPF templates",
+			Path: path,
+			Err:  err,
+		}).Error("Unable to restore previous BPF templates")
 	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.

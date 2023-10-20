@@ -125,7 +125,7 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		Options:    args,
 	}
 
-	objPath, err := compile(ctx, prog, dirs)
+	objPath, err := doCompile(ctx, prog, dirs)
 	if err != nil {
 		return err
 	}
