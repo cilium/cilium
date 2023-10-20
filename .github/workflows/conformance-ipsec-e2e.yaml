@@ -53,7 +53,7 @@ concurrency:
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version:
-  cilium_cli_ci_version: 49d7775c3916eb216a62f664ff7adddb9e1569ef
+  cilium_cli_ci_version: b3e515884487668054f8dbb04ba32fbb54b577a8
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
