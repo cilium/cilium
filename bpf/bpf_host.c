@@ -317,7 +317,8 @@ skip_host_firewall:
 
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
-	if (info == NULL || info->sec_label == WORLD_ID) {
+	if (!info || (!tc_index_from_ingress_proxy(ctx) &&
+		      info->sec_label == WORLD_ID)) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
@@ -605,7 +606,8 @@ skip_vtep:
 #endif
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-	if (info == NULL || info->sec_label == WORLD_ID) {
+	if (!info || (!tc_index_from_ingress_proxy(ctx) &&
+		      info->sec_label == WORLD_ID)) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
@@ -614,6 +616,10 @@ skip_vtep:
 		 * entry. Therefore we need to test for WORLD_ID. It is clearly
 		 * wrong to route a ctx to cilium_host for which we don't know
 		 * anything about it as otherwise we'll run into a routing loop.
+		 *
+		 * Note that we do not drop packets from ingress proxy even if
+		 * they are going to WORLD_ID. This is to avoid
+		 * https://github.com/cilium/cilium/issues/21954.
 		 */
 		return DROP_UNROUTABLE;
 	}
