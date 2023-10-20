@@ -254,7 +254,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 				result["IPV4_MASQUERADE"] = 0
 			}
 		}
-		result["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheDisabled)
+		result["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
 	} else {
 		result["LXC_ID"] = uint64(ep.GetID())
 	}
