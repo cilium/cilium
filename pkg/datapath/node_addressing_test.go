@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package linux_test
+package datapath_test
 
 import (
 	"context"
@@ -9,13 +9,14 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/stretchr/testify/require"
-	"github.com/vishvananda/netlink"
 )
 
 func setupDBAndDevices(t *testing.T) (db *statedb.DB, tbl statedb.RWTable[*tables.Device]) {
@@ -36,7 +37,7 @@ func setupDBAndDevices(t *testing.T) (db *statedb.DB, tbl statedb.RWTable[*table
 
 func TestLocalAddresses(t *testing.T) {
 	db, devices := setupDBAndDevices(t)
-	nodeAddressing := linux.NewNodeAddressing(nil, db, devices)
+	nodeAddressing := datapath.NewNodeAddressing(nil, db, devices)
 
 	tests := []struct {
 		name  string
@@ -48,7 +49,7 @@ func TestLocalAddresses(t *testing.T) {
 			addrs: []tables.DeviceAddress{
 				{
 					Addr:  netip.MustParseAddr("10.0.0.1"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 			},
 			want: []net.IP{
@@ -60,11 +61,11 @@ func TestLocalAddresses(t *testing.T) {
 			addrs: []tables.DeviceAddress{
 				{
 					Addr:  netip.MustParseAddr("10.0.0.1"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 				{
 					Addr:  netip.MustParseAddr("10.0.0.2"),
-					Scope: uint8(netlink.SCOPE_LINK),
+					Scope: unix.RT_SCOPE_LINK,
 				},
 			},
 
@@ -78,7 +79,7 @@ func TestLocalAddresses(t *testing.T) {
 			addrs: []tables.DeviceAddress{
 				{
 					Addr:  netip.MustParseAddr("2001:db8::"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 			},
 
@@ -91,11 +92,11 @@ func TestLocalAddresses(t *testing.T) {
 			addrs: []tables.DeviceAddress{
 				{
 					Addr:  netip.MustParseAddr("2001:db8::"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 				{
 					Addr:  netip.MustParseAddr("2600:beef::"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 			},
 
@@ -109,11 +110,11 @@ func TestLocalAddresses(t *testing.T) {
 			addrs: []tables.DeviceAddress{
 				{
 					Addr:  netip.MustParseAddr("10.0.0.1"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 				{
 					Addr:  netip.MustParseAddr("2001:db8::"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 			},
 
@@ -127,15 +128,15 @@ func TestLocalAddresses(t *testing.T) {
 			addrs: []tables.DeviceAddress{
 				{
 					Addr:  netip.MustParseAddr("10.0.0.1"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 				{
 					Addr:  netip.MustParseAddr("169.254.20.10"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 				{
 					Addr:  netip.MustParseAddr("169.254.169.254"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 			},
 
@@ -150,15 +151,15 @@ func TestLocalAddresses(t *testing.T) {
 			addrs: []tables.DeviceAddress{
 				{
 					Addr:  netip.MustParseAddr("10.0.0.1"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 				{
 					Addr:  netip.MustParseAddr("fe80::"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 				{
 					Addr:  netip.MustParseAddr("fe80::1234"),
-					Scope: uint8(netlink.SCOPE_HOST),
+					Scope: unix.RT_SCOPE_HOST,
 				},
 			},
 			want: []net.IP{
