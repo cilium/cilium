@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
+	"github.com/cilium/cilium/pkg/modules"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -52,6 +53,9 @@ var Cell = cell.Module(
 
 	// The monitor agent, which multicasts cilium and agent events to its subscribers.
 	monitorAgent.Cell,
+
+	// The modules manager to search and load kernel modules.
+	modules.Cell,
 
 	cell.Provide(
 		newWireguardAgent,
@@ -136,7 +140,7 @@ func newDatapath(params datapathParams) types.Datapath {
 				log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
 			}
 
-			iptablesManager.Init()
+			iptablesManager.Init(params.ModulesManager)
 			return nil
 		}})
 
@@ -168,6 +172,8 @@ type datapathParams struct {
 	// This is required until option.Config.GetDevices() has been removed and
 	// uses of it converted to Table[Device].
 	DeviceManager *linuxdatapath.DeviceManager
+
+	ModulesManager *modules.Manager
 
 	ConfigWriter types.ConfigWriter
 }

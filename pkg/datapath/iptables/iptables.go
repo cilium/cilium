@@ -269,13 +269,8 @@ type IptablesManager struct {
 
 // Init initializes the iptables manager and checks for iptables kernel modules
 // availability.
-func (m *IptablesManager) Init() {
-	modulesManager := &modules.ModulesManager{}
+func (m *IptablesManager) Init(modulesManager *modules.Manager) {
 	haveIp6tables := true
-	if err := modulesManager.Init(); err != nil {
-		log.WithError(err).Fatal(
-			"Unable to get information about kernel modules")
-	}
 	if err := modulesManager.FindOrLoadModules(
 		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw",
 		"iptable_filter"); err != nil {
