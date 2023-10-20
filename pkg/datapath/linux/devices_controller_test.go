@@ -89,6 +89,21 @@ func TestDevicesController(t *testing.T) {
 		return false
 	}
 
+	orphanRoutes := func(devs []*tables.Device, routes []*tables.Route) bool {
+		indexes := map[int]bool{}
+		for _, dev := range devs {
+			indexes[dev.Index] = true
+		}
+		for _, r := range routes {
+			if !indexes[r.LinkIndex] {
+				// A route exists without a device.
+				t.Logf("orphan route: %+v", r)
+				return true
+			}
+		}
+		return false
+	}
+
 	// The test steps perform an action, wait for devices table to change
 	// and then validate the change. Since we may see intermediate states
 	// in the devices table (as there's multiple netlink updates that may
@@ -150,7 +165,8 @@ func TestDevicesController(t *testing.T) {
 			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
 				return len(devs) == 1 &&
 					"dummy1" == devs[0].Name &&
-					containsAddress(devs[0], "192.168.1.1")
+					containsAddress(devs[0], "192.168.1.1") &&
+					!orphanRoutes(devs, routes)
 			},
 		},
 
@@ -248,6 +264,8 @@ func TestDevicesController(t *testing.T) {
 			// Get the new set of devices
 			for {
 				txn := db.ReadTxn()
+				allDevsIter, _ := devicesTable.All(txn)
+				allDevs := statedb.Collect(allDevsIter)
 				devs, devsInvalidated := tables.SelectedDevices(devicesTable, txn)
 
 				routesIter, routesIterInvalidated := routesTable.All(txn)
@@ -257,13 +275,18 @@ func TestDevicesController(t *testing.T) {
 					break
 				}
 
+				// Check that there are no orphan routes
+				if !orphanRoutes(allDevs, routes) {
+					break
+				}
+
 				// Wait for a changes and try again.
 				select {
 				case <-routesIterInvalidated:
 				case <-devsInvalidated:
 				case <-ctx.Done():
 					txn.WriteJSON(os.Stdout)
-					t.Fatalf("Test case %q timed out while waiting for devices. Last devices seen: %+v", step.name, devs)
+					t.Fatalf("Test case %q timed out while waiting for devices", step.name)
 				}
 			}
 
