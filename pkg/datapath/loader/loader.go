@@ -141,7 +141,7 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 // (cilium_host).
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
-func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
+func (l *Loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
 	bpfMasqIPv4Addrs, bpfMasqIPv6Addrs map[string]net.IP) error {
 
 	hostObj, err := elf.Open(objPath)
@@ -150,7 +150,7 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	}
 	defer hostObj.Close()
 
-	opts, strings := ELFSubstitutions(ep)
+	opts, strings := l.ELFSubstitutions(ep)
 
 	// The NODE_MAC value is specific to each attachment interface.
 	mac, err := link.GetHardwareAddr(ifName)
@@ -329,7 +329,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	}
 
 	secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
-	if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
+	if err := l.patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
 		return err
 	}
 
@@ -358,7 +358,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		}
 
 		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device+".o")
-		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device,
+		if err := l.patchHostNetdevDatapath(ep, objPath, netdevObjPath, device,
 			node.GetMasqIPv4AddrsWithDevices(), node.GetMasqIPv6AddrsWithDevices()); err != nil {
 			return err
 		}
@@ -590,7 +590,7 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 		epObj = hostEndpointObj
 	}
 	dstPath := path.Join(ep.StateDir(), epObj)
-	opts, strings := ELFSubstitutions(ep)
+	opts, strings := l.ELFSubstitutions(ep)
 	if err = template.Write(dstPath, opts, strings); err != nil {
 		stats.BpfWriteELF.End(err == nil)
 		return err

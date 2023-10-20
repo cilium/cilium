@@ -314,7 +314,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Datapath initialization
-	hostDev1, _, err := SetupBaseDevice(deviceMTU)
+	hostDev1, _, err := l.SetupBaseDevice(deviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}

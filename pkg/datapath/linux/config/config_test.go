@@ -145,7 +145,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 
 	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint64, map[string]string) {
 		cfg := &HeaderfileWriter{}
-		varSub, stringSub := loader.ELFSubstitutions(t)
+		varSub, stringSub := loader.NewLoader().ELFSubstitutions(t)
 
 		var buf bytes.Buffer
 		cfg.writeStaticData(&buf, t)
@@ -230,7 +230,7 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg
 
-	varSub, stringSub := loader.ELFSubstitutions(ep)
+	varSub, stringSub := loader.NewLoader().ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
 	cfg.writeStaticData(&buf, ep)
