@@ -1452,7 +1452,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever.
 	 */
-	skip_ingress_proxy = tc_index_skip_ingress_proxy(ctx);
+	skip_ingress_proxy = tc_index_from_ingress_proxy(ctx);
 
 	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
 	if (!ct_buffer)
@@ -1474,7 +1474,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		 * Always redirect connections that originated from L7 LB.
 		 */
 		if (ct_state_is_from_l7lb(ct_state) ||
-		    (ct_state->proxy_redirect && !tc_index_skip_egress_proxy(ctx))) {
+		    (ct_state->proxy_redirect && !tc_index_from_egress_proxy(ctx))) {
 			/* This is a reply, the proxy port does not need to be embedded
 			 * into ctx->mark and *proxy_port can be left unset.
 			 */
@@ -1759,7 +1759,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever.
 	 */
-	skip_ingress_proxy = tc_index_skip_ingress_proxy(ctx);
+	skip_ingress_proxy = tc_index_from_ingress_proxy(ctx);
 
 	orig_sip = ip4->saddr;
 
@@ -1791,7 +1791,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	/* Skip policy enforcement for return traffic. */
 	if (ret == CT_REPLY || ret == CT_RELATED) {
 		if (ct_state_is_from_l7lb(ct_state) ||
-		    (ct_state->proxy_redirect && !tc_index_skip_egress_proxy(ctx))) {
+		    (ct_state->proxy_redirect && !tc_index_from_egress_proxy(ctx))) {
 			/* This is a reply, the proxy port does not need to be embedded
 			 * into ctx->mark and *proxy_port can be left unset.
 			 */
