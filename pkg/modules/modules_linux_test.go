@@ -5,10 +5,8 @@ package modules
 
 import (
 	"bytes"
-
-	. "github.com/cilium/checkmate"
-
-	"github.com/cilium/cilium/pkg/checker"
+	"reflect"
+	"testing"
 )
 
 const (
@@ -55,12 +53,7 @@ kernel/net/ipv4/netfilter/ip_tables.ko
 kernel/net/netfilter/x_tables.ko`
 )
 
-type ModulesLinuxTestSuite struct{}
-
-var _ = Suite(&ModulesLinuxTestSuite{})
-
-func (s *ModulesLinuxTestSuite) TestParseLoadedModuleFile(c *C) {
-	expectedLength := 20
+func TestParseLoadedModuleFile(t *testing.T) {
 	expectedModules := []string{
 		"ebtable_nat",
 		"ebtable_broute",
@@ -86,13 +79,15 @@ func (s *ModulesLinuxTestSuite) TestParseLoadedModuleFile(c *C) {
 
 	r := bytes.NewBuffer([]byte(loadedModulesContent))
 	moduleInfos, err := parseLoadedModulesFile(r)
-	c.Assert(err, IsNil)
-	c.Assert(moduleInfos, HasLen, expectedLength)
-	c.Assert(moduleInfos, checker.DeepEquals, expectedModules)
+	if err != nil {
+		t.Fatalf("unexpected error from parseLoadedModulesFile: %s", err)
+	}
+	if !reflect.DeepEqual(moduleInfos, expectedModules) {
+		t.Fatalf("expected modules %v\nfound %v", expectedModules, moduleInfos)
+	}
 }
 
-func (s *ModulesLinuxTestSuite) TestParseBuiltinModuleFile(c *C) {
-	expectedLength := 20
+func TestParseBuiltinModuleFile(t *testing.T) {
 	expectedModules := []string{
 		"ebtable_nat",
 		"ebtable_broute",
@@ -118,12 +113,16 @@ func (s *ModulesLinuxTestSuite) TestParseBuiltinModuleFile(c *C) {
 
 	r := bytes.NewBuffer([]byte(builtinModulesContent))
 	moduleInfos, err := parseBuiltinModulesFile(r)
-	c.Assert(err, IsNil)
-	c.Assert(moduleInfos, HasLen, expectedLength)
-	c.Assert(moduleInfos, checker.DeepEquals, expectedModules)
+	if err != nil {
+		t.Fatalf("unexpected error from parseBuiltinModulesFile: %s", err)
+	}
+	if !reflect.DeepEqual(moduleInfos, expectedModules) {
+		t.Fatalf("expected modules %v\nfound %v", expectedModules, moduleInfos)
+	}
 }
 
-func (s *ModulesLinuxTestSuite) TestListModules(c *C) {
-	_, err := listModules()
-	c.Assert(err, IsNil)
+func TestListModules(t *testing.T) {
+	if _, err := listModules(); err != nil {
+		t.Fatalf("unexpected error from listModules: %s", err)
+	}
 }

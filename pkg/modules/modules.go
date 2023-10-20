@@ -8,34 +8,29 @@ import (
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
-// ModulesManager is a manager which stores information about loaded modules
-// and provides a search operation.
-type ModulesManager struct {
+// Manager stores information about loaded modules and provides a search operation.
+type Manager struct {
 	modulesList []string
 }
 
-// Init initializes the internal modules information store of modules manager.
-func (m *ModulesManager) Init() error {
-	modulesList, err := listModules()
-	if err != nil {
-		return err
-	}
-	m.modulesList = modulesList
-	return nil
+func (m *Manager) Start(hive.HookContext) (err error) {
+	m.modulesList, err = listModules()
+	return err
 }
 
 // FindModules checks whether the given kernel modules are loaded and also
 // returns a slice with names of modules which are not loaded.
-func (m *ModulesManager) FindModules(expectedNames ...string) (bool, []string) {
+func (m *Manager) FindModules(expectedNames ...string) (bool, []string) {
 	return slices.SubsetOf(expectedNames, m.modulesList)
 }
 
 // FindOrLoadModules checks whether the given kernel modules are loaded and
 // tries to load those which are not.
-func (m *ModulesManager) FindOrLoadModules(expectedNames ...string) error {
+func (m *Manager) FindOrLoadModules(expectedNames ...string) error {
 	found, diff := m.FindModules(expectedNames...)
 	if found {
 		return nil
@@ -49,4 +44,12 @@ func (m *ModulesManager) FindOrLoadModules(expectedNames ...string) error {
 		}
 	}
 	return nil
+}
+
+func newManager(lc hive.Lifecycle) *Manager {
+	m := &Manager{}
+
+	lc.Append(hive.Hook{OnStart: m.Start})
+
+	return m
 }

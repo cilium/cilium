@@ -6,20 +6,17 @@
 package modules
 
 import (
-	"github.com/cilium/cilium/pkg/testutils"
+	"context"
+	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type ModulesPrivilegedTestSuite struct{}
+func TestFindOrLoadModules(t *testing.T) {
+	testutils.PrivilegedTest(t)
 
-var _ = Suite(&ModulesPrivilegedTestSuite{})
-
-func (s *ModulesPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
-}
-
-func (s *ModulesPrivilegedTestSuite) TestFindOrLoadModules(c *C) {
 	testCases := []struct {
 		modulesToFind []string
 		expectedErr   bool
@@ -34,16 +31,30 @@ func (s *ModulesPrivilegedTestSuite) TestFindOrLoadModules(c *C) {
 		},
 	}
 
-	manager := &ModulesManager{}
-	err := manager.Init()
-	c.Assert(err, IsNil)
+	var manager *Manager
+
+	hive := hive.New(
+		Cell,
+		cell.Invoke(func(mgr *Manager) {
+			manager = mgr
+		}),
+	)
+
+	if err := hive.Start(context.Background()); err != nil {
+		t.Fatalf("failed to start: %s", err)
+	}
 
 	for _, tc := range testCases {
-		err = manager.FindOrLoadModules(tc.modulesToFind...)
-		if tc.expectedErr {
-			c.Assert(err, NotNil)
-		} else {
-			c.Assert(err, IsNil)
+		err := manager.FindOrLoadModules(tc.modulesToFind...)
+		if tc.expectedErr && err == nil {
+			t.Fatal("expected error from FindOrLoadModules but none found")
 		}
+		if !tc.expectedErr && err != nil {
+			t.Fatalf("FindOrLoadModules failed with unexpected error: %s", err)
+		}
+	}
+
+	if err := hive.Stop(context.Background()); err != nil {
+		t.Fatalf("failed to stop: %s", err)
 	}
 }
