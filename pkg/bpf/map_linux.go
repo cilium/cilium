@@ -495,6 +495,10 @@ func (m *Map) openOrCreate(pin bool) error {
 
 	m.spec.Flags |= GetPreAllocateMapFlags(m.spec.Type)
 
+	if m.spec.InnerMap != nil {
+		m.spec.InnerMap.Flags |= GetPreAllocateMapFlags(m.spec.InnerMap.Type)
+	}
+
 	if pin {
 		m.spec.Pinning = ebpf.PinByName
 	}
