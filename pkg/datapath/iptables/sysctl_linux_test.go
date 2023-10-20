@@ -3,7 +3,7 @@
 
 //go:build linux
 
-package datapath
+package iptables
 
 import (
 	"github.com/cilium/cilium/pkg/testutils"

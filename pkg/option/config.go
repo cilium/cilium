@@ -400,8 +400,6 @@ const (
 	// to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = "install-no-conntrack-iptables-rules"
 
-	IPTablesLockTimeout = "iptables-lock-timeout"
-
 	// IPTablesRandomFully sets iptables flag random-fully on masquerading rules
 	IPTablesRandomFully = "iptables-random-fully"
 
@@ -1680,10 +1678,6 @@ type DaemonConfig struct {
 	// PrependIptablesChains is the name of the option to enable prepending
 	// iptables chains instead of appending
 	PrependIptablesChains bool
-
-	// IPTablesLockTimeout defines the "-w" iptables option when the
-	// iptables CLI is directly invoked from the Cilium agent.
-	IPTablesLockTimeout time.Duration
 
 	// IPTablesRandomFully defines the "--random-fully" iptables option when the
 	// iptables CLI is directly invoked from the Cilium agent.
@@ -3213,7 +3207,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnvoyConfigTimeout = vp.GetDuration(EnvoyConfigTimeout)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
-	c.IPTablesLockTimeout = vp.GetDuration(IPTablesLockTimeout)
 	c.IPTablesRandomFully = vp.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
 	c.IPsecKeyRotationDuration = vp.GetDuration(IPsecKeyRotationDuration)
