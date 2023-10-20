@@ -157,14 +157,14 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 	 */
 	if (magic == MARK_MAGIC_PROXY_INGRESS) {
 		*identity = get_identity(ctx);
-		ctx->tc_index |= TC_INDEX_F_SKIP_INGRESS_PROXY;
+		ctx->tc_index |= TC_INDEX_F_FROM_INGRESS_PROXY;
 	/* (Return) packets from the egress proxy must skip the redirection to
 	 * the proxy, as the packet would loop and/or the connection be reset
 	 * otherwise.
 	 */
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
 		*identity = get_identity(ctx);
-		ctx->tc_index |= TC_INDEX_F_SKIP_EGRESS_PROXY;
+		ctx->tc_index |= TC_INDEX_F_FROM_EGRESS_PROXY;
 	} else if (magic == MARK_MAGIC_IDENTITY) {
 		*identity = get_identity(ctx);
 	} else if (magic == MARK_MAGIC_HOST) {

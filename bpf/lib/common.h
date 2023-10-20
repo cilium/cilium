@@ -776,8 +776,8 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
  * cilium_host @egress
  *   bpf_host -> bpf_lxc
  */
-#define TC_INDEX_F_SKIP_INGRESS_PROXY	1
-#define TC_INDEX_F_SKIP_EGRESS_PROXY	2
+#define TC_INDEX_F_FROM_INGRESS_PROXY	1
+#define TC_INDEX_F_FROM_EGRESS_PROXY	2
 #define TC_INDEX_F_SKIP_NODEPORT	4
 #define TC_INDEX_F_SKIP_RECIRCULATION	8
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
