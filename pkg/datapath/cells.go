@@ -85,7 +85,10 @@ var Cell = cell.Module(
 		// Provide the configured devices to the devices controller.
 		// This is temporary until DevicesController takes ownership of the
 		// device-related configuration options.
-		return linuxdatapath.DevicesConfig{Devices: cfg.GetDevices()}
+		return linuxdatapath.DevicesConfig{
+			Devices:         cfg.GetDevices(),
+			AddressScopeMax: cfg.AddressScopeMax,
+		}
 	}),
 )
 

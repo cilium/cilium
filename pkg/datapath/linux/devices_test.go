@@ -575,6 +575,10 @@ func setBondMaster(iface string, master string) error {
 }
 
 func addAddr(iface string, cidr string) error {
+	return addAddrScoped(iface, cidr, netlink.SCOPE_SITE)
+}
+
+func addAddrScoped(iface string, cidr string, scope netlink.Scope) error {
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return err
@@ -586,7 +590,7 @@ func addAddr(iface string, cidr string) error {
 		return err
 	}
 
-	if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: ipnet}); err != nil {
+	if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: ipnet, Scope: int(scope)}); err != nil {
 		return err
 	}
 	return nil
