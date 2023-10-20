@@ -106,15 +106,21 @@ type devicesController struct {
 	filter         deviceFilter
 	l3DevSupported bool
 
+	// deadLinkIndexes tracks the set of links that have been deleted. This is needed
+	// to avoid processing route or address updates after a link delete as they may
+	// arrive out of order due to the use of separate netlink sockets.
+	deadLinkIndexes sets.Set[int]
+
 	cancel context.CancelFunc // controller's context is cancelled when stopped.
 }
 
 func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route]) {
 	dc := &devicesController{
-		params:      p,
-		initialized: make(chan struct{}),
-		filter:      deviceFilter(p.Config.Devices),
-		log:         p.Log,
+		params:          p,
+		initialized:     make(chan struct{}),
+		filter:          deviceFilter(p.Config.Devices),
+		log:             p.Log,
+		deadLinkIndexes: sets.New[int](),
 	}
 	lc.Append(dc)
 	return dc, p.DeviceTable, p.RouteTable
@@ -391,10 +397,14 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			d = d.DeepCopy()
 		}
 		deviceDeleted := false
+		deviceUpdated := false // Set to true if the batch contained an address or link update.
 
 		for _, u := range updates {
 			switch u := u.(type) {
 			case netlink.AddrUpdate:
+				if dc.deadLinkIndexes.Has(u.LinkIndex) {
+					continue
+				}
 				addr := deviceAddressFromAddrUpdate(u)
 				if u.NewAddr {
 					d.Addrs = append(d.Addrs, addr)
@@ -404,7 +414,15 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 						d.Addrs = slices.Delete(d.Addrs, i, i+1)
 					}
 				}
+				deviceUpdated = true
 			case netlink.RouteUpdate:
+				if dc.deadLinkIndexes.Has(u.LinkIndex) {
+					// Ignore route updates for a device that has been removed
+					// to avoid processing an out of order route create after
+					// link delete (Linux won't send complete set of messages
+					// of routes deleted when link is deleted).
+					continue
+				}
 				r := tables.Route{
 					Table:     u.Table,
 					LinkIndex: index,
@@ -419,7 +437,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 					if err != nil {
 						dc.log.WithError(err).WithField(logfields.Route, r).Warn("Failed to insert route")
 					}
-				} else {
+				} else if u.Type == unix.RTM_DELROUTE {
 					_, _, err := dc.params.RouteTable.Delete(txn, &r)
 					if err != nil {
 						dc.log.WithError(err).WithField(logfields.Route, r).Warn("Failed to delete route")
@@ -427,21 +445,29 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				}
 			case netlink.LinkUpdate:
 				if u.Header.Type == unix.RTM_DELLINK {
-					// Mark for deletion. This may be undone if
-					// the ifindex is reused.
+					// Mark for deletion.
+					dc.deadLinkIndexes.Insert(d.Index)
 					deviceDeleted = true
 				} else {
+					dc.deadLinkIndexes.Delete(d.Index)
 					deviceDeleted = false
 					populateFromLink(d, u.Link)
 				}
+				deviceUpdated = true
 			}
 		}
 
 		if deviceDeleted {
-			// Remove the deleted device. The routes table will be cleaned up from the
-			// route updates.
+			// Remove the deleted device.
 			dc.params.DeviceTable.Delete(txn, d)
-		} else {
+
+			// Remove all routes for the device. For a deleted device netlink does not
+			// send complete set of route delete messages.
+			iter, _ := dc.params.RouteTable.Get(txn, tables.RouteLinkIndex.Query(d.Index))
+			for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
+				dc.params.RouteTable.Delete(txn, r)
+			}
+		} else if deviceUpdated {
 			// Recheck the viability of the device after the updates have been applied.
 			d.Selected, d.NotSelectedReason = dc.isSelectedDevice(d, txn)
 
