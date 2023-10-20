@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -71,11 +72,6 @@ func (e *ErrLocalRedirectServiceExists) Is(target error) bool {
 type healthServer interface {
 	UpsertService(svcID lb.ID, svcNS, svcName string, localEndpoints int, port uint16)
 	DeleteService(svcID lb.ID)
-}
-
-// monitorNotify is used to send update notifications to the monitor
-type monitorNotify interface {
-	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 }
 
 // envoyCache is used to sync Envoy resources to Envoy proxy
@@ -248,9 +244,9 @@ type Service struct {
 	// not for loadbalancing decisions.
 	backendByHash map[string]*lb.Backend
 
-	healthServer  healthServer
-	monitorNotify monitorNotify
-	envoyCache    envoyCache
+	healthServer healthServer
+	monitorAgent monitorAgent.Agent
+	envoyCache   envoyCache
 
 	lbmap         datapathTypes.LBMap
 	lastUpdatedTs atomic.Value
@@ -261,7 +257,7 @@ type Service struct {
 }
 
 // NewService creates a new instance of the service handler.
-func NewService(monitorNotify monitorNotify, envoyCache envoyCache, lbmap datapathTypes.LBMap) *Service {
+func NewService(monitorAgent monitorAgent.Agent, envoyCache envoyCache, lbmap datapathTypes.LBMap) *Service {
 
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
@@ -273,7 +269,7 @@ func NewService(monitorNotify monitorNotify, envoyCache envoyCache, lbmap datapa
 		svcByID:                  map[lb.ID]*svcInfo{},
 		backendRefCount:          counter.StringCounter{},
 		backendByHash:            map[string]*lb.Backend{},
-		monitorNotify:            monitorNotify,
+		monitorAgent:             monitorAgent,
 		envoyCache:               envoyCache,
 		healthServer:             localHealthServer,
 		lbmap:                    lbmap,
@@ -1934,7 +1930,7 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) []lb.BackendID {
 
 func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []*lb.Backend,
 	svcType lb.SVCType, svcExtTrafficPolicy, svcIntTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string) {
-	if s.monitorNotify == nil {
+	if s.monitorAgent == nil {
 		return
 	}
 
@@ -1954,12 +1950,12 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 	}
 
 	msg := monitorAPI.ServiceUpsertMessage(id, fe, be, string(svcType), string(svcExtTrafficPolicy), string(svcIntTrafficPolicy), svcName, svcNamespace)
-	s.monitorNotify.SendNotification(msg)
+	s.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, msg)
 }
 
 func (s *Service) notifyMonitorServiceDelete(id lb.ID) {
-	if s.monitorNotify != nil {
-		s.monitorNotify.SendNotification(monitorAPI.ServiceDeleteMessage(uint32(id)))
+	if s.monitorAgent != nil {
+		s.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.ServiceDeleteMessage(uint32(id)))
 	}
 }
 

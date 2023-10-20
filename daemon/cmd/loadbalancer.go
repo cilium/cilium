@@ -165,7 +165,7 @@ func getServiceHandler(d *Daemon, params GetServiceParams) middleware.Responder 
 	return NewGetServiceOK().WithPayload(list)
 }
 
-func getServiceList(svc *service.Service) []*models.Service {
+func getServiceList(svc service.ServiceManager) []*models.Service {
 	svcs := svc.GetDeepCopyServices()
 	list := make([]*models.Service, 0, len(svcs))
 	for _, v := range svcs {
