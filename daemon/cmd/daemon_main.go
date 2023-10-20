@@ -718,9 +718,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.InstallIptRules)
 	option.BindEnv(vp, option.InstallIptRules)
 
-	flags.Duration(option.IPTablesLockTimeout, 5*time.Second, "Time to pass to each iptables invocation to wait for xtables lock acquisition")
-	option.BindEnv(vp, option.IPTablesLockTimeout)
-
 	flags.Bool(option.IPTablesRandomFully, false, "Set iptables flag random-fully on masquerading rules")
 	option.BindEnv(vp, option.IPTablesRandomFully)
 

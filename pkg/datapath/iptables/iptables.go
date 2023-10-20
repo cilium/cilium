@@ -28,6 +28,8 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -254,6 +256,11 @@ func (m *Manager) removeCiliumRules(table string, prog iptablesInterface, match 
 
 // Manager manages the iptables-related configuration for Cilium.
 type Manager struct {
+	logger     logrus.FieldLogger
+	modulesMgr *modules.Manager
+	cfg        Config
+	sharedCfg  SharedConfig
+
 	// This lock ensures there are no concurrent executions of the InstallRules() and
 	// InstallProxyRules() methods, as otherwise we may end up with errors (as rules may have
 	// been already removed or installed by a different execution of the method) or with an
@@ -267,46 +274,74 @@ type Manager struct {
 	CNIChainingMode      string
 }
 
-// Init initializes the iptables manager and checks for iptables kernel modules
-// availability.
-func (m *Manager) Init(modulesManager *modules.Manager) {
-	haveIp6tables := true
-	if err := modulesManager.FindOrLoadModules(
-		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw",
-		"iptable_filter"); err != nil {
-		log.WithError(err).Warning(
+type params struct {
+	cell.In
+
+	Logger    logrus.FieldLogger
+	Lifecycle hive.Lifecycle
+
+	ModulesMgr *modules.Manager
+
+	Cfg       Config
+	SharedCfg SharedConfig
+}
+
+func newIptablesManager(p params) *Manager {
+	iptMgr := &Manager{
+		logger:        p.Logger,
+		modulesMgr:    p.ModulesMgr,
+		sharedCfg:     p.SharedCfg,
+		haveIp6tables: true,
+	}
+
+	p.Lifecycle.Append(iptMgr)
+
+	return iptMgr
+}
+
+// Start initializes the iptables manager and checks for iptables kernel modules availability.
+func (m *Manager) Start(ctx hive.HookContext) error {
+	if err := enableIPForwarding(); err != nil {
+		m.logger.WithError(err).Warning("enabling IP forwarding via sysctl failed")
+	}
+
+	if err := m.modulesMgr.FindOrLoadModules(
+		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw", "iptable_filter",
+	); err != nil {
+		m.logger.WithError(err).Warning(
 			"iptables modules could not be initialized. It probably means that iptables is not available on this system")
 	}
-	if err := modulesManager.FindOrLoadModules(
-		"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter"); err != nil {
-		if option.Config.EnableIPv6 {
-			log.WithError(err).Fatal(
-				"IPv6 is enabled and ip6tables modules could not be initialized (try disabling IPv6 in Cilium or loading ip6_tables, ip6table_mangle, ip6table_raw and ip6table_filter kernel modules)")
+
+	if err := m.modulesMgr.FindOrLoadModules(
+		"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter",
+	); err != nil {
+		if m.sharedCfg.EnableIPv6 {
+			return fmt.Errorf(
+				"IPv6 is enabled and ip6tables modules initialization failed: %w "+
+					"(try disabling IPv6 in Cilium or loading ip6_tables, ip6table_mangle, ip6table_raw and ip6table_filter kernel modules)", err)
 		}
-		log.WithError(err).Debug(
+		m.logger.WithError(err).Debug(
 			"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
-		haveIp6tables = false
-	}
-
-	ipv6Disabled, err := os.ReadFile("/sys/module/ipv6/parameters/disable")
-	if err != nil {
-		if option.Config.EnableIPv6 {
-			log.WithError(err).Fatal(
-				"IPv6 is enabled but IPv6 kernel support could not be probed")
+		m.haveIp6tables = false
+	} else {
+		ipv6Disabled, err := os.ReadFile("/sys/module/ipv6/parameters/disable")
+		if err != nil {
+			if m.sharedCfg.EnableIPv6 {
+				return fmt.Errorf(
+					"IPv6 is enabled but IPv6 kernel support probing failed with: %w", err)
+			}
+			m.logger.WithError(err).Warning(
+				"Unable to read /sys/module/ipv6/parameters/disable, disabling IPv6 iptables support")
+			m.haveIp6tables = false
+		} else if strings.TrimSuffix(string(ipv6Disabled), "\n") == "1" {
+			m.logger.Debug(
+				"Kernel does not support IPv6, disabling IPv6 iptables support")
+			m.haveIp6tables = false
 		}
-		log.WithError(err).Warning(
-			"Unable to read /sys/module/ipv6/parameters/disable, disabling IPv6 iptables support")
-		haveIp6tables = false
-	} else if strings.TrimSuffix(string(ipv6Disabled), "\n") == "1" {
-		log.Debug(
-			"Kernel does not support IPv6, disabling IPv6 iptables support")
-		haveIp6tables = false
 	}
 
-	m.haveIp6tables = haveIp6tables
-
-	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
-		if !option.Config.TunnelingEnabled() {
+	if err := m.modulesMgr.FindOrLoadModules("xt_socket"); err != nil {
+		if !m.isTunnelingEnabled() {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
 			// logic for packets for which a local socket is found by ip early
 			// demux. xt_socket performs a local socket match and sets an skb mark on
@@ -322,32 +357,38 @@ func (m *Manager) Init(modulesManager *modules.Manager) {
 			// We would not need the xt_socket at all if the datapath universally would
 			// set the "to proxy" skb mark bits on before the packet hits policy routing
 			// stage. Currently this is not true for endpoint routing modes.
-			log.WithError(err).Warning("xt_socket kernel module could not be loaded")
+			m.logger.WithError(err).Warning("xt_socket kernel module could not be loaded")
 
-			if option.Config.EnableXTSocketFallback {
+			if m.sharedCfg.EnableXTSocketFallback {
 				v4disabled := true
 				v6disabled := true
-				if option.Config.EnableIPv4 {
+				if m.sharedCfg.EnableIPv4 {
 					v4disabled = sysctl.Disable("net.ipv4.ip_early_demux") == nil
 				}
-				if option.Config.EnableIPv6 {
+				if m.sharedCfg.EnableIPv6 {
 					v6disabled = sysctl.Disable("net.ipv6.ip_early_demux") == nil
 				}
 				if v4disabled && v6disabled {
 					m.ipEarlyDemuxDisabled = true
-					log.Warning("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
+					m.logger.Warning("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
 				} else {
-					log.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
+					m.logger.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
 				}
 			}
 		}
 	} else {
 		m.haveSocketMatch = true
 	}
-	m.haveBPFSocketAssign = option.Config.EnableBPFTProxy
+	m.haveBPFSocketAssign = m.sharedCfg.EnableBPFTProxy
 
-	ip4tables.initArgs(int(option.Config.IPTablesLockTimeout / time.Second))
-	ip6tables.initArgs(int(option.Config.IPTablesLockTimeout / time.Second))
+	ip4tables.initArgs(int(m.cfg.IPTablesLockTimeout / time.Second))
+	ip6tables.initArgs(int(m.cfg.IPTablesLockTimeout / time.Second))
+
+	return nil
+}
+
+func (m *Manager) Stop(ctx hive.HookContext) error {
+	return nil
 }
 
 // SupportsOriginalSourceAddr tells if an L7 proxy can use POD's original source address and port in
@@ -1415,6 +1456,10 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 	}
 
 	return nil
+}
+
+func (m *Manager) isTunnelingEnabled() bool {
+	return m.sharedCfg.RoutingMode != option.RoutingModeNative
 }
 
 func createIpset(name string, ipv6 bool) error {

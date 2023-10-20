@@ -57,6 +57,9 @@ var Cell = cell.Module(
 	// The modules manager to search and load kernel modules.
 	modules.Cell,
 
+	// Manages Cilium-specific iptables rules.
+	iptables.Cell,
+
 	cell.Provide(
 		newWireguardAgent,
 		newDatapath,
@@ -131,20 +134,7 @@ func newDatapath(params datapathParams) types.Datapath {
 		ProcFs:     option.Config.ProcFs,
 	}
 
-	iptablesManager := &iptables.Manager{}
-
-	params.LC.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			// FIXME enableIPForwarding should not live here
-			if err := enableIPForwarding(); err != nil {
-				log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
-			}
-
-			iptablesManager.Init(params.ModulesManager)
-			return nil
-		}})
-
-	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap, params.ConfigWriter)
+	datapath := linuxdatapath.NewDatapath(datapathConfig, params.IptablesManager, params.WgAgent, params.NodeMap, params.ConfigWriter)
 
 	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
@@ -174,6 +164,8 @@ type datapathParams struct {
 	DeviceManager *linuxdatapath.DeviceManager
 
 	ModulesManager *modules.Manager
+
+	IptablesManager *iptables.Manager
 
 	ConfigWriter types.ConfigWriter
 }

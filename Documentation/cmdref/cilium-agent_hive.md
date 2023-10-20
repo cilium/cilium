@@ -37,6 +37,7 @@ cilium-agent hive [flags]
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
   -h, --help                                                      help for hive
+      --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --k8s-api-server string                                     Kubernetes API server URL
       --k8s-client-burst int                                      Burst value allowed for the K8s client
       --k8s-client-qps float32                                    Queries per second limit for the K8s client
