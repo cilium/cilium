@@ -102,7 +102,7 @@ spec:
         - name: TLS_TO_RELAY_ENABLED
           value: "true"
         - name: TLS_RELAY_SERVER_NAME
-          value: ui.hubble-relay.cilium.io
+          value: {{ .Values.hubble.relay.tls.server.relayName }}
         - name: TLS_RELAY_CA_CERT_FILES
           value: /var/lib/hubble-ui/certs/hubble-relay-ca.crt
         - name: TLS_RELAY_CLIENT_CERT_FILE

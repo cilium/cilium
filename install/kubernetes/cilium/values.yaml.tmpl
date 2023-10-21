@@ -1328,6 +1328,12 @@ hubble:
         extraDnsNames: []
         # -- extra IP addresses added to certificate when its auto gen
         extraIpAddresses: []
+        # DNS name used by the backend to connect to the relay
+        # This is a simple workaround as the relay certificates are currently hardcoded to 
+        # *.hubble-relay.cilium.io 
+        # See https://github.com/cilium/cilium/pull/28709#discussion_r1371792546
+        # For GKE Dataplane V2 this should be set to relay.kube-system.svc.cluster.local
+        relayName: "ui.hubble-relay.cilium.io"
 
     # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
     dialTimeout: ~
