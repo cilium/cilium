@@ -406,6 +406,12 @@ bgp:
 bgpControlPlane:
   # -- Enables the BGP control plane.
   enabled: false
+  # -- SecretsNamespace is the namespace which BGP support will retrieve secrets from.
+  secretsNamespace:
+    # -- Create secrets namespace for BGP secrets.
+    create: true
+    # -- The name of the secret namespace to which Cilium agents are given read access
+    name: cilium-bgp-secrets
 
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
@@ -711,6 +717,9 @@ ingressController:
   # -- Enforce https for host having matching TLS host in Ingress.
   # Incoming traffic to http listener will return 308 http error code with respective location in header.
   enforceHttps: true
+
+  # -- Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
+  enableProxyProtocol: false
 
   # -- IngressLBAnnotations are the annotation prefixes, which are used to filter annotations to propagate
   # from Ingress to the Load Balancer service
@@ -1696,12 +1705,11 @@ enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
 
-# -- Enables egress gateway to redirect and SNAT the traffic that leaves the
-# cluster.
 egressGateway:
+  # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
+  # cluster.
   enabled: false
-  # -- Install egress gateway IP rules and routes in order to properly steer
-  # egress gateway traffic to the correct ENI interface
+  # -- Deprecated without a replacement necessary.
   installRoutes: false
   # -- Time between triggers of egress gateway state reconciliations
   reconciliationTriggerInterval: 1s
@@ -3249,9 +3257,9 @@ authentication:
             create: true
             name: spire-agent
           # -- SPIRE agent annotations
-          annotations: { }
+          annotations: {}
           # -- SPIRE agent labels
-          labels: { }
+          labels: {}
           # -- SPIRE Workload Attestor kubelet verification.
           skipKubeletVerification: true
           # -- SPIRE agent tolerations configuration

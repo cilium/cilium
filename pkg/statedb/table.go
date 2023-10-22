@@ -17,7 +17,7 @@ func NewTable[Obj any](
 	tableName TableName,
 	primaryIndexer Indexer[Obj],
 	secondaryIndexers ...Indexer[Obj],
-) (Table[Obj], error) {
+) (RWTable[Obj], error) {
 	toAnyIndexer := func(idx Indexer[Obj]) anyIndexer {
 		return anyIndexer{
 			name: idx.indexName(),
@@ -136,7 +136,7 @@ func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-
 	// Since LowerBound query may be invalidated by changes in another branch
 	// of the tree, we cannot just simply watch the node we seeked to. Instead
 	// we watch the whole table for changes.
-	watch, _, _ := root.GetWatch([]byte(t.table))
+	watch, _, _ := root.GetWatch(nil)
 	iter := root.Iterator()
 	iter.SeekLowerBound(q.key)
 	return &iterator[Obj]{iter}, watch
@@ -163,10 +163,18 @@ func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan st
 	return &iterator[Obj]{iter}, watchCh
 }
 
-// Insert implements Table
 func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
 	var data any
-	data, hadOld, err = txn.getTxn().Insert(t, obj)
+	data, hadOld, err = txn.getTxn().Insert(t, Revision(0), obj)
+	if err == nil && hadOld {
+		oldObj = data.(Obj)
+	}
+	return
+}
+
+func (t *genTable[Obj]) CompareAndSwap(txn WriteTxn, rev Revision, obj Obj) (oldObj Obj, hadOld bool, err error) {
+	var data any
+	data, hadOld, err = txn.getTxn().Insert(t, rev, obj)
 	if err == nil && hadOld {
 		oldObj = data.(Obj)
 	}
@@ -175,7 +183,16 @@ func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, 
 
 func (t *genTable[Obj]) Delete(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
 	var data any
-	data, hadOld, err = txn.getTxn().Delete(t, obj)
+	data, hadOld, err = txn.getTxn().Delete(t, Revision(0), obj)
+	if err == nil && hadOld {
+		oldObj = data.(Obj)
+	}
+	return
+}
+
+func (t *genTable[Obj]) CompareAndDelete(txn WriteTxn, rev Revision, obj Obj) (oldObj Obj, hadOld bool, err error) {
+	var data any
+	data, hadOld, err = txn.getTxn().Delete(t, rev, obj)
 	if err == nil && hadOld {
 		oldObj = data.(Obj)
 	}
@@ -186,7 +203,7 @@ func (t *genTable[Obj]) DeleteAll(txn WriteTxn) error {
 	iter, _ := t.All(txn)
 	itxn := txn.getTxn()
 	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
-		_, _, err := itxn.Delete(t, obj)
+		_, _, err := itxn.Delete(t, Revision(0), obj)
 		if err != nil {
 			return err
 		}
@@ -212,3 +229,4 @@ func (t *genTable[Obj]) sortableMutex() lock.SortableMutex {
 }
 
 var _ Table[bool] = &genTable[bool]{}
+var _ RWTable[bool] = &genTable[bool]{}

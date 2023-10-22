@@ -154,14 +154,14 @@ the Cilium agent is running in the desired mode:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep KubeProxyReplacement
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status | grep KubeProxyReplacement
     KubeProxyReplacement:   True	[eth0 (Direct Routing), eth1]
 
 Use ``--verbose`` for full details:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status --verbose
     [...]
     KubeProxyReplacement Details:
       Status:                True
@@ -233,13 +233,13 @@ Verify that the NodePort service has been created:
     NAME       TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
     my-nginx   NodePort   10.104.239.135   <none>        80:31940/TCP   24m
 
-With the help of the ``cilium service list`` command, we can validate that
+With the help of the ``cilium-dbg service list`` command, we can validate that
 Cilium's eBPF kube-proxy replacement created the new NodePort service.
 In this example, services with port ``31940`` were created (one for each of devices ``eth0`` and ``eth1``):
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium service list
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg service list
     ID   Frontend               Service Type   Backend
     [...]
     4    10.104.239.135:80      ClusterIP      1 => 10.217.0.107:80
@@ -681,12 +681,12 @@ the multi-device XDP acceleration.
 A list of drivers supporting XDP can be found in :ref:`the XDP documentation<xdp_drivers>`.
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
-the ``cilium status`` CLI command. If it has been enabled successfully, ``Native``
+the ``cilium-dbg status`` CLI command. If it has been enabled successfully, ``Native``
 is shown:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose | grep XDP
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status --verbose | grep XDP
       XDP Acceleration:    Native
 
 Note that packets which have been pushed back out of the device for NodePort handling
@@ -1016,13 +1016,13 @@ the public facing interface, this can be achieved by:
 After updating ``/etc/default/kubelet``, kubelet needs to be restarted.
 
 In order to verify whether the HostPort feature has been enabled in Cilium, the
-``cilium status`` CLI command provides visibility through the ``KubeProxyReplacement``
+``cilium-dbg status`` CLI command provides visibility through the ``KubeProxyReplacement``
 info line. If it has been enabled successfully, ``HostPort`` is shown as ``Enabled``,
 for example:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose | grep HostPort
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status --verbose | grep HostPort
       - HostPort:       Enabled
 
 The following modified example yaml from the setup validation with an additional
@@ -1056,7 +1056,7 @@ exposed the container as HostPort under the specified port ``8080``:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-fmh8d -- cilium service list
+    $ kubectl exec -it -n kube-system cilium-fmh8d -- cilium-dbg service list
     ID   Frontend               Service Type   Backend
     [...]
     5    192.168.178.29:8080    HostPort       1 => 10.29.207.199:80
@@ -1082,7 +1082,7 @@ exposed HostPort container under the node's IP:
     [....]
 
 Removing the deployment also removes the corresponding HostPort from
-the ``cilium service list`` dump:
+the ``cilium-dbg service list`` dump:
 
 .. code-block:: shell-session
 
@@ -1188,11 +1188,11 @@ In Cilium's Helm chart, the default mode is ``kubeProxyReplacement=false`` for
 new deployments.
 
 The current Cilium kube-proxy replacement mode can also be introspected through the
-``cilium status`` CLI command:
+``cilium-dbg status`` CLI command:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep KubeProxyReplacement
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status | grep KubeProxyReplacement
     KubeProxyReplacement:   True	[eth0 (DR)]
 
 Graceful Termination
@@ -1205,11 +1205,11 @@ By default, the Cilium agent then detects such terminating Pod events, and
 increments the metric ``k8s_terminating_endpoints_events_total``. If needed,
 the feature can be disabled with the configuration option ``enable-k8s-terminating-endpoint``.
 
-The cilium agent feature flag can be probed by running ``cilium status`` command:
+The cilium agent feature flag can be probed by running ``cilium-dbg status`` command:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status --verbose
     [...]
     KubeProxyReplacement Details:
      [...]
@@ -1487,7 +1487,7 @@ and selected service endpoint.
 
 Socket LB tracing with Hubble requires cilium agent to detect pod cgroup paths.
 If you see a warning message in cilium agent ``No valid cgroup base path found: socket load-balancing tracing with Hubble will not work.``,
-you can trace packets using ``cilium monitor`` instead.
+you can trace packets using ``cilium-dbg monitor`` instead.
 
 .. note::
 
@@ -1502,7 +1502,7 @@ you can trace packets using ``cilium monitor`` instead.
     mediabot   1/1     Running   0          54m     10.244.1.237   kind-worker   <none>           <none>
     nginx      1/1     Running   0          3h25m   10.244.1.246   kind-worker   <none>           <none>
 
-    $ kubectl exec -n kube-system cilium-rt2jh -- cilium monitor -v -t trace-sock
+    $ kubectl exec -n kube-system cilium-rt2jh -- cilium-dbg monitor -v -t trace-sock
     CPU 11: [pre-xlate-fwd] cgroup_id: 479586 sock_cookie: 7123674, dst [10.96.128.44]:80 tcp
     CPU 11: [post-xlate-fwd] cgroup_id: 479586 sock_cookie: 7123674, dst [10.244.1.246]:80 tcp
     CPU 11: [pre-xlate-rev] cgroup_id: 479586 sock_cookie: 7123674, dst [10.244.1.246]:80 tcp
@@ -1617,6 +1617,16 @@ Limitations
     * The neighbor discovery in a multi-device environment doesn't work with the runtime device
       detection which means that the target devices for the neighbor discovery doesn't follow the
       device changes.
+    * When socket-LB feature is enabled, pods sending (connected) UDP traffic to services
+      can continue to send traffic to a service backend even after it's deleted. Cilium agent
+      handles such scenarios by forcefully terminating pod sockets in the host network
+      namespace that are connected to deleted backends, so that the pods can be
+      load-balanced to active backends. This functionality requires these
+      kernel configs to be enabled: ``CONFIG_INET_DIAG``, ``CONFIG_INET_UDP_DIAG``
+      and ``CONFIG_INET_DIAG_DESTROY``. If you have application pods (not deployed in the
+      host network namespace) making long-lived connections using (connected) UDP,
+      you can enable ``bpf-lb-sock-hostns-only`` in order to enable the socket-LB
+      feature only in the host network namespace.
 
 Further Readings
 ################

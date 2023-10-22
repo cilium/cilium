@@ -65,6 +65,21 @@ const (
 	// BGPPCRDName is the full name of the BGPP CRD.
 	BGPPCRDName = k8sconstv2alpha1.BGPPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 
+	// BGPClusterConfigCRDName is the full name of the BGP Cluster Config CRD.
+	BGPClusterConfigCRDName = k8sconstv2alpha1.BGPCCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// BGPPeerConfigCRDName is the full name of the BGP PeerConfig CRD.
+	BGPPeerConfigCRDName = k8sconstv2alpha1.BGPPCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// BGPAdvertisementCRDName is the full name of the BGP Advertisement CRD.
+	BGPAdvertisementCRDName = k8sconstv2alpha1.BGPAKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// BGPNodeConfigCRDName is the full name of the BGP Node Config CRD.
+	BGPNodeConfigCRDName = k8sconstv2alpha1.BGPNCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// BGPNodeConfigOverrideCRDName is the full name of the BGP Node Config Override CRD.
+	BGPNodeConfigOverrideCRDName = k8sconstv2alpha1.BGPNCOKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
 	// LBIPPoolCRDName is the full name of the BGPPool CRD.
 	LBIPPoolCRDName = k8sconstv2alpha1.PoolKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 
@@ -139,6 +154,26 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 		synced.CRDResourceName(k8sconstv2alpha1.BGPPName): {
 			Name:     BGPPCRDName,
 			FullName: k8sconstv2alpha1.BGPPName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.BGPCCName): {
+			Name:     BGPClusterConfigCRDName,
+			FullName: k8sconstv2alpha1.BGPCCName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.BGPPCName): {
+			Name:     BGPPeerConfigCRDName,
+			FullName: k8sconstv2alpha1.BGPPCName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.BGPAName): {
+			Name:     BGPAdvertisementCRDName,
+			FullName: k8sconstv2alpha1.BGPAName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.BGPNCName): {
+			Name:     BGPNodeConfigCRDName,
+			FullName: k8sconstv2alpha1.BGPNCName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.BGPNCOName): {
+			Name:     BGPNodeConfigOverrideCRDName,
+			FullName: k8sconstv2alpha1.BGPNCOName,
 		},
 		synced.CRDResourceName(k8sconstv2alpha1.LBIPPoolName): {
 			Name:     LBIPPoolCRDName,
@@ -220,6 +255,21 @@ var (
 	//go:embed crds/v2alpha1/ciliumbgppeeringpolicies.yaml
 	crdsv2Alpha1Ciliumbgppeeringpolicies []byte
 
+	//go:embed crds/v2alpha1/ciliumbgpclusterconfigs.yaml
+	crdsv2Alpha1Ciliumbgpclusterconfigs []byte
+
+	//go:embed crds/v2alpha1/ciliumbgppeerconfigs.yaml
+	crdsv2Alpha1Ciliumbgppeerconfigs []byte
+
+	//go:embed crds/v2alpha1/ciliumbgpadvertisements.yaml
+	crdsv2Alpha1Ciliumbgpadvertisements []byte
+
+	//go:embed crds/v2alpha1/ciliumbgpnodeconfigs.yaml
+	crdsv2Alpha1Ciliumbgpnodeconfigs []byte
+
+	//go:embed crds/v2alpha1/ciliumbgpnodeconfigoverrides.yaml
+	crdsv2Alpha1Ciliumbgpnodeconfigoverrides []byte
+
 	//go:embed crds/v2alpha1/ciliumloadbalancerippools.yaml
 	crdsv2Alpha1Ciliumloadbalancerippools []byte
 
@@ -273,6 +323,16 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv2Ciliumenvoyconfigs
 	case BGPPCRDName:
 		crdBytes = crdsv2Alpha1Ciliumbgppeeringpolicies
+	case BGPClusterConfigCRDName:
+		crdBytes = crdsv2Alpha1Ciliumbgpclusterconfigs
+	case BGPPeerConfigCRDName:
+		crdBytes = crdsv2Alpha1Ciliumbgppeerconfigs
+	case BGPAdvertisementCRDName:
+		crdBytes = crdsv2Alpha1Ciliumbgpadvertisements
+	case BGPNodeConfigCRDName:
+		crdBytes = crdsv2Alpha1Ciliumbgpnodeconfigs
+	case BGPNodeConfigOverrideCRDName:
+		crdBytes = crdsv2Alpha1Ciliumbgpnodeconfigoverrides
 	case LBIPPoolCRDName:
 		crdBytes = crdsv2Alpha1Ciliumloadbalancerippools
 	case CNCCRDName:

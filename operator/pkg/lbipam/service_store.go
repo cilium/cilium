@@ -5,9 +5,9 @@ package lbipam
 
 import (
 	"net"
+	"slices"
 
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"

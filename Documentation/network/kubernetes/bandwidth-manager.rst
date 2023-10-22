@@ -87,7 +87,7 @@ is enforced:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep BandwidthManager
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status | grep BandwidthManager
     BandwidthManager:       EDT with BPF [BBR] [eth0]
 
 To verify that egress bandwidth limits are indeed being enforced, one can deploy two
@@ -163,12 +163,12 @@ the ``netperf-server`` Pod):
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-xxxxxx -- cilium bpf bandwidth list
+    $ kubectl exec -it -n kube-system cilium-xxxxxx -- cilium-dbg bpf bandwidth list
     IDENTITY   EGRESS BANDWIDTH (BitsPerSec)
     491        10M
 
 Each Pod is represented in Cilium as an :ref:`endpoint` which has an identity. The above
-identity can then be correlated with the ``cilium endpoint list`` command.
+identity can then be correlated with the ``cilium-dbg endpoint list`` command.
 
 .. note::
 
@@ -226,7 +226,7 @@ info line:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium status | grep BandwidthManager
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg status | grep BandwidthManager
     BandwidthManager:       EDT with BPF [BBR] [eth0]
 
 Once this setting is enabled, it will use BBR as a default for all newly spawned Pods.

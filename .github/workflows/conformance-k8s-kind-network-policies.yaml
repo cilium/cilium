@@ -25,11 +25,11 @@ env:
   kind_version: v0.20.0
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.9
+  cilium_cli_version: v0.15.11
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
-  # renovate: datasource=docker depName=kindest/node
-  k8s_version: v1.28.0
+  # renovate: datasource=docker depName=quay.io/cilium/kindest-node
+  k8s_version: v1.28.2
 
 jobs:
   kubernetes-e2e-net-conformance:
@@ -46,7 +46,7 @@ jobs:
 
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -82,7 +82,7 @@ jobs:
         run: |
           cat <<EOF | /usr/local/bin/kind create cluster \
             --name ${{ env.cluster_name}}           \
-            --image kindest/node:${{ env.k8s_version }}  \
+            --image quay.io/cilium/kindest-node:${{ env.k8s_version }}  \
             -v7 --wait 1m --retain --config=-
           kind: Cluster
           apiVersion: kind.x-k8s.io/v1alpha4
@@ -144,13 +144,13 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1e059407dc39c05ba34042e92702e8d9dacf7c77 # v0.15.9
+        uses: cilium/cilium-cli@951eb9108277f4ffeb86d047bd492b6b96a52542 # v0.15.11
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Checkout code
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false

@@ -230,12 +230,19 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 		if existingPeer.Transport.RemotePort != peerPort {
 			peer.Transport.RemotePort = peerPort
 		}
+
+		// Update the password if needed.
+		if existingPeer.Conf.AuthPassword != n.Password {
+			peer.Conf.AuthPassword = n.Password
+		}
+
 	} else {
 		// Create a new peer
 		peer = &gobgp.Peer{
 			Conf: &gobgp.PeerConf{
 				NeighborAddress: peerAddr.String(),
 				PeerAsn:         uint32(n.Neighbor.PeerASN),
+				AuthPassword:    n.Password,
 			},
 			Transport: &gobgp.Transport{
 				RemotePort: peerPort,
@@ -283,6 +290,7 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 		peer.GracefulRestart.Enabled = true
 		peer.GracefulRestart.RestartTime = uint32(*n.Neighbor.GracefulRestart.RestartTimeSeconds)
 		peer.GracefulRestart.NotificationEnabled = true
+		peer.GracefulRestart.LocalRestarting = true
 	}
 
 	for _, afiConf := range peer.AfiSafis {

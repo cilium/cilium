@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -32,7 +33,7 @@ func Test_authMapGarbageCollector_cleanupIdentities(t *testing.T) {
 			{localIdentity: 11, remoteIdentity: 12, remoteNodeID: 0, authType: policy.AuthTypeAlwaysFail}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(logrus.New(), authMap, nil, nil, nil)
 
 	assert.Len(t, authMap.entries, 5)
 	assert.Empty(t, gc.ciliumIdentitiesDiscovered)
@@ -112,7 +113,7 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 		3: "172.18.0.3",
 		4: "172.18.0.4",
 		5: "172.18.0.5",
-	}), nil)
+	}), nil, nil)
 
 	assert.Len(t, authMap.entries, 5)
 	assert.Len(t, gc.ciliumNodesDiscovered, 1, "Local node 0 is always present")
@@ -197,6 +198,7 @@ func Test_authMapGarbageCollector_cleanupPolicies(t *testing.T) {
 				},
 			},
 		},
+		nil,
 	)
 
 	assert.Len(t, authMap.entries, 3)
@@ -216,7 +218,7 @@ func Test_authMapGarbageCollector_cleanupExpired(t *testing.T) {
 			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(-5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(logrus.New(), authMap, nil, nil, nil)
 
 	assert.Len(t, authMap.entries, 2)
 
@@ -268,6 +270,7 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 				},
 			},
 		},
+		nil,
 	)
 
 	assert.Len(t, authMap.entries, 7)
@@ -289,12 +292,105 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire})
 }
 
+func Test_authMapGarbageCollector_cleanupEndpoints(t *testing.T) {
+	ctx := context.TODO()
+
+	authMap := &fakeAuthMap{
+		entries: map[authKey]authInfo{
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 2, remoteIdentity: 1, remoteNodeID: 0, authType: policy.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+		},
+	}
+	gc := newAuthMapGC(logrus.New(), authMap, nil, nil,
+		&fakeEndpointRepository{
+			endpoints: []*endpoint.Endpoint{
+				{
+					SecurityIdentity: &identity.Identity{
+						ID: 2,
+					},
+				},
+				{
+					SecurityIdentity: &identity.Identity{
+						ID: 3,
+					},
+				},
+			},
+		},
+	)
+
+	assert.Len(t, authMap.entries, 3)
+
+	gc.ciliumIdentitiesDiscovered = map[identity.NumericIdentity]struct{}{
+		1: {},
+		2: {},
+		3: {},
+	}
+	gc.ciliumIdentitiesSynced = true
+
+	err := gc.cleanupEndpoints(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, authMap.entries, 1, "GC runs should delete all entries where the secrity ID no longer is in the endpoint map")
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policy.AuthTypeSpire})
+}
+
+func Test_authMapGarbageCollector_cleanupEndpointsNoopCase(t *testing.T) {
+	ctx := context.TODO()
+
+	authMap := &fakeAuthMap{
+		entries: map[authKey]authInfo{
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 2, remoteIdentity: 1, remoteNodeID: 0, authType: policy.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+		},
+	}
+	gc := newAuthMapGC(logrus.New(), authMap, nil, nil,
+		&fakeEndpointRepository{
+			endpoints: []*endpoint.Endpoint{
+				{
+					SecurityIdentity: &identity.Identity{
+						ID: 1,
+					},
+				},
+				{
+					SecurityIdentity: &identity.Identity{
+						ID: 2,
+					},
+				},
+				{
+					SecurityIdentity: &identity.Identity{
+						ID: 3,
+					},
+				},
+				{
+					SecurityIdentity: &identity.Identity{
+						ID: 3,
+					},
+				},
+			},
+		},
+	)
+
+	assert.Len(t, authMap.entries, 3)
+
+	gc.ciliumIdentitiesDiscovered = map[identity.NumericIdentity]struct{}{
+		1: {},
+		2: {},
+		3: {},
+	}
+	gc.ciliumIdentitiesSynced = true
+
+	err := gc.cleanupEndpoints(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, authMap.entries, 3, "GC runs should not have deleted entries when all secrity IDs were stil in the the endpoint map")
+}
+
 func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
 	authMap := &fakeAuthMap{
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil)
+	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil, nil)
 
 	event := ciliumNodeEvent("172.18.0.3")
 	err := gc.NodeAdd(event)
@@ -313,7 +409,7 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil)
+	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil, nil)
 
 	event := ciliumIdentityEvent(cache.IdentityChangeDelete, 4)
 	err := gc.handleIdentityChange(context.Background(), event)
@@ -359,4 +455,14 @@ func (r *fakePolicyRepository) GetAuthTypes(localID, remoteID identity.NumericId
 	}
 
 	return nil
+}
+
+// fake endpointsRepository
+
+type fakeEndpointRepository struct {
+	endpoints []*endpoint.Endpoint
+}
+
+func (f *fakeEndpointRepository) GetEndpoints() []*endpoint.Endpoint {
+	return f.endpoints
 }

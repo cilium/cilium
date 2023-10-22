@@ -78,6 +78,9 @@ type BgpPeer struct {
 	//
 	SessionState string `json:"session-state,omitempty"`
 
+	// Set when a TCP password is configured for communications with this peer
+	TCPPasswordEnabled bool `json:"tcp-password-enabled,omitempty"`
+
 	// BGP peer connection uptime in nano seconds.
 	UptimeNanoseconds int64 `json:"uptime-nanoseconds,omitempty"`
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -384,6 +385,28 @@ type Endpoint struct {
 
 	// mutable! must hold the endpoint lock to read
 	ciliumEndpointUID k8sTypes.UID
+
+	// Root scope for all of this endpoints reporters.
+	reporterScope       cell.Scope
+	closeHealthReporter func()
+}
+
+func (e *Endpoint) GetReporter(name string) cell.HealthReporter {
+	return cell.GetHealthReporter(e.reporterScope, name)
+}
+
+func (e *Endpoint) InitEndpointScope(parent cell.Scope) {
+	s := cell.GetSubScope(parent, fmt.Sprintf("cilium-endpoint-%d (%s)", e.ID, e.GetK8sNamespaceAndPodName()))
+	if s != nil {
+		e.closeHealthReporter = s.Close
+		e.reporterScope = s
+	}
+}
+
+func (e *Endpoint) Close() {
+	if e.closeHealthReporter != nil {
+		e.closeHealthReporter()
+	}
 }
 
 type namedPortsGetter interface {

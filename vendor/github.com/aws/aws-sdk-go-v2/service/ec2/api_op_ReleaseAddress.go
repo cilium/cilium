@@ -55,9 +55,7 @@ type ReleaseAddressInput struct {
 
 	// The set of Availability Zones, Local Zones, or Wavelength Zones from which
 	// Amazon Web Services advertises IP addresses. If you provide an incorrect network
-	// border group, you receive an InvalidAddress.NotFound error. You cannot use a
-	// network border group with EC2 Classic. If you attempt this operation on EC2
-	// classic, you receive an InvalidParameterCombination error.
+	// border group, you receive an InvalidAddress.NotFound error.
 	NetworkBorderGroup *string
 
 	// Deprecated.

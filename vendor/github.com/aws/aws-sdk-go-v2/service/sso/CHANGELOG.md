@@ -1,3 +1,24 @@
+# v1.15.2 (2023-10-12)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.1 (2023-10-06)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.15.0 (2023-10-02)
+
+* **Feature**: Fix FIPS Endpoints in aws-us-gov.
+
+# v1.14.1 (2023-09-22)
+
+* No change notes available for this release.
+
+# v1.14.0 (2023-09-18)
+
+* **Announcement**: [BREAKFIX] Change in MaxResults datatype from value to pointer type in cognito-sync service.
+* **Feature**: Adds several endpoint ruleset changes across all models: smaller rulesets, removed non-unique regional endpoints, fixes FIPS and DualStack endpoints, and make region not required in SDK::Endpoint. Additional breakfix to cognito-sync field.
+
 # v1.13.6 (2023-08-31)
 
 * No change notes available for this release.

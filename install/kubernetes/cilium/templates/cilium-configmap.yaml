@@ -250,6 +250,7 @@ data:
 {{- if .Values.ingressController.enabled }}
   enable-ingress-controller: "true"
   enforce-ingress-https: {{ .Values.ingressController.enforceHttps | quote }}
+  enable-ingress-proxy-protocol: {{ .Values.ingressController.enableProxyProtocol | quote }}
   enable-ingress-secrets-sync: {{ .Values.ingressController.secretsNamespace.sync | quote }}
   ingress-secrets-namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
   ingress-lb-annotation-prefixes: {{ .Values.ingressController.ingressLBAnnotationPrefixes | join " " | quote }}
@@ -1057,6 +1058,7 @@ data:
 
 {{- if .Values.bgpControlPlane.enabled }}
   enable-bgp-control-plane: "true"
+  bgp-secrets-namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
 {{- else }}
   enable-bgp-control-plane: "false"
 {{- end }}

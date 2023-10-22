@@ -69,7 +69,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -90,7 +90,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -99,7 +99,7 @@ jobs:
         uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.21.1
+          go-version: 1.21.3
 
       - name: Prepare environment
         timeout-minutes: 15
@@ -116,7 +116,7 @@ jobs:
 
   commit-status-final:
     if: ${{ always() }}
-    name: Cimmit Status Final
+    name: Commit Status Final
     needs: integration-test
     runs-on: ubuntu-latest
     steps:

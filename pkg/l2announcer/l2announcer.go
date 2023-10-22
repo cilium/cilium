@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"regexp"
 	"runtime/pprof"
+	"slices"
 	"strings"
 	"time"
 
@@ -35,7 +36,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,7 +72,7 @@ type l2AnnouncerParams struct {
 	Services             resource.Resource[*slim_corev1.Service]
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
-	L2AnnounceTable      statedb.Table[*tables.L2AnnounceEntry]
+	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB              *statedb.DB
 	JobRegistry          job.Registry
 }

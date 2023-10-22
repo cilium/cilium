@@ -189,6 +189,12 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 				   CT_REPORT_FLAGS);
 }
 
+static __always_inline void ct_reset_seen_flags(struct ct_entry *entry)
+{
+	entry->rx_flags_seen = 0;
+	entry->tx_flags_seen = 0;
+}
+
 static __always_inline void ct_reset_closing(struct ct_entry *entry)
 {
 	entry->rx_closing = 0;
@@ -295,6 +301,9 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		case ACTION_CREATE:
 			if (unlikely(ct_entry_closing(entry))) {
 				ct_reset_closing(entry);
+				ct_reset_seen_flags(entry);
+				entry->seen_non_syn = false;
+
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 				return CT_REOPENED;
 			}

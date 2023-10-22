@@ -7,14 +7,15 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // DeviceManager is a temporary compatibility bridge to keep DeviceManager uses as is and reuse its tests
@@ -23,7 +24,7 @@ import (
 // This will be refactored away in follow-up PRs that convert code over to the devices table.
 // The DirectRoutingDevice and IPv6MCastDevice would computed from the devices table as necessary.
 type DeviceManager struct {
-	params         devicesControllerParams
+	params         devicesManagerParams
 	initialDevices []string
 	hive           *hive.Hive
 }
@@ -134,9 +135,17 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 	return devs, nil
 }
 
+type devicesManagerParams struct {
+	cell.In
+
+	DB          *statedb.DB
+	DeviceTable statedb.Table[*tables.Device]
+	RouteTable  statedb.Table[*tables.Route]
+}
+
 // newDeviceManager constructs a DeviceManager that implements the old DeviceManager API.
 // Dummy dependency to *devicesController to make sure devices table is populated.
-func newDeviceManager(p devicesControllerParams, _ *devicesController) *DeviceManager {
+func newDeviceManager(p devicesManagerParams, _ *devicesController) *DeviceManager {
 	return &DeviceManager{params: p, hive: nil}
 }
 

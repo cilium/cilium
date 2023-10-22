@@ -228,6 +228,14 @@ var defaultPartitions = endpoints.Partitions{
 				},
 			},
 			endpoints.EndpointKey{
+				Region: "eu-central-2",
+			}: endpoints.Endpoint{
+				Hostname: "portal.sso.eu-central-2.amazonaws.com",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "eu-central-2",
+				},
+			},
+			endpoints.EndpointKey{
 				Region: "eu-north-1",
 			}: endpoints.Endpoint{
 				Hostname: "portal.sso.eu-north-1.amazonaws.com",
@@ -359,6 +367,24 @@ var defaultPartitions = endpoints.Partitions{
 		},
 		RegionRegex:    partitionRegexp.AwsCn,
 		IsRegionalized: true,
+		Endpoints: endpoints.Endpoints{
+			endpoints.EndpointKey{
+				Region: "cn-north-1",
+			}: endpoints.Endpoint{
+				Hostname: "portal.sso.cn-north-1.amazonaws.com.cn",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "cn-north-1",
+				},
+			},
+			endpoints.EndpointKey{
+				Region: "cn-northwest-1",
+			}: endpoints.Endpoint{
+				Hostname: "portal.sso.cn-northwest-1.amazonaws.com.cn",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "cn-northwest-1",
+				},
+			},
+		},
 	},
 	{
 		ID: "aws-iso",

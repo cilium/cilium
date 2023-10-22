@@ -72,9 +72,7 @@ type AllocateAddressInput struct {
 	// Amazon Web Services advertises IP addresses. Use this parameter to limit the IP
 	// address to this location. IP addresses cannot move between network border
 	// groups. Use DescribeAvailabilityZones (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html)
-	// to view the network border groups. You cannot use a network border group with
-	// EC2 Classic. If you attempt this operation on EC2 Classic, you receive an
-	// InvalidParameterCombination error.
+	// to view the network border groups.
 	NetworkBorderGroup *string
 
 	// The ID of an address pool that you own. Use this parameter to let Amazon EC2

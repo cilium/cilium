@@ -112,6 +112,7 @@ Fields
            neighbors[*].peerAddress: The address of the peer neighbor
            neighbors[*].peerPort: Optional TCP port number of the neighbor. 1-65535 are valid values and defaults to 179 when unspecified.
            neighbors[*].peerASN: The ASN of the peer
+           neighbors[*].authSecretRef: Optional name of a secret in the BGP secrets namespace to use to retrieve a TCP MD5 password.
            neighbors[*].eBGPMultihopTTL: Time To Live (TTL) value used in BGP packets. The value 1 implies that eBGP multi-hop feature is disabled.
            neighbors[*].connectRetryTimeSeconds: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
            neighbors[*].holdTimeSeconds: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
@@ -292,6 +293,37 @@ values, graceful restart configuration and others.
    the session reestablishes and peers exchange their routes. To prevent packet loss,
    it is recommended to configure BGP graceful restart.
 
+MD5 passwords
+'''''''''''''
+
+By configuring ``authSecretRef`` for a neighbor you can configure that a
+`RFC-2385`_ TCP MD5 password should be configured on the session with this BGP
+peer.
+
+``authSecretRef`` should reference the name of a secret in the BGP secrets
+namespace (if using the Helm chart this is ``cilium-bgp-secrets`` by default).
+The secret should contain a key with a name of ``password``.
+
+BGP secrets are limited to a configured namespace to keep the permissions
+needed on each Cilium Agent instance to a minimum. The Helm chart will create
+this namespace and configure Cilium to be able to read from it by default.
+
+An example of creating a secret is:
+
+.. code-block:: shell-session
+
+  # kubectl create secret generic -n cilium-bgp-secrets --type=string secretName --from-literal=password=my-secret-password
+
+Because TCP MD5 passwords sign the header of the packet they cannot be used if
+the session will be address translated by Cilium (i.e. the Cilium Agent's pod
+IP address must be the address the BGP peer sees).
+
+If the password is incorrect, or the header is otherwise changed the TCP
+connection will not succeed. This will appear as ``dial: i/o timeout`` in the
+Cilium Agent's logs rather than a more specific error message.
+
+.. _RFC-2385 : https://www.rfc-editor.org/rfc/rfc2385.html
+
 Graceful Restart
 ''''''''''''''''
 The Cilium BGP control plane can be configured to act as a graceful restart
@@ -399,11 +431,11 @@ The following command shows peering status:
 
 .. code-block:: shell-session
 
-   cilium# cilium bgp peers -h
+   cilium# cilium-dbg bgp peers -h
    List state of all peers defined in CiliumBGPPeeringPolicy
 
    Usage:
-     cilium bgp peers [flags]
+     cilium-dbg bgp peers [flags]
 
    Flags:
      -h, --help            help for peers
@@ -422,7 +454,7 @@ Cilium CLI displays the BGP peering status of all nodes.
 
 .. code-block:: shell-session
 
-   # cilium-cli bgp peers -h
+   # cilium bgp peers -h
    Gets BGP peering status from all nodes in the cluster
 
    Usage:

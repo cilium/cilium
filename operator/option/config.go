@@ -249,6 +249,9 @@ const (
 	// Incoming traffic to http listener will return 308 http error code with respective location in header.
 	EnforceIngressHttps = "enforce-ingress-https"
 
+	// EnableIngressProxyProtocol enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
+	EnableIngressProxyProtocol = "enable-ingress-proxy-protocol"
+
 	// EnableIngressSecretsSync enables fan-in TLS secrets from multiple namespaces to singular namespace (specified
 	// by ingress-secrets-namespace flag
 	EnableIngressSecretsSync = "enable-ingress-secrets-sync"
@@ -507,6 +510,9 @@ type OperatorConfig struct {
 	// EnforceIngressHTTPS enforces https if required
 	EnforceIngressHTTPS bool
 
+	// EnableIngressProxyProtocol uses proxy protocol in listeners
+	EnableIngressProxyProtocol bool
+
 	// EnableIngressSecretsSync enables background TLS secret sync for Ingress
 	EnableIngressSecretsSync bool
 
@@ -595,6 +601,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
+	c.EnableIngressProxyProtocol = vp.GetBool(EnableIngressProxyProtocol)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
 	c.GatewayAPISecretsNamespace = vp.GetString(GatewayAPISecretsNamespace)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)

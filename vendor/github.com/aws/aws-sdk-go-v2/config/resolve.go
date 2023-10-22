@@ -113,10 +113,6 @@ func resolveAppID(ctx context.Context, cfg *aws.Config, configs configs) error {
 		return err
 	}
 
-	// if app ID is set in env var, it should precedence shared config value
-	if appID := os.Getenv(`AWS_SDK_UA_APP_ID`); len(appID) > 0 {
-		ID = appID
-	}
 	cfg.AppID = ID
 	return nil
 }

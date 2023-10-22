@@ -16,7 +16,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.9
+  cilium_cli_version: v0.15.11
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
@@ -36,7 +36,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           persist-credentials: false
       - name: Check code changes
@@ -57,7 +57,7 @@ jobs:
     name: Installation and Conformance Test
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -65,7 +65,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           persist-credentials: false
 
@@ -130,12 +130,10 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
+        uses: cilium/cilium-cli@951eb9108277f4ffeb86d047bd492b6b96a52542 # v0.15.11
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Install Cilium
         id: install-cilium

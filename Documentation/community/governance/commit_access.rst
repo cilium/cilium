@@ -136,7 +136,7 @@ Code of Conduct violator is a Maintainer, the Maintainers will instead
 designate two Maintainers to work with the `CNCF CoC Committee`_.
 
 .. _Code of Conduct: https://github.com/cilium/cilium/blob/main/CODE_OF_CONDUCT.md
-.. _CNCF CoC Committee: https://www.cncf.io/conduct/procedures/
+.. _CNCF CoC Committee: https://www.cncf.io/conduct/committee/
 
 Granting Commit Access
 ----------------------

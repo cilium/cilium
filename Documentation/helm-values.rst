@@ -251,11 +251,23 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false}``
+     - ``{"enabled":false,"secretsNamespace":{"create":true,"name":"cilium-bgp-secrets"}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
      - bool
      - ``false``
+   * - :spelling:ignore:`bgpControlPlane.secretsNamespace`
+     - SecretsNamespace is the namespace which BGP support will retrieve secrets from.
+     - object
+     - ``{"create":true,"name":"cilium-bgp-secrets"}``
+   * - :spelling:ignore:`bgpControlPlane.secretsNamespace.create`
+     - Create secrets namespace for BGP secrets.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`bgpControlPlane.secretsNamespace.name`
+     - The name of the secret namespace to which Cilium agents are given read access
+     - string
+     - ``"cilium-bgp-secrets"``
    * - :spelling:ignore:`bpf.authMapMax`
      - Configure the maximum number of entries in auth map.
      - int
@@ -848,12 +860,12 @@
      - The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
      - string
      - ``"100ms"``
-   * - :spelling:ignore:`egressGateway`
+   * - :spelling:ignore:`egressGateway.enabled`
      - Enables egress gateway to redirect and SNAT the traffic that leaves the cluster.
-     - object
-     - ``{"enabled":false,"installRoutes":false,"reconciliationTriggerInterval":"1s"}``
+     - bool
+     - ``false``
    * - :spelling:ignore:`egressGateway.installRoutes`
-     - Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
+     - Deprecated without a replacement necessary.
      - bool
      - ``false``
    * - :spelling:ignore:`egressGateway.reconciliationTriggerInterval`
@@ -1099,7 +1111,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:cfdbc99947fc042187afa72cd271619be3546e2f4e1f6899f31a2659bc21fee4","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.27.0-6b9ff340bc4058c9063b74aeeadd58fdc724c32e","useDigest":true}``
+     - ``{"digest":"sha256:2b590be37624547d638a578a3f31278d3be53a1a2649ba888a9f15771628521e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.27.2-ab187719b71b513150f30209569695adf16ec869","useDigest":true}``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
@@ -1767,7 +1779,7 @@
    * - :spelling:ignore:`hubble.ui.backend.image`
      - Hubble-ui backend image.
      - object
-     - ``{"digest":"sha256:8a79a1aad4fc9c2aa2b3e4379af0af872a89fcec9d99e117188190671c66fc2e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.12.0","useDigest":true}``
+     - ``{"digest":"sha256:1f86f3400827a0451e6332262467f894eeb7caf0eb8779bd951e2caa9d027cbe","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.12.1","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.backend.livenessProbe.enabled`
      - Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
      - bool
@@ -1807,7 +1819,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.image`
      - Hubble-ui frontend image.
      - object
-     - ``{"digest":"sha256:1c876cfa1d5e35bc91e1025c9314f922041592a88b03313c22c1f97a5d2ba88f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.12.0","useDigest":true}``
+     - ``{"digest":"sha256:9e5f81ee747866480ea1ac4630eb6975ff9227f9782b7c93919c081c33f38267","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.12.1","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.frontend.resources`
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -1932,6 +1944,10 @@
      - Default secret namespace for ingresses without .spec.tls[].secretName set.
      - string
      - ``nil``
+   * - :spelling:ignore:`ingressController.enableProxyProtocol`
+     - Enable proxy protocol for all Ingress listeners. Note that *only* Proxy protocol traffic will be accepted once this is enabled.
+     - bool
+     - ``false``
    * - :spelling:ignore:`ingressController.enabled`
      - Enable cilium ingress controller This will automatically set enable-envoy-config as well.
      - bool

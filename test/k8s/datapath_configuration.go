@@ -42,7 +42,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport("cilium status", "cilium endpoint list")
+		kubectl.CiliumReport("cilium-dbg status", "cilium-dbg endpoint list")
 	})
 
 	AfterAll(func() {
@@ -1143,7 +1143,7 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl) (monitorRes *helpe
 	ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 
-	By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
+	By(fmt.Sprintf("Launching cilium-dbg monitor on %q", ciliumPodK8s1))
 	monitorRes, monitorCancel = kubectl.MonitorStart(ciliumPodK8s1)
 	result, targetIP := testPodConnectivityAndReturnIP(kubectl, requireMultinode, 2)
 	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")

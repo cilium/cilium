@@ -92,7 +92,7 @@ The following shell commands perform these steps:
    $ ENDPOINT=$(kubectl get cep -o jsonpath="{.items[?(@.metadata.name=='$PODNAME')].status.id}")
    $ CILIUM_POD=$(kubectl -n "$CILIUM_NAMESPACE" get pod --all-namespaces --field-selector spec.nodeName="$NODENAME" -lk8s-app=cilium -o jsonpath='{.items[*].metadata.name}')
    $ kubectl -n "$CILIUM_NAMESPACE" exec "$CILIUM_POD" -c cilium-agent -- \
-       cilium endpoint config "$ENDPOINT" PolicyAuditMode=Enabled
+       cilium-dbg endpoint config "$ENDPOINT" PolicyAuditMode=Enabled
     Endpoint 232 configuration updated successfully
 
 We can check that Policy Audit Mode is enabled for this endpoint with
@@ -100,7 +100,7 @@ We can check that Policy Audit Mode is enabled for this endpoint with
 .. code-block:: shell-session
 
    $ kubectl -n "$CILIUM_NAMESPACE" exec "$CILIUM_POD" -c cilium-agent -- \
-       cilium endpoint get "$ENDPOINT" -o jsonpath='{[*].spec.options.PolicyAuditMode}'
+       cilium-dbg endpoint get "$ENDPOINT" -o jsonpath='{[*].spec.options.PolicyAuditMode}'
    Enabled
 
 .. _observe_policy_verdicts:
@@ -246,7 +246,7 @@ These steps are nearly identical to enabling Policy Audit Mode.
    $ ENDPOINT=$(kubectl get cep -o jsonpath="{.items[?(@.metadata.name=='$PODNAME')].status.id}")
    $ CILIUM_POD=$(kubectl -n "$CILIUM_NAMESPACE" get pod --all-namespaces --field-selector spec.nodeName="$NODENAME" -lk8s-app=cilium -o jsonpath='{.items[*].metadata.name}')
    $ kubectl -n "$CILIUM_NAMESPACE" exec "$CILIUM_POD" -c cilium-agent -- \
-       cilium endpoint config "$ENDPOINT" PolicyAuditMode=Disabled
+       cilium-dbg endpoint config "$ENDPOINT" PolicyAuditMode=Disabled
     Endpoint 232 configuration updated successfully
 
 Alternatively, **restarting the Cilium pod** will set the endpoint Policy Audit Mode to the daemon set configuration.
@@ -258,7 +258,7 @@ Verify Policy Audit Mode is Disabled
 .. code-block:: shell-session
 
    $ kubectl -n "$CILIUM_NAMESPACE" exec "$CILIUM_POD" -c cilium-agent -- \
-       cilium endpoint get "$ENDPOINT" -o jsonpath='{[*].spec.options.PolicyAuditMode}'
+       cilium-dbg endpoint get "$ENDPOINT" -o jsonpath='{[*].spec.options.PolicyAuditMode}'
    Disabled
 
 Now if we run the landing requests again, only the *tiefighter* pods with the

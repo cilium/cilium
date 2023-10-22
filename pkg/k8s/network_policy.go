@@ -61,41 +61,41 @@ func parseNetworkPolicyPeer(namespace string, peer *slim_networkingv1.NetworkPol
 	var retSel *api.EndpointSelector
 
 	if peer.NamespaceSelector != nil {
-		labelSelector := peer.NamespaceSelector
-		matchLabels := map[string]string{}
+		namespaceSelector := &slim_metav1.LabelSelector{
+			MatchLabels: make(map[string]string, len(peer.NamespaceSelector.MatchLabels)),
+		}
 		// We use our own special label prefix for namespace metadata,
 		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
 		for k, v := range peer.NamespaceSelector.MatchLabels {
-			matchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
+			namespaceSelector.MatchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
 		}
-		peer.NamespaceSelector.MatchLabels = matchLabels
 
 		// We use our own special label prefix for namespace metadata,
 		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-		for i, lsr := range peer.NamespaceSelector.MatchExpressions {
-			lsr.Key = policy.JoinPath(k8sConst.PodNamespaceMetaLabels, lsr.Key)
-			peer.NamespaceSelector.MatchExpressions[i] = lsr
+		for _, matchExp := range peer.NamespaceSelector.MatchExpressions {
+			lsr := slim_metav1.LabelSelectorRequirement{
+				Key:      policy.JoinPath(k8sConst.PodNamespaceMetaLabels, matchExp.Key),
+				Operator: matchExp.Operator,
+			}
+			if matchExp.Values != nil {
+				lsr.Values = make([]string, len(matchExp.Values))
+				copy(lsr.Values, matchExp.Values)
+			}
+			namespaceSelector.MatchExpressions =
+				append(namespaceSelector.MatchExpressions, lsr)
 		}
 
 		// Empty namespace selector selects all namespaces (i.e., a namespace
 		// label exists).
-		if len(peer.NamespaceSelector.MatchLabels) == 0 && len(peer.NamespaceSelector.MatchExpressions) == 0 {
-			peer.NamespaceSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
+		if len(namespaceSelector.MatchLabels) == 0 && len(namespaceSelector.MatchExpressions) == 0 {
+			namespaceSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
 		}
 
-		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector, peer.PodSelector)
+		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, peer.PodSelector)
 		retSel = &selector
 	} else if peer.PodSelector != nil {
-		labelSelector := peer.PodSelector
-		if peer.PodSelector.MatchLabels == nil {
-			peer.PodSelector.MatchLabels = map[string]string{}
-		}
-		// The PodSelector should only reflect to the same namespace
-		// the policy is being stored, thus we add the namespace to
-		// the MatchLabels map.
-		peer.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
-
-		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
+		podSelector := parsePodSelector(peer.PodSelector, namespace)
+		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
 		retSel = &selector
 	}
 
@@ -235,14 +235,11 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 		egresses = []api.EgressRule{{}}
 	}
 
-	if np.Spec.PodSelector.MatchLabels == nil {
-		np.Spec.PodSelector.MatchLabels = map[string]string{}
-	}
-	np.Spec.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
+	podSelector := parsePodSelector(&np.Spec.PodSelector, namespace)
 
 	// The next patch will pass the UID.
 	rule := api.NewRule().
-		WithEndpointSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector)).
+		WithEndpointSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)).
 		WithLabels(GetPolicyLabelsv1(np)).
 		WithIngressRules(ingresses).
 		WithEgressRules(egresses)
@@ -252,6 +249,33 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 	}
 
 	return api.Rules{rule}, nil
+}
+
+func parsePodSelector(podSelectorIn *slim_metav1.LabelSelector, namespace string) *slim_metav1.LabelSelector {
+	podSelector := &slim_metav1.LabelSelector{
+		MatchLabels: make(map[string]slim_metav1.MatchLabelsValue, len(podSelectorIn.MatchLabels)),
+	}
+	for k, v := range podSelectorIn.MatchLabels {
+		podSelector.MatchLabels[k] = v
+	}
+	// The PodSelector should only reflect to the same namespace
+	// the policy is being stored, thus we add the namespace to
+	// the MatchLabels map.
+	podSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
+
+	for _, matchExp := range podSelectorIn.MatchExpressions {
+		lsr := slim_metav1.LabelSelectorRequirement{
+			Key:      matchExp.Key,
+			Operator: matchExp.Operator,
+		}
+		if matchExp.Values != nil {
+			lsr.Values = make([]string, len(matchExp.Values))
+			copy(lsr.Values, matchExp.Values)
+		}
+		podSelector.MatchExpressions =
+			append(podSelector.MatchExpressions, lsr)
+	}
+	return podSelector
 }
 
 func ipBlockToCIDRRule(block *slim_networkingv1.IPBlock) api.CIDRRule {

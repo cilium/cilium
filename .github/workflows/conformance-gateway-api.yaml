@@ -57,7 +57,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.9
+  cilium_cli_version: v0.15.11
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
@@ -86,10 +86,14 @@ jobs:
       matrix:
         include:
         - crd-channel: experimental
+          conformance-profile: false
         - crd-channel: standard
+          conformance-profile: false
+        - crd-channel: experimental
+          conformance-profile: true
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -98,7 +102,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1e059407dc39c05ba34042e92702e8d9dacf7c77 # v0.15.9
+        uses: cilium/cilium-cli@951eb9108277f4ffeb86d047bd492b6b96a52542 # v0.15.11
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
@@ -114,7 +118,6 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           
-          # Enable HTTPRouteRequestMultipleMirrors again once https://github.com/cilium/cilium/issues/28374 is fixed
           SUPPORTED_FEATURES="ReferenceGrant,HTTPRoute,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,GatewayClassObservedGenerationBump,HTTPRouteHostRewrite,HTTPRoutePathRewrite,HTTPRouteSchemeRedirect,HTTPRoutePathRedirect,HTTPRoutePortRedirect,HTTPRouteRequestMirror"
           if [ ${{ matrix.crd-channel }} == "experimental" ]; then
             SUPPORTED_FEATURES+=",HTTPResponseHeaderModification,RouteDestinationPortMatching"
@@ -132,7 +135,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -147,7 +150,7 @@ jobs:
         uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.21.1
+          go-version: 1.21.3
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -222,13 +225,38 @@ jobs:
             controllerName: io.cilium/gateway-controller
           EOF
           
-          GATEWAY_API_CONFORMANCE_TESTS=1 go test \
-            -p 4 \
-            -v ./operator/pkg/gateway-api \
-            --gateway-class cilium \
-            --supported-features "${{ steps.vars.outputs.supported_features }}" \
-            -test.run "TestConformance" \
-            -test.skip "${{ steps.vars.outputs.skipped_tests }}"
+          if [ ${{ matrix.conformance-profile }} == "true" ]; then
+            GATEWAY_API_CONFORMANCE_TESTS=1 go test \
+              -p 4 \
+              -v ./operator/pkg/gateway-api \
+              --gateway-class cilium \
+              --supported-features "${{ steps.vars.outputs.supported_features }}" \
+              --conformance-profiles HTTP,TLS \
+              --organization cilium \
+              --project cilium \
+              --url github.com/cilium/cilium \
+              --version main \
+              --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
+              --report-output report.yaml \
+              -test.run "TestExperimentalConformance" \
+              -test.skip "${{ steps.vars.outputs.skipped_tests }}"
+          else
+            GATEWAY_API_CONFORMANCE_TESTS=1 go test \
+              -p 4 \
+              -v ./operator/pkg/gateway-api \
+              --gateway-class cilium \
+              --supported-features "${{ steps.vars.outputs.supported_features }}" \
+              -test.run "TestConformance" \
+              -test.skip "${{ steps.vars.outputs.skipped_tests }}"
+          fi
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: report.yaml
+          path: operator/pkg/gateway-api/report.yaml
+          retention-days: 5
+          if-no-files-found: ignore
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}

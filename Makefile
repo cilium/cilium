@@ -12,7 +12,7 @@ debug: all
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := envoy cilium daemon cilium-health bugtool tools/mount tools/sysctlfix
+SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount tools/sysctlfix
 SUBDIR_OPERATOR_CONTAINER := operator
 
 # Add the ability to override variables
@@ -233,6 +233,11 @@ CRDS_CILIUM_V2 := ciliumnetworkpolicies \
                   ciliumclusterwideenvoyconfigs
 CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
                         ciliumbgppeeringpolicies \
+                        ciliumbgpclusterconfigs \
+                        ciliumbgppeerconfigs \
+                        ciliumbgpadvertisements \
+                        ciliumbgpnodeconfigs \
+                        ciliumbgpnodeconfigoverrides \
                         ciliumloadbalancerippools \
                         ciliumnodeconfigs \
                         ciliumcidrgroups \
@@ -473,6 +478,42 @@ kind-clustermesh-ready: ## Check if both kind clustermesh clusters exist
 	@kind get clusters 2>&1 | grep "clustermesh2" \
 		&& exit 0 || exit 1
 
+.PHONY: kind-bgp-v4
+kind-bgp-v4:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 deploy
+
+.PHONY: kind-bgp-v4-down
+kind-bgp-v4-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 destroy
+
+.PHONY: kind-bgp-v4-apply-policy
+kind-bgp-v4-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 apply-policy
+
+.PHONY: kind-bgp-v6
+kind-bgp-v6:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 deploy
+
+.PHONY: kind-bgp-v6-down
+kind-bgp-v6-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 destroy
+
+.PHONY: kind-bgp-v6-apply-policy
+kind-bgp-v6-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 apply-policy
+
+.PHONY: kind-bgp-dual
+kind-bgp-dual:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual deploy
+
+.PHONY: kind-bgp-dual-down
+kind-bgp-dual-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual destroy
+
+.PHONY: kind-bgp-dual-apply-policy
+kind-bgp-dual-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual apply-policy
+
 # Template for kind environment for a target. Parameters are:
 # $(1) Makefile target name
 define KIND_ENV
@@ -527,12 +568,13 @@ kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Ciliu
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
 
+KIND_CLUSTER_NAME ?= kind
 
 .PHONY: kind-ready
 kind-ready:
 	@$(ECHO_CHECK) kind is ready...
-	@kind get clusters 2>&1 | grep "No kind clusters found." \
-		&& exit 1 || exit 0
+	@kind get clusters 2>&1 | grep "$(KIND_CLUSTER_NAME)" \
+		&& exit 0 || exit 1
 
 $(eval $(call KIND_ENV,kind-build-image-agent))
 kind-build-image-agent: ## Build cilium-dev docker image
@@ -540,7 +582,7 @@ kind-build-image-agent: ## Build cilium-dev docker image
 
 $(eval $(call KIND_ENV,kind-image-agent))
 kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME)
 
 $(eval $(call KIND_ENV,kind-build-image-operator))
 kind-build-image-operator: ## Build cilium-operator-dev docker image
@@ -548,7 +590,7 @@ kind-build-image-operator: ## Build cilium-operator-dev docker image
 
 $(eval $(call KIND_ENV,kind-image-operator))
 kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME)
 
 $(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
 kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
@@ -585,7 +627,7 @@ kind-install-cilium-fast: kind-ready ## Install a local Cilium version into the 
 
 .PHONY: build-cli
 build-cli: ## Build cilium cli binary
-	$(QUIET)$(MAKE) -C cilium
+	$(QUIET)$(MAKE) -C cilium-dbg
 
 .PHONY: build-agent
 build-agent: ## Build cilium daemon binary
@@ -611,9 +653,9 @@ kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and 
 			docker cp "./bpf/" $${node_name}:"${dst}/var/lib/cilium/bpf"; \
 			docker exec -ti $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
 			\
-			docker exec -ti $${node_name} rm -f "${dst}/cilium"; \
-			docker cp "./cilium/cilium" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/cilium"; \
+			docker exec -ti $${node_name} rm -f "${dst}/cilium-dbg"; \
+			docker cp "./cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/cilium-dbg"; \
 			\
 			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \

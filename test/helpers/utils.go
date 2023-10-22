@@ -633,7 +633,7 @@ func RunsOnJenkins() bool {
 // UDP host reachable services are enabled.
 func (kub *Kubectl) HasSocketLB(pod string) bool {
 	status := kub.CiliumExecContext(context.TODO(), pod,
-		"cilium status -o jsonpath='{.kube-proxy-replacement.features.socketLB}'")
+		"cilium-dbg status -o jsonpath='{.kube-proxy-replacement.features.socketLB}'")
 	status.ExpectSuccess("Failed to get status: %s", status.OutputPrettyPrint())
 	lines := status.ByLines()
 	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get socketLB status")
@@ -644,7 +644,7 @@ func (kub *Kubectl) HasSocketLB(pod string) bool {
 // HasBPFNodePort returns true if the given Cilium pod has BPF NodePort enabled.
 func (kub *Kubectl) HasBPFNodePort(pod string) bool {
 	status := kub.CiliumExecContext(context.TODO(), pod,
-		"cilium status -o jsonpath='{.kube-proxy-replacement.features.nodePort.enabled}'")
+		"cilium-dbg status -o jsonpath='{.kube-proxy-replacement.features.nodePort.enabled}'")
 	status.ExpectSuccess("Failed to get status: %s", status.OutputPrettyPrint())
 	lines := status.ByLines()
 	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get nodePort status")

@@ -5,7 +5,7 @@ main() {
     cilium_started=false
 
     for ((i = 0 ; i < 24; i++)); do
-        if cilium status --brief > /dev/null 2>&1; then
+        if cilium-dbg status --brief > /dev/null 2>&1; then
             cilium_started=true
             break
         fi

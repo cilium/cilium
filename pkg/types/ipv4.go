@@ -31,3 +31,15 @@ func (v4 IPv4) String() string {
 func (v4 *IPv4) DeepCopyInto(out *IPv4) {
 	copy(out[:], v4[:])
 }
+
+// FromAddr will populate the receiver with the specified address if and only
+// if the provided address is a valid IPv4 address. Any other address,
+// including the "invalid ip" value netip.Addr{} will zero the receiver.
+func (v4 *IPv4) FromAddr(addr netip.Addr) {
+	if addr.Is4() {
+		a := IPv4(addr.As4())
+		copy(v4[:], a[:])
+	} else {
+		clear(v4[:])
+	}
+}

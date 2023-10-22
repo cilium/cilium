@@ -730,6 +730,23 @@ func Init(params InitParams) {
 	initSourceRange(params)
 }
 
+// ExistsSockRevNat checks if the passed entry exists in the sock rev nat map.
+func (*LBBPFMap) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
+	if addr.To4() != nil {
+		key := NewSockRevNat4Key(cookie, addr, port)
+		if _, err := key.Map().Lookup(key); err == nil {
+			return true
+		}
+	} else {
+		key := NewSockRevNat6Key(cookie, addr, port)
+		if _, err := key.Map().Lookup(key); err == nil {
+			return true
+		}
+	}
+
+	return false
+}
+
 // InitParams represents the parameters to be passed to Init().
 type InitParams struct {
 	IPv4, IPv6 bool

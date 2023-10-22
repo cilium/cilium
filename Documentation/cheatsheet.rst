@@ -18,7 +18,7 @@ guide.
     CLI for interacting with the local Cilium Agent
 
     Usage:
-      cilium [command]
+      cilium-dbg [command]
 
     Available Commands:
       bpf                      Direct access to local eBPF maps
@@ -59,7 +59,7 @@ output, to get the JSON output you can use the global option ``-o json``
 
 .. code-block:: shell-session
 
-    $ cilium endpoint list -o json
+    $ cilium-dbg endpoint list -o json
 
 Moreover, Cilium also provides a `JSONPath
 <https://goessner.net/articles/JsonPath/>`_ support, so detailed information can
@@ -68,9 +68,9 @@ documentation <https://kubernetes.io/docs/reference/kubectl/jsonpath/>`_
 
 .. code-block:: shell-session
 
-    $ cilium endpoint list -o jsonpath='{[*].id}'
+    $ cilium-dbg endpoint list -o jsonpath='{[*].id}'
     29898 38939 56326
-    $ cilium endpoint list -o jsonpath='{range [*]}{@.id}{"="}{@.status.policy.spec.policy-enabled}{"\n"}{end}'
+    $ cilium-dbg endpoint list -o jsonpath='{range [*]}{@.id}{"="}{@.status.policy.spec.policy-enabled}{"\n"}{end}'
     29898=none
     38939=none
     56326=none
@@ -105,7 +105,7 @@ Check the status of the agent
 
 .. code-block:: shell-session
 
-    $ cilium status
+    $ cilium-dbg status
     KVStore:                Ok         Consul: 172.17.0.3:8300
     ContainerRuntime:       Ok
     Kubernetes:             Disabled
@@ -121,7 +121,7 @@ Get a detailed status of the agent:
 
 .. code-block:: shell-session
 
-    $ cilium status --all-controllers --all-health --all-redirects
+    $ cilium-dbg status --all-controllers --all-health --all-redirects
     KVStore:                Ok         Consul: 172.17.0.3:8300
     ContainerRuntime:       Ok
     Kubernetes:             Disabled
@@ -146,7 +146,7 @@ Get the current agent configuration
 
 .. code-block:: shell-session
 
-    cilium config
+    cilium-dbg config
 
 Policy management
 -----------------
@@ -156,72 +156,72 @@ Importing a Cilium Network Policy
 
 .. code-block:: shell-session
 
-    cilium policy import my-policy.json
+    cilium-dbg policy import my-policy.json
 
 
 Get list of all imported policy rules
 
 .. code-block:: shell-session
 
-    cilium policy get
+    cilium-dbg policy get
 
 Remove all policies
 
 .. code-block:: shell-session
 
-    cilium policy delete --all
+    cilium-dbg policy delete --all
 
 
 Monitoring
 ~~~~~~~~~~~
 
 
-Monitor cilium datapath notifications
+Monitor cilium-dbg datapath notifications
 
 .. code-block:: shell-session
 
-    cilium monitor
+    cilium-dbg monitor
 
 
 Verbose output (including debug if enabled)
 
 .. code-block:: shell-session
 
-    cilium monitor -v
+    cilium-dbg monitor -v
 
 Extra verbose output (including packet dissection)
 
 .. code-block:: shell-session
 
-    cilium monitor -v -v
+    cilium-dbg monitor -v -v
 
 
 Filter for only the events related to endpoint
 
 .. code-block:: shell-session
 
-    cilium monitor --related-to=<id>
+    cilium-dbg monitor --related-to=<id>
 
 
 Filter for only events on layer 7
 
 .. code-block:: shell-session
 
-    cilium monitor -t L7
+    cilium-dbg monitor -t L7
 
 
 Show notifications only for dropped packet events
 
 .. code-block:: shell-session
 
-    cilium monitor --type drop
+    cilium-dbg monitor --type drop
 
 
 Don't dissect packet payload, display payload in hex information
 
 .. code-block:: shell-session
 
-    cilium monitor -v -v --hex
+    cilium-dbg monitor -v -v --hex
 
 
 
@@ -245,25 +245,25 @@ Get list of all local endpoints
 
 .. code-block:: shell-session
 
-    cilium endpoint list
+    cilium-dbg endpoint list
 
 Get detailed view of endpoint properties and state
 
 .. code-block:: shell-session
 
-    cilium endpoint get <id>
+    cilium-dbg endpoint get <id>
 
 Show recent endpoint specific log entries
 
 .. code-block:: shell-session
 
-    cilium endpoint log <id>
+    cilium-dbg endpoint log <id>
 
-Enable debugging output on the cilium monitor for this endpoint
+Enable debugging output on the cilium-dbg monitor for this endpoint
 
 .. code-block:: shell-session
 
-    cilium endpoint config <id> Debug=true
+    cilium-dbg endpoint config <id> Debug=true
 
 
 Loadbalancing
@@ -273,21 +273,21 @@ Get list of loadbalancer services
 
 .. code-block:: shell-session
 
-    cilium service list
+    cilium-dbg service list
 
 
 Or you can get the loadbalancer information using bpf list
 
 .. code-block:: shell-session
 
-    cilium bpf lb list
+    cilium-dbg bpf lb list
 
 
 Add a new loadbalancer
 
 .. code-block:: shell-session
 
-    cilium service update --frontend 127.0.0.1:80 \
+    cilium-dbg service update --frontend 127.0.0.1:80 \
         --backends 127.0.0.2:90,127.0.0.3:90 \
         --id 20
 
@@ -298,25 +298,25 @@ List node tunneling mapping information
 
 .. code-block:: shell-session
 
-    cilium bpf tunnel list
+    cilium-dbg bpf tunnel list
 
 Checking logs for verifier issue
 
 .. code-block:: shell-session
 
-    journalctl -u cilium | grep -B20 -F10 Verifier
+    journalctl -u cilium-dbg | grep -B20 -F10 Verifier
 
 List connection tracking entries:
 
 .. code-block:: shell-session
 
-    sudo cilium bpf ct list global
+    sudo cilium-dbg bpf ct list global
 
 Flush connection tracking entries:
 
 .. code-block:: shell-session
 
-    sudo cilium bpf ct flush
+    sudo cilium-dbg bpf ct flush
 
 Kubernetes examples:
 =====================

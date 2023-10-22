@@ -35,6 +35,8 @@ var (
 			k8s.CiliumPodIPPoolResource,
 			CiliumEndpointResource,
 			CiliumEndpointSliceResource,
+			k8s.CiliumNodeResource,
+			k8s.PodResource,
 		),
 	)
 )
@@ -50,4 +52,6 @@ type Resources struct {
 	CiliumPodIPPools     resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
 	CiliumEndpoints      resource.Resource[*cilium_api_v2.CiliumEndpoint]
 	CiliumEndpointSlices resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice]
+	CiliumNodes          resource.Resource[*cilium_api_v2.CiliumNode]
+	Pods                 resource.Resource[*slim_corev1.Pod]
 }

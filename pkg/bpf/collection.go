@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/ebpf/btf"
 )
 
-const globalDataMap = ".data"
+const globalDataMap = ".rodata.config"
 
 // LoadCollectionSpec loads the eBPF ELF at the given path and parses it into
 // a CollectionSpec. This spec is only a blueprint of the contents of the ELF
@@ -230,9 +230,7 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 // loader. This is done for compatibility with kernels that don't support
 // global data maps yet.
 //
-// This works in conjunction with the __fetch macros in the datapath, which
-// emit direct array accesses instead of memory loads with an offset from the
-// map's pointer.
+// This code interacts with the DECLARE_CONFIG macro in the BPF C code base.
 func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 	vars, err := globalData(spec)
 	if err != nil {
@@ -243,18 +241,9 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 		return nil
 	}
 
-	// Don't attempt to create an empty map .bss in the kernel.
-	delete(spec.Maps, ".bss")
-
 	for _, prog := range spec.Programs {
 		for i, ins := range prog.Instructions {
 			if !ins.IsLoadFromMap() || ins.Src != asm.PseudoMapValue {
-				continue
-			}
-
-			// The compiler inserts relocations for .bss for zero values.
-			if ins.Reference() == ".bss" {
-				prog.Instructions[i] = asm.LoadImm(ins.Dst, 0, asm.DWord)
 				continue
 			}
 

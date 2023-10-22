@@ -31,6 +31,16 @@ var (
 	// table that was not locked for writing, e.g. target table not given as argument to
 	// WriteTxn().
 	ErrTableNotLockedForWriting = errors.New("not locked for writing")
+
+	// ErrRevisionNotEqual indicates that the CompareAndSwap or CompareAndDelete failed due to
+	// the object having a mismatching revision, e.g. it had been changed since the object
+	// was last read.
+	ErrRevisionNotEqual = errors.New("revision not equal")
+
+	// ErrObjectNotFound indicates that the object was not found when the operation required
+	// it to exists. This error is not returned by Insert or Delete, but may be returned by
+	// CompareAndSwap or CompareAndDelete.
+	ErrObjectNotFound = errors.New("object not found")
 )
 
 // tableError wraps an error with the table name.

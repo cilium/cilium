@@ -6,6 +6,7 @@ package l2announcer
 import (
 	"context"
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +28,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
-	"golang.org/x/exp/slices"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -45,7 +45,7 @@ type fixture struct {
 
 func newFixture() *fixture {
 	var (
-		tbl statedb.Table[*tables.L2AnnounceEntry]
+		tbl statedb.RWTable[*tables.L2AnnounceEntry]
 		db  *statedb.DB
 		jr  job.Registry
 	)
@@ -54,7 +54,7 @@ func newFixture() *fixture {
 		statedb.Cell,
 		tables.Cell,
 		job.Cell,
-		cell.Invoke(func(d *statedb.DB, t statedb.Table[*tables.L2AnnounceEntry], j job.Registry) {
+		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Registry) {
 			db = d
 			tbl = t
 			jr = j

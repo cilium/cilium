@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -31,6 +32,10 @@ func TestMain(m *testing.M) {
 type testObject struct {
 	ID   uint64
 	Tags []string
+}
+
+func (t testObject) String() string {
+	return fmt.Sprintf("testObject{ID: %d, Tags: %v}", t.ID, t.Tags)
 }
 
 var (
@@ -62,10 +67,10 @@ const (
 	NO_INDEX_TAGS = false
 )
 
-func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Table[testObject], Metrics) {
+func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, RWTable[testObject], Metrics) {
 	var (
 		db      *DB
-		table   Table[testObject]
+		table   RWTable[testObject]
 		metrics Metrics
 	)
 	logging.SetLogLevel(logrus.ErrorLevel)
@@ -78,7 +83,7 @@ func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Tab
 			secondaryIndexers...,
 		),
 
-		cell.Invoke(func(db_ *DB, table_ Table[testObject], metrics_ Metrics) {
+		cell.Invoke(func(db_ *DB, table_ RWTable[testObject], metrics_ Metrics) {
 			// Use a short GC interval.
 			db_.setGCRateLimitInterval(50 * time.Millisecond)
 
@@ -158,6 +163,53 @@ func TestDB_LowerBound_ByRevision(t *testing.T) {
 	_, _, ok = iter.Next()
 	require.False(t, ok)
 
+}
+
+func TestDB_ProtectedCell(t *testing.T) {
+	type Writer struct {
+		t RWTable[testObject]
+	}
+
+	testMod := cell.Module(
+		"test-module",
+		"test",
+
+		NewProtectedTableCell[testObject](
+			"test",
+			idIndex,
+		),
+
+		cell.Provide(func(db *DB, rwtable RWTable[testObject], table Table[testObject]) *Writer {
+			// test-module has access to RWTable and Table and can wrap RWTable into a safe
+			// writer.
+			return &Writer{rwtable}
+		}),
+	)
+
+	// Outside the module we can access Table[testObject]
+	h := hive.New(
+		Cell, // DB
+		testMod,
+		cell.Invoke(func(db *DB, table Table[testObject], w *Writer) {
+		}),
+	)
+	require.NoError(t, h.Start(context.TODO()))
+	assert.NoError(t, h.Stop(context.TODO()))
+
+	// Outside the module we cannot access RWTable[testObject]
+	// Setting log level to fatal as this will log an error which would be confusing.
+	logging.SetLogLevel(logrus.FatalLevel)
+	t.Cleanup(func() {
+		logging.SetLogLevel(logrus.InfoLevel)
+	})
+	h = hive.New(
+		Cell, // DB
+		testMod,
+		cell.Invoke(func(db *DB, rwtable RWTable[testObject]) {
+			// outside of test-module we cannot access RWTable
+		}),
+	)
+	require.ErrorContains(t, h.Start(context.TODO()), "missing dependencies")
 }
 
 func TestDB_DeleteTracker(t *testing.T) {
@@ -544,6 +596,90 @@ func TestDB_CommitAbort(t *testing.T) {
 	require.Equal(t, rev, newRev, "expected unchanged revision")
 	require.EqualValues(t, obj.ID, 123, "expected obj.ID to equal 123")
 	require.Nil(t, obj.Tags, "expected no tags")
+}
+
+func TestDB_CompareAndSwap_CompareAndDelete(t *testing.T) {
+	t.Parallel()
+
+	db, table, _ := newTestDB(t, tagsIndex)
+
+	// Updating a non-existing object fails and nothing is inserted.
+	wtxn := db.WriteTxn(table)
+	{
+		_, hadOld, err := table.CompareAndSwap(wtxn, 1, testObject{ID: 1})
+		require.ErrorIs(t, ErrObjectNotFound, err)
+		require.False(t, hadOld)
+
+		objs, _ := table.All(wtxn)
+		require.Len(t, Collect(objs), 0)
+
+		wtxn.Abort()
+	}
+
+	// Insert a test object and retrieve it.
+	wtxn = db.WriteTxn(table)
+	table.Insert(wtxn, testObject{ID: 1})
+	wtxn.Commit()
+
+	obj, rev1, ok := table.First(db.ReadTxn(), idIndex.Query(1))
+	require.True(t, ok)
+
+	// Updating an object with matching revision number works
+	wtxn = db.WriteTxn(table)
+	obj.Tags = []string{"updated"} // NOTE: testObject stored by value so no explicit copy needed.
+	_, hadOld, err := table.CompareAndSwap(wtxn, rev1, obj)
+	require.NoError(t, err)
+	require.True(t, hadOld)
+	wtxn.Commit()
+
+	obj, _, ok = table.First(db.ReadTxn(), idIndex.Query(1))
+	require.True(t, ok)
+	require.Len(t, obj.Tags, 1)
+	require.Equal(t, "updated", obj.Tags[0])
+
+	// Updating an object with mismatching revision number fails
+	wtxn = db.WriteTxn(table)
+	obj.Tags = []string{"mismatch"}
+	_, hadOld, err = table.CompareAndSwap(wtxn, rev1, obj)
+	require.ErrorIs(t, ErrRevisionNotEqual, err)
+	require.True(t, hadOld)
+	wtxn.Commit()
+
+	obj, _, ok = table.First(db.ReadTxn(), idIndex.Query(1))
+	require.True(t, ok)
+	require.Len(t, obj.Tags, 1)
+	require.Equal(t, "updated", obj.Tags[0])
+
+	// Deleting an object with mismatching revision number fails
+	wtxn = db.WriteTxn(table)
+	obj.Tags = []string{"mismatch"}
+	_, hadOld, err = table.CompareAndDelete(wtxn, rev1, obj)
+	require.ErrorIs(t, ErrRevisionNotEqual, err)
+	require.True(t, hadOld)
+	wtxn.Commit()
+
+	obj, rev2, ok := table.First(db.ReadTxn(), idIndex.Query(1))
+	require.True(t, ok)
+	require.Len(t, obj.Tags, 1)
+	require.Equal(t, "updated", obj.Tags[0])
+
+	// Deleting with matching revision number works
+	wtxn = db.WriteTxn(table)
+	obj.Tags = []string{"mismatch"}
+	_, hadOld, err = table.CompareAndDelete(wtxn, rev2, obj)
+	require.NoError(t, err)
+	require.True(t, hadOld)
+	wtxn.Commit()
+
+	_, _, ok = table.First(db.ReadTxn(), idIndex.Query(1))
+	require.False(t, ok)
+
+	// Deleting non-existing object yields not found
+	wtxn = db.WriteTxn(table)
+	_, hadOld, err = table.CompareAndDelete(wtxn, rev2, obj)
+	require.NoError(t, err)
+	require.False(t, hadOld)
+	wtxn.Abort()
 }
 
 func TestWriteJSON(t *testing.T) {

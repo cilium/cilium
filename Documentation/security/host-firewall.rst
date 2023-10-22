@@ -71,10 +71,10 @@ recommended for production deployment*.
 
     $ CILIUM_NAMESPACE=kube-system
     $ CILIUM_POD_NAME=$(kubectl -n $CILIUM_NAMESPACE get pods -l "k8s-app=cilium" -o jsonpath="{.items[?(@.spec.nodeName=='$NODE_NAME')].metadata.name}")
-    $ HOST_EP_ID=$(kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}')
-    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
+    $ HOST_EP_ID=$(kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium-dbg endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}')
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium-dbg endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
     Endpoint 3353 configuration updated successfully
-    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID | grep PolicyAuditMode
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium-dbg endpoint config $HOST_EP_ID | grep PolicyAuditMode
     PolicyAuditMode          Enabled
 
 
@@ -99,12 +99,12 @@ To apply this policy, run:
     ciliumclusterwidenetworkpolicy.cilium.io/demo-host-policy created
 
 The host is represented as a special endpoint, with label ``reserved:host``, in
-the output of command ``cilium endpoint list``. You can therefore inspect the
+the output of command ``cilium-dbg endpoint list``. You can therefore inspect the
 status of the policy using that command.
 
 .. code-block:: shell-session
 
-    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium-dbg endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6                 IPv4           STATUS
                ENFORCEMENT        ENFORCEMENT
     266        Disabled           Disabled          104        k8s:io.cilium.k8s.policy.cluster=default          f00d::a0b:0:0:ef4e   10.16.172.63   ready
@@ -121,13 +121,13 @@ Adjust the Host Policy to Your Environment
 
 As long as the host endpoint is running in audit mode, communications
 disallowed by the policy won't be dropped. They will however be reported by
-``cilium monitor`` as ``action audit``. The audit mode thus allows you to
+``cilium-dbg monitor`` as ``action audit``. The audit mode thus allows you to
 adjust the host policy to your environment, to avoid unexpected connection
 breakages.
 
 .. code-block:: shell-session
 
-    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium-dbg monitor -t policy-verdict --related-to $HOST_EP_ID
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 1, ingress, action allow, match L3-Only, 192.168.60.12 -> 192.168.60.11 EchoRequest
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 6, ingress, action allow, match L3-Only, 192.168.60.12:37278 -> 192.168.60.11:2379 tcp SYN
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action audit, match none, 10.0.2.2:47500 -> 10.0.2.15:6443 tcp SYN
@@ -157,14 +157,14 @@ policy.
 
 .. code-block:: shell-session
 
-    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Disabled
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium-dbg endpoint config $HOST_EP_ID PolicyAuditMode=Disabled
     Endpoint 3353 configuration updated successfully
 
 Ingress host policies should now appear as enforced:
 
 .. code-block:: shell-session
 
-    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium-dbg endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6                 IPv4           STATUS
                ENFORCEMENT        ENFORCEMENT
     266        Disabled           Disabled          104        k8s:io.cilium.k8s.policy.cluster=default          f00d::a0b:0:0:ef4e   10.16.172.63   ready
@@ -180,7 +180,7 @@ Communications not explicitly allowed by the host policy will now be dropped:
 
 .. code-block:: shell-session
 
-    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium-dbg monitor -t policy-verdict --related-to $HOST_EP_ID
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action deny, match none, 10.0.2.2:49038 -> 10.0.2.15:21 tcp SYN
 
 

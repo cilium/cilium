@@ -6,11 +6,11 @@ package policy
 import (
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"

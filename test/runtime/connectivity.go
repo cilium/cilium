@@ -252,8 +252,8 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 		})
 
 		AfterFailed(func() {
-			vm.ReportFailed("cilium policy get")
-			vm.ReportFailed("cilium bpf policy get --all")
+			vm.ReportFailed("cilium-dbg policy get")
+			vm.ReportFailed("cilium-dbg bpf policy get --all")
 		})
 
 		It("Conntrack-related configuration options for endpoints", func() {

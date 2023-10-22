@@ -353,6 +353,10 @@ Removed Options
   The functionality to dynamically allocate Pod CIDRs is now provided by the more
   flexible ``multi-pool`` IPAM mode.
 
+* The ``install-egress-gateway-routes`` flag has been deprecated because the
+  datapath has been improved to not require any additional routes in
+  ENI environments.
+
 Helm Options
 ~~~~~~~~~~~~
 
@@ -367,6 +371,9 @@ Helm Options
 * Prometheus metrics for cilium-operator and clustermesh's kvstore are now enabled by default.
   If you want to disable these prometheus metrics, set ``operator.prometheus.enabled=false``
   and ``clustermesh.apiserver.metrics.etcd.enabled=false`` respectively.
+
+* ``egressGateway.installRoutes`` has been deprecated because the setting is no
+  longer necessary.
 
 Added Metrics
 ~~~~~~~~~~~~~
@@ -425,7 +432,7 @@ available during the upgrade:
   will be postponed to after the upgrade has been completed on a particular
   node.
 
-* Monitoring components such as ``cilium monitor`` will experience a brief
+* Monitoring components such as ``cilium-dbg monitor`` will experience a brief
   outage while the Cilium pod is restarting. Events are queued up and read
   after the upgrade. If the number of events exceeds the event buffer size,
   events will be lost.
@@ -603,7 +610,7 @@ Example migration
 
 .. code-block:: shell-session
 
-      $ kubectl exec -n kube-system cilium-pre-flight-check-1234 -- cilium preflight migrate-identity
+      $ kubectl exec -n kube-system cilium-pre-flight-check-1234 -- cilium-dbg preflight migrate-identity
       INFO[0000] Setting up kvstore client
       INFO[0000] Connecting to etcd server...                  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.60.11:2379]" subsys=kvstore
       INFO[0000] Setting up kubernetes client
@@ -645,7 +652,7 @@ Once the migration is complete, confirm the endpoint identities match by listing
 .. code-block:: shell-session
 
       $ kubectl get ciliumendpoints -A # new CRD-backed endpoints
-      $ kubectl exec -n kube-system cilium-1234 -- cilium endpoint list # existing etcd-backed endpoints
+      $ kubectl exec -n kube-system cilium-1234 -- cilium-dbg endpoint list # existing etcd-backed endpoints
 
 Clearing CRD identities
 ~~~~~~~~~~~~~~~~~~~~~~~

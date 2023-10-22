@@ -7,6 +7,7 @@ have_kind() {
 if ! have_kind; then
     echo "Please install kind first:"
     echo "  https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
+    exit 1
 fi
 
 default_cluster_name="kind"

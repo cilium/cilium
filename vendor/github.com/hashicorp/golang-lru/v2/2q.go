@@ -30,8 +30,10 @@ const (
 // head. The ARCCache is similar, but does not require setting any
 // parameters.
 type TwoQueueCache[K comparable, V any] struct {
-	size       int
-	recentSize int
+	size        int
+	recentSize  int
+	recentRatio float64
+	ghostRatio  float64
 
 	recent      simplelru.LRUCache[K, V]
 	frequent    simplelru.LRUCache[K, V]
@@ -80,6 +82,8 @@ func New2QParams[K comparable, V any](size int, recentRatio, ghostRatio float64)
 	c := &TwoQueueCache[K, V]{
 		size:        size,
 		recentSize:  recentSize,
+		recentRatio: recentRatio,
+		ghostRatio:  ghostRatio,
 		recent:      recent,
 		frequent:    frequent,
 		recentEvict: recentEvict,
@@ -169,6 +173,34 @@ func (c *TwoQueueCache[K, V]) Len() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.recent.Len() + c.frequent.Len()
+}
+
+// Resize changes the cache size.
+func (c *TwoQueueCache[K, V]) Resize(size int) (evicted int) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	// Recalculate the sub-sizes
+	recentSize := int(float64(size) * c.recentRatio)
+	evictSize := int(float64(size) * c.ghostRatio)
+	c.size = size
+	c.recentSize = recentSize
+
+	// ensureSpace
+	diff := c.recent.Len() + c.frequent.Len() - size
+	if diff < 0 {
+		diff = 0
+	}
+	for i := 0; i < diff; i++ {
+		c.ensureSpace(true)
+	}
+
+	// Reallocate the LRUs
+	c.recent.Resize(size)
+	c.frequent.Resize(size)
+	c.recentEvict.Resize(evictSize)
+
+	return diff
 }
 
 // Keys returns a slice of the keys in the cache.

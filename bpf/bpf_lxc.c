@@ -663,9 +663,7 @@ pass_to_stack:
 		ret = set_ipsec_encrypt_mark(ctx, encrypt_key, tunnel_endpoint);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-#  ifdef ENABLE_IDENTITY_MARK
 		set_identity_meta(ctx, SECLABEL_IPV6);
-#  endif /* ENABLE_IDENTITY_MARK */
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* TUNNEL_MODE */
@@ -676,7 +674,6 @@ pass_to_stack:
 		 * source identity can still be derived even if SNAT is
 		 * performed by a component such as portmap.
 		 */
-		ctx->mark |= MARK_MAGIC_IDENTITY;
 		set_identity_mark(ctx, SECLABEL_IPV6);
 #endif
 	}
@@ -1205,9 +1202,7 @@ pass_to_stack:
 		ret = set_ipsec_encrypt_mark(ctx, encrypt_key, tunnel_endpoint);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-#  ifdef ENABLE_IDENTITY_MARK
 		set_identity_meta(ctx, SECLABEL_IPV4);
-#  endif
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* TUNNEL_MODE */
@@ -1218,7 +1213,6 @@ pass_to_stack:
 		 * source identity can still be derived even if SNAT is
 		 * performed by a component such as portmap.
 		 */
-		ctx->mark |= MARK_MAGIC_IDENTITY;
 		set_identity_mark(ctx, SECLABEL_IPV4);
 #endif
 	}

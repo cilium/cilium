@@ -121,8 +121,8 @@ func NewController(clientset k8sClient.Clientset, options ...Option) (*Controlle
 		defaultLoadbalancerMode: opts.DefaultLoadbalancerMode,
 		defaultSecretNamespace:  opts.DefaultSecretNamespace,
 		defaultSecretName:       opts.DefaultSecretName,
-		sharedTranslator:        ingressTranslation.NewSharedIngressTranslator(opts.SharedLBServiceName, opts.CiliumNamespace, opts.SecretsNamespace, opts.EnforcedHTTPS, opts.IdleTimeoutSeconds),
-		dedicatedTranslator:     ingressTranslation.NewDedicatedIngressTranslator(opts.SecretsNamespace, opts.EnforcedHTTPS, opts.IdleTimeoutSeconds),
+		sharedTranslator:        ingressTranslation.NewSharedIngressTranslator(opts.SharedLBServiceName, opts.CiliumNamespace, opts.SecretsNamespace, opts.EnforcedHTTPS, opts.UseProxyProtocol, opts.IdleTimeoutSeconds),
+		dedicatedTranslator:     ingressTranslation.NewDedicatedIngressTranslator(opts.SecretsNamespace, opts.EnforcedHTTPS, opts.UseProxyProtocol, opts.IdleTimeoutSeconds),
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
 		utils.ListerWatcherFromTyped[*slim_networkingv1.IngressList](clientset.Slim().NetworkingV1().Ingresses(corev1.NamespaceAll)),
@@ -481,6 +481,7 @@ func getIngressForStatusUpdate(slimIngress *slim_networkingv1.Ingress, lb slim_c
 			UID:             slimIngressCopy.GetUID(),
 			Labels:          slimIngressCopy.GetLabels(),
 			Annotations:     slimIngressCopy.GetAnnotations(),
+			OwnerReferences: slimIngressCopy.GetOwnerReferences(),
 		},
 		Status: networkingv1.IngressStatus{
 			LoadBalancer: networkingv1.IngressLoadBalancerStatus{
@@ -654,6 +655,10 @@ func (ic *Controller) isEffectiveLoadbalancerModeDedicated(ing *slim_networkingv
 }
 
 func (ic *Controller) garbageCollectOwnedResources(ing *slim_networkingv1.Ingress) error {
+	// When the Ingress is in shared mode, shared resources cannot be deleted.
+	if !ic.isEffectiveLoadbalancerModeDedicated(ing) {
+		return nil
+	}
 	cec, svc, ep, err := ic.regenerate(ing, false)
 	if err != nil {
 		return err
@@ -678,7 +683,6 @@ func (ic *Controller) garbageCollectOwnedResources(ing *slim_networkingv1.Ingres
 	}
 
 	return nil
-
 }
 
 // deleteObjectIfExists checks the caches to see if the object exists and if so, deletes it. It uses caches as to limit API server requests for objects may have never existed.

@@ -53,10 +53,6 @@
 # define __stringify(X)		#X
 #endif
 
-#ifndef __fetch
-# define __fetch(X)		(__u64)(&(X))
-#endif
-
 #ifndef __aligned
 # define __aligned(X)		__attribute__((aligned(X)))
 #endif

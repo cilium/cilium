@@ -1,0 +1,28 @@
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: control-plane
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: bgp-cplane-dev-v4-control-plane
+  virtualRouters:
+  - localASN: 65001
+    neighbors:
+    - peerASN: 65000
+      peerAddress: 10.0.1.1/32
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: worker
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: bgp-cplane-dev-v4-worker
+  virtualRouters:
+  - localASN: 65002
+    neighbors:
+    - peerASN: 65000
+      peerAddress: 10.0.2.1/32

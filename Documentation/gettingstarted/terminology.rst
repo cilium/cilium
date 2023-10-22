@@ -135,7 +135,7 @@ runtime.
 
     $ docker run --net cilium -d -l app=benchmark tgraf/netperf
     aaff7190f47d071325e7af06577f672beff64ccc91d2b53c42262635c063cf1c
-    $  cilium endpoint list
+    $ cilium-dbg endpoint list
     ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4            STATUS
                ENFORCEMENT
     62006      Disabled      257        container:app=benchmark       f00d::a00:20f:0:f236   10.15.116.202   ready

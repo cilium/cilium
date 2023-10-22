@@ -18,9 +18,10 @@ type (
 	Revision  = uint64
 )
 
+// Table provides methods for querying the contents of a table.
 type Table[Obj any] interface {
 	// TableMeta for querying table metadata that is independent of
-	// 'Obj' type. Provides the database access to table's indexers.
+	// 'Obj' type.
 	TableMeta
 
 	// Revision of the table. Constant for a read transaction, but
@@ -56,34 +57,73 @@ type Table[Obj any] interface {
 	// are not possible with a lower bound search.
 	LowerBound(ReadTxn, Query[Obj]) (iter Iterator[Obj], watch <-chan struct{})
 
+	// DeleteTracker creates a new delete tracker for the table.
+	//
+	// It starts tracking deletions performed against the table from the
+	// current revision. A WriteTxn against the target table is required to
+	// add the tracker to the table.
+	DeleteTracker(txn WriteTxn, trackerName string) (*DeleteTracker[Obj], error)
+}
+
+// RWTable provides methods for modifying the table under a write transaction
+// that targets this table.
+type RWTable[Obj any] interface {
+	// RWTable[Obj] is a superset of Table[Obj]. Queries made with a
+	// write transaction return the fresh uncommitted modifications if any.
+	Table[Obj]
+
 	// Insert an object into the table. Returns the object that was
-	// replaced if there was one. Error may be returned if the table
-	// is not locked for writing or if the write transaction has already
-	// been committed or aborted.
+	// replaced if there was one.
+	//
+	// Possible errors:
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
 	//
 	// Each inserted or updated object will be assigned a new unique
 	// revision.
 	Insert(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
+	// CompareAndSwap compares the existing object's revision against the
+	// given revision and if equal it replaces the object.
+	//
+	// Possible errors:
+	// - ErrRevisionNotEqual: the object has mismatching revision
+	// - ErrObjectNotFound: object not found from the table
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	CompareAndSwap(WriteTxn, Revision, Obj) (oldObj Obj, hadOld bool, err error)
+
 	// Delete an object from the table. Returns the object that was
-	// deleted if there was one. Error may be returned if the table
-	// is not locked for writing or if the write transaction has already
-	// been committed or aborted.
+	// deleted if there was one.
 	//
 	// If the table is being tracked for deletions via DeleteTracker()
 	// the deleted object is inserted into a graveyard index and garbage
 	// collected when all delete trackers have consumed it. Each deleted
 	// object in the graveyard has unique revision allowing interleaved
 	// iteration of updates and deletions (see (*DeleteTracker[Obj]).Process).
+	//
+	// Possible errors:
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
 	Delete(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
-	// DeleteAll deletes all objects from the table. Semantically the
-	// same as All() + Delete().
+	// DeleteAll removes all objects in the table. Semantically the same as
+	// All() + Delete(). See Delete() for more information.
+	//
+	// Possible errors:
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
 	DeleteAll(WriteTxn) error
 
-	// DeleteTracker creates a new delete tracker for the table
-	// starting from the given revision.
-	DeleteTracker(txn WriteTxn, trackerName string) (*DeleteTracker[Obj], error)
+	// CompareAndDelete compares the existing object's revision against the
+	// given revision and if equal it deletes the object. If object is not
+	// found 'hadOld' will be false and 'err' nil.
+	//
+	// Possible errors:
+	// - ErrRevisionNotEqual: the object has mismatching revision
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	CompareAndDelete(WriteTxn, Revision, Obj) (oldObj Obj, hadOld bool, err error)
 }
 
 // TableMeta provides information about the table that is independent of

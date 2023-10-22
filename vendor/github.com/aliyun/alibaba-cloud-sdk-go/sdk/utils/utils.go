@@ -15,34 +15,42 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/md5"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
-	"hash"
-	rand2 "math/rand"
+	"fmt"
+	"math/rand"
 	"net/url"
 	"reflect"
+	"runtime"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
-type UUID [16]byte
+var processStartTime int64 = time.Now().UnixNano() / 1e6
+var seqId int64 = 0
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-func GetUUID() (uuidHex string) {
-	uuid := NewUUID()
-	uuidHex = hex.EncodeToString(uuid[:])
-	return
+func getGID() uint64 {
+	// https://blog.sgmansfield.com/2015/12/goroutine-ids/
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
 }
 
-func RandStringBytes(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand2.Intn(len(letterBytes))]
-	}
-	return string(b)
+func GetNonce() (uuidHex string) {
+	routineId := getGID()
+	currentTime := time.Now().UnixNano() / 1e6
+	seq := atomic.AddInt64(&seqId, 1)
+	randNum := rand.Int63()
+	msg := fmt.Sprintf("%d-%d-%d-%d-%d", processStartTime, routineId, currentTime, seq, randNum)
+	h := md5.New()
+	h.Write([]byte(msg))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func GetMD5Base64(bytes []byte) (base64Value string) {
@@ -97,45 +105,4 @@ func InitStructWithDefaultTag(bean interface{}) {
 			setter.SetBool(boolValue)
 		}
 	}
-}
-
-func NewUUID() UUID {
-	ns := UUID{}
-	safeRandom(ns[:])
-	u := newFromHash(md5.New(), ns, RandStringBytes(16))
-	u[6] = (u[6] & 0x0f) | (byte(2) << 4)
-	u[8] = (u[8]&(0xff>>2) | (0x02 << 6))
-
-	return u
-}
-
-func newFromHash(h hash.Hash, ns UUID, name string) UUID {
-	u := UUID{}
-	h.Write(ns[:])
-	h.Write([]byte(name))
-	copy(u[:], h.Sum(nil))
-
-	return u
-}
-
-func safeRandom(dest []byte) {
-	if _, err := rand.Read(dest); err != nil {
-		panic(err)
-	}
-}
-
-func (u UUID) String() string {
-	buf := make([]byte, 36)
-
-	hex.Encode(buf[0:8], u[0:4])
-	buf[8] = '-'
-	hex.Encode(buf[9:13], u[4:6])
-	buf[13] = '-'
-	hex.Encode(buf[14:18], u[6:8])
-	buf[18] = '-'
-	hex.Encode(buf[19:23], u[8:10])
-	buf[23] = '-'
-	hex.Encode(buf[24:], u[10:])
-
-	return string(buf)
 }

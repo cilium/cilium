@@ -1,3 +1,16 @@
+# v1.3.45 (2023-10-12)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.3.44 (2023-10-06)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.3.43 (2023-09-22)
+
+* **Bug Fix**: Fixed a bug where merging `max_attempts` or `duration_seconds` fields across shared config files with invalid values would silently default them to 0.
+* **Bug Fix**: Move type assertion of config values out of the parsing stage, which resolves an issue where the contents of a profile would silently be dropped with certain numeric formats.
+
 # v1.3.42 (2023-08-21)
 
 * **Dependency Update**: Updated to the latest SDK module versions

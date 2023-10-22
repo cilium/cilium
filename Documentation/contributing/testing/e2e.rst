@@ -70,11 +70,11 @@ You can install Cilium with the following command:
 
     $ cilium install --wait \
         --chart-directory=$GOPATH/src/github.com/cilium/cilium/install/kubernetes/cilium \
-        --helm-set=image.override=localhost:5000/cilium/cilium-dev:local \
-        --helm-set=image.pullPolicy=Never \
-        --helm-set=operator.image.override=localhost:5000/cilium/operator-generic:local \
-        --helm-set=operator.image.pullPolicy=Never \
-        --helm-set-string=tunnel=vxlan \
+        --set image.override=localhost:5000/cilium/cilium-dev:local \
+        --set image.pullPolicy=Never \
+        --set operator.image.override=localhost:5000/cilium/operator-generic:local \
+        --set operator.image.pullPolicy=Never \
+        --set tunnel=vxlan \
         --nodes-without-cilium=kind-worker3
     ...
     ⌛ Waiting for Cilium to be installed and ready...
@@ -132,7 +132,7 @@ Alternatively, you can use the ``scripts/pull_image.sh``:
     $ git clone https://github.com/cilium/little-vm-helper
     $ IMAGE_DIR=./images ./little-vm-helper/scripts/pull_image.sh quay.io/lvh-images/kind:6.0-main
 
-See `<https://quay.io/organization/lvh-images/kind?tab=tags>`_ for all available
+See `<https://quay.io/repository/lvh-images/kind?tab=tags>`_ for all available
 images. To build a new VM image (or to update any existing) please refer to
 `little-vm-helper-images <https://github.com/cilium/little-vm-helper-images>`_.
 
@@ -156,7 +156,7 @@ Finally, you can SSH into the VM to start a K8s cluster, install Cilium, and fin
     # ./cilium install --wait \
         --chart-directory=../cilium/install/kubernetes/cilium \
         --version=v1.13.2 \
-        --helm-set-string=tunnel=vxlan \
+        --set tunnel=vxlan \
         --nodes-without-cilium=kind-worker3
     # ./cilium connectivity test
     ...

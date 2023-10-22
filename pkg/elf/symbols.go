@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	dataSection   = ".data"
+	dataSection   = ".rodata.config"
+	configPrefix  = "__config_"
 	mapSection    = "maps"
 	btfMapSection = ".maps"
 
@@ -100,14 +101,14 @@ func (s *symbols) sort() symbolSlice {
 	return result.sort()
 }
 
-// isGlobalData returns true if the symbol meets all of the following criteria:
-// - symbol is of type STT_NOTYPE or STT_OBJECT
-// - symbol has a global binding (STB_GLOBAL)
+// canReplace returns true if the symbol meets all of the following criteria:
+// - symbol is of type STT_OBJECT
+// - symbol has a local (STB_LOCAL) or global (STB_GLOBAL) binding
 // - symbol has default visibility (STV_DEFAULT)
-func isGlobalData(sym elf.Symbol) bool {
-	return (elf.ST_TYPE(sym.Info) == elf.STT_NOTYPE ||
-		elf.ST_TYPE(sym.Info) == elf.STT_OBJECT) &&
-		elf.ST_BIND(sym.Info) == elf.STB_GLOBAL &&
+func canReplace(sym elf.Symbol) bool {
+	return (elf.ST_TYPE(sym.Info) == elf.STT_OBJECT) &&
+		(elf.ST_BIND(sym.Info) == elf.STB_GLOBAL ||
+			elf.ST_BIND(sym.Info) == elf.STB_LOCAL) &&
 		elf.ST_VISIBILITY(sym.Other) == elf.STV_DEFAULT
 }
 
@@ -161,9 +162,8 @@ func (s *symbols) extractFrom(e *elf.File) error {
 		case section.Flags&elf.SHF_COMPRESSED > 0:
 			return fmt.Errorf("compressed %s section not supported", section.Name)
 
-		// Skip local symbols that are objects or untyped. These are usually
-		// program segments referred to using long jumps in bytecode.
-		case !isGlobalData(sym):
+		// Only consider local and global OBJECT symbols.
+		case !canReplace(sym):
 			// Some symbols don't have names and 'LBB0 is a common llvm symbol prefix
 			// (basic block). Don't flood the logs with messages about them.
 			if sym.Name != "" && !strings.HasPrefix(sym.Name, "LBB") {
@@ -175,7 +175,7 @@ func (s *symbols) extractFrom(e *elf.File) error {
 		// in the .data section.
 		// This implements substitution of static data.
 		case section.Name == dataSection:
-			// Offset from start of binary to variable inside .data
+			// Offset from start of binary to variable inside .rodata.config
 			offset := section.Offset + sym.Value
 			dataOffsets[sym.Name] = newVariable(sym.Name, offset, sym.Size)
 			log.WithField(fieldSymbol, sym.Name).Debugf("Found variable with offset %d", offset)

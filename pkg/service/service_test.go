@@ -7,12 +7,15 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"syscall"
 	"testing"
 
 	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/exp/maps"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -22,10 +25,12 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
+	testsockets "github.com/cilium/cilium/pkg/testutils/sockets"
 )
 
 func TestLocalRedirectServiceExistsError(t *testing.T) {
@@ -155,7 +160,7 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	backendIDAlloc.resetLocalID()
 
 	m.lbmap = mockmaps.NewLBMockMap()
-	m.svc = NewService(nil, nil, m.lbmap)
+	m.newServiceMock(m.lbmap)
 
 	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
 	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
@@ -204,6 +209,11 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 	option.Config.DatapathMode = m.prevOptionDPMode
 	option.Config.ExternalClusterIP = m.prevOptionExternalClusterIP
 	option.Config.EnableIPv6 = m.ipv6
+}
+
+func (m *ManagerTestSuite) newServiceMock(lbmap datapathTypes.LBMap) {
+	m.svc = NewService(nil, nil, lbmap)
+	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
 }
 
 func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
@@ -523,7 +533,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	option.Config.DatapathMode = datapathOpt.DatapathModeLBOnly
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.newServiceMock(lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -594,7 +604,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 
 	// Restart service, but keep the lbmap to restore services from
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.newServiceMock(lbmap)
 	err = m.svc.RestoreServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(m.svc.svcByID), Equals, 2)
@@ -1352,7 +1362,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.newServiceMock(lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -1586,7 +1596,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.newServiceMock(lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -2146,4 +2156,70 @@ func (m *ManagerTestSuite) TestRestoreServicesWithLeakedBackends(c *C) {
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
 	// Leaked backends should be deleted.
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
+}
+
+// Tests backend connections getting destroyed.
+func (m *ManagerTestSuite) TestUpsertServiceWithDeletedBackends(c *C) {
+	option.Config.EnableSocketLB = true
+	backends := []*lb.Backend{
+		lb.NewBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080),
+		lb.NewBackend(0, lb.UDP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),
+	}
+	cookie1 := [2]uint32{1234, 0}
+	cookie2 := [2]uint32{1235, 0}
+	id1 := netlink.SocketID{
+		DestinationPort: 8080,
+		Destination:     backends[0].L3n4Addr.AddrCluster.Addr().AsSlice(),
+		Cookie:          cookie1,
+	}
+	id2 := netlink.SocketID{
+		DestinationPort: 8080,
+		Destination:     backends[1].L3n4Addr.AddrCluster.Addr().AsSlice(),
+		Cookie:          cookie2,
+	}
+	// Socket connected to backend1
+	s1 := testsockets.MockSocket{
+		SockID: id1, Family: syscall.AF_INET, Protocol: unix.IPPROTO_UDP,
+	}
+	// Socket connected to backend2
+	s2 := testsockets.MockSocket{
+		SockID: id2, Family: syscall.AF_INET, Protocol: unix.IPPROTO_UDP,
+	}
+	svc := &lb.SVC{
+		Frontend: frontend1,
+		Backends: backends,
+		Name:     lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+	key1 := *lbmap.NewSockRevNat4Key(1234, s1.SockID.Destination, s1.SockID.DestinationPort)
+	key2 := *lbmap.NewSockRevNat4Key(1235, s2.SockID.Destination, s2.SockID.DestinationPort)
+	m.lbmap.SockRevNat4[key1] = lbmap.SockRevNat4Value{}
+	m.lbmap.SockRevNat4[key2] = lbmap.SockRevNat4Value{}
+	sockets := []*testsockets.MockSocket{&s1, &s2}
+	m.svc.backendConnectionHandler = testsockets.NewMockSockets(sockets)
+
+	created, _, err := m.svc.UpsertService(svc)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+
+	// Delete one of the backends.
+	svc = &lb.SVC{
+		Frontend: frontend1,
+		Backends: []*lb.Backend{backends[1]},
+		Name:     lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+
+	created, _, err = m.svc.UpsertService(svc)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+
+	// Only the sockets connected to the deleted backend are destroyed.
+	for _, socket := range sockets {
+		if socket.Equal(sockets[0]) {
+			c.Assert(socket.Destroyed, Equals, true)
+		} else {
+			c.Assert(socket.Destroyed, Equals, false)
+		}
+	}
 }

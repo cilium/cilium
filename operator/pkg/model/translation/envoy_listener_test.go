@@ -4,6 +4,7 @@
 package translation
 
 import (
+	"slices"
 	"sort"
 	"testing"
 
@@ -46,6 +47,25 @@ func TestNewHTTPListener(t *testing.T) {
 		// Default value is 0
 		require.Equal(t, uint32(0), httpConnectionManager.XffNumTrustedHops)
 
+	})
+
+	t.Run("without TLS with Proxy Protocol", func(t *testing.T) {
+		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil, WithProxyProtocol())
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+
+		require.Equal(t, "dummy-name", listener.Name)
+
+		listenerNames := []string{}
+		for _, l := range listener.GetListenerFilters() {
+			listenerNames = append(listenerNames, l.Name)
+		}
+		slices.Sort(listenerNames)
+		require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
+		require.Len(t, listener.GetFilterChains(), 1)
 	})
 
 	t.Run("TLS", func(t *testing.T) {
@@ -110,6 +130,25 @@ func TestNewSNIListener(t *testing.T) {
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
+		require.Len(t, listener.GetFilterChains(), 1)
+		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
+	})
+
+	t.Run("normal SNI listener with Proxy Protocol", func(t *testing.T) {
+		res, err := NewSNIListener("dummy-name", map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, WithProxyProtocol())
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+
+		require.Equal(t, "dummy-name", listener.Name)
+		listenerNames := []string{}
+		for _, l := range listener.GetListenerFilters() {
+			listenerNames = append(listenerNames, l.Name)
+		}
+		slices.Sort(listenerNames)
+		require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 		require.Len(t, listener.GetFilterChains(), 1)
 		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
 	})

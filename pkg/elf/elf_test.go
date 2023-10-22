@@ -235,7 +235,7 @@ func (elf *ELF) findString(key string) error {
 }
 
 func (elf *ELF) readOption(key string) (result uint64, err error) {
-	opt, exists := elf.symbols.data[key]
+	opt, exists := elf.symbols.data[configPrefix+key]
 	if !exists {
 		return 0, fmt.Errorf("no such option %q in ELF", key)
 	}

@@ -429,6 +429,8 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 	store.DeleteKey(ctx, NewKVPair("key1", ""))
 	require.Equal(t, float64(2), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 
+	// For now, we don't have synchronization errors.
+	require.Equal(t, float64(0), testutil.ToFloat64(me.KVStoreSyncErrors.WithLabelValues("nodes/v1", "foo")))
 	backend.errorsOnUpdate["cilium/state/nodes/v1/key3"] = 1
 	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key2", "value2"), eventually(backend.updated))
 	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated))
@@ -441,6 +443,7 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 			testutil.ToFloat64(me.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
 	})
 
+	require.Equal(t, float64(1), testutil.ToFloat64(me.KVStoreSyncErrors.WithLabelValues("nodes/v1", "foo")))
 	// The store should not yet be synced, as the synced entry has not yet been written to the kvstore.
 	require.Equal(t, metrics.BoolToFloat64(false),
 		testutil.ToFloat64(me.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))

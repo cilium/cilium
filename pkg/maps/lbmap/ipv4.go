@@ -57,6 +57,8 @@ var (
 	Backend4MapV3 *bpf.Map
 	// RevNat4Map is the IPv4 LB reverse NAT BPF map.
 	RevNat4Map *bpf.Map
+	// SockRevNat4Map is the IPv4 LB sock reverse NAT BPF map.
+	SockRevNat4Map *bpf.Map
 )
 
 // initSVC constructs the IPv4 & IPv6 LB BPF maps used for Services. The maps
@@ -546,41 +548,52 @@ func (b *Backend4) GetValue() BackendValue { return b.Value }
 // SockRevNat4Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
 type SockRevNat4Key struct {
-	cookie  uint64     `align:"cookie"`
-	address types.IPv4 `align:"address"`
-	port    int16      `align:"port"`
+	Cookie  uint64     `align:"cookie"`
+	Address types.IPv4 `align:"address"`
+	Port    int16      `align:"port"`
 	_       int16
 }
 
 // SockRevNat4Value is an entry in the reverse NAT sock map.
 type SockRevNat4Value struct {
-	address     types.IPv4 `align:"address"`
-	port        int16      `align:"port"`
-	revNatIndex uint16     `align:"rev_nat_index"`
+	Address     types.IPv4 `align:"address"`
+	Port        int16      `align:"port"`
+	RevNatIndex uint16     `align:"rev_nat_index"`
+}
+
+func (k *SockRevNat4Key) Map() *bpf.Map { return SockRevNat4Map }
+
+func NewSockRevNat4Key(cookie uint64, addr net.IP, port uint16) *SockRevNat4Key {
+	var key SockRevNat4Key
+	key.Cookie = cookie
+	key.Port = int16(byteorder.NetworkToHost16(port))
+	copy(key.Address[:], addr.To4())
+
+	return &key
 }
 
 // String converts the key into a human readable string format.
 func (k *SockRevNat4Key) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", k.address, k.port, k.cookie)
+	return fmt.Sprintf("[%s]:%d, %d", k.Address, k.Port, k.Cookie)
 }
 
 func (k *SockRevNat4Key) New() bpf.MapKey { return &SockRevNat4Key{} }
 
 // String converts the value into a human readable string format.
 func (v *SockRevNat4Value) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.revNatIndex)
+	return fmt.Sprintf("[%s]:%d, %d", v.Address, v.Port, v.RevNatIndex)
 }
 
 func (v *SockRevNat4Value) New() bpf.MapValue { return &SockRevNat4Value{} }
 
 // CreateSockRevNat4Map creates the reverse NAT sock map.
 func CreateSockRevNat4Map() error {
-	sockRevNat4Map := bpf.NewMap(SockRevNat4MapName,
+	SockRevNat4Map = bpf.NewMap(SockRevNat4MapName,
 		ebpf.LRUHash,
 		&SockRevNat4Key{},
 		&SockRevNat4Value{},
 		MaxSockRevNat4MapEntries,
 		0,
 	).WithPressureMetric()
-	return sockRevNat4Map.Create()
+	return SockRevNat4Map.OpenOrCreate()
 }

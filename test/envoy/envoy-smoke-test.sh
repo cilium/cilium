@@ -15,8 +15,8 @@ function cleanup {
   monitor_stop
   echo "Tip: Add '--debug-verbose=flow' into cilium options in /etc/sysconfig/cilium to get Envoy debug logging."
   # These are commented to allow for easier debugging, but are left as comments to remind how to clean up:
-  #  cilium service delete --all 2> /dev/null || true
-  #  cilium policy delete --all 2> /dev/null || true
+  #  cilium-dbg service delete --all 2> /dev/null || true
+  #  cilium-dbg policy delete --all 2> /dev/null || true
   #  docker rm -f server1 server2 client 2> /dev/null || true
 }
 
@@ -38,18 +38,18 @@ cleanup
 logs_clear
 
 function no_service_init {
-  cilium service delete --all
+  cilium-dbg service delete --all
   SERVER_IP=$SERVER1_IP;
   SERVER_IP4=$SERVER1_IP4;
 }
 
 function service_init {
   log "beginning service init"
-  cilium service update --frontend "$SVC_IP4:80" --id 2233 \
+  cilium-dbg service update --frontend "$SVC_IP4:80" --id 2233 \
 			--backends "$SERVER1_IP4:80" \
 			--backends "$SERVER2_IP4:80"
 
-  cilium service update --frontend "[$SVC_IP]:80" --id 2234 \
+  cilium-dbg service update --frontend "[$SVC_IP]:80" --id 2234 \
 			--backends "[$SERVER1_IP]:80" \
 			--backends "[$SERVER2_IP]:80"
 
@@ -86,7 +86,7 @@ function proxy_init {
   wait_for_docker_ipv6_addr client
 
   log "waiting for endpoints to get identities"
-  while [ `cilium endpoint list -o jsonpath='{range [*]}{.status.identity.id}{" "}{.status.identity.labels}{"\n"}' | grep '^[1-9][0-9]* .*id.\(server\|client\)' | cut -d ' ' -f1 | sort | uniq | wc -l` -ne 2 ] ; do
+  while [ `cilium-dbg endpoint list -o jsonpath='{range [*]}{.status.identity.id}{" "}{.status.identity.labels}{"\n"}' | grep '^[1-9][0-9]* .*id.\(server\|client\)' | cut -d ' ' -f1 | sort | uniq | wc -l` -ne 2 ] ; do
     log "waiting..."
     sleep 1
   done
@@ -97,7 +97,7 @@ function proxy_init {
 
 # Dummy policy to keep the containers in policy enforcement mode all the time
 function policy_base {
-  cilium policy delete --all
+  cilium-dbg policy delete --all
   cat <<EOF | policy_import_and_wait -
 [{
     "labels": [{"key": "policy", "value": "enforced"}],
@@ -114,7 +114,7 @@ EOF
 }
 
 function policy_single_egress {
-  cilium policy delete policy=test
+  cilium-dbg policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
     "labels": [{"key": "policy", "value": "test"}],
@@ -144,7 +144,7 @@ EOF
 }
 
 function policy_many_egress {
-  cilium policy delete policy=test
+  cilium-dbg policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
     "labels": [{"key": "policy", "value": "test"}],
@@ -198,7 +198,7 @@ EOF
 }
 
 function policy_single_ingress {
-  cilium policy delete policy=test
+  cilium-dbg policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
     "labels": [{"key": "policy", "value": "test"}],
@@ -231,7 +231,7 @@ EOF
 }
 
 function policy_many_ingress {
-  cilium policy delete policy=test
+  cilium-dbg policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
     "labels": [{"key": "policy", "value": "test"}],
@@ -265,7 +265,7 @@ EOF
 }
 
 function policy_egress_and_ingress {
-  cilium policy delete policy=test
+  cilium-dbg policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
     "labels": [{"key": "policy", "value": "test"}],
@@ -356,7 +356,7 @@ fi
 policy_base
 
 for state in "false" "true"; do
-  cilium config ConntrackLocal=$state
+  cilium-dbg config ConntrackLocal=$state
 
   for service in "none" "lb"; do
     case $service in
@@ -391,9 +391,9 @@ for state in "false" "true"; do
 done
 
 log "deleting all services from Cilium"
-cilium service delete --all
+cilium-dbg service delete --all
 log "deleting all policies from Cilium"
-cilium policy delete --all 2> /dev/null || true
+cilium-dbg policy delete --all 2> /dev/null || true
 log "removing containers"
 docker rm -f server1 server2 client 2> /dev/null || true
 

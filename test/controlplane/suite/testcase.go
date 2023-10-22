@@ -98,9 +98,6 @@ func (cpt *ControlPlaneTest) SetupEnvironment() *ControlPlaneTest {
 	// Configure k8s and perform capability detection with the fake client.
 	version.Update(cpt.clients, true)
 
-	datapath := fakeDatapath.NewDatapath()
-	cpt.Datapath = datapath
-
 	cpt.tempDir = setupTestDirectories()
 
 	return cpt
@@ -120,7 +117,7 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 		t: cpt.t,
 	}
 
-	cpt.agentHandle.setupCiliumAgentHive(cpt.clients, cpt.Datapath, cell.Group(extraCells...))
+	cpt.agentHandle.setupCiliumAgentHive(cpt.clients, cell.Group(extraCells...))
 
 	mockCmd := &cobra.Command{}
 	cpt.agentHandle.hive.RegisterFlags(mockCmd.Flags())
@@ -133,6 +130,7 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
 	cpt.agentHandle.d = daemon
+	cpt.Datapath = cpt.agentHandle.dp
 
 	return cpt
 }

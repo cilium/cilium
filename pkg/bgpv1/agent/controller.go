@@ -61,6 +61,7 @@ type Controller struct {
 	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
 	// PolicyLister is an interface which allows for the listing of all known policies
 	PolicyLister policyLister
+
 	// Sig informs the Controller that a Kubernetes
 	// event of interest has occurred.
 	//
@@ -244,7 +245,7 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 
 	// range over policies and see if any match this node's labels.
 	//
-	// for now, only a single BGP policy can be applied to a node. if more then
+	// for now, only a single BGP policy can be applied to a node. if more than
 	// one policy applies to a node, we disconnect from all BGP peers and log
 	// an error.
 	for _, policy := range policies {
@@ -277,8 +278,6 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 		}
 	}
 
-	// no policy was discovered, tell router manager to withdrawal peers if they
-	// are configured.
 	return selectedPolicy, nil
 }
 

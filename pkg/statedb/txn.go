@@ -123,25 +123,20 @@ func (txn *txn) indexWriteTxn(name TableName, index IndexName) *iradix.Txn[objec
 	return indexTreeTxn
 }
 
-func (txn *txn) newRevision(tableName TableName) (Revision, error) {
-	table, ok := txn.modifiedTables[tableName]
-	if !ok {
-		return 0, tableError(tableName, ErrTableNotLockedForWriting)
-	}
-	table.revision++
-	return table.revision, nil
-}
-
-func (txn *txn) Insert(meta TableMeta, data any) (any, bool, error) {
+func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, bool, error) {
 	if txn.rootReadTxn == nil {
 		return nil, false, ErrTransactionClosed
 	}
 
+	// Look up table and allocate a new revision.
 	tableName := meta.Name()
-	revision, err := txn.newRevision(tableName)
-	if err != nil {
-		return nil, false, err
+	table, ok := txn.modifiedTables[tableName]
+	if !ok {
+		return nil, false, tableError(tableName, ErrTableNotLockedForWriting)
 	}
+	oldRevision := table.revision
+	table.revision++
+	revision := table.revision
 
 	obj := object{
 		revision: revision,
@@ -152,6 +147,25 @@ func (txn *txn) Insert(meta TableMeta, data any) (any, bool, error) {
 	idKey := meta.primaryIndexer().fromObject(obj).First()
 	idIndexTree := txn.indexWriteTxn(tableName, meta.primaryIndexer().name)
 	oldObj, oldExists := idIndexTree.Insert(idKey, obj)
+
+	// For CompareAndSwap() validate against the given guard revision
+	if guardRevision > 0 {
+		if !oldExists {
+			// CompareAndSwap requires the object to exist. Revert
+			// the insert.
+			idIndexTree.Delete(idKey)
+			table.revision = oldRevision
+			return nil, false, ErrObjectNotFound
+		}
+		if oldObj.revision != guardRevision {
+			// Revert the change. We're assuming here that it's rarer for CompareAndSwap() to
+			// fail and thus we're optimizing to have only one lookup in the common case
+			// (versus doing a Get() and then Insert()).
+			idIndexTree.Insert(idKey, oldObj)
+			table.revision = oldRevision
+			return oldObj, true, ErrRevisionNotEqual
+		}
+	}
 
 	// Update revision index
 	revIndexTree := txn.indexWriteTxn(tableName, RevisionIndex)
@@ -235,16 +249,20 @@ func (txn *txn) addDeleteTracker(meta TableMeta, trackerName string, dt deleteTr
 
 }
 
-func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
+func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, bool, error) {
 	if txn.rootReadTxn == nil {
 		return nil, false, ErrTransactionClosed
 	}
 
+	// Look up table and allocate a new revision.
 	tableName := meta.Name()
-	revision, err := txn.newRevision(tableName)
-	if err != nil {
-		return nil, false, err
+	table, ok := txn.modifiedTables[tableName]
+	if !ok {
+		return nil, false, tableError(tableName, ErrTableNotLockedForWriting)
 	}
+	oldRevision := table.revision
+	table.revision++
+	revision := table.revision
 
 	// Delete from the primary index first to grab the object.
 	// We assume that "data" has only enough defined fields to
@@ -254,6 +272,16 @@ func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 	obj, existed := idIndexTree.Delete(idKey)
 	if !existed {
 		return nil, false, nil
+	}
+
+	// For CompareAndDelete() validate against guard revision and if there's a mismatch,
+	// revert the change.
+	if guardRevision > 0 {
+		if obj.revision != guardRevision {
+			idIndexTree.Insert(idKey, obj)
+			table.revision = oldRevision
+			return obj, true, ErrRevisionNotEqual
+		}
 	}
 
 	// Update revision index.

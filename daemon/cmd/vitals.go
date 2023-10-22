@@ -14,12 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
-// moduleExcludes tracks modules that should be excluded from the health report.
-var moduleExcludes = map[string]struct{}{
-	// daemon currently does not rollup status and hence reports default health aka unknown.
-	"daemon": {},
-}
-
 type getHealth struct {
 	daemon *Daemon
 }
@@ -39,9 +33,6 @@ func (d *Daemon) getHealthReport() models.ModulesHealth {
 	mm := d.healthProvider.All()
 	rr := make([]*models.ModuleHealth, 0, len(mm))
 	for _, m := range mm {
-		if _, ok := moduleExcludes[m.ModuleID]; ok {
-			continue
-		}
 		rr = append(rr, toModuleHealth(m))
 	}
 
@@ -52,7 +43,7 @@ func (d *Daemon) getHealthReport() models.ModulesHealth {
 
 func toModuleHealth(m cell.Status) *models.ModuleHealth {
 	return &models.ModuleHealth{
-		ModuleID:    m.ModuleID,
+		ModuleID:    m.FullModuleID.String(),
 		Message:     m.Message,
 		Level:       string(m.Level),
 		LastOk:      toAgeHuman(m.LastOK),

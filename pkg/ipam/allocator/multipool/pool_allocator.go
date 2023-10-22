@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"math/big"
 	"net/netip"
+	"slices"
 	"sort"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"

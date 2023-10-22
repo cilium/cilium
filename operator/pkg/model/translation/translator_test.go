@@ -4,6 +4,7 @@
 package translation
 
 import (
+	"slices"
 	"testing"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -186,6 +187,38 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestSharedIngressTranslator_getHTTPRouteListenerProxy(t *testing.T) {
+	i := &defaultTranslator{
+		name:             "cilium-ingress",
+		namespace:        "kube-system",
+		secretsNamespace: "cilium-secrets",
+		useProxyProtocol: true,
+	}
+	res := i.getHTTPRouteListener(&model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				TLS: []model.TLSSecret{
+					{
+						Name:      "dummy-secret",
+						Namespace: "dummy-namespace",
+					},
+				},
+			},
+		},
+	})
+	require.Len(t, res, 1)
+	listener := &envoy_config_listener.Listener{}
+	err := proto.Unmarshal(res[0].GetValue(), listener)
+	require.NoError(t, err)
+
+	listenerNames := []string{}
+	for _, l := range listener.ListenerFilters {
+		listenerNames = append(listenerNames, l.Name)
+	}
+	slices.Sort(listenerNames)
+	require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 }
 
 func TestSharedIngressTranslator_getHTTPRouteListener(t *testing.T) {

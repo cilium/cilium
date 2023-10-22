@@ -11,9 +11,11 @@ import (
 	"net/netip"
 	"time"
 
+	"slices"
+
 	"github.com/cilium/workerpool"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
@@ -129,8 +131,8 @@ type manager struct {
 	// Manager.
 	controllerManager *controller.Manager
 
-	// healthReporter reports on the current health status of the node manager module.
-	healthReporter cell.HealthReporter
+	// healthScope reports on the current health status of the node manager module.
+	healthScope cell.Scope
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -184,6 +186,31 @@ type nodeMetrics struct {
 	DatapathValidations metric.Counter
 }
 
+// ProcessNodeDeletion upon node deletion ensures metrics associated
+// with the deleted node are no longer reported.
+// Notably for metrics node connectivity status and latency metrics
+func (*nodeMetrics) ProcessNodeDeletion(clusterName, nodeName string) {
+	// Removes all connectivity status associated with the deleted node.
+	_ = metrics.NodeConnectivityStatus.DeletePartialMatch(prometheus.Labels{
+		metrics.LabelSourceCluster:  clusterName,
+		metrics.LabelSourceNodeName: nodeName,
+	})
+	_ = metrics.NodeConnectivityStatus.DeletePartialMatch(prometheus.Labels{
+		metrics.LabelTargetCluster:  clusterName,
+		metrics.LabelTargetNodeName: nodeName,
+	})
+
+	// Removes all connectivity latency associated with the deleted node.
+	_ = metrics.NodeConnectivityLatency.DeletePartialMatch(prometheus.Labels{
+		metrics.LabelSourceCluster:  clusterName,
+		metrics.LabelSourceNodeName: nodeName,
+	})
+	_ = metrics.NodeConnectivityLatency.DeletePartialMatch(prometheus.Labels{
+		metrics.LabelTargetCluster:  clusterName,
+		metrics.LabelTargetNodeName: nodeName,
+	})
+}
+
 func NewNodeMetrics() *nodeMetrics {
 	return &nodeMetrics{
 		EventsReceived: metric.NewCounterVec(metric.CounterOpts{
@@ -213,7 +240,7 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics, healthReporter cell.HealthReporter) (*manager, error) {
+func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
@@ -221,7 +248,7 @@ func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics, healthRepor
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
 		metrics:           nodeMetrics,
-		healthReporter:    healthReporter,
+		healthScope:       healthScope,
 	}
 
 	return m, nil
@@ -322,10 +349,11 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 			m.metrics.DatapathValidations.Inc()
 		}
 
+		hr := cell.GetHealthReporter(m.healthScope, "background-sync")
 		if errs != nil {
-			m.healthReporter.Degraded("Failed to apply node validation", errs)
+			hr.Degraded("Failed to apply node validation", errs)
 		} else {
-			m.healthReporter.OK("Node validation successful")
+			hr.OK("Node validation successful")
 		}
 
 		select {
@@ -688,6 +716,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil)
 
 	m.metrics.NumNodes.Dec()
+	m.metrics.ProcessNodeDeletion(n.Cluster, n.Name)
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)

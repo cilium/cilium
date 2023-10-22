@@ -31,8 +31,8 @@ Every endpoint in Cilium is in one of the following states:
    :scale: 50 %
    :align: center
 
-The state of an endpoint can be queried using the ``cilium endpoint
-list`` and ``cilium endpoint get`` CLI commands.
+The state of an endpoint can be queried using the ``cilium-dbg endpoint
+list`` and ``cilium-dbg endpoint get`` CLI commands.
 
 While an endpoint is running, it transitions between the
 ``waiting-for-identity``, ``waiting-to-regenerate``, ``regenerating``,

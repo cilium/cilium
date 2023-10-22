@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           persist-credentials: false
       - name: Check code changes
@@ -55,11 +55,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           persist-credentials: false
       - name: Build HTML
-        uses: docker://quay.io/cilium/docs-builder:b4742c730ff6b05c0b6b3e3383a264bf706aef5e@sha256:28e22c2f0c747216a5216304855be244f44d8d2752c6f810d0da1918712c5f61
+        uses: docker://quay.io/cilium/docs-builder:d88a9684e1be32661e9e56d6b7e1e1350db7a1b1@sha256:f051371b2a910088a43dc5bd4289c9ca3a8754a8afb15f60f86f385660c1fd09
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html

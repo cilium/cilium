@@ -11,11 +11,11 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"slices"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -154,9 +154,9 @@ type actionLogEntry struct {
 	value uint64
 }
 
-type action func(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, target statedb.Table[fuzzObj])
+type action func(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, target statedb.RWTable[fuzzObj])
 
-func insertAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
+func insertAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.RWTable[fuzzObj]) {
 	id := mkID()
 	value := rand.Uint64()
 	log.log("%s: Insert %d", table.Name(), id)
@@ -164,43 +164,43 @@ func insertAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, tabl
 	actLog.append(actionLogEntry{table, actInsert, id, value})
 }
 
-func deleteAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
+func deleteAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.RWTable[fuzzObj]) {
 	id := mkID()
 	log.log("%s: Delete %d", table.Name(), id)
 	table.Delete(txn, fuzzObj{id, 0})
 	actLog.append(actionLogEntry{table, actDelete, id, 0})
 }
 
-func deleteAllAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
+func deleteAllAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.RWTable[fuzzObj]) {
 	log.log("%s: DeleteAll", table.Name())
 	table.DeleteAll(txn)
 	actLog.append(actionLogEntry{table, actDeleteAll, 0, 0})
 }
 
-func allAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
+func allAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.RWTable[fuzzObj]) {
 	iter, _ := table.All(txn)
 	log.log("%s: All => %d found", table.Name(), len(statedb.Collect(iter)))
 }
 
-func getAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
+func getAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.RWTable[fuzzObj]) {
 	id := mkID()
 	iter, _ := table.Get(txn, idIndex.Query(mkID()))
 	log.log("%s: Get(%d) => %d found", table.Name(), id, len(statedb.Collect(iter)))
 }
 
-func firstAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
+func firstAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.RWTable[fuzzObj]) {
 	id := mkID()
 	_, rev, ok := table.First(txn, idIndex.Query(id))
 	log.log("%s: First(%d) => rev=%d, ok=%v", table.Name(), id, rev, ok)
 }
 
-func lastAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
+func lastAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.RWTable[fuzzObj]) {
 	id := mkID()
 	_, rev, ok := table.First(txn, idIndex.Query(id))
 	log.log("%s: First(%d) => rev=%d, ok=%v", table.Name(), id, rev, ok)
 }
 
-func lowerboundAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
+func lowerboundAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.RWTable[fuzzObj]) {
 	id := mkID()
 	iter, _ := table.LowerBound(txn, idIndex.Query(id))
 	log.log("%s: LowerBound(%d) => %d found", table.Name(), id, len(statedb.Collect(iter)))
@@ -254,7 +254,7 @@ func fuzzWorker(realActionLog *realActionLog, worker int, iterations int) {
 
 		for _, target := range targets {
 			act := randomAction()
-			act(log, actLog, txn, target.(statedb.Table[fuzzObj]))
+			act(log, actLog, txn, target.(statedb.RWTable[fuzzObj]))
 			runtime.Gosched()
 		}
 		runtime.Gosched()

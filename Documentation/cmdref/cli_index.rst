@@ -13,8 +13,8 @@ cilium
       :maxdepth: 1
       :glob:
 
-      cilium
-      cilium_*
+      cilium-dbg
+      cilium-dbg_*
       cilium-agent*
       cilium-bugtool*
       cilium-health_*

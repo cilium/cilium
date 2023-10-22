@@ -166,7 +166,7 @@ To replace cilium-ipsec-keys secret with a new key:
 
 .. code-block:: shell-session
 
-    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o yaml | awk '/^\s*keys:/ {print $2}' | base64 -d | awk '{print $1}')
+    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
     if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
     data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
@@ -199,11 +199,11 @@ Troubleshooting
      use ``--set encryption.ipsec.interface=ethX`` to set the encryption
      interface.
 
- * Run ``cilium encrypt status`` in the Cilium Pod:
+ * Run ``cilium-dbg encrypt status`` in the Cilium Pod:
 
    .. code-block:: shell-session
 
-       $ cilium encrypt status
+       $ cilium-dbg encrypt status
        Encryption: IPsec
        Keys in use: 1
        Max Seq. Number: 0x1e3/0xffffffff

@@ -1126,6 +1126,9 @@ const (
 	// compatible with MetalLB's configuration.
 	BGPConfigPath = "bgp-config-path"
 
+	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
+	BGPSecretsNamespace = "bgp-secrets-namespace"
+
 	// ExternalClusterIPName is the name of the option to enable
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
@@ -2383,6 +2386,9 @@ type DaemonConfig struct {
 	// compatible with MetalLB's configuration.
 	BGPConfigPath string
 
+	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
+	BGPSecretsNamespace string
+
 	// ExternalClusterIP enables routing to ClusterIP services from outside
 	// the cluster. This mirrors the behaviour of kube-proxy.
 	ExternalClusterIP bool
@@ -3212,6 +3218,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPAnnouncePodCIDR = vp.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
+	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
 	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableHighScaleIPcache = vp.GetBool(EnableHighScaleIPcache)

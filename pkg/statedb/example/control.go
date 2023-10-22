@@ -28,7 +28,7 @@ var controlCell = cell.Module(
 type controlParams struct {
 	cell.In
 
-	Backends  statedb.Table[Backend]
+	Backends  statedb.RWTable[Backend]
 	DB        *statedb.DB
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger

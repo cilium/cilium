@@ -127,5 +127,5 @@ WORKDIR /home/cilium
 RUN groupadd -f cilium \
     && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 
-CMD ["/usr/bin/cilium"]
+CMD ["/usr/bin/cilium-dbg"]
 ```

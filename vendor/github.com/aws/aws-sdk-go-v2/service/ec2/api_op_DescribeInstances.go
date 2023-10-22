@@ -133,7 +133,6 @@ type DescribeInstancesInput struct {
 	//   format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), for example,
 	//   2021-09-29T11:04:43.305Z . You can use a wildcard ( * ), for example,
 	//   2021-09-29T* , which matches an entire day.
-	//   - license-pool -
 	//   - maintenance-options.auto-recovery - The current automatic recovery behavior
 	//   of the instance ( disabled | default ).
 	//   - metadata-options.http-endpoint - The status of access to the HTTP metadata
@@ -152,50 +151,79 @@ type DescribeInstancesInput struct {
 	//   | applied ).
 	//   - monitoring-state - Indicates whether detailed monitoring is enabled (
 	//   disabled | enabled ).
-	//   - network-interface.addresses.primary - Specifies whether the IPv4 address of
-	//   the network interface is the primary private IPv4 address.
-	//   - network-interface.addresses.private-ip-address - The private IPv4 address
-	//   associated with the network interface.
-	//   - network-interface.addresses.association.public-ip - The ID of the
-	//   association of an Elastic IP address (IPv4) with a network interface.
+	//   - network-interface.addresses.association.allocation-id - The allocation ID.
+	//   - network-interface.addresses.association.association-id - The association ID.
+	//   - network-interface.addresses.association.carrier-ip - The carrier IP address.
+	//   - network-interface.addresses.association.customer-owned-ip - The
+	//   customer-owned IP address.
 	//   - network-interface.addresses.association.ip-owner-id - The owner ID of the
 	//   private IPv4 address associated with the network interface.
-	//   - network-interface.association.public-ip - The address of the Elastic IP
-	//   address (IPv4) bound to the network interface.
-	//   - network-interface.association.ip-owner-id - The owner of the Elastic IP
-	//   address (IPv4) associated with the network interface.
+	//   - network-interface.addresses.association.public-dns-name - The public DNS
+	//   name.
+	//   - network-interface.addresses.association.public-ip - The ID of the
+	//   association of an Elastic IP address (IPv4) with a network interface.
+	//   - network-interface.addresses.primary - Specifies whether the IPv4 address of
+	//   the network interface is the primary private IPv4 address.
+	//   - network-interface.addresses.private-dns-name - The private DNS name.
+	//   - network-interface.addresses.private-ip-address - The private IPv4 address
+	//   associated with the network interface.
 	//   - network-interface.association.allocation-id - The allocation ID returned
 	//   when you allocated the Elastic IP address (IPv4) for your network interface.
 	//   - network-interface.association.association-id - The association ID returned
 	//   when the network interface was associated with an IPv4 address.
+	//   - network-interface.association.carrier-ip - The customer-owned IP address.
+	//   - network-interface.association.customer-owned-ip - The customer-owned IP
+	//   address.
+	//   - network-interface.association.ip-owner-id - The owner of the Elastic IP
+	//   address (IPv4) associated with the network interface.
+	//   - network-interface.association.public-dns-name - The public DNS name.
+	//   - network-interface.association.public-ip - The address of the Elastic IP
+	//   address (IPv4) bound to the network interface.
+	//   - network-interface.attachment.attach-time - The time that the network
+	//   interface was attached to an instance.
 	//   - network-interface.attachment.attachment-id - The ID of the interface
 	//   attachment.
+	//   - network-interface.attachment.delete-on-termination - Specifies whether the
+	//   attachment is deleted when an instance is terminated.
+	//   - network-interface.attachment.device-index - The device index to which the
+	//   network interface is attached.
 	//   - network-interface.attachment.instance-id - The ID of the instance to which
 	//   the network interface is attached.
 	//   - network-interface.attachment.instance-owner-id - The owner ID of the
 	//   instance to which the network interface is attached.
-	//   - network-interface.attachment.device-index - The device index to which the
-	//   network interface is attached.
+	//   - network-interface.attachment.network-card-index - The index of the network
+	//   card.
 	//   - network-interface.attachment.status - The status of the attachment (
 	//   attaching | attached | detaching | detached ).
-	//   - network-interface.attachment.attach-time - The time that the network
-	//   interface was attached to an instance.
-	//   - network-interface.attachment.delete-on-termination - Specifies whether the
-	//   attachment is deleted when an instance is terminated.
 	//   - network-interface.availability-zone - The Availability Zone for the network
 	//   interface.
+	//   - network-interface.deny-all-igw-traffic - A Boolean that indicates whether a
+	//   network interface with an IPv6 address is unreachable from the public internet.
 	//   - network-interface.description - The description of the network interface.
 	//   - network-interface.group-id - The ID of a security group associated with the
 	//   network interface.
 	//   - network-interface.group-name - The name of a security group associated with
 	//   the network interface.
+	//   - network-interface.ipv4-prefixes.ipv4-prefix - The IPv4 prefixes that are
+	//   assigned to the network interface.
+	//   - network-interface.ipv6-address - The IPv6 address associated with the
+	//   network interface.
 	//   - network-interface.ipv6-addresses.ipv6-address - The IPv6 address associated
 	//   with the network interface.
+	//   - network-interface.ipv6-addresses.is-primary-ipv6 - A Boolean that indicates
+	//   whether this is the primary IPv6 address.
+	//   - network-interface.ipv6-native - A Boolean that indicates whether this is an
+	//   IPv6 only network interface.
+	//   - network-interface.ipv6-prefixes.ipv6-prefix - The IPv6 prefix assigned to
+	//   the network interface.
 	//   - network-interface.mac-address - The MAC address of the network interface.
 	//   - network-interface.network-interface-id - The ID of the network interface.
+	//   - network-interface.outpost-arn - The ARN of the Outpost.
 	//   - network-interface.owner-id - The ID of the owner of the network interface.
 	//   - network-interface.private-dns-name - The private DNS name of the network
 	//   interface.
+	//   - network-interface.private-ip-address - The private IPv4 address.
+	//   - network-interface.public-dns-name - The public DNS name.
 	//   - network-interface.requester-id - The requester ID for the network interface.
 	//   - network-interface.requester-managed - Indicates whether the network
 	//   interface is being managed by Amazon Web Services.
@@ -206,6 +234,10 @@ type DescribeInstancesInput struct {
 	//   and false means that checking is disabled. The value must be false for the
 	//   network interface to perform network address translation (NAT) in your VPC.
 	//   - network-interface.subnet-id - The ID of the subnet for the network
+	//   interface.
+	//   - network-interface.tag-key - The key of a tag assigned to the network
+	//   interface.
+	//   - network-interface.tag-value - The value of a tag assigned to the network
 	//   interface.
 	//   - network-interface.vpc-id - The ID of the VPC for the network interface.
 	//   - outpost-arn - The Amazon Resource Name (ARN) of the Outpost.

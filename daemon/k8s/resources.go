@@ -30,10 +30,25 @@ var (
 		"Agent Kubernetes resources",
 
 		cell.Config(k8s.DefaultConfig),
+		LocalNodeCell,
 		cell.Provide(
 			k8s.ServiceResource,
 			k8s.EndpointsResource,
+			k8s.NamespaceResource,
+			k8s.NetworkPolicyResource,
+			k8s.CiliumNetworkPolicyResource,
+			k8s.CiliumClusterwideNetworkPolicyResource,
+			k8s.CiliumCIDRGroupResource,
+			k8s.CiliumNodeResource,
+			k8s.CiliumSlimEndpointResource,
+		),
+	)
 
+	LocalNodeCell = cell.Module(
+		"k8s-local-node-resources",
+		"Agent Kubernetes local node resources",
+
+		cell.Provide(
 			func(lc hive.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
 				return k8s.NodeResource(
 					lc, cs,
@@ -58,13 +73,6 @@ var (
 					},
 				)
 			},
-			k8s.NamespaceResource,
-			k8s.NetworkPolicyResource,
-			k8s.CiliumNetworkPolicyResource,
-			k8s.CiliumClusterwideNetworkPolicyResource,
-			k8s.CiliumCIDRGroupResource,
-			k8s.CiliumNodeResource,
-			k8s.CiliumSlimEndpointResource,
 		),
 	)
 )
@@ -95,4 +103,12 @@ type Resources struct {
 	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
 	CIDRGroups                       resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
+}
+
+// LocalNodeResources is a convenience struct to group CiliumNode and Node resources as cell contructor parameters.
+type LocalNodeResources struct {
+	cell.In
+
+	LocalNode       LocalNodeResource
+	LocalCiliumNode LocalCiliumNodeResource
 }

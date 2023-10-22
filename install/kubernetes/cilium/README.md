@@ -112,8 +112,11 @@ contributors across the globe, there is almost always someone available to help.
 | bgp.announce.loadbalancerIP | bool | `false` | Enable allocation and announcement of service LoadBalancer IPs |
 | bgp.announce.podCIDR | bool | `false` | Enable announcement of node pod CIDR |
 | bgp.enabled | bool | `false` | Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside cilium-agent and cilium-operator |
-| bgpControlPlane | object | `{"enabled":false}` | This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs. |
+| bgpControlPlane | object | `{"enabled":false,"secretsNamespace":{"create":true,"name":"cilium-bgp-secrets"}}` | This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs. |
 | bgpControlPlane.enabled | bool | `false` | Enables the BGP control plane. |
+| bgpControlPlane.secretsNamespace | object | `{"create":true,"name":"cilium-bgp-secrets"}` | SecretsNamespace is the namespace which BGP support will retrieve secrets from. |
+| bgpControlPlane.secretsNamespace.create | bool | `true` | Create secrets namespace for BGP secrets. |
+| bgpControlPlane.secretsNamespace.name | string | `"cilium-bgp-secrets"` | The name of the secret namespace to which Cilium agents are given read access |
 | bpf.authMapMax | int | `524288` | Configure the maximum number of entries in auth map. |
 | bpf.autoMount.enabled | bool | `true` | Enable automatic mount of BPF filesystem When `autoMount` is enabled, the BPF filesystem is mounted at `bpf.root` path on the underlying host and inside the cilium agent pod. If users disable `autoMount`, it's expected that users have mounted bpffs filesystem at the specified `bpf.root` volume, and then the volume will be mounted inside the cilium agent pod at the same path. |
 | bpf.ctAnyMax | int | `262144` | Configure the maximum number of entries for the non-TCP connection tracking table. |
@@ -262,8 +265,8 @@ contributors across the globe, there is almost always someone available to help.
 | dnsProxy.preCache | string | `""` | DNS cache data at this path is preloaded on agent startup. |
 | dnsProxy.proxyPort | int | `0` | Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port. |
 | dnsProxy.proxyResponseMaxDelay | string | `"100ms"` | The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. |
-| egressGateway | object | `{"enabled":false,"installRoutes":false,"reconciliationTriggerInterval":"1s"}` | Enables egress gateway to redirect and SNAT the traffic that leaves the cluster. |
-| egressGateway.installRoutes | bool | `false` | Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface |
+| egressGateway.enabled | bool | `false` | Enables egress gateway to redirect and SNAT the traffic that leaves the cluster. |
+| egressGateway.installRoutes | bool | `false` | Deprecated without a replacement necessary. |
 | egressGateway.reconciliationTriggerInterval | string | `"1s"` | Time between triggers of egress gateway state reconciliations |
 | enableCiliumEndpointSlice | bool | `false` | Enable CiliumEndpointSlice feature. |
 | enableCnpStatusUpdates | bool | `false` | Whether to enable CNP status updates. |
@@ -324,7 +327,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.extraVolumes | list | `[]` | Additional envoy volumes. |
 | envoy.healthPort | int | `9878` | TCP port for the health API. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:cfdbc99947fc042187afa72cd271619be3546e2f4e1f6899f31a2659bc21fee4","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.27.0-6b9ff340bc4058c9063b74aeeadd58fdc724c32e","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:2b590be37624547d638a578a3f31278d3be53a1a2649ba888a9f15771628521e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.27.2-ab187719b71b513150f30209569695adf16ec869","useDigest":true}` | Envoy container image. |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | envoy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
 | envoy.log.format | string | `"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"` | The format string to use for laying out the log message metadata of Envoy. |
@@ -491,7 +494,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.backend.extraEnv | list | `[]` | Additional hubble-ui backend environment variables. |
 | hubble.ui.backend.extraVolumeMounts | list | `[]` | Additional hubble-ui backend volumeMounts. |
 | hubble.ui.backend.extraVolumes | list | `[]` | Additional hubble-ui backend volumes. |
-| hubble.ui.backend.image | object | `{"digest":"sha256:8a79a1aad4fc9c2aa2b3e4379af0af872a89fcec9d99e117188190671c66fc2e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.12.0","useDigest":true}` | Hubble-ui backend image. |
+| hubble.ui.backend.image | object | `{"digest":"sha256:1f86f3400827a0451e6332262467f894eeb7caf0eb8779bd951e2caa9d027cbe","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.12.1","useDigest":true}` | Hubble-ui backend image. |
 | hubble.ui.backend.livenessProbe.enabled | bool | `false` | Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+) |
 | hubble.ui.backend.readinessProbe.enabled | bool | `false` | Enable readiness probe for Hubble-ui backend (requires Hubble-ui 0.12+) |
 | hubble.ui.backend.resources | object | `{}` | Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment. |
@@ -501,7 +504,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.frontend.extraEnv | list | `[]` | Additional hubble-ui frontend environment variables. |
 | hubble.ui.frontend.extraVolumeMounts | list | `[]` | Additional hubble-ui frontend volumeMounts. |
 | hubble.ui.frontend.extraVolumes | list | `[]` | Additional hubble-ui frontend volumes. |
-| hubble.ui.frontend.image | object | `{"digest":"sha256:1c876cfa1d5e35bc91e1025c9314f922041592a88b03313c22c1f97a5d2ba88f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.12.0","useDigest":true}` | Hubble-ui frontend image. |
+| hubble.ui.frontend.image | object | `{"digest":"sha256:9e5f81ee747866480ea1ac4630eb6975ff9227f9782b7c93919c081c33f38267","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.12.1","useDigest":true}` | Hubble-ui frontend image. |
 | hubble.ui.frontend.resources | object | `{}` | Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment. |
 | hubble.ui.frontend.securityContext | object | `{}` | Hubble-ui frontend security context. |
 | hubble.ui.frontend.server.ipv6 | object | `{"enabled":true}` | Controls server listener for ipv6 |
@@ -533,6 +536,7 @@ contributors across the globe, there is almost always someone available to help.
 | ingressController.default | bool | `false` | Set cilium ingress controller to be the default ingress controller This will let cilium ingress controller route entries without ingress class set |
 | ingressController.defaultSecretName | string | `nil` | Default secret name for ingresses without .spec.tls[].secretName set. |
 | ingressController.defaultSecretNamespace | string | `nil` | Default secret namespace for ingresses without .spec.tls[].secretName set. |
+| ingressController.enableProxyProtocol | bool | `false` | Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled. |
 | ingressController.enabled | bool | `false` | Enable cilium ingress controller This will automatically set enable-envoy-config as well. |
 | ingressController.enforceHttps | bool | `true` | Enforce https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. |
 | ingressController.ingressLBAnnotationPrefixes | list | `["service.beta.kubernetes.io","service.kubernetes.io","cloud.google.com"]` | IngressLBAnnotations are the annotation prefixes, which are used to filter annotations to propagate from Ingress to the Load Balancer service |

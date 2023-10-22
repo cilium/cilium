@@ -343,11 +343,14 @@ Name                                          Labels                            
 IPSec
 ~~~~~
 
-============================================= ================================================== ========== ========================================================
+============================================= ================================================== ========== ===========================================================
 Name                                          Labels                                             Default    Description
-============================================= ================================================== ========== ========================================================
-``ipsec_xfrm_error``                          ``error``, ``type``                                Enabled    Total number of xfrm errors.
-============================================= ================================================== ========== ========================================================
+============================================= ================================================== ========== ===========================================================
+``ipsec_xfrm_error``                          ``error``, ``type``                                Enabled    Total number of xfrm errors
+``ipsec_keys``                                                                                   Enabled    Number of keys in use
+``ipsec_xfrm_states``                         ``direction``                                      Enabled    Number of XFRM states
+``ipsec_xfrm_policies``                       ``direction``                                      Enabled    Number of XFRM policies
+============================================= ================================================== ========== ===========================================================
 
 eBPF
 ~~~~
@@ -357,7 +360,7 @@ Name                                       Labels                               
 ========================================== ===================================================================== ========== ========================================================
 ``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                                            Disabled   Duration of eBPF system call performed
 ``bpf_map_ops_total``                      ``mapName`` (deprecated), ``map_name``, ``operation``, ``outcome``    Enabled    Number of eBPF map operations performed. ``mapName`` is deprecated and will be removed in 1.10. Use ``map_name`` instead.
-``bpf_map_pressure``                       ``map_name``                                                          Enabled    Map pressure defined as a ratio of the map usage compared to its size. The policy map metric is the maximum policy map size on a node and is only reported when the ratio is over 0.1, ie 10% full.
+``bpf_map_pressure``                       ``map_name``                                                          Enabled    Map pressure is defined as a ratio of the required map size compared to its configured size. Values < 1.0 indicate the map's utilization, while values >= 1.0 indicate that the map is full. Policy map metrics are only reported when the ratio is over 0.1, ie 10% full.
 ``bpf_map_capacity``                       ``map_group``                                                         Enabled    Maximum size of eBPF maps by group of maps (type of map that have the same max capacity size). Map types with size of 65536 are not emitted, missing map types can be assumed to be 65536.
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Enabled    Max memory used by eBPF maps installed in the system
 ``bpf_progs_virtual_memory_max_bytes``                                                                           Enabled    Max memory used by eBPF programs installed in the system
@@ -515,6 +518,7 @@ Name                                     Labels                                 
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Enabled    Duration of kvstore operation
 ``kvstore_events_queue_seconds``         ``action``, ``scope``                        Enabled    Seconds waited before a received event was queued
 ``kvstore_quorum_errors_total``          ``error``                                    Enabled    Number of quorum errors
+``kvstore_sync_errors_total``            ``scope``, ``source_cluster``                Enabled    Number of times synchronization to the kvstore failed
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Enabled    Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Enabled    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========== ========================================================
@@ -1029,6 +1033,7 @@ Name                                     Labels                                 
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Duration of kvstore operation
 ``kvstore_events_queue_seconds``         ``action``, ``scope``                        Seconds waited before a received event was queued
 ``kvstore_quorum_errors_total``          ``error``                                    Number of quorum errors
+``kvstore_sync_errors_total``            ``scope``, ``source_cluster``                Number of times synchronization to the kvstore failed
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========================================================
@@ -1103,6 +1108,7 @@ Name                                     Labels                                 
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Duration of kvstore operation
 ``kvstore_events_queue_seconds``         ``action``, ``scope``                        Seconds waited before a received event was queued
 ``kvstore_quorum_errors_total``          ``error``                                    Number of quorum errors
+``kvstore_sync_errors_total``            ``scope``, ``source_cluster``                Number of times synchronization to the kvstore failed
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========================================================

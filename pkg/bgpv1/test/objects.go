@@ -76,6 +76,32 @@ func newLBServiceObj(conf lbSrvConfig) slim_core_v1.Service {
 	return srvObj
 }
 
+// lbSrvConfig contains lb service configuration data
+type lbPoolConfig struct {
+	name   string
+	labels map[string]string
+	cidrs  []string
+}
+
+// newLBPoolObj creates CiliumLoadBalancerIPPool object based on lbSrvConfig
+func newLBPoolObj(conf lbPoolConfig) v2alpha1.CiliumLoadBalancerIPPool {
+	obj := v2alpha1.CiliumLoadBalancerIPPool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              conf.name,
+			UID:               uid,
+			CreationTimestamp: metav1.Now(),
+			Labels:            make(map[string]string),
+		},
+	}
+	if conf.labels != nil {
+		obj.Labels = conf.labels
+	}
+	for _, cidr := range conf.cidrs {
+		obj.Spec.Cidrs = append(obj.Spec.Cidrs, v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{Cidr: v2alpha1.IPv4orIPv6CIDR(cidr)})
+	}
+	return obj
+}
+
 // ipPoolConfig data used to create a CiliumPodIPPool resource.
 type ipPoolConfig struct {
 	name   string

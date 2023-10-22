@@ -5,11 +5,10 @@ package node_test
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"

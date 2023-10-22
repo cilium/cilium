@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
