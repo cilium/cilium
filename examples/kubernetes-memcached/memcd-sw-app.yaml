@@ -71,7 +71,7 @@ spec:
     spec:
       containers:
       - name: starfigher
-        image: docker.io/library/alpine:3.12.7@sha256:36553b10a4947067b9fbb7d532951066293a68eae893beba1d9235f7d11a20ad
+        image: docker.io/library/alpine:3.18.4@sha256:48d9183eb12a05c99bcc0bf44a003607b8e941e1d4f41f9ad12bdcc4b5672f86
         command: ["sleep"]
         args: ["30000"]
 ---
