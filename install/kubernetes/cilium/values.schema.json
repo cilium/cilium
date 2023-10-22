@@ -1211,6 +1211,9 @@
           },
           "type": "object"
         },
+        "enableEndpointSliceSynchronization": {
+          "type": "boolean"
+        },
         "maxConnectedClusters": {
           "type": "integer"
         },
