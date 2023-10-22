@@ -172,10 +172,8 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 	__u32 lifetime = dir == CT_SERVICE ?
 			 bpf_sec_to_mono(CT_SERVICE_LIFETIME_NONTCP) :
 			 bpf_sec_to_mono(CT_CONNECTION_LIFETIME_NONTCP);
-	bool syn = seen_flags.value & TCP_FLAG_SYN;
 
 	if (tcp) {
-		entry->seen_non_syn |= !syn;
 		if (entry->seen_non_syn) {
 			lifetime = dir == CT_SERVICE ?
 				   bpf_sec_to_mono(CT_SERVICE_LIFETIME_TCP) :
@@ -267,8 +265,12 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		    ct_entry_expired_rebalance(entry))
 			goto ct_new;
 #endif
-		if (ct_entry_alive(entry))
+		if (ct_entry_alive(entry)) {
+			if (is_tcp)
+				entry->seen_non_syn |= !syn;
+
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
+		}
 
 		ct_state->rev_nat_index = entry->rev_nat_index;
 		if (dir == CT_SERVICE) {
