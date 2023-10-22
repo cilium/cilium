@@ -56,6 +56,12 @@ rules:
   resources:
   - endpointslices
   verbs:
+{{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+  - create
+  - update
+  - delete
+  - deletecollection
+{{- end }}
   - get
   - list
   - watch
@@ -94,6 +100,15 @@ rules:
   - update
   - delete
   - patch
+{{- end }}
+{{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - patch
+  - create
 {{- end }}
 - apiGroups:
   - cilium.io
