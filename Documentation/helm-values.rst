@@ -768,6 +768,10 @@
      - Enable the Clustermesh explicit configuration.
      - bool
      - ``false``
+   * - :spelling:ignore:`clustermesh.enableEndpointSliceSynchronization`
+     - Enable the synchronization of Kubernetes EndpointSlices corresponding to the remote endpoints of appropriately-annotated global services through ClusterMesh
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.maxConnectedClusters`
      - The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511.
      - int

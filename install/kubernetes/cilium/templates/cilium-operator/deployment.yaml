@@ -92,6 +92,10 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        {{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+        - name: CILIUM_CLUSTERMESH_CONFIG
+          value: /var/lib/cilium/clustermesh/
+        {{- end }}
         - name: CILIUM_DEBUG
           valueFrom:
             configMapKeyRef:
@@ -207,6 +211,11 @@ spec:
           readOnly: true
         {{- end }}
         {{- end }}
+        {{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+        - name: clustermesh-secrets
+          mountPath: /var/lib/cilium/clustermesh
+          readOnly: true
+        {{- end }}
         {{- if .Values.kubeConfigPath }}
         - name: kube-config
           mountPath: {{ .Values.kubeConfigPath }}
@@ -277,6 +286,15 @@ spec:
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
+      {{- if and .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
+      hostAliases:
+      {{- range $cluster := .Values.clustermesh.config.clusters }}
+      {{- range $ip := $cluster.ips }}
+      - ip: {{ $ip }}
+        hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]
+      {{- end }}
+      {{- end }}
+      {{- end }}
       {{- with .Values.operator.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
@@ -333,5 +351,39 @@ spec:
       {{- end }}
       {{- with .Values.operator.extraVolumes }}
       {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+        # To read the clustermesh configuration
+      - name: clustermesh-secrets
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: cilium-clustermesh
+              optional: true
+              # note: items are not explicitly listed here, since the entries of this secret
+              # depend on the peers configured, and that would cause a restart of all agents
+              # at every addition/removal. Leaving the field empty makes each secret entry
+              # to be automatically projected into the volume as a file whose name is the key.
+          - secret:
+              name: clustermesh-apiserver-remote-cert
+              optional: true
+              items:
+              - key: tls.key
+                path: common-etcd-client.key
+              - key: tls.crt
+                path: common-etcd-client.crt
+          {{- if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: common-etcd-client-ca.crt
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: common-etcd-client-ca.crt
+          {{- end }}
       {{- end }}
 {{- end }}
