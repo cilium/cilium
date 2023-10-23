@@ -90,7 +90,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 #ifdef ENABLE_IPSEC
 	if (encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					 seclabel);
+					 seclabel, true);
 #endif
 
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel_endpoint,
@@ -112,7 +112,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 #ifdef ENABLE_IPSEC
 	if (encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					 seclabel);
+					 seclabel, false);
 #endif
 
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
@@ -180,7 +180,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
 
 		return set_ipsec_encrypt(ctx, min_encrypt_key, tunnel->ip4,
-					 seclabel);
+					 seclabel, false);
 	}
 # endif
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,
@@ -202,7 +202,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 #ifdef ENABLE_IPSEC
 	if (encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, tunnel->ip4,
-					 seclabel);
+					 seclabel, true);
 #endif
 
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,

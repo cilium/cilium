@@ -42,6 +42,12 @@ set_encrypt_key_mark(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused,
 }
 
 static __always_inline __maybe_unused void
+set_encrypt_key_meta(struct __sk_buff *ctx __maybe_unused, __u8 key __maybe_unused,
+		     __u32 node_id __maybe_unused)
+{
+}
+
+static __always_inline __maybe_unused void
 ctx_set_cluster_id_mark(struct xdp_md *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
 {
 }
