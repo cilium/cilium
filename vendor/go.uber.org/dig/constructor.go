@@ -129,6 +129,11 @@ func (n *constructorNode) CType() reflect.Type        { return n.ctype }
 func (n *constructorNode) Order(s *Scope) int         { return n.orders[s] }
 func (n *constructorNode) OrigScope() *Scope          { return n.origS }
 
+// CopyOrder copies the order for the given parent scope to the given child scope.
+func (n *constructorNode) CopyOrder(parent, child *Scope) {
+	n.orders[child] = n.orders[parent]
+}
+
 func (n *constructorNode) String() string {
 	return fmt.Sprintf("deps: %v, ctor: %v", n.paramList, n.ctype)
 }

@@ -118,7 +118,7 @@ func (gf *GoFormatter) writeType(typ Type, depth int) error {
 //	uint32
 func (gf *GoFormatter) writeTypeLit(typ Type, depth int) error {
 	depth++
-	if depth > maxTypeDepth {
+	if depth > maxResolveDepth {
 		return errNestedTooDeep
 	}
 
@@ -265,7 +265,7 @@ func (gf *GoFormatter) writeStructField(m Member, depth int) error {
 		}
 
 		depth++
-		if depth > maxTypeDepth {
+		if depth > maxResolveDepth {
 			return errNestedTooDeep
 		}
 
@@ -338,7 +338,7 @@ func (gf *GoFormatter) writePadding(bytes uint32) {
 
 func skipQualifiers(typ Type) Type {
 	result := typ
-	for depth := 0; depth <= maxTypeDepth; depth++ {
+	for depth := 0; depth <= maxResolveDepth; depth++ {
 		switch v := (result).(type) {
 		case qualifier:
 			result = v.qualify()
