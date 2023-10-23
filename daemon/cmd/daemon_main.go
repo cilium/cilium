@@ -448,6 +448,20 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns")
 	option.BindEnv(vp, option.FixedIdentityMapping)
 
+	flags.Bool(option.EnableMultipleXDPProgs, false, "Set multiple xdp progs. Default 0 (disable)")
+	option.BindEnv(vp, option.EnableMultipleXDPProgs)
+
+	flags.Var(option.NewNamedMapOptions(option.MultipleXDPProgsFuncReplaceMapping, &option.Config.MultipleXDPProgsFuncReplaceMapping, nil),
+		option.MultipleXDPProgsFuncReplaceMapping, "Key-value for the function replace mapping which allows to replace the functions in the main xdp program with other xdp program")
+
+	option.BindEnv(vp, option.MultipleXDPProgsFuncReplaceMapping)
+
+	flags.String(option.XDPMainProgramObj, "", "set the main xdp program object")
+	option.BindEnv(vp, option.XDPMainProgramObj)
+
+	flags.StringSlice(option.ExtraXDPProgamObjs, []string{}, "Set the extra xdp objects that need to be loaded")
+	option.BindEnv(vp, option.ExtraXDPProgamObjs)
+
 	flags.Duration(option.IdentityChangeGracePeriod, defaults.IdentityChangeGracePeriod, "Time to wait before using new identity on endpoint identity change")
 	option.BindEnv(vp, option.IdentityChangeGracePeriod)
 

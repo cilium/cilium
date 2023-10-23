@@ -220,6 +220,9 @@ const (
 	// EnableHostLegacyRouting is the default value for using the old routing path via stack.
 	EnableHostLegacyRouting = false
 
+	// EnableMultipleXDPProgs is the default value for multiple xdp programs support
+	EnableMultipleXDPProgs = false
+
 	// PreAllocateMaps is the default value for BPF map preallocation
 	PreAllocateMaps = true
 

@@ -52,6 +52,11 @@ func TCGlobalsPath() string {
 	return filepath.Join(bpffsRoot, defaults.TCGlobalsPath)
 }
 
+func XDPProgramPath() string {
+	once.Do(lockDown)
+	return filepath.Join(bpffsRoot, "xdp")
+}
+
 // CiliumPath returns the bpffs path to be used for Cilium object pins.
 func CiliumPath() string {
 	once.Do(lockDown)

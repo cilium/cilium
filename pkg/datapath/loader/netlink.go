@@ -9,12 +9,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-
-	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -24,6 +23,9 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	ebpflink "github.com/cilium/ebpf/link"
 )
 
 const qdiscClsact = "clsact"
@@ -56,6 +58,14 @@ func replaceQdisc(link netlink.Link) error {
 type progDefinition struct {
 	progName  string
 	direction string
+}
+
+type progObjInfo struct {
+	name           string
+	objPath        string
+	mapPinPath     string
+	linkPinPath    string
+	funcReplaceMap map[string]string
 }
 
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
@@ -186,8 +196,206 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	return finalize, nil
 }
 
+// replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
+//
+// When successful, returns a finalizer to allow the map cleanup operation to be
+// deferred by the caller. On error, any maps pending migration are immediately
+// re-pinned to their original paths and a finalizer is not returned.
+//
+// When replacing multiple programs from the same ELF in a loop, the finalizer
+// should only be run when all the interface's programs have been replaced
+// since they might share one or more tail call maps.
+//
+// For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
+// gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
+// will miss tail calls (and drop packets) until it has been replaced as well.
+
+func loadXDPProgs(info progObjInfo, targetProg *ebpf.Program) (*ebpf.Collection, []func(), []func(), error) {
+	l := log.WithField("obj", info.name)
+	l.Debug("Loading CollectionSpec from ELF")
+
+	finalizes := []func(){}
+	reverts := []func(){}
+	spec, err := bpf.LoadCollectionSpec(info.objPath)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading eBPF ELF: %w", err)
+	}
+	l.Debugf("Loaded spec for xdp :%+v", spec)
+
+	for k, v := range info.funcReplaceMap {
+		p, ok := spec.Programs[k]
+		if ok {
+			p.AttachTarget = targetProg
+			p.AttachType = ebpf.AttachNone
+			p.Type = ebpf.Extension
+			p.AttachTo = v
+			spec.Programs[k] = p
+		}
+	}
+
+	// Load the CollectionSpec into the kernel, picking up any pinned maps from
+	// bpffs in the process.
+
+	opts := ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{PinPath: info.mapPinPath},
+	}
+	l.Debug("Loading Collection into kernel")
+	coll, err := bpf.LoadCollection(spec, opts)
+	if errors.Is(err, ebpf.ErrMapIncompatible) {
+		// Temporarily rename bpffs pins of maps whose definitions have changed in
+		// a new version of a datapath ELF.
+		l.Debug("Starting bpffs map migration")
+		if err := bpf.StartBPFFSMigration(info.mapPinPath, spec); err != nil {
+			return nil, nil, nil, fmt.Errorf("Failed to start bpffs map migration: %w", err)
+		}
+
+		finalize := func() {
+			l.Debug("Finalizing bpffs map migration")
+			if err := bpf.FinalizeBPFFSMigration(info.mapPinPath, spec, false); err != nil {
+				l.WithError(err).Error("Could not finalize bpffs map migration")
+			}
+		}
+		finalizes = append(finalizes, finalize)
+		revert := func() {
+			l.Debug("Reverting bpffs map migration")
+			if err := bpf.FinalizeBPFFSMigration(info.mapPinPath, spec, true); err != nil {
+				l.WithError(err).Error("Failed to revert bpffs map migration")
+			}
+		}
+		reverts = append(reverts, revert)
+		// Retry loading the Collection after starting map migration.
+		l.Debug("Retrying loading Collection into kernel after map migration")
+		coll, err = bpf.LoadCollection(spec, opts)
+	}
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		coll.Close()
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return nil, nil, nil, fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
+	}
+	if err != nil {
+		coll.Close()
+		return nil, nil, nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
+	}
+
+	for name, prog := range coll.Programs {
+		_, ok := info.funcReplaceMap[name]
+		if ok {
+			progLink, err := ebpflink.AttachFreplace(nil, "", prog)
+			if err != nil {
+				coll.Close()
+				return nil, nil, nil, err
+			}
+			// Pin the link to temp first
+			temppath := filepath.Join(info.linkPinPath, name+"temp")
+			os.Remove(temppath)
+			err = progLink.Pin(temppath)
+			if err != nil {
+				coll.Close()
+				return nil, nil, nil, err
+			}
+			path := filepath.Join(info.linkPinPath, name)
+
+			finalize := func() {
+				temp, err := link.LoadPinnedLink(temppath, &ebpf.LoadPinOptions{})
+				if err != nil {
+					l.WithError(err).Errorf("Could not load pin link info from:%v", temppath)
+					return
+				}
+				defer temp.Close()
+
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					err = temp.Pin(path)
+					if err != nil {
+						l.WithError(err).Errorf("Could not load pin link info to:%v", path)
+						return
+					}
+					return
+				} else if err != nil {
+					l.WithError(err).Errorf("Could not check for path:%v, err:%v", path, err)
+					return
+				}
+				os.Remove(path)
+				temp.Unpin()
+				temp.Pin(path)
+			}
+			finalizes = append(finalizes, finalize)
+		}
+	}
+	return coll, finalizes, reverts, nil
+}
+
+func replaceDatapathXDP(ctx context.Context, ifName, xdpMode string, mainObjInfo progObjInfo, extraProgInfo []progObjInfo) ([]func(), error) {
+	// Avoid unnecessarily loading a prog.
+	finalizes := []func(){}
+	reverts := []func(){}
+	var dispatcherProg *ebpf.Program
+	dispatcherProgName := ""
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	link, err := netlink.LinkByName(ifName)
+	if err != nil {
+		return nil, fmt.Errorf("getting interface %s by name: %w", ifName, err)
+	}
+
+	l := log.WithField("device", ifName).WithField("mainObjPath", mainObjInfo.name).
+		WithField("ifindex", link.Attrs().Index)
+
+	coll, f, r, err := loadXDPProgs(mainObjInfo, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Falied to load main xdp programs: %v %v", mainObjInfo, err)
+	}
+	finalizes = append(finalizes, f...)
+	reverts = append(reverts, r...)
+
+	if len(coll.Programs) != 1 {
+		return nil, fmt.Errorf("The main object has multiple programs")
+	}
+
+	for k, v := range coll.Programs {
+		dispatcherProg = v
+		dispatcherProgName = k
+	}
+	defer coll.Close()
+
+	for _, progInfo := range extraProgInfo {
+		coll, f, r, err := loadXDPProgs(progInfo, dispatcherProg)
+		if err != nil {
+			return nil, fmt.Errorf("Falied to load main xdp programs %v %v", progInfo, err)
+
+		}
+		coll.Close()
+		finalizes = append(finalizes, f...)
+		reverts = append(reverts, r...)
+	}
+
+	// Avoid attaching a prog to a stale interface.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	scopedLog := l.WithField("progName", dispatcherProgName).WithField("direction", "")
+	scopedLog.Debug("Attaching program to interface")
+
+	if err := attachProgram(link, dispatcherProg, dispatcherProgName, 0, xdpModeToFlag(xdpMode)); err != nil {
+		// Program replacement unsuccessful, revert bpffs migration.
+		for _, fn := range reverts {
+			fn()
+		}
+		return nil, fmt.Errorf("program %s: %w", dispatcherProgName, err)
+	}
+	scopedLog.Debug("Successfully attached program to interface")
+
+	return finalizes, nil
+}
+
 // attachProgram attaches prog to link.
 // If xdpFlags is non-zero, attaches prog to XDP.
+
 func attachProgram(link netlink.Link, prog *ebpf.Program, progName string, qdiscParent uint32, xdpFlags uint32) error {
 	if prog == nil {
 		return errors.New("cannot attach a nil program")

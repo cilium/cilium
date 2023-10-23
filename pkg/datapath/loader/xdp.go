@@ -9,12 +9,12 @@ import (
 	"path"
 	"strings"
 
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netlink/nl"
-
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 )
 
 func xdpModeToFlag(xdpMode string) uint32 {
@@ -126,11 +126,67 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 
 	objPath := path.Join(dirs.Output, prog.Output)
 	progs := []progDefinition{{progName: symbolFromHostNetdevXDP, direction: ""}}
-	finalize, err := replaceDatapath(ctx, xdpDev, objPath, progs, xdpMode)
-	if err != nil {
-		return err
-	}
-	finalize()
 
+	finalize := func() {}
+	finalizes := []func(){}
+
+	if option.Config.EnableMultipleXDPProgs {
+		mainProgObjPath := path.Join(dirs.Output, option.Config.XDPMainProgramObj)
+
+		mainObjInfo := progObjInfo{}
+		mainObjInfo.name = option.Config.XDPMainProgramObj
+		mainObjInfo.objPath = mainProgObjPath
+		mainObjInfo.mapPinPath = bpf.XDPProgramPath()
+		mainObjInfo.linkPinPath = ""
+
+		extraObjInfos := []progObjInfo{}
+		funcMap := option.Config.MultipleXDPProgsFuncReplaceMapping
+
+		for _, obj := range option.Config.ExtraXDPProgamObjs {
+			p := path.Join(dirs.Output, obj)
+			extraObjInfo := progObjInfo{}
+			extraObjInfo.name = obj
+			extraObjInfo.objPath = p
+			extraObjInfo.mapPinPath = bpf.XDPProgramPath()
+			extraObjInfo.linkPinPath = bpf.XDPProgramPath()
+			extraObjInfo.funcReplaceMap = map[string]string{}
+
+			for k, v := range funcMap {
+				f := strings.Split(k, ":")
+				if len(f) != 2 {
+					return fmt.Errorf("key format error for function replace mapping, should be obj:src_func=dst_func, but we get :%v = %v", k, v)
+				}
+				if f[0] == obj {
+					extraObjInfo.funcReplaceMap[f[1]] = v
+				}
+			}
+			extraObjInfos = append(extraObjInfos, extraObjInfo)
+		}
+
+		for _, p := range progs {
+			ciliumXDPInfo := progObjInfo{}
+			ciliumXDPInfo.name = prog.Output
+			ciliumXDPInfo.objPath = objPath
+			ciliumXDPInfo.mapPinPath = bpf.TCGlobalsPath()
+			ciliumXDPInfo.linkPinPath = bpf.XDPProgramPath()
+			ciliumXDPInfo.funcReplaceMap = map[string]string{p.progName: p.progName}
+			ciliumXDPInfo.funcReplaceMap[p.progName] = p.progName
+			extraObjInfos = append(extraObjInfos, ciliumXDPInfo)
+		}
+
+		finalizes, err = replaceDatapathXDP(ctx, xdpDev, xdpMode, mainObjInfo, extraObjInfos)
+		if err != nil {
+			return err
+		}
+		for _, fn := range finalizes {
+			fn()
+		}
+	} else {
+		finalize, err = replaceDatapath(ctx, xdpDev, objPath, progs, xdpMode)
+		if err != nil {
+			return err
+		}
+		finalize()
+	}
 	return err
 }

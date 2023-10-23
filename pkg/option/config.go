@@ -310,6 +310,18 @@ const (
 
 	EnableServiceTopology = "enable-service-topology"
 
+	//EnableMultipleXDPProgs enables to attach multiple XDP programs to interface
+	EnableMultipleXDPProgs = "enable-multiple-xdp-progs"
+
+	//XDPMainProgramObj sets the main program obj to load
+	XDPMainProgramObj = "xdp-main-prog-obj"
+
+	//ExtraXDPProgamObjs sets other xdp programs needs to be loaded
+	ExtraXDPProgamObjs = "extra-xdp-prog-objs"
+
+	//MultipleXDPProgsFuncReplaceMapping sets the function mapping info
+	MultipleXDPProgsFuncReplaceMapping = "multiple-xdp-progs-func-replace-map"
+
 	// EnableIdentityMark enables setting the mark field with the identity for
 	// local traffic. This may be disabled if chaining modes and Cilium use
 	// conflicting marks.
@@ -1780,40 +1792,44 @@ type DaemonConfig struct {
 
 	// CLI options
 
-	BPFRoot                       string
-	BPFSocketLBHostnsOnly         bool
-	CGroupRoot                    string
-	BPFCompileDebug               string
-	CompilerFlags                 []string
-	ConfigFile                    string
-	ConfigDir                     string
-	Debug                         bool
-	DebugVerbose                  []string
-	EnableSocketLB                bool
-	EnableSocketLBTracing         bool
-	EnableSocketLBPeer            bool
-	EnablePolicy                  string
-	EnableTracing                 bool
-	EnableUnreachableRoutes       bool
-	EnvoyLog                      string
-	DisableEnvoyVersionCheck      bool
-	FixedIdentityMapping          map[string]string
-	FixedIdentityMappingValidator func(val string) (string, error) `json:"-"`
-	IPv4Range                     string
-	IPv6Range                     string
-	IPv4ServiceRange              string
-	IPv6ServiceRange              string
-	K8sSyncTimeout                time.Duration
-	AllocatorListTimeout          time.Duration
-	K8sWatcherEndpointSelector    string
-	KVStore                       string
-	KVStoreOpt                    map[string]string
-	LabelPrefixFile               string
-	Labels                        []string
-	LogDriver                     []string
-	LogOpt                        map[string]string
-	Logstash                      bool
-	LogSystemLoadConfig           bool
+	BPFRoot                                     string
+	BPFSocketLBHostnsOnly                       bool
+	CGroupRoot                                  string
+	BPFCompileDebug                             string
+	CompilerFlags                               []string
+	ConfigFile                                  string
+	ConfigDir                                   string
+	Debug                                       bool
+	DebugVerbose                                []string
+	EnableSocketLB                              bool
+	EnableSocketLBTracing                       bool
+	EnableSocketLBPeer                          bool
+	EnablePolicy                                string
+	EnableTracing                               bool
+	EnableUnreachableRoutes                     bool
+	EnvoyLog                                    string
+	DisableEnvoyVersionCheck                    bool
+	EnableMultipleXDPProgs                      bool
+	XDPMainProgramObj                           string
+	ExtraXDPProgamObjs                          []string
+	MultipleXDPProgsFuncReplaceMapping          map[string]string
+	FixedIdentityMapping                        map[string]string
+	FixedIdentityMappingValidator               func(val string) (string, error) `json:"-"`
+	IPv4Range                                   string
+	IPv6Range                                   string
+	IPv4ServiceRange                            string
+	IPv6ServiceRange                            string
+	K8sSyncTimeout                              time.Duration
+	AllocatorListTimeout                        time.Duration
+	K8sWatcherEndpointSelector                  string
+	KVStore                                     string
+	KVStoreOpt                                  map[string]string
+	LabelPrefixFile                             string
+	Labels                                      []string
+	LogDriver                                   []string
+	LogOpt                                      map[string]string
+	Logstash                                    bool
+	LogSystemLoadConfig                         bool
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
@@ -2483,51 +2499,52 @@ type DaemonConfig struct {
 var (
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
-		CreationTime:                    time.Now(),
-		Opts:                            NewIntOptions(&DaemonOptionLibrary),
-		Monitor:                         &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
-		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
-		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
-		EnableHostIPRestore:             defaults.EnableHostIPRestore,
-		EnableHealthChecking:            defaults.EnableHealthChecking,
-		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
-		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
-		EnableHealthCheckNodePort:       defaults.EnableHealthCheckNodePort,
-		EnableIPv4:                      defaults.EnableIPv4,
-		EnableIPv6:                      defaults.EnableIPv6,
-		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
-		EnableSCTP:                      defaults.EnableSCTP,
-		EnableL7Proxy:                   defaults.EnableL7Proxy,
-		EndpointStatus:                  make(map[string]struct{}),
-		DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
-		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
-		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
-		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
-		IPAllocationTimeout:             defaults.IPAllocationTimeout,
-		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
-		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriod,
-		FixedIdentityMapping:            make(map[string]string),
-		KVStoreOpt:                      make(map[string]string),
-		LogOpt:                          make(map[string]string),
-		LoopbackIPv4:                    defaults.LoopbackIPv4,
-		EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
-		AnnotateK8sNode:                 defaults.AnnotateK8sNode,
-		K8sServiceCacheSize:             defaults.K8sServiceCacheSize,
-		AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
-		IdentityAllocationMode:          IdentityAllocationModeKVstore,
-		AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
-		EnableWellKnownIdentities:       defaults.EnableWellKnownIdentities,
-		AllocatorListTimeout:            defaults.AllocatorListTimeout,
-		EnableICMPRules:                 defaults.EnableICMPRules,
-		UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
-
-		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
-
-		ExternalClusterIP:      defaults.ExternalClusterIP,
-		EnableVTEP:             defaults.EnableVTEP,
-		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
-		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
-		PolicyCIDRMatchMode:    defaults.PolicyCIDRMatchMode,
+		CreationTime:                       time.Now(),
+		Opts:                               NewIntOptions(&DaemonOptionLibrary),
+		Monitor:                            &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+		IPv6ClusterAllocCIDR:               defaults.IPv6ClusterAllocCIDR,
+		IPv6ClusterAllocCIDRBase:           defaults.IPv6ClusterAllocCIDRBase,
+		EnableHostIPRestore:                defaults.EnableHostIPRestore,
+		EnableHealthChecking:               defaults.EnableHealthChecking,
+		EnableEndpointHealthChecking:       defaults.EnableEndpointHealthChecking,
+		EnableHealthCheckLoadBalancerIP:    defaults.EnableHealthCheckLoadBalancerIP,
+		EnableHealthCheckNodePort:          defaults.EnableHealthCheckNodePort,
+		EnableIPv4:                         defaults.EnableIPv4,
+		EnableIPv6:                         defaults.EnableIPv6,
+		EnableIPv6NDP:                      defaults.EnableIPv6NDP,
+		EnableSCTP:                         defaults.EnableSCTP,
+		EnableL7Proxy:                      defaults.EnableL7Proxy,
+		EndpointStatus:                     make(map[string]struct{}),
+		DNSMaxIPsPerRestoredRule:           defaults.DNSMaxIPsPerRestoredRule,
+		ToFQDNsMaxIPsPerHost:               defaults.ToFQDNsMaxIPsPerHost,
+		KVstorePeriodicSync:                defaults.KVstorePeriodicSync,
+		KVstoreConnectivityTimeout:         defaults.KVstoreConnectivityTimeout,
+		IPAllocationTimeout:                defaults.IPAllocationTimeout,
+		IdentityChangeGracePeriod:          defaults.IdentityChangeGracePeriod,
+		IdentityRestoreGracePeriod:         defaults.IdentityRestoreGracePeriod,
+		FixedIdentityMapping:               make(map[string]string),
+		KVStoreOpt:                         make(map[string]string),
+		LogOpt:                             make(map[string]string),
+		LoopbackIPv4:                       defaults.LoopbackIPv4,
+		EnableEndpointRoutes:               defaults.EnableEndpointRoutes,
+		AnnotateK8sNode:                    defaults.AnnotateK8sNode,
+		K8sServiceCacheSize:                defaults.K8sServiceCacheSize,
+		AutoCreateCiliumNodeResource:       defaults.AutoCreateCiliumNodeResource,
+		IdentityAllocationMode:             IdentityAllocationModeKVstore,
+		AllowICMPFragNeeded:                defaults.AllowICMPFragNeeded,
+		EnableWellKnownIdentities:          defaults.EnableWellKnownIdentities,
+		AllocatorListTimeout:               defaults.AllocatorListTimeout,
+		EnableICMPRules:                    defaults.EnableICMPRules,
+		UseCiliumInternalIPForIPsec:        defaults.UseCiliumInternalIPForIPsec,
+		EnableMultipleXDPProgs:             defaults.EnableMultipleXDPProgs,
+		MultipleXDPProgsFuncReplaceMapping: make(map[string]string),
+		ExtraXDPProgamObjs:                 []string{},
+		K8sEnableLeasesFallbackDiscovery:   defaults.K8sEnableLeasesFallbackDiscovery,
+		ExternalClusterIP:                  defaults.ExternalClusterIP,
+		EnableVTEP:                         defaults.EnableVTEP,
+		EnableBGPControlPlane:              defaults.EnableBGPControlPlane,
+		EnableK8sNetworkPolicy:             defaults.EnableK8sNetworkPolicy,
+		PolicyCIDRMatchMode:                defaults.PolicyCIDRMatchMode,
 	}
 )
 
@@ -3247,6 +3264,17 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
 	c.IPAMCiliumNodeUpdateRate = vp.GetDuration(IPAMCiliumNodeUpdateRate)
+	c.EnableMultipleXDPProgs = vp.GetBool(EnableMultipleXDPProgs)
+	c.XDPMainProgramObj = vp.GetString(XDPMainProgramObj)
+	c.ExtraXDPProgamObjs = vp.GetStringSlice(ExtraXDPProgamObjs)
+
+	//c.MultipleXDPProgsFuncReplaceMapping = vp.GetStringMapString(MultipleXDPProgsFuncReplaceMapping)
+
+	if m, err := command.GetStringMapStringE(vp, MultipleXDPProgsFuncReplaceMapping); err != nil {
+		log.Fatalf("unable to parse %s: %s", MultipleXDPProgsFuncReplaceMapping, err)
+	} else {
+		c.MultipleXDPProgsFuncReplaceMapping = m
+	}
 
 	c.populateLoadBalancerSettings(vp)
 	c.populateDevices(vp)
