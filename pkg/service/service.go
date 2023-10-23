@@ -1214,7 +1214,12 @@ func (s *Service) restoreAndDeleteOrphanSourceRanges() error {
 //
 // The removal is based on an assumption that during the sync period
 // UpsertService() is going to be called for each alive service.
-func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.StoppableWaitGroup) bool) error {
+//
+// The localOnly flag allows to perform a two pass removal, handling local
+// services first, and processing global ones only after full synchronization
+// with all remote clusters.
+func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.StoppableWaitGroup) bool, localOnly bool,
+	localServices sets.Set[k8s.ServiceID]) error {
 	servicesWithStaleBackends := sets.New[lb.ServiceName]()
 
 	// We need to trigger the stale services refresh while not holding the
@@ -1239,6 +1244,17 @@ func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.Stoppabl
 	defer s.Unlock()
 
 	for _, svc := range s.svcByHash {
+		svcID := k8s.ServiceID{
+			Cluster:   svc.svcName.Cluster,
+			Namespace: svc.svcName.Namespace,
+			Name:      svc.svcName.Name,
+		}
+
+		// Skip processing global services when the localOnly flag is set.
+		if localOnly && !localServices.Has(svcID) {
+			continue
+		}
+
 		if svc.restoredFromDatapath {
 			log.WithFields(logrus.Fields{
 				logfields.ServiceID: svc.frontend.ID,
@@ -1260,6 +1276,12 @@ func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.Stoppabl
 		}
 
 		svc.restoredBackendHashes = nil
+	}
+
+	if localOnly {
+		// Wait for full clustermesh synchronization before finalizing the
+		// removal of orphan backends and affinity matches.
+		return nil
 	}
 
 	// Remove no longer existing affinity matches

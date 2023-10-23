@@ -10,6 +10,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -272,6 +273,23 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 			SWG:       swg,
 		}
 	}
+}
+
+// LocalServices returns the list of known services that are not marked as
+// global (i.e., whose backends are all in the local cluster only).
+func (s *ServiceCache) LocalServices() sets.Set[ServiceID] {
+	ids := sets.New[ServiceID]()
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for id, svc := range s.services {
+		if !svc.IncludeExternal {
+			ids.Insert(id)
+		}
+	}
+
+	return ids
 }
 
 // UpdateEndpoints parses a Kubernetes endpoints and adds or updates it in the
