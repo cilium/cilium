@@ -799,7 +799,7 @@ func coreFindMember(typ composite, name string) (Member, bool, error) {
 		if visited[target] {
 			continue
 		}
-		if len(visited) >= maxTypeDepth {
+		if len(visited) >= maxResolveDepth {
 			// This check is different than libbpf, which restricts the entire
 			// path to BPF_CORE_SPEC_MAX_LEN items.
 			return Member{}, false, fmt.Errorf("type is nested too deep")
@@ -895,7 +895,7 @@ func coreAreTypesCompatible(localType Type, targetType Type) error {
 	)
 
 	for ; l != nil && t != nil; l, t = localTs.Shift(), targetTs.Shift() {
-		if depth >= maxTypeDepth {
+		if depth >= maxResolveDepth {
 			return errors.New("types are nested too deep")
 		}
 
