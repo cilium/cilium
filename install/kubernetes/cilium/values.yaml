@@ -1624,6 +1624,10 @@ k8s: {}
   # -- requireIPv6PodCIDR enables waiting for Kubernetes to provide the PodCIDR
   # range via the Kubernetes node resource
   # requireIPv6PodCIDR: false
+  
+  # -- A space separated list of Kubernetes API server URLs to use with the client.
+  # For example "https://192.168.0.1:6443 https://192.168.0.2:6443"
+  # apiServerURLs: ""
 
 # -- Keep the deprecated selector labels when deploying Cilium DaemonSet.
 keepDeprecatedLabels: false

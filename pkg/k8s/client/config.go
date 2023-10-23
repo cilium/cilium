@@ -18,6 +18,9 @@ type Config struct {
 	// operates with CNI-compatible orchestrators other than Kubernetes. Default to true.
 	EnableK8s bool
 
+	// K8sAPIServerURLs is the list of API server instances
+	K8sAPIServerURLs []string
+
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer string
 
@@ -40,6 +43,7 @@ type Config struct {
 var defaultConfig = Config{
 	EnableK8s:             true,
 	K8sAPIServer:          "",
+	K8sAPIServerURLs:      []string{},
 	K8sKubeConfigPath:     "",
 	K8sClientQPS:          defaults.K8sClientQPSLimit,
 	K8sClientBurst:        defaults.K8sClientBurst,
@@ -50,6 +54,7 @@ var defaultConfig = Config{
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(option.EnableK8s, def.EnableK8s, "Enable the k8s clientset")
 	flags.String(option.K8sAPIServer, def.K8sAPIServer, "Kubernetes API server URL")
+	flags.StringSlice(option.K8sAPIServerURLs, def.K8sAPIServerURLs, "Kubernetes API server URLs")
 	flags.String(option.K8sKubeConfigPath, def.K8sKubeConfigPath, "Absolute path of the kubernetes kubeconfig file")
 	flags.Float32(option.K8sClientQPSLimit, def.K8sClientQPS, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, def.K8sClientBurst, "Burst value allowed for the K8s client")

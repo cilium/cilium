@@ -209,6 +209,9 @@ const (
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer = "k8s-api-server"
 
+	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
+	K8sAPIServerURLs = "k8s-api-server-urls"
+
 	// K8sKubeConfigPath is the absolute path of the kubernetes kubeconfig file
 	K8sKubeConfigPath = "k8s-kubeconfig-path"
 

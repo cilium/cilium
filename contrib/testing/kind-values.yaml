@@ -6,3 +6,7 @@ operator:
     override: "localhost:5000/cilium/operator-generic:local"
     pullPolicy: Never
     suffix: ""
+k8s:
+  apiServerURLs: https://172.21.1.3:6443,https://172.21.0.4:6443,https://172.21.1.5:6443
+kubeProxyReplacement: true
+

@@ -6,8 +6,10 @@ package client
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +43,7 @@ import (
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/version"
@@ -109,6 +112,9 @@ type compositeClientset struct {
 	log           logrus.FieldLogger
 	closeAllConns func()
 	restConfig    *rest.Config
+	rt            *rotatingHttpRoundTripper
+
+	lock.RWMutex
 }
 
 func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
@@ -116,22 +122,59 @@ func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) (Client
 		return &compositeClientset{disabled: true}, nil
 	}
 
-	if cfg.K8sAPIServer != "" &&
-		!strings.HasPrefix(cfg.K8sAPIServer, "http") {
-		cfg.K8sAPIServer = "http://" + cfg.K8sAPIServer // default to HTTP
+	apiServerURLs := []string{}
+
+	for _, apiServerURL := range cfg.K8sAPIServerURLs {
+		if apiServerURL == "" {
+			continue
+		}
+
+		if !strings.HasPrefix(apiServerURL, "http") {
+			apiServerURL = fmt.Sprintf("http://%s", apiServerURL)
+		}
+
+		_, err := url.Parse(apiServerURL)
+		if err != nil {
+			log.WithError(err).Errorf("Failed to parse APIServerURL %s, skipping", apiServerURL)
+			continue
+		}
+
+		apiServerURLs = append(apiServerURLs, apiServerURL)
 	}
+
+	cfg.K8sAPIServerURLs = apiServerURLs
 
 	client := compositeClientset{
 		log:        log,
 		controller: controller.NewManager(),
 		config:     cfg,
+		rt:         &rotatingHttpRoundTripper{
+			log: log,
+		},
+
 	}
 
 	restConfig, err := createConfig(cfg.K8sAPIServer, cfg.K8sKubeConfigPath, cfg.K8sClientQPS, cfg.K8sClientBurst)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
 	}
+
+	if client.canRotateAPIServerURL() {
+		if err := client.rotateAPIServerURL(); err != nil {
+			return nil, err
+		}
+	} else {
+		apiServerURL, err := url.Parse(restConfig.Host)
+		if err != nil {
+			return nil, err
+		}
+		client.rt.apiServerURL = apiServerURL
+		log.Infof("Setting APIServerURL to %s", apiServerURL)
+	}
+
+	restConfig.Wrap(client.WrapRoundTripper)
 	client.restConfig = restConfig
+
 	defaultCloseAllConns := setDialer(cfg, restConfig)
 
 	httpClient, err := rest.HTTPClientFor(restConfig)
@@ -279,13 +322,72 @@ func (c *compositeClientset) startHeartbeat() {
 		})
 }
 
+func (c *compositeClientset) GetAPIServerURL() string {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.config.K8sAPIServer
+}
+
+func (c *compositeClientset) rotateAPIServerURL() error {
+	c.Lock()
+	defer c.Unlock()
+
+	if len(c.config.K8sAPIServerURLs) <= 1 {
+		return nil
+	}
+
+	rand.Shuffle(len(c.config.K8sAPIServerURLs), func(i, j int) {
+		c.config.K8sAPIServerURLs[i], c.config.K8sAPIServerURLs[j] = c.config.K8sAPIServerURLs[j], c.config.K8sAPIServerURLs[i]
+	})
+
+	for _, apiServerURL := range c.config.K8sAPIServerURLs {
+		parsedUrl, err := url.Parse(apiServerURL)
+		if err != nil {
+			return err
+		}
+		c.rt.apiServerURL = parsedUrl
+
+		c.log.Infof("Rotated APIServerURL to %s", apiServerURL)
+
+		break
+	}
+
+	return nil
+}
+
+func (c *compositeClientset) canRotateAPIServerURL() bool {
+	if c.config.K8sKubeConfigPath == "" && len(c.config.K8sAPIServerURLs) > 1 {
+		return true
+	}
+
+	return false
+}
+
+type rotatingHttpRoundTripper struct {
+	delegate     http.RoundTripper
+	apiServerURL *url.URL
+	log          logrus.FieldLogger
+}
+
+func (rt *rotatingHttpRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	rt.log.Infof("RoundTrip using %s", rt.apiServerURL.Host)
+	req.URL.Host = rt.apiServerURL.Host
+	return rt.delegate.RoundTrip(req)
+}
+
+func (c *compositeClientset) WrapRoundTripper(rt http.RoundTripper) http.RoundTripper {
+	c.rt.delegate = rt
+	return c.rt
+}
+
 // createConfig creates a rest.Config for connecting to k8s api-server.
 //
 // The precedence of the configuration selection is the following:
 // 1. kubeCfgPath
 // 2. apiServerURL (https if specified)
 // 3. rest.InClusterConfig().
-func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*rest.Config, error) {
+func createConfig(apiServerURL string, kubeCfgPath string, qps float32, burst int) (*rest.Config, error) {
 	var (
 		config *rest.Config
 		err    error
@@ -349,6 +451,9 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 		case <-ctx.Done():
 		case <-timeout.C:
 		default:
+			if c.canRotateAPIServerURL() {
+				c.rotateAPIServerURL()
+			}
 			return
 		}
 
