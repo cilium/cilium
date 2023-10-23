@@ -1023,6 +1023,209 @@ func TestPeerManager_CheckMetrics(t *testing.T) {
 	}
 }
 
+func TestPeerManager_Status(t *testing.T) {
+
+	tests := []struct {
+		name               string
+		pcBuilder          peerTypes.ClientBuilder
+		ccBuilder          poolTypes.ClientConnBuilder
+		wantPeerServiceOk  bool
+		wantAvailablePeers int
+	}{
+		{
+			name: "available peer API and 3 available peers with different states",
+			pcBuilder: testutils.FakePeerClientBuilder{
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(ctx context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "foo",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+									{
+										Name:    "bar",
+										Address: "192.0.1.2",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+									{
+										Name:    "buzz",
+										Address: "192.0.1.3",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											<-ctx.Done()
+											return nil, ctx.Err()
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
+			},
+			ccBuilder: FakeClientConnBuilder{
+				OnClientConn: func() onClientConnFunc {
+					i := -1
+					return func(target, hostname string) (poolTypes.ClientConn, error) {
+						i++
+						return testutils.FakeClientConn{
+							OnGetState: func() connectivity.State {
+								states := []connectivity.State{
+									connectivity.Idle,
+									connectivity.Ready,
+									connectivity.Connecting,
+								}
+								resultState := states[i]
+								return resultState
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
+			},
+			wantAvailablePeers: 3,
+			wantPeerServiceOk:  true,
+		},
+		{
+			name: "available peer API and no available peers",
+			pcBuilder: testutils.FakePeerClientBuilder{
+				OnClient: func() onClientFunc {
+					i := -1
+					return func(target string) (peerTypes.Client, error) {
+						return &testutils.FakePeerClient{
+							OnNotify: func(ctx context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+								cns := []*peerpb.ChangeNotification{
+									{
+										Name:    "foo",
+										Address: "192.0.1.1",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+									{
+										Name:    "bar",
+										Address: "192.0.1.2",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+									{
+										Name:    "buzz",
+										Address: "192.0.1.3",
+										Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									},
+								}
+								return &testutils.FakePeerNotifyClient{
+									OnRecv: func() (*peerpb.ChangeNotification, error) {
+										i++
+										switch {
+										case i >= len(cns):
+											<-ctx.Done()
+											return nil, ctx.Err()
+										default:
+											return cns[i], nil
+										}
+									},
+								}, nil
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
+			},
+			ccBuilder: FakeClientConnBuilder{
+				OnClientConn: func() onClientConnFunc {
+					i := -1
+					return func(target, hostname string) (poolTypes.ClientConn, error) {
+						i++
+						if i > 2 {
+							return nil, nil
+						}
+						return testutils.FakeClientConn{
+							OnGetState: func() connectivity.State {
+								states := []connectivity.State{
+									connectivity.Shutdown,
+									connectivity.TransientFailure,
+									connectivity.TransientFailure,
+								}
+								resultState := states[i]
+								return resultState
+							},
+							OnClose: func() error {
+								return nil
+							},
+						}, nil
+					}
+				}(),
+			},
+			wantAvailablePeers: 0,
+			wantPeerServiceOk:  true,
+		},
+		{
+			name: "available peer API and no available peers",
+			pcBuilder: testutils.FakePeerClientBuilder{
+				OnClient: func() onClientFunc {
+					return func(target string) (peerTypes.Client, error) {
+						return nil, errors.New("on PTO")
+					}
+				}(),
+			},
+			ccBuilder:          FakeClientConnBuilder{},
+			wantAvailablePeers: 0,
+			wantPeerServiceOk:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			var buf bytes.Buffer
+			formatter := &logrus.TextFormatter{
+				DisableColors:    true,
+				DisableTimestamp: true,
+			}
+			logger := logrus.New()
+			logger.SetOutput(&buf)
+			logger.SetFormatter(formatter)
+			logger.SetLevel(logrus.DebugLevel)
+
+			registry := prometheus.NewPedanticRegistry()
+			options := []Option{
+				WithPeerClientBuilder(tt.pcBuilder),
+				WithClientConnBuilder(tt.ccBuilder),
+				WithLogger(logger),
+				WithConnStatusInterval(2 * time.Second),
+				// set interval large enough not to fire in 3 seconds sleep
+				WithConnCheckInterval(20 * time.Minute),
+			}
+
+			mgr, err := NewPeerManager(registry, options...)
+			assert.NoError(t, err)
+			mgr.Start()
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				stat := mgr.Status()
+				assert.Equal(c, tt.wantPeerServiceOk, stat.PeerServiceConnected)
+				assert.Equal(c, tt.wantAvailablePeers, stat.AvailablePeers)
+			}, 10*time.Second, 200*time.Millisecond)
+			mgr.Stop()
+		})
+	}
+}
+
 // metricTextFormatFromPeerStatusMap converts peer status map to the metric text format
 // expected by Prometheus testutil library
 func metricTextFormatFromPeerStatusMap(peerStatus map[string]uint32) string {
