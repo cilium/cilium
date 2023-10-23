@@ -686,7 +686,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyPort(c *C) {
 func (s *K8sSuite) TestParsePorts(c *C) {
 	rules := parsePorts([]slim_networkingv1.NetworkPolicyPort{
 		{},
-	})
+	}, "")
 	c.Assert(len(rules), Equals, 1)
 	c.Assert(len(rules[0].Ports), Equals, 1)
 	c.Assert(rules[0].Ports[0].Port, Equals, "0")

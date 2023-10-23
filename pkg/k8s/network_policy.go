@@ -161,7 +161,7 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 
 		// We apply the ports to all rules generated from the From section
 		if iRule.Ports != nil && len(iRule.Ports) > 0 {
-			toPorts := parsePorts(iRule.Ports)
+			toPorts := parsePorts(iRule.Ports, np.Name)
 			for i := range fromRules {
 				fromRules[i].ToPorts = toPorts
 			}
@@ -204,7 +204,7 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 
 		// We apply the ports to all rules generated from the To section
 		if eRule.Ports != nil && len(eRule.Ports) > 0 {
-			toPorts := parsePorts(eRule.Ports)
+			toPorts := parsePorts(eRule.Ports, np.Name)
 			for i := range toRules {
 				toRules[i].ToPorts = toPorts
 			}
@@ -288,7 +288,7 @@ func ipBlockToCIDRRule(block *slim_networkingv1.IPBlock) api.CIDRRule {
 }
 
 // parsePorts converts list of K8s NetworkPolicyPorts to Cilium PortRules.
-func parsePorts(ports []slim_networkingv1.NetworkPolicyPort) []api.PortRule {
+func parsePorts(ports []slim_networkingv1.NetworkPolicyPort, npName string) []api.PortRule {
 	portRules := []api.PortRule{}
 	for _, port := range ports {
 		protocol := api.ProtoTCP
@@ -306,7 +306,9 @@ func parsePorts(ports []slim_networkingv1.NetworkPolicyPort) []api.PortRule {
 				{Port: portStr, Protocol: protocol},
 			},
 		}
-
+		if port.EndPort != nil {
+			log.WithField(logfields.K8sNetworkPolicyName, npName).Warning("EndPort has not been implemented, this field will have no effect")
+		}
 		portRules = append(portRules, portRule)
 	}
 
