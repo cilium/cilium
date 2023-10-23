@@ -91,13 +91,6 @@ type endpointManager struct {
 	policyMapPressure *policyMapPressure
 }
 
-// EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
-// resources with Kubernetes.
-type EndpointResourceSynchronizer interface {
-	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration, hr cell.HealthReporter)
-	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
-}
-
 // endpointDeleteFunc is used to abstract away concrete Endpoint Delete
 // functionality from endpoint management for testing purposes.
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
