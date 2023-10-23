@@ -43,8 +43,17 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 
 #ifdef ENABLE_IPSEC
 static __always_inline int
-set_ipsec_encrypt_mark(struct __ctx_buff *ctx, __u8 key, __u32 tunnel_endpoint)
+set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 key, __u32 tunnel_endpoint,
+		  __u32 seclabel, bool use_meta)
 {
+	/* IPSec is performed by the stack on any packets with the
+	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
+	 * lose the lxc context (seclabel and tunnel endpoint). The
+	 * tunnel endpoint can be looked up from daddr but the sec
+	 * label is stashed in the mark or cb, and extracted in
+	 * bpf_host to send ctx onto tunnel for encap.
+	 */
+
 	struct node_key node_ip = {};
 	__u16 *node_id;
 
@@ -54,23 +63,12 @@ set_ipsec_encrypt_mark(struct __ctx_buff *ctx, __u8 key, __u32 tunnel_endpoint)
 	if (!node_id)
 		return DROP_NO_NODE_ID;
 
-	set_encrypt_key_mark(ctx, key, *node_id);
-	return CTX_ACT_OK;
-}
-
-static __always_inline int
-set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 key, __u32 tunnel_endpoint,
-		  __u32 seclabel)
-{
-	/* IPSec is performed by the stack on any packets with the
-	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
-	 * lose the lxc context (seclabel and tunnel endpoint). The
-	 * tunnel endpoint can be looked up from daddr but the sec
-	 * label is stashed in the mark and extracted in bpf_host
-	 * to send ctx onto tunnel for encap.
-	 */
 	set_identity_meta(ctx, seclabel);
-	return set_ipsec_encrypt_mark(ctx, key, tunnel_endpoint);
+	if (use_meta)
+		set_encrypt_key_meta(ctx, key, *node_id);
+	else
+		set_encrypt_key_mark(ctx, key, *node_id);
+	return CTX_ACT_OK;
 }
 
 static __always_inline int

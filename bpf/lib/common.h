@@ -797,6 +797,7 @@ enum {
 #define	CB_PORT			CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_HINT			CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
+#define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
 #define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_IFINDEX,

@@ -692,10 +692,9 @@ pass_to_stack:
 #ifndef TUNNEL_MODE
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
-		ret = set_ipsec_encrypt_mark(ctx, encrypt_key, tunnel_endpoint);
+		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint, SECLABEL_IPV6, false);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-		set_identity_meta(ctx, SECLABEL_IPV6);
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* TUNNEL_MODE */
@@ -1251,10 +1250,9 @@ pass_to_stack:
 #ifndef TUNNEL_MODE
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
-		ret = set_ipsec_encrypt_mark(ctx, encrypt_key, tunnel_endpoint);
+		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint, SECLABEL_IPV4, false);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-		set_identity_meta(ctx, SECLABEL_IPV4);
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* TUNNEL_MODE */

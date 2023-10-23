@@ -384,7 +384,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	/* See IPv4 comment. */
 	if (from_ingress_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity);
+					 info->sec_identity, true);
 #endif
 
 	return CTX_ACT_OK;
@@ -828,7 +828,7 @@ skip_vtep:
 	/* We encrypt host to remote pod packets only if they are from ingress proxy. */
 	if (from_ingress_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity);
+					 info->sec_identity, true);
 #endif
 
 	return CTX_ACT_OK;
@@ -1455,7 +1455,10 @@ int cil_to_host(struct __ctx_buff *ctx)
 	__u32 src_id = 0;
 	__s8 ext_err = 0;
 
-	if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
+	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
+		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
+		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
+	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
 
