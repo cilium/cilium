@@ -23,13 +23,20 @@ define build_image
     | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --target $(2) --tag $(3) -
 endef
 
+##@ Development Images
+
 DOCS_BASE_IMG ?= cilium/docs-base
 base-image: Dockerfile ## Build the docs-base image for updating the requirements.txt file.
 	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
 
 DOCS_BUILDER_IMG ?= cilium/docs-builder
+ifndef SKIP_BUILDER_IMAGE
 builder-image: Dockerfile $(REQUIREMENTS) ## Build the docs-builder image for rendering and checking the documentation.
 	$(call build_image,$<,docs-builder,$(DOCS_BUILDER_IMG))
+else
+builder-image:
+	@echo "SKIP_BUILDER_IMAGE set, assuming image is already present and up-to-date."
+endif
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
@@ -48,9 +55,13 @@ DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
 DOCKER_CTR := $(DOCKER_CTR_BASE) \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
+		--env INCREMENTAL=$(INCREMENTAL) \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
+##@ Auto-generated Contents Updates and Validation
+
+.PHONY: update-cmdref
 update-cmdref: builder-image cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
@@ -61,21 +72,7 @@ codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 	$(QUIET)$(DOCKER_RUN) ./update-codeowners.sh
 
 .PHONY: update-codeowners
-update-codeowners: codeowners.rst
-
-check: builder-image update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
-	@$(ECHO_CHECK) cmdref
-	$(QUIET) ./check-cmdref.sh
-	@$(ECHO_CHECK) $(HELM_VALUES)
-	$(QUIET) ./check-helmvalues.sh
-	@$(ECHO_CHECK) examples
-	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
-	@$(ECHO_CHECK) codeowners.rst
-	$(QUIET) ./check-codeowners.sh
-
-ifeq ($(V),0)
-SPHINX_OPTS += -q
-endif
+update-codeowners: codeowners.rst ## Update the description of the code owner teams.
 
 update-helm-values: $(HELM_VALUES) ## Update the Helm reference documentation.
 
@@ -98,7 +95,23 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
-epub latex html: builder-image update-helm-values ## Check documentation and render it under the specified format.
+check: builder-image update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
+	@$(ECHO_CHECK) cmdref
+	$(QUIET) ./check-cmdref.sh
+	@$(ECHO_CHECK) $(HELM_VALUES)
+	$(QUIET) ./check-helmvalues.sh
+	@$(ECHO_CHECK) examples
+	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
+	@$(ECHO_CHECK) codeowners.rst
+	$(QUIET) ./check-codeowners.sh
+
+##@ Build
+
+ifeq ($(V),0)
+SPHINX_OPTS += -q
+endif
+
+html epub latex: builder-image ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
@@ -115,13 +128,15 @@ live-preview: builder-image ## Build and serve the documentation locally.
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
 
-update-requirements: base-image $(REQUIREMENTS_NODEP)
+##@ Development
+
+update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
 	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
 	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
 		bash -c "pip install -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
 
 clean: ## Clean up all artefacts from documentation.
-	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
+	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock
 
 help: ## Display help for the Makefile.
 	$(call print_help_from_makefile)

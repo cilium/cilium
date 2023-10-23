@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -79,22 +79,20 @@ jobs:
         include:
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20230904.125943'
+            kernel: '5.4-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
-            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230904.125943'
+            kernel: '5.10-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
             endpoint-routes: 'true'
-            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - name: '3'
             # We don't want to update bpf-next after branching
@@ -104,7 +102,6 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'ipsec'
             endpoint-routes: 'false' # Due to https://github.com/cilium/cilium/pull/22333
-            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
     timeout-minutes: 60
     steps:
@@ -260,11 +257,14 @@ jobs:
             # interruption in such flows.
             ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
 
-      - name: Upgrade Cilium (${{ matrix.name }})
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+      - name: Upgrade Cilium & Test (${{ matrix.name }})
+        uses: ./.github/actions/conn-disrupt-test
         with:
-          provision: 'false'
-          cmd: |
+          job-name: ipsec-upgrade-${{ matrix.name }}
+          # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
+          # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
+          extra-connectivity-test-flags: --test '!no-missed-tail-calls,!check-log-errors'
+          operation-cmd: |
             cd /host/
 
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
@@ -274,32 +274,14 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium after upgrade (${{ matrix.name }})
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+      - name: Downgrade Cilium to ${{ env.cilium_stable_version }} & Test (${{ matrix.name }})
+        uses: ./.github/actions/conn-disrupt-test
         with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-
-            # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
-            # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-              --include-conn-disrupt-test \
-              --test '!no-missed-tail-calls,!check-log-errors' \
-              --flush-ct \
-              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests upgrade 2 (${{ join(matrix.*, ', ') }})"
-
-            # --flush-ct interrupts the flows, so we need to set up again.
-            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
-
-      - name: Downgrade Cilium ${{ env.cilium_stable_version }} (${{ matrix.name }})
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
-        with:
-          provision: 'false'
-          cmd: |
+          job-name: ipsec-downgrade-${{ matrix.name }}
+          # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
+          # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
+          extra-connectivity-test-flags: --test '!no-missed-tail-calls,!check-log-errors'
+          operation-cmd: |
             cd /host/
 
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
@@ -308,22 +290,6 @@ jobs:
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
-
-      - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }} (${{ matrix.name }})
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-              --include-conn-disrupt-test \
-              --test '!no-missed-tail-calls,!check-log-errors' \
-              --flush-ct \
-              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests upgrade 3 (${{ join(matrix.*, ', ') }})"
 
       - name: Fetch artifacts
         if: ${{ !success() }}
@@ -341,7 +307,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
@@ -349,7 +315,7 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
@@ -368,7 +334,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}

@@ -65,6 +65,7 @@ cilium-agent [flags]
       --config string                                           Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                                       Configuration directory that contains a file for each option
       --conntrack-gc-interval duration                          Overwrite the connection-tracking garbage collection interval
+      --conntrack-gc-max-interval duration                      Set the maximum interval for the connection-tracking garbage collection
       --crd-wait-timeout duration                               Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
       --datapath-mode string                                    Datapath mode name (default "veth")
   -D, --debug                                                   Enable debugging mode

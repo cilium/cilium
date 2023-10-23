@@ -209,6 +209,9 @@ func initializeFlags() {
 	flags.Duration(option.ConntrackGCInterval, time.Duration(0), "Overwrite the connection-tracking garbage collection interval")
 	option.BindEnv(Vp, option.ConntrackGCInterval)
 
+	flags.Duration(option.ConntrackGCMaxInterval, time.Duration(0), "Set the maximum interval for the connection-tracking garbage collection")
+	option.BindEnv(Vp, option.ConntrackGCMaxInterval)
+
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(Vp, option.DebugArg)
 
@@ -821,6 +824,10 @@ func initializeFlags() {
 
 	flags.Int(option.PolicyMapEntriesName, policymap.MaxEntries, "Maximum number of entries in endpoint policy map (per endpoint)")
 	option.BindEnv(Vp, option.PolicyMapEntriesName)
+
+	flags.Duration(option.PolicyMapFullReconciliationIntervalName, 15*time.Minute, "Interval for full reconciliation of endpoint policy map")
+	option.BindEnv(Vp, option.PolicyMapFullReconciliationIntervalName)
+	flags.MarkHidden(option.PolicyMapFullReconciliationIntervalName)
 
 	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
 	option.BindEnv(Vp, option.SockRevNatEntriesName)

@@ -334,7 +334,7 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 
 static __always_inline int
 nodeport_extract_dsr_v6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-			struct ipv6_ct_tuple *tuple, int l4_off,
+			const struct ipv6_ct_tuple *tuple, int l4_off,
 			union v6addr *addr, __be16 *port, bool *dsr)
 {
 	struct dsr_opt_v6 opt __align_stack_8 = {};
@@ -1028,7 +1028,7 @@ skip_service_lookup:
 			if (dsr) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS);
-				ret = DROP_MISSED_TAIL_CALL;
+				return DROP_MISSED_TAIL_CALL;
 			}
 
 			if (IS_ERR(ret))
@@ -1611,8 +1611,9 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 #endif /* DSR_ENCAP_MODE */
 
 static __always_inline int
-nodeport_extract_dsr_v4(struct __ctx_buff *ctx, struct iphdr *ip4,
-			struct ipv4_ct_tuple *tuple, int l4_off, __be32 *addr,
+nodeport_extract_dsr_v4(struct __ctx_buff *ctx, const struct iphdr *ip4,
+			const struct ipv4_ct_tuple *tuple, int l4_off,
+			__be32 *addr,
 			__be16 *port, bool *dsr)
 {
 	struct ipv4_ct_tuple tmp = *tuple;
@@ -2261,7 +2262,7 @@ skip_service_lookup:
 			if (dsr) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
 				ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS);
-				ret = DROP_MISSED_TAIL_CALL;
+				return DROP_MISSED_TAIL_CALL;
 			}
 
 			if (IS_ERR(ret))

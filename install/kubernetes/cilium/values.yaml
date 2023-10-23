@@ -114,7 +114,7 @@ rollOutCiliumPods: false
 image:
   override: ~
   repository: "quay.io/cilium/cilium"
-  tag: "v1.13.7"
+  tag: "v1.13.8"
   pullPolicy: "IfNotPresent"
   # cilium-digest
   digest: ""
@@ -516,6 +516,12 @@ cni:
 # connection tracking table.
 # @default -- `"0s"`
 conntrackGCInterval: ""
+
+# -- (string) Configure the maximum frequency for the garbage collection of the
+# connection tracking table. Only affects the automatic computation for the frequency
+# and has no effect when 'conntrackGCInterval' is set. This can be set to more frequently
+# clean up unused identities created from ToFQDN policies.
+conntrackGCMaxInterval: ""
 
 # -- Configure container runtime specific integration.
 containerRuntime:
@@ -1021,7 +1027,7 @@ hubble:
     image:
       override: ~
       repository: "quay.io/cilium/hubble-relay"
-      tag: "v1.13.7"
+      tag: "v1.13.8"
        # hubble-relay-digest
       digest: ""
       useDigest: false
@@ -1222,7 +1228,7 @@ hubble:
       image:
         override: ~
         repository: "quay.io/cilium/hubble-ui-backend"
-        tag: "v0.11.0@sha256:14c04d11f78da5c363f88592abae8d2ecee3cbe009f443ef11df6ac5f692d839"
+        tag: "v0.12.1@sha256:1f86f3400827a0451e6332262467f894eeb7caf0eb8779bd951e2caa9d027cbe"
         pullPolicy: "IfNotPresent"
 
       # -- Hubble-ui backend security context.
@@ -1251,7 +1257,7 @@ hubble:
       image:
         override: ~
         repository: "quay.io/cilium/hubble-ui"
-        tag: "v0.11.0@sha256:bcb369c47cada2d4257d63d3749f7f87c91dde32e010b223597306de95d1ecc8"
+        tag: "v0.12.1@sha256:9e5f81ee747866480ea1ac4630eb6975ff9227f9782b7c93919c081c33f38267"
         pullPolicy: "IfNotPresent"
 
       # -- Hubble-ui frontend security context.
@@ -1874,7 +1880,7 @@ operator:
   image:
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "v1.13.7"
+    tag: "v1.13.8"
     # operator-generic-digest
     genericDigest: ""
     # operator-azure-digest
@@ -2131,7 +2137,7 @@ preflight:
   image:
     override: ~
     repository: "quay.io/cilium/cilium"
-    tag: "v1.13.7"
+    tag: "v1.13.8"
     # cilium-digest
     digest: ""
     useDigest: false
@@ -2278,7 +2284,7 @@ clustermesh:
     image:
       override: ~
       repository: "quay.io/cilium/clustermesh-apiserver"
-      tag: "v1.13.7"
+      tag: "v1.13.8"
       # clustermesh-apiserver-digest
       digest: ""
       useDigest: false

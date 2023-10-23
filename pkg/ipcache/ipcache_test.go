@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/types"
@@ -32,6 +33,7 @@ type IPCacheTestSuite struct {
 var (
 	_               = Suite(&IPCacheTestSuite{})
 	IPIdentityCache *IPCache
+	PolicyHandler   *mockUpdater
 )
 
 func Test(t *testing.T) {
@@ -41,10 +43,13 @@ func Test(t *testing.T) {
 func (s *IPCacheTestSuite) SetUpTest(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	allocator := testidentity.NewMockIdentityAllocator(nil)
+	PolicyHandler = &mockUpdater{
+		identities: make(map[identityPkg.NumericIdentity]labels.LabelArray),
+	}
 	IPIdentityCache = NewIPCache(&Configuration{
 		Context:           ctx,
 		IdentityAllocator: allocator,
-		PolicyHandler:     &mockUpdater{},
+		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
 	})
 

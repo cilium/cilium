@@ -58,7 +58,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build HTML
-        uses: docker://quay.io/cilium/docs-builder:d5505e230c0164b51855b002c2a0abeeff78870c@sha256:95940ef277ae14c745769e332c968d8357a43e363eab0b088c5d5efa22089260
+        uses: docker://quay.io/cilium/docs-builder:b4742c730ff6b05c0b6b3e3383a264bf706aef5e@sha256:28e22c2f0c747216a5216304855be244f44d8d2752c6f810d0da1918712c5f61
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html

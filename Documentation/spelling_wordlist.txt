@@ -30,6 +30,7 @@ Dinan
 Dockerfile
 Dockerfiles
 Donenfeld
+ENI
 FIt
 Fastabend
 Fosdem
@@ -201,6 +202,7 @@ configSources
 configmap
 configs
 conntrack
+conntrackGCInterval
 containerd
 contrib
 coord

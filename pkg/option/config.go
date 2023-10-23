@@ -113,6 +113,9 @@ const (
 	// ConntrackGCInterval is the name of the ConntrackGCInterval option
 	ConntrackGCInterval = "conntrack-gc-interval"
 
+	// ConntrackGCMaxInterval is the name of the ConntrackGCMaxInterval option
+	ConntrackGCMaxInterval = "conntrack-gc-max-interval"
+
 	// DebugArg is the argument enables debugging mode
 	DebugArg = "debug"
 
@@ -630,6 +633,10 @@ const (
 
 	// PolicyMapEntriesName configures max entries for BPF policymap.
 	PolicyMapEntriesName = "bpf-policy-map-max"
+
+	// PolicyMapFullReconciliationInterval sets the interval for performing the full
+	// reconciliation of the endpoint policy map.
+	PolicyMapFullReconciliationIntervalName = "bpf-policy-map-full-reconciliation-interval"
 
 	// SockRevNatEntriesName configures max entries for BPF sock reverse nat
 	// entries.
@@ -1479,6 +1486,10 @@ type DaemonConfig struct {
 	// endpoint may allow traffic to exchange traffic with.
 	PolicyMapEntries int
 
+	// PolicyMapFullReconciliationInterval is the interval at which to perform
+	// the full reconciliation of the endpoint policy map.
+	PolicyMapFullReconciliationInterval time.Duration
+
 	// SockRevNatEntries is the maximum number of sock rev nat mappings
 	// allowed in the BPF rev nat table
 	SockRevNatEntries int
@@ -1838,6 +1849,10 @@ type DaemonConfig struct {
 	// ConntrackGCInterval is the connection tracking garbage collection
 	// interval
 	ConntrackGCInterval time.Duration
+
+	// ConntrackGCMaxInterval if set limits the automatic GC interval calculation to
+	// the specified maximum value.
+	ConntrackGCMaxInterval time.Duration
 
 	// K8sEventHandover enables use of the kvstore to optimize Kubernetes
 	// event handling by listening for k8s events in the operator and
@@ -3214,6 +3229,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 
 	c.ConntrackGCInterval = vp.GetDuration(ConntrackGCInterval)
+	c.ConntrackGCMaxInterval = vp.GetDuration(ConntrackGCMaxInterval)
 
 	if m, err := command.GetStringMapStringE(vp, KVStoreOpt); err != nil {
 		log.Fatalf("unable to parse %s: %s", KVStoreOpt, err)
@@ -3613,6 +3629,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	c.NATMapEntriesGlobal = vp.GetInt(NATMapEntriesGlobalName)
 	c.NeighMapEntriesGlobal = vp.GetInt(NeighMapEntriesGlobalName)
 	c.PolicyMapEntries = vp.GetInt(PolicyMapEntriesName)
+	c.PolicyMapFullReconciliationInterval = vp.GetDuration(PolicyMapFullReconciliationIntervalName)
 	c.SockRevNatEntries = vp.GetInt(SockRevNatEntriesName)
 	c.LBMapEntries = vp.GetInt(LBMapEntriesName)
 	c.LBServiceMapEntries = vp.GetInt(LBServiceMapMaxEntries)

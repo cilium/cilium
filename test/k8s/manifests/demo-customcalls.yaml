@@ -52,7 +52,7 @@ spec:
             path: /
             port: 80
       - name: udp
-        image: docker.io/cilium/echoserver-udp:v2020.01.30
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 69
@@ -82,7 +82,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: app-frontend
-        image: docker.io/cilium/demo-client:1.0
+        image: quay.io/cilium/demo-client:1.0
         imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
@@ -99,7 +99,7 @@ metadata:
 spec:
   containers:
   - name: cilium-builder
-    image: quay.io/cilium/cilium-builder:8ca6c390ea347a0e8ca3819638e6aa0facafd5d1@sha256:eadc6f15b96a377b5f2686119b5879b2707a05e1074a1770c2e59c4bca3bc0c2
+    image: quay.io/cilium/cilium-builder:2ecc36d1a3e9b6850cf338442de7c6b598b609ec@sha256:f6150545aa01ce2e09ee32bc1c5279883618527d0a2b4675b38fb83734e088e9
     workingDir: /cilium
     command: ["sleep"]
     args:

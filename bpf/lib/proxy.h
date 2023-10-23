@@ -107,7 +107,7 @@ combine_ports(__u16 dport, __u16 sport)
  * ingress. Will modify 'tuple'!						\
  */										\
 static __always_inline int							\
-NAME(struct __ctx_buff *ctx, CT_TUPLE_TYPE * ct_tuple, __be16 proxy_port)	\
+NAME(struct __ctx_buff *ctx, const CT_TUPLE_TYPE * ct_tuple, __be16 proxy_port)	\
 {										\
 	struct bpf_sock_tuple *tuple = (struct bpf_sock_tuple *)ct_tuple;	\
 	__u8 nexthdr = ct_tuple->nexthdr;					\

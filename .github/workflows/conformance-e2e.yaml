@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -79,21 +79,21 @@ jobs:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '4.19-20230904.125943'
+            kernel: '4.19-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20230904.125943'
+            kernel: '5.4-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230904.125943'
+            kernel: '5.10-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -101,7 +101,7 @@ jobs:
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230904.125943'
+            kernel: '5.10-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -111,7 +111,7 @@ jobs:
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20230904.125943'
+            kernel: '5.15-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -122,7 +122,7 @@ jobs:
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.0-20230904.125943'
+            kernel: '6.0-20230928.053816'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -151,36 +151,7 @@ jobs:
 
           - name: '9'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '4.19-20230904.125943'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
-            tunnel: 'vxlan'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-            ipv6: 'false' # https://github.com/cilium/cilium/issues/23461
-
-          - name: '10'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20230904.125943'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-
-          - name: '11'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230904.125943'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-            endpoint-routes: 'true'
-
-          - name: '12'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230904.125943'
+            kernel: '5.10-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -190,9 +161,9 @@ jobs:
             endpoint-routes: 'true'
             egress-gateway: 'true'
 
-          - name: '13'
+          - name: '10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20230904.125943'
+            kernel: '5.15-20230928.053816'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -202,15 +173,26 @@ jobs:
             endpoint-routes: 'true'
             egress-gateway: 'true'
 
-          - name: '14'
+          - name: '11'
             # We don't want to update bpf-next after branching
+            kernel: '6.0-20230420.212204'
+            kube-proxy: 'none'
+            kpr: 'strict'
+            tunnel: 'vxlan'
+            encryption: 'wireguard'
+            encryption-node: 'true'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+
+          - name: '12'
             kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
-            tunnel: 'geneve'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-            endpoint-routes: 'true'
+            kube-proxy: 'none'
+            kpr: 'strict'
+            tunnel: 'disabled'
+            encryption: 'wireguard'
+            encryption-node: 'true'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
 
     timeout-minutes: 60
     steps:
@@ -292,10 +274,6 @@ jobs:
             ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" \$IP_FAM
 
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
-            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
-              kubectl create -n kube-system secret generic cilium-ipsec-keys \
-                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
-            fi
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -349,7 +327,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
@@ -357,7 +335,7 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
@@ -376,7 +354,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}

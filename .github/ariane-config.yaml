@@ -5,11 +5,13 @@ triggers:
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
     - conformance-e2e.yaml
+    - conformance-ipsec-e2e.yaml
     - conformance-eks.yaml
     - conformance-externalworkloads.yaml
     - conformance-gateway-api.yaml
     - conformance-gke.yaml
     - conformance-ingress.yaml
+    - tests-clustermesh-upgrade.yaml
     - tests-l4lb.yaml
   /ci-aks:
     workflows:
@@ -20,21 +22,31 @@ triggers:
   /ci-clustermesh:
     workflows:
     - conformance-clustermesh.yaml
+    - tests-clustermesh-upgrade.yaml
   /ci-e2e:
     workflows:
     - conformance-e2e.yaml
   /ci-ipsec-upgrade:
     workflows:
     - tests-ipsec-upgrade.yaml
+  /ci-ipsec-e2e:
+    workflows:
+    - conformance-ipsec-e2e.yaml
   /ci-eks:
     workflows:
     - conformance-eks.yaml
   /ci-external-workloads:
     workflows:
     - conformance-externalworkloads.yaml
+  /ci-gateway-api:
+    workflows:
+    - conformance-gateway-api.yaml
   /ci-gke:
     workflows:
     - conformance-gke.yaml
+  /ci-ingress:
+    workflows:
+    - conformance-ingress.yaml
   /ci-l4lb:
     workflows:
     - tests-l4lb.yaml
@@ -48,6 +60,8 @@ workflows:
     paths-ignore-regex: (test|Documentation)/
   conformance-e2e.yaml:
     paths-ignore-regex: (test|Documentation)/
+  conformance-ipsec-e2e.yaml:
+    paths-ignore-regex: (test|Documentation)/
   conformance-eks.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-externalworkloads.yaml:
@@ -57,6 +71,8 @@ workflows:
   conformance-gke.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-ingress.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  tests-clustermesh-upgrade.yaml:
     paths-ignore-regex: (test|Documentation)/
   tests-l4lb.yaml:
     paths-regex: (bpf|daemon|images|pkg|test/l4lb|vendor)/

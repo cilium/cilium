@@ -190,6 +190,7 @@ type PodFailurePolicyRule struct {
 	// as a list of pod condition patterns. The requirement is satisfied if at
 	// least one pattern matches an actual pod condition. At most 20 elements are allowed.
 	// +listType=atomic
+	// +optional
 	OnPodConditions []PodFailurePolicyOnPodConditionsPattern `json:"onPodConditions" protobuf:"bytes,3,opt,name=onPodConditions"`
 }
 
@@ -240,8 +241,8 @@ type JobSpec struct {
 	// checked against the backoffLimit. This field cannot be used in combination
 	// with restartPolicy=OnFailure.
 	//
-	// This field is alpha-level. To use this field, you must enable the
-	// `JobPodFailurePolicy` feature gate (disabled by default).
+	// This field is beta-level. It can be used when the `JobPodFailurePolicy`
+	// feature gate is enabled (enabled by default).
 	// +optional
 	PodFailurePolicy *PodFailurePolicy `json:"podFailurePolicy,omitempty" protobuf:"bytes,11,opt,name=podFailurePolicy"`
 

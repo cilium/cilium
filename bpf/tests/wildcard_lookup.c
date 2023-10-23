@@ -274,7 +274,7 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 	test_finish();
 }
 
-static inline void __setup_v6_ipcache(union v6addr *HOST_IP6)
+static inline void __setup_v6_ipcache(const union v6addr *HOST_IP6)
 {
 	struct remote_endpoint_info cache_value = {};
 	struct ipcache_key cache_key = {};
