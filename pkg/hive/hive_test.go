@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 )
 
 type Config struct {
@@ -222,6 +223,37 @@ func TestProvideInvoke(t *testing.T) {
 	assert.NoError(t, err, "expected Run to succeed")
 
 	assert.True(t, invoked, "expected invoke to be called, but it was not")
+}
+
+type hookable struct {
+	started, stopped bool
+}
+
+func (h *hookable) Start(lifecycle.HookContext) error {
+	h.started = true
+	return nil
+}
+
+func (h *hookable) Stop(lifecycle.HookContext) error {
+	h.stopped = true
+	return nil
+}
+
+func TestAppendHooks(t *testing.T) {
+	var h hookable
+	testCell := cell.Module(
+		"test",
+		"Test Module",
+		cell.Provide(func() *hookable { return &h }),
+		cell.AppendHooks[*hookable](),
+	)
+	err := hive.New(
+		testCell,
+		shutdownOnStartCell,
+	).Run()
+	assert.NoError(t, err, "expected Run to succeed")
+	assert.True(t, h.started)
+	assert.True(t, h.stopped)
 }
 
 func TestModuleID(t *testing.T) {

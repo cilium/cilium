@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/dig"
 
+	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 	"github.com/cilium/cilium/pkg/hive/internal"
 )
 
@@ -84,4 +85,12 @@ func Invoke(funcs ...any) Cell {
 			namedFunc{name: internal.FuncNameAndLocation(fn), fn: fn})
 	}
 	return &invoker{funcs: namedFuncs}
+}
+
+// AppendHooks constructs an invoke to append the target object's lifecycle
+// hooks to the hive.
+func AppendHooks[Hookable lifecycle.HookInterface]() Cell {
+	return Invoke(func(lc lifecycle.Lifecycle, target Hookable) {
+		lc.Append(target)
+	})
 }

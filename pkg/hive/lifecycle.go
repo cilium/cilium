@@ -18,7 +18,7 @@ import (
 // in case of timeout. Hooks that perform long blocking operations directly
 // in the start or stop function (e.g. connecting to external services to
 // initialize) must abort any such operation if this context is cancelled.
-type HookContext lifecycle.HookContext
+type HookContext = lifecycle.HookContext
 
 // Hook is a pair of start and stop callbacks. Both are optional.
 // They're paired up to make sure that on failed start all corresponding
