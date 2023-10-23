@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/vishvananda/netlink"
@@ -75,7 +76,7 @@ type progDefinition struct {
 // For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
 // gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
 // will miss tail calls (and drop packets) until it has been replaced as well.
-func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDefinition, xdpMode string) (func(), error) {
+func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDefinition, xdpMode string) (_ func(), err error) {
 	// Avoid unnecessarily loading a prog.
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -100,6 +101,33 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		if spec.Programs[prog.progName] == nil {
 			return nil, fmt.Errorf("no program %s found in eBPF ELF", prog.progName)
 		}
+	}
+
+	// Unconditionally repin cilium_calls_* maps to prevent them from being
+	// repopulated by the loader.
+	for key, ms := range spec.Maps {
+		if !strings.HasPrefix(ms.Name, "cilium_calls_") {
+			continue
+		}
+
+		if err := bpf.RepinMap(bpf.TCGlobalsPath(), key, ms); err != nil {
+			return nil, fmt.Errorf("repinning map %s: %w", key, err)
+		}
+
+		defer func() {
+			revert := false
+			// This captures named return variable err.
+			if err != nil {
+				revert = true
+			}
+
+			if err := bpf.FinalizeMap(bpf.TCGlobalsPath(), key, revert); err != nil {
+				l.WithError(err).Error("Could not finalize map")
+			}
+		}()
+
+		// Only one cilium_calls_* per collection, we can stop here.
+		break
 	}
 
 	// Load the CollectionSpec into the kernel, picking up any pinned maps from
