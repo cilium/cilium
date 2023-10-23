@@ -37,10 +37,11 @@ func (e *bpfEgressGatewayPolicyEntry) matches(t bpfEgressGatewayPolicyEntry) boo
 		t.GatewayIP == e.GatewayIP
 }
 
-// waitForBpfPolicyEntries waits for the egress gateway policy maps on each node to be populated with the entries for
-// the cegp-sample CiliumEgressGatewayExcludedCIDRsPolicy
+// waitForBpfPolicyEntries waits for the egress gateway policy maps on each node to be populated with the entries
+// returned by the targetEntriesCallback
 func waitForBpfPolicyEntries(ctx context.Context, t *check.Test,
-	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry) {
+	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry,
+) {
 	ct := t.Context()
 
 	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
@@ -132,12 +133,17 @@ func extractClientIPFromResponse(res string) net.IP {
 	return net.ParseIP(clientIP.ClientIP).To4()
 }
 
-// EgressGateway is a test case which, given the cegp-sample CiliumEgressGatewayPolicy targeting:
+// EgressGateway is a test case which, given the cegp-sample-client CiliumEgressGatewayPolicy targeting:
 // - a couple of client pods (kind=client) as source
 // - the 0.0.0.0/0 destination CIDR
 // - kind-worker2 as gateway node
 //
-// This suite tests connectivity for:
+// and the cegp-sample-echo CiliumEgressGatewayPolicy targeting:
+// - the echo service pods (kind=echo) as source
+// - the 0.0.0.0/0 destination CIDR
+// - kind-worker2 as gateway node
+//
+// tests connectivity for:
 // - pod to host traffic
 // - pod to service traffic
 // - pod to external IP traffic
@@ -290,15 +296,14 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
-// EgressGatewayExcludedCIDRs is a test case which, given the cegp-sample-excluded-cidrs CiliumEgressGatewayPolicy
+// EgressGatewayExcludedCIDRs is a test case which, given the cegp-sample CiliumEgressGatewayPolicy targeting:
 // targeting:
 // - a couple of client pods (kind=client) as source
 // - the 0.0.0.0/0 destination CIDR
 // - the IP of the external node as excluded CIDR
 // - kind-worker2 as gateway node
 //
-// This suite tests tests the excludedCIDRs property and ensure traffic matching
-// an excluded CIDR does not get masqueraded with the egress IP.
+// This suite tests the excludedCIDRs property and ensure traffic matching an excluded CIDR does not get masqueraded with the egress IP
 func EgressGatewayExcludedCIDRs() check.Scenario {
 	return &egressGatewayExcludedCIDRs{}
 }

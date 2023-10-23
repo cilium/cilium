@@ -52,6 +52,9 @@ const (
 var (
 	//go:embed assets/cacert.pem
 	caBundle []byte
+
+	//go:embed manifests/egress-gateway-policy.yaml
+	egressGatewayPolicyYAML string
 )
 
 type Test struct {
@@ -488,8 +491,8 @@ type CiliumEgressGatewayPolicyParams struct {
 // Test, to be applied when the test starts running. When calling this method,
 // note that the egress gateway enabled feature requirement is applied directly
 // here.
-func (t *Test) WithCiliumEgressGatewayPolicy(policy string, params CiliumEgressGatewayPolicyParams) *Test {
-	pl, err := parseCiliumEgressGatewayPolicyYAML(policy)
+func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyParams) *Test {
+	pl, err := parseCiliumEgressGatewayPolicyYAML(egressGatewayPolicyYAML)
 	if err != nil {
 		t.Fatalf("Parsing policy YAML: %s", err)
 	}

@@ -185,9 +185,6 @@ var (
 
 	//go:embed manifests/echo-ingress-mutual-authentication.yaml
 	echoIngressMutualAuthPolicyYAML string
-
-	//go:embed manifests/egress-gateway-policy.yaml
-	egressGatewayPolicyYAML string
 )
 
 var (
@@ -793,11 +790,11 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	if ct.Params().IncludeUnsafeTests {
 		ct.NewTest("egress-gateway").
-			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{
+			WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
 				Name:            "cegp-sample-client",
 				PodSelectorKind: "client",
 			}).
-			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{
+			WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
 				Name:            "cegp-sample-echo",
 				PodSelectorKind: "echo",
 			}).
@@ -811,7 +808,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	if versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion) {
 		ct.NewTest("egress-gateway-excluded-cidrs").
-			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{
+			WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
 				Name:            "cegp-sample-client",
 				PodSelectorKind: "client",
 				ExcludedCIDRs:   check.ExternalNodeExcludedCIDRs,
