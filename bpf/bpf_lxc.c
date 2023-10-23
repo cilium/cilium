@@ -588,10 +588,9 @@ pass_to_stack:
 #elif !defined(TUNNEL_MODE)
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
-		ret = set_ipsec_encrypt_mark(ctx, encrypt_key, tunnel_endpoint);
+		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint, SECLABEL, false);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-		set_identity_meta(ctx, SECLABEL);
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* ENABLE_WIREGUARD */
@@ -1174,10 +1173,9 @@ pass_to_stack:
 #elif !defined(TUNNEL_MODE)
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
-		ret = set_ipsec_encrypt_mark(ctx, encrypt_key, tunnel_endpoint);
+		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint, SECLABEL, false);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-		set_identity_meta(ctx, SECLABEL);
 	} else
 # endif /* ENABLE_IPSEC */
 #endif /* ENABLE_WIREGUARD */
