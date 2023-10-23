@@ -37,9 +37,9 @@ func (e *bpfEgressGatewayPolicyEntry) matches(t bpfEgressGatewayPolicyEntry) boo
 		t.GatewayIP == e.GatewayIP
 }
 
-// waitForBpfPolicyEntries waits for the egress gateway policy maps on each node to be populated with the entries
-// returned by the targetEntriesCallback
-func waitForBpfPolicyEntries(ctx context.Context, t *check.Test,
+// WaitForEgressGatewayBpfPolicyEntries waits for the egress gateway policy maps on each node to WaitForEgressGatewayBpfPolicyEntries
+// with the entries returned by the targetEntriesCallback
+func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, t *check.Test,
 	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry,
 ) {
 	ct := t.Context()
@@ -172,7 +172,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		t.Fatal("Cannot get egress gateway node internal IP")
 	}
 
-	waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+	WaitForEgressGatewayBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
 		targetEntries := []bpfEgressGatewayPolicyEntry{}
 
 		egressIP := "0.0.0.0"
@@ -327,7 +327,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		t.Fatal("Cannot get egress gateway node internal IP")
 	}
 
-	waitForBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
+	WaitForEgressGatewayBpfPolicyEntries(ctx, t, func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry {
 		targetEntries := []bpfEgressGatewayPolicyEntry{}
 
 		egressIP := "0.0.0.0"
