@@ -188,9 +188,6 @@ var (
 
 	//go:embed manifests/egress-gateway-policy.yaml
 	egressGatewayPolicyYAML string
-
-	//go:embed manifests/egress-gateway-policy-excluded-cidrs.yaml
-	egressGatewayPolicyExcludedCIDRsYAML string
 )
 
 var (
@@ -796,7 +793,14 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	if ct.Params().IncludeUnsafeTests {
 		ct.NewTest("egress-gateway").
-			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{}).
+			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{
+				Name:            "cegp-sample-client",
+				PodSelectorKind: "client",
+			}).
+			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{
+				Name:            "cegp-sample-echo",
+				PodSelectorKind: "echo",
+			}).
 			WithIPRoutesFromOutsideToPodCIDRs().
 			WithFeatureRequirements(features.RequireEnabled(features.EgressGateway),
 				features.RequireEnabled(features.NodeWithoutCilium)).
@@ -807,8 +811,11 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	if versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion) {
 		ct.NewTest("egress-gateway-excluded-cidrs").
-			WithCiliumEgressGatewayPolicy(egressGatewayPolicyExcludedCIDRsYAML,
-				check.CiliumEgressGatewayPolicyParams{ExcludedCIDRs: check.ExternalNodeExcludedCIDRs}).
+			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{
+				Name:            "cegp-sample-client",
+				PodSelectorKind: "client",
+				ExcludedCIDRs:   check.ExternalNodeExcludedCIDRs,
+			}).
 			WithFeatureRequirements(features.RequireEnabled(features.EgressGateway),
 				features.RequireEnabled(features.NodeWithoutCilium)).
 			WithScenarios(
