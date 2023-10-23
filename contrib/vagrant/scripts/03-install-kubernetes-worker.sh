@@ -16,7 +16,7 @@ k8s_cache_dir="${cache_dir}/k8s/${k8s_version}"
 certs_dir="${dir}/certs"
 
 function install_crio() {
-   curl https://raw.githubusercontent.com/cri-o/cri-o/main/scripts/get | bash -s -- -t a68a72071e5004be78fe2b1b98cb3bfa0e51b74b
+   curl https://raw.githubusercontent.com/cri-o/packaging/main/get | bash -s -- -t a68a72071e5004be78fe2b1b98cb3bfa0e51b74b
 }
 
 function install_containerd() {
