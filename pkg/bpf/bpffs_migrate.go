@@ -6,7 +6,9 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
@@ -39,7 +41,7 @@ func StartBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec) error {
 
 		// Re-pin the map with ':pending' suffix if incoming spec differs from
 		// the currently-pinned map.
-		if err := repinMap(bpffsPath, name, spec); err != nil {
+		if err := RepinMap(bpffsPath, name, spec); err != nil {
 			return err
 		}
 	}
@@ -67,7 +69,7 @@ func FinalizeBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec, revert 
 			continue
 		}
 
-		if err := finalizeMap(bpffsPath, name, revert); err != nil {
+		if err := FinalizeMap(bpffsPath, name, revert); err != nil {
 			return err
 		}
 	}
@@ -75,10 +77,10 @@ func FinalizeBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec, revert 
 	return nil
 }
 
-// repinMap opens a map from bpffs by its pin in '<bpffs>/tc/globals/',
+// RepinMap opens a map from bpffs by its pin in '<bpffs>/tc/globals/',
 // compares its properties against the incoming spec and re-pins it to
 // ':pending' if any of its properties differ.
-func repinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
+func RepinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 	file := filepath.Join(bpffsPath, name)
 	pinned, err := ebpf.LoadPinnedMap(file, nil)
 
@@ -90,13 +92,23 @@ func repinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 	if err != nil {
 		return fmt.Errorf("map not found at path %s: %v", name, err)
 	}
+	defer pinned.Close()
 
 	if pinned.Type() == spec.Type &&
 		pinned.KeySize() == spec.KeySize &&
 		pinned.ValueSize() == spec.ValueSize &&
 		pinned.Flags() == spec.Flags &&
 		pinned.MaxEntries() == spec.MaxEntries {
-		return nil
+		// cilium_calls_xdp is shared between XDP interfaces and should only be
+		// migrated if the existing map is incompatible.
+		if spec.Name == "cilium_calls_xdp" {
+			return nil
+		}
+		// Maps prefixed with cilium_calls_ should never be reused by subsequent ELF
+		// loads and should be migrated unconditionally.
+		if !strings.HasPrefix(spec.Name, "cilium_calls_") {
+			return nil
+		}
 	}
 
 	dest := file + bpffsPending
@@ -104,9 +116,16 @@ func repinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 	log.WithFields(logrus.Fields{
 		logfields.BPFMapName: name,
 		logfields.BPFMapPath: file,
-	}).Infof("New version of map has different properties, re-pinning with '%s' suffix", bpffsPending)
+	}).Infof("Re-pinning map with '%s' suffix", bpffsPending)
 
-	// Atomically re-pin the map to the its new path.
+	if err := os.Remove(dest); err == nil {
+		log.WithFields(logrus.Fields{
+			logfields.BPFMapName: name,
+			logfields.BPFMapPath: dest,
+		}).Warn("Removed pending pinned map, did the agent die unexpectedly?")
+	}
+
+	// Atomically re-pin the map to its new path.
 	if err := pinned.Pin(dest); err != nil {
 		return err
 	}
@@ -114,11 +133,11 @@ func repinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 	return nil
 }
 
-// finalizeMap opens the ':pending' Map pin of the given named Map from bpffs.
-// If the given map is not found in bppffs, returns nil.
+// FinalizeMap opens the ':pending' Map pin of the given named Map from bpffs.
+// If the given map is not found in bpffs, returns nil.
 // If revert is true, the map will be re-pinned back to its initial locations.
 // If revert is false, the map will be unpinned.
-func finalizeMap(bpffsPath, name string, revert bool) error {
+func FinalizeMap(bpffsPath, name string, revert bool) error {
 	// Attempt to open a 'pending' Map pin.
 	file := filepath.Join(bpffsPath, name+bpffsPending)
 	pending, err := ebpf.LoadPinnedMap(file, nil)
@@ -139,6 +158,13 @@ func finalizeMap(bpffsPath, name string, revert bool) error {
 			logfields.BPFMapPath: dest,
 			logfields.BPFMapName: name,
 		}).Infof("Repinning without '%s' suffix after failed migration", bpffsPending)
+
+		if err := os.Remove(dest); err == nil {
+			log.WithFields(logrus.Fields{
+				logfields.BPFMapName: name,
+				logfields.BPFMapPath: dest,
+			}).Warn("Removed new pinned map after failed migration")
+		}
 
 		// Atomically re-pin the map to its original path.
 		if err := pending.Pin(dest); err != nil {
