@@ -473,6 +473,12 @@ const (
 // CiliumEgressGatewayPolicyParams is used to configure how a CiliumEgressGatewayPolicy template should be configured
 // before being applied.
 type CiliumEgressGatewayPolicyParams struct {
+	// Name controls the name of the policy
+	Name string
+
+	// PodSelectorKind is used to select the client pods. The parameter is used to select pods with a matching "kind" label
+	PodSelectorKind string
+
 	// ExcludedCIDRs controls how the ExcludedCIDRs property should be configured
 	ExcludedCIDRs ExcludedCIDRsKind
 }
@@ -502,6 +508,12 @@ func (t *Test) WithCiliumEgressGatewayPolicy(policy string, params CiliumEgressG
 				}
 			}
 		}
+
+		// Set the policy name
+		pl[i].Name = params.Name
+
+		// Set the pod selector
+		pl[i].Spec.Selectors[0].PodSelector.MatchLabels["kind"] = params.PodSelectorKind
 
 		// Set the egress gateway node
 		egressGatewayNode := t.EgressGatewayNode()
