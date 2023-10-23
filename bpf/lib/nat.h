@@ -968,7 +968,7 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 static __always_inline __maybe_unused int
 snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
-	    struct trace_ctx *trace, __s8 *ext_err)
+	    __be32 *saddr, struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_ct_tuple tuple = {};
@@ -988,6 +988,7 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		return DROP_INVALID;
 
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
+	*saddr = tuple.saddr;
 	has_l4_header = ipv4_has_l4_header(ip4);
 
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
@@ -1825,7 +1826,7 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 static __always_inline __maybe_unused int
 snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
-	    struct trace_ctx *trace, __s8 *ext_err)
+	    union v6addr *saddr, struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_ct_tuple tuple = {};
@@ -1850,6 +1851,7 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		return hdrlen;
 
 	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &tuple);
+	ipv6_addr_copy(saddr, &tuple.saddr);
 
 	off = ((void *)ip6 - data) + hdrlen;
 	switch (tuple.nexthdr) {

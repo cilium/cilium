@@ -154,6 +154,7 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
 }
 
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
+						  union v6addr *saddr,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
@@ -166,7 +167,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 	snat_needed = snat_v6_prepare_state(ctx, &target);
 	if (snat_needed) {
-		ret = snat_v6_nat(ctx, &target, trace, ext_err);
+		ret = snat_v6_nat(ctx, &target, saddr, trace, ext_err);
 
 		/* See the equivalent v4 path for comment */
 		if (!IS_ERR(ret))
@@ -1434,6 +1435,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	enum trace_point obs_point;
+	union v6addr saddr = {};
 	int ret;
 	__s8 ext_err = 0;
 
@@ -1443,12 +1445,13 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &trace, &ext_err);
+	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
+	send_trace_notify6(ctx, obs_point, 0, 0, &saddr, 0, 0,
+			   trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -1525,6 +1528,7 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 
 static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  __u32 cluster_id __maybe_unused,
+						  __be32 *saddr,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
@@ -1542,7 +1546,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 	snat_needed = snat_v4_prepare_state(ctx, &target);
 	if (snat_needed) {
-		ret = snat_v4_nat(ctx, &target, trace, ext_err);
+		ret = snat_v4_nat(ctx, &target, saddr, trace, ext_err);
 
 		/* If multiple netdevs process an outgoing packet, then this packets will
 		 * be handled multiple times by the "to-netdev" section. This can lead
@@ -2873,6 +2877,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	};
 	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	enum trace_point obs_point;
+	__be32 saddr = 0;
 	int ret;
 	__s8 ext_err = 0;
 
@@ -2884,12 +2889,13 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &trace, &ext_err);
+	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
+	send_trace_notify4(ctx, obs_point, 0, 0, saddr, 0, 0,
+			   trace.reason, trace.monitor);
 
 	return ret;
 }
