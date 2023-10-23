@@ -28,6 +28,7 @@ type options struct {
 	dialTimeout            time.Duration
 	retryTimeout           time.Duration
 	listenAddress          string
+	healthListenAddress    string
 	metricsListenAddress   string
 	log                    logrus.FieldLogger
 	serverTLSConfig        certloader.ServerConfigBuilder
@@ -43,11 +44,12 @@ type options struct {
 
 // defaultOptions is the reference point for default values.
 var defaultOptions = options{
-	peerTarget:    defaults.PeerTarget,
-	dialTimeout:   defaults.DialTimeout,
-	retryTimeout:  defaults.RetryTimeout,
-	listenAddress: defaults.ListenAddress,
-	log:           logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
+	peerTarget:          defaults.PeerTarget,
+	dialTimeout:         defaults.DialTimeout,
+	retryTimeout:        defaults.RetryTimeout,
+	listenAddress:       defaults.ListenAddress,
+	healthListenAddress: defaults.HealthListenAddress,
+	log:                 logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
 
 // DefaultOptions to include in the server. Other packages may extend this
@@ -79,6 +81,14 @@ func WithDialTimeout(t time.Duration) Option {
 func WithRetryTimeout(t time.Duration) Option {
 	return func(o *options) error {
 		o.retryTimeout = t
+		return nil
+	}
+}
+
+// WithHealthListenAddress sets the listen address for the hubble-relay gRPC health server.
+func WithHealthListenAddress(a string) Option {
+	return func(o *options) error {
+		o.healthListenAddress = a
 		return nil
 	}
 }
