@@ -109,6 +109,7 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		loaded, err = loader.DeviceHasTCProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
 		if err != nil {
 			log.WithField(logfields.Endpoint, ep.HostInterface()).
+				WithField(logfields.EndpointID, ep.ID).
 				WithError(err).
 				Error("Unable to assert if endpoint BPF programs need to be reloaded")
 			return err
