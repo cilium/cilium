@@ -10,8 +10,7 @@ spec:
         kind: client
   destinationCIDRs:
   - 0.0.0.0/0
-  excludedCIDRs:
-  - NODE_WITHOUT_CILIUM_PLACEHOLDER/32
+  excludedCIDRs: # set by the check package in WithCiliumEgressGatewayPolicy()
   egressGateway:
     nodeSelector:
       matchLabels:
