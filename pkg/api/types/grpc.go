@@ -4,8 +4,9 @@
 package types
 
 import (
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"google.golang.org/grpc"
+
+	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 type GRPCService struct {

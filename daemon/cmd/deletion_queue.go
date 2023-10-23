@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/api/v1/server"
+	"github.com/cilium/cilium/pkg/api/server"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"

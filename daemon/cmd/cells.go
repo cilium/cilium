@@ -4,14 +4,10 @@
 package cmd
 
 import (
-	"github.com/sirupsen/logrus"
-
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
-	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -33,7 +29,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -86,10 +81,7 @@ var (
 		job.Cell,
 
 		// Cilium API served over UNIX sockets. Accessed by the 'cilium' utility (not cilium-cli).
-		server.Cell,
-		cell.Invoke(configureAPIServer),
-
-		// Cilium API handlers
+		restapi.ServerCell,
 		cell.Provide(ciliumAPIHandlers),
 
 		// Processes endpoint deletions that occurred while the agent was down.
@@ -139,11 +131,11 @@ var (
 		// Certificate manager provides an API for retrieving secrets and certificate in the form of TLS contexts.
 		certificatemanager.Cell,
 
-		// Cilium API specification cell makes the swagger model available for reuse
-		server.SpecCell,
-
 		// cilium-health connectivity probe API specification cell makes the swagger model available for reuse
 		healthApi.SpecCell,
+
+		// Cilium API specification and utilities.
+		restapi.Cell,
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
@@ -156,9 +148,6 @@ var (
 		// Envoy cell which is the control-plane for the Envoy proxy.
 		// It is used to provide support for Ingress, GatewayAPI and L7 network policies (e.g. HTTP).
 		envoy.Cell,
-
-		// Cilium REST API handlers
-		restapi.Cell,
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
@@ -193,30 +182,3 @@ var (
 		endpoint.RegeneratorCell,
 	)
 )
-
-func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, swaggerSpec *server.Spec) {
-	s.EnabledListeners = []string{"unix"}
-	s.SocketPath = cfg.SocketPath
-	s.ReadTimeout = apiTimeout
-	s.WriteTimeout = apiTimeout
-
-	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
-	hint := "Consider enabling this API in " + server.AdminEnableFlag
-	for _, requiredAPI := range []string{
-		"GetConfig",        // CNI: Used to detect detect IPAM mode
-		"GetHealthz",       // Kubelet: daemon health checks
-		"PutEndpointID",    // CNI: Provision the network for a new Pod
-		"DeleteEndpointID", // CNI: Clean up networking for a deleted Pod
-		"PostIPAM",         // CNI: Reserve IPs for new Pods
-		"DeleteIPAMIP",     // CNI: Release IPs for deleted Pods
-	} {
-		if _, denied := swaggerSpec.DeniedAPIs[requiredAPI]; denied {
-			log.WithFields(logrus.Fields{
-				logfields.Hint:   hint,
-				logfields.Params: requiredAPI,
-			}).Warning(msg)
-		}
-	}
-	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
-
-}

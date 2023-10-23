@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -761,9 +760,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		"Use a single cluster route instead of per node routes")
 	option.BindEnv(vp, option.SingleClusterRouteName)
 
-	flags.String(option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
-	option.BindEnv(vp, option.SocketPath)
-
 	flags.String(option.StateDir, defaults.RuntimePath, "Directory path to store runtime state")
 	option.BindEnv(vp, option.StateDir)
 
@@ -1299,16 +1295,6 @@ func initEnv(vp *viper.Viper) {
 	default:
 		log.Fatalf("Invalid setting for --allow-localhost, must be { %s, %s, %s }",
 			option.AllowLocalhostAuto, option.AllowLocalhostAlways, option.AllowLocalhostPolicy)
-	}
-
-	scopedLog = log.WithField(logfields.Path, option.Config.SocketPath)
-	socketDir := path.Dir(option.Config.SocketPath)
-	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
-		scopedLog.WithError(err).Fatal("Cannot mkdir directory for cilium socket")
-	}
-
-	if err := os.Remove(option.Config.SocketPath); !os.IsNotExist(err) && err != nil {
-		scopedLog.WithError(err).Fatal("Cannot remove existing Cilium sock")
 	}
 
 	// The standard operation is to mount the BPF filesystem to the

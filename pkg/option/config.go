@@ -1835,7 +1835,6 @@ type DaemonConfig struct {
 	IPv6NodeAddr            string
 	IPv4NodeAddr            string
 	SidecarIstioProxyImage  string
-	SocketPath              string
 	TracePayloadlen         int
 	Version                 string
 	PrometheusServeAddr     string
@@ -3194,7 +3193,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ExternalEnvoyProxy = vp.GetBool(ExternalEnvoyProxy)
 	c.SidecarIstioProxyImage = vp.GetString(SidecarIstioProxyImage)
 	c.UseSingleClusterRoute = vp.GetBool(SingleClusterRouteName)
-	c.SocketPath = vp.GetString(SocketPath)
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
 	c.Version = vp.GetString(Version)
 	c.PolicyTriggerInterval = vp.GetDuration(PolicyTriggerInterval)
