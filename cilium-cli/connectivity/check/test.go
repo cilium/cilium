@@ -460,8 +460,13 @@ func (t *Test) WithK8SPolicy(policy string) *Test {
 	return t
 }
 
+type ExcludedCIDRsKind int
+
 const (
-	NoExcludedCIDRs = iota
+	// NoExcludedCIDRs does not configure any excluded CIDRs in the policy
+	NoExcludedCIDRs ExcludedCIDRsKind = iota
+
+	// ExternalNodeExcludedCIDRs adds the IPs of the external nodes (i.e the ones with the "cilium.io/no-schedule" label) to the list of excluded CIDRs
 	ExternalNodeExcludedCIDRs
 )
 
@@ -469,7 +474,7 @@ const (
 // before being applied.
 type CiliumEgressGatewayPolicyParams struct {
 	// ExcludedCIDRs controls how the ExcludedCIDRs property should be configured
-	ExcludedCIDRs int
+	ExcludedCIDRs ExcludedCIDRsKind
 }
 
 // WithCiliumEgressGatewayPolicy takes a string containing a YAML policy
