@@ -174,6 +174,7 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 }
 
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
+						  union v6addr *saddr,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
@@ -207,6 +208,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		goto out;
 
 apply_snat:
+	ipv6_addr_copy(saddr, &tuple.saddr);
 	ret = snat_v6_nat(ctx, &tuple, l4_off, &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
@@ -1519,6 +1521,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	enum trace_point obs_point;
+	union v6addr saddr = {};
 	int ret;
 	__s8 ext_err = 0;
 
@@ -1528,7 +1531,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &trace, &ext_err);
+	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
@@ -1541,7 +1544,8 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 * for IPv6, and so it's not possible yet for masqueraded traffic to get
 	 * redirected to another interface
 	 */
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
+	send_trace_notify6(ctx, obs_point, 0, 0, &saddr, 0, 0,
+			   trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -1648,6 +1652,7 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 
 static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  __u32 cluster_id __maybe_unused,
+						  __be32 *saddr,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
@@ -1681,6 +1686,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		goto out;
 
 apply_snat:
+	*saddr = tuple.saddr;
 	ret = snat_v4_nat(ctx, &tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
@@ -3073,6 +3079,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	enum trace_point obs_point;
+	__be32 saddr = 0;
 	int ret;
 	__s8 ext_err = 0;
 
@@ -3082,7 +3089,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &trace, &ext_err);
+	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
@@ -3093,7 +3100,8 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
+		send_trace_notify4(ctx, obs_point, 0, 0, saddr, 0, 0,
+				   trace.reason, trace.monitor);
 
 	return ret;
 }
