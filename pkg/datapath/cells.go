@@ -131,7 +131,7 @@ func newDatapath(params datapathParams) types.Datapath {
 		ProcFs:     option.Config.ProcFs,
 	}
 
-	iptablesManager := &iptables.IptablesManager{}
+	iptablesManager := &iptables.Manager{}
 
 	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {

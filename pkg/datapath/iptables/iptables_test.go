@@ -86,7 +86,7 @@ func (ipt *mockIptables) checkExpectations() error {
 	return nil
 }
 
-var mockManager = &IptablesManager{
+var mockManager = &Manager{
 	haveIp6tables:        false,
 	haveSocketMatch:      true,
 	haveBPFSocketAssign:  false,
