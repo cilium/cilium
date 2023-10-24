@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -190,6 +191,10 @@ func (s *Server) Stop() {
 	s.opts.log.Info("Stopping server...")
 	close(s.stop)
 	s.server.Stop()
+	err := s.metricsServer.Shutdown(context.Background())
+	if err != nil {
+		s.opts.log.WithError(err).Info("Failed to gracefully stop metrics server")
+	}
 	s.pm.Stop()
 	s.opts.log.Info("Server stopped")
 }
