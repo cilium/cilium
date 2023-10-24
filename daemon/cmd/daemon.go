@@ -703,7 +703,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			ingressIP,
 			labels.LabelIngress,
 			source.Restored,
-			ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", ""),
+			ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", "ingress"),
 		)
 	}
 	if len(oldIngressIPs) > 0 {
