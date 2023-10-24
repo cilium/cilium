@@ -831,6 +831,7 @@ out:
  * @arg map		CT map
  * @arg tuple		CT tuple (with populated L4 ports)
  * @arg ctx		packet
+ * @arg is_fragment	the result of ipv4_is_fragment(ip4)
  * @arg l4_off		offset to L4 header
  * @arg has_l4_header	packet has L4 header
  * @arg dir		lookup direction
@@ -850,8 +851,8 @@ out:
  * ICMP types to ct_lazy_lookup4.
  */
 static __always_inline int
-ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
-		struct __ctx_buff *ctx, int l4_off, bool has_l4_header,
+ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
+		bool is_fragment __maybe_unused, int l4_off, bool has_l4_header,
 		enum ct_dir dir, enum ct_scope scope, __u32 ct_entry_types,
 		struct ct_state *ct_state, __u32 *monitor)
 {

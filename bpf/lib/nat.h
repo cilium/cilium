@@ -258,7 +258,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 			   bool has_l4_header,
 			   struct ipv4_nat_entry **state,
 			   struct ipv4_nat_entry *tmp,
-			   __u32 off,
+			   struct iphdr *ip4, __u32 off,
 			   const struct ipv4_nat_target *target,
 			   struct trace_ctx *trace,
 			   __s8 *ext_err)
@@ -282,8 +282,8 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		ipv4_ct_tuple_swap_addrs(&tuple_snat);
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_snat), &tuple_snat,
-				      ctx, off, has_l4_header, CT_EGRESS,
-				      SCOPE_FORWARD, CT_ENTRY_ANY,
+				      ctx, ipv4_is_fragment(ip4), off, has_l4_header,
+				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_ANY,
 				      &ct_state, &trace->monitor);
 		if (ret < 0)
 			return ret;
@@ -310,7 +310,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct ipv4_ct_tuple *tuple,
 			       bool has_l4_header,
 			       struct ipv4_nat_entry **state,
-			       __u32 off,
+			       struct iphdr *ip4, __u32 off,
 			       const struct ipv4_nat_target *target,
 			       struct trace_ctx *trace)
 {
@@ -337,8 +337,8 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		ipv4_ct_tuple_swap_ports(&tuple_revsnat);
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_revsnat), &tuple_revsnat,
-				      ctx, off, has_l4_header, CT_INGRESS,
-				      SCOPE_REVERSE, CT_ENTRY_ANY,
+				      ctx, ipv4_is_fragment(ip4), off, has_l4_header,
+				      CT_INGRESS, SCOPE_REVERSE, CT_ENTRY_ANY,
 				      &ct_state, &trace->monitor);
 		if (ret < 0)
 			return ret;
@@ -841,15 +841,15 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 
 static __always_inline int
 __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-	      bool has_l4_header, int l4_off, bool update_tuple,
-	      const struct ipv4_nat_target *target, __u16 port_off,
-	      struct trace_ctx *trace, __s8 *ext_err)
+	      struct iphdr *ip4, bool has_l4_header, int l4_off,
+	      bool update_tuple, const struct ipv4_nat_target *target,
+	      __u16 port_off, struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ipv4_nat_entry *state, tmp;
 	int ret;
 
 	ret = snat_v4_nat_handle_mapping(ctx, tuple, has_l4_header, &state,
-					 &tmp, l4_off, target, trace, ext_err);
+					 &tmp, ip4, l4_off, target, trace, ext_err);
 	if (ret < 0)
 		return ret;
 
@@ -866,8 +866,9 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off,
-	    bool has_l4_header, const struct ipv4_nat_target *target,
+snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
+	    struct iphdr *ip4, int off, bool has_l4_header,
+	    const struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmphdr icmphdr __align_stack_8;
@@ -915,7 +916,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off,
 	if (snat_v4_nat_can_skip(target, tuple))
 		return NAT_PUNT_TO_STACK;
 
-	return __snat_v4_nat(ctx, tuple, has_l4_header, off, false, target,
+	return __snat_v4_nat(ctx, tuple, ip4, has_l4_header, off, false, target,
 			     port_off, trace, ext_err);
 }
 
@@ -1056,7 +1057,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	if (snat_v4_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_rev_nat_handle_mapping(ctx, &tuple, has_l4_header, &state,
-					     off, target, trace);
+					     ip4, off, target, trace);
 	if (ret < 0)
 		return ret;
 
