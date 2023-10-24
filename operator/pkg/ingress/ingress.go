@@ -588,11 +588,20 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 		logfields.Ingress:      ing.GetName(),
 	})
 
+	// Used for logging the effective LB mode for this Ingress.
+	var loadbalancerMode string = "shared"
+
 	var translator translation.Translator
 	m := &model.Model{}
 	if !forceShared && ic.isEffectiveLoadbalancerModeDedicated(ing) {
+		loadbalancerMode = "dedicated"
 		translator = ic.dedicatedTranslator
-		m.HTTP = ingestion.Ingress(*ing, ic.defaultSecretNamespace, ic.defaultSecretName)
+		if annotations.GetAnnotationSSLPassthrough(ing) {
+			m.TLS = append(m.TLS, ingestion.IngressPassthrough(*ing, ic.defaultSecretNamespace, ic.defaultSecretName)...)
+		} else {
+			m.HTTP = append(m.HTTP, ingestion.Ingress(*ing, ic.defaultSecretNamespace, ic.defaultSecretName)...)
+		}
+
 	} else {
 		translator = ic.sharedTranslator
 		for _, k := range ic.ingressStore.ListKeys() {
@@ -601,15 +610,18 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 				ing.GetDeletionTimestamp() != nil {
 				continue
 			}
-			// Move this to an if that checks if this is a passthrough Ingress
-			// This means we'll need an IngressPassthrough function probably.
-			m.HTTP = append(m.HTTP, ingestion.Ingress(*item, ic.defaultSecretNamespace, ic.defaultSecretName)...)
+			if annotations.GetAnnotationSSLPassthrough(item) {
+				m.TLS = append(m.TLS, ingestion.IngressPassthrough(*item, ic.defaultSecretNamespace, ic.defaultSecretName)...)
+			} else {
+				m.HTTP = append(m.HTTP, ingestion.Ingress(*item, ic.defaultSecretNamespace, ic.defaultSecretName)...)
+			}
 		}
 	}
 
 	scopedLog.WithFields(logrus.Fields{
 		"forcedShared": forceShared,
 		"model":        m,
+		"loadbalancer": loadbalancerMode,
 	}).Debug("Generated model for ingress")
 	cec, svc, ep, err := translator.Translate(m)
 	// Propagate Ingress annotation if required. This is applicable only for dedicated LB mode.
@@ -630,6 +642,7 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 		"ciliumEnvoyConfig": cec,
 		"service":           svc,
 		logfields.Endpoint:  ep,
+		"loadbalancer":      loadbalancerMode,
 	}).Debugf("Translated resources for ingress")
 	return cec, svc, ep, err
 }
