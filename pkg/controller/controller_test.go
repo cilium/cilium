@@ -26,8 +26,13 @@ var _ = Suite(&ControllerSuite{})
 
 func (b *ControllerSuite) TestUpdateRemoveController(c *C) {
 	mngr := NewManager()
-	mngr.UpdateController("test", ControllerParams{})
+	executedChan := mngr.UpdateController("test", ControllerParams{})
 	c.Assert(mngr.RemoveController("test"), IsNil)
+	select {
+	case <-executedChan:
+	case <-time.After(time.Second):
+		c.Error("executed channel did not close")
+	}
 	c.Assert(mngr.RemoveController("not-exist"), Not(IsNil))
 }
 
@@ -61,7 +66,7 @@ func (b *ControllerSuite) TestStopFunc(c *C) {
 	waitChan := make(chan struct{})
 
 	mngr := Manager{}
-	mngr.UpdateController("test", ControllerParams{
+	executedChan := mngr.UpdateController("test", ControllerParams{
 		RunInterval: time.Second,
 		DoFunc:      NoopFunc,
 		StopFunc: func(ctx context.Context) error {
@@ -77,6 +82,12 @@ func (b *ControllerSuite) TestStopFunc(c *C) {
 		c.Error("StopFunc did not run")
 	}
 	c.Assert(stopFuncRan, Equals, true)
+
+	select {
+	case <-executedChan:
+	case <-time.After(2 * time.Second):
+		c.Error("executed channel did not close")
+	}
 }
 
 func (b *ControllerSuite) TestSelfExit(c *C) {
@@ -84,7 +95,7 @@ func (b *ControllerSuite) TestSelfExit(c *C) {
 	waitChan := make(chan bool)
 
 	mngr := Manager{}
-	mngr.UpdateController("test", ControllerParams{
+	executedChan := mngr.UpdateController("test", ControllerParams{
 		RunInterval: 100 * time.Millisecond,
 		DoFunc: func(ctx context.Context) error {
 			iterations.Add(1)
@@ -101,6 +112,12 @@ func (b *ControllerSuite) TestSelfExit(c *C) {
 	case <-time.After(time.Second):
 	}
 	c.Assert(iterations.Load(), Equals, uint32(1))
+
+	select {
+	case <-executedChan:
+	case <-time.After(time.Second):
+		c.Error("executed channel did not close")
+	}
 
 	// The controller is inactive, and waiting for the next update or stop.
 	// A controller will only stop when explicitly removed and stopped.
@@ -133,7 +150,7 @@ func (b *ControllerSuite) TestRunController(c *C) {
 	mngr := NewManager()
 	o := &testObj{}
 
-	ctrl := mngr.updateController("test", ControllerParams{
+	ctrl, _ := mngr.updateController("test", ControllerParams{
 		DoFunc: func(ctx context.Context) error {
 			// after two failed attempts, start succeeding
 			if o.cnt >= 2 {

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -48,11 +49,15 @@ func GetGlobalStatus() models.ControllerStatuses {
 //
 // Updating a controller will cause the DoFunc to be run immediately regardless
 // of any previous conditions. It will also cause any statistics to be reset.
-func (m *Manager) UpdateController(name string, params ControllerParams) {
-	m.updateController(name, params)
+//
+// Returns a channel that is closed when the controller has executed at least
+// once after the call to this function or when the controller is stopped.
+func (m *Manager) UpdateController(name string, params ControllerParams) channels.DoneChan {
+	_, done := m.updateController(name, params)
+	return done
 }
 
-func (m *Manager) updateController(name string, params ControllerParams) *managedController {
+func (m *Manager) updateController(name string, params ControllerParams) (*managedController, channels.DoneChan) {
 	start := time.Now()
 
 	m.mutex.Lock()
@@ -81,10 +86,10 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
-		return m.createControllerLocked(name, params)
+		ctrl = m.createControllerLocked(name, params)
 	}
 
-	return ctrl
+	return ctrl, ctrl.executed
 }
 
 func (m *Manager) createControllerLocked(name string, params ControllerParams) *managedController {
@@ -97,6 +102,7 @@ func (m *Manager) createControllerLocked(name string, params ControllerParams) *
 			update:     make(chan ControllerParams, 1),
 			trigger:    make(chan struct{}, 1),
 			terminated: make(chan struct{}),
+			executed:   make(chan struct{}),
 		},
 	}
 	ctrl.updateParamsLocked(params)

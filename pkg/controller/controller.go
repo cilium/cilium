@@ -198,6 +198,7 @@ type controller struct {
 
 	// Manipulated by the controller, read by the Manager, requires locking
 	mutex             lock.RWMutex
+	executed          chan struct{} // Closed & swapped when controller has executed
 	successCount      int
 	lastSuccessStamp  time.Time
 	failureCount      int
@@ -257,6 +258,9 @@ func (c *controller) runController(params ControllerParams) {
 		c.mutex.Lock()
 		c.lastDuration = duration
 		c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
+
+		close(c.executed)
+		c.executed = make(chan struct{})
 
 		if err != nil {
 			if params.Context.Err() != nil {
@@ -343,6 +347,8 @@ func (c *controller) runController(params ControllerParams) {
 
 shutdown:
 	c.getLogger().Debug("Shutting down controller")
+
+	close(c.executed)
 
 	if err := params.StopFunc(context.TODO()); err != nil {
 		c.mutex.Lock()
