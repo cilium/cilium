@@ -256,7 +256,7 @@ func (d *Daemon) syncHostIPs() error {
 		return err
 	}
 
-	daemonResourceID := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", "")
+	daemonResourceID := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", "reserved")
 	for _, ipIDLblsPair := range specialIdentities {
 		isHost := ipIDLblsPair.ID == identity.ReservedIdentityHost
 		if isHost {
