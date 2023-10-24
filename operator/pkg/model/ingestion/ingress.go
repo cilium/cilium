@@ -207,14 +207,15 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 
 }
 
-// Ingress translates an Ingress resource with the ssl-passhthrough annotation to a TLSListener.
+// IngressPassthrough translates an Ingress resource with the ssl-passthrough annotation to a TLSListener.
 // This function does not check IngressClass (via field or annotation).
 // It's expected that only relevant Ingresses will have this function called on them.
 //
-// Ingress objects with SSL Passthrough enabled must:
+// Ingress objects with SSL Passthrough enabled have the following properties:
 //
-// * have a host set
-// * only use the '/' path.
+// * must have a host set
+// * rules with paths other than '/' are ignored
+// * default backends are ignored
 func IngressPassthrough(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string) []model.TLSListener {
 
 	// First, we make a map of TLSListeners, with the hostname

@@ -199,6 +199,32 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "SSL Passthrough annotation present and enabled",
+			args: args{
+				ingress: &slim_networkingv1.Ingress{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"ingress.cilium.io/ssl-passthrough": "enabled",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "SSL Passthrough annotation present and disabled",
+			args: args{
+				ingress: &slim_networkingv1.Ingress{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"ingress.cilium.io/ssl-passthrough": "disabled",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "SSL Passthrough annotation present and true",
 			args: args{
 				ingress: &slim_networkingv1.Ingress{
@@ -240,7 +266,7 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetAnnotationSSLPassthrough(tt.args.ingress)
+			got := GetAnnotationSSLPassthroughEnabled(tt.args.ingress)
 
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetAnnotationSecureNodePort() got = %v, want %v", got, tt.want)
