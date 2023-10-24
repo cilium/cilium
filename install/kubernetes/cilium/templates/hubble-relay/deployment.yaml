@@ -71,11 +71,26 @@ spec:
               protocol: TCP
             {{- end }}
           readinessProbe:
-            tcpSocket:
-              port: grpc
+            {{- include "hubble-relay.probe" . | nindent 12 }}
+            {{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
+            # Starting from Kubernetes 1.20, we are using startupProbe instead
+            # of this field.
+            initialDelaySeconds: 5
+            {{- end }}
           livenessProbe:
-            tcpSocket:
-              port: grpc
+            {{- include "hubble-relay.probe" . | nindent 12 }}
+            {{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
+            # Starting from Kubernetes 1.20, we are using startupProbe instead
+            # of this field.
+            initialDelaySeconds: 60
+            {{- end }}
+          {{- if semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version }}
+          startupProbe:
+            # give the relay one minute to start up
+            {{- include "hubble-relay.probe" . | nindent 12 }}
+            failureThreshold: 20
+            periodSeconds: 3
+          {{- end }}
           {{- with .Values.hubble.relay.extraEnv }}
           env:
             {{- toYaml . | trim | nindent 12 }}
@@ -163,4 +178,18 @@ spec:
                   path: server.key
           {{- end }}
       {{- end }}
+{{- end }}
+
+{{- define "hubble-relay.probe" }}
+{{- /* This distinction can be removed once we drop support for k8s 1.23 */}}
+{{- if semverCompare ">=1.24-0" .Capabilities.KubeVersion.Version -}}
+grpc:
+  port: 4222
+{{- else }}
+exec:
+  command:
+  - grpc_health_probe
+  - -addr=localhost:4222
+{{- end }}
+timeoutSeconds: 3
 {{- end }}
