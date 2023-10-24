@@ -120,6 +120,28 @@
       ]
     },
     {
+      // Avoid updating patch releases of golang in go.mod
+      "enabled": "false",
+      "matchFiles": [
+        "go.mod",
+      ],
+      "matchDepNames": [
+        "go"
+      ],
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      matchBaseBranches: [
+        "main",
+        "v1.14",
+        "v1.13",
+        "v1.12"
+      ]
+    },
+    {
       // Do not allow any updates into stable branches.
       "enabled": false,
       "groupName": "all go dependencies stable",
