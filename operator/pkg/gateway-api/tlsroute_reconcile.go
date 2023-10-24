@@ -108,8 +108,9 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	for _, fn := range []routechecks.CheckRuleFunc{
 		routechecks.CheckAgainstCrossNamespaceBackendReferences,
-		routechecks.CheckBackendIsService,
+		routechecks.CheckBackend,
 		routechecks.CheckBackendIsExistingService,
+		routechecks.CheckBackendIsExistingServiceImport,
 	} {
 		continueCheck, err := fn(i)
 		if err != nil {

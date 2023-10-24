@@ -17,6 +17,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -44,6 +45,7 @@ var requiredGVK = []schema.GroupVersionKind{
 	gatewayv1beta1.SchemeGroupVersion.WithKind("referencegrants"),
 	gatewayv1alpha2.SchemeGroupVersion.WithKind("grpcroutes"),
 	gatewayv1alpha2.SchemeGroupVersion.WithKind("tlsroutes"),
+	mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceimports"),
 }
 
 type gatewayApiConfig struct {
@@ -170,6 +172,7 @@ func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) error {
 		gatewayv1.GroupVersion:       gatewayv1.AddToScheme,
 		gatewayv1beta1.GroupVersion:  gatewayv1beta1.AddToScheme,
 		gatewayv1alpha2.GroupVersion: gatewayv1alpha2.AddToScheme,
+		mcsapiv1alpha1.GroupVersion:  mcsapiv1alpha1.AddToScheme,
 	} {
 		if err := f(scheme); err != nil {
 			return fmt.Errorf("failed to add types from %s to scheme: %w", gv, err)
