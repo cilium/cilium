@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -125,6 +124,9 @@ type manager struct {
 
 	// ipcache is the set operations performed against the ipcache
 	ipcache IPCache
+
+	// ipsetMgr is the ipset cluster nodes configuration manager
+	ipsetMgr ipsetManager
 
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
@@ -239,13 +241,14 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+func New(c Configuration, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
 		controllerManager: controller.NewManager(),
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
+		ipsetMgr:          ipsetMgr,
 		metrics:           nodeMetrics,
 		healthScope:       healthScope,
 	}
@@ -467,7 +470,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 	for _, address := range n.IPAddresses {
 		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
-			iptables.AddToNodeIpset(address.IP)
+			m.ipsetMgr.AddToNodeIpset(address.IP)
 		}
 
 		if m.nodeAddressSkipsIPCache(address) {
@@ -646,7 +649,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		}
 
 		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
-			iptables.RemoveFromNodeIpset(address.IP)
+			m.ipsetMgr.RemoveFromNodeIpset(address.IP)
 		}
 
 		if m.nodeAddressSkipsIPCache(address) {
