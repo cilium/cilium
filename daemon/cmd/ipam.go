@@ -146,7 +146,7 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	return status
 }
 
-func (d *Daemon) allocateRouterIPv4(family types.NodeAddressingFamily) (net.IP, error) {
+func (d *Daemon) allocateRouterIPv4(family types.NodeAddressingFamily) (*ipam.AllocationResult, error) {
 	if option.Config.LocalRouterIPv4 != "" {
 		routerIP := net.ParseIP(option.Config.LocalRouterIPv4)
 		if routerIP == nil {
@@ -155,13 +155,13 @@ func (d *Daemon) allocateRouterIPv4(family types.NodeAddressingFamily) (net.IP, 
 		if d.datapath.LocalNodeAddressing().IPv4().AllocationCIDR().Contains(routerIP) {
 			log.Warn("Specified router IP is within IPv4 podCIDR.")
 		}
-		return routerIP, nil
+		return &ipam.AllocationResult{IP: routerIP}, nil
 	} else {
 		return d.allocateDatapathIPs(family)
 	}
 }
 
-func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily) (net.IP, error) {
+func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily) (*ipam.AllocationResult, error) {
 	if option.Config.LocalRouterIPv6 != "" {
 		routerIP := net.ParseIP(option.Config.LocalRouterIPv6)
 		if routerIP == nil {
@@ -170,7 +170,7 @@ func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily) (net.IP, 
 		if d.datapath.LocalNodeAddressing().IPv6().AllocationCIDR().Contains(routerIP) {
 			log.Warn("Specified router IP is within IPv6 podCIDR.")
 		}
-		return routerIP, nil
+		return &ipam.AllocationResult{IP: routerIP}, nil
 	} else {
 		return d.allocateDatapathIPs(family)
 	}
@@ -192,40 +192,7 @@ func coalesceCIDRs(rCIDRs []string) (result []string) {
 	return
 }
 
-func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerIP net.IP, err error) {
-	// Avoid allocating external IP
-	d.ipam.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault)
-
-	// (Re-)allocate the router IP. If not possible, allocate a fresh IP.
-	// In that case, removal and re-creation of the cilium_host is
-	// required. It will also cause disruption of networking until all
-	// endpoints have been regenerated.
-	var result *ipam.AllocationResult
-	routerIP = family.Router()
-	if routerIP != nil {
-		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router", ipam.PoolDefault)
-		if err != nil {
-			log.Warn("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
-
-			// The restored router IP is not part of the allocation range.
-			// This indicates that the allocation range has changed.
-			deleteHostDevice()
-
-			// force re-allocation of the router IP
-			routerIP = nil
-		}
-	}
-
-	if routerIP == nil {
-		family := ipam.DeriveFamily(family.PrimaryExternal())
-		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault)
-		if err != nil {
-			err = fmt.Errorf("Unable to allocate router IP for family %s: %s", family, err)
-			return
-		}
-		routerIP = result.IP
-	}
-
+func (d *Daemon) setRouterIP(result *ipam.AllocationResult) {
 	// Coalescing multiple CIDRs. GH #18868
 	if option.Config.EnableIPv4Masquerade &&
 		option.Config.IPAM == ipamOption.IPAMENI &&
@@ -238,17 +205,33 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 		option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
 		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
-		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
+		routingInfo, err := linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
 			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
 			option.Config.EnableIPv4Masquerade)
 		if err != nil {
-			err = fmt.Errorf("failed to create router info %w", err)
-			return
+			log.WithError(err).Fatal("failed to create router info")
 		}
 		node.SetRouterInfo(routingInfo)
 	}
 
-	return
+	if result.IP.To4() != nil {
+		node.SetInternalIPv4Router(result.IP)
+	} else {
+		node.SetIPv6Router(result.IP)
+	}
+}
+
+func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (result *ipam.AllocationResult, err error) {
+	// Avoid allocating external IP
+	d.ipam.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault)
+
+	ipamFamily := ipam.DeriveFamily(family.PrimaryExternal())
+	result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipamFamily, "router", ipam.PoolDefault)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to allocate router IP for family %s: %s", family, err)
+	}
+
+	return result, nil
 }
 
 func (d *Daemon) allocateHealthIPs() error {
@@ -409,23 +392,23 @@ func (d *Daemon) allocateIngressIPs() error {
 
 func (d *Daemon) allocateIPs() error {
 	bootstrapStats.ipam.Start()
-	if option.Config.EnableIPv4 {
-		routerIP, err := d.allocateRouterIPv4(d.datapath.LocalNodeAddressing().IPv4())
+	if option.Config.EnableIPv4 && node.GetInternalIPv4Router() == nil {
+		result, err := d.allocateRouterIPv4(d.datapath.LocalNodeAddressing().IPv4())
 		if err != nil {
 			return err
 		}
-		if routerIP != nil {
-			node.SetInternalIPv4Router(routerIP)
+		if result != nil {
+			d.setRouterIP(result)
 		}
 	}
 
-	if option.Config.EnableIPv6 {
-		routerIP, err := d.allocateRouterIPv6(d.datapath.LocalNodeAddressing().IPv6())
+	if option.Config.EnableIPv6 && node.GetIPv6Router() == nil {
+		result, err := d.allocateRouterIPv6(d.datapath.LocalNodeAddressing().IPv6())
 		if err != nil {
 			return err
 		}
-		if routerIP != nil {
-			node.SetIPv6Router(routerIP)
+		if result != nil {
+			d.setRouterIP(result)
 		}
 	}
 

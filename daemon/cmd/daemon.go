@@ -31,7 +31,6 @@ import (
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
@@ -106,6 +105,8 @@ const (
 	ConfigModifyQueueSize = 10
 
 	syncHostIPsController = "sync-host-ips"
+
+	mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. The Kubernetes resource contained %s, while the filesystem contained %s. Using the router IP from the filesystem. To change the router IP, specify --%s and/or --%s."
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -309,43 +310,96 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	return counter.DefaultPrefixLengthCounter(max6, max4)
 }
 
+// Router IPs from the filesystem are preferred over the IPs found
+// in the Kubernetes resource (Node or CiliumNode), because we consider the
+// filesystem to be the most up-to-date source of truth.
+func (d *Daemon) reallocateCiliumHostIPs(fromFS, fromK8s net.IP) *ipam.AllocationResult {
+	if fromK8s == nil && fromFS == nil {
+		// We do nothing in this case because there are no router IPs to
+		// restore.
+		return nil
+	}
+
+	if fromK8s != nil && fromFS != nil && !fromK8s.Equal(fromFS) {
+		log.Warnf(
+			mismatchRouterIPsMsg,
+			fromK8s, fromFS, option.LocalRouterIPv4, option.LocalRouterIPv6,
+		)
+		// Above is just a warning; we still want to set the router IP regardless.
+	}
+
+	if fromFS != nil {
+		result, err := d.ipam.AllocateIPWithoutSyncUpstream(fromFS, "router", ipam.PoolDefault)
+		if err == nil {
+			return result // success
+		}
+
+		log.WithError(err).Warnf(
+			"Unable to restore router IP %s from filesystem",
+			fromFS,
+		)
+		// Fall back to using the IP from the Kubernetes resource if available
+	}
+
+	if fromK8s != nil {
+		result, err := d.ipam.AllocateIPWithoutSyncUpstream(fromK8s, "router", ipam.PoolDefault)
+		if err == nil {
+			return result // success
+		}
+		log.WithError(err).Warnf(
+			"Unable to restore router IP %s from kubernetes",
+			fromK8s,
+		)
+	}
+
+	return nil
+}
+
 // restoreCiliumHostIPs completes the `cilium_host` IP restoration process
 // (part 2/2). This function is called after fully syncing with K8s to ensure
 // that the most up-to-date information has been retrieved. At this point, the
 // daemon is aware of all the necessary information to restore the appropriate
 // IP.
-func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) error {
-	var (
-		cidrs  []*cidr.CIDR
-		fromFS net.IP
-	)
-
-	if ipv6 {
-		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMCRD:
-			// The native routing CIDR is the pod CIDR in these IPAM modes.
-			cidrs = []*cidr.CIDR{option.Config.GetIPv6NativeRoutingCIDR()}
-		default:
-			cidrs = []*cidr.CIDR{node.GetIPv6AllocRange()}
-		}
-		fromFS = node.GetIPv6Router()
-	} else {
-		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMCRD:
-			// The native routing CIDR is the pod CIDR in CRD mode.
-			cidrs = []*cidr.CIDR{option.Config.GetIPv4NativeRoutingCIDR()}
-		case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
-			// d.startIPAM() has already been called at this stage to initialize sharedNodeStore with ownNode info
-			// needed for GetVpcCIDRs()
-			cidrs = d.ipam.GetVpcCIDRs()
-		default:
-			cidrs = []*cidr.CIDR{node.GetIPv4AllocRange()}
-		}
-		fromFS = node.GetInternalIPv4Router()
+func (d *Daemon) restoreCiliumHostIPs(ctx context.Context, ipv6 bool, fromK8s net.IP) {
+	if !option.Config.EnableHostIPRestore {
+		return
 	}
 
-	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
-	return removeOldRouterState(ipv6, restoredIP)
+	var getter func() net.IP
+	var setter func(net.IP)
+	if ipv6 {
+		getter = node.GetIPv6Router
+		setter = node.SetIPv6Router
+	} else {
+		getter = node.GetInternalIPv4Router
+		setter = node.SetInternalIPv4Router
+	}
+
+	var (
+		fromFS     = getter()
+		restoredIP net.IP
+	)
+	result := d.reallocateCiliumHostIPs(fromFS, fromK8s)
+	if result != nil {
+		restoredIP = result.IP
+		d.setRouterIP(result)
+	} else {
+		setter(nil)
+		log.Warn("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
+	}
+
+	gcHostIPsFn := func(ctx context.Context, retries int) (bool, error) {
+		err := removeOldRouterState(ipv6, restoredIP)
+		if resiliency.IsRetryable(err) {
+			log.WithField(logfields.Attempt, retries).WithError(err).Warnf("Failed to remove old router IPs from cilium_host.")
+			return false, nil
+		}
+		return true, err
+	}
+
+	if err := resiliency.Retry(ctx, 100*time.Millisecond, 3, gcHostIPsFn); err != nil {
+		log.WithError(err).Error("Restore of the cilium_host ips failed. Manual intervention is required to remove all other old IPs.")
+	}
 }
 
 // removeOldRouterState will try to ensure that the only IP assigned to the
@@ -1053,27 +1107,15 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// Start IPAM
 	d.startIPAM(params.Resources.LocalCiliumNode)
-	// After the IPAM is started, in particular IPAM modes (CRD, ENI, Alibaba)
-	// which use the VPC CIDR as the pod CIDR, we must attempt restoring the
+	// After the IPAM is started, we can attempt to restore the
 	// router IPs from the K8s resources if we weren't able to restore them
 	// from the fs. We must do this after IPAM because we must wait until the
 	// K8s resources have been synced. Part 2/2 of restoration.
-	gcHostIPsFn := func(ctx context.Context, retries int) (done bool, err error) {
-		var errs error
-		if option.Config.EnableIPv4 {
-			errs = errors.Join(errs, d.restoreCiliumHostIPs(false, router4FromK8s))
-		}
-		if option.Config.EnableIPv6 {
-			errs = errors.Join(errs, d.restoreCiliumHostIPs(true, router6FromK8s))
-		}
-		if resiliency.IsRetryable(errs) {
-			log.WithField(logfields.Attempt, retries).WithError(errs).Warnf("Failed to remove old router IPs from cilium_host.")
-			return false, nil
-		}
-		return true, errs
+	if option.Config.EnableIPv4 {
+		d.restoreCiliumHostIPs(ctx, false, router4FromK8s)
 	}
-	if err := resiliency.Retry(ctx, 100*time.Millisecond, 3, gcHostIPsFn); err != nil {
-		log.WithError(err).Error("Restore of the cilium_host ips failed. Manual intervention is required to remove all other old IPs.")
+	if option.Config.EnableIPv6 {
+		d.restoreCiliumHostIPs(ctx, true, router6FromK8s)
 	}
 
 	bootstrapStats.restore.Start()
