@@ -13,10 +13,46 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/spf13/pflag"
 )
+
+var NodeAddressingCell = cell.Module(
+	"node-addressing",
+	"Accessors for looking up node IP address information",
+
+	cell.Config(NodeAddressingConfig{}),
+	cell.Provide(NewNodeAddressing),
+)
+
+type NodeAddressingConfig struct {
+	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
+}
+
+func (NodeAddressingConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice(
+		"nodeport-addresses",
+		nil,
+		"A whitelist of CIDRs to limit on what IP addresses NodePort traffic is served externally")
+}
+
+func NewNodeAddressing(cfg NodeAddressingConfig, localNode *node.LocalNodeStore, db *statedb.DB, devicesTable statedb.Table[*tables.Device]) types.NodeAddressing {
+	whitelist := make([]*net.IPNet, len(cfg.NodePortAddresses))
+	for i, cidr := range cfg.NodePortAddresses {
+		whitelist[i] = cidr.IPNet
+	}
+
+	return &nodeAddressing{
+		nodeAddressWhitelist: whitelist,
+		localNode:            localNode,
+		db:                   db,
+		devicesTable:         devicesTable,
+	}
+}
 
 func (a addressFamilyIPv4) Router() net.IP {
 	if n, err := a.localNode.Get(context.Background()); err == nil {
@@ -92,13 +128,14 @@ func (a addressFamilyIPv6) DirectRouting() (int, net.IP, bool) {
 	return a.directRouting(true)
 }
 
-type linuxNodeAddressing struct {
-	localNode    *node.LocalNodeStore
-	db           *statedb.DB
-	devicesTable statedb.Table[*tables.Device]
+type nodeAddressing struct {
+	nodeAddressWhitelist []*net.IPNet
+	localNode            *node.LocalNodeStore
+	db                   *statedb.DB
+	devicesTable         statedb.Table[*tables.Device]
 }
 
-func (na *linuxNodeAddressing) getExternalAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP) {
+func (na *nodeAddressing) getExternalAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP) {
 	nativeDevs, _ := tables.SelectedDevices(na.devicesTable, txn)
 	for _, dev := range nativeDevs {
 		for _, addr := range dev.Addrs {
@@ -108,13 +145,22 @@ func (na *linuxNodeAddressing) getExternalAddresses(txn statedb.ReadTxn, ipv6 bo
 			if !ipv6 && !addr.Addr.Is4() {
 				continue
 			}
-			addrs = append(addrs, addr.AsIP())
+			addr := addr.AsIP()
+			if len(na.nodeAddressWhitelist) == 0 {
+				addrs = append(addrs, addr)
+
+				// The default behavior when --nodeport-addresses is not set is
+				// to only use the primary IP of each device, so stop here.
+				break
+			} else if ip.NetsContainsAny(na.nodeAddressWhitelist, []*net.IPNet{ip.IPToPrefix(addr)}) {
+				addrs = append(addrs, addr)
+			}
 		}
 	}
 	return
 }
 
-func (na *linuxNodeAddressing) getLocalAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP, err error) {
+func (na *nodeAddressing) getLocalAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP, err error) {
 	// Collect the addresses of native external-facing network devices
 	addrs = na.getExternalAddresses(txn, ipv6)
 
@@ -140,7 +186,7 @@ func (na *linuxNodeAddressing) getLocalAddresses(txn statedb.ReadTxn, ipv6 bool)
 	return addrs, nil
 }
 
-func (na *linuxNodeAddressing) directRouting(ipv6 bool) (int, net.IP, bool) {
+func (na *nodeAddressing) directRouting(ipv6 bool) (int, net.IP, bool) {
 	deviceName := option.Config.DirectRoutingDevice
 	if deviceName == "" {
 		return 0, nil, false
@@ -162,18 +208,13 @@ func (na *linuxNodeAddressing) directRouting(ipv6 bool) (int, net.IP, bool) {
 	return dev.Index, addr, true
 }
 
-type addressFamilyIPv4 struct{ *linuxNodeAddressing }
-type addressFamilyIPv6 struct{ *linuxNodeAddressing }
+type addressFamilyIPv4 struct{ *nodeAddressing }
+type addressFamilyIPv6 struct{ *nodeAddressing }
 
-// NewNodeAddressing returns a new linux node addressing model
-func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devicesTable statedb.Table[*tables.Device]) types.NodeAddressing {
-	return &linuxNodeAddressing{localNode: localNode, db: db, devicesTable: devicesTable}
-}
-
-func (n *linuxNodeAddressing) IPv6() types.NodeAddressingFamily {
+func (n *nodeAddressing) IPv6() types.NodeAddressingFamily {
 	return addressFamilyIPv6{n}
 }
 
-func (n *linuxNodeAddressing) IPv4() types.NodeAddressingFamily {
+func (n *nodeAddressing) IPv4() types.NodeAddressingFamily {
 	return addressFamilyIPv4{n}
 }
