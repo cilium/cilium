@@ -4,8 +4,10 @@
 package manager
 
 import (
+	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -20,6 +22,13 @@ var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
+	cell.ProvidePrivate(func() ipsetManager {
+		// No need to set the relevant config options when creating the
+		// manager, we're only interested in ipset add/remove
+		// functions.
+		iptMgr := &iptables.IptablesManager{}
+		return iptMgr
+	}),
 	cell.Metric(NewNodeMetrics),
 )
 
@@ -65,8 +74,18 @@ type NodeManager interface {
 	StartNeighborRefresh(nh datapath.NodeNeighbors)
 }
 
-func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache, nodeMetrics *nodeMetrics) (NodeManager, error) {
-	mngr, err := New(option.Config, ipCache, nodeMetrics)
+type ipsetManager interface {
+	AddToNodeIpset(nodeIP net.IP)
+	RemoveFromNodeIpset(nodeIP net.IP)
+}
+
+func newAllNodeManager(
+	lc hive.Lifecycle,
+	ipCache *ipcache.IPCache,
+	ipsetMgr ipsetManager,
+	nodeMetrics *nodeMetrics,
+) (NodeManager, error) {
+	mngr, err := New(option.Config, ipCache, ipsetMgr, nodeMetrics)
 	if err != nil {
 		return nil, err
 	}
