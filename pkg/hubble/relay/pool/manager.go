@@ -78,6 +78,11 @@ func (m *PeerManager) Start() {
 
 func (m *PeerManager) watchNotifications() {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		<-m.stop
+		cancel()
+	}()
 	retryTimer, retryTimerDone := inctimer.New()
 	defer retryTimerDone()
 connect:
@@ -90,7 +95,6 @@ connect:
 			}).Warning("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
 			select {
 			case <-m.stop:
-				cancel()
 				return
 			case <-retryTimer.After(m.opts.retryTimeout):
 				continue
@@ -105,7 +109,6 @@ connect:
 			}).Warning("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
 			select {
 			case <-m.stop:
-				cancel()
 				return
 			case <-retryTimer.After(m.opts.retryTimeout):
 				continue
@@ -115,7 +118,6 @@ connect:
 			select {
 			case <-m.stop:
 				cl.Close()
-				cancel()
 				return
 			default:
 			}
@@ -128,7 +130,6 @@ connect:
 				}).Warning("Error while receiving peer change notification; will try again after the timeout has expired")
 				select {
 				case <-m.stop:
-					cancel()
 					return
 				case <-retryTimer.After(m.opts.retryTimeout):
 					continue connect
