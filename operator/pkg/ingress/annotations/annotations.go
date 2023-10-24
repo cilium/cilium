@@ -162,11 +162,16 @@ func GetAnnotationWebsocketEnabled(ingress *slim_networkingv1.Ingress) int64 {
 	return 0
 }
 
-func GetAnnotationSSLPassthrough(ingress *slim_networkingv1.Ingress) bool {
+func GetAnnotationSSLPassthroughEnabled(ingress *slim_networkingv1.Ingress) bool {
 	val, exists := annotation.Get(ingress, SSLPassthroughAnnotation, SSLPassthroughAnnotationAlias)
 	if !exists {
 		return false
 	}
+
+	if val == enabled {
+		return true
+	}
+
 	boolVal, err := strconv.ParseBool(val)
 	if err != nil {
 		return false
