@@ -15,10 +15,12 @@ type ``LoadBalancer``. This functionality is usually left up to a cloud provider
 however, when deploying in a private cloud environment, these facilities are not
 always available.
 
-LB IPAM works in conjunction with features like the :ref:`bgp_control_plane`. Where
+LB IPAM works in conjunction with features such as :ref:`bgp_control_plane` and :ref:`l2_announcements`. Where
 LB IPAM is responsible for allocation and assigning of IPs to Service objects and
 other features are responsible for load balancing and/or advertisement of these
 IPs. 
+
+Use :ref:`bgp_control_plane` to advertise the IP addresses assigned by LB IPAM over BGP and :ref:`l2_announcements` to advertise them locally.
 
 LB IPAM is always enabled but dormant. The controller is awoken when the first
 IP Pool is added to the cluster.
