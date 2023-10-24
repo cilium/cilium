@@ -12,6 +12,7 @@
 # https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
 ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:91ca4720011393f4d4cab3a01fa5814ee2714b7d40e6c74f2505f74168398ca9
 ARG GOLANG_IMAGE=docker.io/library/golang:1.21.4@sha256:81cd210ae58a6529d832af2892db822b30d84f817a671b8e1c15cff0b271a3db
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:c43357ef8317d6dc42f71a046c9adfc756e98b35@sha256:914163868d208197babf623174b13e767cfee67f00036804fb5f9550e34a0a6c
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -49,6 +50,14 @@ RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
     ./build-gops.sh
 
+#
+# gRPC health probes
+#
+FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} as grpc_health_probe
+ARG BUILDPLATFORM
+COPY images/hubble-relay/download-grpc-health-probe.sh /tmp/download-grpc-health-probe.sh
+RUN /tmp/download-grpc-health-probe.sh
+
 FROM ${BASE_IMAGE} as release
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETOS
@@ -56,6 +65,7 @@ ARG TARGETOS
 ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
+COPY --from=grpc_health_probe /out/${TARGETOS}/${TARGETARCH}/bin/grpc_health_probe /bin/grpc_health_probe
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/hubble-relay /usr/bin/hubble-relay
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot
