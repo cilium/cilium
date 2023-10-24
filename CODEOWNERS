@@ -460,7 +460,6 @@ Makefile* @cilium/build
 /pkg/maps/egressmap @cilium/egress-gateway
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
-/pkg/modules/ @cilium/sig-datapath
 /pkg/monitor @cilium/sig-datapath
 /pkg/monitor/api @cilium/api @cilium/sig-datapath
 /pkg/monitor/format @cilium/cli @cilium/sig-datapath
