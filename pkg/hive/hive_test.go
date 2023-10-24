@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -195,6 +196,40 @@ func TestHiveConfigOverride(t *testing.T) {
 	assert.NoError(t, err, "expected Stop to succeed")
 
 	assert.Equal(t, "override", cfg.Foo, "Config.Foo not set correctly")
+}
+
+type CIDRSliceConfig struct {
+	Foo []*cidr.CIDR
+}
+
+func (CIDRSliceConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice("foo", nil, "foo")
+}
+
+func TestHiveCIDRSlice(t *testing.T) {
+	var cfg CIDRSliceConfig
+	testCell := cell.Module(
+		"test",
+		"Test Module",
+		cell.Config(CIDRSliceConfig{}),
+		cell.Invoke(func(c CIDRSliceConfig) {
+			cfg = c
+		}),
+	)
+	hive := hive.New(testCell)
+
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	hive.RegisterFlags(flags)
+	flags.Set("foo", "1.2.3.4/24,2001:db8::/64")
+
+	err := hive.Start(context.TODO())
+	require.NoError(t, err, "expected Start to succeed")
+	err = hive.Stop(context.TODO())
+	require.NoError(t, err, "expected Stop to succeed")
+
+	require.Len(t, cfg.Foo, 2)
+	require.Equal(t, cidr.MustParseCIDR("1.2.3.4/24"), cfg.Foo[0], "Config.Foo not set correctly")
+	require.Equal(t, cidr.MustParseCIDR("2001:db8::/64"), cfg.Foo[1], "Config.Foo not set correctly")
 }
 
 type SomeObject struct {
