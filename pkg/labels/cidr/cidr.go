@@ -108,7 +108,6 @@ func GetCIDRLabels(prefix netip.Prefix) labels.Labels {
 		nil, // avoid allocating space for the intermediate results until we need it
 		addr,
 		ones,
-		0,
 	)
 	lbls[worldLabel.Key] = worldLabel
 
@@ -136,12 +135,12 @@ var (
 	worldLabel = labels.Label{Key: labels.IDNameWorld, Source: labels.LabelSourceReserved}
 )
 
-func computeCIDRLabels(cache *simplelru.LRU[netip.Prefix, []labels.Label], lbls labels.Labels, results []labels.Label, addr netip.Addr, ones, i int) []labels.Label {
-	if i > ones {
+func computeCIDRLabels(cache *simplelru.LRU[netip.Prefix, []labels.Label], lbls labels.Labels, results []labels.Label, addr netip.Addr, ones int) []labels.Label {
+	if ones < 0 {
 		return results
 	}
 
-	prefix := netip.PrefixFrom(addr, i)
+	prefix, _ := addr.Prefix(ones)
 
 	mu.Lock()
 	cachedLbls, ok := cache.Get(prefix)
@@ -158,7 +157,7 @@ func computeCIDRLabels(cache *simplelru.LRU[netip.Prefix, []labels.Label], lbls 
 	}
 
 	// Compute the label for this prefix (e.g. "cidr:10.0.0.0/8")
-	prefixLabel := maskedIPToLabel(prefix.Masked().Addr(), i)
+	prefixLabel := maskedIPToLabel(prefix.Addr(), ones)
 	lbls[prefixLabel.Key] = prefixLabel
 
 	// Keep computing the rest (e.g. "cidr:10.0.0.0/7", ...).
@@ -166,12 +165,12 @@ func computeCIDRLabels(cache *simplelru.LRU[netip.Prefix, []labels.Label], lbls 
 		cache,
 		lbls,
 		append(results, prefixLabel),
-		addr, ones, i+1,
+		prefix.Addr(), ones-1,
 	)
 
 	// Cache the resulting labels derived from this prefix, e.g. /8, /7, ...
 	mu.Lock()
-	cache.Add(prefix, results[i:])
+	cache.Add(prefix, results[len(results)-ones-1:])
 	mu.Unlock()
 
 	return results
