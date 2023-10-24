@@ -29,6 +29,7 @@ cilium-agent hive dot-graph [flags]
       --cni-exclusive                                             Whether to remove other CNI configurations
       --cni-log-file string                                       Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
       --controller-group-metrics strings                          List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
+      --disable-iptables-feeder-rules strings                     Chains to ignore when installing feeder rules.
       --egress-gateway-policy-map-max int                         Maximum number of entries in egress gateway policy map (default 16384)
       --egress-gateway-reconciliation-trigger-interval duration   Time between triggers of egress gateway state reconciliations (default 1s)
       --enable-cilium-api-server-access strings                   List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
@@ -43,6 +44,7 @@ cilium-agent hive dot-graph [flags]
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
       --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
+      --iptables-random-fully                                     Set iptables flag random-fully on masquerading rules
       --k8s-api-server string                                     Kubernetes API server URL
       --k8s-client-burst int                                      Burst value allowed for the K8s client
       --k8s-client-qps float32                                    Queries per second limit for the K8s client
