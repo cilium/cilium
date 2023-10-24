@@ -2102,6 +2102,10 @@ sigs.k8s.io/gateway-api/conformance/utils/tls
 ## explicit; go 1.18
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
+# sigs.k8s.io/mcs-api v0.1.1-0.20230531192946-4231f56e5ff9
+## explicit; go 1.19
+sigs.k8s.io/mcs-api/pkg/apis/v1alpha1
+sigs.k8s.io/mcs-api/pkg/controllers
 # sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/fieldpath

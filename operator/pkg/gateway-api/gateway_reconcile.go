@@ -20,6 +20,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -93,11 +94,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	// TODO(tam): Only list the services used by accepted Routes
+	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list Services")
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+
+	serviceImportsList := &mcsapiv1alpha1.ServiceImportList{}
+	if err := r.Client.List(ctx, serviceImportsList); err != nil {
+		scopedLog.WithError(err).Error("Unable to list ServiceImports")
+		return controllerruntime.Fail(err)
 	}
 
 	grants := &gatewayv1beta1.ReferenceGrantList{}
@@ -113,6 +120,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		TLSRoutes:       r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
 		GRPCRoutes:      r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
 		Services:        servicesList.Items,
+		ServiceImports:  serviceImportsList.Items,
 		ReferenceGrants: grants.Items,
 	})
 

@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,17 +43,65 @@ func newHTTPRouteReconciler(mgr ctrl.Manager) *httpRouteReconciler {
 func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, backendServiceIndex,
 		func(rawObj client.Object) []string {
-			hr, ok := rawObj.(*gatewayv1.HTTPRoute)
+			route, ok := rawObj.(*gatewayv1.HTTPRoute)
 			if !ok {
 				return nil
 			}
 			var backendServices []string
-			for _, rule := range hr.Spec.Rules {
+			for _, rule := range route.Spec.Rules {
 				for _, backend := range rule.BackendRefs {
-					if !helpers.IsService(backend.BackendObjectReference) {
+					backendServiceName := ""
+					switch {
+					case helpers.IsService(backend.BackendObjectReference):
+						backendServiceName = string(backend.Name)
+
+					case helpers.IsServiceImport(backend.BackendObjectReference):
+						svcImport := &mcsapiv1alpha1.ServiceImport{}
+						if err := r.Client.Get(context.Background(), client.ObjectKey{
+							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+							Name:      string(backend.Name),
+						}, svcImport); err != nil {
+							continue
+						}
+
+						// ServiceImport gateway api support is conditioned by the fact
+						// that an actual Service backs it. Other implementations of MCS API
+						// are not supported.
+						backendServiceName, ok = svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
+						if !ok {
+							continue
+						}
+
+					default:
 						continue
 					}
 					backendServices = append(backendServices,
+						types.NamespacedName{
+							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+							Name:      backendServiceName,
+						}.String(),
+					)
+				}
+			}
+			return backendServices
+		},
+	); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1beta1.HTTPRoute{}, backendServiceImportIndex,
+		func(rawObj client.Object) []string {
+			hr, ok := rawObj.(*gatewayv1beta1.HTTPRoute)
+			if !ok {
+				return nil
+			}
+			var backendServiceImports []string
+			for _, rule := range hr.Spec.Rules {
+				for _, backend := range rule.BackendRefs {
+					if !helpers.IsServiceImport(backend.BackendObjectReference) {
+						continue
+					}
+					backendServiceImports = append(backendServiceImports,
 						types.NamespacedName{
 							Namespace: helpers.NamespaceDerefOr(backend.Namespace, hr.Namespace),
 							Name:      string(backend.Name),
@@ -59,7 +109,7 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					)
 				}
 			}
-			return backendServices
+			return backendServiceImports
 		},
 	); err != nil {
 		return err
@@ -91,6 +141,8 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&gatewayv1.HTTPRoute{}).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
+		// Watch for changes to Backend Service Imports
+		Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport()).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch for changes to Gateways and enqueue HTTPRoutes that reference them
@@ -104,6 +156,12 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // if the backend services are updated.
 func (r *httpRouteReconciler) enqueueRequestForBackendService() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
+}
+
+// enqueueRequestForBackendServiceImport makes sure that HTTP Routes are reconciled
+// if the backend Service Imports are updated.
+func (r *httpRouteReconciler) enqueueRequestForBackendServiceImport() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceImportIndex))
 }
 
 // enqueueRequestForReferenceGrant makes sure that all HTTP Routes are reconciled

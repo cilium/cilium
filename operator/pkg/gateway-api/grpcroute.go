@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -40,7 +42,12 @@ func newGRPCRouteReconciler(mgr ctrl.Manager) *grpcRouteReconciler {
 // SetupWithManager sets up the controller with the Manager.
 func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
-		backendServiceIndex, getBackendServiceForGRPCRoute,
+		backendServiceIndex, r.getBackendServiceForGRPCRoute,
+	); err != nil {
+		return err
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
+		backendServiceImportIndex, r.getBackendServiceImportForGRPCRoute,
 	); err != nil {
 		return err
 	}
@@ -56,6 +63,8 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&gatewayv1alpha2.GRPCRoute{}).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
+		// Watch for changes to Backend Service Imports
+		Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport()).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch for changes to Gateways and enqueue GRPCRoutes that reference them
@@ -85,7 +94,7 @@ func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
 	return gateways
 }
 
-func getBackendServiceForGRPCRoute(rawObj client.Object) []string {
+func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object) []string {
 	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
 	if !ok {
 		return nil
@@ -93,13 +102,35 @@ func getBackendServiceForGRPCRoute(rawObj client.Object) []string {
 	var backendServices []string
 	for _, rule := range route.Spec.Rules {
 		for _, backend := range rule.BackendRefs {
-			if !helpers.IsService(backend.BackendObjectReference) {
+			backendServiceName := ""
+			switch {
+			case helpers.IsService(backend.BackendObjectReference):
+				backendServiceName = string(backend.Name)
+
+			case helpers.IsServiceImport(backend.BackendObjectReference):
+				svcImport := &mcsapiv1alpha1.ServiceImport{}
+				if err := r.Client.Get(context.Background(), client.ObjectKey{
+					Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+					Name:      string(backend.Name),
+				}, svcImport); err != nil {
+					continue
+				}
+
+				// ServiceImport gateway api support is conditioned by the fact
+				// that an actual Service backs it. Other implementations of MCS API
+				// are not supported.
+				backendServiceName, ok = svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
+				if !ok {
+					continue
+				}
+
+			default:
 				continue
 			}
 			backendServices = append(backendServices,
 				types.NamespacedName{
 					Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
-					Name:      string(backend.Name),
+					Name:      backendServiceName,
 				}.String(),
 			)
 		}
@@ -107,10 +138,38 @@ func getBackendServiceForGRPCRoute(rawObj client.Object) []string {
 	return backendServices
 }
 
+func (r *grpcRouteReconciler) getBackendServiceImportForGRPCRoute(rawObj client.Object) []string {
+	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
+	if !ok {
+		return nil
+	}
+	var backendServiceImports []string
+	for _, rule := range route.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			if !helpers.IsServiceImport(backend.BackendObjectReference) {
+				continue
+			}
+			backendServiceImports = append(backendServiceImports,
+				types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+					Name:      string(backend.Name),
+				}.String(),
+			)
+		}
+	}
+	return backendServiceImports
+}
+
 // enqueueRequestForBackendService makes sure that GRPC Routes are reconciled
 // if the backend services are updated.
 func (r *grpcRouteReconciler) enqueueRequestForBackendService() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
+}
+
+// enqueueRequestForBackendServiceImport makes sure that TLS Routes are reconciled
+// if the backend Service Imports are updated.
+func (r *grpcRouteReconciler) enqueueRequestForBackendServiceImport() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceImportIndex))
 }
 
 // enqueueRequestForReferenceGrant makes sure that all GRPC Routes are reconciled

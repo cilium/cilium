@@ -8,11 +8,19 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 // IsBackendReferenceAllowed returns true if the backend reference is allowed by the reference grant.
 func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1.BackendRef, gvk schema.GroupVersionKind, grants []gatewayv1beta1.ReferenceGrant) bool {
-	return isReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Service"), grants)
+	if IsService(be.BackendObjectReference) {
+		return isReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Service"), grants)
+	}
+	if IsServiceImport(be.BackendObjectReference) {
+		return isReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, mcsapiv1alpha1.SchemeGroupVersion.WithKind("ServiceImport"), grants)
+	}
+
+	return false
 }
 
 // IsSecretReferenceAllowed returns true if the secret reference is allowed by the reference grant.

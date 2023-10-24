@@ -24,9 +24,10 @@ import (
 
 const (
 	// controllerName is the gateway controller name used in cilium.
-	controllerName      = "io.cilium/gateway-controller"
-	backendServiceIndex = "backendServiceIndex"
-	gatewayIndex        = "gatewayIndex"
+	controllerName            = "io.cilium/gateway-controller"
+	backendServiceIndex       = "backendServiceIndex"
+	backendServiceImportIndex = "backendServiceImportIndex"
+	gatewayIndex              = "gatewayIndex"
 )
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string) func(object client.Object) bool {
