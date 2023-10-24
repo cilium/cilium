@@ -52,3 +52,11 @@ build-docker-image-cilium:
     DOCKERFILE_PATH: images/cilium/Dockerfile
     DOCKER_BUILD_ARGS: |
       CILIUM_RUNTIME_IMAGE=registry.ddbuild.io/cilium-runtime:$CI_COMMIT_TAG
+
+build-docker-image-hubble-relay:
+  <<: *build-docker-image
+  variables:
+    IMAGE_NAME: hubble-relay
+    DOCKERFILE_PATH: images/hubble-relay/Dockerfile
+    DOCKER_BUILD_ARGS: |
+      BASE_IMAGE=registry.ddbuild.io/images/base/gbi-distroless:release
