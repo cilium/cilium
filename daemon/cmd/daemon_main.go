@@ -718,9 +718,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.InstallIptRules)
 	option.BindEnv(vp, option.InstallIptRules)
 
-	flags.Bool(option.IPTablesRandomFully, false, "Set iptables flag random-fully on masquerading rules")
-	option.BindEnv(vp, option.IPTablesRandomFully)
-
 	flags.Int(option.MaxCtrlIntervalName, 0, "Maximum interval (in seconds) between controller runs. Zero is no limit.")
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	option.BindEnv(vp, option.MaxCtrlIntervalName)
@@ -1014,9 +1011,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.StringSlice(option.HubbleRedactHttpHeadersDeny, []string{}, "HTTP headers to redact from flows")
 	option.BindEnv(vp, option.HubbleRedactHttpHeadersDeny)
-
-	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
-	option.BindEnv(vp, option.DisableIptablesFeederRules)
 
 	flags.Bool(option.EnableIPv4FragmentsTrackingName, defaults.EnableIPv4FragmentsTracking, "Enable IPv4 fragments tracking for L4-based lookups")
 	option.BindEnv(vp, option.EnableIPv4FragmentsTrackingName)

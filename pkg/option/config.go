@@ -400,9 +400,6 @@ const (
 	// to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = "install-no-conntrack-iptables-rules"
 
-	// IPTablesRandomFully sets iptables flag random-fully on masquerading rules
-	IPTablesRandomFully = "iptables-random-fully"
-
 	// IPv6NodeAddr is the IPv6 address of node
 	IPv6NodeAddr = "ipv6-node"
 
@@ -1053,10 +1050,6 @@ const (
 	// HubbleRedactHttpHeadersDeny controls which http headers will be redacted from flows
 	HubbleRedactHttpHeadersDeny = "hubble-redact-http-headers-deny"
 
-	// DisableIptablesFeederRules specifies which chains will be excluded
-	// when installing the feeder rules
-	DisableIptablesFeederRules = "disable-iptables-feeder-rules"
-
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
 
@@ -1678,10 +1671,6 @@ type DaemonConfig struct {
 	// PrependIptablesChains is the name of the option to enable prepending
 	// iptables chains instead of appending
 	PrependIptablesChains bool
-
-	// IPTablesRandomFully defines the "--random-fully" iptables option when the
-	// iptables CLI is directly invoked from the Cilium agent.
-	IPTablesRandomFully bool
 
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
@@ -2314,10 +2303,6 @@ type DaemonConfig struct {
 	// EndpointStatus enables population of information in the
 	// CiliumEndpoint.Status resource
 	EndpointStatus map[string]struct{}
-
-	// DisableIptablesFeederRules specifies which chains will be excluded
-	// when installing the feeder rules
-	DisableIptablesFeederRules []string
 
 	// EnableIPv4FragmentsTracking enables IPv4 fragments tracking for
 	// L4-based lookups. Needs LRU map support.
@@ -3207,7 +3192,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnvoyConfigTimeout = vp.GetDuration(EnvoyConfigTimeout)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
-	c.IPTablesRandomFully = vp.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
 	c.IPsecKeyRotationDuration = vp.GetDuration(IPsecKeyRotationDuration)
 	c.EnableIPsecKeyWatcher = vp.GetBool(EnableIPsecKeyWatcher)
@@ -3629,8 +3613,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleRedactKafkaApiKey = vp.GetBool(HubbleRedactKafkaApiKey)
 	c.HubbleRedactHttpHeadersAllow = vp.GetStringSlice(HubbleRedactHttpHeadersAllow)
 	c.HubbleRedactHttpHeadersDeny = vp.GetStringSlice(HubbleRedactHttpHeadersDeny)
-
-	c.DisableIptablesFeederRules = vp.GetStringSlice(DisableIptablesFeederRules)
 
 	// Hidden options
 	c.CompilerFlags = vp.GetStringSlice(CompilerFlags)

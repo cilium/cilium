@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -160,8 +159,8 @@ func (ipt *ipt) runProg(args []string) error {
 
 // skipPodTrafficConntrack returns true if it's possible to install iptables
 // `-j CT --notrack` rules to skip tracking pod traffic.
-func skipPodTrafficConntrack(ipv6 bool) bool {
-	return !ipv6 && option.Config.InstallNoConntrackIptRules
+func skipPodTrafficConntrack(ipv6, installNoConntrackIptRules bool) bool {
+	return !ipv6 && installNoConntrackIptRules
 }
 
 func reverseRule(rule string) ([]string, error) {
@@ -180,8 +179,8 @@ func reverseRule(rule string) ([]string, error) {
 	return []string{}, nil
 }
 
-func ruleReferencesDisabledChain(rule string) (bool, string) {
-	for _, disabledChain := range option.Config.DisableIptablesFeederRules {
+func ruleReferencesDisabledChain(disableIptablesFeederRules []string, rule string) (bool, string) {
+	for _, disabledChain := range disableIptablesFeederRules {
 		if strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
 			return true, disabledChain
 		}
@@ -190,8 +189,8 @@ func ruleReferencesDisabledChain(rule string) (bool, string) {
 	return false, ""
 }
 
-func isDisabledChain(chain string) bool {
-	for _, disabledChain := range option.Config.DisableIptablesFeederRules {
+func isDisabledChain(disableIptablesFeederRules []string, chain string) bool {
+	for _, disabledChain := range disableIptablesFeederRules {
 		if strings.EqualFold(chain, disabledChain) {
 			return true
 		}
@@ -232,7 +231,7 @@ func (m *Manager) removeCiliumRules(table string, prog iptablesInterface, match 
 		// do not remove feeder for chains that are set to be disabled
 		// ie catch the beginning of the rule like -A POSTROUTING to match it against
 		// disabled chains
-		if skip, disabledChain := ruleReferencesDisabledChain(rule); skip {
+		if skip, disabledChain := ruleReferencesDisabledChain(m.cfg.DisableIptablesFeederRules, rule); skip {
 			log.WithField(logfields.Chain, disabledChain).Info("Skipping the removal of feeder chain")
 			continue
 		}
@@ -341,7 +340,7 @@ func (m *Manager) Start(ctx hive.HookContext) error {
 	}
 
 	if err := m.modulesMgr.FindOrLoadModules("xt_socket"); err != nil {
-		if !m.isTunnelingEnabled() {
+		if !m.sharedCfg.TunnelingEnabled {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
 			// logic for packets for which a local socket is found by ip early
 			// demux. xt_socket performs a local socket match and sets an skb mark on
@@ -398,7 +397,7 @@ func (m *Manager) SupportsOriginalSourceAddr() bool {
 	// Original source address use works if xt_socket match is supported, or if ip early demux
 	// is disabled, but it is not needed when tunneling is used as the tunnel header carries
 	// the source security ID.
-	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && !option.Config.TunnelingEnabled()
+	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && !m.sharedCfg.TunnelingEnabled
 }
 
 // removeRules removes iptables rules installed by Cilium.
@@ -528,7 +527,7 @@ func (m *Manager) installStaticProxyRules() error {
 	// L7 proxy upstream return traffic has Endpoint ID in the mask
 	matchL7ProxyUpstream := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
 
-	if option.Config.EnableIPv4 {
+	if m.sharedCfg.EnableIPv4 {
 		// No conntrack for traffic to proxy
 		if err := ip4tables.runProg([]string{
 			"-t", "raw",
@@ -624,7 +623,7 @@ func (m *Manager) installStaticProxyRules() error {
 		}
 	}
 
-	if option.Config.EnableIPv6 {
+	if m.sharedCfg.EnableIPv6 {
 		// No conntrack for traffic to ingress proxy
 		if err := ip6tables.runProg([]string{
 			"-t", "raw",
@@ -726,13 +725,13 @@ var tproxyMatch = regexp.MustCompile("CILIUM_PRE_mangle .*cilium: TPROXY")
 
 // copies old proxy rules
 func (m *Manager) copyProxyRules(oldChain string, match string) error {
-	if option.Config.EnableIPv4 {
+	if m.sharedCfg.EnableIPv4 {
 		if err := m.doCopyProxyRules(ip4tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
 			return err
 		}
 	}
 
-	if option.Config.EnableIPv6 {
+	if m.sharedCfg.EnableIPv6 {
 		if err := m.doCopyProxyRules(ip6tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
 			return err
 		}
@@ -795,12 +794,12 @@ func (m *Manager) iptProxyRules(proxyPort uint16, ingress, localOnly bool, name 
 		ipv4 = "127.0.0.1"
 		ipv6 = "::1"
 	}
-	if option.Config.EnableIPv4 {
+	if m.sharedCfg.EnableIPv4 {
 		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, ingress, name); err != nil {
 			return err
 		}
 	}
-	if option.Config.EnableIPv6 {
+	if m.sharedCfg.EnableIPv6 {
 		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, ingress, name); err != nil {
 			return err
 		}
@@ -951,7 +950,7 @@ func (m *Manager) InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
 
 	// Do not install per endpoint NOTRACK rules if we are already skipping
 	// conntrack for all pod traffic.
-	if skipPodTrafficConntrack(ipv6) {
+	if skipPodTrafficConntrack(ipv6, m.sharedCfg.InstallNoConntrackIptRules) {
 		return nil
 	}
 
@@ -976,7 +975,7 @@ func (m *Manager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
 
 	// Do not install per endpoint NOTRACK rules if we are already skipping
 	// conntrack for all pod traffic.
-	if skipPodTrafficConntrack(ipv6) {
+	if skipPodTrafficConntrack(ipv6, m.sharedCfg.InstallNoConntrackIptRules) {
 		return nil
 	}
 
@@ -1038,7 +1037,7 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool,
 // Returns 0 a TPROXY entry with 'name' can not be found.
 func (m *Manager) GetProxyPort(name string) uint16 {
 	prog := ip4tables
-	if !option.Config.EnableIPv4 {
+	if !m.sharedCfg.EnableIPv4 {
 		prog = ip6tables
 	}
 
@@ -1074,15 +1073,15 @@ func (m *Manager) doGetProxyPort(prog iptablesInterface, name string) uint16 {
 
 func (m *Manager) getDeliveryInterface(ifName string) string {
 	switch {
-	case option.Config.EnableEndpointRoutes:
+	case m.sharedCfg.EnableEndpointRoutes:
 		// aws-cni creates container interfaces with names like eni621c0fc8425.
 		if m.CNIChainingMode == "aws-cni" {
 			return "eni+"
 		}
 		return "lxc+"
 
-	case option.Config.IPAM == ipamOption.IPAMENI ||
-		option.Config.IPAM == ipamOption.IPAMAlibabaCloud:
+	case m.sharedCfg.IPAM == ipamOption.IPAMENI ||
+		m.sharedCfg.IPAM == ipamOption.IPAMAlibabaCloud:
 		return "lxc+"
 
 	default:
@@ -1091,12 +1090,12 @@ func (m *Manager) getDeliveryInterface(ifName string) string {
 }
 
 func (m *Manager) installForwardChainRules(ifName, localDeliveryInterface, forwardChain string) error {
-	if option.Config.EnableIPv4 {
+	if m.sharedCfg.EnableIPv4 {
 		if err := m.installForwardChainRulesIpX(ip4tables, ifName, localDeliveryInterface, forwardChain); err != nil {
 			return err
 		}
 	}
-	if option.Config.EnableIPv6 {
+	if m.sharedCfg.EnableIPv6 {
 		return m.installForwardChainRulesIpX(ip6tables, ifName, localDeliveryInterface, forwardChain)
 	}
 
@@ -1213,7 +1212,7 @@ func RemoveFromNodeIpset(nodeIP net.IP) {
 
 func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDeliveryInterface,
 	snatDstExclusionCIDR, allocRange, hostMasqueradeIP string) error {
-	if option.Config.NodeIpsetNeeded() {
+	if m.sharedCfg.NodeIpsetNeeded {
 		// Exclude traffic to nodes from masquerade.
 		if err := createIpset(prog.getIpset(), prog == ip6tables); err != nil {
 			return err
@@ -1227,8 +1226,8 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 		// If MasqueradeInterfaces is set, we need to mirror base condition of the
 		// "cilium masquerade non-cluster" rule below, as the allocRange might not
 		// be valid in such setups (e.g. in ENI mode).
-		if len(option.Config.MasqueradeInterfaces) > 0 {
-			progArgs = append(progArgs, "-o", strings.Join(option.Config.MasqueradeInterfaces, ","))
+		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
+			progArgs = append(progArgs, "-o", strings.Join(m.sharedCfg.MasqueradeInterfaces, ","))
 		} else {
 			progArgs = append(progArgs, "-s", allocRange)
 		}
@@ -1247,12 +1246,12 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 	//
 	// If this option is enabled, then it takes precedence over the catch-all
 	// MASQUERADE further below.
-	if option.Config.EnableMasqueradeRouteSource {
+	if m.sharedCfg.EnableMasqueradeRouteSource {
 		var defaultRoutes []netlink.Route
 
-		devices := option.Config.GetDevices()
-		if len(option.Config.MasqueradeInterfaces) > 0 {
-			devices = option.Config.MasqueradeInterfaces
+		devices := m.sharedCfg.Devices
+		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
+			devices = m.sharedCfg.MasqueradeInterfaces
 		}
 		family := netlink.FAMILY_V4
 		if prog == ip6tables {
@@ -1313,7 +1312,7 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 					"-m", "comment", "--comment", "cilium snat non-cluster via source route",
 					"-j", "SNAT",
 					"--to-source", r.Src.String())
-				if option.Config.IPTablesRandomFully {
+				if m.cfg.IPTablesRandomFully {
 					progArgs = append(progArgs, "--random-fully")
 				}
 				if err := prog.runProg(progArgs); err != nil {
@@ -1348,10 +1347,10 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 		"-A", ciliumPostNatChain,
 		"!", "-d", snatDstExclusionCIDR,
 	}
-	if len(option.Config.MasqueradeInterfaces) > 0 {
+	if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
 		progArgs = append(
 			progArgs,
-			"-o", strings.Join(option.Config.MasqueradeInterfaces, ","))
+			"-o", strings.Join(m.sharedCfg.MasqueradeInterfaces, ","))
 	} else {
 		progArgs = append(
 			progArgs,
@@ -1362,7 +1361,7 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 		progArgs,
 		"-m", "comment", "--comment", "cilium masquerade non-cluster",
 		"-j", "MASQUERADE")
-	if option.Config.IPTablesRandomFully {
+	if m.cfg.IPTablesRandomFully {
 		progArgs = append(progArgs, "--random-fully")
 	}
 	if err := prog.runProg(progArgs); err != nil {
@@ -1384,7 +1383,7 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 		return err
 	}
 
-	if option.Config.TunnelingEnabled() {
+	if m.sharedCfg.TunnelingEnabled {
 		// Masquerade all traffic from the host into the ifName
 		// interface if the source is not in the node's pod CIDR.
 		//
@@ -1442,7 +1441,7 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 	//  - portmap/host if both source and destination are
 	//    on the same node
 	//  - kiam if source and server are on the same node
-	if !option.Config.EnableEndpointRoutes {
+	if !m.sharedCfg.EnableEndpointRoutes {
 		if err := prog.runProg([]string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
@@ -1456,10 +1455,6 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 	}
 
 	return nil
-}
-
-func (m *Manager) isTunnelingEnabled() bool {
-	return m.sharedCfg.RoutingMode != option.RoutingModeNative
 }
 
 func createIpset(name string, ipv6 bool) error {
@@ -1589,13 +1584,13 @@ func (m *Manager) doInstallRules(ifName string, firstInitialization, install boo
 	// Note we don't need a backup system as for iptables rules because the
 	// contents of ipsets doesn't depend on configuration. Whether they are
 	// needed depends on the configuration, but the content doesn't.
-	if option.Config.NodeIpsetNeeded() {
-		if option.Config.IptablesMasqueradingIPv4Enabled() {
+	if m.sharedCfg.NodeIpsetNeeded {
+		if m.sharedCfg.IptablesMasqueradingIPv4Enabled {
 			if err := createIpset(ciliumNodeIpsetV4, false); err != nil {
 				return err
 			}
 		}
-		if option.Config.IptablesMasqueradingIPv6Enabled() {
+		if m.sharedCfg.IptablesMasqueradingIPv6Enabled {
 			if err := createIpset(ciliumNodeIpsetV6, true); err != nil {
 				return err
 			}
@@ -1617,9 +1612,9 @@ func (m *Manager) doInstallRules(ifName string, firstInitialization, install boo
 func (m *Manager) installRules(ifName string) error {
 	// Install new rules
 	for _, c := range ciliumChains {
-		if err := c.add(option.Config.EnableIPv4, option.Config.EnableIPv6); err != nil {
+		if err := c.add(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6); err != nil {
 			// do not return error for chain creation that are linked to disabled feeder rules
-			if isDisabledChain(c.hook) {
+			if isDisabledChain(m.cfg.DisableIptablesFeederRules, c.hook) {
 				log.WithField(logfields.Chain, c.name).Warningf("ignoring creation of chain since feeder rules for %s is disabled", c.hook)
 				continue
 			}
@@ -1642,12 +1637,12 @@ func (m *Manager) installRules(ifName string) error {
 		return fmt.Errorf("cannot install forward chain rules to %s: %w", ciliumForwardChain, err)
 	}
 
-	if option.Config.EnableIPv4 {
+	if m.sharedCfg.EnableIPv4 {
 		if err := m.installHostTrafficMarkRule(ip4tables); err != nil {
 			return fmt.Errorf("cannot install host traffic mark rule: %w", err)
 		}
 
-		if option.Config.IptablesMasqueradingIPv4Enabled() {
+		if m.sharedCfg.IptablesMasqueradingIPv4Enabled {
 			if err := m.installMasqueradeRules(ip4tables, ifName, localDeliveryInterface,
 				datapath.RemoteSNATDstAddrExclusionCIDRv4().String(),
 				node.GetIPv4AllocRange().String(),
@@ -1658,12 +1653,12 @@ func (m *Manager) installRules(ifName string) error {
 		}
 	}
 
-	if option.Config.EnableIPv6 {
+	if m.sharedCfg.EnableIPv6 {
 		if err := m.installHostTrafficMarkRule(ip6tables); err != nil {
 			return fmt.Errorf("cannot install host traffic mark rule: %w", err)
 		}
 
-		if option.Config.IptablesMasqueradingIPv6Enabled() {
+		if m.sharedCfg.IptablesMasqueradingIPv6Enabled {
 			if err := m.installMasqueradeRules(ip6tables, ifName, localDeliveryInterface,
 				datapath.RemoteSNATDstAddrExclusionCIDRv6().String(),
 				node.GetIPv6AllocRange().String(),
@@ -1678,20 +1673,20 @@ func (m *Manager) installRules(ifName string) error {
 	// and route them back the same way even if the pod responding is using
 	// the IP of a different interface. Please see note in Reinitialize()
 	// in pkg/datapath/loader for more details.
-	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+	if m.sharedCfg.IPAM == ipamOption.IPAMENI || m.sharedCfg.IPAM == ipamOption.IPAMAlibabaCloud {
 		if err := m.addCiliumENIRules(); err != nil {
 			return fmt.Errorf("cannot install rules for ENI multi-node NodePort: %w", err)
 		}
 	}
 
-	if option.Config.EnableIPSec {
+	if m.sharedCfg.EnableIPSec {
 		if err := m.addCiliumNoTrackXfrmRules(); err != nil {
 			return fmt.Errorf("cannot install xfrm rules: %s", err)
 		}
 	}
 
-	if skipPodTrafficConntrack(false) {
-		podsCIDR := option.Config.GetIPv4NativeRoutingCIDR().String()
+	if skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) {
+		podsCIDR := m.sharedCfg.IPv4NativeRoutingCIDR.String()
 
 		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
 			return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
@@ -1700,12 +1695,12 @@ func (m *Manager) installRules(ifName string) error {
 
 	for _, c := range ciliumChains {
 		// do not install feeder for chains that are set to be disabled
-		if isDisabledChain(c.hook) {
+		if isDisabledChain(m.cfg.DisableIptablesFeederRules, c.hook) {
 			log.WithField(logfields.Chain, c.hook).Infof("Skipping the install of feeder rule")
 			continue
 		}
 
-		if err := c.installFeeder(option.Config.EnableIPv4, option.Config.EnableIPv6); err != nil {
+		if err := c.installFeeder(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6); err != nil {
 			return fmt.Errorf("cannot install feeder rule: %w", err)
 		}
 	}
@@ -1734,7 +1729,7 @@ func (m *Manager) ciliumNoTrackXfrmRules(prog iptablesInterface, input string) e
 // and 0x*e00 for encryption, colliding with existing rules. Needed
 // for kube-proxy for example.
 func (m *Manager) addCiliumAcceptXfrmRules() error {
-	if !option.Config.EnableIPSec {
+	if !m.sharedCfg.EnableIPSec {
 		return nil
 	}
 
@@ -1764,13 +1759,13 @@ func (m *Manager) addCiliumAcceptXfrmRules() error {
 	for _, chain := range ciliumChains {
 		switch chain.table {
 		case "filter", "nat":
-			if option.Config.EnableIPv4 {
+			if m.sharedCfg.EnableIPv4 {
 				if err := insertAcceptXfrm(ip4tables, chain.table, chain.name); err != nil {
 					return err
 				}
 			}
 			// ip6tables chain exists only if chain.ipv6 is true
-			if option.Config.EnableIPv6 && chain.ipv6 {
+			if m.sharedCfg.EnableIPv6 && chain.ipv6 {
 				if err := insertAcceptXfrm(ip6tables, chain.table, chain.name); err != nil {
 					return err
 				}
@@ -1781,12 +1776,12 @@ func (m *Manager) addCiliumAcceptXfrmRules() error {
 }
 
 func (m *Manager) addCiliumNoTrackXfrmRules() (err error) {
-	if option.Config.EnableIPv4 {
+	if m.sharedCfg.EnableIPv4 {
 		if err = m.ciliumNoTrackXfrmRules(ip4tables, "-I"); err != nil {
 			return
 		}
 	}
-	if option.Config.EnableIPv6 {
+	if m.sharedCfg.EnableIPv6 {
 		return m.ciliumNoTrackXfrmRules(ip6tables, "-I")
 	}
 	return nil
@@ -1817,11 +1812,11 @@ func (m *Manager) addNoTrackPodTrafficRules(prog iptablesInterface, podsCIDR str
 }
 
 func (m *Manager) addCiliumENIRules() error {
-	if !option.Config.EnableIPv4 {
+	if !m.sharedCfg.EnableIPv4 {
 		return nil
 	}
 
-	iface, err := route.NodeDeviceWithDefaultRoute(option.Config.EnableIPv4, option.Config.EnableIPv6)
+	iface, err := route.NodeDeviceWithDefaultRoute(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6)
 	if err != nil {
 		return fmt.Errorf("failed to find interface with default route: %w", err)
 	}
