@@ -4,6 +4,7 @@
 package fake
 
 import (
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -34,6 +35,7 @@ var Cell = cell.Module(
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 		func() egressmap.PolicyMap { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
+		func() *iptables.Manager { return &iptables.Manager{} },
 	),
 
 	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
