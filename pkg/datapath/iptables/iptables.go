@@ -1156,7 +1156,7 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 // AddToNodeIpset adds an IP address to the ipset for cluster nodes. It creates
 // the ipset if it doesn't already exist and doesn't error if either the ipset
 // or the IP already exist.
-func AddToNodeIpset(nodeIP net.IP) {
+func (m *IptablesManager) AddToNodeIpset(nodeIP net.IP) {
 	scopedLog := log.WithField(logfields.IPAddr, nodeIP.String())
 	ciliumNodeIpset := ciliumNodeIpsetV4
 	if ip.IsIPv6(nodeIP) {
@@ -1173,7 +1173,7 @@ func AddToNodeIpset(nodeIP net.IP) {
 }
 
 // RemoveFromBodeIpset removes an IP address from the ipset for cluster nodes.
-func RemoveFromNodeIpset(nodeIP net.IP) {
+func (m *IptablesManager) RemoveFromNodeIpset(nodeIP net.IP) {
 	scopedLog := log.WithField(logfields.IPAddr, nodeIP.String())
 	ciliumNodeIpset := ciliumNodeIpsetV4
 	if ip.IsIPv6(nodeIP) {
