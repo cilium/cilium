@@ -20,4 +20,4 @@ spec:
   policyTypes:
     - Ingress
     - Egress
-  {{- end }}
+{{- end }}
