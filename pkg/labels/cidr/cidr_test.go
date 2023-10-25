@@ -11,23 +11,12 @@ import (
 	"sync"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type CIDRLabelsSuite struct{}
-
-var _ = Suite(&CIDRLabelsSuite{})
 
 func TestGetCIDRLabels(t *testing.T) {
 	// clear the cache
@@ -300,7 +289,7 @@ func TestCIDRLabelsCache(t *testing.T) {
 	forward()
 }
 
-func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
+func TestIPStringToLabel(t *testing.T) {
 	for _, tc := range []struct {
 		ip      string
 		label   string
@@ -353,10 +342,10 @@ func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
 	} {
 		lbl, err := IPStringToLabel(tc.ip)
 		if !tc.wantErr {
-			c.Assert(err, IsNil)
-			c.Assert(lbl.String(), checker.DeepEquals, tc.label)
+			assert.NoError(t, err)
+			assert.Equal(t, lbl.String(), tc.label)
 		} else {
-			c.Assert(err, Not(IsNil))
+			assert.Error(t, err)
 		}
 	}
 }
