@@ -88,6 +88,9 @@ type Health interface {
 	// This includes unknown status for modules that have not reported a status yet.
 	Get(FullModuleID) (Status, error)
 
+	// Stats returns a map of the number of module statuses reported by level.
+	Stats() map[Level]uint64
+
 	// Stop stops the health provider from processing updates.
 	Stop(context.Context) error
 
@@ -156,6 +159,7 @@ func (s *Status) String() string {
 func NewHealthProvider() Health {
 	p := &healthProvider{
 		moduleStatuses: make(map[string]Status),
+		byLevel:        make(map[Level]uint64),
 		running:        true,
 	}
 	p.obs, p.emit, p.complete = stream.Multicast[Update]()
@@ -171,6 +175,15 @@ func (p *healthProvider) processed() uint64 {
 	return p.numProcessed.Load()
 }
 
+func (p *healthProvider) updateMetricsLocked(prev Update, curr Level) {
+	// If an update is processed that transitions the level state of a module
+	// then update the level counters.
+	if prev.Level() != curr {
+		p.byLevel[curr]++
+		p.byLevel[prev.Level()]--
+	}
+}
+
 func (p *healthProvider) process(id FullModuleID, u Update) {
 	prev := func() Status {
 		p.mu.Lock()
@@ -179,6 +192,7 @@ func (p *healthProvider) process(id FullModuleID, u Update) {
 		t := time.Now()
 		prev := p.moduleStatuses[id.String()]
 
+		// If the module has been stopped, then ignore updates.
 		if !p.running {
 			return prev
 		}
@@ -187,6 +201,7 @@ func (p *healthProvider) process(id FullModuleID, u Update) {
 			Update:      u,
 			LastUpdated: t,
 		}
+
 		switch u.Level() {
 		case StatusOK:
 			ns.LastOK = t
@@ -197,6 +212,7 @@ func (p *healthProvider) process(id FullModuleID, u Update) {
 			ns.Final = u
 		}
 		p.moduleStatuses[id.String()] = ns
+		p.updateMetricsLocked(prev.Update, u.Level())
 		log.WithField("status", ns.String()).Debug("Processed new health status")
 		return prev
 	}()
@@ -227,6 +243,7 @@ func (p *healthProvider) forModule(moduleID FullModuleID) statusNodeReporter {
 		FullModuleID: moduleID,
 		Update:       NoStatus,
 	}
+	p.byLevel[StatusUnknown]++
 	p.mu.Unlock()
 
 	return &reporter{
@@ -257,12 +274,21 @@ func (p *healthProvider) Get(moduleID FullModuleID) (Status, error) {
 	return Status{}, fmt.Errorf("module %q not found", moduleID)
 }
 
+func (p *healthProvider) Stats() map[Level]uint64 {
+	n := make(map[Level]uint64, len(p.byLevel))
+	p.mu.Lock()
+	maps.Copy(n, p.byLevel)
+	p.mu.Unlock()
+	return n
+}
+
 type healthProvider struct {
 	mu lock.RWMutex
 
 	running      bool
 	numProcessed atomic.Uint64
 
+	byLevel        map[Level]uint64
 	moduleStatuses map[string]Status
 
 	obs      stream.Observable[Update]
