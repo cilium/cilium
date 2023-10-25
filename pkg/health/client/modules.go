@@ -38,6 +38,9 @@ func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
 			if err := json.Unmarshal([]byte(m.Message), n); err != nil {
 				panic(err)
 			}
+			if m.Level == string(cell.StatusUnknown) {
+				continue
+			}
 			fmt.Fprintf(w, "  %s\t%s\t%12s\n%s", m.ModuleID, m.Level, m.LastUpdated, n.StringIndent(2))
 		}
 		return
