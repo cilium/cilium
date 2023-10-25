@@ -2136,22 +2136,33 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	defer func() { sysctl.Write(mcastNumIPv6, mcastNumOld) }()
 
-	// 1. Test whether another node in the same L2 subnet can be arpinged.
+	// 1. Test whether another node with multiple paths can be arpinged.
 	//    Each node has two devices and the other node in the different netns
 	//    is reachable via either pair.
+	//    Neighbor entries are not installed on devices where no route exists
 	//
-	//      +--------------+     +--------------+
-	//      |  host netns  |     |    netns1    |
-	//      |              |     |    nodev1    |
-	//      |              |     |  fe80::1/128 |
-	//      |         veth0+-----+veth1         |
-	//      |          |   |     |   |          |
-	//      | f00d::249/96 |     | f00d::250/96 |
-	//      |              |     |              |
-	//      |         veth2+-----+veth3         |
-	//      |          |   |     | |            |
-	//      | f00a::249/96 |     | f00a::250/96 |
-	//      +--------------+     +--------------+
+	//      +--------------+     +-------------------+
+	//      |  host netns  |     |      netns1       |
+	//      |              |     |      nodev1       |
+	//      |              |     |  fc00:c111::1/128 |
+	//      |         veth0+-----+veth1              |
+	//      |          |   |     |   |               |
+	//      | f00a::249/96 |     | f00a::250/96      |
+	//      |              |     |                   |
+	//      |         veth2+-----+veth3              |
+	//      |          |   |     | |                 |
+	//      | f00b::249/96 |     | f00b::250/96      |
+	//      |              |     |                   |
+	//      | f00c::249/96 |     |                   |
+	//      |  |           |     |                   |
+	//      | veth4        |     |                   |
+	//      +-+------------+     +-------------------+
+	//        |
+	//      +-+--------------------------------------+
+	//      | veth5        other netns               |
+	//      |  |                                     |
+	//      | f00c::250/96                           |
+	//      +----------------------------------------+
 
 	// Setup
 	vethPair01 := &netlink.Veth{
@@ -2165,10 +2176,10 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	veth1, err := netlink.LinkByName("veth1")
 	c.Assert(err, check.IsNil)
-	_, ipnet, _ := net.ParseCIDR("f00d::/96")
-	v1IP0 := net.ParseIP("f00d::249")
-	v1IP1 := net.ParseIP("f00d::250")
-	v1IPG := net.ParseIP("f00d::251")
+	_, ipnet, _ := net.ParseCIDR("f00a::/96")
+	v1IP0 := net.ParseIP("f00a::249")
+	v1IP1 := net.ParseIP("f00a::250")
+	v1IPG := net.ParseIP("f00a::251")
 	ipnet.IP = v1IP0
 	addr := &netlink.Addr{IPNet: ipnet}
 	err = netlink.AddrAdd(veth0, addr)
@@ -2181,14 +2192,14 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	defer netns0.Close()
 	err = netlink.LinkSetNsFd(veth1, int(netns0.Fd()))
 	c.Assert(err, check.IsNil)
+	node1Addr, err := netlink.ParseAddr("fc00:c111::1/128")
+	c.Assert(err, check.IsNil)
 	netns0.Do(func(ns.NetNS) error {
 		lo, err := netlink.LinkByName("lo")
 		c.Assert(err, check.IsNil)
 		err = netlink.LinkSetUp(lo)
 		c.Assert(err, check.IsNil)
-		addr, err := netlink.ParseAddr("fe80::1/128")
-		c.Assert(err, check.IsNil)
-		err = netlink.AddrAdd(lo, addr)
+		err = netlink.AddrAdd(lo, node1Addr)
 		c.Assert(err, check.IsNil)
 
 		veth1, err := netlink.LinkByName("veth1")
@@ -2217,10 +2228,10 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	veth3, err := netlink.LinkByName("veth3")
 	c.Assert(err, check.IsNil)
-	_, ipnet, _ = net.ParseCIDR("f00a::/96")
-	v2IP0 := net.ParseIP("f00a::249")
-	v2IP1 := net.ParseIP("f00a::250")
-	v2IPG := net.ParseIP("f00a::251")
+	_, ipnet, _ = net.ParseCIDR("f00b::/96")
+	v2IP0 := net.ParseIP("f00b::249")
+	v2IP1 := net.ParseIP("f00b::250")
+	v2IPG := net.ParseIP("f00b::251")
 	ipnet.IP = v2IP0
 	addr = &netlink.Addr{IPNet: ipnet}
 	err = netlink.AddrAdd(veth2, addr)
@@ -2248,7 +2259,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 
 	r := &netlink.Route{
-		Dst: netlink.NewIPNet(net.ParseIP("fe80::1")),
+		Dst: netlink.NewIPNet(node1Addr.IP),
 		MultiPath: []*netlink.NexthopInfo{
 			{
 				LinkIndex: veth0.Attrs().Index,
@@ -2264,6 +2275,47 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	defer netlink.RouteDel(r)
 
+	// Setup another veth pair that doesn't have a route to node
+	vethPair45 := &netlink.Veth{
+		LinkAttrs: netlink.LinkAttrs{Name: "veth4"},
+		PeerName:  "veth5",
+	}
+	err = netlink.LinkAdd(vethPair45)
+	c.Assert(err, check.IsNil)
+	defer netlink.LinkDel(vethPair45)
+	veth4, err := netlink.LinkByName("veth4")
+	c.Assert(err, check.IsNil)
+	veth5, err := netlink.LinkByName("veth5")
+	c.Assert(err, check.IsNil)
+	_, ipnet, _ = net.ParseCIDR("f00c::/96")
+	v3IP0 := net.ParseIP("f00c::249")
+	v3IP1 := net.ParseIP("f00c::250")
+	ipnet.IP = v3IP0
+	addr = &netlink.Addr{IPNet: ipnet}
+	err = netlink.AddrAdd(veth4, addr)
+	c.Assert(err, check.IsNil)
+	err = netlink.LinkSetUp(veth4)
+	c.Assert(err, check.IsNil)
+
+	netns1, err := netns.ReplaceNetNSWithName("test-arping-netns1")
+	c.Assert(err, check.IsNil)
+	defer netns1.Close()
+
+	err = netlink.LinkSetNsFd(veth5, int(netns1.Fd()))
+	c.Assert(err, check.IsNil)
+	err = netns1.Do(func(ns.NetNS) error {
+		veth5, err := netlink.LinkByName("veth5")
+		c.Assert(err, check.IsNil)
+		ipnet.IP = v3IP1
+		addr = &netlink.Addr{IPNet: ipnet}
+		err = netlink.AddrAdd(veth5, addr)
+		c.Assert(err, check.IsNil)
+		err = netlink.LinkSetUp(veth5)
+		c.Assert(err, check.IsNil)
+		return nil
+	})
+	c.Assert(err, check.IsNil)
+
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
@@ -2272,7 +2324,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	option.Config.DirectRoutingDevice = "veth0"
 	prevDevices := option.Config.GetDevices()
 	defer func() { option.Config.SetDevices(prevDevices) }()
-	option.Config.SetDevices([]string{"veth0", "veth2"})
+	option.Config.SetDevices([]string{"veth0", "veth2", "veth4"})
 	prevNP := option.Config.EnableNodePort
 	defer func() { option.Config.EnableNodePort = prevNP }()
 	option.Config.EnableNodePort = true
@@ -2320,7 +2372,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{{
 			Type: nodeaddressing.NodeInternalIP,
-			IP:   net.ParseIP("fe80::1"),
+			IP:   node1Addr.IP,
 		}},
 	}
 	now := time.Now()
@@ -2372,6 +2424,27 @@ refetch2:
 		}
 	}
 	c.Assert(found, check.Equals, true)
+
+	// Check whether we don't install the neighbor entries to nodes on the device where the actual route isn't.
+	// "Consistently(<check>, 5sec, 1sec)"
+	start := time.Now()
+	for {
+		if time.Since(start) > 5*time.Second {
+			break
+		}
+
+		neighs, err = netlink.NeighList(veth4.Attrs().Index, netlink.FAMILY_V6)
+		c.Assert(err, check.IsNil)
+		found = false
+		for _, n := range neighs {
+			if n.IP.Equal(v3IP1) || n.IP.Equal(node1Addr.IP) {
+				found = true
+			}
+		}
+		c.Assert(found, check.Equals, false)
+
+		time.Sleep(1 * time.Second)
+	}
 
 	// Swap MAC addresses of veth0 and veth1, veth2 and veth3 to ensure the MAC address of veth1 changed.
 	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
@@ -3319,9 +3392,10 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	defer func() { sysctl.Write(mcastNumIPv4, mcastNumOld) }()
 
-	// 1. Test whether another node in the same L2 subnet can be arpinged.
+	// 1. Test whether another node with multiple paths can be arpinged.
 	//    Each node has two devices and the other node in the different netns
 	//    is reachable via either pair.
+	//    Neighbor entries are not installed on devices where no route exists.
 	//
 	//      +--------------+     +--------------+
 	//      |  host netns  |     |    netns1    |
@@ -3334,7 +3408,17 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	//      |         veth2+-----+veth3         |
 	//      |          |   |     | |            |
 	//      | 8.8.8.249/29 |     | 8.8.8.250/29 |
-	//      +--------------+     +--------------+
+	//      |              |     |              |
+	//      | 7.7.7.249/29 |     |              |
+	//      |  |           |     |              |
+	//      | veth4        |     |              |
+	//      +-+------------+     +--------------+
+	//        |
+	//      +-+---------------------------------+
+	//      | veth5      other netns            |
+	//      |  |                                |
+	//      | 7.7.7.250/29                      |
+	//      +-----------------------------------+
 
 	// Setup
 	vethPair01 := &netlink.Veth{
@@ -3364,14 +3448,14 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	defer netns0.Close()
 	err = netlink.LinkSetNsFd(veth1, int(netns0.Fd()))
 	c.Assert(err, check.IsNil)
+	node1Addr, err := netlink.ParseAddr("10.0.0.1/32")
+	c.Assert(err, check.IsNil)
 	err = netns0.Do(func(ns.NetNS) error {
 		lo, err := netlink.LinkByName("lo")
 		c.Assert(err, check.IsNil)
 		err = netlink.LinkSetUp(lo)
 		c.Assert(err, check.IsNil)
-		addr, err := netlink.ParseAddr("10.0.0.1/32")
-		c.Assert(err, check.IsNil)
-		err = netlink.AddrAdd(lo, addr)
+		err = netlink.AddrAdd(lo, node1Addr)
 		c.Assert(err, check.IsNil)
 
 		veth1, err := netlink.LinkByName("veth1")
@@ -3432,7 +3516,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 
 	r := &netlink.Route{
-		Dst: netlink.NewIPNet(net.ParseIP("10.0.0.1")),
+		Dst: netlink.NewIPNet(node1Addr.IP),
 		MultiPath: []*netlink.NexthopInfo{
 			{
 				LinkIndex: veth0.Attrs().Index,
@@ -3447,6 +3531,47 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	defer netlink.RouteDel(r)
 
+	// Setup another veth pair that doesn't have a route to node
+	vethPair45 := &netlink.Veth{
+		LinkAttrs: netlink.LinkAttrs{Name: "veth4"},
+		PeerName:  "veth5",
+	}
+	err = netlink.LinkAdd(vethPair45)
+	c.Assert(err, check.IsNil)
+	defer netlink.LinkDel(vethPair45)
+	veth4, err := netlink.LinkByName("veth4")
+	c.Assert(err, check.IsNil)
+	veth5, err := netlink.LinkByName("veth5")
+	c.Assert(err, check.IsNil)
+	_, ipnet, _ = net.ParseCIDR("7.7.7.252/29")
+	v3IP0 := net.ParseIP("7.7.7.249")
+	v3IP1 := net.ParseIP("7.7.7.250")
+	ipnet.IP = v3IP0
+	addr = &netlink.Addr{IPNet: ipnet}
+	err = netlink.AddrAdd(veth4, addr)
+	c.Assert(err, check.IsNil)
+	err = netlink.LinkSetUp(veth4)
+	c.Assert(err, check.IsNil)
+
+	netns1, err := netns.ReplaceNetNSWithName("test-arping-netns1")
+	c.Assert(err, check.IsNil)
+	defer netns1.Close()
+
+	err = netlink.LinkSetNsFd(veth5, int(netns1.Fd()))
+	c.Assert(err, check.IsNil)
+	err = netns1.Do(func(ns.NetNS) error {
+		veth5, err := netlink.LinkByName("veth5")
+		c.Assert(err, check.IsNil)
+		ipnet.IP = v3IP1
+		addr = &netlink.Addr{IPNet: ipnet}
+		err = netlink.AddrAdd(veth5, addr)
+		c.Assert(err, check.IsNil)
+		err = netlink.LinkSetUp(veth5)
+		c.Assert(err, check.IsNil)
+		return nil
+	})
+	c.Assert(err, check.IsNil)
+
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
@@ -3455,7 +3580,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	option.Config.DirectRoutingDevice = "veth0"
 	prevDevices := option.Config.GetDevices()
 	defer func() { option.Config.SetDevices(prevDevices) }()
-	option.Config.SetDevices([]string{"veth0", "veth2"})
+	option.Config.SetDevices([]string{"veth0", "veth2", "veth4"})
 	prevNP := option.Config.EnableNodePort
 	defer func() { option.Config.EnableNodePort = prevNP }()
 	option.Config.EnableNodePort = true
@@ -3503,7 +3628,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{{
 			Type: nodeaddressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
+			IP:   node1Addr.IP,
 		}},
 	}
 	now := time.Now()
@@ -3555,6 +3680,27 @@ refetch2:
 		}
 	}
 	c.Assert(found, check.Equals, true)
+
+	// Check whether we don't install the neighbor entries to nodes on the device where the actual route isn't.
+	// "Consistently(<check>, 5sec, 1sec)"
+	start := time.Now()
+	for {
+		if time.Since(start) > 5*time.Second {
+			break
+		}
+
+		neighs, err = netlink.NeighList(veth4.Attrs().Index, netlink.FAMILY_V4)
+		c.Assert(err, check.IsNil)
+		found = false
+		for _, n := range neighs {
+			if n.IP.Equal(v3IP1) || n.IP.Equal(node1Addr.IP) {
+				found = true
+			}
+		}
+		c.Assert(found, check.Equals, false)
+
+		time.Sleep(1 * time.Second)
+	}
 
 	// Swap MAC addresses of veth0 and veth1, veth2 and veth3 to ensure the MAC address of veth1 changed.
 	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
