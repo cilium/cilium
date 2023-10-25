@@ -5,6 +5,8 @@ package ipsec
 
 import (
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 )
 
 const (
@@ -57,4 +59,17 @@ func CountXfrmPoliciesByDir(states []netlink.XfrmPolicy) (int, int, int) {
 		}
 	}
 	return nbXfrmIn, nbXfrmOut, nbXfrmFwd
+}
+
+func GetSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
+	if policy.Mark == nil {
+		return 0
+	}
+
+	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
+}
+
+// ipSecXfrmMarkGetSPI extracts from a XfrmMark value the encoded SPI
+func ipSecXfrmMarkGetSPI(markValue uint32) uint8 {
+	return uint8(markValue >> linux_defaults.IPsecXFRMMarkSPIShift & 0xF)
 }
