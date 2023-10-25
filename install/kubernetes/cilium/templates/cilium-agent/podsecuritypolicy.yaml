@@ -1,0 +1,88 @@
+{{- if not .Values.global.podSecurityStandards.enforced }}
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: cilium-psp
+spec:
+  privileged: true
+  allowPrivilegeEscalation: true
+  allowedCapabilities:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    - IPC_LOCK
+    - KILL
+    - NET_ADMIN
+    - NET_RAW
+    - SETGID
+    - SETUID
+    - SYS_ADMIN
+    - SYS_CHROOT
+    - SYS_MODULE
+    - SYS_PTRACE
+    - SYS_RESOURCE
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'hostPath'
+  hostNetwork: true
+  hostIPC: false
+  hostPID: false
+  hostPorts:
+  {{- if .Values.hubble.peerService.enabled }}
+    - min: {{ .Values.hubble.peerService.targetPort }}
+      max: {{ .Values.hubble.peerService.targetPort }}
+  {{- end }}
+  {{- if .Values.hubble.metrics.enabled }}
+    - min: {{ .Values.hubble.metrics.port }}
+      max: {{ .Values.hubble.metrics.port }}
+  {{- end }}
+  {{- if .Values.prometheus.enabled }}
+    - min: {{ .Values.prometheus.port }}
+      max: {{ .Values.prometheus.port }}
+    - min: {{ .Values.proxy.prometheus.port }}
+      max: {{ .Values.proxy.prometheus.port }}
+  {{- end }}
+  runAsUser:
+    rule: 'RunAsAny'
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  readOnlyRootFilesystem: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cilium-psp
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs:     ['use']
+  resourceNames:
+  - cilium-psp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cilium-psp
+roleRef:
+  kind: ClusterRole
+  name: cilium-psp
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.cilium.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

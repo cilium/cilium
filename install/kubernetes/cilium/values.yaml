@@ -3238,3 +3238,7 @@ extraPolicies:
 # If true, it adds an initContainer to cilium-agent pods that cleans up any legacy kube-proxy iptables rules from the node before running cilium.
 # Only makes sense when `kubeProxyReplacement` is enabled (i.e. not set to 'disabled').
 cleanupKubeProxy: false
+
+global:
+  podSecurityStandards:
+    enforced: false
