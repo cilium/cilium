@@ -1,0 +1,47 @@
+{{- if and (eq .Values.ipam.mode "eni") (.Values.cni.customConf) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-cni-configuration
+  namespace: {{ .Release.Namespace }}
+data:
+  cni-config: |-
+      {
+        "cniVersion":"0.3.1",
+        "name":"cilium",
+        "plugins": [
+          {
+            "cniVersion":"0.3.1",
+            "type":"cilium-cni",
+            "eni": {
+              {{- if (eq .Values.provider "aws")}}
+              "first-interface-index": 1,
+              "exclude-interface-tags": {
+                "giantswarm.io/stack": "tccpn"
+              },
+              "security-group-tags": {
+                "giantswarm.io/cluster": "{{ .Values.cluster.name }}",
+                "Name": "{{ .Values.cluster.name }}-aws-cni"
+              },
+              "subnet-tags": {
+                "giantswarm.io/cluster": "{{ .Values.cluster.name }}",
+                "giantswarm.io/subnet-type": "aws-cni"
+              }
+              {{- end}}
+              {{- if .Values.eksMode }}
+              "first-interface-index": 1,
+              "security-group-tags": {
+                "kubernetes.io/cluster/{{ .Values.cluster.name }}": "owned",
+                "aws:eks:cluster-name": "{{ .Values.cluster.name }}"
+              },
+              "subnet-tags": {
+                "sigs.k8s.io/cluster-api-provider-aws/cluster/{{ .Values.cluster.name }}": "owned",
+                "sigs.k8s.io/cluster-api-provider-aws/association": "secondary",
+                "sigs.k8s.io/cluster-api-provider-aws/role": "private"
+              }
+              {{- end }}
+            }
+          }
+        ]
+      }
+{{- end}}
