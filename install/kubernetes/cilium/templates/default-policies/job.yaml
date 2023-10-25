@@ -1,0 +1,72 @@
+{{- if or .Values.defaultPolicies.enabled .Values.defaultPolicies.remove -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cilium-{{ ternary "remove" "create" .Values.defaultPolicies.remove }}-default-policies
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cilium-{{ ternary "remove" "create" .Values.defaultPolicies.remove }}-default-policies
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "1"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 50
+  template:
+    metadata:
+      labels:
+        app: cilium-{{ ternary "remove" "create" .Values.defaultPolicies.remove }}-default-policies
+    spec:
+      hostNetwork: true
+      restartPolicy: OnFailure
+      serviceAccountName: {{ .Values.serviceAccounts.defaultPolicies.name | quote }}
+      priorityClassName: system-cluster-critical
+      {{- with .Values.defaultPolicies.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      volumes:
+      - name: policies
+        configMap:
+          name: cilium-default-policies
+      initContainers:
+      - name: wait-crds
+        image: "quay.io/giantswarm/docker-kubectl:latest"
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        args:
+        - -c
+        - |
+          for crd in ciliumnetworkpolicies.cilium.io ciliumclusterwidenetworkpolicies.cilium.io
+          do
+            while ! kubectl get crd $crd
+            do
+              echo "Waiting for CRD $crd to exist"
+              sleep 5
+            done
+          done
+      containers:
+      - name: cilium-{{ ternary "remove" "create" .Values.defaultPolicies.remove }}-default-policies
+        image: "quay.io/giantswarm/docker-kubectl:latest"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: policies
+          mountPath: /policies
+        command:
+        - sh
+        args:
+        - -c
+        - |
+          set -o errexit ; set -o xtrace ; set -o nounset
+
+          kubectl \
+{{- if .Values.defaultPolicies.remove }}
+            delete \
+            --ignore-not-found \
+{{- else }}
+            apply \
+            --server-side=true --field-manager='kubectl-client-side-apply' --force-conflicts \
+{{- end }}
+            -f /policies/ 2>&1
+{{- end -}}

@@ -1,0 +1,38 @@
+{{- if or .Values.defaultPolicies.enabled .Values.defaultPolicies.remove -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.serviceAccounts.defaultPolicies.name | quote }}
+rules:
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumclusterwidenetworkpolicies
+  - ciliumnetworkpolicies
+  verbs:
+  - patch
+  - create
+  - delete
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  resourceNames:
+  - ciliumnetworkpolicies.cilium.io
+  - ciliumclusterwidenetworkpolicies.cilium.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.serviceAccounts.defaultPolicies.name | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.serviceAccounts.defaultPolicies.name | quote }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.defaultPolicies.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
