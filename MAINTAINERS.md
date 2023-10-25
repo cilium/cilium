@@ -2,7 +2,9 @@
 
 See [Governance](Documentation/community/governance/commit_access.rst) for
 governance, commit, and vote guidelines as well as committer responsibilities.
-Everybody listed is a committer as per governance definition.
+Everybody listed is a committer as per governance definition. See the 
+[Contributor Ladder](https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md)
+to learn how to level up through the project.
 
 ## Cilium Committers
 
