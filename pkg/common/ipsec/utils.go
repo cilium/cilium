@@ -73,3 +73,10 @@ func GetSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
 func ipSecXfrmMarkGetSPI(markValue uint32) uint8 {
 	return uint8(markValue >> linux_defaults.IPsecXFRMMarkSPIShift & 0xF)
 }
+
+func GetNodeIDFromXfrmMark(mark *netlink.XfrmMark) uint16 {
+	if mark == nil {
+		return 0
+	}
+	return uint16(mark.Value >> 16)
+}
