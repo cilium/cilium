@@ -54,18 +54,6 @@ func (d *Daemon) LocalConfig() *datapath.LocalNodeConfiguration {
 	return &d.nodeDiscovery.LocalConfig
 }
 
-func deleteHostDevice() {
-	link, err := netlink.LinkByName(defaults.HostDevice)
-	if err != nil {
-		log.WithError(err).Warningf("Unable to lookup host device %s. No old cilium_host interface exists", defaults.HostDevice)
-		return
-	}
-
-	if err := netlink.LinkDel(link); err != nil {
-		log.WithError(err).Errorf("Unable to delete host device %s to change allocation CIDR", defaults.HostDevice)
-	}
-}
-
 // listFilterIfs returns a map of interfaces based on the given filter.
 // The filter should take a link and, if found, return the index of that
 // interface, if not found return -1.

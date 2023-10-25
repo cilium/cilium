@@ -1013,11 +1013,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// Fetch the router (`cilium_host`) IPs in case they were set a priori from
 	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
 	// k8s.WaitForNodeInformation(). These will be used later after starting
-	// IPAM initialization to finish off the `cilium_host` IP restoration (part
-	// 2/2).
-	router4FromK8s, router6FromK8s := node.GetInternalIPv4Router(), node.GetIPv6Router()
+	// IPAM initialization to finish off the `cilium_host` IP restoration.
+	var restoredRouterIPs restoredIPs
+	restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv6FromK8s = node.GetInternalIPv4Router(), node.GetIPv6Router()
 	// Fetch the router IPs from the filesystem in case they were set a priori
-	router4FromFS, router6FromFS := node.ExtractCiliumHostIPFromFS()
+	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS()
 
 	// Configure IPAM without using the configuration yet.
 	d.configureIPAM()
@@ -1052,19 +1052,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// Start IPAM
 	d.startIPAM(params.Resources.LocalCiliumNode)
-	// After the IPAM is started, in particular IPAM modes (CRD, ENI, Alibaba)
-	// which use the VPC CIDR as the pod CIDR, we must attempt restoring the
-	// router IPs from the K8s resources if we weren't able to restore them
-	// from the fs. We must do this after IPAM because we must wait until the
-	// K8s resources have been synced. Part 2/2 of restoration.
-	var restoredRouterIPv4, restoredRouterIPv6 net.IP
-	if option.Config.EnableIPv4 {
-		restoredRouterIPv4 = d.restoreCiliumHostIPs(false, router4FromK8s, router4FromFS)
-	}
-	if option.Config.EnableIPv6 {
-		restoredRouterIPv6 = d.restoreCiliumHostIPs(true, router6FromK8s, router6FromFS)
-	}
-	removeOldCiliumHostIPs(ctx, restoredRouterIPv4, restoredRouterIPv6)
 
 	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
@@ -1076,7 +1063,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	bootstrapStats.restore.End(true)
 
-	if err := d.allocateIPs(); err != nil { // will log errors/fatal internally
+	// We must do this after IPAM because we must wait until the
+	// K8s resources have been synced.
+	if err := d.allocateIPs(ctx, restoredRouterIPs); err != nil { // will log errors/fatal internally
 		return nil, nil, err
 	}
 
