@@ -83,8 +83,6 @@ type DevicesConfig struct {
 	// If empty the devices are auto-detected according to rules defined
 	// by isSelectedDevice().
 	Devices []string
-
-	AddressScopeMax int
 }
 
 type devicesControllerParams struct {
@@ -405,14 +403,6 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			switch u := u.(type) {
 			case netlink.AddrUpdate:
 				if dc.deadLinkIndexes.Has(u.LinkIndex) {
-					continue
-				}
-				// Keep the scope-based address filtering as was introduced
-				// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
-				if u.Scope > dc.params.Config.AddressScopeMax {
-					continue
-				}
-				if u.LinkAddress.IP.IsLoopback() {
 					continue
 				}
 				addr := deviceAddressFromAddrUpdate(u)

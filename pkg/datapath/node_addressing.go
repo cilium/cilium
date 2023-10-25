@@ -7,8 +7,6 @@ import (
 	"context"
 	"net"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -26,12 +24,13 @@ var NodeAddressingCell = cell.Module(
 	cell.Provide(NewNodeAddressing),
 )
 
-func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, nodeAddresses statedb.Table[tables.NodeAddress], devices statedb.Table[*tables.Device]) types.NodeAddressing {
+func NewNodeAddressing(addressScopeMax tables.AddressScopeMax, localNode *node.LocalNodeStore, db *statedb.DB, nodeAddresses statedb.Table[tables.NodeAddress], devices statedb.Table[*tables.Device]) types.NodeAddressing {
 	return &nodeAddressing{
-		localNode:     localNode,
-		db:            db,
-		nodeAddresses: nodeAddresses,
-		devices:       devices,
+		addressScopeMax: addressScopeMax,
+		localNode:       localNode,
+		db:              db,
+		nodeAddresses:   nodeAddresses,
+		devices:         devices,
 	}
 }
 
@@ -110,10 +109,11 @@ func (a addressFamilyIPv6) DirectRouting() (int, net.IP, bool) {
 }
 
 type nodeAddressing struct {
-	localNode     *node.LocalNodeStore
-	db            *statedb.DB
-	nodeAddresses statedb.Table[tables.NodeAddress]
-	devices       statedb.Table[*tables.Device]
+	addressScopeMax tables.AddressScopeMax
+	localNode       *node.LocalNodeStore
+	db              *statedb.DB
+	nodeAddresses   statedb.Table[tables.NodeAddress]
+	devices         statedb.Table[*tables.Device]
 }
 
 func (na *nodeAddressing) getNodeAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP) {
@@ -131,26 +131,25 @@ func (na *nodeAddressing) getNodeAddresses(txn statedb.ReadTxn, ipv6 bool) (addr
 }
 
 func (na *nodeAddressing) getLocalAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP, err error) {
+	// FIXME: Does this include all addresses we care to mark with HOST_ID?
+
 	// Collect the addresses of native external-facing network devices
 	addrs = na.getNodeAddresses(txn, ipv6)
 
-	// If AddressScopeMax is a scope more broad (numerically less than) than SCOPE_LINK then include
-	// all addresses at SCOPE_LINK which are assigned to the Cilium host device.
-	if option.Config.AddressScopeMax < unix.RT_SCOPE_LINK && na.devices != nil {
-		hostDev, _, ok := na.devices.First(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
-		if ok {
-			for _, addr := range hostDev.Addrs {
-				if addr.Scope != unix.RT_SCOPE_LINK {
-					continue
-				}
-				if ipv6 && addr.Addr.Is4() {
-					continue
-				}
-				if !ipv6 && !addr.Addr.Is4() {
-					continue
-				}
-				addrs = append(addrs, addr.AsIP())
+	// Also include cilium_host addresses as local addresses.
+	hostDev, _, ok := na.devices.First(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
+	if ok {
+		for _, addr := range hostDev.Addrs {
+			if addr.Scope > uint8(na.addressScopeMax) {
+				continue
 			}
+			if ipv6 && addr.Addr.Is4() {
+				continue
+			}
+			if !ipv6 && !addr.Addr.Is4() {
+				continue
+			}
+			addrs = append(addrs, addr.AsIP())
 		}
 	}
 	return addrs, nil

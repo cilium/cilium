@@ -15,7 +15,9 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 )
 
 func TestNodeAddressConfig(t *testing.T) {
@@ -82,10 +84,12 @@ func TestNodeAddress(t *testing.T) {
 			name: "multiple",
 			addrs: []tables.DeviceAddress{
 				{
-					Addr: netip.MustParseAddr("10.0.0.1"),
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: unix.RT_SCOPE_UNIVERSE,
 				},
 				{
-					Addr: netip.MustParseAddr("10.0.0.2"),
+					Addr:  netip.MustParseAddr("10.0.0.2"),
+					Scope: unix.RT_SCOPE_SITE,
 				},
 			},
 
@@ -99,16 +103,43 @@ func TestNodeAddress(t *testing.T) {
 			name: "ipv6 multiple",
 			addrs: []tables.DeviceAddress{
 				{
-					Addr: netip.MustParseAddr("2001:db8::1"),
+					Addr:  netip.MustParseAddr("2001:db8::1"),
+					Scope: unix.RT_SCOPE_UNIVERSE,
 				},
 				{
-					Addr: netip.MustParseAddr("2600:beef::2"),
+					Addr:  netip.MustParseAddr("2600:beef::2"),
+					Scope: unix.RT_SCOPE_SITE,
 				},
 			},
 
 			want: []net.IP{
 				net.ParseIP("2001:db8::1"),
 				net.ParseIP("2600:beef::2"),
+			},
+		},
+		{
+
+			name: "skip-out-of-scope-addrs",
+
+			addrs: []tables.DeviceAddress{
+				{
+					Addr:  netip.MustParseAddr("10.0.1.1"),
+					Scope: unix.RT_SCOPE_SITE,
+				},
+				{
+					Addr:  netip.MustParseAddr("10.0.2.2"),
+					Scope: unix.RT_SCOPE_HOST,
+				},
+				{
+					Addr:  netip.MustParseAddr("10.0.3.3"),
+					Scope: unix.RT_SCOPE_LINK,
+				},
+			},
+
+			// The default AddressMaxScope is set to LINK-1, so addresses with
+			// scope LINK or above are ignored
+			want: []net.IP{
+				net.ParseIP("10.0.1.1"),
 			},
 		},
 	}
@@ -134,6 +165,8 @@ func TestNodeAddress(t *testing.T) {
 			require.ElementsMatch(t, got, ipStrings(tt.want), "Addresses do not match")
 		})
 	}
+
+	assert.NoError(t, h.Stop(context.TODO()), "Stop")
 }
 
 // ipStrings converts net.IP to a string. Used to assert equalence without having to deal

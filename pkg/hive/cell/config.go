@@ -156,15 +156,11 @@ func stringToMapHookFunc(from reflect.Kind, to reflect.Kind, data interface{}) (
 
 // stringToCIDRSliceHookFunc is a DecodeHookFunc that converts string to []*cidr.CIDR.
 func stringToCIDRHookFunc(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-	fmt.Printf("stringToCIDRSliceHookFunc\n")
 	if from.Kind() != reflect.String {
-		fmt.Printf("from: not a string (%s)\n", from)
 		return data, nil
 	}
 	s := data.(string)
-	fmt.Printf("data: %s\n", s)
 	if to != reflect.TypeOf((*cidr.CIDR)(nil)) {
-		fmt.Printf("to: not a cidr slice (%s)\n", to)
 		return data, nil
 	}
 	return cidr.ParseCIDR(s)

@@ -25,7 +25,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
@@ -214,25 +213,6 @@ func TestDevicesController(t *testing.T) {
 			},
 		},
 		{
-			"skip-out-of-scope-addrs",
-			func(t *testing.T) {
-				// The default AddressMaxScope is set to LINK-1, so addresses with
-				// SCOPE_LINK and above are ignored
-				assert.NoError(t, addAddrScoped("dummy1", "1.2.3.4/32", netlink.SCOPE_NOWHERE))
-				assert.NoError(t, addAddrScoped("dummy1", "1.2.3.5/32", netlink.SCOPE_LINK))
-
-				// Add a sentinel to make sure the above ignored addresses are still processed.
-				assert.NoError(t, addAddrScoped("dummy1", "1.2.3.6/32", netlink.SCOPE_SITE))
-			},
-			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
-				return len(devs) == 1 &&
-					devs[0].Name == "dummy1" &&
-					!containsAddress(devs[0], "1.2.3.4/32") &&
-					!containsAddress(devs[0], "1.2.3.5/32") &&
-					containsAddress(devs[0], "1.2.3.6/32")
-			},
-		},
-		{
 			"skip-bridge-devices",
 			func(t *testing.T) {
 				require.NoError(t, createBridge("br0", "192.168.5.1/24", false))
@@ -263,8 +243,7 @@ func TestDevicesController(t *testing.T) {
 
 			cell.Provide(func() DevicesConfig {
 				return DevicesConfig{
-					Devices:         []string{},
-					AddressScopeMax: defaults.AddressScopeMax,
+					Devices: []string{},
 				}
 			}),
 
@@ -343,8 +322,7 @@ func TestDevicesController_Wildcards(t *testing.T) {
 			DevicesControllerCell,
 			cell.Provide(func() DevicesConfig {
 				return DevicesConfig{
-					Devices:         []string{"dummy+"},
-					AddressScopeMax: defaults.AddressScopeMax,
+					Devices: []string{"dummy+"},
 				}
 			}),
 			cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs(ns) }),
@@ -492,7 +470,7 @@ func TestDevicesController_Restarts(t *testing.T) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Provide(func() DevicesConfig { return DevicesConfig{AddressScopeMax: defaults.AddressScopeMax} }),
+		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Provide(func() *netlinkFuncs { return &funcs }),
 		cell.Invoke(func(db_ *statedb.DB, devicesTable_ statedb.Table[*tables.Device]) {
 			db = db_

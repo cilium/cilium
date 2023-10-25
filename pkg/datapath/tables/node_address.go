@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -34,11 +35,9 @@ func (n *NodeAddress) String() string {
 	return fmt.Sprintf("%s (%s)", n.Addr, n.DeviceName)
 }
 
-const (
-	NodeAddressTableName statedb.TableName = "node-addresses"
-)
-
 var (
+	NodeAddressTableName statedb.TableName = "node-addresses"
+
 	NodeAddressIndex = statedb.Index[NodeAddress, netip.Addr]{
 		Name: "id",
 		FromObject: func(a NodeAddress) index.KeySet {
@@ -56,22 +55,42 @@ var (
 		NodeAddressTableName,
 		NodeAddressIndex,
 	)
-)
 
-var (
 	NodeAddressCell = cell.Module(
 		"node-address",
 		"Table of node addresses derived from system network devices",
 
 		statedb.NewPrivateRWTableCell[NodeAddress](NodeAddressTableName, NodeAddressIndex),
-		cell.Provide(newNodeAddressTable),
+		cell.Provide(
+			newAddressScopeMax,
+			newNodeAddressTable,
+		),
 		cell.Config(NodeAddressConfig{}),
 	)
 )
 
+type AddressScopeMax uint8
+
+func newAddressScopeMax(cfg NodeAddressConfig) (AddressScopeMax, error) {
+	scope, err := ip.ParseScope(cfg.AddressScopeMax)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot parse scope integer from --%s option", addressScopeMaxFlag)
+	}
+	return AddressScopeMax(scope), nil
+}
+
 type NodeAddressConfig struct {
 	NodeAddresses []*cidr.CIDR `mapstructure:"node-addresses"`
+
+	// AddressScopeMax controls the maximum address scope for addresses to be
+	// considered local ones. Affects which addresses are used for NodePort
+	// and which have HOST_ID in the ipcache.
+	AddressScopeMax string `mapstructure:"local-max-addr-scope"`
 }
+
+const (
+	addressScopeMaxFlag = "local-max-addr-scope"
+)
 
 func (cfg NodeAddressConfig) getNets() []*net.IPNet {
 	nets := make([]*net.IPNet, len(cfg.NodeAddresses))
@@ -86,22 +105,26 @@ func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
 		"node-addresses",
 		nil,
 		"A whitelist of CIDRs to limit which IPs are considered node addresses. If not set, primary IP address of each native device is used.")
+
+	flags.String(addressScopeMaxFlag, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
+	flags.MarkHidden(addressScopeMaxFlag)
 }
 
 type nodeAddressSource struct {
 	cell.In
 
-	HealthScope   cell.Scope
-	Log           logrus.FieldLogger
-	Config        NodeAddressConfig
-	Lifecycle     hive.Lifecycle
-	Jobs          job.Registry
-	DB            *statedb.DB
-	Devices       statedb.Table[*Device]
-	NodeAddresses statedb.RWTable[NodeAddress]
+	HealthScope     cell.Scope
+	Log             logrus.FieldLogger
+	Config          NodeAddressConfig
+	Lifecycle       hive.Lifecycle
+	Jobs            job.Registry
+	DB              *statedb.DB
+	Devices         statedb.Table[*Device]
+	NodeAddresses   statedb.RWTable[NodeAddress]
+	AddressScopeMax AddressScopeMax
 }
 
-func newNodeAddressTable(n nodeAddressSource) (statedb.Table[NodeAddress], error) {
+func newNodeAddressTable(n nodeAddressSource) (tbl statedb.Table[NodeAddress], err error) {
 	n.register()
 	return n.NodeAddresses, nil
 }
@@ -109,6 +132,7 @@ func newNodeAddressTable(n nodeAddressSource) (statedb.Table[NodeAddress], error
 func (n *nodeAddressSource) register() {
 	g := n.Jobs.NewGroup(n.HealthScope)
 	g.Add(job.OneShot("node-address-update", n.run))
+
 	n.Lifecycle.Append(
 		hive.Hook{
 			OnStart: func(ctx hive.HookContext) error {
@@ -142,6 +166,8 @@ func (n *nodeAddressSource) run(ctx context.Context, reporter cell.HealthReporte
 
 func (n *nodeAddressSource) update(ctx context.Context) (<-chan struct{}, string) {
 	txn := n.DB.WriteTxn(n.NodeAddresses)
+	defer txn.Abort()
+
 	devs, watch := SelectedDevices(n.Devices, txn)
 
 	old := n.getCurrentAddresses(txn)
@@ -159,11 +185,11 @@ func (n *nodeAddressSource) update(ctx context.Context) (<-chan struct{}, string
 		updated = true
 		n.NodeAddresses.Delete(txn, addr)
 	}
-	txn.Commit()
 
 	addrs := showAddresses(new)
 	if updated {
 		n.Log.WithField("node-addresses", addrs).Info("Node addresses updated")
+		txn.Commit()
 	}
 	return watch, addrs
 }
@@ -181,6 +207,16 @@ func (n *nodeAddressSource) getAddressesFromDevices(devs []*Device) (addrs sets.
 	addrs = sets.New[NodeAddress]()
 	for _, dev := range devs {
 		for _, addr := range dev.Addrs {
+			// Keep the scope-based address filtering as was introduced
+			// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
+			if addr.Scope > uint8(n.AddressScopeMax) {
+				fmt.Printf("skipped %s: %d > %d\n", addr.Addr, addr.Scope, n.AddressScopeMax)
+				continue
+			}
+			if addr.Addr.IsLoopback() {
+				continue
+			}
+
 			if len(n.Config.NodeAddresses) == 0 {
 				addrs.Insert(NodeAddress{Addr: addr.Addr, DeviceName: dev.Name})
 

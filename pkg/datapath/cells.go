@@ -89,8 +89,7 @@ var Cell = cell.Module(
 		// This is temporary until DevicesController takes ownership of the
 		// device-related configuration options.
 		return linuxdatapath.DevicesConfig{
-			Devices:         cfg.GetDevices(),
-			AddressScopeMax: cfg.AddressScopeMax,
+			Devices: cfg.GetDevices(),
 		}
 	}),
 )

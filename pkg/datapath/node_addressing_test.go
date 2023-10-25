@@ -10,21 +10,25 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
-func setupDBAndTable(t *testing.T) (db *statedb.DB, tbl statedb.RWTable[tables.NodeAddress]) {
+func setupDBAndTable(t *testing.T) (db *statedb.DB, nodeAddrs statedb.RWTable[tables.NodeAddress], devices statedb.RWTable[*tables.Device]) {
 	h := hive.New(
 		statedb.Cell,
 		tables.NodeAddressTestTableCell,
-		cell.Invoke(func(db_ *statedb.DB, tbl_ statedb.RWTable[tables.NodeAddress]) {
+		tables.DeviceTableCell,
+		cell.Invoke(func(db_ *statedb.DB, nodeAddrs_ statedb.RWTable[tables.NodeAddress], devices_ statedb.RWTable[*tables.Device]) {
 			db = db_
-			tbl = tbl_
+			nodeAddrs = nodeAddrs_
+			devices = devices_
 		}),
 	)
 	require.NoError(t, h.Start(context.TODO()), "Start")
@@ -35,8 +39,25 @@ func setupDBAndTable(t *testing.T) (db *statedb.DB, tbl statedb.RWTable[tables.N
 }
 
 func TestLocalAddresses(t *testing.T) {
-	db, nodeAddrs := setupDBAndTable(t)
-	nodeAddressing := datapath.NewNodeAddressing(nil, db, nodeAddrs, nil)
+	db, nodeAddrs, devices := setupDBAndTable(t)
+
+	// Add the "cilium_host" device to test that LocalAddresses() also includes
+	// the cilium_host IP address.
+	{
+		txn := db.WriteTxn(devices)
+		devices.Insert(txn, &tables.Device{
+			Index: 1,
+			Name:  "cilium_host",
+			Addrs: []tables.DeviceAddress{
+				{Addr: netip.MustParseAddr("9.9.9.9"), Scope: unix.RT_SCOPE_SITE},
+			},
+		})
+		txn.Commit()
+	}
+
+	nodeAddressing := datapath.NewNodeAddressing(
+		tables.AddressScopeMax(defaults.AddressScopeMax), nil, db, nodeAddrs, devices,
+	)
 
 	tests := []struct {
 		name  string
@@ -52,6 +73,7 @@ func TestLocalAddresses(t *testing.T) {
 			},
 			want: []net.IP{
 				net.ParseIP("10.0.0.1"),
+				net.ParseIP("9.9.9.9"), // cilium_host
 			},
 		},
 		{
@@ -64,6 +86,7 @@ func TestLocalAddresses(t *testing.T) {
 
 			want: []net.IP{
 				net.ParseIP("2001:db8::1"),
+				net.ParseIP("9.9.9.9"), // cilium_host
 			},
 		},
 		{
@@ -80,6 +103,7 @@ func TestLocalAddresses(t *testing.T) {
 			want: []net.IP{
 				net.ParseIP("10.0.0.1"),
 				net.ParseIP("2001:db8::1"),
+				net.ParseIP("9.9.9.9"), // cilium_host
 			},
 		},
 	}
