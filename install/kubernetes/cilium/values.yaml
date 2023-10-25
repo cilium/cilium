@@ -3222,3 +3222,6 @@ authentication:
       agentSocketPath: /run/spire/sockets/agent/agent.sock
       # -- SPIRE connection timeout
       connectionTimeout: 30s
+# If true, it adds an initContainer to cilium-agent pods that cleans up any legacy kube-proxy iptables rules from the node before running cilium.
+# Only makes sense when `kubeProxyReplacement` is enabled (i.e. not set to 'disabled').
+cleanupKubeProxy: false

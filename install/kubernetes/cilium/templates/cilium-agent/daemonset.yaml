@@ -689,6 +689,18 @@ spec:
             done
         terminationMessagePolicy: FallbackToLogsOnError
       {{- end }} # wait-for-kube-proxy
+      {{ if and (.Values.cleanupKubeProxy) (not (eq .Values.kubeProxyReplacement "disabled")) }}
+      - name: cleanup-kube-proxy-iptables
+        image: "{{ include "cilium.image" .Values.image }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          privileged: true
+        command:
+        - sh
+        - -c
+        - |
+          /usr/sbin/iptables-nft-save | grep -v KUBE | grep -v cali | /usr/sbin/iptables-nft-restore
+      {{ end }}
       {{- if .Values.cni.install }}
       # Install the CNI binaries in an InitContainer so we don't have a writable host mount in the agent
       - name: install-cni-binaries
