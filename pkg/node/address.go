@@ -416,12 +416,6 @@ func SetIPv6NodeRange(net *cidr.CIDR) {
 
 // AutoComplete completes the parts of addressing that can be auto derived
 func AutoComplete() error {
-	if option.Config.EnableHostIPRestore {
-		// At this point, only attempt to restore the `cilium_host` IPs from
-		// the filesystem because we haven't fully synced with K8s yet.
-		restoreCiliumHostIPsFromFS()
-	}
-
 	InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
 	if option.Config.EnableIPv6 && GetIPv6AllocRange() == nil {
@@ -525,21 +519,6 @@ func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CID
 
 	err = errDoesNotBelong
 	return
-}
-
-// restoreCiliumHostIPsFromFS restores the router IPs (`cilium_host`) from a
-// previous Cilium run. The IPs are restored from the filesystem. This is part
-// 1/2 of the restoration.
-func restoreCiliumHostIPsFromFS() {
-	// Read the previous cilium_host IPs from node_config.h for backward
-	// compatibility.
-	router4, router6 := getCiliumHostIPs()
-	if option.Config.EnableIPv4 {
-		SetInternalIPv4Router(router4)
-	}
-	if option.Config.EnableIPv6 {
-		SetIPv6Router(router6)
-	}
 }
 
 var (
@@ -695,10 +674,14 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 	return ipv4GW, ipv6Router
 }
 
-// getCiliumHostIPs returns the Cilium IPv4 gateway and router IPv6 address from
+// ExtractCiliumHostIPFromFS returns the Cilium IPv4 gateway and router IPv6 address from
 // the node_config.h file if is present; or by deriving it from
 // defaults.HostDevice interface, on which only the IPv4 is possible to derive.
-func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
+func ExtractCiliumHostIPFromFS() (ipv4GW, ipv6Router net.IP) {
+	if !option.Config.EnableHostIPRestore {
+		return nil, nil
+	}
+
 	nodeConfig := option.Config.GetNodeConfigPath()
 	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
 	if ipv4GW != nil || ipv6Router != nil {
