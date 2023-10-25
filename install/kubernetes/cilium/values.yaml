@@ -129,6 +129,10 @@ serviceAccounts:
     name: hubble-generate-certs
     automount: true
     annotations: {}
+  extraPolicies:
+    create: true
+    name: cilium-extra-policies
+    annotations: {}
 
 # -- Configure termination grace period for cilium-agent DaemonSet.
 terminationGracePeriodSeconds: 1
@@ -3332,6 +3336,24 @@ dnsProxy:
 sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
+
+extraPolicies:
+  allowEgressToCoreDNS:
+    enabled: false
+    namespaces:
+      - giantswarm
+      - kube-system
+
+  allowEgressToProxy:
+    enabled: false
+    httpProxy: ""
+    httpsProxy: ""
+    namespaces:
+      - giantswarm
+      - kube-system
+
+  tolerations:
+    - operator: Exists
 
 # If true, it adds an initContainer to cilium-agent pods that cleans up any legacy kube-proxy iptables rules from the node before running cilium.
 # Only makes sense when `kubeProxyReplacement` is enabled (i.e. not set to 'disabled').

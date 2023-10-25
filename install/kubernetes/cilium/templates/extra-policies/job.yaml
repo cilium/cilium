@@ -1,0 +1,64 @@
+{{- if or .Values.extraPolicies.allowEgressToCoreDNS.enabled .Values.extraPolicies.allowEgressToProxy.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cilium-create-extra-policies
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cilium-create-extra-policies
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "1"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 50
+  template:
+    metadata:
+      labels:
+        app: cilium-create-extra-policies
+    spec:
+      hostNetwork: true
+      restartPolicy: OnFailure
+      serviceAccountName: {{ .Values.serviceAccounts.extraPolicies.name | quote }}
+      priorityClassName: system-cluster-critical
+      {{- with .Values.extraPolicies.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      volumes:
+      - name: policies
+        configMap:
+          name: cilium-extra-policies
+      initContainers:
+      - name: wait-crds
+        image: "quay.io/giantswarm/docker-kubectl:latest"
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        args:
+        - -c
+        - |
+          for crd in ciliumnetworkpolicies.cilium.io ciliumclusterwidenetworkpolicies.cilium.io
+          do
+            while ! kubectl get crd $crd
+            do
+              echo "Waiting for CRD $crd to exist"
+              sleep 5
+            done
+          done
+      containers:
+      - name: cilium-create-extra-policies
+        image: "quay.io/giantswarm/docker-kubectl:latest"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: policies
+          mountPath: /policies
+        command:
+        - sh
+        args:
+        - -c
+        - |
+          set -o errexit ; set -o xtrace ; set -o nounset
+
+          kubectl apply --server-side=true --field-manager='kubectl-client-side-apply' --force-conflicts -f /policies/ 2>&1
+{{- end -}}
