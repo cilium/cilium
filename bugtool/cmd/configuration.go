@@ -81,6 +81,10 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	var commands []string
 	// Not expecting all of the commands to be available
 	commands = []string{
+		// We want to collect this twice: at the very beginning and at the
+		// very end of the bugtool collection, to see if the counters are
+		// increasing.
+		"cat /proc/net/xfrm_stat",
 		// Host and misc
 		"ps auxfw",
 		"hostname",
@@ -213,6 +217,15 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		commands = append(commands, tcCommands...)
 	}
 
+	// We want to collect this twice: at the very beginning and at the
+	// very end of the bugtool collection, to see if the counters are
+	// increasing.
+	// The commands end up being the names of the files where their output
+	// is stored, so we can't have the two commands be the exact same or the
+	// second would overwrite. To avoid that, we use the -u flag in this second
+	// command; that flag is documented as being ignored.
+	commands = append(commands, "cat -u /proc/net/xfrm_stat")
+
 	return k8sCommands(commands, k8sPods)
 }
 
@@ -268,7 +281,6 @@ func tcInterfaceCommands() ([]string, error) {
 
 func catCommands() []string {
 	files := []string{
-		"/proc/net/xfrm_stat",
 		"/proc/sys/net/core/bpf_jit_enable",
 		"/proc/kallsyms",
 		"/etc/resolv.conf",
