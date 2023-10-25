@@ -505,15 +505,8 @@ func ipSecXfrmMarkSetSPI(markValue uint32, spi uint8) uint32 {
 	return markValue | (uint32(spi) << linux_defaults.IPsecXFRMMarkSPIShift)
 }
 
-func getNodeIDFromXfrmMark(mark *netlink.XfrmMark) uint16 {
-	if mark == nil {
-		return 0
-	}
-	return uint16(mark.Value >> 16)
-}
-
 func getNodeIDAsHexFromXfrmMark(mark *netlink.XfrmMark) string {
-	return fmt.Sprintf("0x%x", getNodeIDFromXfrmMark(mark))
+	return fmt.Sprintf("0x%x", ipsec.GetNodeIDFromXfrmMark(mark))
 }
 
 func getDirFromXfrmMark(mark *netlink.XfrmMark) dir {
@@ -578,7 +571,7 @@ func ipsecDeleteXfrmState(nodeID uint16) error {
 
 	errs := resiliency.NewErrorSet(fmt.Sprintf("failed to delete node (%d) xfrm states", nodeID), len(xfrmStateList))
 	for _, s := range xfrmStateList {
-		if matchesOnNodeID(s.Mark) && getNodeIDFromXfrmMark(s.Mark) == nodeID {
+		if matchesOnNodeID(s.Mark) && ipsec.GetNodeIDFromXfrmMark(s.Mark) == nodeID {
 			if err := netlink.XfrmStateDel(&s); err != nil {
 				errs.Add(fmt.Errorf("failed to delete xfrm state (%s): %w", s.String(), err))
 			}
@@ -600,7 +593,7 @@ func ipsecDeleteXfrmPolicy(nodeID uint16) error {
 	}
 	errs := resiliency.NewErrorSet("failed to delete xfrm policies", len(xfrmPolicyList))
 	for _, p := range xfrmPolicyList {
-		if matchesOnNodeID(p.Mark) && getNodeIDFromXfrmMark(p.Mark) == nodeID {
+		if matchesOnNodeID(p.Mark) && ipsec.GetNodeIDFromXfrmMark(p.Mark) == nodeID {
 			if err := netlink.XfrmPolicyDel(&p); err != nil {
 				errs.Add(fmt.Errorf("unable to delete xfrm policy %s: %w", p.String(), err))
 			}
