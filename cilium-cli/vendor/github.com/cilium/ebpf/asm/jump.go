@@ -1,6 +1,6 @@
 package asm
 
-//go:generate stringer -output jump_string.go -type=JumpOp
+//go:generate go run golang.org/x/tools/cmd/stringer@latest -output jump_string.go -type=JumpOp
 
 // JumpOp affect control flow.
 //

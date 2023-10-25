@@ -581,8 +581,7 @@ done:
 
 						switch attr.Type {
 						case NLMSGERR_ATTR_MSG:
-							err = fmt.Errorf("%w: %s", err, string(attrData))
-
+							err = fmt.Errorf("%w: %s", err, unix.ByteSliceToString(attrData))
 						default:
 							// TODO: handle other NLMSGERR_ATTR types
 						}
@@ -804,6 +803,15 @@ func (s *NetlinkSocket) SetReceiveTimeout(timeout *unix.Timeval) error {
 	// Set a read timeout of SOCKET_READ_TIMEOUT, this will allow the Read to periodically unblock and avoid that a routine
 	// remains stuck on a recvmsg on a closed fd
 	return unix.SetsockoptTimeval(int(s.fd), unix.SOL_SOCKET, unix.SO_RCVTIMEO, timeout)
+}
+
+// SetReceiveBufferSize allows to set a receive buffer size on the socket
+func (s *NetlinkSocket) SetReceiveBufferSize(size int, force bool) error {
+	opt := unix.SO_RCVBUF
+	if force {
+		opt = unix.SO_RCVBUFFORCE
+	}
+	return unix.SetsockoptInt(int(s.fd), unix.SOL_SOCKET, opt, size)
 }
 
 // SetExtAck requests error messages to be reported on the socket

@@ -3,6 +3,7 @@ package nl
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"unsafe"
 )
 
@@ -274,7 +275,15 @@ const (
 	IFLA_VF_TRUST        /* Trust state of VF */
 	IFLA_VF_IB_NODE_GUID /* VF Infiniband node GUID */
 	IFLA_VF_IB_PORT_GUID /* VF Infiniband port GUID */
-	IFLA_VF_MAX          = IFLA_VF_IB_PORT_GUID
+	IFLA_VF_VLAN_LIST    /* nested list of vlans, option for QinQ */
+
+	IFLA_VF_MAX = IFLA_VF_IB_PORT_GUID
+)
+
+const (
+	IFLA_VF_VLAN_INFO_UNSPEC = iota
+	IFLA_VF_VLAN_INFO        /* VLAN ID, QoS and VLAN protocol */
+	__IFLA_VF_VLAN_INFO_MAX
 )
 
 const (
@@ -299,6 +308,7 @@ const (
 const (
 	SizeofVfMac        = 0x24
 	SizeofVfVlan       = 0x0c
+	SizeofVfVlanInfo   = 0x0e
 	SizeofVfTxRate     = 0x08
 	SizeofVfRate       = 0x0c
 	SizeofVfSpoofchk   = 0x08
@@ -352,6 +362,49 @@ func DeserializeVfVlan(b []byte) *VfVlan {
 
 func (msg *VfVlan) Serialize() []byte {
 	return (*(*[SizeofVfVlan]byte)(unsafe.Pointer(msg)))[:]
+}
+
+func DeserializeVfVlanList(b []byte) ([]*VfVlanInfo, error) {
+	var vfVlanInfoList []*VfVlanInfo
+	attrs, err := ParseRouteAttr(b)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, element := range attrs {
+		if element.Attr.Type == IFLA_VF_VLAN_INFO {
+			vfVlanInfoList = append(vfVlanInfoList, DeserializeVfVlanInfo(element.Value))
+		}
+	}
+
+	if len(vfVlanInfoList) == 0 {
+		return nil, fmt.Errorf("VF vlan list is defined but no vf vlan info elements were found")
+	}
+
+	return vfVlanInfoList, nil
+}
+
+// struct ifla_vf_vlan_info {
+//   __u32 vf;
+//   __u32 vlan; /* 0 - 4095, 0 disables VLAN filter */
+//   __u32 qos;
+//   __be16 vlan_proto; /* VLAN protocol either 802.1Q or 802.1ad */
+// };
+
+type VfVlanInfo struct {
+	VfVlan
+	VlanProto uint16
+}
+
+func DeserializeVfVlanInfo(b []byte) *VfVlanInfo {
+	return &VfVlanInfo{
+		*(*VfVlan)(unsafe.Pointer(&b[0:SizeofVfVlan][0])),
+		binary.BigEndian.Uint16(b[SizeofVfVlan:SizeofVfVlanInfo]),
+	}
+}
+
+func (msg *VfVlanInfo) Serialize() []byte {
+	return (*(*[SizeofVfVlanInfo]byte)(unsafe.Pointer(msg)))[:]
 }
 
 // struct ifla_vf_tx_rate {

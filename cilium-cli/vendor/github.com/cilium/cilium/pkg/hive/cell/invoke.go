@@ -4,7 +4,12 @@
 package cell
 
 import (
+	"fmt"
+	"sort"
+	"strings"
 	"time"
+
+	"go.uber.org/dig"
 
 	"github.com/cilium/cilium/pkg/hive/internal"
 )
@@ -16,17 +21,18 @@ type invoker struct {
 type namedFunc struct {
 	name string
 	fn   any
+	info dig.InvokeInfo
 }
 
 type InvokerList interface {
 	AppendInvoke(func() error)
 }
 
-func (i *invoker) invoke(cont container) error {
-	for _, afn := range i.funcs {
+func (inv *invoker) invoke(cont container) error {
+	for i, afn := range inv.funcs {
 		log.WithField("function", afn.name).Debug("Invoking")
 		t0 := time.Now()
-		if err := cont.Invoke(afn.fn); err != nil {
+		if err := cont.Invoke(afn.fn, dig.FillInvokeInfo(&inv.funcs[i].info)); err != nil {
 			log.WithError(err).WithField("", afn.name).Error("Invoke failed")
 			return err
 		}
@@ -54,7 +60,16 @@ func (i *invoker) Apply(c container) error {
 func (i *invoker) Info(container) Info {
 	n := NewInfoNode("")
 	for _, namedFunc := range i.funcs {
-		n.AddLeaf("🛠️ %s: %s", namedFunc.name, internal.PrettyType(namedFunc.fn))
+		invNode := NewInfoNode(fmt.Sprintf("🛠️ %s", namedFunc.name))
+		invNode.condensed = true
+
+		var ins []string
+		for _, input := range namedFunc.info.Inputs {
+			ins = append(ins, internal.TrimName(input.String()))
+		}
+		sort.Strings(ins)
+		invNode.AddLeaf("⇨ %s", strings.Join(ins, ", "))
+		n.Add(invNode)
 	}
 	return n
 }
