@@ -11,6 +11,7 @@ spec:
   ingress:
     - ports:
         - port: {{ .Values.hubble.relay.listenPort }}
+        - port: {{ .Values.hubble.relay.prometheus.port }}
   egress:
     - {}
   podSelector:

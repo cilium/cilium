@@ -1217,7 +1217,7 @@ hubble:
 
   relay:
     # -- Enable Hubble Relay (requires hubble.enabled=true)
-    enabled: false
+    enabled: true
 
     # -- Roll out Hubble Relay pods automatically when configmap is updated.
     rollOutPods: false
@@ -1384,7 +1384,7 @@ hubble:
     # -- Enable prometheus metrics for hubble-relay on the configured port at
     # /metrics
     prometheus:
-      enabled: false
+      enabled: true
       port: 9966
       serviceMonitor:
         # -- Enable service monitors.
@@ -1420,7 +1420,7 @@ hubble:
 
   ui:
     # -- Whether to enable the Hubble UI.
-    enabled: false
+    enabled: true
 
     standalone:
       # -- When true, it will allow installing the Hubble UI only, without checking dependencies.
