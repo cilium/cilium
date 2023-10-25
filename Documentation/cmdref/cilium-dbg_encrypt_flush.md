@@ -18,6 +18,7 @@ cilium-dbg encrypt flush [flags]
   -f, --force           Skip confirmation
   -h, --help            help for flush
   -o, --output string   json| yaml| jsonpath='{}'
+      --spi uint8       Only delete states and policies with this SPI
 ```
 
 ### Options inherited from parent commands
