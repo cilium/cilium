@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: certgen
-          image: {{ include "cilium.image" .Values.certgen.image | quote }}
+          image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.certgen.image }}"
           imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
           command:
             - "/usr/bin/cilium-certgen"

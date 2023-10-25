@@ -144,8 +144,9 @@ rollOutCiliumPods: false
 
 # -- Agent container image.
 image:
+  registry: docker.io
   override: ~
-  repository: "quay.io/cilium/cilium"
+  repository: "giantswarm/cilium"
   tag: "v1.15.0"
   pullPolicy: "IfNotPresent"
   # cilium-digest
@@ -964,6 +965,7 @@ socketLB:
 certgen:
   image:
     override: ~
+    repository: "giantswarm/cilium-certgen"
     repository: "quay.io/cilium/certgen"
     tag: "v0.1.9"
     digest: "sha256:89a0847753686444daabde9474b48340993bd19c7bea66a46e45b2974b82041f"
@@ -1223,7 +1225,7 @@ hubble:
     # -- Hubble-relay container image.
     image:
       override: ~
-      repository: "quay.io/cilium/hubble-relay"
+      repository: "giantswarm/hubble-relay"
       tag: "v1.15.0"
        # hubble-relay-digest
       digest: ""
@@ -1460,7 +1462,7 @@ hubble:
       # -- Hubble-ui backend image.
       image:
         override: ~
-        repository: "quay.io/cilium/hubble-ui-backend"
+        repository: "giantswarm/hubble-ui-backend"
         tag: "v0.12.3"
         digest: "sha256:1cd84251cec46e20f9e839ee0afba9b51c8de59d35681234f701d7f42062f138"
         useDigest: true
@@ -1499,6 +1501,7 @@ hubble:
       # -- Hubble-ui frontend image.
       image:
         override: ~
+        repository: "giantswarm/hubble-ui"
         repository: "quay.io/cilium/hubble-ui"
         tag: "v0.12.3"
         digest: "sha256:e6b825302fc1e406b1305363fe0bcd1fdf95730b32c2b99a2b36dfa37bdaeec2"
@@ -2363,7 +2366,7 @@ etcd:
   # -- cilium-etcd-operator image.
   image:
     override: ~
-    repository: "quay.io/cilium/cilium-etcd-operator"
+    repository: "giantswarm/cilium-etcd-operator"
     tag: "v2.0.7"
     digest: "sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"
     useDigest: true
@@ -2471,7 +2474,7 @@ operator:
   # -- cilium-operator image.
   image:
     override: ~
-    repository: "quay.io/cilium/operator"
+    repository: "giantswarm/cilium-operator"
     tag: "v1.15.0"
     # operator-generic-digest
     genericDigest: ""
@@ -2674,7 +2677,7 @@ nodeinit:
   # -- node-init image.
   image:
     override: ~
-    repository: "quay.io/cilium/startup-script"
+    repository: "giantswarm/cilium-startup-script"
     tag: "62093c5c233ea914bfa26a10ba41f8780d9b737f"
     pullPolicy: "IfNotPresent"
 
@@ -2766,7 +2769,7 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     override: ~
-    repository: "quay.io/cilium/cilium"
+    repository: "giantswarm/cilium"
     tag: "v1.15.0"
     # cilium-digest
     digest: ""
@@ -2928,7 +2931,7 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       override: ~
-      repository: "quay.io/cilium/clustermesh-apiserver"
+      repository: "giantswarm/cilium-clustermesh-apiserver"
       tag: "v1.15.0"
       # clustermesh-apiserver-digest
       digest: ""

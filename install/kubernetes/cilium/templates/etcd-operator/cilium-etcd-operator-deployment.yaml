@@ -94,7 +94,7 @@ spec:
           value: "revision"
         - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_RETENTION
           value: "25000"
-        image: {{ include "cilium.image" .Values.etcd.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.etcd.image }}"
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: cilium-etcd-operator
         terminationMessagePolicy: FallbackToLogsOnError

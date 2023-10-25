@@ -48,7 +48,7 @@ spec:
       {{- end }}
       initContainers:
       - name: etcd-init
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.clustermesh.apiserver.image }}"
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
         - /usr/bin/clustermesh-apiserver
@@ -93,7 +93,7 @@ spec:
       containers:
       - name: etcd
         # The clustermesh-apiserver container image includes an etcd binary.
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.clustermesh.apiserver.image }}"
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
         - /usr/bin/etcd
@@ -153,7 +153,7 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
       - name: apiserver
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.clustermesh.apiserver.image }}"
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
         - /usr/bin/clustermesh-apiserver
@@ -240,7 +240,7 @@ spec:
         {{- end }}
       {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       - name: kvstoremesh
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.clustermesh.apiserver.image }}"
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
         - /usr/bin/clustermesh-apiserver

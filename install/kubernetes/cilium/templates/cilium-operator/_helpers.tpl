@@ -31,6 +31,6 @@ Return cilium operator image
 {{- else -}}
 {{- $cloud := include "cilium.operator.cloud" . }}
 {{- $imageDigest := include "cilium.operator.imageDigestName" . }}
-{{- printf "%s-%s%s:%s%s" .Values.operator.image.repository $cloud .Values.operator.image.suffix .Values.operator.image.tag $imageDigest -}}
+{{- printf "%s/%s-%s%s:%s%s" .Values.image.registry .Values.operator.image.repository $cloud .Values.operator.image.suffix .Values.operator.image.tag $imageDigest -}}
 {{- end -}}
 {{- end -}}
