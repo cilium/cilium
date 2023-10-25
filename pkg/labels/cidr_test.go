@@ -11,11 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	. "github.com/cilium/checkmate"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -427,7 +425,7 @@ func TestCIDRLabelsCache(t *testing.T) {
 	forward()
 }
 
-func (s *LabelsSuite) TestIPStringToLabel(c *C) {
+func TestIPStringToLabel(t *testing.T) {
 	for _, tc := range []struct {
 		ip      string
 		label   string
@@ -480,10 +478,10 @@ func (s *LabelsSuite) TestIPStringToLabel(c *C) {
 	} {
 		lbl, err := IPStringToLabel(tc.ip)
 		if !tc.wantErr {
-			c.Assert(err, IsNil)
-			c.Assert(lbl.String(), checker.DeepEquals, tc.label)
+			assert.NoError(t, err)
+			assert.Equal(t, lbl.String(), tc.label)
 		} else {
-			c.Assert(err, Not(IsNil))
+			assert.Error(t, err)
 		}
 	}
 }
