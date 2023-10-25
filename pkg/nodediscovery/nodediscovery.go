@@ -520,8 +520,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		// will set the PodCIDRs of the CiliumNode and those might be different
 		// from the ones assigned by Kubernetes.
 		// For non-podCIDR based IPAM modes (e.g. ENI, Azure, AlibabaCloud), there
-		// is no such thing as a podCIDR to begin with. In those cases, the
-		// IPv4/IPv6AllocRange is auto-generated and otherwise unused, so it does not
+		// is no such thing as a podCIDR to begin with, so it does not
 		// make sense to copy it into the CiliumNode it either.
 		nodeResource.Spec.IPAM.PodCIDRs = []string{}
 		if cidr := node.GetIPv4AllocRange(); cidr != nil {

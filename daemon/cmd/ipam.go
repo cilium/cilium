@@ -506,7 +506,7 @@ func (d *Daemon) configureIPAM() {
 	//
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
-	if option.Config.IPv4Range != AutoCIDR {
+	if option.Config.IPv4Range != "" {
 		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)
 		if err != nil {
 			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4Range).Fatal("Invalid IPv4 allocation prefix")
@@ -514,7 +514,7 @@ func (d *Daemon) configureIPAM() {
 		node.SetIPv4AllocRange(allocCIDR)
 	}
 
-	if option.Config.IPv6Range != AutoCIDR {
+	if option.Config.IPv6Range != "" {
 		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv6Range)
 		if err != nil {
 			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6Range).Fatal("Invalid IPv6 allocation prefix")

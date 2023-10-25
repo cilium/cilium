@@ -10,7 +10,7 @@ import (
 )
 
 func (s *LoaderTestSuite) SetUpTest(c *C) {
-	node.InitDefaultPrefix("")
+	node.InitDefaultNodeInternalIP("")
 	node.SetInternalIPv4Router(templateIPv4[:])
 	node.SetIPv4Loopback(templateIPv4[:])
 }

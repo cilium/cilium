@@ -458,10 +458,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.IPAM, ipamOption.IPAMClusterPool, "Backend to use for IPAM")
 	option.BindEnv(vp, option.IPAM)
 
-	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
+	flags.String(option.IPv4Range, "", "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	option.BindEnv(vp, option.IPv4Range)
 
-	flags.String(option.IPv6Range, AutoCIDR, "Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96")
+	flags.String(option.IPv6Range, "", "Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96")
 	option.BindEnv(vp, option.IPv6Range)
 
 	flags.String(option.IPv6ClusterAllocCIDRName, defaults.IPv6ClusterAllocCIDR, "IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR")

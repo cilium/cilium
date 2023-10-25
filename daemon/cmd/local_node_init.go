@@ -58,7 +58,7 @@ func newLocalNodeInitializer(p localNodeInitializerParams) node.LocalNodeInitial
 func (ini *localNodeInitializer) initFromConfig(ctx context.Context, n *node.LocalNode) error {
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
-	node.SetDefaultPrefix(ini.Config, ini.Config.DirectRoutingDevice, n)
+	node.DeriveDefaultNodeInternalIP(ini.Config, ini.Config.DirectRoutingDevice, n)
 
 	// Initialize node IP addresses from configuration.
 	if ini.Config.IPv6NodeAddr != "auto" {

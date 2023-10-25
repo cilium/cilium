@@ -53,7 +53,7 @@ func setup(tb testing.TB) {
 
 	option.Config.EnableHostLegacyRouting = true // Disable obtaining direct routing device.
 	node.SetTestLocalNodeStore()
-	node.InitDefaultPrefix("")
+	node.InitDefaultNodeInternalIP("")
 	node.SetInternalIPv4Router(ipv4DummyAddr.AsSlice())
 	node.SetIPv4Loopback(ipv4DummyAddr.AsSlice())
 
