@@ -41,7 +41,7 @@ var (
 		},
 	}
 
-	RouteTableCell = statedb.NewProtectedTableCell[*Route](
+	RouteTableCell = statedb.NewPrivateRWTableCell[*Route](
 		"routes",
 		RouteIDIndex,
 		RouteLinkIndex,

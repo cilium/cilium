@@ -44,7 +44,7 @@ var (
 		},
 	}
 
-	DeviceTableCell = statedb.NewProtectedTableCell[*Device](
+	DeviceTableCell = statedb.NewPrivateRWTableCell[*Device](
 		"devices",
 		DeviceIDIndex,
 		DeviceNameIndex,
