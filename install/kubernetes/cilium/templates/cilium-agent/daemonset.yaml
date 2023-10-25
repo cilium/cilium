@@ -83,7 +83,7 @@ spec:
       {{- end }}
       containers:
       - name: cilium-agent
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.sleepAfterInit }}
         command:
@@ -372,7 +372,7 @@ spec:
         {{- end }}
       {{- if .Values.monitor.enabled }}
       - name: cilium-monitor
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - /bin/bash
@@ -404,7 +404,7 @@ spec:
       {{- end }}
       initContainers:
       - name: config
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - cilium
@@ -448,7 +448,7 @@ spec:
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
       # We use nsenter command with host's cgroup and mount namespaces enabled.
       - name: mount-cgroup
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         env:
         - name: CGROUP_ROOT
@@ -494,7 +494,7 @@ spec:
               - ALL
           {{- end}}
       - name: apply-sysctl-overwrites
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- with .Values.initResources }}
         resources:
@@ -543,7 +543,7 @@ spec:
       # from a privileged container because the mount propagation bidirectional
       # only works from privileged containers.
       - name: mount-bpf-fs
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- with .Values.initResources }}
         resources:
@@ -568,7 +568,7 @@ spec:
       {{- end }}
       {{- if and .Values.nodeinit.enabled .Values.nodeinit.bootstrapFile }}
       - name: wait-for-node-init
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- with .Values.initResources }}
         resources:
@@ -588,7 +588,7 @@ spec:
           mountPath: "/tmp/cilium-bootstrap.d"
       {{- end }}
       - name: clean-cilium-state
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - /init-container.sh
@@ -654,7 +654,7 @@ spec:
         {{- end }}
       {{- if and .Values.waitForKubeProxy (ne $kubeProxyReplacement "strict") }}
       - name: wait-for-kube-proxy
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- with .Values.initResources }}
         resources:
@@ -691,7 +691,7 @@ spec:
       {{- end }} # wait-for-kube-proxy
       {{ if and (.Values.cleanupKubeProxy) (not (eq .Values.kubeProxyReplacement "disabled")) }}
       - name: cleanup-kube-proxy-iptables
-        image: "{{ include "cilium.image" .Values.image }}"
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         securityContext:
           privileged: true
@@ -704,7 +704,7 @@ spec:
       {{- if .Values.cni.install }}
       # Install the CNI binaries in an InitContainer so we don't have a writable host mount in the agent
       - name: install-cni-binaries
-        image: {{ include "cilium.image" .Values.image | quote }}
+        image: "{{ .Values.image.registry }}/{{ include "cilium.image" .Values.image }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
           - "/install-plugin.sh"

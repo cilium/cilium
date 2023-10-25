@@ -141,8 +141,9 @@ rollOutCiliumPods: false
 
 # -- Agent container image.
 image:
+  registry: docker.io
   override: ~
-  repository: "quay.io/cilium/cilium"
+  repository: "giantswarm/cilium"
   tag: "v1.14.5"
   pullPolicy: "IfNotPresent"
   # cilium-digest
@@ -936,10 +937,8 @@ socketLB:
 certgen:
   image:
     override: ~
-    repository: "quay.io/cilium/certgen"
-    tag: "v0.1.9"
-    digest: "sha256:89a0847753686444daabde9474b48340993bd19c7bea66a46e45b2974b82041f"
-    useDigest: true
+    repository: "giantswarm/cilium-certgen"
+    tag: "v0.1.9@sha256:89a0847753686444daabde9474b48340993bd19c7bea66a46e45b2974b82041f"
     pullPolicy: "IfNotPresent"
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
@@ -1112,7 +1111,7 @@ hubble:
     # -- Hubble-relay container image.
     image:
       override: ~
-      repository: "quay.io/cilium/hubble-relay"
+      repository: "giantswarm/hubble-relay"
       tag: "v1.14.5"
        # hubble-relay-digest
       digest: ""
@@ -1340,10 +1339,8 @@ hubble:
       # -- Hubble-ui backend image.
       image:
         override: ~
-        repository: "quay.io/cilium/hubble-ui-backend"
-        tag: "v0.12.1"
-        digest: "sha256:1f86f3400827a0451e6332262467f894eeb7caf0eb8779bd951e2caa9d027cbe"
-        useDigest: true
+        repository: "giantswarm/hubble-ui-backend"
+        tag: "v0.12.1@sha256:1f86f3400827a0451e6332262467f894eeb7caf0eb8779bd951e2caa9d027cbe"
         pullPolicy: "IfNotPresent"
 
       # -- Hubble-ui backend security context.
@@ -1371,10 +1368,8 @@ hubble:
       # -- Hubble-ui frontend image.
       image:
         override: ~
-        repository: "quay.io/cilium/hubble-ui"
-        tag: "v0.12.1"
-        digest: "sha256:9e5f81ee747866480ea1ac4630eb6975ff9227f9782b7c93919c081c33f38267"
-        useDigest: true
+        repository: "giantswarm/hubble-ui"
+        tag: "v0.12.1@sha256:9e5f81ee747866480ea1ac4630eb6975ff9227f9782b7c93919c081c33f38267"
         pullPolicy: "IfNotPresent"
 
       # -- Hubble-ui frontend security context.
@@ -2148,10 +2143,8 @@ etcd:
   # -- cilium-etcd-operator image.
   image:
     override: ~
-    repository: "quay.io/cilium/cilium-etcd-operator"
-    tag: "v2.0.7"
-    digest: "sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"
-    useDigest: true
+    repository: "giantswarm/cilium-etcd-operator"
+    tag: "v2.0.7@sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"
     pullPolicy: "IfNotPresent"
 
   # -- The priority class to use for cilium-etcd-operator
@@ -2253,7 +2246,7 @@ operator:
   # -- cilium-operator image.
   image:
     override: ~
-    repository: "quay.io/cilium/operator"
+    repository: "giantswarm/cilium-operator"
     tag: "v1.14.5"
     # operator-generic-digest
     genericDigest: ""
@@ -2451,7 +2444,7 @@ nodeinit:
   # -- node-init image.
   image:
     override: ~
-    repository: "quay.io/cilium/startup-script"
+    repository: "giantswarm/cilium-startup-script"
     tag: "62093c5c233ea914bfa26a10ba41f8780d9b737f"
     pullPolicy: "IfNotPresent"
 
@@ -2540,7 +2533,7 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     override: ~
-    repository: "quay.io/cilium/cilium"
+    repository: "giantswarm/cilium"
     tag: "v1.14.5"
     # cilium-digest
     digest: ""
@@ -2690,7 +2683,7 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       override: ~
-      repository: "quay.io/cilium/clustermesh-apiserver"
+      repository: "giantswarm/cilium-clustermesh-apiserver"
       tag: "v1.14.5"
       # clustermesh-apiserver-digest
       digest: ""
@@ -2701,10 +2694,8 @@ clustermesh:
       # -- Clustermesh API server etcd image.
       image:
         override: ~
-        repository: "quay.io/coreos/etcd"
-        tag: "v3.5.4"
-        digest: "sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
-        useDigest: true
+        repository: "giantswarm/etcd"
+        tag: "v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
         pullPolicy: "IfNotPresent"
 
       # -- Specifies the resources for etcd container in the apiserver
