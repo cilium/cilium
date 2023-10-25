@@ -428,4 +428,10 @@ ctx_get_ifindex(const struct xdp_md *ctx)
 {
 	return ctx->ingress_ifindex;
 }
+
+static __always_inline __maybe_unused __u32
+ctx_get_ingress_ifindex(const struct xdp_md *ctx)
+{
+	return ctx->ingress_ifindex;
+}
 #endif /* __BPF_CTX_XDP_H_ */
