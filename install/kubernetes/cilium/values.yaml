@@ -126,6 +126,10 @@ serviceAccounts:
     name: hubble-generate-certs
     automount: true
     annotations: {}
+  extraPolicies:
+    create: true
+    name: cilium-extra-policies
+    annotations: {}
 
 # -- Configure termination grace period for cilium-agent DaemonSet.
 terminationGracePeriodSeconds: 1
@@ -3213,6 +3217,24 @@ authentication:
       agentSocketPath: /run/spire/sockets/agent/agent.sock
       # -- SPIRE connection timeout
       connectionTimeout: 30s
+extraPolicies:
+  allowEgressToCoreDNS:
+    enabled: false
+    namespaces:
+      - giantswarm
+      - kube-system
+
+  allowEgressToProxy:
+    enabled: false
+    httpProxy: ""
+    httpsProxy: ""
+    namespaces:
+      - giantswarm
+      - kube-system
+
+  tolerations:
+    - operator: Exists
+
 # If true, it adds an initContainer to cilium-agent pods that cleans up any legacy kube-proxy iptables rules from the node before running cilium.
 # Only makes sense when `kubeProxyReplacement` is enabled (i.e. not set to 'disabled').
 cleanupKubeProxy: false

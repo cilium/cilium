@@ -1,0 +1,73 @@
+{{- if or .Values.extraPolicies.allowEgressToCoreDNS.enabled .Values.extraPolicies.allowEgressToProxy.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-extra-policies
+  namespace: {{ .Release.Namespace }}
+data:
+  policies.yaml: |-
+    {{- if $.Values.extraPolicies.allowEgressToCoreDNS.enabled }}
+    {{- range $_, $ns := (required "extraPolicies.allowEgressToCoreDNS.namespaces must be filled for extraPolicies.allowEgressToCoreDNS.enabled=true" $.Values.extraPolicies.allowEgressToCoreDNS.namespaces) }}
+    ---
+    apiVersion: cilium.io/v2
+    kind: CiliumNetworkPolicy
+    metadata:
+      name: cilium-extra-policies-dns
+      namespace: {{ $ns | quote }}
+    spec:
+      endpointSelector: {} # any
+
+      egress:
+        - toServices:
+            - k8sServiceSelector:
+                namespace: kube-system
+                selector:
+                  matchLabels:
+                    k8s-app: coredns
+
+          toPorts:
+            - ports:
+                - port: "1053" # must be the target port, not service port
+                  protocol: ANY
+    {{- if $.Values.extraPolicies.allowEgressToProxy.enabled }}
+
+              # Required so Cilium registers DNS responses in the FQDN cache
+              # as needed for the proxy access rule below which uses `toFQDNs`
+              # (https://docs.cilium.io/en/stable/security/policy/language/#example)
+              rules:
+                dns:
+                  - matchPattern: "*"
+    {{ end -}}
+    {{ end -}}
+    {{ end -}}
+
+    {{- if $.Values.extraPolicies.allowEgressToProxy.enabled }}
+    {{- range $_, $ns := (required "extraPolicies.allowEgressToProxy.namespaces must be filled for extraPolicies.allowEgressToProxy.enabled=true" $.Values.extraPolicies.allowEgressToProxy.namespaces) }}
+    ---
+    apiVersion: cilium.io/v2
+    kind: CiliumNetworkPolicy
+    metadata:
+      name: cilium-extra-policies-proxy
+      namespace: {{ $ns | quote }}
+    spec:
+      endpointSelector: {} # any
+
+      egress:
+        {{ if not $.Values.extraPolicies.allowEgressToCoreDNS.enabled }}
+          {{ fail "extraPolicies.allowEgressToCoreDNS.enabled=true is required for extraPolicies.allowEgressToProxy.enabled since DNS requests are captured by Cilium for the L7 toFQDNs feature. Make sure the same namespaces are allowed for DNS egress." }}
+        {{ end -}}
+        - toFQDNs:
+            # The whole cluster should be allowed to reach the proxy. This currently does not limit the port range.
+            {{/* Extract hostname without the port */}}
+            {{- range $_, $proxyUrl := ((list
+                  (regexReplaceAll ":[0-9]+.*" $.Values.extraPolicies.allowEgressToProxy.httpProxy "")
+                  (regexReplaceAll ":[0-9]+.*" $.Values.extraPolicies.allowEgressToProxy.httpsProxy "")
+                ) | uniq) }}
+            {{- if $proxyUrl }}
+            - matchName: {{ index (urlParse $proxyUrl) "host" | required "Failed to parse hostname in extraPolicies.allowEgressToProxy.httpProxy or extraPolicies.allowEgressToProxy.httpsProxy" | quote }}
+            {{- end }}
+            {{- end }}
+    {{ end -}}
+    {{ end -}}
+
+{{- end }}

@@ -1,0 +1,37 @@
+{{- if or .Values.extraPolicies.allowEgressToCoreDNS.enabled .Values.extraPolicies.allowEgressToProxy.enabled -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.serviceAccounts.extraPolicies.name | quote }}
+rules:
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumclusterwidenetworkpolicies
+  - ciliumnetworkpolicies
+  verbs:
+  - patch
+  - create
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  resourceNames:
+  - ciliumnetworkpolicies.cilium.io
+  - ciliumclusterwidenetworkpolicies.cilium.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.serviceAccounts.extraPolicies.name | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.serviceAccounts.extraPolicies.name | quote }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.extraPolicies.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
