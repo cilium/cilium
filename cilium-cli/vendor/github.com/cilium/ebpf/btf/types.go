@@ -278,21 +278,6 @@ func (e *Enum) copy() Type {
 	return &cpy
 }
 
-// has64BitValues returns true if the Enum contains a value larger than 32 bits.
-// Kernels before 6.0 have enum values that overrun u32 replaced with zeroes.
-//
-// 64-bit enums have their Enum.Size attributes correctly set to 8, but if we
-// use the size attribute as a heuristic during BTF marshaling, we'll emit
-// ENUM64s to kernels that don't support them.
-func (e *Enum) has64BitValues() bool {
-	for _, v := range e.Values {
-		if v.Value > math.MaxUint32 {
-			return true
-		}
-	}
-	return false
-}
-
 // FwdKind is the type of forward declaration.
 type FwdKind int
 

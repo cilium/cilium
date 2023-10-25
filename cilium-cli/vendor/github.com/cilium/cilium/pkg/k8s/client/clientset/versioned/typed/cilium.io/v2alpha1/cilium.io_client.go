@@ -15,6 +15,11 @@ import (
 
 type CiliumV2alpha1Interface interface {
 	RESTClient() rest.Interface
+	CiliumBGPAdvertisementsGetter
+	CiliumBGPClusterConfigsGetter
+	CiliumBGPNodeConfigsGetter
+	CiliumBGPNodeConfigOverridesGetter
+	CiliumBGPPeerConfigsGetter
 	CiliumBGPPeeringPoliciesGetter
 	CiliumCIDRGroupsGetter
 	CiliumEndpointSlicesGetter
@@ -27,6 +32,26 @@ type CiliumV2alpha1Interface interface {
 // CiliumV2alpha1Client is used to interact with features provided by the cilium.io group.
 type CiliumV2alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *CiliumV2alpha1Client) CiliumBGPAdvertisements() CiliumBGPAdvertisementInterface {
+	return newCiliumBGPAdvertisements(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumBGPClusterConfigs() CiliumBGPClusterConfigInterface {
+	return newCiliumBGPClusterConfigs(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumBGPNodeConfigs() CiliumBGPNodeConfigInterface {
+	return newCiliumBGPNodeConfigs(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumBGPNodeConfigOverrides() CiliumBGPNodeConfigOverrideInterface {
+	return newCiliumBGPNodeConfigOverrides(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumBGPPeerConfigs() CiliumBGPPeerConfigInterface {
+	return newCiliumBGPPeerConfigs(c)
 }
 
 func (c *CiliumV2alpha1Client) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInterface {

@@ -7,7 +7,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -143,26 +144,24 @@ type Labels map[string]Label
 
 // GetPrintableModel turns the Labels into a sorted list of strings
 // representing the labels, with CIDRs deduplicated (ie, only provide the most
-// specific CIDR).
+// specific CIDRs).
 func (l Labels) GetPrintableModel() (res []string) {
-	cidr := ""
-	prefixLength := 0
+	// Aggregate list of "leaf" CIDRs
+	leafCIDRs := leafCIDRList[*Label]{}
 	for _, v := range l {
+		// If this is a CIDR label, filter out non-leaf CIDRs for human consumption
 		if v.Source == LabelSourceCIDR {
-			vStr := strings.Replace(v.String(), "-", ":", -1)
-			prefix := strings.Replace(v.Key, "-", ":", -1)
-			_, ipnet, _ := net.ParseCIDR(prefix)
-			ones, _ := ipnet.Mask.Size()
-			if ones > prefixLength {
-				cidr = vStr
-				prefixLength = ones
-			}
-			continue
+			v := v
+			prefixStr := strings.Replace(v.Key, "-", ":", -1)
+			prefix, _ := netip.ParsePrefix(prefixStr)
+			leafCIDRs.insert(prefix, &v)
+		} else {
+			// not a CIDR label, no magic needed
+			res = append(res, v.String())
 		}
-		res = append(res, v.String())
 	}
-	if cidr != "" {
-		res = append(res, cidr)
+	for _, val := range leafCIDRs {
+		res = append(res, strings.Replace(val.String(), "-", ":", -1))
 	}
 
 	sort.Strings(res)
@@ -409,6 +408,15 @@ func NewLabelsFromModel(base []string) Labels {
 	return lbls
 }
 
+// FromSlice creates labels from a slice of labels.
+func FromSlice(labels []Label) Labels {
+	lbls := make(Labels, len(labels))
+	for _, lbl := range labels {
+		lbls[lbl.Key] = lbl
+	}
+	return lbls
+}
+
 // NewLabelsFromSortedList returns labels based on the output of SortedList()
 func NewLabelsFromSortedList(list string) Labels {
 	return NewLabelsFromModel(strings.Split(list, ";"))
@@ -512,7 +520,7 @@ func (l Labels) SortedList() []byte {
 	for k := range l {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	// Labels can have arbitrary size. However, when many CIDR identities are in
 	// the system, for example due to a FQDN policy matching S3, CIDR labels

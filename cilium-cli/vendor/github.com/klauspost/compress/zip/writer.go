@@ -433,6 +433,7 @@ func min64(x, y uint64) uint64 {
 	return y
 }
 
+// CreateHeaderRaw is replaced by CreateRaw.
 // Deprecated: CreateHeaderRaw is replaced by CreateRaw (stdlib name).
 func (w *Writer) CreateHeaderRaw(fh *FileHeader) (io.Writer, error) {
 	return w.CreateRaw(fh)

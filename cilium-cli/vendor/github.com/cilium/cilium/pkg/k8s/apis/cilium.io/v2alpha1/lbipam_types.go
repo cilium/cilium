@@ -69,11 +69,22 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector"`
-	// CiliumLoadBalancerIPPoolCIDRBlock is a list of CIDRs comprising this IP Pool
+	// AllowFirstLastIPs, if set to `yes` means that the first and last IPs of each CIDR will be allocatable.
+	// If `no` or undefined, these IPs will be reserved. This field is ignored for /{31,32} and /{127,128} CIDRs since
+	// reserving the first and last IPs would make the CIDRs unusable.
 	//
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
-	Cidrs []CiliumLoadBalancerIPPoolCIDRBlock `json:"cidrs"`
+	// +kubebuilder:validation:Optional
+	AllowFirstLastIPs AllowFirstLastIPType `json:"allowFirstLastIPs,omitempty"`
+	// Cidrs is a list of CIDRs comprising this IP Pool
+	// Deprecated: please use the `blocks` field instead. This field will be removed in a future release.
+	// https://github.com/cilium/cilium/issues/28590
+	//
+	// +kubebuilder:validation:Optional
+	Cidrs []CiliumLoadBalancerIPPoolIPBlock `json:"cidrs,omitempty"`
+	// Blocks is a list of CIDRs comprising this IP Pool
+	//
+	// +kubebuilder:validation:Optional
+	Blocks []CiliumLoadBalancerIPPoolIPBlock `json:"blocks,omitempty"`
 	// Disabled, if set to true means that no new IPs will be allocated from this pool.
 	// Existing allocations will not be removed from services.
 	//
@@ -82,11 +93,23 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	Disabled bool `json:"disabled"`
 }
 
-// CiliumLoadBalancerIPPoolCIDRBlock describes a single CIDR block.
-type CiliumLoadBalancerIPPoolCIDRBlock struct {
+// +kubebuilder:validation:Enum=Yes;No
+type AllowFirstLastIPType string
+
+const (
+	AllowFirstLastIPNo  AllowFirstLastIPType = "No"
+	AllowFirstLastIPYes AllowFirstLastIPType = "Yes"
+)
+
+// CiliumLoadBalancerIPPoolIPBlock describes a single IP block.
+type CiliumLoadBalancerIPPoolIPBlock struct {
 	// +kubebuilder:validation:Format=cidr
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Cidr IPv4orIPv6CIDR `json:"cidr"`
+	// +kubebuilder:validation:Optional
+	Start string `json:"start,omitempty"`
+	// +kubebuilder:validation:Optional
+	Stop string `json:"stop,omitempty"`
 }
 
 // +deepequal-gen=false

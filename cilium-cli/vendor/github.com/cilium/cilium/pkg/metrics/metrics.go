@@ -254,11 +254,11 @@ var (
 
 	// NodeConnectivityStatus is the connectivity status between local node to
 	// other node intra or inter cluster.
-	NodeConnectivityStatus = NoOpGaugeVec
+	NodeConnectivityStatus = NoOpGaugeDeletableVec
 
 	// NodeConnectivityLatency is the connectivity latency between local node to
 	// other node intra or inter cluster.
-	NodeConnectivityLatency = NoOpGaugeVec
+	NodeConnectivityLatency = NoOpGaugeDeletableVec
 
 	// Endpoint
 
@@ -634,8 +634,8 @@ var (
 type LegacyMetrics struct {
 	BootstrapTimes                   metric.Vec[metric.Observer]
 	APIInteractions                  metric.Vec[metric.Observer]
-	NodeConnectivityStatus           metric.Vec[metric.Gauge]
-	NodeConnectivityLatency          metric.Vec[metric.Gauge]
+	NodeConnectivityStatus           metric.DeletableVec[metric.Gauge]
+	NodeConnectivityLatency          metric.DeletableVec[metric.Gauge]
 	Endpoint                         metric.GaugeFunc
 	EndpointMaxIfindex               metric.Gauge
 	EndpointRegenerationTotal        metric.Vec[metric.Counter]
