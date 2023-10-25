@@ -569,6 +569,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		oldNode := entry.node
 		entry.node = n
 		if dpUpdate {
+			var errs error
 			m.Iter(func(nh datapath.NodeHandler) {
 				if err := nh.NodeUpdate(oldNode, entry.node); err != nil {
 					log.WithFields(logrus.Fields{
@@ -576,8 +577,16 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 						"node":    entry.node.Name,
 					}).WithError(err).
 						Error("Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.")
+					errs = errors.Join(errs, err)
 				}
 			})
+
+			hr := cell.GetHealthReporter(m.healthScope, "nodes-update")
+			if errs != nil {
+				hr.Degraded("Failed to update nodes", errs)
+			} else {
+				hr.OK("Node updates successful")
+			}
 		}
 
 		m.removeNodeFromIPCache(oldNode, resource, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
@@ -591,6 +600,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		entry.mutex.Lock()
 		m.nodes[nodeIdentifier] = entry
 		m.mutex.Unlock()
+		var errs error
 		if dpUpdate {
 			m.Iter(func(nh datapath.NodeHandler) {
 				if err := nh.NodeAdd(entry.node); err != nil {
@@ -599,10 +609,18 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 						"handler": nh.Name(),
 					}).WithError(err).
 						Error("Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.")
+					errs = errors.Join(errs, err)
 				}
 			})
 		}
 		entry.mutex.Unlock()
+		hr := cell.GetHealthReporter(m.healthScope, "nodes-add")
+		if errs != nil {
+			hr.Degraded("Failed to add nodes", errs)
+		} else {
+			hr.OK("Node adds successful")
+		}
+
 	}
 }
 
@@ -724,6 +742,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
 	m.mutex.Unlock()
+	var errs error
 	m.Iter(func(nh datapath.NodeHandler) {
 		if err := nh.NodeDelete(n); err != nil {
 			// For now we log the error and continue. Eventually we will want to encorporate
@@ -734,9 +753,17 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 				"handler": nh.Name(),
 				"node":    n.Name,
 			}).WithError(err).Error("Failed to handle node delete event while applying handler. Cilium may be have degraded functionality.")
+			errs = errors.Join(errs, err)
 		}
 	})
 	entry.mutex.Unlock()
+
+	hr := cell.GetHealthReporter(m.healthScope, "nodes-delete")
+	if errs != nil {
+		hr.Degraded("Failed to delete nodes", errs)
+	} else {
+		hr.OK("Node deletions successful")
+	}
 }
 
 // GetNodeIdentities returns a list of all node identities store in node
