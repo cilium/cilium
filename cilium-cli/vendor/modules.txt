@@ -52,11 +52,11 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20231018191328-163fdb788607
+# github.com/cilium/charts v0.0.0-20230929223035-2315d5f72a74
 ## explicit; go 1.17
 github.com/cilium/charts
-# github.com/cilium/cilium v1.15.0-pre.1.0.20231006175630-73afc5fac2ad
-## explicit; go 1.21.1
+# github.com/cilium/cilium v1.15.0-pre.1.0.20231025133600-0a8f3f91f109
+## explicit; go 1.21.3
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/bgp
 github.com/cilium/cilium/api/v1/client/daemon
@@ -98,9 +98,11 @@ github.com/cilium/cilium/pkg/health/client
 github.com/cilium/cilium/pkg/health/defaults
 github.com/cilium/cilium/pkg/hive
 github.com/cilium/cilium/pkg/hive/cell
+github.com/cilium/cilium/pkg/hive/cell/lifecycle
 github.com/cilium/cilium/pkg/hive/internal
 github.com/cilium/cilium/pkg/iana
 github.com/cilium/cilium/pkg/identity
+github.com/cilium/cilium/pkg/inctimer
 github.com/cilium/cilium/pkg/ip
 github.com/cilium/cilium/pkg/ipam/option
 github.com/cilium/cilium/pkg/ipam/types
@@ -119,7 +121,6 @@ github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection
 github.com/cilium/cilium/pkg/k8s/utils
 github.com/cilium/cilium/pkg/labels
-github.com/cilium/cilium/pkg/labels/cidr
 github.com/cilium/cilium/pkg/loadbalancer
 github.com/cilium/cilium/pkg/lock
 github.com/cilium/cilium/pkg/logging
@@ -138,8 +139,8 @@ github.com/cilium/cilium/pkg/slices
 github.com/cilium/cilium/pkg/spanstat
 github.com/cilium/cilium/pkg/version
 github.com/cilium/cilium/pkg/versioncheck
-# github.com/cilium/ebpf v0.11.0
-## explicit; go 1.19
+# github.com/cilium/ebpf v0.12.0
+## explicit; go 1.20
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/btf
@@ -147,6 +148,7 @@ github.com/cilium/ebpf/features
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/kconfig
 github.com/cilium/ebpf/internal/sys
+github.com/cilium/ebpf/internal/sysenc
 github.com/cilium/ebpf/internal/tracefs
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/link
@@ -154,7 +156,7 @@ github.com/cilium/ebpf/rlimit
 # github.com/cilium/hubble v0.12.2
 ## explicit; go 1.20
 github.com/cilium/hubble/pkg/printer
-# github.com/cilium/proxy v0.0.0-20230928070035-6b9ff340bc40
+# github.com/cilium/proxy v0.0.0-20231018073547-ab187719b71b
 ## explicit; go 1.20
 github.com/cilium/proxy/go/envoy/admin/v3
 github.com/cilium/proxy/go/envoy/annotations
@@ -661,7 +663,7 @@ github.com/google/gnostic-models/extensions
 github.com/google/gnostic-models/jsonschema
 github.com/google/gnostic-models/openapiv2
 github.com/google/gnostic-models/openapiv3
-# github.com/google/go-cmp v0.5.9
+# github.com/google/go-cmp v0.6.0
 ## explicit; go 1.13
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
@@ -700,6 +702,10 @@ github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit; go 1.13
 github.com/hashicorp/go-multierror
+# github.com/hashicorp/golang-lru/v2 v2.0.7
+## explicit; go 1.18
+github.com/hashicorp/golang-lru/v2/internal
+github.com/hashicorp/golang-lru/v2/simplelru
 # github.com/hashicorp/hcl v1.0.0
 ## explicit
 github.com/hashicorp/hcl
@@ -732,7 +738,7 @@ github.com/josharian/intern
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/klauspost/compress v1.16.0
+# github.com/klauspost/compress v1.17.0
 ## explicit; go 1.18
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
@@ -849,7 +855,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
-# github.com/pelletier/go-toml/v2 v2.0.9
+# github.com/pelletier/go-toml/v2 v2.1.0
 ## explicit; go 1.16
 github.com/pelletier/go-toml/v2
 github.com/pelletier/go-toml/v2/internal/characters
@@ -913,6 +919,12 @@ github.com/rubenv/sql-migrate/sqlparse
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
+# github.com/sagikazarmark/locafero v0.3.0
+## explicit; go 1.20
+github.com/sagikazarmark/locafero
+# github.com/sagikazarmark/slog-shim v0.1.0
+## explicit; go 1.20
+github.com/sagikazarmark/slog-shim
 # github.com/sasha-s/go-deadlock v0.3.1
 ## explicit
 github.com/sasha-s/go-deadlock
@@ -928,7 +940,13 @@ github.com/shopspring/decimal
 ## explicit; go 1.13
 github.com/sirupsen/logrus
 github.com/sirupsen/logrus/hooks/syslog
-# github.com/spf13/afero v1.9.5
+# github.com/sourcegraph/conc v0.3.0
+## explicit; go 1.19
+github.com/sourcegraph/conc
+github.com/sourcegraph/conc/internal/multierror
+github.com/sourcegraph/conc/iter
+github.com/sourcegraph/conc/panics
+# github.com/spf13/afero v1.10.0
 ## explicit; go 1.16
 github.com/spf13/afero
 github.com/spf13/afero/internal/common
@@ -939,14 +957,11 @@ github.com/spf13/cast
 # github.com/spf13/cobra v1.7.0
 ## explicit; go 1.15
 github.com/spf13/cobra
-# github.com/spf13/jwalterweatherman v1.1.0
-## explicit
-github.com/spf13/jwalterweatherman
 # github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/spf13/viper v1.16.0
-## explicit; go 1.17
+# github.com/spf13/viper v1.17.0
+## explicit; go 1.18
 github.com/spf13/viper
 github.com/spf13/viper/internal/encoding
 github.com/spf13/viper/internal/encoding/dotenv
@@ -960,7 +975,7 @@ github.com/spf13/viper/internal/encoding/yaml
 ## explicit; go 1.20
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/subosito/gotenv v1.4.2
+# github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
 # github.com/tklauser/go-sysconf v0.3.12
@@ -975,7 +990,7 @@ github.com/ulikunitz/xz
 github.com/ulikunitz/xz/internal/hash
 github.com/ulikunitz/xz/internal/xlog
 github.com/ulikunitz/xz/lzma
-# github.com/vishvananda/netlink v1.2.1-beta.2.0.20230807190133-6afddb37c1f0
+# github.com/vishvananda/netlink v1.2.1-beta.2.0.20231024175852-77df5d35f725
 ## explicit; go 1.12
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
@@ -1074,6 +1089,9 @@ go.uber.org/dig/internal/digerror
 go.uber.org/dig/internal/digreflect
 go.uber.org/dig/internal/dot
 go.uber.org/dig/internal/graph
+# go.uber.org/multierr v1.11.0
+## explicit; go 1.19
+go.uber.org/multierr
 # golang.org/x/crypto v0.14.0
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
@@ -1099,6 +1117,9 @@ golang.org/x/crypto/scrypt
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
 golang.org/x/exp/slices
+golang.org/x/exp/slog
+golang.org/x/exp/slog/internal
+golang.org/x/exp/slog/internal/buffer
 # golang.org/x/mod v0.13.0
 ## explicit; go 1.18
 golang.org/x/mod/semver
@@ -1155,15 +1176,15 @@ google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97
+# google.golang.org/genproto v0.0.0-20231012201019-e917dd12ba7a
 ## explicit; go 1.19
 google.golang.org/genproto/internal
-# google.golang.org/genproto/googleapis/api v0.0.0-20230920204549-e6e6cdab5c13
+# google.golang.org/genproto/googleapis/api v0.0.0-20231002182017-d307bd883b97
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20231009173412-8bfb1ae86b6c
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20231016165738-49dd2c1f3d0b
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.59.0

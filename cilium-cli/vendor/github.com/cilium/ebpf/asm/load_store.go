@@ -1,6 +1,6 @@
 package asm
 
-//go:generate stringer -output load_store_string.go -type=Mode,Size
+//go:generate go run golang.org/x/tools/cmd/stringer@latest -output load_store_string.go -type=Mode,Size
 
 // Mode for load and store operations
 //
