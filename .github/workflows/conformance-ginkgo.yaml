@@ -265,9 +265,10 @@ jobs:
       - name: Install helm
         shell: bash
         run: |
-          HELM_VERSION=3.7.0
-          wget "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
-          tar -xf "helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          # renovate: datasource=github-releases depName=helm/helm
+          HELM_VERSION=v3.13.1
+          wget "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          tar -xf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
           mv ./linux-amd64/helm ./helm
 
       - name: Provision LVH VMs
