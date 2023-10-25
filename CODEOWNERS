@@ -328,6 +328,7 @@ Makefile* @cilium/build
 /Documentation/network/kubernetes/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
 /Documentation/network/kubernetes/kubeproxy-free.rst @cilium/sig-lb @cilium/docs-structure
+/Documentation/network/lb-ipam.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/network/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
 /Documentation/observability/ @cilium/sig-policy @cilium/docs-structure
 /Documentation/operations/performance/ @cilium/sig-datapath @cilium/docs-structure
