@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -460,11 +459,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	// is available or has received the notification that includes the
 	// static pod's labels. In this case, start a controller to attempt to
 	// resolve the labels.
-	k8sLabelsConfigured := true
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		// If there are labels, but no pod namespace, then it's
 		// likely that there are no k8s labels at all. Resolve.
-		if _, k8sLabelsConfigured = addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
+		if _, k8sLabelsConfigured := addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
 			ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
 		}
 	}
@@ -475,38 +473,20 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
-	// We need to update the visibility policy after adding the endpoint in
-	// the endpoint manager because the endpoint manager create the endpoint
-	// queue of the endpoint. If we execute this function before the endpoint
-	// manager creates the endpoint queue the operation will fail.
-	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() && k8sLabelsConfigured {
-		ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
-			_, p, err := d.endpointMetadataFetcher.Fetch(ns, podName)
-			if err != nil {
-				return "", err
-			}
-			value, _ := annotation.Get(p, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
-			return value, nil
-		})
-
-		ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
-			_, p, err := d.endpointMetadataFetcher.Fetch(ns, podName)
-			if err != nil {
-				return "", err
-			}
-			return p.Annotations[bandwidth.EgressBandwidth], nil
-		})
-		ep.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
-			_, p, err := d.endpointMetadataFetcher.Fetch(ns, podName)
-			if err != nil {
-				return "", err
-			}
-			value, _ := annotation.Get(p, annotation.NoTrack, annotation.NoTrackAlias)
-			return value, nil
-		})
+	var regenTriggered bool
+	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
+		// We need to refetch the pod labels again because we have just added
+		// the endpoint into the endpoint manager. If we have received any pod
+		// events, more specifically any events that modified the pod labels,
+		// between the time the pod was created and the time it was added
+		// into the endpoint manager, the pod event would not have been processed
+		// since the pod event handler would not find the endpoint for that pod
+		// in the endpoint manager. Thus, we will fetch the labels again
+		// and update the endpoint with these labels.
+		ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
+	} else {
+		regenTriggered = ep.UpdateLabels(ctx, addLabels, infoLabels, true)
 	}
-
-	regenTriggered := ep.UpdateLabels(ctx, addLabels, infoLabels, true)
 
 	select {
 	case <-ctx.Done():
