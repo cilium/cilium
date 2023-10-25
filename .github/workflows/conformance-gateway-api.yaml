@@ -218,15 +218,6 @@ jobs:
       - name: Run Gateway API conformance test
         timeout-minutes: 30
         run: |
-          cat << EOF | kubectl apply -f -
-          apiVersion: gateway.networking.k8s.io/v1
-          kind: GatewayClass
-          metadata:
-            name: cilium
-          spec:
-            controllerName: io.cilium/gateway-controller
-          EOF
-          
           if [ ${{ matrix.conformance-profile }} == "true" ]; then
             GATEWAY_API_CONFORMANCE_TESTS=1 go test \
               -p 4 \
