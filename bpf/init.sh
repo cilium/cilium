@@ -224,6 +224,7 @@ function bpf_load()
 	OUT=$5
 	SEC=$6
 	CALLS_MAP=$7
+	MIGRATE=$8
 
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
@@ -233,7 +234,11 @@ function bpf_load()
 	tc qdisc replace dev $DEV clsact || true
 	[ -z "$(tc filter show dev $DEV $WHERE | grep -v "pref $FILTER_PRIO bpf chain 0 $\|pref $FILTER_PRIO bpf chain 0 handle 0x1")" ] || tc filter del dev $DEV $WHERE
 
-	cilium bpf migrate-maps -s "$OUT"
+	# Only migrate maps for the first load of a given ELF to prevent subsequent
+	# loads clobbering cilium_calls_*.
+	if [ -n "$MIGRATE" ]; then
+		cilium bpf migrate-maps -s "$OUT"
+	fi
 
 	if ! tc filter replace dev "$DEV" "$WHERE" prio "$FILTER_PRIO" handle 1 bpf da obj "$OUT" sec "$SEC"; then
 		cilium bpf migrate-maps -e "$OUT" -r 1
@@ -252,6 +257,7 @@ function bpf_load_cgroups()
 	CGRP=$7
 	BPFMNT=$8
 	NAME=$9
+	MIGRATE=${10}
 
 	OPTS="${OPTS} -DCALLS_MAP=${CALLS_MAP}"
 	bpf_compile "$IN" "$OUT" obj "$OPTS"
@@ -259,7 +265,11 @@ function bpf_load_cgroups()
 	TMP_FILE="$BPFMNT/tc/globals/cilium_cgroups_$WHERE"
 	rm -f "$TMP_FILE"
 
-	cilium bpf migrate-maps -s "$OUT"
+	# Only migrate maps for the first load of a given ELF to prevent subsequent
+	# loads clobbering cilium_calls_*.
+	if [ -n "$MIGRATE" ]; then
+		cilium bpf migrate-maps -s "$OUT"
+	fi
 
 	if ! tc exec bpf pin "$TMP_FILE" obj "$OUT" type "$PROG_TYPE" attach_type "$WHERE" sec "cgroup/$WHERE"; then
 		cilium bpf migrate-maps -e "$OUT" -r 1
@@ -482,7 +492,7 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
 	fi
 
-	bpf_load "$ENCAP_DEV" "$COPTS" ingress bpf_overlay.c bpf_overlay.o from-overlay "$CALLS_MAP"
+	bpf_load "$ENCAP_DEV" "$COPTS" ingress bpf_overlay.c bpf_overlay.o from-overlay "$CALLS_MAP" migrate
 	bpf_load "$ENCAP_DEV" "$COPTS" egress bpf_overlay.c bpf_overlay.o to-overlay "$CALLS_MAP"
 
 	cilium bpf migrate-maps -e bpf_overlay.o -r 0
@@ -544,7 +554,7 @@ if [ "$SOCKETLB" = "true" ]; then
 	CALLS_MAP="cilium_calls_lb"
 	COPTS=""
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f "${PROCSYSNETDIR}/ipv6/conf/all/forwarding" ]; then
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_connect
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_connect migrate
 		if [ "$SOCKETLB_PEER" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_getpeername
 		fi
