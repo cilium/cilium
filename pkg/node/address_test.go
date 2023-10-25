@@ -14,7 +14,6 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/cidr"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -27,93 +26,6 @@ type NodeSuite struct{}
 var _ = Suite(&NodeSuite{})
 
 func (s *NodeSuite) TearDownTest(c *C) {
-}
-
-// This also provides cover for RestoreHostIPs.
-func (s *NodeSuite) Test_chooseHostIPsToRestore(c *C) {
-	tests := []struct {
-		name            string
-		ipv6            bool
-		fromK8s, fromFS net.IP
-		cidr            *cidr.CIDR
-		expect          net.IP
-		err             error
-	}{
-		{
-			name:    "restore IP from fs (both provided)",
-			ipv6:    false,
-			fromK8s: net.ParseIP("192.0.2.127"),
-			fromFS:  net.ParseIP("192.0.2.255"),
-			cidr:    cidr.MustParseCIDR("192.0.2.0/24"),
-			expect:  net.ParseIP("192.0.2.255"),
-			err:     errMismatch,
-		},
-		{
-			name:   "restore IP from fs",
-			ipv6:   false,
-			fromFS: net.ParseIP("192.0.2.255"),
-			cidr:   cidr.MustParseCIDR("192.0.2.0/24"),
-			expect: net.ParseIP("192.0.2.255"),
-			err:    nil,
-		},
-		{
-			name:    "restore IP from k8s",
-			ipv6:    false,
-			fromK8s: net.ParseIP("192.0.2.127"),
-			cidr:    cidr.MustParseCIDR("192.0.2.0/24"),
-			expect:  net.ParseIP("192.0.2.127"),
-			err:     nil,
-		},
-		{
-			name:    "IP not part of CIDR",
-			ipv6:    false,
-			fromK8s: net.ParseIP("192.0.2.127"),
-			cidr:    cidr.MustParseCIDR("192.1.2.0/24"),
-			expect:  net.ParseIP("192.0.2.127"),
-			err:     errDoesNotBelong,
-		},
-		{
-			name: "no IPs to restore",
-			ipv6: false,
-			err:  nil,
-		},
-		{
-			name:    "restore IP from fs (both provided)",
-			ipv6:    true,
-			fromK8s: net.ParseIP("ff02::127"),
-			fromFS:  net.ParseIP("ff02::255"),
-			cidr:    cidr.MustParseCIDR("ff02::/64"),
-			expect:  net.ParseIP("ff02::255"),
-			err:     errMismatch,
-		},
-		{
-			name:   "restore IP from fs",
-			ipv6:   true,
-			fromFS: net.ParseIP("ff02::255"),
-			cidr:   cidr.MustParseCIDR("ff02::/64"),
-			expect: net.ParseIP("ff02::255"),
-			err:    nil,
-		},
-		{
-			name:    "restore IP from k8s",
-			ipv6:    true,
-			fromK8s: net.ParseIP("ff02::127"),
-			cidr:    cidr.MustParseCIDR("ff02::/64"),
-			expect:  net.ParseIP("ff02::127"),
-			err:     nil,
-		},
-		{
-			name: "no IPs to restore",
-			ipv6: true,
-			err:  nil,
-		},
-	}
-	for _, tt := range tests {
-		c.Log("Test: " + tt.name)
-		got, err := chooseHostIPsToRestore(tt.ipv6, tt.fromK8s, tt.fromFS, []*cidr.CIDR{tt.cidr})
-		c.Assert(err, checker.DeepEquals, tt.err)
-		c.Assert(got, checker.DeepEquals, tt.expect)
-	}
 }
 
 func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {

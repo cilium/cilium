@@ -30,7 +30,6 @@ import (
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -289,41 +288,6 @@ func (d *Daemon) init() error {
 	}
 
 	return nil
-}
-
-// restoreCiliumHostIPs completes the `cilium_host` IP restoration process
-// (part 2/2). This function is called after fully syncing with K8s to ensure
-// that the most up-to-date information has been retrieved. At this point, the
-// daemon is aware of all the necessary information to restore the appropriate
-// IP.
-func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s, fromFS net.IP) (restoredIP net.IP) {
-	var (
-		cidrs []*cidr.CIDR
-	)
-
-	if ipv6 {
-		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMCRD:
-			// The native routing CIDR is the pod CIDR in these IPAM modes.
-			cidrs = []*cidr.CIDR{option.Config.GetIPv6NativeRoutingCIDR()}
-		default:
-			cidrs = []*cidr.CIDR{node.GetIPv6AllocRange()}
-		}
-	} else {
-		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMCRD:
-			// The native routing CIDR is the pod CIDR in CRD mode.
-			cidrs = []*cidr.CIDR{option.Config.GetIPv4NativeRoutingCIDR()}
-		case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
-			// d.startIPAM() has already been called at this stage to initialize sharedNodeStore with ownNode info
-			// needed for GetVpcCIDRs()
-			cidrs = d.ipam.GetVpcCIDRs()
-		default:
-			cidrs = []*cidr.CIDR{node.GetIPv4AllocRange()}
-		}
-	}
-
-	return node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
 }
 
 // removeOldRouterState will try to ensure that the only IP assigned to the
