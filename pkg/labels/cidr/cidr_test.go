@@ -350,6 +350,91 @@ func TestIPStringToLabel(t *testing.T) {
 	}
 }
 
+func TestCIDRLabelsCacheHeapUsageIPv4(t *testing.T) {
+	t.Skip()
+
+	// save global config and restore it at the end of the test
+	enableIPv4, enableIPv6 := option.Config.EnableIPv4, option.Config.EnableIPv6
+	t.Cleanup(func() {
+		option.Config.EnableIPv4, option.Config.EnableIPv6 = enableIPv4, enableIPv6
+	})
+
+	option.Config.EnableIPv4, option.Config.EnableIPv6 = true, false
+
+	// clear the cache
+	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
+
+	// be sure to fill the cache
+	prefixes := make([]netip.Prefix, 0, 256*256)
+	octets := [4]byte{0, 0, 1, 1}
+	for i := 0; i < 256*256; i++ {
+		octets[0], octets[1] = byte(i/256), byte(i%256)
+		prefixes = append(prefixes, netip.PrefixFrom(netip.AddrFrom4(octets), 32))
+	}
+
+	var m1, m2 runtime.MemStats
+	// One GC does not give precise results,
+	// because concurrent sweep may be still in progress.
+	runtime.GC()
+	runtime.GC()
+	runtime.ReadMemStats(&m1)
+
+	for _, cidr := range prefixes {
+		_ = GetCIDRLabels(cidr)
+	}
+
+	runtime.GC()
+	runtime.GC()
+	runtime.ReadMemStats(&m2)
+
+	usage := m2.HeapAlloc - m1.HeapAlloc
+	t.Logf("Memoization map heap usage: %.2f KiB", float64(usage)/1024)
+}
+
+func TestCIDRLabelsCacheHeapUsageIPv6(t *testing.T) {
+	t.Skip()
+
+	// save global config and restore it at the end of the test
+	enableIPv4, enableIPv6 := option.Config.EnableIPv4, option.Config.EnableIPv6
+	t.Cleanup(func() {
+		option.Config.EnableIPv4, option.Config.EnableIPv6 = enableIPv4, enableIPv6
+	})
+
+	option.Config.EnableIPv4, option.Config.EnableIPv6 = true, true
+
+	// clear the cache
+	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
+
+	// be sure to fill the cache
+	prefixes := make([]netip.Prefix, 0, 256*256)
+	octets := [16]byte{
+		0x00, 0x00, 0x00, 0xd8, 0x33, 0x33, 0x44, 0x44,
+		0x55, 0x55, 0x66, 0x66, 0x77, 0x77, 0x88, 0x88,
+	}
+	for i := 0; i < 256*256; i++ {
+		octets[15], octets[14] = byte(i/256), byte(i%256)
+		prefixes = append(prefixes, netip.PrefixFrom(netip.AddrFrom16(octets), 128))
+	}
+
+	var m1, m2 runtime.MemStats
+	// One GC does not give precise results,
+	// because concurrent sweep may be still in progress.
+	runtime.GC()
+	runtime.GC()
+	runtime.ReadMemStats(&m1)
+
+	for _, cidr := range prefixes {
+		_ = GetCIDRLabels(cidr)
+	}
+
+	runtime.GC()
+	runtime.GC()
+	runtime.ReadMemStats(&m2)
+
+	usage := m2.HeapAlloc - m1.HeapAlloc
+	t.Logf("Memoization map heap usage: %.2f KiB", float64(usage)/1024)
+}
+
 func BenchmarkGetCIDRLabels(b *testing.B) {
 	// clear the cache
 	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
@@ -409,87 +494,6 @@ func BenchmarkGetCIDRLabelsConcurrent(b *testing.B) {
 			}
 		})
 	}
-}
-
-// BenchmarkCIDRLabelsCacheHeapUsageIPv4 should be run with -benchtime=1x
-func BenchmarkCIDRLabelsCacheHeapUsageIPv4(b *testing.B) {
-	b.Skip()
-
-	// clear the cache
-	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
-
-	// be sure to fill the cache
-	prefixes := make([]netip.Prefix, 0, 256*256)
-	octets := [4]byte{0, 0, 1, 1}
-	for i := 0; i < 256*256; i++ {
-		octets[0], octets[1] = byte(i/256), byte(i%256)
-		prefixes = append(prefixes, netip.PrefixFrom(netip.AddrFrom4(octets), 32))
-	}
-
-	var m1, m2 runtime.MemStats
-	// One GC does not give precise results,
-	// because concurrent sweep may be still in progress.
-	runtime.GC()
-	runtime.GC()
-	runtime.ReadMemStats(&m1)
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		for _, cidr := range prefixes {
-			_ = GetCIDRLabels(cidr)
-		}
-	}
-	b.StopTimer()
-
-	runtime.GC()
-	runtime.GC()
-	runtime.ReadMemStats(&m2)
-
-	usage := m2.HeapAlloc - m1.HeapAlloc
-	b.Logf("Memoization map heap usage: %.2f KiB", float64(usage)/1024)
-}
-
-// BenchmarkCIDRLabelsCacheHeapUsageIPv6 should be run with -benchtime=1x
-func BenchmarkCIDRLabelsCacheHeapUsageIPv6(b *testing.B) {
-	b.Skip()
-
-	// clear the cache
-	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
-
-	// be sure to fill the cache
-	prefixes := make([]netip.Prefix, 0, 256*256)
-	octets := [16]byte{
-		0x00, 0x00, 0x00, 0xd8, 0x33, 0x33, 0x44, 0x44,
-		0x55, 0x55, 0x66, 0x66, 0x77, 0x77, 0x88, 0x88,
-	}
-	for i := 0; i < 256*256; i++ {
-		octets[15], octets[14] = byte(i/256), byte(i%256)
-		prefixes = append(prefixes, netip.PrefixFrom(netip.AddrFrom16(octets), 128))
-	}
-
-	var m1, m2 runtime.MemStats
-	// One GC does not give precise results,
-	// because concurrent sweep may be still in progress.
-	runtime.GC()
-	runtime.GC()
-	runtime.ReadMemStats(&m1)
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		for _, cidr := range prefixes {
-			_ = GetCIDRLabels(cidr)
-		}
-	}
-	b.StopTimer()
-
-	runtime.GC()
-	runtime.GC()
-	runtime.ReadMemStats(&m2)
-
-	usage := m2.HeapAlloc - m1.HeapAlloc
-	b.Logf("Memoization map heap usage: %.2f KiB", float64(usage)/1024)
 }
 
 func BenchmarkIPStringToLabel(b *testing.B) {
