@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package tables_test
 
 import (
@@ -8,16 +11,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/spf13/pflag"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
 )
 
 func TestNodeAddressConfig(t *testing.T) {
@@ -115,31 +119,6 @@ func TestNodeAddress(t *testing.T) {
 			want: []net.IP{
 				net.ParseIP("2001:db8::1"),
 				net.ParseIP("2600:beef::2"),
-			},
-		},
-		{
-
-			name: "skip-out-of-scope-addrs",
-
-			addrs: []tables.DeviceAddress{
-				{
-					Addr:  netip.MustParseAddr("10.0.1.1"),
-					Scope: unix.RT_SCOPE_SITE,
-				},
-				{
-					Addr:  netip.MustParseAddr("10.0.2.2"),
-					Scope: unix.RT_SCOPE_HOST,
-				},
-				{
-					Addr:  netip.MustParseAddr("10.0.3.3"),
-					Scope: unix.RT_SCOPE_LINK,
-				},
-			},
-
-			// The default AddressMaxScope is set to LINK-1, so addresses with
-			// scope LINK or above are ignored
-			want: []net.IP{
-				net.ParseIP("10.0.1.1"),
 			},
 		},
 	}

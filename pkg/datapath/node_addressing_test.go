@@ -41,13 +41,12 @@ func setupDBAndTable(t *testing.T) (db *statedb.DB, nodeAddrs statedb.RWTable[ta
 func TestLocalAddresses(t *testing.T) {
 	db, nodeAddrs, devices := setupDBAndTable(t)
 
-	// Add the "cilium_host" device to test that LocalAddresses() also includes
-	// the cilium_host IP address.
 	{
 		txn := db.WriteTxn(devices)
 		devices.Insert(txn, &tables.Device{
 			Index: 1,
 			Name:  "cilium_host",
+			Flags: net.FlagUp,
 			Addrs: []tables.DeviceAddress{
 				{Addr: netip.MustParseAddr("9.9.9.9"), Scope: unix.RT_SCOPE_SITE},
 			},
@@ -56,19 +55,20 @@ func TestLocalAddresses(t *testing.T) {
 	}
 
 	nodeAddressing := datapath.NewNodeAddressing(
-		tables.AddressScopeMax(defaults.AddressScopeMax), nil, db, nodeAddrs, devices,
+		datapath.AddressScopeMax(defaults.AddressScopeMax), nil, db, nodeAddrs, devices,
 	)
 
 	tests := []struct {
 		name  string
-		addrs []tables.NodeAddress
+		addrs []tables.DeviceAddress
 		want  []net.IP
 	}{
 		{
 			name: "ipv4 simple",
-			addrs: []tables.NodeAddress{
+			addrs: []tables.DeviceAddress{
 				{
-					Addr: netip.MustParseAddr("10.0.0.1"),
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: unix.RT_SCOPE_SITE,
 				},
 			},
 			want: []net.IP{
@@ -78,9 +78,10 @@ func TestLocalAddresses(t *testing.T) {
 		},
 		{
 			name: "ipv6 simple",
-			addrs: []tables.NodeAddress{
+			addrs: []tables.DeviceAddress{
 				{
-					Addr: netip.MustParseAddr("2001:db8::1"),
+					Addr:  netip.MustParseAddr("2001:db8::1"),
+					Scope: unix.RT_SCOPE_SITE,
 				},
 			},
 
@@ -91,12 +92,14 @@ func TestLocalAddresses(t *testing.T) {
 		},
 		{
 			name: "v4/v6 mix",
-			addrs: []tables.NodeAddress{
+			addrs: []tables.DeviceAddress{
 				{
-					Addr: netip.MustParseAddr("10.0.0.1"),
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: unix.RT_SCOPE_SITE,
 				},
 				{
-					Addr: netip.MustParseAddr("2001:db8::1"),
+					Addr:  netip.MustParseAddr("2001:db8::1"),
+					Scope: unix.RT_SCOPE_UNIVERSE,
 				},
 			},
 
@@ -106,15 +109,42 @@ func TestLocalAddresses(t *testing.T) {
 				net.ParseIP("9.9.9.9"), // cilium_host
 			},
 		},
+		{
+
+			name: "skip-out-of-scope-addrs",
+			addrs: []tables.DeviceAddress{
+				{
+					Addr:  netip.MustParseAddr("10.0.1.1"),
+					Scope: unix.RT_SCOPE_UNIVERSE,
+				},
+				{
+					Addr:  netip.MustParseAddr("10.0.2.2"),
+					Scope: unix.RT_SCOPE_LINK,
+				},
+				{
+					Addr:  netip.MustParseAddr("10.0.3.3"),
+					Scope: unix.RT_SCOPE_HOST,
+				},
+			},
+
+			// The default AddressMaxScope is set to LINK-1, so addresses with
+			// scope LINK or above are ignored
+			want: []net.IP{
+				net.ParseIP("10.0.1.1"),
+				net.ParseIP("9.9.9.9"), // cilium_host
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			txn := db.WriteTxn(nodeAddrs)
-			nodeAddrs.DeleteAll(txn)
-			for _, addr := range tt.addrs {
-				nodeAddrs.Insert(txn, addr)
-			}
+			txn := db.WriteTxn(devices)
+			devices.Insert(txn, &tables.Device{
+				Index: 2,
+				Name:  "test",
+				Flags: net.FlagUp,
+				Addrs: tt.addrs,
+			})
 			txn.Commit()
 
 			v4, err := nodeAddressing.IPv4().LocalAddresses()

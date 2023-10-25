@@ -5,13 +5,18 @@ package datapath
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strings"
+
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -19,12 +24,40 @@ import (
 
 var NodeAddressingCell = cell.Module(
 	"node-addressing",
-	"Accessors for looking up node IP address information",
+	"Accessors for looking up local node IP addresses",
 
+	cell.Config(nodeAddressingConfig{}),
+	cell.ProvidePrivate(newAddressScopeMax),
 	cell.Provide(NewNodeAddressing),
 )
 
-func NewNodeAddressing(addressScopeMax tables.AddressScopeMax, localNode *node.LocalNodeStore, db *statedb.DB, nodeAddresses statedb.Table[tables.NodeAddress], devices statedb.Table[*tables.Device]) types.NodeAddressing {
+const (
+	addressScopeMaxFlag = "local-max-addr-scope"
+)
+
+type nodeAddressingConfig struct {
+	// AddressScopeMax controls the maximum address scope for addresses to be
+	// considered local ones. Affects which addresses are used for NodePort
+	// and which have HOST_ID in the ipcache.
+	AddressScopeMax string `mapstructure:"local-max-addr-scope"`
+}
+
+func (nodeAddressingConfig) Flags(flags *pflag.FlagSet) {
+	flags.String(addressScopeMaxFlag, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
+	flags.MarkHidden(addressScopeMaxFlag)
+}
+
+type AddressScopeMax uint8
+
+func newAddressScopeMax(cfg nodeAddressingConfig) (AddressScopeMax, error) {
+	scope, err := ip.ParseScope(cfg.AddressScopeMax)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot parse scope integer from --%s option", addressScopeMaxFlag)
+	}
+	return AddressScopeMax(scope), nil
+}
+
+func NewNodeAddressing(addressScopeMax AddressScopeMax, localNode *node.LocalNodeStore, db *statedb.DB, nodeAddresses statedb.Table[tables.NodeAddress], devices statedb.Table[*tables.Device]) types.NodeAddressing {
 	return &nodeAddressing{
 		addressScopeMax: addressScopeMax,
 		localNode:       localNode,
@@ -109,7 +142,7 @@ func (a addressFamilyIPv6) DirectRouting() (int, net.IP, bool) {
 }
 
 type nodeAddressing struct {
-	addressScopeMax tables.AddressScopeMax
+	addressScopeMax AddressScopeMax
 	localNode       *node.LocalNodeStore
 	db              *statedb.DB
 	nodeAddresses   statedb.Table[tables.NodeAddress]
@@ -131,16 +164,31 @@ func (na *nodeAddressing) getNodeAddresses(txn statedb.ReadTxn, ipv6 bool) (addr
 }
 
 func (na *nodeAddressing) getLocalAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP, err error) {
-	// FIXME: Does this include all addresses we care to mark with HOST_ID?
+	// TODO: LocalAddresses() is really used only to update ipcache with "HOST_ID" IPs and
+	// by ctmap gc. Could move this code to a controller that updates ipcache and ctmap gc
+	// could get host_id ips from ipcache. Would also be good to lock down what exactly is
+	// a "local address" and how it differs from "node address".
+	//
+	// This code currently tries to stay as compatible with the original code as possible
+	// and thus goes through all devices.
 
-	// Collect the addresses of native external-facing network devices
-	addrs = na.getNodeAddresses(txn, ipv6)
+	devices, _ := na.devices.All(txn)
+	for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+		if dev.Flags&net.FlagUp == 0 {
+			continue
+		}
+		if strings.HasPrefix(dev.Name, "lxc") || strings.HasPrefix(dev.Name, "docker") {
+			// TODO: use defaults.ExcludedDevicePrefixes but keep cilium_host?
+			continue
+		}
+		for _, addr := range dev.Addrs {
+			// Keep the scope-based address filtering as was introduced
+			// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
 
-	// Also include cilium_host addresses as local addresses.
-	hostDev, _, ok := na.devices.First(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
-	if ok {
-		for _, addr := range hostDev.Addrs {
 			if addr.Scope > uint8(na.addressScopeMax) {
+				continue
+			}
+			if addr.Addr.IsLoopback() {
 				continue
 			}
 			if ipv6 && addr.Addr.Is4() {

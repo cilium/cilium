@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package tables
 
 import (
@@ -8,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -17,18 +23,18 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// NodeAddress is a publicly routable IP address on the local Cilium node.
 type NodeAddress struct {
-	Addr       netip.Addr
+	netip.Addr
+
+	Primary    bool // True if this is the primary address of this device.
 	DeviceName string
 }
 
 func (n *NodeAddress) IP() net.IP {
-	return n.Addr.AsSlice()
+	return n.AsSlice()
 }
 
 func (n *NodeAddress) String() string {
@@ -62,35 +68,15 @@ var (
 
 		statedb.NewPrivateRWTableCell[NodeAddress](NodeAddressTableName, NodeAddressIndex),
 		cell.Provide(
-			newAddressScopeMax,
 			newNodeAddressTable,
 		),
 		cell.Config(NodeAddressConfig{}),
 	)
 )
 
-type AddressScopeMax uint8
-
-func newAddressScopeMax(cfg NodeAddressConfig) (AddressScopeMax, error) {
-	scope, err := ip.ParseScope(cfg.AddressScopeMax)
-	if err != nil {
-		return 0, fmt.Errorf("Cannot parse scope integer from --%s option", addressScopeMaxFlag)
-	}
-	return AddressScopeMax(scope), nil
-}
-
 type NodeAddressConfig struct {
 	NodeAddresses []*cidr.CIDR `mapstructure:"node-addresses"`
-
-	// AddressScopeMax controls the maximum address scope for addresses to be
-	// considered local ones. Affects which addresses are used for NodePort
-	// and which have HOST_ID in the ipcache.
-	AddressScopeMax string `mapstructure:"local-max-addr-scope"`
 }
-
-const (
-	addressScopeMaxFlag = "local-max-addr-scope"
-)
 
 func (cfg NodeAddressConfig) getNets() []*net.IPNet {
 	nets := make([]*net.IPNet, len(cfg.NodeAddresses))
@@ -105,23 +91,19 @@ func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
 		"node-addresses",
 		nil,
 		"A whitelist of CIDRs to limit which IPs are considered node addresses. If not set, primary IP address of each native device is used.")
-
-	flags.String(addressScopeMaxFlag, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
-	flags.MarkHidden(addressScopeMaxFlag)
 }
 
 type nodeAddressSource struct {
 	cell.In
 
-	HealthScope     cell.Scope
-	Log             logrus.FieldLogger
-	Config          NodeAddressConfig
-	Lifecycle       hive.Lifecycle
-	Jobs            job.Registry
-	DB              *statedb.DB
-	Devices         statedb.Table[*Device]
-	NodeAddresses   statedb.RWTable[NodeAddress]
-	AddressScopeMax AddressScopeMax
+	HealthScope   cell.Scope
+	Log           logrus.FieldLogger
+	Config        NodeAddressConfig
+	Lifecycle     hive.Lifecycle
+	Jobs          job.Registry
+	DB            *statedb.DB
+	Devices       statedb.Table[*Device]
+	NodeAddresses statedb.RWTable[NodeAddress]
 }
 
 func newNodeAddressTable(n nodeAddressSource) (tbl statedb.Table[NodeAddress], err error) {
@@ -206,26 +188,19 @@ func (n *nodeAddressSource) getCurrentAddresses(txn statedb.ReadTxn) sets.Set[No
 func (n *nodeAddressSource) getAddressesFromDevices(devs []*Device) (addrs sets.Set[NodeAddress]) {
 	addrs = sets.New[NodeAddress]()
 	for _, dev := range devs {
+		first := true
 		for _, addr := range dev.Addrs {
-			// Keep the scope-based address filtering as was introduced
-			// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
-			if addr.Scope > uint8(n.AddressScopeMax) {
-				fmt.Printf("skipped %s: %d > %d\n", addr.Addr, addr.Scope, n.AddressScopeMax)
-				continue
-			}
-			if addr.Addr.IsLoopback() {
-				continue
-			}
-
 			if len(n.Config.NodeAddresses) == 0 {
-				addrs.Insert(NodeAddress{Addr: addr.Addr, DeviceName: dev.Name})
+				addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: first, DeviceName: dev.Name})
 
 				// The default behavior when --nodeport-addresses is not set is
 				// to only use the primary IP of each device, so stop here.
 				break
 			} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
-				addrs.Insert(NodeAddress{Addr: addr.Addr, DeviceName: dev.Name})
+				addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: first, DeviceName: dev.Name})
 			}
+
+			first = false
 		}
 	}
 	return
