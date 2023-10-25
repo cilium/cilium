@@ -726,6 +726,25 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 		--version= \
 		>/dev/null 2>&1 &
 
+
+.PHONY: kind-egressgw-install-cilium
+kind-egressgw-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
+	# cilium-cli's --wait flag doesn't work, so we just force it to run
+	# in the background instead and wait for the resources to be available.
+	# https://github.com/cilium/cilium-cli/issues/1070
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		$(KIND_VALUES_FILES) \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-egressgw-values.yaml \
+		--nodes-without-cilium=kind-worker3 \
+		--version= \
+		>/dev/null 2>&1 &
+
 .PHONY: kind-uninstall-cilium
 kind-uninstall-cilium: ## Uninstall Cilium from the cluster.
 	@echo "  UNINSTALL cilium"
