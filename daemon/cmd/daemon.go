@@ -239,12 +239,6 @@ func (d *Daemon) GetOptions() *option.IntOptions {
 	return option.Config.Opts
 }
 
-// GetCompilationLock returns the mutex responsible for synchronizing compilation
-// of BPF programs.
-func (d *Daemon) GetCompilationLock() *lock.RWMutex {
-	return d.compilationMutex
-}
-
 func (d *Daemon) init() error {
 	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
