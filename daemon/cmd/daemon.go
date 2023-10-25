@@ -296,10 +296,9 @@ func (d *Daemon) init() error {
 // that the most up-to-date information has been retrieved. At this point, the
 // daemon is aware of all the necessary information to restore the appropriate
 // IP.
-func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) (restoredIP net.IP) {
+func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s, fromFS net.IP) (restoredIP net.IP) {
 	var (
-		cidrs  []*cidr.CIDR
-		fromFS net.IP
+		cidrs []*cidr.CIDR
 	)
 
 	if ipv6 {
@@ -310,7 +309,6 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) (restoredIP net
 		default:
 			cidrs = []*cidr.CIDR{node.GetIPv6AllocRange()}
 		}
-		fromFS = node.GetIPv6Router()
 	} else {
 		switch option.Config.IPAMMode() {
 		case ipamOption.IPAMCRD:
@@ -323,7 +321,6 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) (restoredIP net
 		default:
 			cidrs = []*cidr.CIDR{node.GetIPv4AllocRange()}
 		}
-		fromFS = node.GetInternalIPv4Router()
 	}
 
 	return node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
@@ -1019,6 +1016,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// IPAM initialization to finish off the `cilium_host` IP restoration (part
 	// 2/2).
 	router4FromK8s, router6FromK8s := node.GetInternalIPv4Router(), node.GetIPv6Router()
+	// Fetch the router IPs from the filesystem in case they were set a priori
+	router4FromFS, router6FromFS := node.ExtractCiliumHostIPFromFS()
 
 	// Configure IPAM without using the configuration yet.
 	d.configureIPAM()
@@ -1060,10 +1059,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// K8s resources have been synced. Part 2/2 of restoration.
 	var restoredRouterIPv4, restoredRouterIPv6 net.IP
 	if option.Config.EnableIPv4 {
-		restoredRouterIPv4 = d.restoreCiliumHostIPs(false, router4FromK8s)
+		restoredRouterIPv4 = d.restoreCiliumHostIPs(false, router4FromK8s, router4FromFS)
 	}
 	if option.Config.EnableIPv6 {
-		restoredRouterIPv6 = d.restoreCiliumHostIPs(true, router6FromK8s)
+		restoredRouterIPv6 = d.restoreCiliumHostIPs(true, router6FromK8s, router6FromFS)
 	}
 	removeOldCiliumHostIPs(ctx, restoredRouterIPv4, restoredRouterIPv6)
 
