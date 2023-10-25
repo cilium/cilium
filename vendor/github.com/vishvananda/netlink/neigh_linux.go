@@ -339,13 +339,13 @@ func NeighDeserialize(m []byte) (*Neigh, error) {
 // NeighSubscribe takes a chan down which notifications will be sent
 // when neighbors are added or deleted. Close the 'done' chan to stop subscription.
 func NeighSubscribe(ch chan<- NeighUpdate, done <-chan struct{}) error {
-	return neighSubscribeAt(netns.None(), netns.None(), ch, done, nil, false)
+	return neighSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // NeighSubscribeAt works like NeighSubscribe plus it allows the caller
 // to choose the network namespace in which to subscribe (ns).
 func NeighSubscribeAt(ns netns.NsHandle, ch chan<- NeighUpdate, done <-chan struct{}) error {
-	return neighSubscribeAt(ns, netns.None(), ch, done, nil, false)
+	return neighSubscribeAt(ns, netns.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // NeighSubscribeOptions contains a set of options to use with
@@ -354,6 +354,11 @@ type NeighSubscribeOptions struct {
 	Namespace     *netns.NsHandle
 	ErrorCallback func(error)
 	ListExisting  bool
+
+	// max size is based on value of /proc/sys/net/core/rmem_max
+	ReceiveBufferSize      int
+	ReceiveBufferForceSize bool
+	ReceiveTimeout         *unix.Timeval
 }
 
 // NeighSubscribeWithOptions work like NeighSubscribe but enable to
@@ -364,10 +369,12 @@ func NeighSubscribeWithOptions(ch chan<- NeighUpdate, done <-chan struct{}, opti
 		none := netns.None()
 		options.Namespace = &none
 	}
-	return neighSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting)
+	return neighSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting,
+		options.ReceiveBufferSize, options.ReceiveTimeout, options.ReceiveBufferForceSize)
 }
 
-func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <-chan struct{}, cberr func(error), listExisting bool) error {
+func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
+	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
 	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_NEIGH)
 	makeRequest := func(family int) error {
 		req := pkgHandle.newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
@@ -380,6 +387,17 @@ func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <
 	}
 	if err != nil {
 		return err
+	}
+	if rcvTimeout != nil {
+		if err := s.SetReceiveTimeout(rcvTimeout); err != nil {
+			return err
+		}
+	}
+	if rcvbuf != 0 {
+		err = s.SetReceiveBufferSize(rcvbuf, rcvbufForce)
+		if err != nil {
+			return err
+		}
 	}
 	if done != nil {
 		go func() {

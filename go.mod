@@ -83,7 +83,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.17.0
 	github.com/tidwall/sjson v1.2.5
-	github.com/vishvananda/netlink v1.2.1-beta.2.0.20230807190133-6afddb37c1f0
+	github.com/vishvananda/netlink v1.2.1-beta.2.0.20231024175852-77df5d35f725
 	github.com/vishvananda/netns v0.0.4
 	go.etcd.io/etcd/api/v3 v3.5.9
 	go.etcd.io/etcd/client/pkg/v3 v3.5.9
