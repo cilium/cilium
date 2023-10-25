@@ -1,0 +1,15 @@
+{{- if and .Values.defaultPolicies.enabled .Values.defaultPolicies.remove -}}
+{{- fail "defaultPolicies.enabled and defaultPolicies.remove cannot both be true" -}}
+{{- end -}}
+{{- if or .Values.defaultPolicies.enabled .Values.defaultPolicies.remove -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-default-policies
+  namespace: {{ .Release.Namespace }}
+data:
+  ingress.yaml: |-
+    {{- .Files.Get "files/policies/ingress.yaml" | nindent 4 }}
+  egress.yaml: |-
+    {{- .Files.Get "files/policies/egress.yaml" | nindent 4 }}
+{{- end }}

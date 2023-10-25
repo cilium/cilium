@@ -126,6 +126,11 @@ serviceAccounts:
     name: hubble-generate-certs
     automount: true
     annotations: {}
+  defaultPolicies:
+    create: true
+    name: cilium-default-policies
+    automount: true
+    annotations: {}
   extraPolicies:
     create: true
     name: cilium-extra-policies
@@ -3217,6 +3222,14 @@ authentication:
       agentSocketPath: /run/spire/sockets/agent/agent.sock
       # -- SPIRE connection timeout
       connectionTimeout: 30s
+defaultPolicies:
+  enabled: false
+  remove: false
+  # -- Node tolerations for default-policies job scheduling to nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  tolerations:
+  - operator: Exists
+
 extraPolicies:
   allowEgressToCoreDNS:
     enabled: false
