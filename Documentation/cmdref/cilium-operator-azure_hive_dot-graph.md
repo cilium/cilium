@@ -25,9 +25,11 @@ cilium-operator-azure hive dot-graph [flags]
       --cluster-name string                                  Name of the cluster (default "default")
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-gateway-api-secrets-sync                      Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag) (default true)
       --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
+      --gateway-api-secrets-namespace string                 Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
       --identity-gc-interval duration                        GC interval for security identities (default 15m0s)
       --identity-gc-rate-interval duration                   Interval used for rate limiting the GC of security identities (default 1m0s)

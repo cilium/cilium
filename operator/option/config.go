@@ -256,15 +256,8 @@ const (
 	// by ingress-secrets-namespace flag
 	EnableIngressSecretsSync = "enable-ingress-secrets-sync"
 
-	// EnableGatewayAPISecretsSync enables fan-in TLS secrets from multiple namespaces to singular namespace (specified
-	// by gateway-api-secrets-namespace flag
-	EnableGatewayAPISecretsSync = "enable-gateway-api-secrets-sync"
-
 	// IngressSecretsNamespace is the namespace having tls secrets used by Ingress and CEC.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
-
-	// GatewayAPISecretsNamespace is the namespace having tls secrets used by GatewayAPI and CEC.
-	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
 
 	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
 	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
@@ -516,14 +509,8 @@ type OperatorConfig struct {
 	// EnableIngressSecretsSync enables background TLS secret sync for Ingress
 	EnableIngressSecretsSync bool
 
-	// EnableGatewayAPISecretsSync enables background TLS secret sync for Gateway API
-	EnableGatewayAPISecretsSync bool
-
 	// IngressSecretsNamespace is the namespace having tls secrets used by CEC for Ingress.
 	IngressSecretsNamespace string
-
-	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC for Gateway API.
-	GatewayAPISecretsNamespace string
 
 	// ProxyIdleTimeoutSeconds is the idle timeout for the proxy to upstream cluster
 	ProxyIdleTimeoutSeconds int
@@ -603,13 +590,11 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
 	c.EnableIngressProxyProtocol = vp.GetBool(EnableIngressProxyProtocol)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
-	c.GatewayAPISecretsNamespace = vp.GetString(GatewayAPISecretsNamespace)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {
 		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
 	}
 	c.EnableIngressSecretsSync = vp.GetBool(EnableIngressSecretsSync)
-	c.EnableGatewayAPISecretsSync = vp.GetBool(EnableGatewayAPISecretsSync)
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
 	c.SetCiliumNodeTaints = vp.GetBool(SetCiliumNodeTaints)
