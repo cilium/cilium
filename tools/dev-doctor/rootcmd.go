@@ -213,7 +213,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		&binaryCheck{
 			name:          "kubectl",
 			ifNotFound:    checkWarning,
-			versionArgs:   []string{"version --output=yaml"},
+			versionArgs:   []string{"version", "--output=yaml", "--client=true"},
 			versionRegexp: regexp.MustCompile(`gitVersion: v(\d+\.\d+\.\d+)`),
 			minVersion:    &semver.Version{Major: 1, Minor: 14, Patch: 0},
 			hint:          "See https://kubernetes.io/docs/tasks/tools/#kubectl.",
@@ -221,7 +221,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		&binaryCheck{
 			name:          "cilium",
 			ifNotFound:    checkWarning,
-			versionArgs:   []string{"version --client"},
+			versionArgs:   []string{"version", "--client"},
 			versionRegexp: regexp.MustCompile(`cilium-cli: v(\d+\.\d+\.\d+)`),
 			hint:          "See https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/#install-the-cilium-cli.",
 		},
