@@ -119,7 +119,15 @@ type Proxy struct {
 	dnsIntegration   *dnsProxyIntegration
 }
 
-func createProxy(minPort uint16, maxPort uint16, datapathUpdater DatapathUpdater, envoyIntegration *envoyProxyIntegration, dnsIntegration *dnsProxyIntegration, xdsServer envoy.XDSServer) *Proxy {
+func createProxy(
+	minPort uint16,
+	maxPort uint16,
+	dnsProxyPort uint16,
+	datapathUpdater DatapathUpdater,
+	envoyIntegration *envoyProxyIntegration,
+	dnsIntegration *dnsProxyIntegration,
+	xdsServer envoy.XDSServer,
+) *Proxy {
 	return &Proxy{
 		XDSServer:        xdsServer,
 		rangeMin:         minPort,
@@ -127,13 +135,13 @@ func createProxy(minPort uint16, maxPort uint16, datapathUpdater DatapathUpdater
 		redirects:        make(map[string]*Redirect),
 		datapathUpdater:  datapathUpdater,
 		allocatedPorts:   make(map[uint16]bool),
-		proxyPorts:       defaultProxyPortMap(),
+		proxyPorts:       defaultProxyPortMap(dnsProxyPort),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
 	}
 }
 
-func defaultProxyPortMap() map[string]*ProxyPort {
+func defaultProxyPortMap(dnsProxyPort uint16) map[string]*ProxyPort {
 	return map[string]*ProxyPort{
 		"cilium-http-egress": {
 			proxyType: types.ProxyTypeHTTP,
@@ -149,6 +157,7 @@ func defaultProxyPortMap() map[string]*ProxyPort {
 			proxyType: types.ProxyTypeDNS,
 			ingress:   false,
 			localOnly: true,
+			proxyPort: dnsProxyPort,
 		},
 		"cilium-proxylib-egress": {
 			proxyType: types.ProxyTypeAny,

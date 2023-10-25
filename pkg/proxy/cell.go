@@ -20,11 +20,26 @@ var Cell = cell.Module(
 	"l7-proxy",
 	"L7 Proxy provides support for L7 network policies",
 
+	cell.Provide(func() ProxyConfig { return DefaultProxyConfig }),
+
 	cell.Provide(newProxy),
 	cell.Provide(newEnvoyProxyIntegration),
 	cell.Provide(newDNSProxyIntegration),
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
 )
+
+type ProxyConfig struct {
+	minPort, maxPort uint16
+	dnsProxyPort     uint16
+}
+
+var DefaultProxyConfig = ProxyConfig{
+	minPort: 10000,
+	maxPort: 20000,
+	// The default value for the DNS proxy port is set to 0 to allocate a random
+	// port.
+	dnsProxyPort: 0,
+}
 
 type proxyParams struct {
 	cell.In
@@ -37,7 +52,7 @@ type proxyParams struct {
 	XdsServer             envoy.XDSServer
 }
 
-func newProxy(params proxyParams) *Proxy {
+func newProxy(params proxyParams, cfg ProxyConfig) *Proxy {
 	if !option.Config.EnableL7Proxy {
 		log.Info("L7 proxies are disabled")
 		if option.Config.EnableEnvoyConfig {
@@ -48,8 +63,7 @@ func newProxy(params proxyParams) *Proxy {
 
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
-	// FIXME: Make the port range configurable.
-	return createProxy(10000, 20000, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
+	return createProxy(cfg.minPort, cfg.maxPort, cfg.dnsProxyPort, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
 }
 
 type envoyProxyIntegrationParams struct {
