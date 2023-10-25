@@ -177,7 +177,7 @@ func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
 			c.onEndpointUpdate(event.Object)
 		case resource.Delete:
 			c.logger.WithFields(logrus.Fields{
-				logfields.CEPName: event.Key.String()}).Debug("Got Upsert Endpoint event")
+				logfields.CEPName: event.Key.String()}).Debug("Got Delete Endpoint event")
 			c.onEndpointDelete(event.Object)
 		}
 		event.Done(nil)
@@ -190,11 +190,11 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 		switch event.Kind {
 		case resource.Upsert:
 			c.logger.WithFields(logrus.Fields{
-				logfields.CESName: event.Key.String()}).Debug("Got Upsert Endpoint event")
+				logfields.CESName: event.Key.String()}).Debug("Got Upsert Endpoint Slice event")
 			c.onSliceUpdate(event.Object)
 		case resource.Delete:
 			c.logger.WithFields(logrus.Fields{
-				logfields.CESName: event.Key.String()}).Debug("Got Upsert Endpoint event")
+				logfields.CESName: event.Key.String()}).Debug("Got Delete Endpoint Slice event")
 			c.onSliceDelete(event.Object)
 		}
 		event.Done(nil)
