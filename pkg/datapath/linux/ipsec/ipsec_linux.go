@@ -22,6 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -56,10 +57,6 @@ const (
 	offsetEncKey   = 4
 	offsetIP       = 5
 	maxOffset      = offsetIP
-
-	// ipSecXfrmMarkSPIShift defines how many bits the SPI is shifted when
-	// encoded in a XfrmMark
-	ipSecXfrmMarkSPIShift = 12
 
 	defaultDropPriority      = 100
 	oldXFRMOutPolicyPriority = 50
@@ -494,20 +491,7 @@ func deprioritizeOldOutPolicy(family int) {
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
 // value with the SPI value encoded in it
 func ipSecXfrmMarkSetSPI(markValue uint32, spi uint8) uint32 {
-	return markValue | (uint32(spi) << ipSecXfrmMarkSPIShift)
-}
-
-// ipSecXfrmMarkGetSPI extracts from a XfrmMark value the encoded SPI
-func ipSecXfrmMarkGetSPI(markValue uint32) uint8 {
-	return uint8(markValue >> ipSecXfrmMarkSPIShift & 0xF)
-}
-
-func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
-	if policy.Mark == nil {
-		return 0
-	}
-
-	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
+	return markValue | (uint32(spi) << linux_defaults.IPsecXFRMMarkSPIShift)
 }
 
 func getNodeIDFromXfrmMark(mark *netlink.XfrmMark) uint16 {
@@ -1080,8 +1064,7 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 	}
 
 	for _, p := range xfrmPolicyList {
-		policySPI := getSPIFromXfrmPolicy(&p)
-
+		policySPI := ipsec.GetSPIFromXfrmPolicy(&p)
 		if !ipSecSPICanBeReclaimed(policySPI, reclaimTimestamp) {
 			continue
 		}
