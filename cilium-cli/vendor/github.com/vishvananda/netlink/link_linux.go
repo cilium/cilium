@@ -612,6 +612,43 @@ func (h *Handle) LinkSetVfVlanQos(link Link, vf, vlan, qos int) error {
 	return err
 }
 
+// LinkSetVfVlanQosProto sets the vlan, qos and protocol of a vf for the link.
+// Equivalent to: `ip link set $link vf $vf vlan $vlan qos $qos proto $proto`
+func LinkSetVfVlanQosProto(link Link, vf, vlan, qos, proto int) error {
+	return pkgHandle.LinkSetVfVlanQosProto(link, vf, vlan, qos, proto)
+}
+
+// LinkSetVfVlanQosProto sets the vlan, qos and protocol of a vf for the link.
+// Equivalent to: `ip link set $link vf $vf vlan $vlan qos $qos proto $proto`
+func (h *Handle) LinkSetVfVlanQosProto(link Link, vf, vlan, qos, proto int) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(unix.RTM_SETLINK, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	data := nl.NewRtAttr(unix.IFLA_VFINFO_LIST, nil)
+	vfInfo := data.AddRtAttr(nl.IFLA_VF_INFO, nil)
+	vfVlanList := vfInfo.AddRtAttr(nl.IFLA_VF_VLAN_LIST, nil)
+
+	vfmsg := nl.VfVlanInfo{
+		VfVlan: nl.VfVlan{
+			Vf:   uint32(vf),
+			Vlan: uint32(vlan),
+			Qos:  uint32(qos),
+		},
+		VlanProto: (uint16(proto)>>8)&0xFF | (uint16(proto)&0xFF)<<8,
+	}
+
+	vfVlanList.AddRtAttr(nl.IFLA_VF_VLAN_INFO, vfmsg.Serialize())
+	req.AddData(data)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
 // LinkSetVfTxRate sets the tx rate of a vf for the link.
 // Equivalent to: `ip link set $link vf $vf rate $rate`
 func LinkSetVfTxRate(link Link, vf, rate int) error {
@@ -2239,21 +2276,24 @@ type LinkUpdate struct {
 // LinkSubscribe takes a chan down which notifications will be sent
 // when links change.  Close the 'done' chan to stop subscription.
 func LinkSubscribe(ch chan<- LinkUpdate, done <-chan struct{}) error {
-	return linkSubscribeAt(netns.None(), netns.None(), ch, done, nil, false)
+	return linkSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // LinkSubscribeAt works like LinkSubscribe plus it allows the caller
 // to choose the network namespace in which to subscribe (ns).
 func LinkSubscribeAt(ns netns.NsHandle, ch chan<- LinkUpdate, done <-chan struct{}) error {
-	return linkSubscribeAt(ns, netns.None(), ch, done, nil, false)
+	return linkSubscribeAt(ns, netns.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // LinkSubscribeOptions contains a set of options to use with
 // LinkSubscribeWithOptions.
 type LinkSubscribeOptions struct {
-	Namespace     *netns.NsHandle
-	ErrorCallback func(error)
-	ListExisting  bool
+	Namespace              *netns.NsHandle
+	ErrorCallback          func(error)
+	ListExisting           bool
+	ReceiveBufferSize      int
+	ReceiveBufferForceSize bool
+	ReceiveTimeout         *unix.Timeval
 }
 
 // LinkSubscribeWithOptions work like LinkSubscribe but enable to
@@ -2264,13 +2304,26 @@ func LinkSubscribeWithOptions(ch chan<- LinkUpdate, done <-chan struct{}, option
 		none := netns.None()
 		options.Namespace = &none
 	}
-	return linkSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting)
+	return linkSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting,
+		options.ReceiveBufferSize, options.ReceiveTimeout, options.ReceiveBufferForceSize)
 }
 
-func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-chan struct{}, cberr func(error), listExisting bool) error {
+func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
+	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
 	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_LINK)
 	if err != nil {
 		return err
+	}
+	if rcvTimeout != nil {
+		if err := s.SetReceiveTimeout(rcvTimeout); err != nil {
+			return err
+		}
+	}
+	if rcvbuf != 0 {
+		err = s.SetReceiveBufferSize(rcvbuf, rcvbufForce)
+		if err != nil {
+			return err
+		}
 	}
 	if done != nil {
 		go func() {
@@ -2406,6 +2459,14 @@ func LinkSetBrProxyArpWiFi(link Link, mode bool) error {
 
 func (h *Handle) LinkSetBrProxyArpWiFi(link Link, mode bool) error {
 	return h.setProtinfoAttr(link, mode, nl.IFLA_BRPORT_PROXYARP_WIFI)
+}
+
+func LinkSetBrNeighSuppress(link Link, mode bool) error {
+	return pkgHandle.LinkSetBrNeighSuppress(link, mode)
+}
+
+func (h *Handle) LinkSetBrNeighSuppress(link Link, mode bool) error {
+	return h.setProtinfoAttr(link, mode, nl.IFLA_BRPORT_NEIGH_SUPPRESS)
 }
 
 func (h *Handle) setProtinfoAttr(link Link, mode bool, attr int) error {
@@ -3371,12 +3432,17 @@ func parseVfInfoList(data []syscall.NetlinkRouteAttr) ([]VfInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		vfs = append(vfs, parseVfInfo(vfAttrs, i))
+
+		vf, err := parseVfInfo(vfAttrs, i)
+		if err != nil {
+			return nil, err
+		}
+		vfs = append(vfs, vf)
 	}
 	return vfs, nil
 }
 
-func parseVfInfo(data []syscall.NetlinkRouteAttr, id int) VfInfo {
+func parseVfInfo(data []syscall.NetlinkRouteAttr, id int) (VfInfo, error) {
 	vf := VfInfo{ID: id}
 	for _, element := range data {
 		switch element.Attr.Type {
@@ -3387,6 +3453,12 @@ func parseVfInfo(data []syscall.NetlinkRouteAttr, id int) VfInfo {
 			vl := nl.DeserializeVfVlan(element.Value[:])
 			vf.Vlan = int(vl.Vlan)
 			vf.Qos = int(vl.Qos)
+		case nl.IFLA_VF_VLAN_LIST:
+			vfVlanInfoList, err := nl.DeserializeVfVlanList(element.Value[:])
+			if err != nil {
+				return vf, err
+			}
+			vf.VlanProto = int(vfVlanInfoList[0].VlanProto)
 		case nl.IFLA_VF_TX_RATE:
 			txr := nl.DeserializeVfTxRate(element.Value[:])
 			vf.TxRate = int(txr.Rate)
@@ -3420,7 +3492,7 @@ func parseVfInfo(data []syscall.NetlinkRouteAttr, id int) VfInfo {
 			vf.Trust = result.Setting
 		}
 	}
-	return vf
+	return vf, nil
 }
 
 func addXfrmiAttrs(xfrmi *Xfrmi, linkInfo *nl.RtAttr) {

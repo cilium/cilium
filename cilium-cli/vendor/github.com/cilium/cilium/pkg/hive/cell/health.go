@@ -47,6 +47,8 @@ type HealthReporter interface {
 
 	// Stopped reports that a module has completed, and will no longer report any
 	// health status.
+	// Implementations should differentiate that a stopped module may also be OK or Degraded.
+	// Stopping a reporting should only affect future updates.
 	Stopped(reason string)
 
 	// Degraded declares that a module has entered a degraded state.
@@ -64,13 +66,13 @@ type Health interface {
 
 	// Get returns a copy of a modules status, by module ID.
 	// This includes unknown status for modules that have not reported a status yet.
-	Get(string) *Status
+	Get(FullModuleID) *Status
 
 	// Stop stops the health provider from processing updates.
 	Stop(context.Context) error
 
 	// forModule creates a moduleID scoped reporter handle.
-	forModule(string) HealthReporter
+	forModule(FullModuleID) HealthReporter
 
 	// processed returns the number of updates processed.
 	processed() uint64
@@ -79,9 +81,10 @@ type Health interface {
 // Update is an event that denotes the change of a modules health state.
 type Update struct {
 	Level
-	ModuleID string
-	Message  string
-	Err      error
+	FullModuleID FullModuleID
+	Message      string
+	Timestamp    time.Time
+	Err          error
 }
 
 // Status is a modules last health state, including the last update.
@@ -108,7 +111,7 @@ func (s *Status) String() string {
 		sinceLast = time.Since(s.LastUpdated).String() + " ago"
 	}
 	return fmt.Sprintf("Status{ModuleID: %s, Level: %s, Since: %s, Message: %s, Err: %v}",
-		s.ModuleID, s.Level, sinceLast, s.Message, s.Err)
+		s.FullModuleID, s.Level, sinceLast, s.Message, s.Err)
 }
 
 // NewHealthProvider starts and returns a health status which processes
@@ -131,7 +134,7 @@ func (p *healthProvider) process(u Update) {
 		defer p.mu.Unlock()
 
 		t := time.Now()
-		prev := p.moduleStatuses[u.ModuleID]
+		prev := p.moduleStatuses[u.FullModuleID.String()]
 
 		if !p.running {
 			return prev
@@ -150,13 +153,13 @@ func (p *healthProvider) process(u Update) {
 			ns.Stopped = true
 			ns.Final = u.Message
 		}
-		p.moduleStatuses[u.ModuleID] = ns
+		p.moduleStatuses[u.FullModuleID.String()] = ns
 		log.WithField("status", ns.String()).Debug("Processed new health status")
 		return prev
 	}()
 	p.numProcessed.Add(1)
 	if prev.Stopped {
-		log.Warnf("module %q reported health status after being Stopped", u.ModuleID)
+		log.Warnf("module %q reported health status after being Stopped", u.FullModuleID)
 	}
 }
 
@@ -171,12 +174,12 @@ func (p *healthProvider) Stop(ctx context.Context) error {
 
 // forModule returns a module scoped status reporter handle for emitting status updates.
 // This is used to automatically provide declared modules with a status reported.
-func (p *healthProvider) forModule(moduleID string) HealthReporter {
+func (p *healthProvider) forModule(moduleID FullModuleID) HealthReporter {
 	p.mu.Lock()
-	p.moduleStatuses[moduleID] = Status{Update: Update{
-		ModuleID: moduleID,
-		Level:    StatusUnknown,
-		Message:  "No status reported yet"},
+	p.moduleStatuses[moduleID.String()] = Status{Update: Update{
+		FullModuleID: moduleID,
+		Level:        StatusUnknown,
+		Message:      "No status reported yet"},
 	}
 	p.mu.Unlock()
 
@@ -192,16 +195,16 @@ func (p *healthProvider) All() []Status {
 	all := maps.Values(p.moduleStatuses)
 	p.mu.RUnlock()
 	sort.Slice(all, func(i, j int) bool {
-		return all[i].ModuleID < all[j].ModuleID
+		return all[i].FullModuleID.String() < all[j].FullModuleID.String()
 	})
 	return all
 }
 
 // Get returns the latest status for a module, by module ID.
-func (p *healthProvider) Get(moduleID string) *Status {
+func (p *healthProvider) Get(moduleID FullModuleID) *Status {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	s, ok := p.moduleStatuses[moduleID]
+	s, ok := p.moduleStatuses[moduleID.String()]
 	if ok {
 		return &s
 	}
@@ -219,22 +222,22 @@ type healthProvider struct {
 
 // reporter is a handle for emitting status updates.
 type reporter struct {
-	moduleID string
+	moduleID FullModuleID
 	process  func(Update)
 }
 
 // Degraded reports a degraded status update, should be used when a module encounters a
 // a state that is not fully reconciled.
 func (r *reporter) Degraded(reason string, err error) {
-	r.process(Update{ModuleID: r.moduleID, Level: StatusDegraded, Message: reason, Err: err})
+	r.process(Update{FullModuleID: r.moduleID, Level: StatusDegraded, Message: reason, Err: err})
 }
 
 // Stopped reports that a module has stopped, further updates will not be processed.
 func (r *reporter) Stopped(reason string) {
-	r.process(Update{ModuleID: r.moduleID, Level: StatusStopped, Message: reason})
+	r.process(Update{FullModuleID: r.moduleID, Level: StatusStopped, Message: reason})
 }
 
 // OK reports that a module is in a healthy state.
 func (r *reporter) OK(status string) {
-	r.process(Update{ModuleID: r.moduleID, Level: StatusOK, Message: status})
+	r.process(Update{FullModuleID: r.moduleID, Level: StatusOK, Message: status})
 }

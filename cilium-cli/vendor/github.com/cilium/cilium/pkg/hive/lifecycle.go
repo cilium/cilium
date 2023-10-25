@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 	"github.com/cilium/cilium/pkg/hive/internal"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -17,7 +18,7 @@ import (
 // in case of timeout. Hooks that perform long blocking operations directly
 // in the start or stop function (e.g. connecting to external services to
 // initialize) must abort any such operation if this context is cancelled.
-type HookContext context.Context
+type HookContext lifecycle.HookContext
 
 // Hook is a pair of start and stop callbacks. Both are optional.
 // They're paired up to make sure that on failed start all corresponding

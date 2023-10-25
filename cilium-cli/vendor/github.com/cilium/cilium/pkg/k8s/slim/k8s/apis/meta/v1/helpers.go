@@ -73,10 +73,11 @@ func FormatLabelSelector(labelSelector *LabelSelector) string {
 
 // FullOwnerReferences converts slim OwnerReferences to original OwnerReferences
 func FullOwnerReferences(references []OwnerReference) []metav1.OwnerReference {
-
 	var fullRefs []metav1.OwnerReference
 	for _, ref := range references {
 		full := metav1.OwnerReference{
+			APIVersion: ref.APIVersion,
+			UID:        ref.UID,
 			Name:       ref.Name,
 			Kind:       ref.Kind,
 			Controller: ref.Controller,
@@ -88,11 +89,12 @@ func FullOwnerReferences(references []OwnerReference) []metav1.OwnerReference {
 
 // SlimOwnerReferences converts original OwnerReferences to slim OwnerReferences
 func SlimOwnerReferences(references []metav1.OwnerReference) []OwnerReference {
-
 	var slimRefs []OwnerReference
 	for _, ref := range references {
 		slim := OwnerReference{
+			APIVersion: ref.APIVersion,
 			Name:       ref.Name,
+			UID:        ref.UID,
 			Kind:       ref.Kind,
 			Controller: ref.Controller,
 		}
