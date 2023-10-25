@@ -296,7 +296,7 @@ func (d *Daemon) init() error {
 // that the most up-to-date information has been retrieved. At this point, the
 // daemon is aware of all the necessary information to restore the appropriate
 // IP.
-func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) error {
+func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) (restoredIP net.IP) {
 	var (
 		cidrs  []*cidr.CIDR
 		fromFS net.IP
@@ -326,8 +326,7 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) error {
 		fromFS = node.GetInternalIPv4Router()
 	}
 
-	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
-	return removeOldRouterState(ipv6, restoredIP)
+	return node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
 }
 
 // removeOldRouterState will try to ensure that the only IP assigned to the
@@ -1037,13 +1036,21 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// router IPs from the K8s resources if we weren't able to restore them
 	// from the fs. We must do this after IPAM because we must wait until the
 	// K8s resources have been synced. Part 2/2 of restoration.
+	var restoredRouterIPv4, restoredRouterIPv6 net.IP
+	if option.Config.EnableIPv4 {
+		restoredRouterIPv4 = d.restoreCiliumHostIPs(false, router4FromK8s)
+	}
+	if option.Config.EnableIPv6 {
+		restoredRouterIPv6 = d.restoreCiliumHostIPs(true, router6FromK8s)
+	}
+
 	gcHostIPsFn := func(ctx context.Context, retries int) (done bool, err error) {
 		var errs error
-		if option.Config.EnableIPv4 {
-			errs = errors.Join(errs, d.restoreCiliumHostIPs(false, router4FromK8s))
+		if restoredRouterIPv4 != nil {
+			errs = errors.Join(errs, removeOldRouterState(false, restoredRouterIPv4))
 		}
-		if option.Config.EnableIPv6 {
-			errs = errors.Join(errs, d.restoreCiliumHostIPs(true, router6FromK8s))
+		if restoredRouterIPv6 != nil {
+			errs = errors.Join(errs, removeOldRouterState(true, restoredRouterIPv6))
 		}
 		if resiliency.IsRetryable(errs) {
 			log.WithField(logfields.Attempt, retries).WithError(errs).Warnf("Failed to remove old router IPs from cilium_host.")
