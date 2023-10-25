@@ -2,14 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Cilium
 
-# Given an app pod and namespace; get corresponding cilium pod
+set -o errexit
+set -o pipefail
 
-if [ $# -ne 2  ]
-then
-	echo "Usage: get_cilium_pod.sh <pod> <namespace>"
-	exit 1
-fi
+# Given a pod name and namespace, get the corresponding cilium pod name.
 
 K8S_NAMESPACE="${K8S_NAMESPACE:-kube-system}"
 
-kubectl get pods -n "${K8S_NAMESPACE}" -owide | grep cilium | grep `kubectl get pods $1 -owide -n $2 | awk '{print $7}' | tail -n1` | awk '{print $1}'
+if [[ $# -ne 2  ]]
+then
+	echo "Usage: $(basename "$0") <pod> <namespace>" >&2
+	exit 1
+fi
+TARGET_POD_NAME="$1"
+TARGET_POD_NAMESPACE="$2"
+
+# Get the target pod's node.
+target_pod_node="$(kubectl get pod "${TARGET_POD_NAME}" -n "${TARGET_POD_NAMESPACE}" --no-headers -o custom-columns=:.spec.nodeName)"
+if [[ -z "${target_pod_node}" ]]
+then
+	echo "pod ${TARGET_POD_NAMESPACE}/${TARGET_POD_NAME} has no node assigned" >&2
+	exit 1
+fi
+
+# Get the Cilium pod running on the target pod's node (using exact node matching).
+kubectl get pods -n "${K8S_NAMESPACE}" -l k8s-app=cilium --no-headers -o custom-columns=:.metadata.name,:.spec.nodeName | awk -v node="${target_pod_node}" '$2==node {print $1}'
