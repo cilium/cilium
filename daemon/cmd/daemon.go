@@ -373,6 +373,28 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	return err
 }
 
+// removeOldCiliumHostIPs calls removeOldRouterState() for both IPv4 and IPv6
+// in a retry loop.
+func removeOldCiliumHostIPs(ctx context.Context, restoredRouterIPv4, restoredRouterIPv6 net.IP) {
+	gcHostIPsFn := func(ctx context.Context, retries int) (done bool, err error) {
+		var errs error
+		if option.Config.EnableIPv4 {
+			errs = errors.Join(errs, removeOldRouterState(false, restoredRouterIPv4))
+		}
+		if option.Config.EnableIPv6 {
+			errs = errors.Join(errs, removeOldRouterState(true, restoredRouterIPv6))
+		}
+		if resiliency.IsRetryable(errs) {
+			log.WithField(logfields.Attempt, retries).WithError(errs).Warnf("Failed to remove old router IPs from cilium_host.")
+			return false, nil
+		}
+		return true, errs
+	}
+	if err := resiliency.Retry(ctx, 100*time.Millisecond, 3, gcHostIPsFn); err != nil {
+		log.WithError(err).Error("Restore of the cilium_host ips failed. Manual intervention is required to remove all other old IPs.")
+	}
+}
+
 // newDaemon creates and returns a new Daemon with the parameters set in c.
 func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams) (*Daemon, *endpointRestoreState, error) {
 	var err error
@@ -1043,24 +1065,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.EnableIPv6 {
 		restoredRouterIPv6 = d.restoreCiliumHostIPs(true, router6FromK8s)
 	}
-
-	gcHostIPsFn := func(ctx context.Context, retries int) (done bool, err error) {
-		var errs error
-		if restoredRouterIPv4 != nil {
-			errs = errors.Join(errs, removeOldRouterState(false, restoredRouterIPv4))
-		}
-		if restoredRouterIPv6 != nil {
-			errs = errors.Join(errs, removeOldRouterState(true, restoredRouterIPv6))
-		}
-		if resiliency.IsRetryable(errs) {
-			log.WithField(logfields.Attempt, retries).WithError(errs).Warnf("Failed to remove old router IPs from cilium_host.")
-			return false, nil
-		}
-		return true, errs
-	}
-	if err := resiliency.Retry(ctx, 100*time.Millisecond, 3, gcHostIPsFn); err != nil {
-		log.WithError(err).Error("Restore of the cilium_host ips failed. Manual intervention is required to remove all other old IPs.")
-	}
+	removeOldCiliumHostIPs(ctx, restoredRouterIPv4, restoredRouterIPv6)
 
 	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
