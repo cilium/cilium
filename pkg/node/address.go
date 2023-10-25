@@ -6,7 +6,6 @@ package node
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -428,105 +427,6 @@ func AutoComplete() error {
 
 	return nil
 }
-
-// RestoreHostIPs restores the router IPs (`cilium_host`) from a previous
-// Cilium run. Router IPs from the filesystem are preferred over the IPs found
-// in the Kubernetes resource (Node or CiliumNode), because we consider the
-// filesystem to be the most up-to-date source of truth. The chosen router IP
-// is then checked whether it is contained inside node CIDR (pod CIDR) range.
-// If not, then the router IP is discarded and not restored.
-//
-// The restored IP is returned.
-func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CIDR) net.IP {
-	if !option.Config.EnableHostIPRestore {
-		return nil
-	}
-
-	var (
-		setter func(net.IP)
-	)
-	if ipv6 {
-		setter = SetIPv6Router
-	} else {
-		setter = SetInternalIPv4Router
-	}
-
-	ip, err := chooseHostIPsToRestore(ipv6, fromK8s, fromFS, cidrs)
-	switch {
-	case err != nil && errors.Is(err, errDoesNotBelong):
-		log.WithFields(logrus.Fields{
-			logfields.CIDRS: cidrs,
-		}).Infof(
-			"The router IP (%s) considered for restoration does not belong in the Pod CIDR of the node. Discarding old router IP.",
-			ip,
-		)
-		// Indicate that this IP will not be restored by setting to nil after
-		// we've used it to log above.
-		ip = nil
-		setter(nil)
-	case err != nil && errors.Is(err, errMismatch):
-		log.Warnf(
-			mismatchRouterIPsMsg,
-			fromK8s, fromFS, option.LocalRouterIPv4, option.LocalRouterIPv6,
-		)
-		fallthrough // Above is just a warning; we still want to set the router IP regardless.
-	case err == nil:
-		setter(ip)
-	}
-
-	return ip
-}
-
-func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CIDR) (ip net.IP, err error) {
-	switch {
-	// If both IPs are available, then check both for validity. We prefer the
-	// local IP from the FS over the K8s IP.
-	case fromK8s != nil && fromFS != nil:
-		if fromK8s.Equal(fromFS) {
-			ip = fromK8s
-		} else {
-			ip = fromFS
-			err = errMismatch
-
-			// Check if we need to fallback to using the fromK8s IP, in the
-			// case that the IP from the FS is not within the CIDR. If we
-			// fallback, then we also need to check the fromK8s IP is also
-			// within the CIDR.
-			for _, cidr := range cidrs {
-				if cidr != nil && cidr.Contains(ip) {
-					return
-				} else if cidr != nil && cidr.Contains(fromK8s) {
-					ip = fromK8s
-					return
-				}
-			}
-		}
-	case fromK8s == nil && fromFS != nil:
-		ip = fromFS
-	case fromK8s != nil && fromFS == nil:
-		ip = fromK8s
-	case fromK8s == nil && fromFS == nil:
-		// We do nothing in this case because there are no router IPs to
-		// restore.
-		return
-	}
-
-	for _, cidr := range cidrs {
-		if cidr != nil && cidr.Contains(ip) {
-			return
-		}
-	}
-
-	err = errDoesNotBelong
-	return
-}
-
-var (
-	errMismatch      = errors.New("mismatched IPs")
-	errDoesNotBelong = errors.New("IP does not belong to CIDR")
-)
-
-const mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. The Kubernetes resource contained %s, while the filesystem contained %s. Using the router IP from the filesystem. To change the router IP, specify --%s and/or --%s."
 
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required

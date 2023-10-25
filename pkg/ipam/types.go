@@ -8,7 +8,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -119,22 +118,6 @@ func (ipam *IPAM) DebugStatus() string {
 	str := spew.Sdump(ipam)
 	ipam.allocatorMutex.RUnlock()
 	return str
-}
-
-// GetVpcCIDRs returns all the CIDRs associated with the VPC this node belongs to.
-// This works only cloud provider IPAM modes and returns nil for other modes.
-// sharedNodeStore must be initialized before calling this method.
-func (ipam *IPAM) GetVpcCIDRs() (vpcCIDRs []*cidr.CIDR) {
-	sharedNodeStore.mutex.RLock()
-	defer sharedNodeStore.mutex.RUnlock()
-	primary, secondary := deriveVpcCIDRs(sharedNodeStore.ownNode)
-	if primary == nil {
-		return nil
-	}
-	if secondary == nil {
-		return []*cidr.CIDR{primary}
-	}
-	return append(secondary, primary)
 }
 
 // Pool is the the IP pool from which to allocate.
