@@ -1405,7 +1405,7 @@ func (e *Endpoint) startSyncPolicyMapController() {
 	e.controllers.CreateController(ctrlName,
 		controller.ControllerParams{
 			Group:          syncPolicymapControllerGroup,
-			HealthReporter: e.GetReporter("policy map sync"),
+			HealthReporter: e.GetReporter("policymap-sync"),
 			DoFunc: func(ctx context.Context) error {
 				// that the endpoint was disconnected and we
 				// should exit gracefully.
