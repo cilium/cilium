@@ -41,8 +41,9 @@ var DevicesControllerCell = cell.Module(
 	"devices-controller",
 	"Synchronizes the device and route tables with the kernel",
 
-	// This controller owns the device and route tables. This gives
-	// Table[*Device] to the world and RWTable[*Device] for us.
+	// This controller owns the device and route tables. It provides
+	// the Table[*Device] from a constructor here to enforce start
+	// ordering and to populate the tables before there are any readers.
 	// But these cells are still usable directly in tests to provide
 	// the modules under test device and route test data.
 	tables.DeviceTableCell,
@@ -108,7 +109,7 @@ type devicesController struct {
 	cancel context.CancelFunc // controller's context is cancelled when stopped.
 }
 
-func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) *devicesController {
+func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route]) {
 	dc := &devicesController{
 		params:      p,
 		initialized: make(chan struct{}),
@@ -116,7 +117,7 @@ func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) *devices
 		log:         p.Log,
 	}
 	lc.Append(dc)
-	return dc
+	return dc, p.DeviceTable, p.RouteTable
 }
 
 func (dc *devicesController) Start(startCtx hive.HookContext) error {
