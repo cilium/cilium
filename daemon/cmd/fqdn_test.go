@@ -144,7 +144,7 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 
 type dummyInfoRegistry struct{}
 
-func (*dummyInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, id identity.NumericIdentity) {
+func (*dummyInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr, id identity.NumericIdentity) {
 }
 
 // makeIPs generates count sequential IPv4 IPs

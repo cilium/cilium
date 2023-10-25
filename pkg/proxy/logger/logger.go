@@ -4,8 +4,7 @@
 package logger
 
 import (
-	"net"
-	"strconv"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
@@ -134,28 +133,20 @@ type AddressingInfo struct {
 // to the logrecord
 func (logTags) Addressing(i AddressingInfo) LogTag {
 	return func(lr *LogRecord) {
-		ipstr, port, err := net.SplitHostPort(i.SrcIPPort)
+		addrPort, err := netip.ParseAddrPort(i.SrcIPPort)
 		if err == nil {
-			ip := net.ParseIP(ipstr)
-			if ip != nil && ip.To4() == nil {
+			if addrPort.Addr().Is6() {
 				lr.IPVersion = accesslog.VersionIPV6
 			}
 
-			p, err := strconv.ParseUint(port, 10, 16)
-			if err == nil {
-				lr.SourceEndpoint.Port = uint16(p)
-				endpointInfoRegistry.FillEndpointInfo(&lr.SourceEndpoint, ip, i.SrcIdentity)
-			}
+			lr.SourceEndpoint.Port = addrPort.Port()
+			endpointInfoRegistry.FillEndpointInfo(&lr.SourceEndpoint, addrPort.Addr(), i.SrcIdentity)
 		}
 
-		ipstr, port, err = net.SplitHostPort(i.DstIPPort)
+		addrPort, err = netip.ParseAddrPort(i.DstIPPort)
 		if err == nil {
-			ip := net.ParseIP(ipstr)
-			p, err := strconv.ParseUint(port, 10, 16)
-			if err == nil {
-				lr.DestinationEndpoint.Port = uint16(p)
-				endpointInfoRegistry.FillEndpointInfo(&lr.DestinationEndpoint, ip, i.DstIdentity)
-			}
+			lr.DestinationEndpoint.Port = addrPort.Port()
+			endpointInfoRegistry.FillEndpointInfo(&lr.DestinationEndpoint, addrPort.Addr(), i.DstIdentity)
 		}
 	}
 }
@@ -275,5 +266,5 @@ type EndpointInfoRegistry interface {
 	//  - info.IPv6           (if 'ip' is not IPv4)
 	//  - info.Identity       (defaults to WORLD if not known)
 	//  - info.Labels         (only if identity is found)
-	FillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, id identity.NumericIdentity)
+	FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr, id identity.NumericIdentity)
 }

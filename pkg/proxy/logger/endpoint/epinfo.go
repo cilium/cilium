@@ -5,14 +5,12 @@ package endpoint
 
 import (
 	"context"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -42,17 +40,16 @@ func NewEndpointInfoRegistry(ipc *ipcache.IPCache, endpointManager endpointmanag
 	}
 }
 
-func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ipAddr net.IP, id identity.NumericIdentity) {
+func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr, id identity.NumericIdentity) {
 	var ep *endpoint.Endpoint
-	if ipAddr != nil {
-		if ipAddr.To4() != nil {
-			info.IPv4 = ipAddr.String()
+	if addr.IsValid() {
+		if addr.Is4() {
+			info.IPv4 = addr.String()
 		} else {
-			info.IPv6 = ipAddr.String()
+			info.IPv6 = addr.String()
 		}
 
 		// Get (local) endpoint identifier to be reported by cilium monitor
-		addr, _ := ip.AddrFromIP(ipAddr)
 		ep = r.endpointManager.LookupIP(addr)
 		if ep != nil {
 			info.ID = ep.GetID()
@@ -65,15 +62,15 @@ func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ip
 	if id == 0 {
 		if ep != nil {
 			id = ep.GetIdentity()
-		} else if ipAddr != nil {
-			ID, exists := r.ipcache.LookupByIP(ipAddr.String())
+		} else if addr.IsValid() {
+			ID, exists := r.ipcache.LookupByIP(addr.String())
 			if exists {
 				id = ID.ID
 			}
 		}
 		// Default to WORLD if still unknown
 		if id == 0 {
-			id = identity.GetWorldIdentityFromIP(ipAddr)
+			id = identity.GetWorldIdentityFromIP(addr.AsSlice())
 		}
 	}
 	info.Identity = uint64(id)
