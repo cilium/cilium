@@ -1,0 +1,22 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hubble-relay
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-relay
+spec:
+  ingress:
+    - ports:
+        - port: {{ .Values.hubble.relay.listenPort }}
+  egress:
+    - {}
+  podSelector:
+    matchLabels:
+      k8s-app: hubble-relay
+  policyTypes:
+    - Ingress
+    - Egress
+  {{- end }}
