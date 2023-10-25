@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -62,7 +63,7 @@ func TestVitalsToAgeHuman(t *testing.T) {
 
 	for k := range uu {
 		u := uu[k]
-		assert.Equal(t, u.e, toAgeHuman(u.t))
+		assert.Equal(t, u.e, client.ToAgeHuman(u.t))
 	}
 }
 
