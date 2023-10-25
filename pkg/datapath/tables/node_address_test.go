@@ -63,6 +63,7 @@ func TestNodeAddress(t *testing.T) {
 		statedb.Cell,
 		tables.NodeAddressCell,
 		tables.DeviceTableCell,
+		cell.Provide(func(t statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] { return t }),
 		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*tables.Device], na statedb.Table[tables.NodeAddress]) {
 			db = db_
 			devices = d
