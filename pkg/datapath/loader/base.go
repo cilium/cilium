@@ -35,10 +35,6 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-// firstInitialization is true when Reinitialize() is called for the first
-// time. It can only be accessed when GetCompilationLock() is being held.
-var firstInitialization = true
-
 const (
 	// netdevHeaderFileName is the name of the header file used for bpf_host.c and bpf_overlay.c.
 	netdevHeaderFileName = "netdev_config.h"
@@ -275,8 +271,8 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
 func (l *loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
-	o.GetCompilationLock().Lock()
-	defer o.GetCompilationLock().Unlock()
+	l.compilationLock.Lock()
+	defer l.compilationLock.Unlock()
 	return l.reinitializeXDPLocked(ctx, extraCArgs)
 }
 
@@ -294,9 +290,9 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Lock so that endpoints cannot be built while we are compile base programs.
-	o.GetCompilationLock().Lock()
-	defer o.GetCompilationLock().Unlock()
-	defer func() { firstInitialization = false }()
+	l.compilationLock.Lock()
+	defer l.compilationLock.Unlock()
+	defer func() { l.firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
 
@@ -424,7 +420,7 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			return err
 		}
 
-		if firstInitialization {
+		if l.firstInitialization {
 			// Start a background worker to reinitialize IPsec if links change.
 			l.reloadIPSecOnLinkChanges()
 		}
@@ -438,7 +434,7 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if err := iptMgr.InstallRules(ctx, defaults.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
+	if err := iptMgr.InstallRules(ctx, defaults.HostDevice, l.firstInitialization, option.Config.InstallIptRules); err != nil {
 		return err
 	}
 

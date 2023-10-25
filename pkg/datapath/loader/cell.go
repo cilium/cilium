@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 type Loader interface {
@@ -22,10 +23,12 @@ type Loader interface {
 	ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error
 	EndpointHash(cfg datapath.EndpointConfiguration) (string, error)
 	Unload(ep datapath.Endpoint)
+	GetCompilationLock() *lock.RWMutex
+	ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string)
+
 	Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error
 	HostDatapathInitialized() <-chan struct{}
 	DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error)
-	ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string)
 	SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error)
 	ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error
 }

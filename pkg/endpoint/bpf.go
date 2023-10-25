@@ -526,9 +526,9 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	// Make sure that owner is not compiling base programs while we are
 	// regenerating an endpoint.
-	e.owner.GetCompilationLock().RLock()
+	e.owner.Datapath().Loader().GetCompilationLock().RLock()
 	stats.waitingForLock.End(true)
-	defer e.owner.GetCompilationLock().RUnlock()
+	defer e.owner.Datapath().Loader().GetCompilationLock().RUnlock()
 
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()

@@ -24,6 +24,8 @@ type Loader interface {
 	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
+	GetCompilationLock() *lock.RWMutex
+
 	Reinitialize(ctx context.Context, o BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
 	DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error)
@@ -35,7 +37,6 @@ type Loader interface {
 // BaseProgramOwner is any type for which a loader is building base programs.
 type BaseProgramOwner interface {
 	DeviceConfiguration
-	GetCompilationLock() *lock.RWMutex
 	Datapath() Datapath
 	LocalConfig() *LocalNodeConfiguration
 	SetPrefilter(pf PreFilter)
