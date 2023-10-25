@@ -9,7 +9,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
@@ -18,10 +17,6 @@ import (
 type Owner interface {
 	// QueueEndpointBuild puts the given endpoint in the processing queue
 	QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error)
-
-	// GetCompilationLock returns the mutex responsible for synchronizing compilation
-	// of BPF programs.
-	GetCompilationLock() *lock.RWMutex
 
 	// SendNotification is called to emit an agent notification
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error

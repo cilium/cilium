@@ -70,7 +70,12 @@ type loader struct {
 	// templateCache is the cache of pre-compiled datapaths.
 	templateCache *objectCache
 
-	ipsecMu lock.Mutex // guards reinitializeIPSec
+	ipsecMu         lock.Mutex   // guards reinitializeIPSec
+	compilationLock lock.RWMutex // guards compiler usage
+
+	// firstInitialization is true when Reinitialize() is called for the first
+	// time. It can only be accessed when compilationLock is being held.
+	firstInitialization bool
 
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
@@ -82,7 +87,14 @@ func NewLoader() Loader {
 }
 
 func newLoader() *loader {
-	return &loader{hostDpInitialized: make(chan struct{})}
+	return &loader{
+		hostDpInitialized: make(chan struct{}),
+	}
+}
+
+func (l *loader) GetCompilationLock() *lock.RWMutex {
+	// TODO (dylandreimerink): Remove this once the config file generation is moved to the loader
+	return &l.compilationLock
 }
 
 // Init initializes the datapath cache with base program hashes derived from

@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
@@ -34,8 +35,10 @@ func newDatapath(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
 		node:           NewNodeHandler(),
 		nodeAddressing: na,
-		loader:         &fakeLoader{},
-		lbmap:          mockmaps.NewLBMockMap(),
+		loader: &fakeLoader{
+			compilationLock: &lock.RWMutex{},
+		},
+		lbmap: mockmaps.NewLBMockMap(),
 	}
 }
 
@@ -132,6 +135,7 @@ func (f *FakeDatapath) BandwidthManager() bandwidth.Manager {
 
 // Loader is an interface to abstract out loading of datapath programs.
 type fakeLoader struct {
+	compilationLock *lock.RWMutex
 }
 
 func (f *fakeLoader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
@@ -184,4 +188,8 @@ func (f *fakeLoader) SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error
 
 func (f *fakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
 	return nil
+}
+
+func (f *fakeLoader) GetCompilationLock() *lock.RWMutex {
+	return f.compilationLock
 }
