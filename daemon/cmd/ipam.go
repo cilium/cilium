@@ -197,10 +197,14 @@ func coalesceCIDRs(rCIDRs []string) (result []string) {
 	return
 }
 
+type ipamAllocateIP interface {
+	AllocateIPWithoutSyncUpstream(ip net.IP, owner string, pool ipam.Pool) (*ipam.AllocationResult, error)
+}
+
 // reallocateDatapathIPs attempts to reallocate the old router IP from IPAM.
 // It prefers fromFS over fromK8s. If neither IPs can be re-allocated, log
 // messages are emitted and the function returns nil.
-func (d *Daemon) reallocateDatapathIPs(fromK8s, fromFS net.IP) (result *ipam.AllocationResult) {
+func reallocateDatapathIPs(alloc ipamAllocateIP, fromK8s, fromFS net.IP) (result *ipam.AllocationResult) {
 	if fromK8s == nil && fromFS == nil {
 		// We do nothing in this case because there are no router IPs to restore.
 		return nil
@@ -221,7 +225,7 @@ func (d *Daemon) reallocateDatapathIPs(fromK8s, fromFS net.IP) (result *ipam.All
 	// filesystem to be the most up-to-date source of truth.
 	var err error
 	if fromFS != nil {
-		result, err = d.ipam.AllocateIPWithoutSyncUpstream(fromFS, "router", ipam.PoolDefault())
+		result, err = alloc.AllocateIPWithoutSyncUpstream(fromFS, "router", ipam.PoolDefault())
 		if err != nil {
 			log.WithError(err).
 				WithField(logfields.IPAddr, fromFS).
@@ -234,7 +238,7 @@ func (d *Daemon) reallocateDatapathIPs(fromK8s, fromFS net.IP) (result *ipam.All
 	// If we were not able to restore the IP from the filesystem, try to use
 	// the IP from the Kubernetes resource.
 	if result == nil && fromK8s != nil {
-		result, err = d.ipam.AllocateIPWithoutSyncUpstream(fromK8s, "router", ipam.PoolDefault())
+		result, err = alloc.AllocateIPWithoutSyncUpstream(fromK8s, "router", ipam.PoolDefault())
 		if err != nil {
 			log.WithError(err).
 				WithField(logfields.IPAddr, fromFS).
@@ -260,7 +264,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 	// by the caller.
 	// This will also cause disruption of networking until all endpoints
 	// have been regenerated.
-	result := d.reallocateDatapathIPs(fromK8s, fromFS)
+	result := reallocateDatapathIPs(d.ipam, fromK8s, fromFS)
 	if result == nil {
 		family := ipam.DeriveFamily(family.PrimaryExternal())
 		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault())
