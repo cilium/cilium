@@ -46,6 +46,7 @@ cilium-operator [flags]
       --ec2-api-endpoint string                              AWS API endpoint for the EC2 service
       --enable-cilium-endpoint-slice                         If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.
       --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-gateway-api-secrets-sync                      Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag) (default true)
       --enable-ipv4                                          Enable IPv4 support (default true)
       --enable-ipv6                                          Enable IPv6 support (default true)
       --enable-k8s                                           Enable the k8s clientset (default true)
@@ -56,6 +57,7 @@ cilium-operator [flags]
       --eni-gc-tags map                                      Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected
       --eni-tags map                                         ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)
       --excess-ip-release-delay int                          Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
+      --gateway-api-secrets-namespace string                 Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
   -h, --help                                                 help for cilium-operator
       --identity-allocation-mode string                      Method to use for identity allocation (default "kvstore")
