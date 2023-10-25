@@ -33,6 +33,7 @@
 #include "lib/lxc.h"
 #include "lib/identity.h"
 #include "lib/policy.h"
+#include "lib/mcast.h"
 
 /* Override LB_SELECTION initially defined in node_config.h to force bpf_lxc to use the random backend selection
  * algorithm for in-cluster traffic. Otherwise, it will fail with the Maglev hash algorithm because Cilium doesn't provision
@@ -1326,6 +1327,16 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 
 	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
+
+#ifdef ENABLE_MULTICAST
+	if (mcast_ipv4_is_igmp(ip4)) {
+		/* note:
+		 * we will always drop IGMP from this point on as we have no
+		 * need to forward to the stack
+		 */
+		return mcast_ipv4_handle_igmp(ctx, ip4, data, data_end);
+	}
+#endif /* ENABLE_MULTICAST */
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* will tailcall internally or return error */
