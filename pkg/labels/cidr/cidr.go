@@ -129,7 +129,7 @@ var (
 	mu lock.Mutex
 )
 
-const cidrLabelsCacheMaxSize = 16384
+const cidrLabelsCacheMaxSize = 8192
 
 var (
 	once sync.Once
