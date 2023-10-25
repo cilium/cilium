@@ -457,6 +457,10 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 kind: ## Create a kind cluster for Cilium development.
 	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh
 
+kind-egressgw: ## Create a kind cluster for egress gateway Cilium development.
+	$(QUIET)SED=$(SED) WORKERS=3 ./contrib/scripts/kind.sh
+	kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+
 kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
 
