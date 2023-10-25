@@ -77,17 +77,29 @@ func runXFRMFlush() {
 	fmt.Printf("Deleted %d XFRM policies.\n", len(policies))
 }
 
+type policyFilter func(netlink.XfrmPolicy) bool
+type stateFilter func(netlink.XfrmState) bool
+
 func filterXFRMBySPI(policies []netlink.XfrmPolicy, states []netlink.XfrmState) ([]netlink.XfrmPolicy, []netlink.XfrmState) {
+	return filterXFRMs(policies, states, func(pol netlink.XfrmPolicy) bool {
+		return ipsec.GetSPIFromXfrmPolicy(&pol) == spiToFilter
+	}, func(state netlink.XfrmState) bool {
+		return state.Spi == int(spiToFilter)
+	})
+}
+
+func filterXFRMs(policies []netlink.XfrmPolicy, states []netlink.XfrmState,
+	filterPol policyFilter, filterState stateFilter) ([]netlink.XfrmPolicy, []netlink.XfrmState) {
 	policiesToDel := []netlink.XfrmPolicy{}
 	for _, pol := range policies {
-		if ipsec.GetSPIFromXfrmPolicy(&pol) == spiToFilter {
+		if filterPol(pol) {
 			policiesToDel = append(policiesToDel, pol)
 		}
 	}
 
 	statesToDel := []netlink.XfrmState{}
 	for _, state := range states {
-		if state.Spi == int(spiToFilter) {
+		if filterState(state) {
 			statesToDel = append(statesToDel, state)
 		}
 	}
