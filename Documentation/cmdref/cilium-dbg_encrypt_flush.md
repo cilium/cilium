@@ -15,6 +15,7 @@ cilium-dbg encrypt flush [flags]
 ### Options
 
 ```
+  -f, --force           Skip confirmation
   -h, --help            help for flush
   -o, --output string   json| yaml| jsonpath='{}'
 ```

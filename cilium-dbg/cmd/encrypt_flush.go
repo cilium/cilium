@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
 
@@ -17,12 +19,33 @@ var encryptFlushCmd = &cobra.Command{
 	Long:  "Will cause a short connectivity disruption",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium encrypt flush")
-		netlink.XfrmPolicyFlush()
-		netlink.XfrmStateFlush(netlink.XFRM_PROTO_ESP)
+		runXFRMFlush()
 	},
 }
 
+func runXFRMFlush() {
+	confirmationMsg := "Flushing all XFRM states and policies can lead to transient " +
+		"connectivity interruption and plain-text pod-to-pod traffic."
+	if !confirmXFRMCleanup(confirmationMsg) {
+		return
+	}
+	netlink.XfrmPolicyFlush()
+	netlink.XfrmStateFlush(netlink.XFRM_PROTO_ESP)
+	fmt.Println("All XFRM states and policies have been deleted.")
+}
+
+func confirmXFRMCleanup(msg string) bool {
+	if force {
+		return true
+	}
+	var res string
+	fmt.Printf("%s Do you want to continue? [y/N] ", msg)
+	fmt.Scanln(&res)
+	return res == "y"
+}
+
 func init() {
+	encryptFlushCmd.Flags().BoolVarP(&force, forceFlagName, "f", false, "Skip confirmation")
 	CncryptCmd.AddCommand(encryptFlushCmd)
 	command.AddOutputOption(encryptFlushCmd)
 }
