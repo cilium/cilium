@@ -13,4 +13,6 @@ spec:
   dnsNames:
   - "*.hubble-ui.cilium.io"
   duration: {{ printf "%dh0m0s" (mul .Values.hubble.tls.auto.certValidityDuration 24) }}
+  privateKey:
+    rotationPolicy: Always
 {{- end }}
