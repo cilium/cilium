@@ -20,9 +20,13 @@ cilium-operator hive [flags]
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-gateway-api-secrets-sync                      Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag) (default true)
+      --enable-ingress-controller                            Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
+      --enable-ingress-proxy-protocol                        Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
+      --enable-ingress-secrets-sync                          Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
       --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
+      --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --gateway-api-secrets-namespace string                 Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
   -h, --help                                                 help for hive
@@ -30,6 +34,12 @@ cilium-operator hive [flags]
       --identity-gc-rate-interval duration                   Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                           Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration                  Timeout after which identity expires on lack of heartbeat (default 30m0s)
+      --ingress-default-lb-mode string                       Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
+      --ingress-default-secret-name string                   Default secret name for Ingress.
+      --ingress-default-secret-namespace string              Default secret namespace for Ingress.
+      --ingress-lb-annotation-prefixes strings               Annotations which are needed to propagate from Ingress to the Load Balancer. (default [service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])
+      --ingress-secrets-namespace string                     Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
+      --ingress-shared-lb-service-name string                Name of shared LB service name for Ingress. (default "cilium-ingress")
       --k8s-api-server string                                Kubernetes API server URL
       --k8s-client-burst int                                 Burst value allowed for the K8s client
       --k8s-client-qps float32                               Queries per second limit for the K8s client

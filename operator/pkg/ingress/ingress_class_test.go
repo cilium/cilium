@@ -42,7 +42,7 @@ func Test_ingressClassSyncCanExit(t *testing.T) {
 		t.Fatalf("hive.start failed: %s", err)
 	}
 
-	i := newIngressClassManager(ctx, queue, ingressClasses)
+	i := newIngressClassManager(queue, ingressClasses)
 
 	// Start the ingressClassManager
 	go i.Run(ctx)
@@ -93,7 +93,7 @@ func Test_ingressClassIgnoresNonCilium(t *testing.T) {
 		t.Fatalf("hive.start failed: %s", err)
 	}
 
-	i := newIngressClassManager(ctx, queue, ingressClasses)
+	i := newIngressClassManager(queue, ingressClasses)
 
 	nonCiliumIngressClass := &slim_networkingv1.IngressClass{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -506,7 +506,7 @@ func Test_ingressClassHandleEvent(t *testing.T) {
 			t.Fatalf("hive.start failed: %s", err)
 		}
 
-		i := newIngressClassManager(ctx, queue, ingressClasses)
+		i := newIngressClassManager(queue, ingressClasses)
 
 		// Start the class manager
 		go i.Run(ctx)

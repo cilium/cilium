@@ -289,9 +289,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(operatorOption.SetCiliumIsUpCondition, true, "Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node")
 	option.BindEnv(vp, operatorOption.SetCiliumIsUpCondition)
 
-	flags.StringSlice(operatorOption.IngressLBAnnotationPrefixes, operatorOption.IngressLBAnnotationsDefault, "Annotation prefixes for propagating from Ingress to the Load Balancer service")
-	option.BindEnv(vp, operatorOption.IngressLBAnnotationPrefixes)
-
 	flags.Uint32(operatorOption.IngressDefaultXffNumTrustedHops, 0, "The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	option.BindEnv(vp, operatorOption.IngressDefaultXffNumTrustedHops)
 

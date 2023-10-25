@@ -204,6 +204,9 @@ var (
 
 			// Cilium Gateway API controller that manages the Gateway API related CRDs.
 			gatewayapi.Cell,
+
+			// Cilium Ingress controller that manages the Kubernetes Ingress related CRDs.
+			ingress.Cell,
 		),
 	)
 
@@ -710,30 +713,6 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 				"Cannot connect to Kubernetes apiserver ")
 		}
-	}
-
-	if operatorOption.Config.EnableIngressController {
-		ingressController, err := ingress.NewController(
-			legacy.ctx,
-			legacy.clientset,
-			legacy.resources.IngressClasses,
-			ingress.WithHTTPSEnforced(operatorOption.Config.EnforceIngressHTTPS),
-			ingress.WithProxyProtocol(operatorOption.Config.EnableIngressProxyProtocol),
-			ingress.WithSecretsSyncEnabled(operatorOption.Config.EnableIngressSecretsSync),
-			ingress.WithSecretsNamespace(operatorOption.Config.IngressSecretsNamespace),
-			ingress.WithLBAnnotationPrefixes(operatorOption.Config.IngressLBAnnotationPrefixes),
-			ingress.WithCiliumNamespace(operatorOption.Config.CiliumK8sNamespace),
-			ingress.WithSharedLBServiceName(operatorOption.Config.IngressSharedLBServiceName),
-			ingress.WithDefaultLoadbalancerMode(operatorOption.Config.IngressDefaultLoadbalancerMode),
-			ingress.WithDefaultSecretNamespace(operatorOption.Config.IngressDefaultSecretNamespace),
-			ingress.WithDefaultSecretName(operatorOption.Config.IngressDefaultSecretName),
-			ingress.WithIdleTimeoutSeconds(operatorOption.Config.ProxyIdleTimeoutSeconds),
-		)
-		if err != nil {
-			log.WithError(err).WithField(logfields.LogSubsys, ingress.Subsys).Fatal(
-				"Failed to start ingress controller")
-		}
-		go ingressController.Run(legacy.ctx)
 	}
 
 	if operatorOption.Config.LoadBalancerL7 == "envoy" {

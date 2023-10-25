@@ -101,7 +101,6 @@ type Controller struct {
 
 // NewController returns a controller for ingress objects having ingressClassName as cilium
 func NewController(
-	ctx context.Context,
 	clientset k8sClient.Clientset,
 	ingressClasses resource.Resource[*slim_networkingv1.IngressClass],
 	options ...Option,
@@ -162,7 +161,7 @@ func NewController(
 		nil,
 	)
 
-	ingressClassManager := newIngressClassManager(ctx, ic.queue, ingressClasses)
+	ingressClassManager := newIngressClassManager(ic.queue, ingressClasses)
 	ic.ingressClassManager = ingressClassManager
 
 	serviceManager, err := newServiceManager(clientset, ic.queue, opts.MaxRetries)
