@@ -715,12 +715,8 @@ func (f *fileListEntry) Info() (fs.FileInfo, error) { return f, nil }
 func toValidName(name string) string {
 	name = strings.ReplaceAll(name, `\`, `/`)
 	p := path.Clean(name)
-	if strings.HasPrefix(p, "/") {
-		p = p[len("/"):]
-	}
-	for strings.HasPrefix(p, "../") {
-		p = p[len("../"):]
-	}
+	p = strings.TrimPrefix(p, "/")
+	p = strings.TrimPrefix(p, "../")
 	return p
 }
 

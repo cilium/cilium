@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 type stringTable struct {
@@ -83,8 +84,8 @@ func (st *stringTable) Lookup(offset uint32) (string, error) {
 }
 
 func (st *stringTable) lookup(offset uint32) (string, error) {
-	i := search(st.offsets, offset)
-	if i == len(st.offsets) || st.offsets[i] != offset {
+	i, found := slices.BinarySearch(st.offsets, offset)
+	if !found {
 		return "", fmt.Errorf("offset %d isn't start of a string", offset)
 	}
 
@@ -108,26 +109,6 @@ func (st *stringTable) Marshal(w io.Writer) error {
 // Num returns the number of strings in the table.
 func (st *stringTable) Num() int {
 	return len(st.strings)
-}
-
-// search is a copy of sort.Search specialised for uint32.
-//
-// Licensed under https://go.dev/LICENSE
-func search(ints []uint32, needle uint32) int {
-	// Define f(-1) == false and f(n) == true.
-	// Invariant: f(i-1) == false, f(j) == true.
-	i, j := 0, len(ints)
-	for i < j {
-		h := int(uint(i+j) >> 1) // avoid overflow when computing h
-		// i ≤ h < j
-		if !(ints[h] >= needle) {
-			i = h + 1 // preserves f(i-1) == false
-		} else {
-			j = h // preserves f(j) == true
-		}
-	}
-	// i == j, f(i-1) == false, and f(j) (= f(i)) == true  =>  answer is i.
-	return i
 }
 
 // stringTableBuilder builds BTF string tables.

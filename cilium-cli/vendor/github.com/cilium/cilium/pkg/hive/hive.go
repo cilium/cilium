@@ -20,6 +20,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -146,21 +147,41 @@ func (h *Hive) Viper() *viper.Viper {
 type defaults struct {
 	dig.Out
 
-	Flags       *pflag.FlagSet
-	Lifecycle   Lifecycle
-	Logger      logrus.FieldLogger
-	Shutdowner  Shutdowner
-	InvokerList cell.InvokerList
+	Flags             *pflag.FlagSet
+	Lifecycle         Lifecycle
+	LifecycleInternal lifecycle.Lifecycle
+	Logger            logrus.FieldLogger
+	Shutdowner        Shutdowner
+	InvokerList       cell.InvokerList
+	EmptyFullModuleID cell.FullModuleID
+}
+
+type internalLifecycle struct {
+	Lifecycle
+}
+
+func (i *internalLifecycle) Append(hook lifecycle.HookInterface) {
+	h := Hook{
+		OnStart: func(ctx HookContext) error {
+			return hook.Start(ctx)
+		},
+		OnStop: func(ctx HookContext) error {
+			return hook.Stop(ctx)
+		},
+	}
+	i.Lifecycle.Append(h)
 }
 
 func (h *Hive) provideDefaults() error {
 	return h.container.Provide(func() defaults {
 		return defaults{
-			Flags:       h.flags,
-			Lifecycle:   h.lifecycle,
-			Logger:      log,
-			Shutdowner:  h,
-			InvokerList: h,
+			Flags:             h.flags,
+			Lifecycle:         h.lifecycle,
+			LifecycleInternal: &internalLifecycle{h.lifecycle},
+			Logger:            log,
+			Shutdowner:        h,
+			InvokerList:       h,
+			EmptyFullModuleID: nil,
 		}
 	})
 }

@@ -77,7 +77,13 @@ func (gf *GoFormatter) writeTypeDecl(name string, typ Type) error {
 	gf.w.WriteString("; const ( ")
 	for _, ev := range e.Values {
 		id := gf.enumIdentifier(name, ev.Name)
-		fmt.Fprintf(&gf.w, "%s %s = %d; ", id, name, ev.Value)
+		var value any
+		if e.Signed {
+			value = int64(ev.Value)
+		} else {
+			value = ev.Value
+		}
+		fmt.Fprintf(&gf.w, "%s %s = %d; ", id, name, value)
 	}
 	gf.w.WriteString(")")
 

@@ -273,6 +273,9 @@ message ObjectMeta {
 // be cluster-scoped, so there is no namespace field.
 // +structType=atomic
 message OwnerReference {
+  // API version of the referent.
+  optional string apiVersion = 5;
+
   // Kind of the referent.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
   optional string kind = 1;
@@ -280,6 +283,10 @@ message OwnerReference {
   // Name of the referent.
   // More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
   optional string name = 3;
+
+  // UID of the referent.
+  // More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#uids
+  optional string uid = 4;
 
   // If true, this reference points to the managing controller.
   // +optional

@@ -6,6 +6,7 @@ package client
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -32,7 +33,11 @@ func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
 	if verbose {
 		fmt.Fprintf(w, "\n  Module\tStatus\tMessage\tLast Updated\n")
 		for _, m := range resp.Payload.Modules {
-			fmt.Fprintf(w, "  %s\t%s\t%s\t%12s\n", m.ModuleID, m.Level, m.Message, m.LastUpdated)
+			if strings.Contains(m.Message, "\n") {
+				fmt.Fprintf(w, "  %s\t%s\t%12s\n%s", m.ModuleID, m.Level, m.LastUpdated, m.Message)
+			} else {
+				fmt.Fprintf(w, "  %s\t%s\t%s\t%12s\n", m.ModuleID, m.Level, m.Message, m.LastUpdated)
+			}
 		}
 		return
 	}
