@@ -66,3 +66,37 @@ func TestFilterXFRMs(t *testing.T) {
 		t.Errorf("Expected state with Ifid 1 to be filtered, but got states with Ifid %d", resStates[0].Ifid)
 	}
 }
+
+func TestParseNodeID(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected uint16
+		err      bool
+	}{
+		{"0x0", 0, true},
+		{"42", 42, false},
+		{"0x1a", 26, false},
+		{"65535", 65535, false},
+		{"70000", 0, true}, // Too big for uint16
+		{"invalid", 0, true},
+		{"0xinvalid", 0, true},
+		{"0xdeadbeef", 0, true}, // Too big for uint16
+	}
+
+	for _, test := range tests {
+		result, err := parseNodeID(test.input)
+		if test.err {
+			if err == nil {
+				t.Errorf("Expected error for input %s, but got nil", test.input)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("Unexpected error for input %s: %v", test.input, err)
+			}
+
+			if result != test.expected {
+				t.Errorf("For input %s, expected %d, but got %d", test.input, test.expected, result)
+			}
+		}
+	}
+}
