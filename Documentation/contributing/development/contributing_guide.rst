@@ -402,3 +402,17 @@ Cilium follows the real names policy described in the CNCF `DCO Guidelines v1.0
 
     Your real name should not be an anonymous id or false name that
     misrepresents who you are.
+
+.. _contributor_ladder:
+
+Contributor Ladder
+~~~~~~~~~~~~~~~~~~
+
+To help contributors grow in both privileges and responsibilities for the
+project, Cilium also has a `contributor ladder 
+<https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md>`_.
+The ladder lays out how contributors can go from community contributor
+to a committer and what is expected for each level. Community members
+generally start at the first levels of the "ladder" and advance up it as
+their involvement in the project grows. Our contributors are happy to 
+help you advance along the contributor ladder.
