@@ -61,19 +61,18 @@ type ingressClassManager struct {
 	isDefaultIngressClass atomic.Bool
 	synced                atomic.Bool
 	queue                 workqueue.RateLimitingInterface
-	ingressClassEvents    <-chan resource.Event[*slim_networkingv1.IngressClass]
+	ingressClasses        resource.Resource[*slim_networkingv1.IngressClass]
 }
 
 // newIngressClassManager creates a new ingressClassManager.
 func newIngressClassManager(
-	ctx context.Context,
 	queue workqueue.RateLimitingInterface,
 	ingressClasses resource.Resource[*slim_networkingv1.IngressClass],
 ) *ingressClassManager {
 	manager := &ingressClassManager{
 		isDefaultIngressClass: atomic.Bool{},
 		synced:                atomic.Bool{},
-		ingressClassEvents:    ingressClasses.Events(ctx),
+		ingressClasses:        ingressClasses,
 		queue:                 queue,
 	}
 
@@ -121,9 +120,11 @@ func (i *ingressClassManager) Run(ctx context.Context) error {
 
 	var err error
 
+	ingressClassEvents := i.ingressClasses.Events(ctx)
+
 	for {
 		select {
-		case event, ok := <-i.ingressClassEvents:
+		case event, ok := <-ingressClassEvents:
 			if !ok {
 				return nil
 			}
