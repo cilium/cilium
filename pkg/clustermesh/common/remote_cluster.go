@@ -96,6 +96,8 @@ type remoteCluster struct {
 	// lastFailure is the timestamp of the last failure
 	lastFailure time.Time
 
+	logger logrus.FieldLogger
+
 	metricLastFailureTimestamp prometheus.Gauge
 	metricReadinessStatus      prometheus.Gauge
 	metricTotalFailures        prometheus.Gauge
@@ -105,24 +107,6 @@ var (
 	// skipKvstoreConnection skips the etcd connection, used for testing
 	skipKvstoreConnection bool
 )
-
-func (rc *remoteCluster) getLogger() *logrus.Entry {
-	var (
-		status string
-		err    error
-	)
-
-	if rc.backend != nil {
-		status, err = rc.backend.Status()
-	}
-
-	return log.WithFields(logrus.Fields{
-		fieldClusterName:   rc.name,
-		fieldConfig:        rc.configPath,
-		fieldKVStoreStatus: status,
-		fieldKVStoreErr:    err,
-	})
-}
 
 // releaseOldConnection releases the etcd connection to a remote cluster
 func (rc *remoteCluster) releaseOldConnection() {
@@ -163,13 +147,13 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				// Block until either an error is returned or
 				// the channel is closed due to success of the
 				// connection
-				rc.getLogger().Debugf("Waiting for connection to be established")
+				rc.logger.Debugf("Waiting for connection to be established")
 				err, isErr := <-errChan
 				if isErr {
 					if backend != nil {
 						backend.Close(ctx)
 					}
-					rc.getLogger().WithError(err).Warning("Unable to establish etcd connection to remote cluster")
+					rc.logger.WithError(err).Warning("Unable to establish etcd connection to remote cluster")
 					return err
 				}
 
@@ -177,15 +161,15 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.backend = backend
 				rc.mutex.Unlock()
 
-				rc.getLogger().Info("Connection to remote cluster established")
+				rc.logger.Info("Connection to remote cluster established")
 
 				config, err := rc.getClusterConfig(ctx, backend, rc.ClusterConfigRequired())
 				if err == nil && config == nil {
-					rc.getLogger().Warning("Remote cluster doesn't have cluster configuration, falling back to the old behavior. This is expected when connecting to the old cluster running Cilium without cluster configuration feature.")
+					rc.logger.Warning("Remote cluster doesn't have cluster configuration, falling back to the old behavior. This is expected when connecting to the old cluster running Cilium without cluster configuration feature.")
 				} else if err == nil {
-					rc.getLogger().Info("Found remote cluster configuration")
+					rc.logger.Info("Found remote cluster configuration")
 				} else {
-					rc.getLogger().WithError(err).Warning("Unable to get remote cluster configuration")
+					rc.logger.WithError(err).Warning("Unable to get remote cluster configuration")
 					return err
 				}
 
@@ -210,7 +194,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				}()
 
 				if err := <-ready; err != nil {
-					rc.getLogger().WithError(err).Warning("Connection to remote cluster failed")
+					rc.logger.WithError(err).Warning("Connection to remote cluster failed")
 					return err
 				}
 
@@ -219,7 +203,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			},
 			StopFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
-				rc.getLogger().Info("Connection to remote cluster stopped")
+				rc.logger.Info("Connection to remote cluster stopped")
 				return nil
 			},
 			CancelDoFuncOnUpdate: true,
@@ -231,7 +215,7 @@ func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOp
 	select {
 	case err, ok := <-backend.StatusCheckErrors():
 		if ok && err != nil {
-			rc.getLogger().WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
+			rc.logger.WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
 			rc.mutex.Lock()
 			rc.failures++
 			rc.lastFailure = time.Now()
@@ -282,7 +266,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	rc.controllers.UpdateController(ctrlname, controller.ControllerParams{
 		Group: clusterConfigControllerGroup,
 		DoFunc: func(ctx context.Context) error {
-			rc.getLogger().Debug("Retrieving cluster configuration from remote kvstore")
+			rc.logger.Debug("Retrieving cluster configuration from remote kvstore")
 			config, err := cmutils.GetClusterConfig(ctx, rc.name, backend)
 			if err != nil {
 				return err
@@ -340,8 +324,7 @@ func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
 	if rc.serviceIPGetter != nil {
 		// Allow to resolve service names without depending on the DNS. This prevents the need
 		// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
-		logger := log.WithField(fieldClusterName, rc.name)
-		dialOpts = append(dialOpts, grpc.WithContextDialer(k8s.CreateCustomDialer(rc.serviceIPGetter, logger, false)))
+		dialOpts = append(dialOpts, grpc.WithContextDialer(k8s.CreateCustomDialer(rc.serviceIPGetter, rc.logger, false)))
 	}
 
 	return kvstore.ExtraOptions{
@@ -353,7 +336,7 @@ func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
 }
 
 func (rc *remoteCluster) onInsert() {
-	rc.getLogger().Info("New remote cluster configuration")
+	rc.logger.Info("New remote cluster configuration")
 
 	if skipKvstoreConnection {
 		return
@@ -366,10 +349,10 @@ func (rc *remoteCluster) onInsert() {
 		for {
 			val := <-rc.changed
 			if val {
-				rc.getLogger().Info("etcd configuration has changed, re-creating connection")
+				rc.logger.Info("etcd configuration has changed, re-creating connection")
 				rc.restartRemoteConnection()
 			} else {
-				rc.getLogger().Info("Closing connection to remote etcd")
+				rc.logger.Info("Closing connection to remote etcd")
 				return
 			}
 		}
@@ -393,7 +376,7 @@ func (rc *remoteCluster) onRemove() {
 	rc.onStop()
 	rc.Remove()
 
-	rc.getLogger().Info("Remote cluster disconnected")
+	rc.logger.Info("Remote cluster disconnected")
 }
 
 func (rc *remoteCluster) isReady() bool {

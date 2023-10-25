@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -121,6 +122,8 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		changed:     make(chan bool, configNotificationsChannelSize),
 		controllers: controller.NewManager(),
 
+		logger: log.WithField(logfields.ClusterName, name),
+
 		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
@@ -147,8 +150,6 @@ func (cm *ClusterMesh) add(name, path string) {
 
 	cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
 	cm.mutex.Unlock()
-
-	log.WithField(fieldClusterName, name).Debug("Remote cluster configuration added")
 
 	if inserted {
 		cluster.onInsert()

@@ -689,7 +689,7 @@ type ServiceIPGetter interface {
 // from the given ServiceIPGetter, if the address used to dial is a k8s
 // service. If verboseLogs is set, a log message is output when the
 // address to service IP translation fails.
-func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry, verboseLogs bool) func(ctx context.Context, addr string) (conn net.Conn, e error) {
+func CreateCustomDialer(b ServiceIPGetter, log logrus.FieldLogger, verboseLogs bool) func(ctx context.Context, addr string) (conn net.Conn, e error) {
 	return func(ctx context.Context, s string) (conn net.Conn, e error) {
 		// If the service is available, do the service translation to
 		// the service IP. Otherwise dial with the original service
