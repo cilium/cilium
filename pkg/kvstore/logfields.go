@@ -17,9 +17,6 @@ const (
 	// key revision
 	fieldRev = "revision"
 
-	// fieldSession refers to a connection/session with the kvstore
-	fieldSession = "session"
-
 	// fieldPrefix is the prefix of the key used in the operation
 	fieldPrefix = "prefix"
 
