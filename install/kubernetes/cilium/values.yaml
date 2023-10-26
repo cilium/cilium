@@ -3343,6 +3343,8 @@ sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
 
+eksMode: false
+
 defaultPolicies:
   enabled: false
   remove: false
