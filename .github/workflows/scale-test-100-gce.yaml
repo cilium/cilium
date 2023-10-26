@@ -1,0 +1,214 @@
+name: 100 Nodes Scale Test
+
+on:
+  schedule:
+    - cron: '39 0 * * 2,5'
+
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.15.11
+  # renovate: datasource=github-releases depName=kubernetes/kops
+  kops_version: v1.28.0
+  # renovate: datasource=golang-version depName=go
+  go_version: 1.21.3
+  # Adding k8s.local to the end makes kops happy-
+  # has stricter DNS naming requirements.
+  test_name: scale-100
+  cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
+  CILIUM_CLI_MODE: helm
+
+jobs:
+  install-and-scaletest:
+    runs-on: ubuntu-latest
+    name: Install and Scale Test
+    timeout-minutes: 150
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ github.sha }}
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          SHA="${{ github.sha }}"
+
+          # Setup Cilium install options
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --wait=false"
+
+          echo SHA=${SHA} >> $GITHUB_OUTPUT
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.SHA }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Go
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          go-version: ${{ env.go_version }}
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@951eb9108277f4ffeb86d047bd492b6b96a52542 # v0.15.11
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+
+      - name: Install Kops
+        uses: ./.github/actions/scale-tests/install-kops
+        with:
+          release_version: ${{ env.kops_version }}
+
+      - name: Setup gcloud credentials
+        uses: google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033 # v1.1.1
+        with:
+          credentials_json: '${{ secrets.GCP_PERF_SA_KEY }}'
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b # v1.1.1
+        with:
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          version: "405.0.0"
+
+      - name: Clone ClusterLoader2
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: learnitall/perf-tests
+          ref: d7a97a6b7b9efc29ccb496f3ff54f42588006e96 # tinker/learnitall/100-node-scale-test
+          persist-credentials: false
+          sparse-checkout: clusterloader2
+          path: perf-tests
+
+      - name: Display version info of installed tools
+        run: |
+          echo "--- go ---"
+          go version
+          echo "--- cilium-cli ---"
+          cilium version --client
+          echo "--- kops ---"
+          ./kops version
+          echo "--- gcloud ---"
+          gcloud version
+
+      - name: Deploy cluster
+        id: deploy-cluster
+        uses: ./.github/actions/scale-tests/create-cluster
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          control_plane_size: n1-standard-8
+          control_plane_count: 1
+          node_size: e2-medium
+          node_count: 100
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+
+      - name: Create Instance Group for resource heavy deployments
+        uses: ./.github/actions/scale-tests/create-instance-group
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          node_size: e2-standard-8
+          node_count: 1
+          ig_name: heapster
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Install Cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for cluster to be ready
+        uses: ./.github/actions/scale-tests/validate-cluster
+        timeout-minutes: 20
+        with:
+          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
+      - name: Run CL2
+        id: run-cl2
+        working-directory: ./perf-tests/clusterloader2
+        shell: bash
+        timeout-minutes: 30
+        run: |
+          mkdir ./report
+          export CL2_PROMETHEUS_PVC_ENABLED=false
+          export CL2_ENABLE_PVS=false
+          export CL2_ENABLE_NETWORKPOLICIES=true
+          export CL2_ALLOWED_SLOW_API_CALLS=1
+          export CL2_SCHEDULER_THROUGHPUT_THRESHOLD=0
+
+          go run ./cmd/clusterloader.go \
+            -v=4 \
+            --testconfig=./testing/load/config.yaml \
+            --provider=gce \
+            --enable-prometheus-server \
+            --tear-down-prometheus-server=false \
+            --nodes=100 \
+            --report-dir=./report \
+            --experimental-prometheus-snapshot-to-report-dir=true \
+            --kubeconfig=$HOME/.kube/config \
+            --testoverrides=./testing/overrides/load_throughput.yaml \
+            --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
+            2>&1 | tee cl2-output.txt
+
+      - name: Get sysdump
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        run: |
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-final
+
+      - name: Cleanup cluster
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        uses: ./.github/actions/scale-tests/cleanup-cluster
+        with:
+          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Export results and sysdump to GS bucket
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        uses: ./.github/actions/scale-tests/export-results
+        with:
+          results_bucket: ${{ secrets.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./perf-tests/clusterloader2/report/*
+          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt

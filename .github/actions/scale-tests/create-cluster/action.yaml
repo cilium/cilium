@@ -25,7 +25,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Check if we should build the Cilium CLI from source
+    - name: Create cluster config
       shell: bash
       run: |
         ./kops create cluster \
@@ -38,7 +38,19 @@ runs:
           --node-count ${{ inputs.node_count }} \
           --node-size ${{ inputs.node_size }} \
           --networking cni \
-          --yes
+          --yes \
+          --dry-run -o yaml > cluster.yaml
+
+    # Replace subnet cidr
+    - name: Edit config to use larger subnet
+      shell: bash
+      run: |
+        sed -e 's,10.0.16.0\/20,10.16.0.0\/16,g' cluster.yaml > updated.yaml
+
+    - name: Create cluster
+      shell: bash
+      run: |
+        ./kops create -f updated.yaml --state ${{ inputs.kops_state }}
 
     - name: Dump cluster config
       shell: bash
