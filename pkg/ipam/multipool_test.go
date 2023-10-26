@@ -287,7 +287,7 @@ func Test_MultiPoolManager(t *testing.T) {
 
 	ipv4Dump, _ := c.dump(IPv4)
 	assert.Len(t, ipv4Dump, 2) // 2 pools: default + mars
-	assert.Len(t, ipv4Dump[PoolDefault], 1)
+	assert.Len(t, ipv4Dump[PoolDefault()], 1)
 	assert.Len(t, ipv4Dump[Pool("mars")], numMarsIPs)
 
 	// Ensure Requested numbers are bumped
@@ -382,7 +382,7 @@ func Test_MultiPoolManager(t *testing.T) {
 
 	ipv4Dump, ipv4Summary := c.dump(IPv4)
 	assert.Equal(t, map[Pool]map[string]string{
-		PoolDefault: {
+		PoolDefault(): {
 			defaultAllocation.IP.String(): "",
 		},
 		Pool("mars"): {

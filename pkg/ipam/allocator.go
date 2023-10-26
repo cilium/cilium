@@ -32,7 +32,7 @@ var (
 
 func (ipam *IPAM) determineIPAMPool(owner string, family Family) (Pool, error) {
 	if ipam.metadata == nil {
-		return PoolDefault, nil
+		return PoolDefault(), nil
 	}
 
 	pool, err := ipam.metadata.GetIPPoolForPod(owner, family)
@@ -117,7 +117,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 	// If the allocator did not populate the pool, we assume it does not
 	// support IPAM pools and assign the default pool instead
 	if result.IPPoolName == "" {
-		result.IPPoolName = PoolDefault
+		result.IPPoolName = PoolDefault()
 	}
 
 	log.WithFields(logrus.Fields{
@@ -171,7 +171,7 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 		// If the allocator did not populate the pool, we assume it does not
 		// support IPAM pools and assign the default pool instead
 		if result.IPPoolName == "" {
-			result.IPPoolName = PoolDefault
+			result.IPPoolName = PoolDefault()
 		}
 
 		if _, ok := ipam.isIPExcluded(result.IP, pool); !ok {
@@ -330,7 +330,7 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 			for ip := range alloc {
 				owner := ipam.getIPOwner(ip, pool)
 				ipPrefix := ""
-				if pool != PoolDefault {
+				if pool != PoolDefault() {
 					ipPrefix = string(pool) + "/"
 				}
 				// If owner is not available, report IP but leave owner empty
@@ -346,7 +346,7 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 			for ip := range alloc {
 				owner := ipam.getIPOwner(ip, pool)
 				ipPrefix := ""
-				if pool != PoolDefault {
+				if pool != PoolDefault() {
 					ipPrefix = string(pool) + "/"
 				}
 				// If owner is not available, report IP but leave owner empty

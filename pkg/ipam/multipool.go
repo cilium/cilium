@@ -586,7 +586,7 @@ func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]st
 		}
 
 		if poolName == "" {
-			poolName = PoolDefault
+			poolName = PoolDefault()
 		}
 
 		if _, ok := allocated[poolName]; !ok {
