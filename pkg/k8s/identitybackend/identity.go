@@ -39,6 +39,9 @@ const (
 
 	k8sPrefix               = labels.LabelSourceK8s + ":"
 	k8sNamespaceLabelPrefix = labels.LabelSourceK8s + ":" + k8sConst.PodNamespaceMetaLabels + labels.PathDelimiter
+
+	// MetadataKeyBackendKey is the key used to store the backend key.
+	MetadataKeyBackendKey = 0
 )
 
 func NewCRDBackend(c CRDBackendConfiguration) (allocator.Backend, error) {
@@ -85,7 +88,8 @@ func sanitizeK8sLabels(old map[string]string) (selected, skipped map[string]stri
 // AllocateID will create an identity CRD, thus creating the identity for this
 // key-> ID mapping.
 // Note: the lock field is not supported with the k8s CRD allocator.
-func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) error {
+// Returns an allocator key with the cilium identity stored in it.
+func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (allocator.AllocatorKey, error) {
 	selectedLabels, skippedLabels := sanitizeK8sLabels(key.GetAsMap())
 	log.WithField(logfields.Labels, skippedLabels).Info("Skipped non-kubernetes labels when labelling ciliumidentity. All labels will still be used in identity determination")
 
@@ -97,11 +101,14 @@ func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator
 		SecurityLabels: key.GetAsMap(),
 	}
 
-	_, err := c.Client.CiliumV2().CiliumIdentities().Create(ctx, identity, metav1.CreateOptions{})
-	return err
+	ci, err := c.Client.CiliumV2().CiliumIdentities().Create(ctx, identity, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return key.PutValue(MetadataKeyBackendKey, ci), nil
 }
 
-func (c *crdBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
+func (c *crdBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) (allocator.AllocatorKey, error) {
 	return c.AllocateID(ctx, id, key)
 }
 
@@ -133,7 +140,12 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 		return err
 	}
 	if !exists {
-		return fmt.Errorf("identity (id:%q,key:%q) does not exist", id, key)
+		// fall back to the key stored in the allocator key. If it's not present
+		// then return the error.
+		ci, ok = key.Value(MetadataKeyBackendKey).(*v2.CiliumIdentity)
+		if !ok {
+			return fmt.Errorf("identity (id:%q,key:%q) does not exist", id, key)
+		}
 	}
 	ci = ci.DeepCopy()
 
@@ -180,7 +192,7 @@ func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.
 
 	if reliablyMissing {
 		// Recreate a missing master key
-		if err = c.AllocateID(ctx, id, key); err != nil {
+		if _, err = c.AllocateID(ctx, id, key); err != nil {
 			return fmt.Errorf("Unable recreate missing CRD identity %q->%q: %s", key, id, err)
 		}
 		return nil
