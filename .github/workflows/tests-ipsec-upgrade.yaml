@@ -75,8 +75,11 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
+        config: ['5.4', '5.10', 'bpf-next']
+        mode: ['minor', 'patch']
         include:
-          - name: '1'
+          # Define three config sets
+          - config: '5.4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.4-20231026.065108'
             kube-proxy: 'iptables'
@@ -84,7 +87,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
 
-          - name: '2'
+          - config: '5.10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20231026.065108'
             kube-proxy: 'iptables'
@@ -93,7 +96,7 @@ jobs:
             encryption: 'ipsec'
             endpoint-routes: 'true'
 
-          - name: '3'
+          - config: 'bpf-next'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20231030.012704'
             kube-proxy: 'iptables'
@@ -101,6 +104,31 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'ipsec'
             endpoint-routes: 'true'
+
+          # Add names to matrix combinations of {config, mode}
+          - config: '5.4'
+            mode: 'minor'
+            name: '1'
+
+          - config: '5.10'
+            mode: 'minor'
+            name: '2'
+
+          - config: 'bpf-next'
+            mode: 'minor'
+            name: '3'
+
+          - config: '5.4'
+            mode: 'patch'
+            name: '4'
+
+          - config: '5.10'
+            mode: 'patch'
+            name: '5'
+
+          - config: 'bpf-next'
+            mode: 'patch'
+            name: '6'
 
     timeout-minutes: 60
     steps:
@@ -122,14 +150,32 @@ jobs:
             SHA="${{ github.sha }}"
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
-          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
+          if [ "${{ matrix.mode }}" = "minor" ]; then
+            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
+            IMAGE_TAG=${CILIUM_DOWNGRADE_VERSION}
+          else
+            # Upgrade from / downgrade to patch release.
+            # In some cases we expect to fail to get the version number, do not
+            # fail the workflow in such case. This includes:
+            # - on main branch where we don't have preceeding patch releases
+            # - on stable branches on top of release preparation commits, where
+            #   we bump the patch version number to 90 and we can't easily
+            #   derive the number of the previous patch release version from
+            #   that.
+            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh patch || true)
+            # Pass an empty tag to the cilium-config action to fall back to the
+            # default release image, without crafting an image path with the
+            # "-ci" suffix
+            IMAGE_TAG=''
+          fi
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
+          echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
         id: cilium-stable-config
         uses: ./.github/actions/cilium-config
         with:
-          image-tag: ${{ steps.vars.outputs.downgrade_version }}
+          image-tag: ${{ steps.vars.outputs.image_tag }}
           chart-dir: './cilium-${{ steps.vars.outputs.downgrade_version }}/install/kubernetes/cilium/'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
