@@ -207,7 +207,7 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 
 }
 
-// IngressPassthrough translates an Ingress resource with the ssl-passthrough annotation to a TLSListener.
+// IngressPassthrough translates an Ingress resource with the tls-passthrough annotation to a TLSListener.
 // This function does not check IngressClass (via field or annotation).
 // It's expected that only relevant Ingresses will have this function called on them.
 //

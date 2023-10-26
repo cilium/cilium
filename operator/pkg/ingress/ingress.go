@@ -596,7 +596,7 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 	if !forceShared && ic.isEffectiveLoadbalancerModeDedicated(ing) {
 		loadbalancerMode = "dedicated"
 		translator = ic.dedicatedTranslator
-		if annotations.GetAnnotationSSLPassthroughEnabled(ing) {
+		if annotations.GetAnnotationTLSPassthroughEnabled(ing) {
 			m.TLS = append(m.TLS, ingestion.IngressPassthrough(*ing, ic.defaultSecretNamespace, ic.defaultSecretName)...)
 		} else {
 			m.HTTP = append(m.HTTP, ingestion.Ingress(*ing, ic.defaultSecretNamespace, ic.defaultSecretName)...)
@@ -610,7 +610,7 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 				ing.GetDeletionTimestamp() != nil {
 				continue
 			}
-			if annotations.GetAnnotationSSLPassthroughEnabled(item) {
+			if annotations.GetAnnotationTLSPassthroughEnabled(item) {
 				m.TLS = append(m.TLS, ingestion.IngressPassthrough(*item, ic.defaultSecretNamespace, ic.defaultSecretName)...)
 			} else {
 				m.HTTP = append(m.HTTP, ingestion.Ingress(*item, ic.defaultSecretNamespace, ic.defaultSecretName)...)

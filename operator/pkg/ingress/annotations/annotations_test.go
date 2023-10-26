@@ -204,7 +204,7 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"ingress.cilium.io/ssl-passthrough": "enabled",
+							"ingress.cilium.io/tls-passthrough": "enabled",
 						},
 					},
 				},
@@ -217,7 +217,7 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"ingress.cilium.io/ssl-passthrough": "disabled",
+							"ingress.cilium.io/tls-passthrough": "disabled",
 						},
 					},
 				},
@@ -230,7 +230,7 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"ingress.cilium.io/ssl-passthrough": "true",
+							"ingress.cilium.io/tls-passthrough": "true",
 						},
 					},
 				},
@@ -243,7 +243,7 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"ingress.cilium.io/ssl-passthrough": "false",
+							"ingress.cilium.io/tls-passthrough": "false",
 						},
 					},
 				},
@@ -256,7 +256,7 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"ingress.cilium.io/ssl-passthrough": "invalid",
+							"ingress.cilium.io/tls-passthrough": "invalid",
 						},
 					},
 				},
@@ -266,7 +266,7 @@ func TestGetAnnotationSSLPassthrough(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetAnnotationSSLPassthroughEnabled(tt.args.ingress)
+			got := GetAnnotationTLSPassthroughEnabled(tt.args.ingress)
 
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetAnnotationSecureNodePort() got = %v, want %v", got, tt.want)

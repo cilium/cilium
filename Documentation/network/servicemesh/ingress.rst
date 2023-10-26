@@ -107,12 +107,13 @@ Supported Ingress Annotations
      - | Enable websocket passthrough support.
        | Applicable values are ``enabled`` and ``disabled``.
      - ``disabled``
-   * - ``ingress.cilium.io/ssl-passthrough``
-     - | Enable SSL Passthrough mode for this Ingress.
+   * - ``ingress.cilium.io/tls-passthrough``
+     - | Enable TLS Passthrough mode for this Ingress.
        | Applicable values are ``enabled`` and ``disabled``,
        | although boolean-style values will also be
        | accepted.
-       | Note that some conditions apply to SSL
+       |
+       | Note that some conditions apply to TLS
        | Passthrough Ingresses, due to how
        | TLS Passthrough works:
        | * A ``host`` field must be set in the Ingress
@@ -121,6 +122,10 @@ Supported Ingress Annotations
        | If all the rules in an Ingress are ignored for
        | these reasons, no Envoy config will be generated
        | and the Ingress will have no effect.
+       |
+       | Note that this annotation is analogous to
+       | the ``ssl-passthrough`` on other Ingress
+       | controllers.
      - ``disabled``
 
 Additionally, cloud-provider specific annotations for the LoadBalancer service
