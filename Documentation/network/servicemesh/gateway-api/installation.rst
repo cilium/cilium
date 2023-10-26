@@ -5,7 +5,7 @@ Prerequisites
   Please refer to :ref:`kube-proxy replacement <kubeproxy-free>`
   for more details.
 * Cilium must be configured with the L7 proxy enabled using the ``--enable-l7-proxy`` flag (enabled by default).
-* The below CRDs from Gateway API v0.8.1 ``must`` be pre-installed.
+* The below CRDs from Gateway API v1.0.0 ``must`` be pre-installed.
   Please refer to this `docs <https://gateway-api.sigs.k8s.io/guides/?h=crds#getting-started-with-gateway-api>`_
   for installation steps. Alternatively, the below snippet could be used.
 
@@ -17,12 +17,12 @@ Prerequisites
 
     .. code-block:: shell-session
 
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.8.1/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.8.1/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.8.1/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.8.1/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.8.1/config/crd/experimental/gateway.networking.k8s.io_grpcroutes.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.8.1/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.0.0/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.0.0/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.0.0/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.0.0/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.0.0/config/crd/experimental/gateway.networking.k8s.io_grpcroutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.0.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
 * Similar to Ingress, Gateway API controller creates a service of LoadBalancer type,
   so your environment will need to support this.

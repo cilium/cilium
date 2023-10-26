@@ -63,7 +63,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   kind_version: v0.20.0
   kind_config: .github/kind-config.yaml
-  gateway_api_version: v1.0.0-rc1
+  gateway_api_version: v1.0.0
   metallb_version: 0.12.1
   timeout: 5m
 

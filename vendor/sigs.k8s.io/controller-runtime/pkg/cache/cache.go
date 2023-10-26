@@ -22,8 +22,10 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,6 +123,10 @@ type Informer interface {
 	HasSynced() bool
 }
 
+// AllNamespaces should be used as the map key to deliminate namespace settings
+// that apply to all namespaces that themselves do not have explicit settings.
+const AllNamespaces = metav1.NamespaceAll
+
 // Options are the optional arguments for creating a new Cache object.
 type Options struct {
 	// HTTPClient is the http client to use for the REST client
@@ -172,6 +178,11 @@ type Options struct {
 	// the namespaces in here will be watched and it will by used to default
 	// ByObject.Namespaces for all objects if that is nil.
 	//
+	// It is possible to have specific Config for just some namespaces
+	// but cache all namespaces by using the AllNamespaces const as the map key.
+	// This will then include all namespaces that do not have a more specific
+	// setting.
+	//
 	// The options in the Config that are nil will be defaulted from
 	// the respective Default* settings.
 	DefaultNamespaces map[string]Config
@@ -213,6 +224,11 @@ type ByObject struct {
 	//
 	// Settings in the map value that are unset will be defaulted.
 	// Use an empty value for the specific setting to prevent that.
+	//
+	// It is possible to have specific Config for just some namespaces
+	// but cache all namespaces by using the AllNamespaces const as the map key.
+	// This will then include all namespaces that do not have a more specific
+	// setting.
 	//
 	// A nil map allows to default this to the cache's DefaultNamespaces setting.
 	// An empty map prevents this and means that all namespaces will be cached.
@@ -392,6 +408,9 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 
 	for namespace, cfg := range opts.DefaultNamespaces {
 		cfg = defaultConfig(cfg, optionDefaultsToConfig(&opts))
+		if namespace == metav1.NamespaceAll {
+			cfg.FieldSelector = fields.AndSelectors(appendIfNotNil(namespaceAllSelector(maps.Keys(opts.DefaultNamespaces)), cfg.FieldSelector)...)
+		}
 		opts.DefaultNamespaces[namespace] = cfg
 	}
 
@@ -417,6 +436,15 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 
 			// 3. Default from the global defaults
 			config = defaultConfig(config, optionDefaultsToConfig(&opts))
+
+			if namespace == metav1.NamespaceAll {
+				config.FieldSelector = fields.AndSelectors(
+					appendIfNotNil(
+						namespaceAllSelector(maps.Keys(byObject.Namespaces)),
+						config.FieldSelector,
+					)...,
+				)
+			}
 
 			byObject.Namespaces[namespace] = config
 		}
@@ -456,4 +484,22 @@ func defaultConfig(toDefault, defaultFrom Config) Config {
 	}
 
 	return toDefault
+}
+
+func namespaceAllSelector(namespaces []string) fields.Selector {
+	selectors := make([]fields.Selector, 0, len(namespaces)-1)
+	for _, namespace := range namespaces {
+		if namespace != metav1.NamespaceAll {
+			selectors = append(selectors, fields.OneTermNotEqualSelector("metadata.namespace", namespace))
+		}
+	}
+
+	return fields.AndSelectors(selectors...)
+}
+
+func appendIfNotNil[T comparable](a, b T) []T {
+	if b != *new(T) {
+		return []T{a, b}
+	}
+	return []T{a}
 }
