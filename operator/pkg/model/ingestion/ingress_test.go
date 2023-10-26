@@ -1424,7 +1424,7 @@ var sslPassthru = slim_networkingv1.Ingress{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
-			"ingress.cilium.io/ssl-passthrough": "true",
+			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
 	Spec: slim_networkingv1.IngressSpec{
@@ -1483,7 +1483,7 @@ var sslPassthruNoHost = slim_networkingv1.Ingress{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
-			"ingress.cilium.io/ssl-passthrough": "true",
+			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
 	Spec: slim_networkingv1.IngressSpec{
@@ -1519,7 +1519,7 @@ var sslPassthruNoRule = slim_networkingv1.Ingress{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
-			"ingress.cilium.io/ssl-passthrough": "true",
+			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
 	Spec: slim_networkingv1.IngressSpec{
@@ -1539,7 +1539,7 @@ var sslPassthruExtraPath = slim_networkingv1.Ingress{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
-			"ingress.cilium.io/ssl-passthrough": "true",
+			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
 	Spec: slim_networkingv1.IngressSpec{
@@ -1579,7 +1579,7 @@ var sslPassthruNodePort = slim_networkingv1.Ingress{
 			"ingress.cilium.io/service-type":       "NodePort",
 			"ingress.cilium.io/insecure-node-port": "30000",
 			"ingress.cilium.io/secure-node-port":   "30001",
-			"ingress.cilium.io/ssl-passthrough":    "true",
+			"ingress.cilium.io/tls-passthrough":    "true",
 		},
 	},
 	Spec: slim_networkingv1.IngressSpec{
@@ -1643,7 +1643,7 @@ var sslPassthruMultiplePaths = slim_networkingv1.Ingress{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
-			"ingress.cilium.io/ssl-passthrough": "true",
+			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
 	Spec: slim_networkingv1.IngressSpec{
@@ -1714,7 +1714,7 @@ var sslPassthruDefaultBackend = slim_networkingv1.Ingress{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
-			"ingress.cilium.io/ssl-passthrough": "true",
+			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
 	Spec: slim_networkingv1.IngressSpec{

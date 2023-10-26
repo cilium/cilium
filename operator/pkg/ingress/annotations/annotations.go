@@ -16,7 +16,7 @@ const (
 	ServiceTypeAnnotation      = annotation.IngressPrefix + "/service-type"
 	InsecureNodePortAnnotation = annotation.IngressPrefix + "/insecure-node-port"
 	SecureNodePortAnnotation   = annotation.IngressPrefix + "/secure-node-port"
-	SSLPassthroughAnnotation   = annotation.IngressPrefix + "/ssl-passthrough"
+	TLSPassthroughAnnotation   = annotation.IngressPrefix + "/tls-passthrough"
 
 	TCPKeepAliveEnabledAnnotation          = annotation.IngressPrefix + "/tcp-keep-alive"
 	TCPKeepAliveIdleAnnotation             = annotation.IngressPrefix + "/tcp-keep-alive-idle"
@@ -28,7 +28,7 @@ const (
 	ServiceTypeAnnotationAlias      = annotation.Prefix + ".ingress" + "/service-type"
 	InsecureNodePortAnnotationAlias = annotation.Prefix + ".ingress" + "/insecure-node-port"
 	SecureNodePortAnnotationAlias   = annotation.Prefix + ".ingress" + "/secure-node-port"
-	SSLPassthroughAnnotationAlias   = annotation.Prefix + ".ingress" + "/ssl-passthrough"
+	TLSPassthroughAnnotationAlias   = annotation.Prefix + ".ingress" + "/tls-passthrough"
 
 	TCPKeepAliveEnabledAnnotationAlias          = annotation.Prefix + "/tcp-keep-alive"
 	TCPKeepAliveIdleAnnotationAlias             = annotation.Prefix + "/tcp-keep-alive-idle"
@@ -162,8 +162,8 @@ func GetAnnotationWebsocketEnabled(ingress *slim_networkingv1.Ingress) int64 {
 	return 0
 }
 
-func GetAnnotationSSLPassthroughEnabled(ingress *slim_networkingv1.Ingress) bool {
-	val, exists := annotation.Get(ingress, SSLPassthroughAnnotation, SSLPassthroughAnnotationAlias)
+func GetAnnotationTLSPassthroughEnabled(ingress *slim_networkingv1.Ingress) bool {
+	val, exists := annotation.Get(ingress, TLSPassthroughAnnotation, TLSPassthroughAnnotationAlias)
 	if !exists {
 		return false
 	}
