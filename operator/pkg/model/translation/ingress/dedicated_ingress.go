@@ -49,17 +49,20 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	var namespace string
 	var sourceResource model.FullyQualifiedResource
 	var modelService *model.Service
+	var cecName string
 
-	if len(m.TLS) > 0 {
+	if len(m.HTTP) == 0 {
 		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLS[0].Sources[0].Name)
 		namespace = m.TLS[0].Sources[0].Namespace
 		sourceResource = m.TLS[0].Sources[0]
 		modelService = m.TLS[0].Service
+		cecName = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, m.TLS[0].Sources[0].Name)
 	} else {
 		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name)
 		namespace = m.HTTP[0].Sources[0].Namespace
 		sourceResource = m.HTTP[0].Sources[0]
 		modelService = m.HTTP[0].Service
+		cecName = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, m.HTTP[0].Sources[0].Name)
 	}
 
 	// The logic is same as what we have with default translator, but with a different model
@@ -71,7 +74,7 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	}
 
 	// Set the name to avoid any breaking change during upgrade.
-	cec.Name = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, name)
+	cec.Name = cecName
 	return cec, getService(sourceResource, modelService), getEndpoints(sourceResource), err
 }
 
