@@ -604,17 +604,21 @@ func GetNodeAddressing() *models.NodeAddressing {
 
 	if option.Config.EnableIPv6 {
 		a.IPV6 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv6,
-			IP:         GetIPv6Router().String(),
-			AllocRange: GetIPv6AllocRange().String(),
+			Enabled: option.Config.EnableIPv6,
+			IP:      GetIPv6Router().String(),
+		}
+		if c := GetIPv6AllocRange(); c != nil {
+			a.IPV6.AllocRange = c.String()
 		}
 	}
 
 	if option.Config.EnableIPv4 {
 		a.IPV4 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv4,
-			IP:         GetInternalIPv4Router().String(),
-			AllocRange: GetIPv4AllocRange().String(),
+			Enabled: option.Config.EnableIPv4,
+			IP:      GetInternalIPv4Router().String(),
+		}
+		if c := GetIPv4AllocRange(); c != nil {
+			a.IPV4.AllocRange = c.String()
 		}
 	}
 
