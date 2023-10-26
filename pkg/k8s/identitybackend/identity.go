@@ -148,11 +148,11 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 			return fmt.Errorf("identity (id:%q,key:%q) does not exist", id, key)
 		}
 	}
-	ci = ci.DeepCopy()
 
 	ts, ok = ci.Annotations[HeartBeatAnnotation]
 	if ok {
 		log.WithField(logfields.Identity, ci).Infof("Identity marked for deletion (at %s); attempting to unmark it", ts)
+		ci = ci.DeepCopy()
 		delete(ci.Annotations, HeartBeatAnnotation)
 		_, err = c.Client.CiliumV2().CiliumIdentities().Update(ctx, ci, metav1.UpdateOptions{})
 		if err != nil {
