@@ -6,11 +6,11 @@ package cell
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	"go.uber.org/dig"
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 	"github.com/cilium/cilium/pkg/logging/logfields"

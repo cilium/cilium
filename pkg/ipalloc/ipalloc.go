@@ -10,11 +10,10 @@ import (
 	"fmt"
 	"math/big"
 	"net/netip"
+	"slices"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/lock"
-
-	"golang.org/x/exp/slices"
 )
 
 // Allocator allocates IP addresses, `T` is the type of value associated with the IP.
