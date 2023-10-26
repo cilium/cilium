@@ -27,16 +27,12 @@ import (
 // identities are placed in 'newlyAllocatedIdentities' and it is the caller's
 // responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
 //
-// Previously used numeric identities for the given prefixes may be passed in as the
-// 'oldNIDs' parameter; nil slice must be passed if no previous numeric identities exist.
-// Previously used NID is allocated if still available. Non-availability is not an error.
-//
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
 //
 // Deprecated: Prefer UpsertLabels() instead.
 func (ipc *IPCache) AllocateCIDRs(
-	prefixes []netip.Prefix, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity,
+	prefixes []netip.Prefix, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity,
 ) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
 	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
@@ -55,15 +51,10 @@ func (ipc *IPCache) AllocateCIDRs(
 	ipc.metadata.RLock()
 	ipc.Lock()
 	allocatedIdentities := make(map[netip.Prefix]*identity.Identity, len(prefixes))
-	for i, prefix := range prefixes {
+	for _, prefix := range prefixes {
 		info := ipc.metadata.getLocked(prefix)
 
-		oldNID := identity.InvalidIdentity
-		if oldNIDs != nil && len(oldNIDs) > i {
-			oldNID = oldNIDs[i]
-		} else {
-			oldNID = info.RequestedIdentity().ID()
-		}
+		oldNID := info.RequestedIdentity().ID()
 		id, isNew, err := ipc.resolveIdentity(allocateCtx, prefix, info, oldNID)
 		if err != nil {
 			ipc.IdentityAllocator.ReleaseSlice(context.Background(), usedIdentities)
@@ -104,7 +95,7 @@ func (ipc *IPCache) AllocateCIDRs(
 func (ipc *IPCache) AllocateCIDRsForIPs(
 	prefixes []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity,
 ) ([]*identity.Identity, error) {
-	return ipc.AllocateCIDRs(ip.IPsToNetPrefixes(prefixes), nil, newlyAllocatedIdentities)
+	return ipc.AllocateCIDRs(ip.IPsToNetPrefixes(prefixes), newlyAllocatedIdentities)
 }
 
 func cidrLabelToPrefix(id *identity.Identity) (prefix netip.Prefix, ok bool) {

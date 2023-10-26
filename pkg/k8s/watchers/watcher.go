@@ -198,7 +198,7 @@ type cgroupManager interface {
 }
 
 type ipcacheManager interface {
-	AllocateCIDRs(prefixes []netip.Prefix, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error)
+	AllocateCIDRs(prefixes []netip.Prefix, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error)
 	ReleaseCIDRIdentitiesByCIDR(prefixes []netip.Prefix)
 
 	// GH-21142: Re-evaluate the need for these APIs
@@ -673,7 +673,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
 				k.ipcache.ReleaseCIDRIdentitiesByCIDR(result.PrefixesToRelease)
-				_, err := k.ipcache.AllocateCIDRs(result.PrefixesToAdd, nil, nil)
+				_, err := k.ipcache.AllocateCIDRs(result.PrefixesToAdd, nil)
 				if err != nil {
 					scopedLog.WithError(err).
 						Error("Unabled to allocate ipcache CIDR for toService rule")

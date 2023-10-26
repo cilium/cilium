@@ -350,7 +350,7 @@ func TestInjectExisting(t *testing.T) {
 	IPIdentityCache.metadata.upsertLocked(prefix, source.KubeAPIServer, resource, labels.LabelKubeAPIServer)
 
 	// Now, emulate a ToServices policy, which calls AllocateCIDRs
-	_, err = IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, nil, nil)
+	_, err = IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, nil)
 	assert.NoError(t, err)
 
 	// Now, the second half of UpsertLabels -- identity injection
@@ -407,7 +407,7 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
 
 	// Now, emulate a ToServices policy, which calls AllocateCIDRs
-	_, err = IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, nil, nil)
+	_, err = IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, nil)
 	assert.NoError(t, err)
 	identityReferences++
 
