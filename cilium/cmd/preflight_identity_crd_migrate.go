@@ -131,7 +131,7 @@ func migrateIdentities(ctx hive.HookContext, clientset k8sClient.Clientset, shut
 		})
 
 		ctx, cancel := context.WithTimeout(ctx, opTimeout)
-		err := crdBackend.AllocateID(ctx, id, key)
+		_, err := crdBackend.AllocateID(ctx, id, key)
 		switch {
 		case err != nil && k8serrors.IsAlreadyExists(err):
 			alreadyAllocatedKeys[id] = key
