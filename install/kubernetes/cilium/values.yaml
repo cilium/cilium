@@ -1615,7 +1615,7 @@ l7Proxy: true
 localRedirectPolicy: false
 
 # To include or exclude matched resources from cilium identity evaluation
-# labels: ""
+labels: "k8s:!.*/enforce k8s:!.*fluxcd.io/.* k8s:!.*kubernetes.io/managed-by.* k8s:!controller-uid k8s:!job-name"
 
 # logOptions allows you to define logging options. eg:
 # logOptions:
