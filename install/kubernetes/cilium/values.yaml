@@ -467,7 +467,7 @@ bpf:
   neighMax: ~
 
   # -- Configure the maximum number of entries in endpoint policy map (per endpoint).
-  policyMapMax: 16384
+  policyMapMax: 65536
 
   # -- (float64) Configure auto-sizing for all BPF maps based on available memory.
   # ref: https://docs.cilium.io/en/stable/network/ebpf/maps/
