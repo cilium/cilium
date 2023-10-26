@@ -23,7 +23,7 @@ See the `Gateway API site <https://gateway-api.sigs.k8s.io/>`__ for more details
 Cilium Gateway API Support
 ##########################
 
-Cilium supports Gateway API v0.8.1 for below resources, all the Core conformance
+Cilium supports Gateway API v1.0.0 for below resources, all the Core conformance
 tests are passed.
 
 - `GatewayClass <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/>`_

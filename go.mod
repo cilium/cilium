@@ -120,7 +120,7 @@ require (
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	sigs.k8s.io/controller-runtime v0.16.2
 	sigs.k8s.io/controller-tools v0.13.0
-	sigs.k8s.io/gateway-api v1.0.0-rc1.0.20231023232744-ebe9f31ef278
+	sigs.k8s.io/gateway-api v1.0.0-rc2
 	sigs.k8s.io/yaml v1.3.0
 )
 

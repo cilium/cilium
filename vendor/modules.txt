@@ -1299,6 +1299,7 @@ golang.org/x/net/ipv6
 golang.org/x/net/netutil
 golang.org/x/net/proxy
 golang.org/x/net/trace
+golang.org/x/net/websocket
 # golang.org/x/oauth2 v0.12.0
 ## explicit; go 1.18
 golang.org/x/oauth2
@@ -2052,7 +2053,7 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v1.0.0-rc1.0.20231023232744-ebe9f31ef278
+# sigs.k8s.io/gateway-api v1.0.0-rc2
 ## explicit; go 1.20
 sigs.k8s.io/gateway-api/apis/v1
 sigs.k8s.io/gateway-api/apis/v1alpha2
