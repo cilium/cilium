@@ -6,7 +6,6 @@ package cell
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"runtime"
@@ -17,6 +16,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 
@@ -425,8 +425,51 @@ func (s *StatusNode) Timestamp() time.Time {
 	return s.UpdateTimestamp
 }
 
-func (s *StatusNode) JSON() ([]byte, error) {
-	return json.MarshalIndent(s, "", "  ")
+// TODO: Split up the status part from the tree structure part.
+func FromModel(m *models.HealthStatusNode) (*StatusNode, error) {
+	ts, err := time.Parse(time.RFC3339, m.UpdateTimestamp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse timestamp %q: %w", m.UpdateTimestamp, err)
+	}
+	n := &StatusNode{
+		LastLevel:       Level(m.Level),
+		Message:         m.Message,
+		UpdateTimestamp: ts,
+		Name:            m.Name,
+		Count:           int(m.Count),
+		SubStatuses:     []*StatusNode{},
+	}
+	for _, c := range m.Children {
+		cn, err := FromModel(c)
+		if err != nil {
+			return nil, err
+		}
+		n.SubStatuses = append(n.SubStatuses, cn)
+	}
+	return n, nil
+}
+
+func (s *StatusNode) ToModel() (*models.HealthStatusNode, error) {
+	l := models.HealthStatusLevel(strings.ToLower(string(s.LastLevel)))
+	if err := l.Validate(nil); err != nil {
+		return nil, fmt.Errorf("invalid model level %q: %w", s.LastLevel, err)
+	}
+
+	m := &models.HealthStatusNode{
+		Level:           l,
+		Message:         s.Message,
+		UpdateTimestamp: s.UpdateTimestamp.Format(time.RFC3339),
+		Count:           int64(s.Count),
+		Name:            s.Name,
+	}
+	for _, c := range s.SubStatuses {
+		m, err := c.ToModel()
+		if err != nil {
+			return nil, err
+		}
+		m.Children = append(m.Children, m)
+	}
+	return m, nil
 }
 
 func (s *StatusNode) allOk() bool {

@@ -11,6 +11,7 @@ package models
 import (
 	"context"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -34,15 +35,71 @@ type ModuleHealth struct {
 
 	// Describes the module identitier
 	ModuleID string `json:"module-id,omitempty"`
+
+	// Last update
+	Update *HealthStatusNode `json:"update,omitempty"`
 }
 
 // Validate validates this module health
 func (m *ModuleHealth) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateUpdate(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
 	return nil
 }
 
-// ContextValidate validates this module health based on context it is used
+func (m *ModuleHealth) validateUpdate(formats strfmt.Registry) error {
+	if swag.IsZero(m.Update) { // not required
+		return nil
+	}
+
+	if m.Update != nil {
+		if err := m.Update.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("update")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("update")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this module health based on the context it is used
 func (m *ModuleHealth) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateUpdate(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ModuleHealth) contextValidateUpdate(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Update != nil {
+		if err := m.Update.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("update")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("update")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 

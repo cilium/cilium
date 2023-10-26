@@ -1383,7 +1383,40 @@ definitions:
       last-updated:
         description: Time of last health update
         type: string
-
+      update:
+        description: Last update
+        "$ref": "#/definitions/HealthStatusNode"
+  HealthStatusNode:
+    description: "Node of the status tree"
+    properties:
+      level:
+        description: Level of the update
+        "$ref": "#/definitions/HealthStatusLevel"
+      message:
+        description: Message associated with the update
+        type: string
+      update-timestamp:
+        description: Time of last health update
+        type: string
+      count:
+        description: Number of updates
+        type: integer
+      name:
+        description: Name of the node
+        type: string
+      children:
+        description: List of children modules health status
+        type: array
+        items:
+          "$ref": "#/definitions/HealthStatusNode" 
+  HealthStatusLevel:
+    description: Level of health status update
+    type: string
+    enum:
+      - ok
+      - degraded
+      - stopped
+      - unknown
   Endpoint:
     description: An endpoint is a namespaced network interface to which cilium applies policies
     type: object

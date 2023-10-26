@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/stream"
 
@@ -66,9 +67,7 @@ type Update interface {
 	// String returns a string representation of the update.
 	String() string
 
-	// JSON returns a JSON representation of the update, this is used by the agent
-	// health CLI to unmarshal health status into cell.StatusNode.
-	JSON() ([]byte, error)
+	ToModel() (*models.HealthStatusNode, error)
 
 	Timestamp() time.Time
 }
@@ -134,13 +133,6 @@ type Status struct {
 	LastOK time.Time
 	// LastUpdated is the time of the last status update.
 	LastUpdated time.Time
-}
-
-func (s *Status) JSON() ([]byte, error) {
-	if s.Update == nil {
-		return nil, nil
-	}
-	return s.Update.JSON()
 }
 
 func (s *Status) Level() Level {

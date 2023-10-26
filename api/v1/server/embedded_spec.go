@@ -3190,6 +3190,48 @@ func init() {
         }
       }
     },
+    "HealthStatusLevel": {
+      "description": "Level of health status update",
+      "type": "string",
+      "enum": [
+        "ok",
+        "degraded",
+        "stopped",
+        "unknown"
+      ]
+    },
+    "HealthStatusNode": {
+      "description": "Node of the status tree",
+      "properties": {
+        "children": {
+          "description": "List of children modules health status",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HealthStatusNode"
+          }
+        },
+        "count": {
+          "description": "Number of updates",
+          "type": "integer"
+        },
+        "level": {
+          "description": "Level of the update",
+          "$ref": "#/definitions/HealthStatusLevel"
+        },
+        "message": {
+          "description": "Message associated with the update",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the node",
+          "type": "string"
+        },
+        "update-timestamp": {
+          "description": "Time of last health update",
+          "type": "string"
+        }
+      }
+    },
     "HostFirewall": {
       "description": "Status of the host firewall\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -4004,6 +4046,10 @@ func init() {
         "module-id": {
           "description": "Describes the module identitier",
           "type": "string"
+        },
+        "update": {
+          "description": "Last update",
+          "$ref": "#/definitions/HealthStatusNode"
         }
       }
     },
@@ -8718,6 +8764,48 @@ func init() {
         }
       }
     },
+    "HealthStatusLevel": {
+      "description": "Level of health status update",
+      "type": "string",
+      "enum": [
+        "ok",
+        "degraded",
+        "stopped",
+        "unknown"
+      ]
+    },
+    "HealthStatusNode": {
+      "description": "Node of the status tree",
+      "properties": {
+        "children": {
+          "description": "List of children modules health status",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HealthStatusNode"
+          }
+        },
+        "count": {
+          "description": "Number of updates",
+          "type": "integer"
+        },
+        "level": {
+          "description": "Level of the update",
+          "$ref": "#/definitions/HealthStatusLevel"
+        },
+        "message": {
+          "description": "Message associated with the update",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the node",
+          "type": "string"
+        },
+        "update-timestamp": {
+          "description": "Time of last health update",
+          "type": "string"
+        }
+      }
+    },
     "HostFirewall": {
       "description": "Status of the host firewall\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -9908,6 +9996,10 @@ func init() {
         "module-id": {
           "description": "Describes the module identitier",
           "type": "string"
+        },
+        "update": {
+          "description": "Last update",
+          "$ref": "#/definitions/HealthStatusNode"
         }
       }
     },

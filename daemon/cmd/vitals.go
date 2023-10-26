@@ -51,16 +51,16 @@ func (d *Daemon) getHealthReport() (models.ModulesHealth, error) {
 // Helpers...
 
 func toModuleHealth(m cell.Status) (*models.ModuleHealth, error) {
-	d, err := m.JSON()
+	ms, err := m.ToModel()
 	if err != nil {
 		return nil, err
 	}
 	return &models.ModuleHealth{
 		ModuleID:    m.FullModuleID.String(),
-		Message:     string(d),
 		Level:       string(m.Level()),
 		LastOk:      toAgeHuman(m.LastOK),
 		LastUpdated: toAgeHuman(m.LastUpdated),
+		Update:      ms,
 	}, nil
 }
 
