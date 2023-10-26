@@ -545,7 +545,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 		if err = a.backend.AcquireReference(ctx, value, key, lock); err != nil {
 			a.localKeys.release(k)
-			return 0, false, false, fmt.Errorf("unable to create slave key '%s': %s", k, err)
+			return 0, false, false, fmt.Errorf("unable to create secondary key '%s': %s", k, err)
 		}
 
 		// mark the key as verified in the local cache
@@ -613,7 +613,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.
 		releaseKeyAndID()
-		return 0, false, false, fmt.Errorf("slave key creation failed '%s': %s", k, err)
+		return 0, false, false, fmt.Errorf("secondary key creation failed '%s': %s", k, err)
 	}
 
 	// mark the key as verified in the local cache
