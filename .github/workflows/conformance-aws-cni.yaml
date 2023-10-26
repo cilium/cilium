@@ -243,6 +243,17 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
+      - name: Jussi information gathering
+        run: |
+          function exe() {
+            echo "# $*" >> $GITHUB_STEP_SUMMARY
+            kubectl exec -it -n kube-system ds/cilium -c cilium-agent -- bash -c "$*" >> $GITHUB_STEP_SUMMARY
+            echo >> $GITHUB_STEP_SUMMARY
+          }
+          exe "ip addr"
+          exe "ip route"
+          exe "cilium ip list | grep reserved:host"
+
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
