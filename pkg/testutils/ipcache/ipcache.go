@@ -23,7 +23,7 @@ func (m *MockIPCache) GetNamedPorts() types.NamedPortMultiMap {
 
 func (m *MockIPCache) AddListener(listener ipcache.IPIdentityMappingListener) {}
 
-func (m *MockIPCache) AllocateCIDRs(prefixes []netip.Prefix, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
+func (m *MockIPCache) AllocateCIDRs(prefixes []netip.Prefix, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
 	return nil, nil
 }
 
