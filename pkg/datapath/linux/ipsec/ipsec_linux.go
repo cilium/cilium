@@ -1161,6 +1161,11 @@ func StartStaleKeysReclaimer(ctx context.Context) {
 // update before Xfrm config logic was in place. So special case init the
 // rule we need early in init flow.
 func Init() error {
+	if node.GetIPv4AllocRange() == nil {
+		// No IPv4 range configured, we must be running with PodSubnet-based encryption
+		return nil
+	}
+
 	outerLocalIP := node.GetInternalIPv4Router()
 	wildcardIP := net.ParseIP("0.0.0.0")
 	localCIDR := node.GetIPv4AllocRange().IPNet
