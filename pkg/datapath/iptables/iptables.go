@@ -1502,6 +1502,17 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
 func (m *IptablesManager) InstallRules(ctx context.Context, ifName string, firstInitialization, install bool) error {
+	// iptables-based masquerading uses the local alloc CIDR in some cases
+	if (option.Config.IptablesMasqueradingIPv4Enabled() && node.GetIPv4AllocRange() == nil) ||
+		(option.Config.IptablesMasqueradingIPv6Enabled() && node.GetIPv6AllocRange() == nil) {
+		if len(option.Config.MasqueradeInterfaces) == 0 {
+			return fmt.Errorf("iptables-based masquerading without %q cannot be used in a PodCIDR-less IPAM mode", option.MasqueradeInterfaces)
+		}
+		if option.Config.EnableMasqueradeRouteSource {
+			return fmt.Errorf("iptables-based masquerading with %q cannot be used in a PodCIDR-less IPAM mode", option.EnableMasqueradeRouteSource)
+		}
+	}
+
 	backoff := backoff.Exponential{
 		Min:  20 * time.Second,
 		Max:  3 * time.Minute,
