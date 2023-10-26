@@ -457,24 +457,61 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 	ipc.RUnlock()
 }
 
+// MU is a batched metadata update, the short name is to cut down on visual clutter.
+type MU struct {
+	Prefix   netip.Prefix
+	Source   source.Source
+	Resource ipcacheTypes.ResourceID
+	Metadata []IPMetadata
+}
+
 // UpsertMetadata upserts a given IP and some corresponding information into
 // the ipcache metadata map. See IPMetadata for a list of types that are valid
 // to pass into this function. This will trigger asynchronous calculation of
 // any datapath updates necessary to implement the logic associated with the
 // specified metadata.
 func (ipc *IPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
+	ipc.UpsertMetadataBatch(MU{Prefix: prefix, Source: src, Resource: resource, Metadata: aux})
+}
+
+// UpsertMetadataBatch applies updates to multiple prefixes in a single transaction,
+// reducing potential lock contention.
+func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) {
+	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
-	ipc.metadata.upsertLocked(prefix, src, resource, aux...)
+	for _, upd := range updates {
+		ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)
+		prefixes = append(prefixes, upd.Prefix)
+	}
 	ipc.metadata.Unlock()
-	ipc.metadata.enqueuePrefixUpdates(prefix)
+	ipc.metadata.enqueuePrefixUpdates(prefixes...)
 	ipc.TriggerLabelInjection()
 }
 
+// RemoveMetadata removes metadata associated with a specific resource from the
+// supplied prefix. Individual metadata types must be supplied for removal, but the
+// data need not match.
+//
+// This removes nothing:
+//
+//	RemoveMedata(pfx, resource)
+//
+// This removes all labels from the given resource:
+//
+//	RemoveMetadata(pfx, resource, Labels{})
 func (ipc *IPCache) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...IPMetadata) {
+	ipc.RemoveMetadataBatch(MU{Prefix: prefix, Resource: resource, Metadata: aux})
+}
+
+func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) {
+	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
-	ipc.metadata.remove(prefix, resource, aux...)
+	for _, upd := range updates {
+		ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)
+		prefixes = append(prefixes, upd.Prefix)
+	}
 	ipc.metadata.Unlock()
-	ipc.metadata.enqueuePrefixUpdates(prefix)
+	ipc.metadata.enqueuePrefixUpdates(prefixes...)
 	ipc.TriggerLabelInjection()
 }
 
@@ -488,9 +525,9 @@ func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, r
 	ipc.metadata.Lock()
 	for _, p := range prefixes {
 		ipc.metadata.upsertLocked(p, src, resource, labels.GetCIDRLabels(p))
-		ipc.metadata.enqueuePrefixUpdates(p)
 	}
 	ipc.metadata.Unlock()
+	ipc.metadata.enqueuePrefixUpdates(prefixes...)
 	ipc.TriggerLabelInjection()
 }
 
@@ -509,9 +546,9 @@ func (ipc *IPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, r
 	ipc.metadata.Lock()
 	for _, p := range prefixes {
 		ipc.metadata.remove(p, resource, labels.GetCIDRLabels(p))
-		ipc.metadata.enqueuePrefixUpdates(p)
 	}
 	ipc.metadata.Unlock()
+	ipc.metadata.enqueuePrefixUpdates(prefixes...)
 	ipc.TriggerLabelInjection()
 }
 
