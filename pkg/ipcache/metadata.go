@@ -455,16 +455,6 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 
 	lbls := info.ToLabels()
 
-	// If we are restoring an identity in the remote-node identity scope, we need to
-	// unconditionally add remote-node and cidr labels back. We do not need to check
-	// if CIDR selection for nodes is enabled here, as we explicitly check further down
-	// when we remove CIDR labels for identities that should not have them.
-	if restoredIdentity.Scope() == identity.IdentityScopeRemoteNode {
-		lbls.MergeLabels(labels.LabelRemoteNode)
-		cidrLabels := labels.GetCIDRLabels(prefix)
-		lbls.MergeLabels(cidrLabels)
-	}
-
 	// If we are restoring a host identity and policy-cidr-match-mode includes "nodes"
 	// then merge the CIDR-label.
 	if lbls.Has(labels.LabelHost[labels.IDNameHost]) &&

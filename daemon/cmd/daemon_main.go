@@ -1858,21 +1858,10 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		ms.CollectStaleMapGarbage()
 		ms.RemoveDisabledMaps()
 
-		if len(d.restoredCIDRs) > 0 {
-			// Release restored CIDR identities after a grace period (default 10
-			// minutes).  Any identities actually in use will still exist after
-			// this.
-			//
-			// This grace period is needed when running on an external workload
-			// where policy synchronization is not done via k8s. Also in k8s
-			// case it is prudent to allow concurrent endpoint regenerations to
-			// (re-)allocate the restored identities before we release them.
-			time.Sleep(option.Config.IdentityRestoreGracePeriod)
-			log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
-			d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
-			// release the memory held by restored CIDRs
-			d.restoredCIDRs = nil
-		}
+		// Sleep for the --identity-restore-grace-period (default 10 minutes), allowing
+		// the normal allocation processes to finish, before releasing restored resources.
+		time.Sleep(option.Config.IdentityRestoreGracePeriod)
+		d.releaseRestoredCIDRs()
 	}()
 	d.endpointManager.Subscribe(d)
 	// Add the endpoint manager unsubscribe as the last step in cleanup
