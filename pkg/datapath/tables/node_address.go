@@ -229,6 +229,7 @@ func (n *nodeAddressSource) getAddressesFromDevices(txn statedb.ReadTxn) (sets.S
 	// - Heavy rate limiting.
 	// - Or benchmark and see if it's cheap enough to iterate 10k devices every
 	//   few hundred millis.
+	// - Process the changes incrementally using a DeleteTracker.
 
 	devices, watch := n.Devices.All(txn)
 	for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
@@ -236,13 +237,20 @@ func (n *nodeAddressSource) getAddressesFromDevices(txn statedb.ReadTxn) (sets.S
 			continue
 		}
 
-		// TODO: How to choose which devices to consider? Earlier code
-		// (listLocalAddresses) was not picky, except for "docker".
-		// We do need to also pick addresses from "cilium_host" here in order
-		// for the address there to have HOST_ID identity.
-
-		if strings.HasPrefix(dev.Name, "lxc") || strings.HasPrefix(dev.Name, "docker") {
-			continue
+		// Skip obviously uninteresting devices.
+		// We include the HostDevice as its IP addresses are consider node addresses
+		// and added to e.g. ipcache as HOST_IDs.
+		if dev.Name != defaults.HostDevice {
+			skip := false
+			for _, prefix := range defaults.ExcludedDevicePrefixes {
+				if strings.HasPrefix(dev.Name, prefix) {
+					skip = true
+					break
+				}
+			}
+			if skip {
+				continue
+			}
 		}
 
 		// ipv4 and ipv6 are set to true when the primary address is picked.
@@ -260,9 +268,10 @@ func (n *nodeAddressSource) getAddressesFromDevices(txn statedb.ReadTxn) (sets.S
 				continue
 			}
 
+			// Figure out if the address is usable for NodePort.
 			nodePort := false
 			primary := false
-			if len(n.Config.NodePortAddresses) == 0 {
+			if dev.Selected && len(n.Config.NodePortAddresses) == 0 {
 				// The user has not specified IP ranges to filter on IPs on which to serve NodePort.
 				// Thus the default behavior is to use the primary IPv4 and IPv6 addresses of each
 				// device.
@@ -277,6 +286,7 @@ func (n *nodeAddressSource) getAddressesFromDevices(txn statedb.ReadTxn) (sets.S
 					primary = true
 				}
 			} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
+				// User specified --nodeport-addresses and this address was within the range.
 				nodePort = true
 				if addr.Addr.Is4() && !ipv4 {
 					primary = true
@@ -286,6 +296,7 @@ func (n *nodeAddressSource) getAddressesFromDevices(txn statedb.ReadTxn) (sets.S
 					ipv6 = true
 				}
 			}
+
 			addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: primary, NodePort: nodePort, DeviceName: dev.Name})
 		}
 	}
@@ -309,9 +320,9 @@ func sortAddresses(addrs []DeviceAddress) []DeviceAddress {
 
 	sort.SliceStable(addrs, func(i, j int) bool {
 		switch {
-		case addrs[i].Primary && !addrs[j].Primary:
+		case !addrs[i].Secondary && addrs[j].Secondary:
 			return true
-		case !addrs[i].Primary && addrs[j].Primary:
+		case addrs[i].Secondary && !addrs[j].Secondary:
 			return false
 		default:
 			return addrs[i].Scope < addrs[j].Scope

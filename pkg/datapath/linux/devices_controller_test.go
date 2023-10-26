@@ -143,6 +143,24 @@ func TestDevicesController(t *testing.T) {
 			},
 		},
 
+		{
+			"secondary address",
+			func(t *testing.T) {
+				require.NoError(t, addAddrScoped("dummy1", "192.168.1.2/24", netlink.SCOPE_SITE, unix.IFA_F_SECONDARY))
+			},
+			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
+				// Since we're indexing by ifindex, we expect these to be in the order
+				// they were added.
+				return len(devs) == 2 &&
+					"dummy1" == devs[1].Name &&
+					devs[1].Selected &&
+					devs[1].Addrs[0].Addr == netip.MustParseAddr("192.168.1.1") &&
+					!devs[1].Addrs[0].Secondary &&
+					devs[1].Addrs[1].Addr == netip.MustParseAddr("192.168.1.2") &&
+					devs[1].Addrs[1].Secondary
+			},
+		},
+
 		{ // Only consider veth devices when they have a default route.
 			"veth-without-default-gw",
 			func(t *testing.T) {

@@ -13,25 +13,57 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
-func setupDBAndTable(t *testing.T) (db *statedb.DB, nodeAddrs statedb.Table[tables.NodeAddress], devices statedb.RWTable[*tables.Device]) {
+var (
+	v4Wild = net.ParseIP("0.0.0.0")
+	v6Wild = net.ParseIP("::")
+)
+
+func setupNodeAddressing(t *testing.T, addrs []tables.DeviceAddress) (nodeAddressing types.NodeAddressing) {
 	h := hive.New(
 		job.Cell,
 		statedb.Cell,
-		tables.NodeAddressCell,
 		tables.DeviceTableCell,
-		cell.Provide(func(devs statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
-			return devs
+
+		cell.Provide(func(db *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
+			// Simulate the DevicesController and populate the devices table.
+			txn := db.WriteTxn(devices)
+			devices.Insert(txn, &tables.Device{
+				Index: 1,
+				Name:  "cilium_host",
+				Flags: net.FlagUp,
+				Addrs: []tables.DeviceAddress{
+					{Addr: netip.MustParseAddr("9.9.9.9"), Scope: unix.RT_SCOPE_SITE},
+				},
+				Selected: false,
+			})
+			devices.Insert(txn, &tables.Device{
+				Index:    2,
+				Name:     "test",
+				Flags:    net.FlagUp,
+				Addrs:    addrs,
+				Selected: true,
+			})
+			txn.Commit()
+			return devices
 		}),
-		cell.Invoke(func(db_ *statedb.DB, nodeAddrs_ statedb.Table[tables.NodeAddress], devices_ statedb.RWTable[*tables.Device]) {
-			db = db_
-			nodeAddrs = nodeAddrs_
-			devices = devices_
+
+		// Table[NodeAddress] and controller that populates it from devices.
+		tables.NodeAddressCell,
+
+		// LocalNodeStore as required by Router(), PrimaryExternal(), etc.
+		node.LocalNodeStoreCell,
+
+		tables.NodeAddressingCell,
+		cell.Invoke(func(nodeAddressing_ types.NodeAddressing) {
+			nodeAddressing = nodeAddressing_
 		}),
 	)
 	require.NoError(t, h.Start(context.TODO()), "Start")
@@ -41,122 +73,33 @@ func setupDBAndTable(t *testing.T) (db *statedb.DB, nodeAddrs statedb.Table[tabl
 	return
 }
 
-func TestLocalAddresses(t *testing.T) {
-	db, nodeAddrs, devices := setupDBAndTable(t)
-
-	{
-		txn := db.WriteTxn(devices)
-		devices.Insert(txn, &tables.Device{
-			Index: 1,
-			Name:  "cilium_host",
-			Flags: net.FlagUp,
-			Addrs: []tables.DeviceAddress{
-				{Addr: netip.MustParseAddr("9.9.9.9"), Scope: unix.RT_SCOPE_SITE},
-			},
-		})
-		txn.Commit()
-	}
-
-	nodeAddressing := tables.NewNodeAddressing(nil, db, nodeAddrs, devices)
-
-	tests := []struct {
-		name  string
-		addrs []tables.DeviceAddress
-		want  []net.IP
-	}{
-		{
-			name: "ipv4 simple",
-			addrs: []tables.DeviceAddress{
-				{
-					Addr:  netip.MustParseAddr("10.0.0.1"),
-					Scope: unix.RT_SCOPE_SITE,
-				},
-			},
-			want: []net.IP{
-				net.ParseIP("10.0.0.1"),
-				net.ParseIP("9.9.9.9"), // cilium_host
-			},
-		},
-		{
-			name: "ipv6 simple",
-			addrs: []tables.DeviceAddress{
-				{
-					Addr:  netip.MustParseAddr("2001:db8::1"),
-					Scope: unix.RT_SCOPE_SITE,
-				},
-			},
-
-			want: []net.IP{
-				net.ParseIP("2001:db8::1"),
-				net.ParseIP("9.9.9.9"), // cilium_host
-			},
-		},
-		{
-			name: "v4/v6 mix",
-			addrs: []tables.DeviceAddress{
-				{
-					Addr:  netip.MustParseAddr("10.0.0.1"),
-					Scope: unix.RT_SCOPE_SITE,
-				},
-				{
-					Addr:  netip.MustParseAddr("2001:db8::1"),
-					Scope: unix.RT_SCOPE_UNIVERSE,
-				},
-			},
-
-			want: []net.IP{
-				net.ParseIP("10.0.0.1"),
-				net.ParseIP("2001:db8::1"),
-				net.ParseIP("9.9.9.9"), // cilium_host
-			},
-		},
-		{
-
-			name: "skip-out-of-scope-addrs",
-			addrs: []tables.DeviceAddress{
-				{
-					Addr:  netip.MustParseAddr("10.0.1.1"),
-					Scope: unix.RT_SCOPE_UNIVERSE,
-				},
-				{
-					Addr:  netip.MustParseAddr("10.0.2.2"),
-					Scope: unix.RT_SCOPE_LINK,
-				},
-				{
-					Addr:  netip.MustParseAddr("10.0.3.3"),
-					Scope: unix.RT_SCOPE_HOST,
-				},
-			},
-
-			// The default AddressMaxScope is set to LINK-1, so addresses with
-			// scope LINK or above are ignored
-			want: []net.IP{
-				net.ParseIP("10.0.1.1"),
-				net.ParseIP("9.9.9.9"), // cilium_host
-			},
-		},
-	}
-
-	for _, tt := range tests {
+// TestNodeAddressing is an integration test that checks that from a [tables.Device] the
+// correct [NodeAddress] is derived and [NodeAddressing] returns the correct results from
+// there.
+func TestNodeAddressing(t *testing.T) {
+	// LocalAddresses() and LoadBalancerNodeAddresses()
+	for _, tt := range nodeAddressTests {
 		t.Run(tt.name, func(t *testing.T) {
-			txn := db.WriteTxn(devices)
-			_, watch := nodeAddrs.All(txn)
-			devices.Insert(txn, &tables.Device{
-				Index: 2,
-				Name:  "test",
-				Flags: net.FlagUp,
-				Addrs: tt.addrs,
-			})
-			txn.Commit()
-			<-watch
+			nodeAddressing := setupNodeAddressing(t, tt.addrs)
 
-			v4, err := nodeAddressing.IPv4().LocalAddresses()
-			require.NoError(t, err, "IPv4().LocalAddresses()")
-			v6, err := nodeAddressing.IPv6().LocalAddresses()
-			require.NoError(t, err, "IPv6().LocalAddresses()")
-			got := append(v4, v6...)
+			{
+				v4, err := nodeAddressing.IPv4().LocalAddresses()
+				require.NoError(t, err, "IPv4().LocalAddresses()")
+				v6, err := nodeAddressing.IPv6().LocalAddresses()
+				require.NoError(t, err, "IPv6().LocalAddresses()")
+				got := ipStrings(append(v4, v6...))
 
-			require.ElementsMatch(t, ipStrings(got), ipStrings(tt.want), "Addresses do not match")
+				want := ipStrings(tt.wantLocal)
+				require.ElementsMatch(t, got, want, "LocalAddresses() do not match")
+			}
+			{
+				v4 := nodeAddressing.IPv4().LoadBalancerNodeAddresses()
+				v6 := nodeAddressing.IPv6().LoadBalancerNodeAddresses()
+				got := ipStrings(append(v4, v6...))
+				want := ipStrings(append(tt.wantNodePort, v4Wild, v6Wild))
+				require.ElementsMatch(t, got, want, "LoadBalancerNodeAddresses() do not match")
+			}
+
 		})
 	}
 }

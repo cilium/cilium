@@ -19,7 +19,6 @@ var NodeAddressingCell = cell.Module(
 	"node-addressing",
 	"Accessors for looking up local node IP addresses",
 
-	cell.ProvidePrivate(newAddressScopeMax),
 	cell.Provide(NewNodeAddressing),
 )
 
@@ -60,7 +59,7 @@ func (a addressFamilyIPv4) LocalAddresses() (addrs []net.IP, err error) {
 // LoadBalancerNodeAddresses returns all IPv4 node addresses on which the
 // loadbalancer should implement HostPort and NodePort services.
 func (a addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
-	addrs := a.getNodeAddresses(a.db.ReadTxn(), ipv6|nodePort)
+	addrs := a.getNodeAddresses(a.db.ReadTxn(), ipv4|nodePort)
 	addrs = append(addrs, net.IPv4zero)
 	return addrs
 }
@@ -99,6 +98,7 @@ func (a addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
 func (a addressFamilyIPv6) LoadBalancerNodeAddresses() []net.IP {
 	addrs := a.getNodeAddresses(a.db.ReadTxn(), ipv6|nodePort)
 	addrs = append(addrs, net.IPv6zero)
+
 	return addrs
 }
 
@@ -124,16 +124,14 @@ const (
 func (na *nodeAddressing) getNodeAddresses(txn statedb.ReadTxn, flag getFlag) (addrs []net.IP) {
 	nodeAddrs, _ := na.nodeAddresses.All(txn)
 	for addr, _, ok := nodeAddrs.Next(); ok; addr, _, ok = nodeAddrs.Next() {
-		if flag&nodePort == 0 && !addr.NodePort {
+		if flag&nodePort != 0 && !addr.NodePort {
 			continue
 		}
-		if flag&ipv6 == 0 && addr.Addr.Is4() {
-			continue
+		if flag&ipv4 != 0 && addr.Addr.Is4() {
+			addrs = append(addrs, addr.IP())
+		} else if flag&ipv6 != 0 && addr.Addr.Is6() {
+			addrs = append(addrs, addr.IP())
 		}
-		if flag&ipv4 == 0 && !addr.Addr.Is4() {
-			continue
-		}
-		addrs = append(addrs, addr.IP())
 	}
 	return
 }

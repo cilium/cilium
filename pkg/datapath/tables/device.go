@@ -101,9 +101,9 @@ func (d *Device) HasIP(ip net.IP) bool {
 }
 
 type DeviceAddress struct {
-	Addr    netip.Addr
-	Primary bool
-	Scope   uint8 // Address scope, e.g. unix.RT_SCOPE_LINK, unix.RT_SCOPE_HOST etc.
+	Addr      netip.Addr
+	Secondary bool
+	Scope     uint8 // Address scope, e.g. unix.RT_SCOPE_LINK, unix.RT_SCOPE_HOST etc.
 }
 
 func (d *DeviceAddress) AsIP() net.IP {
