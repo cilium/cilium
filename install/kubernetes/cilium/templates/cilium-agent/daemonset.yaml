@@ -128,6 +128,7 @@ spec:
           failureThreshold: {{ .Values.startupProbe.failureThreshold }}
           periodSeconds: {{ .Values.startupProbe.periodSeconds }}
           successThreshold: 1
+          initialDelaySeconds: 5
         {{- end }}
         livenessProbe:
           {{- if or .Values.keepDeprecatedProbes $defaultKeepDeprecatedProbes }}
