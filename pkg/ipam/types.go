@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -144,7 +143,3 @@ type Pool string
 func (p Pool) String() string {
 	return string(p)
 }
-
-const (
-	PoolDefault Pool = ipamOption.PoolDefault
-)

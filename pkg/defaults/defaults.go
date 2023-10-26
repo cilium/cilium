@@ -380,9 +380,8 @@ const (
 	// CiliumNode.Spec.IPAM.PreAllocate if no value is set
 	IPAMPreAllocation = 8
 
-	// IPAMMultiPoolPreAllocation is the default value for multi-pool IPAM
-	// pre-allocations
-	IPAMMultiPoolPreAllocation = "default=8"
+	// IPAMDefaultIPPool is the default value for the multi-pool default pool name.
+	IPAMDefaultIPPool = "default"
 
 	// ENIFirstInterfaceIndex is the default value for
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set.

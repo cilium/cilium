@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipam"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging"
@@ -128,7 +127,7 @@ func (m *Manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 	if !ok {
 		log.WithField("owner", owner).
 			Debug("IPAM metadata request for invalid pod name, falling back to default pool")
-		return ipamOption.PoolDefault, nil
+		return ipam.PoolDefault().String(), nil
 	}
 
 	// Check annotation on pod
@@ -157,5 +156,5 @@ func (m *Manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 	}
 
 	// Fallback to default pool
-	return ipamOption.PoolDefault, nil
+	return ipam.PoolDefault().String(), nil
 }

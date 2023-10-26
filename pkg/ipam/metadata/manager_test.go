@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -139,19 +138,19 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 			name:     "no annotations",
 			owner:    "default/client",
 			ipfamily: ipam.IPv4,
-			wantPool: ipamOption.PoolDefault,
+			wantPool: ipam.PoolDefault().String(),
 		},
 		{
 			name:     "not a pod name",
 			owner:    "router",
 			ipfamily: ipam.IPv4,
-			wantPool: ipamOption.PoolDefault,
+			wantPool: ipam.PoolDefault().String(),
 		},
 		{
 			name:     "also not a pod name (due to underline)",
 			owner:    "default/xwing_net2",
 			ipfamily: ipam.IPv4,
-			wantPool: ipamOption.PoolDefault,
+			wantPool: ipam.PoolDefault().String(),
 		},
 		{
 			name:     "pod annotation",
@@ -169,7 +168,7 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 			name:     "pod annotation only ipv4 pool request ipv6",
 			owner:    "default/custom-workload2",
 			ipfamily: ipam.IPv6,
-			wantPool: ipamOption.PoolDefault,
+			wantPool: ipam.PoolDefault().String(),
 		},
 		{
 			name:     "pod annotation ipv4 and custom pool request ipv4",

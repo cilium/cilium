@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -210,7 +211,12 @@ func (ipam *IPAM) isIPExcluded(ip net.IP, pool Pool) (string, bool) {
 // PoolOrDefault returns the default pool if no pool is specified.
 func PoolOrDefault(pool string) Pool {
 	if pool == "" {
-		return PoolDefault
+		return PoolDefault()
 	}
 	return Pool(pool)
+}
+
+// PoolDefault returns the default pool
+func PoolDefault() Pool {
+	return Pool(option.Config.IPAMDefaultIPPool)
 }

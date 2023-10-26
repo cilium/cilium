@@ -86,7 +86,7 @@ func (h *hostScopeAllocator) Dump() (map[Pool]map[string]string, string) {
 	maxIPs := ip.CountIPsInCIDR(h.allocCIDR)
 	status := fmt.Sprintf("%d/%s allocated from %s", len(alloc), maxIPs.String(), h.allocCIDR.String())
 
-	return map[Pool]map[string]string{PoolDefault: alloc}, status
+	return map[Pool]map[string]string{PoolDefault(): alloc}, status
 }
 
 func (h *hostScopeAllocator) Capacity() uint64 {

@@ -194,7 +194,7 @@ func coalesceCIDRs(rCIDRs []string) (result []string) {
 
 func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerIP net.IP, err error) {
 	// Avoid allocating external IP
-	d.ipam.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault)
+	d.ipam.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault())
 
 	// (Re-)allocate the router IP. If not possible, allocate a fresh IP.
 	// In that case, removal and re-creation of the cilium_host is
@@ -203,7 +203,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 	var result *ipam.AllocationResult
 	routerIP = family.Router()
 	if routerIP != nil {
-		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router", ipam.PoolDefault)
+		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router", ipam.PoolDefault())
 		if err != nil {
 			log.Warn("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
 
@@ -218,7 +218,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 
 	if routerIP == nil {
 		family := ipam.DeriveFamily(family.PrimaryExternal())
-		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault)
+		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault())
 		if err != nil {
 			err = fmt.Errorf("Unable to allocate router IP for family %s: %s", family, err)
 			return
@@ -255,7 +255,7 @@ func (d *Daemon) allocateHealthIPs() error {
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking && option.Config.EnableEndpointHealthChecking {
 		if option.Config.EnableIPv4 {
-			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health", ipam.PoolDefault)
+			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health", ipam.PoolDefault())
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
 			}
@@ -283,10 +283,10 @@ func (d *Daemon) allocateHealthIPs() error {
 		}
 
 		if option.Config.EnableIPv6 {
-			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault)
+			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault())
 			if err != nil {
 				if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
-					d.ipam.ReleaseIP(healthIPv4, ipam.PoolDefault)
+					d.ipam.ReleaseIP(healthIPv4, ipam.PoolDefault())
 					node.SetEndpointHealthIPv4(nil)
 				}
 				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
@@ -318,7 +318,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			// Reallocate the same address as before, if possible
 			ingressIPv4 := node.GetIngressIPv4()
 			if ingressIPv4 != nil {
-				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress", ipam.PoolDefault)
+				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress", ipam.PoolDefault())
 				if err != nil {
 					log.WithError(err).WithField(logfields.SourceIP, ingressIPv4).Warn("unable to re-allocate ingress IPv4.")
 					result = nil
@@ -328,7 +328,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			// Allocate a fresh IP if not restored, or the reallocation of the restored
 			// IP failed
 			if result == nil {
-				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress", ipam.PoolDefault)
+				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress", ipam.PoolDefault())
 				if err != nil {
 					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
 				}
@@ -371,7 +371,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			// Reallocate the same address as before, if possible
 			ingressIPv6 := node.GetIngressIPv6()
 			if ingressIPv6 != nil {
-				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault)
+				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault())
 				if err != nil {
 					log.WithError(err).WithField(logfields.SourceIP, ingressIPv6).Warn("unable to re-allocate ingress IPv6.")
 					result = nil
@@ -381,10 +381,10 @@ func (d *Daemon) allocateIngressIPs() error {
 			// Allocate a fresh IP if not restored, or the reallocation of the restored
 			// IP failed
 			if result == nil {
-				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault)
+				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault())
 				if err != nil {
 					if ingressIPv4 := node.GetIngressIPv4(); ingressIPv4 != nil {
-						d.ipam.ReleaseIP(ingressIPv4, ipam.PoolDefault)
+						d.ipam.ReleaseIP(ingressIPv4, ipam.PoolDefault())
 						node.SetIngressIPv4(nil)
 					}
 					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)

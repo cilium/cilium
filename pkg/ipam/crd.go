@@ -887,7 +887,7 @@ func (a *crdAllocator) Dump() (map[Pool]map[string]string, string) {
 	}
 
 	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.store.totalPoolSize(a.family))
-	return map[Pool]map[string]string{PoolDefault: allocs}, status
+	return map[Pool]map[string]string{PoolDefault(): allocs}, status
 }
 
 func (a *crdAllocator) Capacity() uint64 {
