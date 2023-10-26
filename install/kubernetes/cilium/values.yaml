@@ -1612,7 +1612,7 @@ l2NeighDiscovery:
 l7Proxy: true
 
 # -- Enable Local Redirect Policy.
-localRedirectPolicy: false
+localRedirectPolicy: true
 
 # To include or exclude matched resources from cilium identity evaluation
 labels: "k8s:!.*/enforce k8s:!.*fluxcd.io/.* k8s:!.*kubernetes.io/managed-by.* k8s:!controller-uid k8s:!job-name"
