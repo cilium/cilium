@@ -31,6 +31,8 @@ type MockIdentityAllocator struct {
 	ipToIdentity     map[string]int
 	idToIdentity     map[int]*identity.Identity
 	labelsToIdentity map[string]int // labels are sorted as a key
+
+	withheldIdentities map[identity.NumericIdentity]struct{}
 }
 
 // NewMockIdentityAllocator returns a new mock identity allocator to be used
@@ -49,9 +51,10 @@ func NewMockIdentityAllocator(c cache.IdentityCache) *MockIdentityAllocator {
 			identity.IdentityScopeRemoteNode: 0,
 		},
 
-		ipToIdentity:     make(map[string]int),
-		idToIdentity:     make(map[int]*identity.Identity),
-		labelsToIdentity: make(map[string]int),
+		ipToIdentity:       make(map[string]int),
+		idToIdentity:       make(map[int]*identity.Identity),
+		labelsToIdentity:   make(map[string]int),
+		withheldIdentities: map[identity.NumericIdentity]struct{}{},
 	}
 }
 
@@ -81,6 +84,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 
 	scope := identity.ScopeForLabels(lbls)
 	id := identity.IdentityUnknown
+
 	// if suggested id is available, use it
 	if scope != identity.IdentityScopeGlobal {
 		if _, ok := f.idToIdentity[int(oldNID)]; !ok && oldNID.Scope() == identity.ScopeForLabels(lbls) {
@@ -88,9 +92,11 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 		}
 	}
 	for id == identity.IdentityUnknown {
-		_, ok := f.idToIdentity[f.nextIDs[scope]]
-		if !ok {
-			id = identity.NumericIdentity(f.nextIDs[scope]) | scope
+		candidate := identity.NumericIdentity(f.nextIDs[scope]) | scope
+		_, allocated := f.idToIdentity[int(candidate)]
+		_, withheld := f.withheldIdentities[candidate]
+		if !allocated && !withheld {
+			id = candidate
 		}
 		f.nextIDs[scope]++
 	}
@@ -139,6 +145,18 @@ func (f *MockIdentityAllocator) ReleaseSlice(ctx context.Context, identities []*
 		}
 	}
 	return nil
+}
+
+func (f *MockIdentityAllocator) WithholdLocalIdentities(nids []identity.NumericIdentity) {
+	for _, nid := range nids {
+		f.withheldIdentities[nid] = struct{}{}
+	}
+}
+
+func (f *MockIdentityAllocator) UnwithholdLocalIdentities(nids []identity.NumericIdentity) {
+	for _, nid := range nids {
+		delete(f.withheldIdentities, nid)
+	}
 }
 
 // LookupIdentity looks up the labels in the mock identity store.
