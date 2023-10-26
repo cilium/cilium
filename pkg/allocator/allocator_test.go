@@ -60,12 +60,12 @@ func (d *dummyBackend) DeleteAllKeys(ctx context.Context) {
 	d.identities = map[idpool.ID]AllocatorKey{}
 }
 
-func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key AllocatorKey) error {
+func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key AllocatorKey) (AllocatorKey, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
 	if _, ok := d.identities[id]; ok {
-		return fmt.Errorf("identity already exists")
+		return nil, fmt.Errorf("identity already exists")
 	}
 
 	d.identities[id] = key
@@ -74,10 +74,10 @@ func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key Allocat
 		d.handler.OnAdd(id, key)
 	}
 
-	return nil
+	return key, nil
 }
 
-func (d *dummyBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, lock kvstore.KVLocker) error {
+func (d *dummyBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, lock kvstore.KVLocker) (AllocatorKey, error) {
 	return d.AllocateID(ctx, id, key)
 }
 
@@ -208,6 +208,14 @@ func (t TestAllocatorKey) PutKeyFromMap(m map[string]string) AllocatorKey {
 	}
 
 	panic("empty map")
+}
+
+func (t TestAllocatorKey) PutValue(key any, value any) AllocatorKey {
+	panic("not implemented")
+}
+
+func (t TestAllocatorKey) Value(any) any {
+	panic("not implemented")
 }
 
 func randomTestName() string {
