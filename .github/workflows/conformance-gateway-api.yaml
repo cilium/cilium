@@ -118,9 +118,9 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           
-          SUPPORTED_FEATURES="ReferenceGrant,HTTPRoute,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,GatewayClassObservedGenerationBump,HTTPRouteHostRewrite,HTTPRoutePathRewrite,HTTPRouteSchemeRedirect,HTTPRoutePathRedirect,HTTPRoutePortRedirect,HTTPRouteRequestMirror,HTTPRouteRequestMultipleMirrors"
-          if [ ${{ matrix.crd-channel }} == "experimental" ]; then
-            SUPPORTED_FEATURES+=",HTTPResponseHeaderModification,RouteDestinationPortMatching"
+          EXEMPT_FEATURES="GatewayPort8080,GatewayStaticAddresses,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,Mesh"
+          if [ ${{ matrix.crd-channel }} == "standard" ]; then
+            EXEMPT_FEATURES+=",HTTPResponseHeaderModification,HTTPRouteDestinationPortMatching"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
@@ -130,7 +130,7 @@ jobs:
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
-          echo supported_features=${SUPPORTED_FEATURES} >> $GITHUB_OUTPUT
+          echo exempt-features=${EXEMPT_FEATURES} >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -241,7 +241,8 @@ jobs:
               -p 4 \
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
-              --supported-features "${{ steps.vars.outputs.supported_features }}" \
+              --all-features \
+              --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
               --conformance-profiles HTTP,TLS \
               --organization cilium \
               --project cilium \
@@ -256,7 +257,8 @@ jobs:
               -p 4 \
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
-              --supported-features "${{ steps.vars.outputs.supported_features }}" \
+              --all-features \
+              --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
               -test.run "TestConformance" \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}"
           fi
