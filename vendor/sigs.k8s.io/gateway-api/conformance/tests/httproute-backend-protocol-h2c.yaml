@@ -1,0 +1,17 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backend-protocol-h2c
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+  # This points to a Service with the following ServicePort
+  # - protocol: TCP
+  #   appProtocol: kubernetes.io/h2c
+  #   port: 8081
+  #   targetPort: 3001
+    - name: infra-backend-v1
+      port: 8081

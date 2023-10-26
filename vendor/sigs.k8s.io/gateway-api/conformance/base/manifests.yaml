@@ -91,8 +91,19 @@ spec:
   selector:
     app: infra-backend-v1
   ports:
-  - protocol: TCP
+  - name: first-port
+    protocol: TCP
     port: 8080
+    targetPort: 3000
+  - name: second-port
+    protocol: TCP
+    appProtocol: kubernetes.io/h2c
+    port: 8081
+    targetPort: 3001
+  - name: third-port
+    protocol: TCP
+    appProtocol: kubernetes.io/ws
+    port: 8082
     targetPort: 3000
 ---
 apiVersion: apps/v1
@@ -115,7 +126,7 @@ spec:
       containers:
       - name: infra-backend-v1
         # From https://github.com/kubernetes-sigs/ingress-controller-conformance/tree/master/images/echoserver
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231013-v0.8.1-133-g3959576a
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
         env:
         - name: POD_NAME
           valueFrom:
@@ -161,7 +172,7 @@ spec:
     spec:
       containers:
       - name: infra-backend-v2
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231013-v0.8.1-133-g3959576a
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
         env:
         - name: POD_NAME
           valueFrom:
@@ -207,7 +218,7 @@ spec:
     spec:
       containers:
       - name: infra-backend-v3
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231013-v0.8.1-133-g3959576a
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
         env:
         - name: POD_NAME
           valueFrom:
@@ -253,7 +264,7 @@ spec:
     spec:
       containers:
       - name: tls-backend
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231013-v0.8.1-133-g3959576a
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
         volumeMounts:
         - name: secret-volume
           mountPath: /etc/secret-volume
@@ -322,7 +333,7 @@ spec:
     spec:
       containers:
       - name: tls-backend
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231013-v0.8.1-133-g3959576a
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
         volumeMounts:
         - name: secret-volume
           mountPath: /etc/secret-volume
@@ -384,7 +395,7 @@ spec:
     spec:
       containers:
       - name: app-backend-v1
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231013-v0.8.1-133-g3959576a
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
         env:
         - name: POD_NAME
           valueFrom:
@@ -430,7 +441,7 @@ spec:
     spec:
       containers:
       - name: app-backend-v2
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231013-v0.8.1-133-g3959576a
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
         env:
         - name: POD_NAME
           valueFrom:
@@ -483,7 +494,7 @@ spec:
     spec:
       containers:
       - name: web-backend
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231013-v0.8.1-133-g3959576a
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
         env:
         - name: POD_NAME
           valueFrom:

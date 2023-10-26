@@ -116,6 +116,10 @@ func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, sch
 		expected.Response.StatusCode = 200
 	}
 
+	if expected.Request.Protocol == "" {
+		expected.Request.Protocol = protocol
+	}
+
 	path, query, _ := strings.Cut(expected.Request.Path, "?")
 	reqURL := url.URL{Scheme: scheme, Host: CalculateHost(t, gwAddr, scheme), Path: path, RawQuery: query}
 
@@ -125,7 +129,7 @@ func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, sch
 		Method:           expected.Request.Method,
 		Host:             expected.Request.Host,
 		URL:              reqURL,
-		Protocol:         protocol,
+		Protocol:         expected.Request.Protocol,
 		Headers:          map[string][]string{},
 		UnfollowRedirect: expected.Request.UnfollowRedirect,
 	}
