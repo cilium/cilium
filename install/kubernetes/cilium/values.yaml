@@ -1812,7 +1812,8 @@ prometheus:
   # The list is expected to be separated by a space. (+metric_foo to enable
   # metric_foo , -metric_bar to disable metric_bar).
   # ref: https://docs.cilium.io/en/stable/observability/metrics/
-  metrics: ~
+  metrics:
+    - +cilium_bpf_map_pressure
 
 # -- Grafana dashboards for cilium-agent
 # grafana can import dashboards based on the label and value
