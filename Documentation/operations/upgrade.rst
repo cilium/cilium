@@ -328,6 +328,10 @@ Annotations:
   include these parameters.
 * ``enable-endpoint-routes`` now automatically sets ``enable-local-node-route``
   to false, as local node routes are redundant when per-endpoint routes are enabled.
+* If you are using Gateway API, please make sure that that new v1 CRDs are installed.
+  The existing Gateway API resources will continue to work as usual, however, it is
+  better to migrate your resources from v1beta1 to v1 for GatewayClass, Gateway and
+  HTTPRoute resources.
 
 .. _upgrade_cilium_cli_helm_mode:
 
