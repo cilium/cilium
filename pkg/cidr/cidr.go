@@ -80,6 +80,14 @@ func (n *CIDR) AvailableIPs() int {
 	return 1 << (bits - ones)
 }
 
+// String returns the string representation of a CIDR. This method is nil-safe.
+func (n *CIDR) String() string {
+	if n == nil {
+		return "<nil>"
+	}
+	return n.IPNet.String()
+}
+
 // Equal returns true if the receiver's CIDR equals the other CIDR.
 func (n *CIDR) Equal(o *CIDR) bool {
 	if n == nil || o == nil {

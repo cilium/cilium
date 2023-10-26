@@ -152,7 +152,8 @@ func (d *Daemon) allocateRouterIPv4(family types.NodeAddressingFamily) (net.IP, 
 		if routerIP == nil {
 			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.Config.LocalRouterIPv4)
 		}
-		if d.datapath.LocalNodeAddressing().IPv4().AllocationCIDR().Contains(routerIP) {
+		c := d.datapath.LocalNodeAddressing().IPv4().AllocationCIDR()
+		if c != nil && c.Contains(routerIP) {
 			log.Warn("Specified router IP is within IPv4 podCIDR.")
 		}
 		return routerIP, nil
@@ -167,7 +168,8 @@ func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily) (net.IP, 
 		if routerIP == nil {
 			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.Config.LocalRouterIPv6)
 		}
-		if d.datapath.LocalNodeAddressing().IPv6().AllocationCIDR().Contains(routerIP) {
+		c := d.datapath.LocalNodeAddressing().IPv6().AllocationCIDR()
+		if c != nil && c.Contains(routerIP) {
 			log.Warn("Specified router IP is within IPv6 podCIDR.")
 		}
 		return routerIP, nil
@@ -437,7 +439,6 @@ func (d *Daemon) allocateIPs() error {
 
 	if option.Config.EnableIPv6 {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
-
 		if c := option.Config.GetIPv6NativeRoutingCIDR(); c != nil {
 			log.Infof("  IPv6 native routing prefix: %s", c.String())
 		}
@@ -459,7 +460,6 @@ func (d *Daemon) allocateIPs() error {
 
 	if option.Config.EnableIPv4 {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
-
 		if c := option.Config.GetIPv4NativeRoutingCIDR(); c != nil {
 			log.Infof("  IPv4 native routing prefix: %s", c.String())
 		}
