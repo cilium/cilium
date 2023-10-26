@@ -24,6 +24,12 @@ type fakeEtcdLeaseClient struct {
 	contexts map[client.LeaseID]context.Context
 }
 
+func newFakeEtcdClient(leases *fakeEtcdLeaseClient) *client.Client {
+	cl := client.NewCtxClient(leases.ctx)
+	cl.Lease = leases
+	return cl
+}
+
 func newFakeEtcdLeaseClient(ctx context.Context, expectedTTLSeconds int64) fakeEtcdLeaseClient {
 	return fakeEtcdLeaseClient{
 		ctx:                ctx,
@@ -50,11 +56,7 @@ func (f *fakeEtcdLeaseClient) KeepAlive(ctx context.Context, id client.LeaseID) 
 
 	ch := make(chan *client.LeaseKeepAliveResponse)
 	go func() {
-		select {
-		case <-f.ctx.Done():
-		case <-ctx.Done():
-		}
-
+		<-ctx.Done()
 		close(ch)
 	}()
 
@@ -62,14 +64,24 @@ func (f *fakeEtcdLeaseClient) KeepAlive(ctx context.Context, id client.LeaseID) 
 	return ch, nil
 }
 
-func (f *fakeEtcdLeaseClient) Ctx() context.Context {
-	return f.ctx
+func (f *fakeEtcdLeaseClient) Revoke(ctx context.Context, id client.LeaseID) (*client.LeaseRevokeResponse, error) {
+	return nil, ErrNotImplemented
 }
+func (f *fakeEtcdLeaseClient) TimeToLive(ctx context.Context, id client.LeaseID, opts ...client.LeaseOption) (*client.LeaseTimeToLiveResponse, error) {
+	return nil, ErrNotImplemented
+}
+func (f *fakeEtcdLeaseClient) Leases(ctx context.Context) (*client.LeaseLeasesResponse, error) {
+	return nil, ErrNotImplemented
+}
+func (f *fakeEtcdLeaseClient) KeepAliveOnce(ctx context.Context, id client.LeaseID) (*client.LeaseKeepAliveResponse, error) {
+	return nil, ErrNotImplemented
+}
+func (f *fakeEtcdLeaseClient) Close() error { return ErrNotImplemented }
 
 func TestLeaseManager(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(&cl, 10*time.Second, 5, nil, log)
+	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, nil, log)
 
 	t.Cleanup(func() {
 		cancel()
@@ -112,13 +124,23 @@ func TestLeaseManager(t *testing.T) {
 	require.NoError(t, err, "GetLeaseID should succeed")
 	require.Equal(t, client.LeaseID(1), leaseID)
 
+	// Getting a session for an already known key should return the same lease
+	session, err := mgr.GetSession(ctx, "key1")
+	require.NoError(t, err, "GetSession should succeed")
+	require.Equal(t, client.LeaseID(1), session.Lease())
+
+	// Getting a session for a new key should return a different lease
+	session, err = mgr.GetSession(ctx, "key14")
+	require.NoError(t, err, "GetSession should succeed")
+	require.Equal(t, client.LeaseID(3), session.Lease())
+
 	require.Equal(t, uint32(3), mgr.TotalLeases())
 }
 
 func TestLeaseManagerParallel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(&cl, 10*time.Second, 5, nil, log)
+	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, nil, log)
 
 	t.Cleanup(func() {
 		cancel()
@@ -133,9 +155,15 @@ func TestLeaseManagerParallel(t *testing.T) {
 
 	for i := 0; i < 4; i++ {
 		go func(idx int) {
-			leaseID, err := mgr.GetLeaseID(ctx, fmt.Sprintf("key%d", idx))
-			require.NoError(t, err, "GetLeaseID should succeed")
-			ch <- leaseID
+			if idx%2 == 0 {
+				leaseID, err := mgr.GetLeaseID(ctx, fmt.Sprintf("key%d", idx))
+				require.NoError(t, err, "GetLeaseID should succeed")
+				ch <- leaseID
+			} else {
+				session, err := mgr.GetSession(ctx, fmt.Sprintf("key%d", idx))
+				require.NoError(t, err, "GetSession should succeed")
+				ch <- session.Lease()
+			}
 		}(i)
 	}
 
@@ -147,7 +175,7 @@ func TestLeaseManagerParallel(t *testing.T) {
 func TestLeaseManagerReleasePrefix(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(&cl, 10*time.Second, 5, nil, log)
+	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, nil, log)
 
 	t.Cleanup(func() {
 		cancel()
@@ -178,7 +206,7 @@ func TestLeaseManagerCancelIfExpired(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(&cl, 10*time.Second, 5, observer, log)
+	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, observer, log)
 
 	t.Cleanup(func() {
 		close(expiredCH)
@@ -225,7 +253,7 @@ func TestLeaseManagerCancelIfExpired(t *testing.T) {
 func TestLeaseManagerKeyHasLease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cl := newFakeEtcdLeaseClient(ctx, 10)
-	mgr := newEtcdLeaseManager(&cl, 10*time.Second, 5, nil, log)
+	mgr := newEtcdLeaseManager(newFakeEtcdClient(&cl), 10*time.Second, 5, nil, log)
 
 	t.Cleanup(func() {
 		cancel()

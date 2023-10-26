@@ -12,28 +12,22 @@ import (
 	"github.com/sirupsen/logrus"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	client "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// etcdLeaseClient represents the subset of the etcd client methods used to handle the leases lifecycle.
-type etcdLeaseClient interface {
-	Grant(ctx context.Context, ttl int64) (*client.LeaseGrantResponse, error)
-	KeepAlive(ctx context.Context, id client.LeaseID) (<-chan *client.LeaseKeepAliveResponse, error)
-	Ctx() context.Context
-}
-
 type leaseInfo struct {
-	count  uint32
-	cancel context.CancelFunc
+	count   uint32
+	session *concurrency.Session
 }
 
 // etcdLeaseManager manages the acquisition of the leases, and keeps track of
 // which lease is attached to which etcd key.
 type etcdLeaseManager struct {
-	client etcdLeaseClient
+	client *client.Client
 	log    logrus.FieldLogger
 
 	ttl     time.Duration
@@ -50,7 +44,7 @@ type etcdLeaseManager struct {
 }
 
 // newEtcdLeaseManager builds and returns a new lease manager instance.
-func newEtcdLeaseManager(cl etcdLeaseClient, ttl time.Duration, limit uint32, expired func(key string), log logrus.FieldLogger) *etcdLeaseManager {
+func newEtcdLeaseManager(cl *client.Client, ttl time.Duration, limit uint32, expired func(key string), log logrus.FieldLogger) *etcdLeaseManager {
 	return &etcdLeaseManager{
 		client: cl,
 		log:    log,
@@ -69,12 +63,26 @@ func newEtcdLeaseManager(cl etcdLeaseClient, ttl time.Duration, limit uint32, ex
 // one of the already acquired leases if they are not already attached to too many
 // keys, otherwise a new one is acquired.
 func (elm *etcdLeaseManager) GetLeaseID(ctx context.Context, key string) (client.LeaseID, error) {
+	session, err := elm.GetSession(ctx, key)
+	if err != nil {
+		return client.NoLease, err
+	}
+
+	return session.Lease(), nil
+}
+
+// GetSession returns a session, and associates it to the given key. It leverages
+// one of the already acquired leases if they are not already attached to too many
+// keys, otherwise a new one is acquired.
+func (elm *etcdLeaseManager) GetSession(ctx context.Context, key string) (*concurrency.Session, error) {
 	elm.mu.Lock()
 
 	// This key is already attached to a lease, hence just return it.
 	if leaseID := elm.keys[key]; leaseID != client.NoLease {
+		// The entry is guaranteed to exist if the lease is associated with a key
+		info := elm.leases[leaseID]
 		elm.mu.Unlock()
-		return leaseID, nil
+		return info.session, nil
 	}
 
 	// Return the current lease if it has not been used more than limit times
@@ -83,7 +91,7 @@ func (elm *etcdLeaseManager) GetLeaseID(ctx context.Context, key string) (client
 		elm.keys[key] = elm.current
 		elm.mu.Unlock()
 
-		return elm.current, nil
+		return info.session, nil
 	}
 
 	// Otherwise, loop through the other known leases to see if any has been released
@@ -94,7 +102,7 @@ func (elm *etcdLeaseManager) GetLeaseID(ctx context.Context, key string) (client
 			elm.keys[key] = elm.current
 			elm.mu.Unlock()
 
-			return elm.current, nil
+			return info.session, nil
 		}
 	}
 
@@ -115,14 +123,16 @@ func (elm *etcdLeaseManager) GetLeaseID(ctx context.Context, key string) (client
 	if acquiring != nil {
 		select {
 		case <-acquiring:
-			return elm.GetLeaseID(ctx, key)
+			return elm.GetSession(ctx, key)
 		case <-ctx.Done():
-			return client.NoLease, ctx.Err()
+			return nil, ctx.Err()
+		case <-elm.client.Ctx().Done():
+			return nil, elm.client.Ctx().Err()
 		}
 	}
 
 	// Otherwise, we can proceed to acquire a new lease.
-	leaseID, cancel, err := elm.newLease(ctx)
+	session, err := elm.newSession(ctx)
 
 	elm.mu.Lock()
 
@@ -132,14 +142,14 @@ func (elm *etcdLeaseManager) GetLeaseID(ctx context.Context, key string) (client
 
 	if err != nil {
 		elm.mu.Unlock()
-		return client.NoLease, err
+		return nil, err
 	}
 
-	elm.current = leaseID
-	elm.leases[leaseID] = &leaseInfo{cancel: cancel}
+	elm.current = session.Lease()
+	elm.leases[session.Lease()] = &leaseInfo{session: session}
 	elm.mu.Unlock()
 
-	return elm.GetLeaseID(ctx, key)
+	return elm.GetSession(ctx, key)
 }
 
 // Release decrements the counter of the lease attached to the given key.
@@ -180,7 +190,7 @@ func (elm *etcdLeaseManager) CancelIfExpired(err error, leaseID client.LeaseID) 
 	if errors.Is(err, v3rpcErrors.ErrLeaseNotFound) {
 		elm.mu.Lock()
 		if info := elm.leases[leaseID]; info != nil {
-			info.cancel()
+			info.session.Orphan()
 		}
 		elm.mu.Unlock()
 	}
@@ -199,57 +209,62 @@ func (elm *etcdLeaseManager) Wait() {
 	elm.wg.Wait()
 }
 
-func (elm *etcdLeaseManager) newLease(ctx context.Context) (c client.LeaseID, cancelFn context.CancelFunc, err error) {
+func (elm *etcdLeaseManager) newSession(ctx context.Context) (session *concurrency.Session, err error) {
 	defer func(duration *spanstat.SpanStat) {
 		increaseMetric("lease", metricSet, "AcquireLease", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 	resp, err := elm.client.Grant(ctx, int64(elm.ttl.Seconds()))
 	if err != nil {
-		return client.NoLease, nil, err
+		return nil, err
 	}
 	leaseID := resp.ID
 
-	kctx, cancel := context.WithCancel(context.Background())
-	keepalive, err := elm.client.KeepAlive(kctx, leaseID)
+	// Construct the session specifying the lease just acquired. This allows to
+	// split the possibly blocking operation (i.e., lease acquisition), from the
+	// non-blocking one (i.e., the setup of the keepalive logic), so that we can use
+	// different contexts. We want the lease acquisition to be controlled by the
+	// context associated with the given request, while the keepalive process should
+	// continue until either the etcd client is closed or the session is orphaned.
+	session, err = concurrency.NewSession(elm.client,
+		concurrency.WithLease(leaseID),
+		concurrency.WithTTL(int(elm.ttl.Seconds())),
+	)
 	if err != nil {
-		cancel()
-		return client.NoLease, nil, err
+		return nil, err
 	}
 
 	elm.wg.Add(1)
-	go elm.keepalive(kctx, leaseID, keepalive)
+	go elm.waitForExpiration(session)
 
 	elm.log.WithFields(logrus.Fields{
 		"LeaseID": leaseID,
 		"TTL":     elm.ttl,
 	}).Info("New lease successfully acquired")
-	return leaseID, cancel, nil
+	return session, nil
 }
 
-func (elm *etcdLeaseManager) keepalive(ctx context.Context, leaseID client.LeaseID,
-	keepalive <-chan *client.LeaseKeepAliveResponse) {
+func (elm *etcdLeaseManager) waitForExpiration(session *concurrency.Session) {
 	defer elm.wg.Done()
 
-	for range keepalive {
-		// Consume the keepalive messages until the channel is closed
-	}
+	// Block until the session gets orphaned, either because it fails to be
+	// renewed or the etcd client is closed.
+	<-session.Done()
 
 	select {
 	case <-elm.client.Ctx().Done():
 		// The context of the etcd client was closed
 		return
-	case <-ctx.Done():
 	default:
 	}
 
-	elm.log.WithField("LeaseID", leaseID).Warning("Lease expired")
+	elm.log.WithField("LeaseID", session.Lease()).Warning("Lease expired")
 
 	elm.mu.Lock()
-	delete(elm.leases, leaseID)
+	delete(elm.leases, session.Lease())
 
 	var keys []string
 	for key, id := range elm.keys {
-		if id == leaseID {
+		if id == session.Lease() {
 			keys = append(keys, key)
 			delete(elm.keys, key)
 		}
