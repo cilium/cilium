@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package ciliumenvoyconfig
 
 import (
 	"context"
 
-	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -22,7 +21,7 @@ func StartCECController(ctx context.Context, clientset k8sClient.Clientset, serv
 			log.WithError(err).Fatal("Failed to retrieve service store")
 		}
 
-		m, err := ciliumenvoyconfig.New(ctx, clientset, store.CacheStore(), ports, defaultAlgorithm, idleTimeoutSeconds)
+		m, err := newManager(ctx, clientset, store.CacheStore(), ports, defaultAlgorithm, idleTimeoutSeconds)
 		if err != nil {
 			log.WithError(err).Fatal("Error creating CiliumEnvoyConfiguration manager")
 		}

@@ -235,12 +235,6 @@ const (
 	// LoadBalancerL7 enables loadbalancer capabilities for services via envoy proxy
 	LoadBalancerL7 = "loadbalancer-l7"
 
-	// LoadBalancerL7Ports is a list of service ports that will be automatically redirected to backend.
-	LoadBalancerL7Ports = "loadbalancer-l7-ports"
-
-	// LoadBalancerL7Algorithm is a default LB algorithm for services that do not specify related annotation
-	LoadBalancerL7Algorithm = "loadbalancer-l7-algorithm"
-
 	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
 	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
 
@@ -453,12 +447,6 @@ type OperatorConfig struct {
 	// LoadBalancerL7 enables loadbalancer capabilities for services.
 	LoadBalancerL7 string
 
-	// EnvoyLoadBalancerPorts is a list of service ports that will be automatically redirected to Envoy
-	LoadBalancerL7Ports []string
-
-	// LoadBalancerL7Algorithm is a default LB algorithm for services that do not specify related annotation
-	LoadBalancerL7Algorithm string
-
 	// EnableGatewayAPI enables support of Gateway API
 	EnableGatewayAPI bool
 
@@ -516,8 +504,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
-	c.LoadBalancerL7Ports = vp.GetStringSlice(LoadBalancerL7Ports)
-	c.LoadBalancerL7Algorithm = vp.GetString(LoadBalancerL7Algorithm)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {

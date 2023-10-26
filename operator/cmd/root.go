@@ -32,6 +32,7 @@ import (
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
+	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
@@ -207,6 +208,9 @@ var (
 
 			// Cilium Ingress controller that manages the Kubernetes Ingress related CRDs.
 			ingress.Cell,
+
+			// Cilium L7 LoadBalancing with Envoy.
+			ciliumenvoyconfig.Cell,
 		),
 	)
 
@@ -713,15 +717,6 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 				"Cannot connect to Kubernetes apiserver ")
 		}
-	}
-
-	if operatorOption.Config.LoadBalancerL7 == "envoy" {
-		log.Info("Starting Envoy load balancer controller")
-		operatorWatchers.StartCECController(legacy.ctx, legacy.clientset, legacy.resources.Services,
-			operatorOption.Config.LoadBalancerL7Ports,
-			operatorOption.Config.LoadBalancerL7Algorithm,
-			operatorOption.Config.ProxyIdleTimeoutSeconds,
-		)
 	}
 
 	log.Info("Initialization complete")
