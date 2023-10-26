@@ -2581,7 +2581,7 @@ operator:
   podDisruptionBudget:
     # -- enable PodDisruptionBudget
     # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-    enabled: false
+    enabled: true
     # -- Minimum number/percentage of pods that should remain scheduled.
     # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
     minAvailable: null
