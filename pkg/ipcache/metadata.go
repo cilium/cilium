@@ -223,7 +223,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			} // else continue below to remove the old entry
 		} else {
 			// Insert to propagate the updated set of labels after removal.
-			newID, _, err = ipc.resolveIdentity(ctx, prefix, prefixInfo, identity.InvalidIdentity)
+			newID, _, err = ipc.resolveIdentity(ctx, prefix, prefixInfo, prefixInfo.RequestedIdentity().ID())
 			if err != nil {
 				// NOTE: This may fail during a 2nd or later
 				// iteration of the loop. To handle this, break

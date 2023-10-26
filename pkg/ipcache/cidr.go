@@ -61,6 +61,8 @@ func (ipc *IPCache) AllocateCIDRs(
 		oldNID := identity.InvalidIdentity
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]
+		} else {
+			oldNID = info.RequestedIdentity().ID()
 		}
 		id, isNew, err := ipc.resolveIdentity(allocateCtx, prefix, info, oldNID)
 		if err != nil {
