@@ -1867,16 +1867,13 @@ func (e *etcdClient) Close(ctx context.Context) {
 			e.logger.WithError(err).Warning("Failed to revoke lock session while closing etcd client")
 		}
 	}
-	if e.client != nil {
-		if err := e.client.Close(); err != nil {
-			e.logger.WithError(err).Warning("Failed to close etcd client")
-		}
+
+	if err := e.client.Close(); err != nil {
+		e.logger.WithError(err).Warning("Failed to close etcd client")
 	}
 
-	if e.leaseManager != nil {
-		// Wait until all child goroutines spawned by the lease manager have terminated.
-		e.leaseManager.Wait()
-	}
+	// Wait until all child goroutines spawned by the lease manager have terminated.
+	e.leaseManager.Wait()
 }
 
 // GetCapabilities returns the capabilities of the backend
