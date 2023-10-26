@@ -409,10 +409,9 @@ func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since ti
 		} else if atEOF {
 			// EOF, return all we have
 			return len(data), data, nil
-		} else {
-			// Nothing to return
-			return 0, nil, nil
 		}
+		// Nothing to return
+		return 0, nil, nil
 	})
 
 	for scanner.Scan() {
