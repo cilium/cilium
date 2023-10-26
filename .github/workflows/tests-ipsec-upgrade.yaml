@@ -173,6 +173,7 @@ jobs:
 
       - name: Derive stable Cilium installation config
         id: cilium-stable-config
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.image_tag }}
@@ -192,6 +193,7 @@ jobs:
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
@@ -212,12 +214,14 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           path: cilium-${{ steps.vars.outputs.downgrade_version }}
@@ -225,6 +229,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI-cli
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/cilium-cli@446392499db483906bcc3ade85f023912a79e5ee # v0.15.14
         with:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -233,6 +238,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           test-name: ipsec-upgrade
@@ -246,6 +252,7 @@ jobs:
             git config --global --add safe.directory /host
 
       - name: Setup K8s cluster (${{ matrix.name }})
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -273,6 +280,7 @@ jobs:
           done
 
       - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -288,6 +296,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Start conn-disrupt-test
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -300,6 +309,7 @@ jobs:
             ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
 
       - name: Upgrade Cilium & Test (${{ matrix.name }})
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/cilium/.github/actions/conn-disrupt-test@93f26fd0af7f5bd5832e08b10785ec53d4252b1c
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
@@ -314,6 +324,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
       - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/cilium/.github/actions/conn-disrupt-test@93f26fd0af7f5bd5832e08b10785ec53d4252b1c
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
@@ -329,7 +340,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -343,7 +354,7 @@ jobs:
             head -n -0 /proc/buddyinfo /proc/pagetypeinfo
 
       - name: Upload artifacts
-        if: ${{ !success() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: cilium-sysdumps
@@ -351,7 +362,7 @@ jobs:
           retention-days: 5
 
       - name: Upload JUnits [junit]
-        if: ${{ always() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: cilium-junits
@@ -359,7 +370,7 @@ jobs:
           retention-days: 2
 
       - name: Publish Test Results As GitHub Summary
-        if: ${{ always() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
