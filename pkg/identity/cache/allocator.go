@@ -135,6 +135,15 @@ type IdentityAllocator interface {
 	// ReleaseCIDRIdentitiesByID() is a wrapper for ReleaseSlice() that
 	// also handles ipcache entries.
 	ReleaseCIDRIdentitiesByID(context.Context, []identity.NumericIdentity)
+
+	// WithholdLocalIdentities holds a set of numeric identities out of the local
+	// allocation pool(s). Once withheld, a numeric identity can only be used
+	// when explicitly requested via AllocateIdentity(..., oldNID).
+	WithholdLocalIdentities(nids []identity.NumericIdentity)
+
+	// UnwithholdLocalIdentities removes numeric identities from the withheld set,
+	// freeing them for general allocation.
+	UnwithholdLocalIdentities(nids []identity.NumericIdentity)
 }
 
 // InitIdentityAllocator creates the global identity allocator. Only the first
@@ -392,6 +401,25 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	}
 
 	return identity.NewIdentity(identity.NumericIdentity(idp), lbls), isNew, nil
+}
+
+func (m *CachingIdentityAllocator) WithholdLocalIdentities(nids []identity.NumericIdentity) {
+	log.WithField(logfields.Identity, nids).Debug("Withholding numeric identities for later restoration")
+
+	// The allocators will return any identities that are not in-scope.
+	nids = m.localIdentities.withhold(nids)
+	nids = m.localNodeIdentities.withhold(nids)
+	if len(nids) > 0 {
+		log.WithField(logfields.Identity, nids).Error("Attempt to restore invalid numeric identities.")
+	}
+}
+
+func (m *CachingIdentityAllocator) UnwithholdLocalIdentities(nids []identity.NumericIdentity) {
+	log.WithField(logfields.Identity, nids).Debug("Unwithholding numeric identities")
+
+	// The allocators will ignore any identities that are not in-scope.
+	m.localIdentities.unwithhold(nids)
+	m.localNodeIdentities.unwithhold(nids)
 }
 
 // Release is the reverse operation of AllocateIdentity() and releases the
