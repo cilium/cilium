@@ -112,7 +112,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 		l.events <- allocator.AllocatorEvent{
 			Typ: kvstore.EventTypeCreate,
 			ID:  idpool.ID(id.ID),
-			Key: GlobalIdentity{id.LabelArray},
+			Key: GlobalIdentity{LabelArray: id.LabelArray},
 		}
 	}
 
