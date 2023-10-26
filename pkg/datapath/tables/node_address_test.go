@@ -42,12 +42,12 @@ func TestNodeAddressConfig(t *testing.T) {
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h := newHive()
 		h.RegisterFlags(flags)
-		flags.Set("node-addresses", strings.Join(testCase, ","))
+		flags.Set("nodeport-addresses", strings.Join(testCase, ","))
 		require.NoError(t, h.Start(context.TODO()), "Start")
 		require.NoError(t, h.Stop(context.TODO()), "Stop")
-		require.Len(t, cfg.NodeAddresses, len(testCase))
+		require.Len(t, cfg.NodePortAddresses, len(testCase))
 		for i := range testCase {
-			require.Equal(t, testCase[i], cfg.NodeAddresses[i].String())
+			require.Equal(t, testCase[i], cfg.NodePortAddresses[i].String())
 		}
 	}
 }
@@ -71,8 +71,8 @@ func TestNodeAddress(t *testing.T) {
 		}),
 	)
 	hive.AddConfigOverride(h, func(cfg *tables.NodeAddressConfig) {
-		// Only consider addresses in these ranges.
-		cfg.NodeAddresses = []*cidr.CIDR{
+		// Only consider addresses in these ranges for NodePort
+		cfg.NodePortAddresses = []*cidr.CIDR{
 			cidr.MustParseCIDR("10.0.0.0/8"),
 			cidr.MustParseCIDR("2001::/8"),
 			cidr.MustParseCIDR("2600::/8"),
@@ -132,6 +132,7 @@ func TestNodeAddress(t *testing.T) {
 				&tables.Device{
 					Name:     "test",
 					Selected: true,
+					Flags:    net.FlagUp,
 					Addrs:    tt.addrs,
 				})
 			txn.Commit()

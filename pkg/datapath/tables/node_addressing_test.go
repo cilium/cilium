@@ -13,18 +13,22 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
-func setupDBAndTable(t *testing.T) (db *statedb.DB, nodeAddrs statedb.RWTable[tables.NodeAddress], devices statedb.RWTable[*tables.Device]) {
+func setupDBAndTable(t *testing.T) (db *statedb.DB, nodeAddrs statedb.Table[tables.NodeAddress], devices statedb.RWTable[*tables.Device]) {
 	h := hive.New(
+		job.Cell,
 		statedb.Cell,
-		tables.NodeAddressTestTableCell,
+		tables.NodeAddressCell,
 		tables.DeviceTableCell,
-		cell.Invoke(func(db_ *statedb.DB, nodeAddrs_ statedb.RWTable[tables.NodeAddress], devices_ statedb.RWTable[*tables.Device]) {
+		cell.Provide(func(devs statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
+			return devs
+		}),
+		cell.Invoke(func(db_ *statedb.DB, nodeAddrs_ statedb.Table[tables.NodeAddress], devices_ statedb.RWTable[*tables.Device]) {
 			db = db_
 			nodeAddrs = nodeAddrs_
 			devices = devices_
@@ -53,9 +57,7 @@ func TestLocalAddresses(t *testing.T) {
 		txn.Commit()
 	}
 
-	nodeAddressing := tables.NewNodeAddressing(
-		tables.AddressScopeMax(defaults.AddressScopeMax), nil, db, nodeAddrs, devices,
-	)
+	nodeAddressing := tables.NewNodeAddressing(nil, db, nodeAddrs, devices)
 
 	tests := []struct {
 		name  string
@@ -138,6 +140,7 @@ func TestLocalAddresses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			txn := db.WriteTxn(devices)
+			_, watch := nodeAddrs.All(txn)
 			devices.Insert(txn, &tables.Device{
 				Index: 2,
 				Name:  "test",
@@ -145,6 +148,7 @@ func TestLocalAddresses(t *testing.T) {
 				Addrs: tt.addrs,
 			})
 			txn.Commit()
+			<-watch
 
 			v4, err := nodeAddressing.IPv4().LocalAddresses()
 			require.NoError(t, err, "IPv4().LocalAddresses()")

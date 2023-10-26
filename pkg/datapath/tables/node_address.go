@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -29,7 +32,16 @@ import (
 type NodeAddress struct {
 	netip.Addr
 
-	Primary    bool // True if this is the primary address of this device.
+	// NodePort is true if this address is to be used for NodePort.
+	// If --nodeport-addresses is set, then all addresses on native
+	// devices that are contained within the specified CIDRs are chosen.
+	// If it is not set, then only the primary IPv4 and/or IPv6 address
+	// of each native device is used.
+	NodePort bool
+
+	// Primary is true if this is the primary IPv4 or IPv6 address of this device.
+	// This is mainly used to pick the address for BPF masquerading.
+	Primary    bool
 	DeviceName string
 }
 
@@ -69,18 +81,38 @@ var (
 		statedb.NewPrivateRWTableCell[NodeAddress](NodeAddressTableName, NodeAddressIndex),
 		cell.Provide(
 			newNodeAddressTable,
+			newAddressScopeMax,
 		),
 		cell.Config(NodeAddressConfig{}),
 	)
 )
 
 type NodeAddressConfig struct {
-	NodeAddresses []*cidr.CIDR `mapstructure:"node-addresses"`
+	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
+
+	// AddressScopeMax controls the maximum address scope for addresses to be
+	// considered local ones. Affects which addresses are used for NodePort
+	// and which have HOST_ID in the ipcache.
+	AddressScopeMax string `mapstructure:"local-max-addr-scope"`
+}
+
+const (
+	addressScopeMaxFlag = "local-max-addr-scope"
+)
+
+type AddressScopeMax uint8
+
+func newAddressScopeMax(cfg NodeAddressConfig) (AddressScopeMax, error) {
+	scope, err := ip.ParseScope(cfg.AddressScopeMax)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot parse scope integer from --%s option", addressScopeMaxFlag)
+	}
+	return AddressScopeMax(scope), nil
 }
 
 func (cfg NodeAddressConfig) getNets() []*net.IPNet {
-	nets := make([]*net.IPNet, len(cfg.NodeAddresses))
-	for i, cidr := range cfg.NodeAddresses {
+	nets := make([]*net.IPNet, len(cfg.NodePortAddresses))
+	for i, cidr := range cfg.NodePortAddresses {
 		nets[i] = cidr.IPNet
 	}
 	return nets
@@ -88,22 +120,26 @@ func (cfg NodeAddressConfig) getNets() []*net.IPNet {
 
 func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice(
-		"node-addresses",
+		"nodeport-addresses",
 		nil,
-		"A whitelist of CIDRs to limit which IPs are considered node addresses. If not set, primary IP address of each native device is used.")
+		"A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.")
+
+	flags.String(addressScopeMaxFlag, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
+	flags.MarkHidden(addressScopeMaxFlag)
 }
 
 type nodeAddressSource struct {
 	cell.In
 
-	HealthScope   cell.Scope
-	Log           logrus.FieldLogger
-	Config        NodeAddressConfig
-	Lifecycle     hive.Lifecycle
-	Jobs          job.Registry
-	DB            *statedb.DB
-	Devices       statedb.Table[*Device]
-	NodeAddresses statedb.RWTable[NodeAddress]
+	HealthScope     cell.Scope
+	Log             logrus.FieldLogger
+	Config          NodeAddressConfig
+	Lifecycle       hive.Lifecycle
+	Jobs            job.Registry
+	DB              *statedb.DB
+	Devices         statedb.Table[*Device]
+	NodeAddresses   statedb.RWTable[NodeAddress]
+	AddressScopeMax AddressScopeMax
 }
 
 func newNodeAddressTable(n nodeAddressSource) (tbl statedb.Table[NodeAddress], err error) {
@@ -150,10 +186,8 @@ func (n *nodeAddressSource) update(ctx context.Context) (<-chan struct{}, string
 	txn := n.DB.WriteTxn(n.NodeAddresses)
 	defer txn.Abort()
 
-	devs, watch := SelectedDevices(n.Devices, txn)
-
 	old := n.getCurrentAddresses(txn)
-	new := n.getAddressesFromDevices(devs)
+	new, watch := n.getAddressesFromDevices(txn)
 	updated := false
 
 	// Insert new addresses that did not exist.
@@ -185,29 +219,65 @@ func (n *nodeAddressSource) getCurrentAddresses(txn statedb.ReadTxn) sets.Set[No
 	return addrs
 }
 
-func (n *nodeAddressSource) getAddressesFromDevices(devs []*Device) (addrs sets.Set[NodeAddress]) {
-	addrs = sets.New[NodeAddress]()
-	for _, dev := range devs {
+func (n *nodeAddressSource) getAddressesFromDevices(txn statedb.ReadTxn) (sets.Set[NodeAddress], <-chan struct{}) {
+	addrs := sets.New[NodeAddress]()
+
+	// FIXME: This will wake up pretty often and there may be a lot of devices
+	// (lxcs). Possible solutions:
+	// - Table[DeviceAddress]
+	// - Index based on whether the device is interesting or not.
+	// - Heavy rate limiting.
+	// - Or benchmark and see if it's cheap enough to iterate 10k devices every
+	//   few hundred millis.
+
+	devices, watch := n.Devices.All(txn)
+	for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+		if dev.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		// TODO: How to choose which devices to consider? Earlier code
+		// (listLocalAddresses) was not picky, except for "docker".
+		// We do need to also pick addresses from "cilium_host" here in order
+		// for the address there to have HOST_ID identity.
+
+		if strings.HasPrefix(dev.Name, "lxc") || strings.HasPrefix(dev.Name, "docker") {
+			continue
+		}
+
+		// ipv4 and ipv6 are set to true when the primary address is picked.
 		ipv4, ipv6 := false, false
 
 		// The addresses are sorted by scope so global primary addresses come first.
-		for _, addr := range dev.Addrs {
-			if len(n.Config.NodeAddresses) == 0 {
+		for _, addr := range sortAddresses(dev.Addrs) {
+			// Keep the scope-based address filtering as was introduced
+			// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
+			if addr.Scope > uint8(n.AddressScopeMax) {
+				// Addresses are sorted by scope, so can stop early.
+				break
+			}
+			if addr.Addr.IsLoopback() {
+				continue
+			}
+
+			nodePort := false
+			primary := false
+			if len(n.Config.NodePortAddresses) == 0 {
+				// The user has not specified IP ranges to filter on IPs on which to serve NodePort.
+				// Thus the default behavior is to use the primary IPv4 and IPv6 addresses of each
+				// device.
 				if addr.Addr.Is4() && !ipv4 {
-					addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: true, DeviceName: dev.Name})
 					ipv4 = true
+					nodePort = true
+					primary = true
 				}
 				if addr.Addr.Is6() && !ipv6 {
-					addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: true, DeviceName: dev.Name})
 					ipv6 = true
-				}
-				// The default behavior when --nodeport-addresses is not set is
-				// to only use the primary IPv4 & IPv6 of each device, so stop here.
-				if ipv4 && ipv6 {
-					break
+					nodePort = true
+					primary = true
 				}
 			} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
-				primary := false
+				nodePort = true
 				if addr.Addr.Is4() && !ipv4 {
 					primary = true
 					ipv4 = true
@@ -215,11 +285,11 @@ func (n *nodeAddressSource) getAddressesFromDevices(devs []*Device) (addrs sets.
 					primary = true
 					ipv6 = true
 				}
-				addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: primary, DeviceName: dev.Name})
 			}
+			addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: primary, NodePort: nodePort, DeviceName: dev.Name})
 		}
 	}
-	return
+	return addrs, watch
 }
 
 // showAddresses formats a Set[NodeAddress] as "1.2.3.4 (eth0), fe80::1 (eth1)"
@@ -228,5 +298,24 @@ func showAddresses(addrs sets.Set[NodeAddress]) string {
 	for addr := range addrs {
 		ss = append(ss, addr.String())
 	}
+	sort.Strings(ss)
 	return strings.Join(ss, ", ")
+}
+
+// sortAddresses returns a copy of the addresses, sorted by primary (e.g. !iIFA_F_SECONDARY) and then by
+// address scope.
+func sortAddresses(addrs []DeviceAddress) []DeviceAddress {
+	addrs = slices.Clone(addrs)
+
+	sort.SliceStable(addrs, func(i, j int) bool {
+		switch {
+		case addrs[i].Primary && !addrs[j].Primary:
+			return true
+		case !addrs[i].Primary && addrs[j].Primary:
+			return false
+		default:
+			return addrs[i].Scope < addrs[j].Scope
+		}
+	})
+	return addrs
 }
