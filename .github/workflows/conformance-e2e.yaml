@@ -349,6 +349,20 @@ jobs:
 
             ./contrib/scripts/kind-down.sh
 
+
+      - name: Jussi information gathering
+        run: |
+          echo "### ${{matrix.name }}" >> $GITHUB_STEP_SUMMARY
+          function exe() {
+            echo "# $*" >> $GITHUB_STEP_SUMMARY
+            kubectl exec -n kube-system ds/cilium -c cilium-agent -- bash -c "$*" >> $GITHUB_STEP_SUMMARY
+            echo >> $GITHUB_STEP_SUMMARY
+          }
+          exe "ip addr"
+          exe "ip route"
+          exe "cilium ip list | grep reserved:host"
+          exe "cilium status -o json | jq '.[\"kube-proxy-replacement\"]'"
+
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12

@@ -253,13 +253,13 @@ jobs:
           echo "### no IPsec" >> $GITHUB_STEP_SUMMARY
           function exe() {
             echo "# $*" >> $GITHUB_STEP_SUMMARY
-            kubectl exec -it -n kube-system ds/cilium -c cilium-agent -- bash -c "$*" >> $GITHUB_STEP_SUMMARY
+            kubectl exec -n kube-system ds/cilium -c cilium-agent -- bash -c "$*" >> $GITHUB_STEP_SUMMARY
             echo >> $GITHUB_STEP_SUMMARY
           }
           exe "ip addr"
           exe "ip route"
           exe "cilium ip list | grep reserved:host"
-
+          exe "cilium status -o json | jq '.[\"kube-proxy-replacement\"]'"
 
       - name: Clean up Cilium
         run: |
@@ -301,12 +301,13 @@ jobs:
           echo "### IPsec" >> $GITHUB_STEP_SUMMARY
           function exe() {
             echo "# $*" >> $GITHUB_STEP_SUMMARY
-            kubectl exec -it -n kube-system ds/cilium -c cilium-agent -- bash -c "$*" >> $GITHUB_STEP_SUMMARY
+            kubectl exec -n kube-system ds/cilium -c cilium-agent -- bash -c "$*" >> $GITHUB_STEP_SUMMARY
             echo >> $GITHUB_STEP_SUMMARY
           }
           exe "ip addr"
           exe "ip route"
           exe "cilium ip list | grep reserved:host"
+          exe "cilium status -o json | jq '.[\"kube-proxy-replacement\"]'"
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
