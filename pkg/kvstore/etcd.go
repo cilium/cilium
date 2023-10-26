@@ -694,19 +694,6 @@ func (e *etcdClient) sessionError() (err error) {
 	return
 }
 
-func (e *etcdClient) waitForInitialSession(ctx context.Context) error {
-	select {
-	case <-e.firstSession:
-		if err := e.sessionError(); err != nil {
-			return err
-		}
-	case <-ctx.Done():
-		return fmt.Errorf("interrupt while waiting for initial session to be established: %w", ctx.Err())
-	}
-
-	return nil
-}
-
 func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error) {
 	// Create the context first, so that the timeout also accounts for the time
 	// possibly required to acquire a new session (if not already established).
@@ -1298,9 +1285,6 @@ func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byt
 	defer func() {
 		Trace("UpdateIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
 	}()
-	if err := e.waitForInitialSession(ctx); err != nil {
-		return err
-	}
 	var leaseID client.LeaseID
 	if lease {
 		leaseID, err = e.leaseManager.GetLeaseID(ctx, key)
@@ -1336,9 +1320,6 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 	defer func() {
 		Trace("Update", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
 	}()
-	if err = e.waitForInitialSession(ctx); err != nil {
-		return
-	}
 	var leaseID client.LeaseID
 	if lease {
 		leaseID, err = e.leaseManager.GetLeaseID(ctx, key)
@@ -1367,9 +1348,6 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 	defer func() {
 		Trace("UpdateIfDifferentIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
 	}()
-	if err = e.waitForInitialSession(ctx); err != nil {
-		return false, err
-	}
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
 		return false, Hint(err)
@@ -1412,9 +1390,6 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 	defer func() {
 		Trace("UpdateIfDifferent", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
 	}()
-	if err = e.waitForInitialSession(ctx); err != nil {
-		return false, err
-	}
 	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
 		return false, Hint(err)
@@ -1670,7 +1645,6 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 // Close closes the etcd session
 func (e *etcdClient) Close(ctx context.Context) {
 	close(e.stopStatusChecker)
-	e.waitForInitialSession(ctx)
 
 	if err := e.client.Close(); err != nil {
 		e.logger.WithError(err).Warning("Failed to close etcd client")
