@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
@@ -57,7 +56,6 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
-	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -69,7 +67,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -89,7 +86,6 @@ import (
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -198,7 +194,7 @@ type Daemon struct {
 	bgpControlPlaneController *bgpv1.Controller
 
 	// CIDRs for which identities were restored during bootstrap
-	restoredCIDRs []netip.Prefix
+	restoredCIDRs map[netip.Prefix]identity.NumericIdentity
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
@@ -506,66 +502,19 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
 	}
 
-	// Collect old CIDR identities
-	var oldNIDs []identity.NumericIdentity
-	var oldIngressIPs []netip.Prefix
+	// Collect CIDR identities from the "old" bpf ipcache and restore them
+	// in to the metadata layer.
 	if option.Config.RestoreState && !option.Config.DryMode {
-		if err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
-			k := key.(*ipcachemap.Key)
-			v := value.(*ipcachemap.RemoteEndpointInfo)
-			nid := identity.NumericIdentity(v.SecurityIdentity)
-			if scope := nid.Scope(); scope == identity.IdentityScopeLocal ||
-				(scope == identity.IdentityScopeRemoteNode && option.Config.PolicyCIDRMatchesNodes()) {
-				d.restoredCIDRs = append(d.restoredCIDRs, k.Prefix())
-				oldNIDs = append(oldNIDs, nid)
-			} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
-				prefix := k.Prefix()
-				oldIngressIPs = append(oldIngressIPs, prefix)
-				addr := prefix.Addr()
-				if addr.Is4() {
-					node.SetIngressIPv4(addr.AsSlice())
-				} else {
-					node.SetIngressIPv6(addr.AsSlice())
-				}
-			}
-		}); err != nil && !os.IsNotExist(err) {
-			log.WithError(err).Debug("Error dumping ipcache")
+		// this *must* be called before initMaps(), which will "hide"
+		// the "old" ipcache.
+		err := d.restoreIPCache()
+		if err != nil {
+			log.WithError(err).Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.")
 		}
-		// DumpWithCallback() leaves the ipcache map open, must close before opened for
-		// parallel mode in Daemon.initMaps()
-		ipcachemap.IPCacheMap().Close()
 	}
 
 	if err := d.initPolicy(); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
-	}
-
-	// Preallocate IDs for old CIDRs. This must be done before any Identity allocations are
-	// possible so that the old IDs are still available. That is why we do this ASAP after the
-	// new (userspace) ipcache is created above.
-	//
-	// CIDRs were dumped from the old ipcache, they are re-allocated here, hopefully with the
-	// same numeric IDs as before, but the restored identities are to be upsterted to the new
-	// (datapath) ipcache after it has been initialized below. This is accomplished by passing
-	// 'restoredCIDRidentities' to AllocateCIDRs() and then calling
-	// UpsertGeneratedIdentities(restoredCIDRidentities) after initMaps() below.
-	restoredCIDRidentities := make(map[netip.Prefix]*identity.Identity)
-	if len(d.restoredCIDRs) > 0 {
-		log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
-		_, err = d.ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, restoredCIDRidentities)
-		if err != nil {
-			log.WithError(err).Error("Error allocating old CIDR identities")
-		}
-		// Log a warning for the first CIDR identity than could not be restored with the
-		// same numeric identity as before the restart. This can only happen if we have
-		// re-introduced bugs into this agent bootstrap order, so we want to surface this.
-		for i, prefix := range d.restoredCIDRs {
-			id, exists := restoredCIDRidentities[prefix]
-			if !exists || id.ID != oldNIDs[i] {
-				log.WithField(logfields.Identity, oldNIDs[i]).Warn("Could not restore all CIDR identities")
-				break
-			}
-		}
 	}
 
 	d.endpointManager = params.EndpointManager
@@ -656,22 +605,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err != nil {
 		log.WithError(err).Error("error while opening/creating BPF maps")
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
-	}
-	// Upsert restored CIDRs after the new ipcache has been opened above
-	if len(restoredCIDRidentities) > 0 {
-		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
-	}
-	// Upsert restored local Ingress IPs
-	for _, ingressIP := range oldIngressIPs {
-		d.ipcache.UpsertLabels(
-			ingressIP,
-			labels.LabelIngress,
-			source.Restored,
-			ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", "ingress"),
-		)
-	}
-	if len(oldIngressIPs) > 0 {
-		log.WithField(logfields.Ingress, oldIngressIPs).Info("Restored ingress IPs")
 	}
 
 	// Read the service IDs of existing services from the BPF map and
