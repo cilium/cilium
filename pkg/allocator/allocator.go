@@ -202,11 +202,19 @@ type Backend interface {
 	// error in that case is not expected to be fatal. The actual ID is obtained
 	// by Allocator from the local idPool, which is updated with used-IDs as the
 	// Backend makes calls to the handler in ListAndWatch.
-	AllocateID(ctx context.Context, id idpool.ID, key AllocatorKey) error
+	// The implementation of the backend might return an AllocatorKey that is
+	// a copy of 'key' with an internal reference of the backend key or, if it
+	// doesn't use the internal reference of the backend key it simply returns
+	// 'key'. In case of an error the returned 'AllocatorKey' should be nil.
+	AllocateID(ctx context.Context, id idpool.ID, key AllocatorKey) (AllocatorKey, error)
 
 	// AllocateIDIfLocked behaves like AllocateID but when lock is non-nil the
 	// operation proceeds only if it is still valid.
-	AllocateIDIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, lock kvstore.KVLocker) error
+	// The implementation of the backend might return an AllocatorKey that is
+	// a copy of 'key' with an internal reference of the backend key or, if it
+	// doesn't use the internal reference of the backend key it simply returns
+	// 'key'. In case of an error the returned 'AllocatorKey' should be nil.
+	AllocateIDIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, lock kvstore.KVLocker) (AllocatorKey, error)
 
 	// AcquireReference records that this node is using this key->ID mapping.
 	// This is distinct from any reference counting within this agent; only one
@@ -464,6 +472,13 @@ type AllocatorKey interface {
 	// PutKeyFromMap stores the labels in v into the key to be used later. This
 	// is the inverse operation to GetAsMap.
 	PutKeyFromMap(v map[string]string) AllocatorKey
+
+	// PutValue puts metadata inside the global identity for the given 'key' with
+	// the given 'value'.
+	PutValue(key any, value any) AllocatorKey
+
+	// Value returns the value stored in the metadata map.
+	Value(key any) any
 }
 
 func (a *Allocator) encodeKey(key AllocatorKey) string {
@@ -579,12 +594,15 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, false, fmt.Errorf("Found master key after proceeding with new allocation for %s", k)
 	}
 
-	err = a.backend.AllocateIDIfLocked(ctx, id, key, lock)
+	// Assigned to 'key' from 'key2' since in case of an error, we don't replace
+	// the original 'key' variable with 'nil'.
+	key2 := key
+	key, err = a.backend.AllocateIDIfLocked(ctx, id, key2, lock)
 	if err != nil {
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
 		releaseKeyAndID()
-		return 0, false, false, fmt.Errorf("unable to allocate ID %s for key %s: %s", strID, key, err)
+		return 0, false, false, fmt.Errorf("unable to allocate ID %s for key %s: %s", strID, key2, err)
 	}
 
 	// Notify pool that leased ID is now in-use.
