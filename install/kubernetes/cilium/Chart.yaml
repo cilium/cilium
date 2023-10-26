@@ -21,6 +21,7 @@ links:
   - name: eBPF.io
     url: https://ebpf.io/
 annotations:
+  application.giantswarm.io/team: "rocket"
   artifacthub.io/crds: |
     - kind: CiliumNetworkPolicy
       version: v2
