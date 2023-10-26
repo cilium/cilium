@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package datapath
+package tables
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -57,7 +56,7 @@ func newAddressScopeMax(cfg nodeAddressingConfig) (AddressScopeMax, error) {
 	return AddressScopeMax(scope), nil
 }
 
-func NewNodeAddressing(addressScopeMax AddressScopeMax, localNode *node.LocalNodeStore, db *statedb.DB, nodeAddresses statedb.Table[tables.NodeAddress], devices statedb.Table[*tables.Device]) types.NodeAddressing {
+func NewNodeAddressing(addressScopeMax AddressScopeMax, localNode *node.LocalNodeStore, db *statedb.DB, nodeAddresses statedb.Table[NodeAddress], devices statedb.Table[*Device]) types.NodeAddressing {
 	return &nodeAddressing{
 		addressScopeMax: addressScopeMax,
 		localNode:       localNode,
@@ -145,8 +144,8 @@ type nodeAddressing struct {
 	addressScopeMax AddressScopeMax
 	localNode       *node.LocalNodeStore
 	db              *statedb.DB
-	nodeAddresses   statedb.Table[tables.NodeAddress]
-	devices         statedb.Table[*tables.Device]
+	nodeAddresses   statedb.Table[NodeAddress]
+	devices         statedb.Table[*Device]
 }
 
 func (na *nodeAddressing) getNodeAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP) {
@@ -208,7 +207,7 @@ func (na *nodeAddressing) directRouting(ipv6 bool) (int, net.IP, bool) {
 	if deviceName == "" {
 		return 0, nil, false
 	}
-	dev, _, ok := na.devices.First(na.db.ReadTxn(), tables.DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
+	dev, _, ok := na.devices.First(na.db.ReadTxn(), DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
 	if !ok {
 		return 0, nil, false
 	}

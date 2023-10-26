@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package datapath_test
+package tables_test
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
@@ -54,8 +53,8 @@ func TestLocalAddresses(t *testing.T) {
 		txn.Commit()
 	}
 
-	nodeAddressing := datapath.NewNodeAddressing(
-		datapath.AddressScopeMax(defaults.AddressScopeMax), nil, db, nodeAddrs, devices,
+	nodeAddressing := tables.NewNodeAddressing(
+		tables.AddressScopeMax(defaults.AddressScopeMax), nil, db, nodeAddrs, devices,
 	)
 
 	tests := []struct {
@@ -156,13 +155,4 @@ func TestLocalAddresses(t *testing.T) {
 			require.ElementsMatch(t, ipStrings(got), ipStrings(tt.want), "Addresses do not match")
 		})
 	}
-}
-
-// ipStrings converts net.IP to a string. Used to assert equalence without having to deal
-// with e.g. IPv4-mapped IPv6 presentation etc.
-func ipStrings(ips []net.IP) (ss []string) {
-	for i := range ips {
-		ss = append(ss, ips[i].String())
-	}
-	return
 }

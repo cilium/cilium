@@ -5,7 +5,10 @@ package fake
 
 import (
 	"net"
+	"net/netip"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -15,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/statedb"
-	"golang.org/x/sys/unix"
 
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
@@ -29,9 +31,9 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func() (*FakeDatapath, types.Datapath, types.NodeAddressing, types.NodeIDHandler) {
-			dp := NewDatapath()
-			return dp, dp, dp.LocalNodeAddressing(), dp.NodeIDs()
+		func(na types.NodeAddressing) (*FakeDatapath, types.Datapath, types.NodeIDHandler) {
+			dp := newDatapath(na)
+			return dp, dp, dp.NodeIDs()
 		},
 
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
@@ -50,21 +52,36 @@ func fakeDevices(db *statedb.DB, devices statedb.RWTable[*tables.Device]) stated
 	txn := db.WriteTxn(devices)
 	defer txn.Commit()
 
-	// FIXME: Remove "FakeNodeAddressing" and instead derive it from the devices here.
 	devices.Insert(txn, &tables.Device{
 		Index:        1,
 		MTU:          1500,
-		Name:         "test",
+		Name:         "test0",
 		HardwareAddr: []byte{1, 2, 3, 4, 5, 6},
 		Flags:        net.FlagUp,
 		Addrs: []tables.DeviceAddress{
 			{Addr: ip.MustAddrFromIP(IPv4NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(IPv4InternalAddress), Scope: unix.RT_SCOPE_SITE},
 			{Addr: ip.MustAddrFromIP(IPv6NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(IPv6InternalAddress), Scope: unix.RT_SCOPE_SITE},
 		},
 		Type:     "test",
 		Selected: true,
 	})
+
+	devices.Insert(txn, &tables.Device{
+		Index:        2,
+		MTU:          1500,
+		Name:         "test1",
+		HardwareAddr: []byte{2, 3, 4, 5, 6, 7},
+		Flags:        net.FlagUp,
+		Addrs: []tables.DeviceAddress{
+			{Addr: ip.MustAddrFromIP(IPv4InternalAddress), Scope: unix.RT_SCOPE_SITE},
+			{Addr: ip.MustAddrFromIP(IPv6InternalAddress), Scope: unix.RT_SCOPE_SITE},
+
+			{Addr: netip.MustParseAddr("10.0.0.4"), Scope: unix.RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("f00d::3"), Scope: unix.RT_SCOPE_UNIVERSE},
+		},
+		Type:     "test",
+		Selected: true,
+	})
+
 	return devices
 }

@@ -57,9 +57,6 @@ var Cell = cell.Module(
 		newDatapath,
 	),
 
-	// Provides 'NodeAddressing' for accessing local node IP address information
-	NodeAddressingCell,
-
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
 	// the datapath of the liveness of the agent.
 	agentliveness.Cell,

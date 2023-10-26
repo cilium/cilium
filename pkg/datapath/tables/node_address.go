@@ -188,19 +188,35 @@ func (n *nodeAddressSource) getCurrentAddresses(txn statedb.ReadTxn) sets.Set[No
 func (n *nodeAddressSource) getAddressesFromDevices(devs []*Device) (addrs sets.Set[NodeAddress]) {
 	addrs = sets.New[NodeAddress]()
 	for _, dev := range devs {
-		first := true
+		ipv4, ipv6 := false, false
+
+		// The addresses are sorted by scope so global primary addresses come first.
 		for _, addr := range dev.Addrs {
 			if len(n.Config.NodeAddresses) == 0 {
-				addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: first, DeviceName: dev.Name})
-
+				if addr.Addr.Is4() && !ipv4 {
+					addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: true, DeviceName: dev.Name})
+					ipv4 = true
+				}
+				if addr.Addr.Is6() && !ipv6 {
+					addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: true, DeviceName: dev.Name})
+					ipv6 = true
+				}
 				// The default behavior when --nodeport-addresses is not set is
-				// to only use the primary IP of each device, so stop here.
-				break
+				// to only use the primary IPv4 & IPv6 of each device, so stop here.
+				if ipv4 && ipv6 {
+					break
+				}
 			} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
-				addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: first, DeviceName: dev.Name})
+				primary := false
+				if addr.Addr.Is4() && !ipv4 {
+					primary = true
+					ipv4 = true
+				} else if addr.Addr.Is6() && !ipv6 {
+					primary = true
+					ipv6 = true
+				}
+				addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: primary, DeviceName: dev.Name})
 			}
-
-			first = false
 		}
 	}
 	return

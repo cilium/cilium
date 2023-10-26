@@ -13,4 +13,5 @@ var Cell = cell.Module(
 
 	L2AnnounceTableCell,
 	NodeAddressCell,
+	NodeAddressingCell,
 )
