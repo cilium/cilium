@@ -726,6 +726,46 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	assert.Equal(t, uint8(6), key)
 }
 
+// TestRequestIdentity checks that the identity restoration mechanism works as expected:
+// -- requested numeric identities are utilized
+// -- if two prefixes somehow collide, everything still works
+func TestRequestIdentity(t *testing.T) {
+	cancel := setupTest(t)
+	cancel()
+
+	injectLabels := func(prefixes ...netip.Prefix) {
+		t.Helper()
+		remaining, err := IPIdentityCache.InjectLabels(context.Background(), prefixes)
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 0)
+	}
+
+	hasIdentity := func(prefix netip.Prefix, nid identity.NumericIdentity) {
+		t.Helper()
+		id, _ := IPIdentityCache.LookupByPrefix(prefix.String())
+		assert.EqualValues(t, nid, id.ID)
+	}
+
+	// Add 2 prefixes in to the ipcache, one requesting the first local identity
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.Restored, "daemon-uid", types.RequestedIdentity(identity.IdentityScopeLocal))
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.Restored, "daemon-uid", labels.Labels{})
+
+	// Withhold the first local-scoped identity in the allocator
+	IPIdentityCache.IdentityAllocator.WithholdLocalIdentities([]identity.NumericIdentity{16777216})
+
+	// Upsert the second prefix first, ensuring it does not get the withheld identituy
+	injectLabels(inClusterPrefix2)
+	injectLabels(inClusterPrefix)
+
+	hasIdentity(inClusterPrefix, identity.IdentityScopeLocal)
+	hasIdentity(inClusterPrefix2, identity.IdentityScopeLocal+1)
+
+	// Attach the restored nid to another prefix, ensure it is ignored
+	IPIdentityCache.metadata.upsertLocked(aPrefix, source.Restored, "daemon-uid", types.RequestedIdentity(identity.IdentityScopeLocal))
+	injectLabels(aPrefix)
+	hasIdentity(aPrefix, identity.IdentityScopeLocal+2)
+}
+
 func setupTest(t *testing.T) (cleanup func()) {
 	t.Helper()
 

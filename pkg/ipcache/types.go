@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 
+	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -42,8 +43,9 @@ type resourceInfo struct {
 	source           source.Source
 	identityOverride overrideIdentity
 
-	tunnelPeer ipcachetypes.TunnelPeer
-	encryptKey ipcachetypes.EncryptKey
+	tunnelPeer        ipcachetypes.TunnelPeer
+	encryptKey        ipcachetypes.EncryptKey
+	requestedIdentity ipcachetypes.RequestedIdentity
 }
 
 // IPMetadata is an empty interface intended to inform developers using the
@@ -76,6 +78,8 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) {
 		m.tunnelPeer = info
 	case ipcachetypes.EncryptKey:
 		m.encryptKey = info
+	case ipcachetypes.RequestedIdentity:
+		m.requestedIdentity = info
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.merge(): %+v", info)
 		return
@@ -94,6 +98,8 @@ func (m *resourceInfo) unmerge(info IPMetadata) {
 		m.tunnelPeer = ipcachetypes.TunnelPeer{}
 	case ipcachetypes.EncryptKey:
 		m.encryptKey = ipcachetypes.EncryptKeyEmpty
+	case ipcachetypes.RequestedIdentity:
+		m.requestedIdentity = ipcachetypes.RequestedIdentity(identity.IdentityUnknown)
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.unmerge(): %+v", info)
 		return
@@ -113,6 +119,9 @@ func (m *resourceInfo) isValid() bool {
 	if m.encryptKey.IsValid() {
 		return true
 	}
+	if m.requestedIdentity.IsValid() {
+		return true
+	}
 	return false
 }
 
@@ -123,6 +132,7 @@ func (m *resourceInfo) DeepCopy() *resourceInfo {
 	n.identityOverride = m.identityOverride
 	n.tunnelPeer = m.tunnelPeer
 	n.encryptKey = m.encryptKey
+	n.requestedIdentity = m.requestedIdentity
 	return n
 }
 
@@ -184,6 +194,15 @@ func (s PrefixInfo) TunnelPeer() ipcachetypes.TunnelPeer {
 	return ipcachetypes.TunnelPeer{}
 }
 
+func (s PrefixInfo) RequestedIdentity() ipcachetypes.RequestedIdentity {
+	for _, rid := range s.sortedBySourceThenResourceID() {
+		if id := s[rid].requestedIdentity; id.IsValid() {
+			return id
+		}
+	}
+	return ipcachetypes.RequestedIdentity(identity.InvalidIdentity)
+}
+
 // identityOverride extracts the labels of the pre-determined identity from
 // the prefix info. If no override identity is present, this returns nil.
 // This pre-determined identity will overwrite any other identity which may
@@ -227,6 +246,9 @@ func (s PrefixInfo) logConflicts(scopedLog *logrus.Entry) {
 
 		encryptKey           ipcachetypes.EncryptKey
 		encryptKeyResourceID ipcachetypes.ResourceID
+
+		requestedID           ipcachetypes.RequestedIdentity
+		requestedIDResourceID ipcachetypes.ResourceID
 	)
 
 	for _, resourceID := range s.sortedBySourceThenResourceID() {
@@ -285,6 +307,21 @@ func (s PrefixInfo) logConflicts(scopedLog *logrus.Entry) {
 			} else {
 				encryptKey = info.encryptKey
 				encryptKeyResourceID = resourceID
+			}
+		}
+
+		if info.requestedIdentity.IsValid() {
+			if requestedID.IsValid() {
+				scopedLog.WithFields(logrus.Fields{
+					logfields.Identity:            requestedID,
+					logfields.Resource:            requestedIDResourceID,
+					logfields.ConflictingKey:      info.requestedIdentity,
+					logfields.ConflictingResource: resourceID,
+				}).Warning("Detected conflicting requested numeric identity for prefix. " +
+					"This may cause momentary connectivity issues for this address.")
+			} else {
+				requestedID = info.requestedIdentity
+				requestedIDResourceID = resourceID
 			}
 		}
 	}
