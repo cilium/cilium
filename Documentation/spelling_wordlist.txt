@@ -534,6 +534,7 @@ pluggable
 pmdabcc
 png
 podCIDR
+podippool
 policyCIDRMatchMode
 policymap
 poller
