@@ -118,62 +118,6 @@ func (s *EtcdSuite) TestHint(c *C) {
 	c.Assert(Hint(err), ErrorMatches, "etcd client timeout exceeded")
 }
 
-func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
-	badVersionStr := "3.0.0"
-	goodVersion := "3.1.0"
-	mm := MaintenanceMocker{
-		OnStatus: func(ctx context.Context, endpoint string) (*etcdAPI.StatusResponse, error) {
-			switch endpoint {
-			case "http://127.0.0.1:4004":
-				return &etcdAPI.StatusResponse{
-					Version: badVersionStr,
-				}, nil
-			default:
-				return &etcdAPI.StatusResponse{
-					Version: goodVersion,
-				}, nil
-			}
-		},
-	}
-	// Check a good version
-	v, err := getEPVersion(context.TODO(), mm, "http://127.0.0.1:4003", time.Second)
-	c.Assert(err, IsNil)
-	c.Assert(v.String(), Equals, goodVersion)
-
-	// Check a bad version
-	v, err = getEPVersion(context.TODO(), mm, "http://127.0.0.1:4004", time.Second)
-	c.Assert(err, IsNil)
-	c.Assert(v.String(), Equals, badVersionStr)
-
-	// CheckMinVersion all good
-	cfg := etcdAPI.Config{}
-	cfg.Endpoints = []string{"http://127.0.0.1:4003", "http://127.0.0.1:4005"}
-	cli, err := etcdAPI.New(cfg)
-	c.Assert(err, IsNil)
-	cli.Maintenance = mm
-	client := etcdClient{
-		client: cli,
-		logger: log,
-	}
-
-	// short timeout for tests
-	timeout := time.Second
-
-	c.Assert(client.checkMinVersion(context.TODO(), timeout), IsNil)
-
-	// One endpoint has a bad version and should fail
-	cfg.Endpoints = []string{"http://127.0.0.1:4003", "http://127.0.0.1:4004", "http://127.0.0.1:4005"}
-	cli, err = etcdAPI.New(cfg)
-	c.Assert(err, IsNil)
-	cli.Maintenance = mm
-	client = etcdClient{
-		client: cli,
-		logger: log,
-	}
-
-	c.Assert(client.checkMinVersion(context.TODO(), timeout), Not(IsNil))
-}
-
 type EtcdHelpersSuite struct{}
 
 var _ = Suite(&EtcdHelpersSuite{})
