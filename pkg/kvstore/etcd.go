@@ -15,7 +15,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
@@ -41,7 +40,6 @@ import (
 	ciliumratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -64,8 +62,6 @@ const (
 	// by ListAndWatch operations. A 0 value equals to no limit.
 	EtcdListLimitOption = "etcd.limit"
 
-	minRequiredVersionStr = ">=3.1.0"
-
 	etcdLockSessionRenewNamePrefix = "kvstore-etcd-lock-session-renew"
 
 	// etcdMaxKeysPerLease is the maximum number of keys that can be attached to a lease
@@ -87,11 +83,6 @@ type etcdModule struct {
 	config *client.Config
 }
 
-// versionCheckTimeout is the time we wait trying to verify the version
-// of an etcd endpoint. The timeout can be encountered on network
-// connectivity problems.
-const versionCheckTimeout = 30 * time.Second
-
 var (
 	// statusCheckTimeout is the timeout when performing status checks with
 	// all etcd endpoints
@@ -100,8 +91,6 @@ var (
 	// initialConnectionTimeout  is the timeout for the initial connection to
 	// the etcd server
 	initialConnectionTimeout = 15 * time.Minute
-
-	minRequiredVersion = versioncheck.MustCompile(minRequiredVersionStr)
 
 	// etcdDummyAddress can be overwritten from test invokers using ldflags
 	etcdDummyAddress = "http://127.0.0.1:4002"
@@ -618,10 +607,6 @@ func (e *etcdClient) renewLockSession(ctx context.Context) error {
 
 	e.logger.WithField(fieldSession, newSession).Debug("Renewing etcd lock session")
 
-	if err := e.checkMinVersion(ctx, versionCheckTimeout); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -750,10 +735,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 			ec.logger.Info("Initial etcd session established")
 
-			if err = ec.checkMinVersion(ctx, versionCheckTimeout); err != nil {
-				return fmt.Errorf("unable to validate etcd version: %s", err)
-			}
-
 			return nil
 		}()
 
@@ -822,57 +803,11 @@ func makeSessionName(sessionPrefix string, opts *ExtraOptions) string {
 	return sessionPrefix
 }
 
-func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, timeout time.Duration) (semver.Version, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	sr, err := c.Status(ctxTimeout, etcdEP)
-	if err != nil {
-		return semver.Version{}, Hint(err)
-	}
-	v, err := versioncheck.Version(sr.Version)
-	if err != nil {
-		return semver.Version{}, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
-	}
-	return v, nil
-}
-
 func (e *etcdClient) sessionError() (err error) {
 	e.RWMutex.RLock()
 	err = e.sessionErr
 	e.RWMutex.RUnlock()
 	return
-}
-
-// checkMinVersion checks the minimal version running on etcd cluster.  This
-// function should be run whenever the etcd client is connected for the first
-// time and whenever the session is renewed.
-func (e *etcdClient) checkMinVersion(ctx context.Context, timeout time.Duration) error {
-	eps := e.client.Endpoints()
-
-	for _, ep := range eps {
-		v, err := getEPVersion(ctx, e.client.Maintenance, ep, timeout)
-		if err != nil {
-			e.logger.WithError(Hint(err)).WithField(fieldEtcdEndpoint, ep).
-				Warn("Unable to verify version of etcd endpoint")
-			continue
-		}
-
-		if !minRequiredVersion(v) {
-			return fmt.Errorf("minimal etcd version not met in %q, required: %s, found: %s",
-				ep, minRequiredVersionStr, v.String())
-		}
-
-		e.logger.WithFields(logrus.Fields{
-			fieldEtcdEndpoint: ep,
-			"version":         v,
-		}).Info("Successfully verified version of etcd endpoint")
-	}
-
-	if len(eps) == 0 {
-		e.logger.Warn("Minimal etcd version unknown: No etcd endpoints available")
-	}
-
-	return nil
 }
 
 func (e *etcdClient) waitForInitialSession(ctx context.Context) error {

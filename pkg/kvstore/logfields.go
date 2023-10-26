@@ -41,9 +41,6 @@ const (
 	// fieldAttachLease is true if the key must be attached to a lease
 	fieldAttachLease = "attachLease"
 
-	// fieldEtcdEndpoint is the etcd endpoint we talk to
-	fieldEtcdEndpoint = "etcdEndpoint"
-
 	// FieldUser identifies a user in the kvstore
 	FieldUser = logfields.User
 
