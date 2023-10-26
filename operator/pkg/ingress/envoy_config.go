@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -22,7 +21,7 @@ type envoyConfigManager struct {
 	maxRetries int
 }
 
-func newEnvoyConfigManager(clientset k8sClient.Clientset, maxRetries int) (*envoyConfigManager, error) {
+func newEnvoyConfigManager(clientset k8sClient.Clientset, maxRetries int) *envoyConfigManager {
 	manager := &envoyConfigManager{
 		maxRetries: maxRetries,
 	}
@@ -36,11 +35,7 @@ func newEnvoyConfigManager(clientset k8sClient.Clientset, maxRetries int) (*envo
 		nil,
 	)
 
-	go manager.informer.Run(wait.NeverStop)
-	if !cache.WaitForCacheSync(wait.NeverStop, manager.informer.HasSynced) {
-		return manager, fmt.Errorf("unable to sync envoy configs")
-	}
-	return manager, nil
+	return manager
 }
 
 // getByKey is a wrapper of Store.GetByKey but with concrete Endpoint object
