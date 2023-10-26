@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -121,17 +121,10 @@ jobs:
         run: |
           cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
 
-      - name: Fetch cilium-sysdump
-        if: ${{ !success() }}
+      - name: Fetch Cilium Standalone LB logs
+        if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}
         run: |
-          sudo cilium sysdump --output-filename cilium-sysdump-out
-
-      - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
-        if: ${{ !success() }}
-        with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          docker exec -t lb-node docker logs cilium-lb
 
   commit-status-final:
     if: ${{ always() }}
@@ -140,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}
