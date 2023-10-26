@@ -30,6 +30,14 @@ const (
 )
 
 type secretManager interface {
+	// RunInformer starts the underlying informer
+	RunInformer(stopCh <-chan struct{})
+
+	// WaitForCacheSync waits for underlying caches to populate.
+	// It returns true if it was successful,
+	// false if the controller should shutdown
+	WaitForCacheSync() bool
+
 	// Run kicks off the control loop for queue processing
 	Run()
 
@@ -73,12 +81,16 @@ func newNoOpsSecretManager() secretManager {
 	return noOpsSecretManager{}
 }
 
+func (n noOpsSecretManager) RunInformer(stopCh <-chan struct{}) {}
+
+func (n noOpsSecretManager) WaitForCacheSync() bool { return true }
+
 func (n noOpsSecretManager) Run() {}
 
 func (n noOpsSecretManager) Add(event interface{}) {}
 
 // newSyncSecretsManager constructs a new secret manager instance
-func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxRetries int, defaultSecretNamespace, defaultSecretName string) (secretManager, error) {
+func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxRetries int, defaultSecretNamespace, defaultSecretName string) secretManager {
 	manager := &syncSecretManager{
 		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		namespace:        namespace,
@@ -130,11 +142,15 @@ func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxR
 		manager.watchedSecretMap[key] = getSyncedSecretKey(manager.namespace, defaultSecretNamespace, defaultSecretName)
 	}
 
-	go manager.informer.Run(wait.NeverStop)
-	if !cache.WaitForCacheSync(wait.NeverStop, manager.informer.HasSynced) {
-		return manager, fmt.Errorf("unable to sync secrets")
-	}
-	return manager, nil
+	return manager
+}
+
+func (n *syncSecretManager) RunInformer(stopCh <-chan struct{}) {
+	n.informer.Run(stopCh)
+}
+
+func (n *syncSecretManager) WaitForCacheSync() bool {
+	return cache.WaitForCacheSync(wait.NeverStop, n.informer.HasSynced)
 }
 
 func (sm *syncSecretManager) Run() {

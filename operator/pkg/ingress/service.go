@@ -8,7 +8,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -43,7 +42,7 @@ type serviceManager struct {
 	ingressQueue workqueue.RateLimitingInterface
 }
 
-func newServiceManager(clientset k8sClient.Clientset, ingressQueue workqueue.RateLimitingInterface, maxRetries int) (*serviceManager, error) {
+func newServiceManager(clientset k8sClient.Clientset, ingressQueue workqueue.RateLimitingInterface, maxRetries int) *serviceManager {
 	manager := &serviceManager{
 		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		ingressQueue: ingressQueue,
@@ -66,12 +65,7 @@ func newServiceManager(clientset k8sClient.Clientset, ingressQueue workqueue.Rat
 		nil,
 	)
 
-	go manager.informer.Run(wait.NeverStop)
-	if !cache.WaitForCacheSync(wait.NeverStop, manager.informer.HasSynced) {
-		return manager, fmt.Errorf("unable to sync service")
-	}
-	log.WithField("existing-services", manager.store.ListKeys()).Debug("services synced")
-	return manager, nil
+	return manager
 }
 
 // Run kicks off the control loop

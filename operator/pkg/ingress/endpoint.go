@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -22,7 +21,7 @@ type endpointManager struct {
 	maxRetries int
 }
 
-func newEndpointManager(clientset k8sClient.Clientset, maxRetries int) (*endpointManager, error) {
+func newEndpointManager(clientset k8sClient.Clientset, maxRetries int) *endpointManager {
 	manager := &endpointManager{
 		maxRetries: maxRetries,
 	}
@@ -40,11 +39,7 @@ func newEndpointManager(clientset k8sClient.Clientset, maxRetries int) (*endpoin
 		nil,
 	)
 
-	go manager.informer.Run(wait.NeverStop)
-	if !cache.WaitForCacheSync(wait.NeverStop, manager.informer.HasSynced) {
-		return manager, fmt.Errorf("unable to sync ingress endpoint")
-	}
-	return manager, nil
+	return manager
 }
 
 // getByKey is a wrapper of Store.GetByKey but with concrete Endpoint object

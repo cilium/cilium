@@ -161,46 +161,46 @@ func NewController(
 		nil,
 	)
 
-	ingressClassManager := newIngressClassManager(ic.queue, ingressClasses)
-	ic.ingressClassManager = ingressClassManager
-
-	serviceManager, err := newServiceManager(clientset, ic.queue, opts.MaxRetries)
-	if err != nil {
-		return nil, err
-	}
-	ic.serviceManager = serviceManager
-
-	endpointManager, err := newEndpointManager(clientset, opts.MaxRetries)
-	if err != nil {
-		return nil, err
-	}
-	ic.endpointManager = endpointManager
-
-	envoyConfigManager, err := newEnvoyConfigManager(clientset, opts.MaxRetries)
-	if err != nil {
-		return nil, err
-	}
-	ic.envoyConfigManager = envoyConfigManager
+	ic.ingressClassManager = newIngressClassManager(ic.queue, ingressClasses)
+	ic.serviceManager = newServiceManager(clientset, ic.queue, opts.MaxRetries)
+	ic.endpointManager = newEndpointManager(clientset, opts.MaxRetries)
+	ic.envoyConfigManager = newEnvoyConfigManager(clientset, opts.MaxRetries)
 
 	ic.secretManager = newNoOpsSecretManager()
 	if ic.enabledSecretsSync {
-		secretManager, err := newSyncSecretsManager(clientset, opts.SecretsNamespace, opts.MaxRetries, ic.defaultSecretNamespace, ic.defaultSecretName)
-		if err != nil {
-			return nil, err
-		}
-		ic.secretManager = secretManager
+		ic.secretManager = newSyncSecretsManager(clientset, opts.SecretsNamespace, opts.MaxRetries, ic.defaultSecretNamespace, ic.defaultSecretName)
 	}
 	ic.sharedLBStatus = ic.retrieveSharedLBServiceStatus()
 
 	return ic, nil
 }
 
-// Run kicks off the controlled loop
+// Run starts the informers and kicks off the controlled loop
 func (ic *Controller) Run(ctx context.Context) error {
 	defer ic.queue.ShutDown()
 
-	go ic.ingressClassManager.Run(ctx)
+	go ic.serviceManager.informer.Run(wait.NeverStop)
+	if !cache.WaitForCacheSync(wait.NeverStop, ic.serviceManager.informer.HasSynced) {
+		return fmt.Errorf("unable to sync service")
+	}
+	log.WithField("existing-services", ic.serviceManager.store.ListKeys()).Debug("services synced")
 
+	go ic.endpointManager.informer.Run(wait.NeverStop)
+	if !cache.WaitForCacheSync(wait.NeverStop, ic.endpointManager.informer.HasSynced) {
+		return fmt.Errorf("unable to sync ingress endpoint")
+	}
+
+	go ic.envoyConfigManager.informer.Run(wait.NeverStop)
+	if !cache.WaitForCacheSync(wait.NeverStop, ic.envoyConfigManager.informer.HasSynced) {
+		return fmt.Errorf("unable to sync envoy configs")
+	}
+
+	go ic.secretManager.RunInformer(wait.NeverStop)
+	if !ic.secretManager.WaitForCacheSync() {
+		return fmt.Errorf("unable to sync secrets")
+	}
+
+	go ic.ingressClassManager.Run(ctx)
 	// This should only return an error if the context is canceled.
 	if err := ic.ingressClassManager.WaitForSync(ctx); err != nil {
 		return err
