@@ -525,6 +525,16 @@ with a dummy key and value can be used like:
          matchExpressions:
             - {key: somekey, operator: NotIn, values: ['never-used-value']}
 
+There are two special purpose selector fields that match CiliumPodIPPools based on ``name`` and/or
+``namespace`` metadata instead of labels:
+
+=============================== ===================
+Selector                        Field
+------------------------------- -------------------
+io.cilium.podippool.namespace   ``.meta.namespace``
+io.cilium.podippool.name        ``.meta.name``
+=============================== ===================
+
 For additional details regarding CiliumPodIPPools, see the :ref:`ipam_crd_multi_pool` section.
 
 CLI
