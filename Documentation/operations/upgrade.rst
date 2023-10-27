@@ -328,6 +328,10 @@ Annotations:
   include these parameters.
 * ``enable-endpoint-routes`` now automatically sets ``enable-local-node-route``
   to false, as local node routes are redundant when per-endpoint routes are enabled.
+* The Helm chart now unmanages the ``cilium-ca`` secret, rather than deleting it,
+  upon uninstall and changes to Helm values. This allows for additional
+  workflows where the CA cert has been copied to this location from an existing
+  cluster and is then used with the ``certgen`` utility.
 
 .. _upgrade_cilium_cli_helm_mode:
 
