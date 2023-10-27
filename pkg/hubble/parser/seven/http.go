@@ -5,7 +5,7 @@ package seven
 
 import (
 	"fmt"
-	"net/url"
+	neturl "net/url"
 	"sort"
 	"strings"
 
@@ -29,28 +29,16 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: filteredValue})
 		}
 	}
-	uri, _ := url.Parse(http.URL.String())
-	var urlString string
-	if uri != nil {
-		if uri.User != nil {
-			// Don't include the password in the flow.
-			if _, ok := uri.User.Password(); ok {
-				uri.User = url.UserPassword(uri.User.Username(), defaults.SensitiveValueRedacted)
-			}
-		}
-		if opts.HubbleRedactSettings.RedactHTTPQuery {
-			uri.RawQuery = ""
-			uri.Fragment = ""
-		}
-		urlString = uri.String()
-	}
+	url, _ := neturl.Parse(http.URL.String())
+	filterURL(url, opts.HubbleRedactSettings)
+
 	if flowType == accesslog.TypeRequest {
 		// Set only fields that are relevant for requests.
 		return &flowpb.Layer7_Http{
 			Http: &flowpb.HTTP{
 				Method:   http.Method,
 				Protocol: http.Protocol,
-				Url:      urlString,
+				Url:      url.String(),
 				Headers:  headers,
 			},
 		}
@@ -61,19 +49,16 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 			Code:     uint32(http.Code),
 			Method:   http.Method,
 			Protocol: http.Protocol,
-			Url:      urlString,
+			Url:      url.String(),
 			Headers:  headers,
 		},
 	}
 }
 
 func (p *Parser) httpSummary(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, flow *flowpb.Flow) string {
-	uri, _ := url.Parse(http.URL.String())
-	if p.opts.HubbleRedactSettings.RedactHTTPQuery {
-		uri.RawQuery = ""
-		uri.Fragment = ""
-	}
-	httpRequest := http.Method + " " + uri.String()
+	url, _ := neturl.Parse(http.URL.String())
+	filterURL(url, p.opts.HubbleRedactSettings)
+	httpRequest := http.Method + " " + url.String()
 	switch flowType {
 	case accesslog.TypeRequest:
 		return fmt.Sprintf("%s %s", http.Protocol, httpRequest)
@@ -114,4 +99,22 @@ func filterHeader(key string, value string, redactSettings options.HubbleRedactS
 		return defaults.SensitiveValueRedacted
 	}
 	return value
+}
+
+// filterURL receives the observed URL and a set of Hubble redact settings and
+// conditionally redacts sensitive values.
+// If configured and user info exists, it removes the password from the flow.
+// If configured, it removes the URL's query parts from the flow.
+func filterURL(url *neturl.URL, redactSettings options.HubbleRedactSettings) {
+	if url != nil {
+		if redactSettings.RedactHTTPUserInfo && url.User != nil {
+			if _, ok := url.User.Password(); ok {
+				url.User = neturl.UserPassword(url.User.Username(), defaults.SensitiveValueRedacted)
+			}
+		}
+		if redactSettings.RedactHTTPQuery {
+			url.RawQuery = ""
+			url.Fragment = ""
+		}
+	}
 }

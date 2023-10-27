@@ -4,6 +4,7 @@
 package seven
 
 import (
+	"fmt"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -170,7 +172,7 @@ func TestDecodeL7HTTPRequestRemoveUrlQuery(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.Redact(nil, true, false, []string{}, []string{"authorization"})}
+	opts := []options.Option{options.Redact(nil, true, true, false, []string{}, []string{"authorization"})}
 	parser, err := New(log, nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
@@ -453,7 +455,7 @@ func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.Redact(nil, true, false, []string{"host"}, []string{})}
+	opts := []options.Option{options.Redact(nil, true, true, false, []string{"host"}, []string{})}
 	parser, err := New(log, nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
@@ -467,11 +469,11 @@ func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
 		Protocol: "HTTP/1.1",
 		Headers: []*flowpb.HTTPHeader{
 			{Key: "Host", Value: "myhost"},
-			{Key: "traceparent", Value: "HUBBLE_REDACTED"},
+			{Key: "traceparent", Value: defaults.SensitiveValueRedacted},
 		},
 	}, f.GetL7().GetHttp())
 
-	opts = []options.Option{options.Redact(nil, true, false, []string{}, []string{"host"})}
+	opts = []options.Option{options.Redact(nil, true, true, false, []string{}, []string{"host"})}
 	parser, err = New(log, nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
@@ -484,7 +486,7 @@ func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
 		Url:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
 		Headers: []*flowpb.HTTPHeader{
-			{Key: "Host", Value: "HUBBLE_REDACTED"},
+			{Key: "Host", Value: defaults.SensitiveValueRedacted},
 			{Key: "traceparent", Value: "asdf"},
 		},
 	}, f.GetL7().GetHttp())
@@ -519,7 +521,7 @@ func TestFilterHeader(t *testing.T) {
 					Deny:  map[string]struct{}{"tracecontent": {}},
 				},
 			},
-			expectedVal: "HUBBLE_REDACTED",
+			expectedVal: defaults.SensitiveValueRedacted,
 		},
 		{
 			key: "tracecontent",
@@ -531,7 +533,7 @@ func TestFilterHeader(t *testing.T) {
 					Deny:  map[string]struct{}{},
 				},
 			},
-			expectedVal: "HUBBLE_REDACTED",
+			expectedVal: defaults.SensitiveValueRedacted,
 		},
 		{
 			key: "tracecontent",
@@ -543,7 +545,7 @@ func TestFilterHeader(t *testing.T) {
 					Deny:  map[string]struct{}{},
 				},
 			},
-			expectedVal: "HUBBLE_REDACTED",
+			expectedVal: defaults.SensitiveValueRedacted,
 		},
 		{
 			key: "tracecontent",
@@ -564,4 +566,44 @@ func TestFilterHeader(t *testing.T) {
 			assert.Equal(t, tt.expectedVal, got)
 		})
 	}
+}
+
+func TestDecodeL7HTTPRequestPasswordRedact(t *testing.T) {
+	requestPath, err := url.Parse("http://user:pass@myhost")
+	require.NoError(t, err)
+	lr := &accesslog.LogRecord{
+		Type:                accesslog.TypeRequest,
+		Timestamp:           fakeTimestamp,
+		NodeAddressInfo:     fakeNodeInfo,
+		ObservationPoint:    accesslog.Ingress,
+		SourceEndpoint:      fakeSourceEndpoint,
+		DestinationEndpoint: fakeDestinationEndpoint,
+		IPVersion:           accesslog.VersionIPv4,
+		Verdict:             accesslog.VerdictForwarded,
+		TransportProtocol:   accesslog.TransportProtocol(u8proto.TCP),
+		ServiceInfo:         nil,
+		DropReason:          nil,
+		HTTP: &accesslog.LogRecordHTTP{
+			Code:     0,
+			Method:   "POST",
+			URL:      requestPath,
+			Protocol: "HTTP/1.1",
+		},
+	}
+	lr.SourceEndpoint.Port = 56789
+	lr.DestinationEndpoint.Port = 80
+
+	opts := []options.Option{options.Redact(nil, true, true, false, []string{}, []string{})}
+	parser, err := New(log, nil, nil, nil, nil, opts...)
+	require.NoError(t, err)
+
+	f := &flowpb.Flow{}
+	err = parser.Decode(lr, f)
+	require.NoError(t, err)
+	assert.Equal(t, &flowpb.HTTP{
+		Code:     0,
+		Method:   "POST",
+		Url:      fmt.Sprintf("http://user:%s@myhost", defaults.SensitiveValueRedacted),
+		Protocol: "HTTP/1.1",
+	}, f.GetL7().GetHttp())
 }

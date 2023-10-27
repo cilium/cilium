@@ -1079,6 +1079,19 @@ hubble:
       #   --set hubble.redact.enabled="true"
       #   --set hubble.redact.http.urlQuery="true"
       urlQuery: false
+      # -- Enables redacting user info, e.g., password when basic auth is used.
+      # Example:
+      #
+      #   redact:
+      #     enabled: true
+      #     http:
+      #       userInfo: true
+      #
+      # You can specify the options from the helm CLI:
+      #
+      #   --set hubble.redact.enabled="true"
+      #   --set hubble.redact.http.userInfo="true"
+      userInfo: true
       headers:
         # -- List of HTTP headers to allow: headers not matching will be redacted. Note: `allow` and `deny` lists cannot be used both at the same time, only one can be present.
         # Example:

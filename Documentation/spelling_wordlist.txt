@@ -703,6 +703,7 @@ uptime
 uretprobes
 url
 urlQuery
+userInfo
 userspace
 uuid
 vCPU

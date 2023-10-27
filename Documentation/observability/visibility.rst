@@ -1,5 +1,5 @@
 .. only:: not (epub or latex or html)
-  
+
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
     https://docs.cilium.io
@@ -102,6 +102,7 @@ enables Hubble to handle sensitive information present in Layer 7 flows.
 More specifically, it offers the following features for supported Layer 7 protocols:
 
 * For HTTP: redacting URL query (GET) parameters (``--hubble-redact-http-urlquery``)
+* For HTTP: redacting URL user info (for example, password used in basic auth) (``--hubble-redact-http-userinfo``)
 * For Kafka: redacting API key (``--hubble-redact-kafka-apikey``)
 * For HTTP headers: redacting all headers except those defined in the ``--hubble-redact-http-headers-allow`` list or redacting only the headers defined in the ``--hubble-redact-http-headers-deny`` list
 
