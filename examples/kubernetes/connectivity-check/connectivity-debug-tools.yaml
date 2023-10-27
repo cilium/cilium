@@ -26,6 +26,7 @@ spec:
         - -c
         - while true; do dig +noall +question +answer +timeout=1 +tries=1 www.google.com
           && sleep 1 ; done
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           timeoutSeconds: 7
           exec:
