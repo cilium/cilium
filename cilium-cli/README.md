@@ -45,7 +45,6 @@ binary releases.
 |------------------------------------------------------------------------|------------|-----------------------------|
 | [v0.15.11](https://github.com/cilium/cilium-cli/releases/tag/v0.15.11) | Yes        | Cilium 1.14 and newer       |
 | [v0.14.8](https://github.com/cilium/cilium-cli/releases/tag/v0.14.8)   | Yes        | Cilium 1.11, 1.12, and 1.13 |
-| [v0.10.7](https://github.com/cilium/cilium-cli/releases/tag/v0.10.7)   | No         | Cilium 1.10                 |
 
 Please see [`helm` installation mode](#helm-installation-mode) section
 regarding our plan to migrate to the new `helm` installation mode and deprecate
