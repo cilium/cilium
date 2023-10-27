@@ -265,6 +265,8 @@ func NewValues(vs ...string) Values {
 	return vals
 }
 
+// Labels is a slice of labels that represents a label set for a vector type
+// metric.
 type Labels []Label
 
 func (lbls Labels) labelNames() []string {
