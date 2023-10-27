@@ -114,6 +114,7 @@ var (
 		Mark:     linux_defaults.MagicMarkEgress,
 		Mask:     linux_defaults.MagicMarkHostMask,
 		Table:    linux_defaults.RouteTableFromProxy,
+		Protocol: linux_defaults.RTProto,
 	}
 )
 
