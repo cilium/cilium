@@ -9,11 +9,13 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -335,6 +337,17 @@ func requestMirrorMutation(mirrors []*model.HTTPRequestMirror) routeActionMutati
 	}
 }
 
+func timeoutMutation(timeout *time.Duration) routeActionMutation {
+	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
+		if timeout == nil {
+			return route
+		}
+		log.Println("TAM 2", timeout)
+		route.Route.Timeout = durationpb.New(*timeout)
+		return route
+	}
+}
+
 func getRouteAction(route *model.HTTPRoute, backends []model.Backend, rewrite *model.HTTPURLRewriteFilter, mirrors []*model.HTTPRequestMirror) *envoy_config_route_v3.Route_Route {
 	var routeAction *envoy_config_route_v3.Route_Route
 
@@ -343,6 +356,7 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, rewrite *m
 		pathPrefixMutation(rewrite, route),
 		pathFullReplaceMutation(rewrite),
 		requestMirrorMutation(mirrors),
+		timeoutMutation(route.Timeout.Backend),
 	}
 
 	if len(backends) == 1 {
