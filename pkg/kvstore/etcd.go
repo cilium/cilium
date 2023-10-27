@@ -1020,7 +1020,10 @@ reList:
 			}
 
 			localCache.MarkInUse(key.Key)
-			scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
+
+			if traceEnabled {
+				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
+			}
 
 			queueStart := spanstat.Start()
 			w.Events <- KeyValueEvent{
@@ -1042,7 +1045,10 @@ reList:
 				Typ: EventTypeDelete,
 			}
 
-			scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
+			if traceEnabled {
+				scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
+			}
+
 			queueStart := spanstat.Start()
 			w.Events <- event
 			trackEventQueued(k, EventTypeDelete, queueStart.End(true).Total())
@@ -1107,7 +1113,9 @@ reList:
 				}
 
 				nextRev = r.Header.Revision + 1
-				scopedLog.Debugf("Received event from etcd: %+v", r)
+				if traceEnabled {
+					scopedLog.Debugf("Received event from etcd: %+v", r)
+				}
 
 				for _, ev := range r.Events {
 					event := KeyValueEvent{
@@ -1127,7 +1135,9 @@ reList:
 						localCache.MarkInUse(ev.Kv.Key)
 					}
 
-					scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
+					if traceEnabled {
+						scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
+					}
 
 					queueStart := spanstat.Start()
 					w.Events <- event
