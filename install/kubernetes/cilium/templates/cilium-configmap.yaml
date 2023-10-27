@@ -881,6 +881,8 @@ data:
 {{- if .Values.hubble.redact.http }}
   # Enables redaction of the http URL query part in flows
   hubble-redact-http-urlquery: {{ .Values.hubble.redact.http.urlQuery | quote }}
+  # Enables redaction of the http user info in flows
+  hubble-redact-http-userinfo: {{ .Values.hubble.redact.http.userInfo | quote }}
 {{- if .Values.hubble.redact.http.headers }}
 {{- if .Values.hubble.redact.http.headers.allow }}
   # Redact all http headers that do not match this list

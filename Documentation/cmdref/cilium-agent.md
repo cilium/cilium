@@ -199,6 +199,7 @@ cilium-agent [flags]
       --hubble-redact-http-headers-allow strings                  HTTP headers to keep visible in flows
       --hubble-redact-http-headers-deny strings                   HTTP headers to redact from flows
       --hubble-redact-http-urlquery                               Hubble redact http URL query from flows
+      --hubble-redact-http-userinfo                               Hubble redact http user info from flows (default true)
       --hubble-redact-kafka-apikey                                Hubble redact Kafka API key from flows
       --hubble-skip-unknown-cgroup-ids                            Skip Hubble events with unknown cgroup ids (default true)
       --hubble-socket-path string                                 Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")

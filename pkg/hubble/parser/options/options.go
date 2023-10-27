@@ -21,10 +21,11 @@ type Options struct {
 
 // HubbleRedactSettings contains all hubble redact related options
 type HubbleRedactSettings struct {
-	Enabled           bool
-	RedactHTTPQuery   bool
-	RedactKafkaAPIKey bool
-	RedactHttpHeaders HttpHeadersList
+	Enabled            bool
+	RedactHTTPQuery    bool
+	RedactHTTPUserInfo bool
+	RedactKafkaAPIKey  bool
+	RedactHttpHeaders  HttpHeadersList
 }
 
 // HttpHeadersList contains the allow/deny list of headers
@@ -41,10 +42,11 @@ func CacheSize(size int) Option {
 }
 
 // Redact configures which data Hubble will redact.
-func Redact(logger logrus.FieldLogger, httpQuery, kafkaApiKey bool, allowHeaders, denyHeaders []string) Option {
+func Redact(logger logrus.FieldLogger, httpQuery, httpUserInfo, kafkaApiKey bool, allowHeaders, denyHeaders []string) Option {
 	return func(opt *Options) {
 		opt.HubbleRedactSettings.Enabled = true
 		opt.HubbleRedactSettings.RedactHTTPQuery = httpQuery
+		opt.HubbleRedactSettings.RedactHTTPUserInfo = httpUserInfo
 		opt.HubbleRedactSettings.RedactKafkaAPIKey = kafkaApiKey
 		opt.HubbleRedactSettings.RedactHttpHeaders = HttpHeadersList{
 			Allow: headerSliceToMap(allowHeaders),

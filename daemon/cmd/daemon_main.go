@@ -1006,6 +1006,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.HubbleRedactHttpURLQuery, defaults.HubbleRedactHttpURLQuery, "Hubble redact http URL query from flows")
 	option.BindEnv(vp, option.HubbleRedactHttpURLQuery)
 
+	flags.Bool(option.HubbleRedactHttpUserInfo, defaults.HubbleRedactHttpUserInfo, "Hubble redact http user info from flows")
+	option.BindEnv(vp, option.HubbleRedactHttpUserInfo)
+
 	flags.Bool(option.HubbleRedactKafkaApiKey, defaults.HubbleRedactKafkaApiKey, "Hubble redact Kafka API key from flows")
 	option.BindEnv(vp, option.HubbleRedactKafkaApiKey)
 

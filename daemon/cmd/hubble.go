@@ -145,6 +145,7 @@ func (d *Daemon) launchHubble() {
 			parserOptions.Redact(
 				logger,
 				option.Config.HubbleRedactHttpURLQuery,
+				option.Config.HubbleRedactHttpUserInfo,
 				option.Config.HubbleRedactKafkaApiKey,
 				option.Config.HubbleRedactHttpHeadersAllow,
 				option.Config.HubbleRedactHttpHeadersDeny,
