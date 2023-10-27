@@ -1886,13 +1886,11 @@ func (e *etcdClient) GetCapabilities() Capabilities {
 
 // Encode encodes a binary slice into a character set that the backend supports
 func (e *etcdClient) Encode(in []byte) (out string) {
-	defer func() { Trace("Encode", nil, logrus.Fields{"in": in, "out": out}) }()
 	return string(in)
 }
 
 // Decode decodes a key previously encoded back into the original binary slice
 func (e *etcdClient) Decode(in string) (out []byte, err error) {
-	defer func() { Trace("Decode", err, logrus.Fields{"in": in, "out": out}) }()
 	return []byte(in), nil
 }
 
