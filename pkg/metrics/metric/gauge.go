@@ -96,13 +96,32 @@ func (g *gauge) SetToCurrentTime() {
 }
 
 func NewGaugeVec(opts GaugeOpts, labelNames []string) DeletableVec[Gauge] {
-	return &gaugeVec{
+	gv := &gaugeVec{
 		GaugeVec: prometheus.NewGaugeVec(opts.toPrometheus(), labelNames),
 		metric: metric{
 			enabled: !opts.Disabled,
 			opts:    Opts(opts),
 		},
 	}
+	gv.forEachLabelVector(func(vs []string) {
+		gv.WithLabelValues(vs...)
+	})
+	return gv
+}
+
+func NewGaugeVecWithLabels(opts GaugeOpts, labels Labels) DeletableVec[Gauge] {
+	gv := &gaugeVec{
+		GaugeVec: prometheus.NewGaugeVec(opts.toPrometheus(), labels.labelNames()),
+		metric: metric{
+			enabled: !opts.Disabled,
+			opts:    Opts(opts),
+			labels:  &labelSet{lbls: labels},
+		},
+	}
+	gv.forEachLabelVector(func(vs []string) {
+		gv.WithLabelValues(vs...)
+	})
+	return gv
 }
 
 type gaugeVec struct {
@@ -111,6 +130,7 @@ type gaugeVec struct {
 }
 
 func (gv *gaugeVec) CurryWith(labels prometheus.Labels) (Vec[Gauge], error) {
+	gv.checkLabels(labels)
 	vec, err := gv.GaugeVec.CurryWith(labels)
 	if err == nil {
 		return &gaugeVec{GaugeVec: vec, metric: gv.metric}, nil
@@ -158,6 +178,7 @@ func (gv *gaugeVec) With(labels prometheus.Labels) Gauge {
 			metric: metric{enabled: false},
 		}
 	}
+	gv.checkLabels(labels)
 
 	promGauge := gv.GaugeVec.With(labels)
 	return &gauge{
@@ -167,6 +188,7 @@ func (gv *gaugeVec) With(labels prometheus.Labels) Gauge {
 }
 
 func (gv *gaugeVec) WithLabelValues(lvs ...string) Gauge {
+	gv.checkLabelValues(lvs...)
 	if !gv.enabled {
 		return &gauge{
 			metric: metric{enabled: false},

@@ -4,8 +4,17 @@
 package metric
 
 import (
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
+
+	"github.com/cilium/cilium/pkg/iterator"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+var logger = logrus.WithField(logfields.LogSubsys, "metric")
 
 // WithMetadata is the interface implemented by any metric defined in this package. These typically embed existing
 // prometheus metric types and add additional metadata. In addition, these metrics have the concept of being enabled
@@ -20,6 +29,42 @@ type WithMetadata interface {
 type metric struct {
 	enabled bool
 	opts    Opts
+	labels  *labelSet
+}
+
+// forEachLabelVector performs a product of all possible label value combinations
+// and calls the provided function for each combination.
+func (b *metric) forEachLabelVector(fn func(lvls []string)) {
+	if b.labels == nil {
+		return
+	}
+	vecs := []iterator.VecIterator[string]{}
+	for _, label := range b.labels.lbls {
+		vecs = append(vecs, iterator.Vec1[string](maps.Keys(label.Values)))
+	}
+	iterator.CartesianProduct(vecs...).ForEach(fn)
+}
+
+// checkLabelValues checks that the provided label values are within the range
+// of provided label values, if labels where defined using the Labels type.
+// Violations are logged as errors for detection, but metrics should still
+// be collected as is.
+func (b *metric) checkLabelValues(lvs ...string) {
+	if b.labels != nil {
+		if err := b.labels.checkLabelValues(lvs); err != nil {
+			logger.WithError(err).Error("metric label constraints violated")
+		}
+	}
+	return
+}
+
+func (b *metric) checkLabels(labels prometheus.Labels) {
+	if b.labels != nil {
+		if err := b.labels.checkLabels(labels); err != nil {
+			logger.WithError(err).Error("metric label constraints violated")
+		}
+	}
+	return
 }
 
 func (b *metric) IsEnabled() bool {
@@ -195,4 +240,74 @@ func (b Opts) GetConfigName() string {
 		return prometheus.BuildFQName(b.Namespace, b.Subsystem, b.Name)
 	}
 	return b.ConfigName
+}
+
+type Label struct {
+	Name string
+	// If defined, only these values are allowed.
+	Values Values
+}
+
+type Values map[string]struct{}
+
+func NewValues(vs ...string) Values {
+	vals := Values{}
+	for _, v := range vs {
+		vals[v] = struct{}{}
+	}
+	return vals
+}
+
+type Labels []Label
+
+func (lbls Labels) labelNames() []string {
+	lns := make([]string, len(lbls))
+	for i, label := range lbls {
+		lns[i] = label.Name
+	}
+	return lns
+}
+
+type labelSet struct {
+	lbls Labels
+	m    map[string]map[string]struct{}
+}
+
+func (l labelSet) namesToValues() map[string]map[string]struct{} {
+	if l.m != nil {
+		return l.m
+	}
+	m := make(map[string]map[string]struct{})
+	for _, label := range l.lbls {
+		m[label.Name] = label.Values
+	}
+	l.m = m
+	return m
+}
+
+func (l labelSet) checkLabels(labels prometheus.Labels) error {
+	for name, value := range labels {
+		if lvs, ok := l.namesToValues()[name]; ok {
+			if _, ok := lvs[value]; !ok {
+				return fmt.Errorf("value %s not allowed for label %s (should be one of %v)", value, name, lvs)
+			}
+		} else {
+			return fmt.Errorf("invalid label name: %s", name)
+		}
+	}
+	return nil
+}
+
+func (l labelSet) checkLabelValues(lvs []string) error {
+	if len(l.lbls) != len(lvs) {
+		return fmt.Errorf("invalid labels")
+	}
+	for i, label := range l.lbls {
+		if label.Values != nil {
+			if _, ok := label.Values[lvs[i]]; !ok {
+				return fmt.Errorf("invalid label value")
+			}
+		}
+	}
+	return nil
 }

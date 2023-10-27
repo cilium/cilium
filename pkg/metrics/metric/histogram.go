@@ -81,12 +81,28 @@ func NewHistogramVec(opts HistogramOpts, labelNames []string) Vec[Observer] {
 	}
 }
 
+func NewHistogramVecWithLabels(opts HistogramOpts, labels Labels) Vec[Observer] {
+	hv := &histogramVec{
+		ObserverVec: prometheus.NewHistogramVec(opts.toPrometheus(), labels.labelNames()),
+		metric: metric{
+			enabled: !opts.Disabled,
+			opts:    opts.opts(),
+			labels:  &labelSet{lbls: labels},
+		},
+	}
+	hv.forEachLabelVector(func(vs []string) {
+		hv.WithLabelValues(vs...)
+	})
+	return hv
+}
+
 type histogramVec struct {
 	prometheus.ObserverVec
 	metric
 }
 
 func (cv *histogramVec) CurryWith(labels prometheus.Labels) (Vec[Observer], error) {
+	cv.checkLabels(labels)
 	vec, err := cv.ObserverVec.CurryWith(labels)
 	if err == nil {
 		return &histogramVec{ObserverVec: vec, metric: cv.metric}, nil
@@ -134,6 +150,7 @@ func (cv *histogramVec) With(labels prometheus.Labels) Observer {
 			metric: metric{enabled: false},
 		}
 	}
+	cv.checkLabels(labels)
 
 	promObserver := cv.ObserverVec.With(labels)
 	return &observer{
@@ -148,6 +165,7 @@ func (cv *histogramVec) WithLabelValues(lvs ...string) Observer {
 			metric: metric{enabled: false},
 		}
 	}
+	cv.checkLabelValues(lvs...)
 
 	promObserver := cv.ObserverVec.WithLabelValues(lvs...)
 	return &observer{
