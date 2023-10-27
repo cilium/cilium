@@ -118,9 +118,9 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           
-          EXEMPT_FEATURES="GatewayPort8080,GatewayStaticAddresses,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,Mesh"
+          EXEMPT_FEATURES="GatewayPort8080,GatewayStaticAddresses,Mesh"
           if [ ${{ matrix.crd-channel }} == "standard" ]; then
-            EXEMPT_FEATURES+=",HTTPResponseHeaderModification,HTTPRouteDestinationPortMatching"
+            EXEMPT_FEATURES+=",HTTPResponseHeaderModification,HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
