@@ -33,19 +33,12 @@ import (
 )
 
 type envoyConfigManager struct {
-	client             client.Clientset
-	informer           cache.Controller
-	store              cache.Store
-	maxRetries         int
-	idleTimeoutSeconds int
+	informer cache.Controller
+	store    cache.Store
 }
 
-func newEnvoyConfigManager(ctx context.Context, client client.Clientset, maxRetries int, idleTimeoutSeconds int) (*envoyConfigManager, error) {
-	manager := &envoyConfigManager{
-		client:             client,
-		maxRetries:         maxRetries,
-		idleTimeoutSeconds: idleTimeoutSeconds,
-	}
+func newEnvoyConfigManager(ctx context.Context, client client.Clientset) (*envoyConfigManager, error) {
+	manager := &envoyConfigManager{}
 
 	manager.store, manager.informer = informer.NewInformer(
 		utils.ListerWatcherFromTyped[*ciliumv2.CiliumEnvoyConfigList](client.CiliumV2().CiliumEnvoyConfigs(corev1.NamespaceAll)),
@@ -166,7 +159,7 @@ func (m *Manager) getClusterResources(svc *slim_corev1.Service) ([]ciliumv2.XDSR
 		},
 	}
 
-	var mutatorFuncs = []clusterMutator{
+	mutatorFuncs := []clusterMutator{
 		lbModeClusterMutator(svc),
 	}
 	for _, fn := range mutatorFuncs {
@@ -193,7 +186,7 @@ func (m *Manager) getRouteConfigurationResource(svc *slim_corev1.Service) (ciliu
 		VirtualHosts: []*envoy_config_route_v3.VirtualHost{m.getVirtualHost(svc)},
 	}
 
-	var mutatorFuncs = []routeConfigMutator{}
+	mutatorFuncs := []routeConfigMutator{}
 	for _, fn := range mutatorFuncs {
 		routeConfig = fn(routeConfig)
 	}
@@ -245,7 +238,7 @@ func (m *Manager) getListenerResource(svc *slim_corev1.Service) (ciliumv2.XDSRes
 		},
 	}
 
-	var mutatorFuncs = []listenerMutator{}
+	mutatorFuncs := []listenerMutator{}
 	for _, fn := range mutatorFuncs {
 		listener = fn(listener)
 	}
@@ -282,7 +275,7 @@ func (m *Manager) getConnectionManager(svc *slim_corev1.Service) (ciliumv2.XDSRe
 		},
 	}
 
-	var mutatorFuncs = []httpConnectionManagerMutator{
+	mutatorFuncs := []httpConnectionManagerMutator{
 		grpcHttpConnectionManagerMutator(svc),
 	}
 	for _, fn := range mutatorFuncs {
@@ -323,7 +316,7 @@ func (m *Manager) getVirtualHost(svc *slim_corev1.Service) *envoy_config_route_v
 		},
 	}
 
-	var routeMutatorFuncs = []routeMutator{}
+	routeMutatorFuncs := []routeMutator{}
 	for _, fn := range routeMutatorFuncs {
 		route = fn(route)
 	}
@@ -334,7 +327,7 @@ func (m *Manager) getVirtualHost(svc *slim_corev1.Service) *envoy_config_route_v
 		Routes:  []*envoy_config_route_v3.Route{route},
 	}
 
-	var mutatorFuncs = []virtualHostMutator{}
+	mutatorFuncs := []virtualHostMutator{}
 	for _, fn := range mutatorFuncs {
 		virtualHost = fn(virtualHost)
 	}
