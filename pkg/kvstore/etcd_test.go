@@ -153,6 +153,7 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 	cli.Maintenance = mm
 	client := etcdClient{
 		client: cli,
+		logger: log,
 	}
 
 	// short timeout for tests
@@ -167,6 +168,7 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 	cli.Maintenance = mm
 	client = etcdClient{
 		client: cli,
+		logger: log,
 	}
 
 	c.Assert(client.checkMinVersion(context.TODO(), timeout), Not(IsNil))
