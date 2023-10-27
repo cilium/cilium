@@ -4,6 +4,7 @@
 package statedb
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"runtime"
@@ -85,6 +86,8 @@ import (
 //     the lowest revision of all delete trackers.
 type DB struct {
 	tables              map[TableName]TableMeta
+	ctx                 context.Context
+	cancel              context.CancelFunc
 	mu                  lock.Mutex // sequences modifications to the root tree
 	root                atomic.Pointer[iradix.Tree[tableEntry]]
 	gcTrigger           chan struct{} // trigger for graveyard garbage collection
@@ -190,14 +193,16 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 func (db *DB) Start(hive.HookContext) error {
 	db.gcTrigger = make(chan struct{}, 1)
 	db.gcExited = make(chan struct{})
-	go graveyardWorker(db, db.gcRateLimitInterval)
+	db.ctx, db.cancel = context.WithCancel(context.Background())
+	go graveyardWorker(db, db.ctx, db.gcRateLimitInterval)
 	return nil
 }
 
-func (db *DB) Stop(ctx hive.HookContext) error {
+func (db *DB) Stop(stopCtx hive.HookContext) error {
 	close(db.gcTrigger)
+	db.cancel()
 	select {
-	case <-ctx.Done():
+	case <-stopCtx.Done():
 		return errors.New("timed out waiting for graveyard worker to exit")
 	case <-db.gcExited:
 	}
