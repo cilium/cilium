@@ -55,6 +55,10 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
+	if err := <-Client().Connected(ctx); err != nil {
+		tb.Fatalf("Failed waiting for kvstore connection to be established: %v", err)
+	}
+
 	timer, done := inctimer.New()
 	defer done()
 
