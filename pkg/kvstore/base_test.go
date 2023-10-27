@@ -250,7 +250,7 @@ func (s *BaseTests) TestListAndWatch(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(success, Equals, true)
 
-	w := Client().ListAndWatch(context.TODO(), "testWatcher2", "foo2/", 100)
+	w := Client().ListAndWatch(context.TODO(), "foo2/", 100)
 	c.Assert(c, Not(IsNil))
 
 	expectEvent(c, w, EventTypeCreate, key1, val1)

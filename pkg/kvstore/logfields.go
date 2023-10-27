@@ -14,9 +14,6 @@ const (
 	// fieldKVStoreModule is the name of the kvstore backend (etcd or consul)
 	fieldKVStoreModule = "module"
 
-	// name of watcher
-	fieldWatcher = "watcher"
-
 	// key revision
 	fieldRev = "revision"
 
