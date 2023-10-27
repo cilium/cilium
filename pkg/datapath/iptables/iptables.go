@@ -324,6 +324,10 @@ func (m *IptablesManager) Init() {
 
 	m.haveIp6tables = haveIp6tables
 
+	if option.Config.EnableIPSec && option.Config.EnableL7Proxy {
+		m.DisableIPEarlyDemux()
+	}
+
 	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
 		if option.Config.Tunnel == option.TunnelDisabled {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
@@ -344,14 +348,7 @@ func (m *IptablesManager) Init() {
 			log.WithError(err).Warning("xt_socket kernel module could not be loaded")
 
 			if option.Config.EnableXTSocketFallback {
-				disabled := sysctl.Disable("net.ipv4.ip_early_demux") == nil
-
-				if disabled {
-					m.ipEarlyDemuxDisabled = true
-					log.Warning("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
-				} else {
-					log.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
-				}
+				m.DisableIPEarlyDemux()
 			}
 		}
 	} else {
@@ -361,6 +358,20 @@ func (m *IptablesManager) Init() {
 
 	ip4tables.initArgs(int(option.Config.IPTablesLockTimeout / time.Second))
 	ip6tables.initArgs(int(option.Config.IPTablesLockTimeout / time.Second))
+}
+
+func (m *IptablesManager) DisableIPEarlyDemux() {
+	if m.ipEarlyDemuxDisabled {
+		return
+	}
+
+	err := sysctl.Disable("net.ipv4.ip_early_demux")
+	if err == nil {
+		m.ipEarlyDemuxDisabled = true
+		log.Info("Disabled ip_early_demux to allow proxy redirection.")
+	} else {
+		log.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
+	}
 }
 
 // SupportsOriginalSourceAddr tells if an L7 proxy can use POD's original source address and port in
