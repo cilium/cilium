@@ -3,7 +3,6 @@
 package kvstore
 
 import (
-	"context"
 	"sync"
 )
 
@@ -87,19 +86,6 @@ func newWatcher(name, prefix string, chanSize int) *Watcher {
 // String returns the name of the wather
 func (w *Watcher) String() string {
 	return w.Name
-}
-
-// ListAndWatch creates a new watcher which will watch the specified prefix for
-// changes. Before doing this, it will list the current keys matching the
-// prefix and report them as new keys. Name can be set to anything and is used
-// for logging messages. The Events channel is created with the specified
-// sizes. Upon every change observed, a KeyValueEvent will be sent to the
-// Events channel
-//
-// Returns a watcher structure plus a channel that is closed when the initial
-// list operation has been completed
-func ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher {
-	return Client().ListAndWatch(ctx, name, prefix, chanSize)
 }
 
 // Stop stops a watcher previously created and started with Watch()
