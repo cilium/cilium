@@ -95,14 +95,51 @@ func (g *gauge) SetToCurrentTime() {
 	}
 }
 
-func NewGaugeVec(opts GaugeOpts, labelNames []string) DeletableVec[Gauge] {
-	return &gaugeVec{
+// NewGaugeVec creates a new DeletableVec[Gauge] based on the provided GaugeOpts and
+// partitioned by the given label names.
+func NewGaugeVec(opts GaugeOpts, labelNames []string) *gaugeVec {
+	gv := &gaugeVec{
 		GaugeVec: prometheus.NewGaugeVec(opts.toPrometheus(), labelNames),
 		metric: metric{
 			enabled: !opts.Disabled,
 			opts:    Opts(opts),
 		},
 	}
+	return gv
+}
+
+// NewGaugeVecWithLabels creates a new DeletableVec[Gauge] based on the provided CounterOpts and
+// partitioned by the given labels.
+// This will also initialize the labels with the provided values so that metrics with known label value
+// ranges can be pre-initialized to zero upon init.
+//
+// This should only be used when all label values are known at init, otherwise use of the
+// metric vector with uninitialized labels will result in warnings.
+//
+// Note: Disabled metrics will not have their label values initialized.
+//
+// For example:
+//
+//	NewGaugeVecWithLabels(GaugeOpts{
+//		Namespace: "cilium",
+//		Subsystem: "subsystem",
+//		Name:      "cilium_test",
+//		Disabled:  false,
+//	}, Labels{
+//		{Name: "foo", Values: NewValues("0", "1")},
+//		{Name: "bar", Values: NewValues("a", "b")},
+//	})
+//
+// Will initialize the following metrics to:
+//
+//	cilium_subsystem_cilium_test{foo="0", bar="a"} 0
+//	cilium_subsystem_cilium_test{foo="0", bar="b"} 0
+//	cilium_subsystem_cilium_test{foo="1", bar="a"} 0
+//	cilium_subsystem_cilium_test{foo="1", bar="b"} 0
+func NewGaugeVecWithLabels(opts GaugeOpts, labels Labels) *gaugeVec {
+	gv := NewGaugeVec(opts, labels.labelNames())
+	initLabels[Gauge](&gv.metric, labels, gv, opts.Disabled)
+	return gv
 }
 
 type gaugeVec struct {
@@ -111,6 +148,7 @@ type gaugeVec struct {
 }
 
 func (gv *gaugeVec) CurryWith(labels prometheus.Labels) (Vec[Gauge], error) {
+	gv.checkLabels(labels)
 	vec, err := gv.GaugeVec.CurryWith(labels)
 	if err == nil {
 		return &gaugeVec{GaugeVec: vec, metric: gv.metric}, nil
@@ -158,6 +196,7 @@ func (gv *gaugeVec) With(labels prometheus.Labels) Gauge {
 			metric: metric{enabled: false},
 		}
 	}
+	gv.checkLabels(labels)
 
 	promGauge := gv.GaugeVec.With(labels)
 	return &gauge{
@@ -167,6 +206,7 @@ func (gv *gaugeVec) With(labels prometheus.Labels) Gauge {
 }
 
 func (gv *gaugeVec) WithLabelValues(lvs ...string) Gauge {
+	gv.checkLabelValues(lvs...)
 	if !gv.enabled {
 		return &gauge{
 			metric: metric{enabled: false},
