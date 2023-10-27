@@ -36,6 +36,7 @@ _spec: {
 		ports: [...{
 			_expose: *false | true
 		}]
+		terminationMessagePolicy: "FallbackToLogsOnError"
 	}
 
 	if len(_allowProbe) == 0 {

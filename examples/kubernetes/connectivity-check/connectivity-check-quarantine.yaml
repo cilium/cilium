@@ -25,6 +25,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           exec:
             command:
@@ -55,6 +56,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -104,6 +106,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           exec:
             command:
@@ -134,6 +137,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -183,6 +187,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           exec:
             command:
@@ -213,6 +218,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -262,6 +268,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           exec:
             command:
@@ -292,6 +299,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -341,6 +349,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           exec:
             command:
@@ -371,6 +380,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -420,6 +430,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           exec:
             command:
@@ -450,6 +461,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
+        terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -677,6 +689,7 @@ spec:
         - containerPort: 8080
         image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
         imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           timeoutSeconds: 7
           exec:
@@ -754,6 +767,7 @@ spec:
           hostPort: 40000
         image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
         imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           timeoutSeconds: 7
           exec:
@@ -826,10 +840,11 @@ spec:
       - name: echo-b-host-container
         env:
         - name: PORT
-          value: "31000"
+          value: "21000"
         ports: []
         image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
         imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           timeoutSeconds: 7
           exec:
@@ -841,7 +856,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:31000
+            - localhost:21000
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -853,7 +868,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:31000
+            - localhost:21000
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -917,6 +932,7 @@ spec:
           hostPort: 40001
         image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
         imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           timeoutSeconds: 7
           exec:
@@ -1013,10 +1029,11 @@ spec:
       - name: echo-c-host-container
         env:
         - name: PORT
-          value: "31002"
+          value: "21002"
         ports: []
         image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
         imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
         readinessProbe:
           timeoutSeconds: 7
           exec:
@@ -1028,7 +1045,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:31002
+            - localhost:21002
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -1040,7 +1057,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:31002
+            - localhost:21002
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
