@@ -119,8 +119,6 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           
           EXEMPT_FEATURES="GatewayPort8080,GatewayStaticAddresses,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,Mesh"
-          # Enable again once https://github.com/cilium/cilium/issues/28374 is fixed
-          EXEMPT_FEATURES+=",HTTPRouteRequestMultipleMirrors"
 
           if [ ${{ matrix.crd-channel }} == "standard" ]; then
             EXEMPT_FEATURES+=",HTTPResponseHeaderModification,HTTPRouteDestinationPortMatching"
