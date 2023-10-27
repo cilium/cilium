@@ -462,10 +462,12 @@ func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 	// 2. route original direction traffic that would otherwise be intercepted
 	//    by ip_early_demux
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	return []string{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
 		"-m", "socket", "--transparent",
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 		"-j", "MARK",
 		"--set-mark", toProxyMark}
