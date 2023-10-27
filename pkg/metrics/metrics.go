@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -735,13 +736,18 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Duration of processed API calls labeled by path, method and return code.",
 		}, []string{LabelPath, LabelMethod, LabelAPIReturnCode}),
 
-		EndpointRegenerationTotal: metric.NewCounterVec(metric.CounterOpts{
+		EndpointRegenerationTotal: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_endpoint_regenerations_total",
 
 			Namespace: Namespace,
 			Name:      "endpoint_regenerations_total",
 			Help:      "Count of all endpoint regenerations that have completed, tagged by outcome",
-		}, []string{"outcome"}),
+		}, metric.Labels{
+			{
+				Name:   "outcome",
+				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFail),
+			},
+		}),
 
 		EndpointStateCount: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_endpoint_state",
@@ -788,13 +794,19 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Highest policy revision number in the agent",
 		}),
 
-		PolicyChangeTotal: metric.NewCounterVec(metric.CounterOpts{
+		PolicyChangeTotal: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_policy_change_total",
 
 			Namespace: Namespace,
 			Name:      "policy_change_total",
 			Help:      "Number of policy changes by outcome",
-		}, []string{"outcome"}),
+		}, metric.Labels{
+			{
+				Name: "outcome",
+				// TODO: Use common label values for success/fail(ure) across all metrics.
+				Values: metric.NewValues("success", "failure"),
+			},
+		}),
 
 		PolicyEndpointStatus: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_policy_endpoint_enforcement_status",
@@ -804,13 +816,18 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Number of endpoints labeled by policy enforcement status",
 		}, []string{LabelPolicyEnforcement}),
 
-		PolicyImplementationDelay: metric.NewHistogramVec(metric.HistogramOpts{
+		PolicyImplementationDelay: metric.NewHistogramVecWithLabels(metric.HistogramOpts{
 			ConfigName: Namespace + "_policy_implementation_delay",
 
 			Namespace: Namespace,
 			Name:      "policy_implementation_delay",
 			Help:      "Time between a policy change and it being fully deployed into the datapath",
-		}, []string{LabelPolicySource}),
+		}, metric.Labels{
+			{
+				Name:   "source",
+				Values: metric.NewValues(string(source.Kubernetes), string(source.CustomResource), string(source.LocalAPI)),
+			},
+		}),
 
 		CIDRGroupsReferenced: metric.NewGauge(metric.GaugeOpts{
 			ConfigName: Namespace + "cidrgroups_referenced",
@@ -861,12 +878,17 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Number of redirects installed for endpoints, labeled by protocol",
 		}, []string{LabelProtocolL7}),
 
-		ProxyPolicyL7Total: metric.NewCounterVec(metric.CounterOpts{
+		ProxyPolicyL7Total: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_policy_l7_total",
 			Namespace:  Namespace,
 			Name:       "policy_l7_total",
 			Help:       "Number of total proxy requests handled",
-		}, []string{"rule", "proxy_type"}),
+		}, metric.Labels{
+			{
+				Name:   "rule",
+				Values: metric.NewValues("received", "forwarded", "denied", "parse_errors"),
+			},
+		}),
 
 		ProxyUpstreamTime: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_proxy_upstream_reply_seconds",
@@ -1014,19 +1036,51 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of times that Cilium has started a subprocess, labeled by subsystem",
 		}, []string{LabelSubsystem}),
 
-		KubernetesEventProcessed: metric.NewCounterVec(metric.CounterOpts{
+		KubernetesEventProcessed: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_kubernetes_events_total",
 			Namespace:  Namespace,
 			Name:       "kubernetes_events_total",
 			Help:       "Number of Kubernetes events processed labeled by scope, action and execution result",
-		}, []string{LabelScope, LabelAction, LabelStatus}),
+		},
+			metric.Labels{
+				{
+					Name:   LabelScope,
+					Values: metric.NewValues("CiliumNetworkPolicy", "CiliumClusterwideNetworkPolicy", "NetworkPolicy"),
+				},
+				{
+					Name:   LabelAction,
+					Values: metric.NewValues("update", "delete"),
+				},
+				{
+					Name:   LabelStatus,
+					Values: metric.NewValues("success", "failed"),
+				},
+			},
+		),
 
-		KubernetesEventReceived: metric.NewCounterVec(metric.CounterOpts{
+		KubernetesEventReceived: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_kubernetes_events_received_total",
 			Namespace:  Namespace,
 			Name:       "kubernetes_events_received_total",
 			Help:       "Number of Kubernetes events received labeled by scope, action, valid data and equalness",
-		}, []string{LabelScope, LabelAction, "valid", "equal"}),
+		}, metric.Labels{
+			{
+				Name:   LabelScope,
+				Values: metric.NewValues("CiliumNetworkPolicy", "CiliumClusterwideNetworkPolicy", "NetworkPolicy"),
+			},
+			{
+				Name:   LabelAction,
+				Values: metric.NewValues("update", "delete"),
+			},
+			{
+				Name:   "valid",
+				Values: metric.NewValues("true", "false"),
+			},
+			{
+				Name:   "equal",
+				Values: metric.NewValues("true", "false"),
+			},
+		}),
 
 		KubernetesAPIInteractions: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds",
