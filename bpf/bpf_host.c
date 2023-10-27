@@ -201,11 +201,15 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	__u8 nexthdr;
 	__u8 encrypt_key __maybe_unused = 0;
 	__u32 magic = MARK_MAGIC_IDENTITY;
-	bool from_ingress_proxy = false;
+	bool from_proxy = false;
 
 	if (from_host && tc_index_from_ingress_proxy(ctx)) {
-		from_ingress_proxy = true;
+		from_proxy = true;
 		magic = MARK_MAGIC_PROXY_INGRESS;
+	}
+	if (from_host && tc_index_from_egress_proxy(ctx)) {
+		from_proxy = true;
+		magic = MARK_MAGIC_PROXY_EGRESS;
 	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -303,7 +307,7 @@ skip_host_firewall:
 
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
-	if (from_ingress_proxy && info)
+	if (from_proxy && info)
 		encrypt_key = get_min_encrypt_key(info->key);
 #endif
 
@@ -334,7 +338,7 @@ skip_host_firewall:
 
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
-	if (!info || (!from_ingress_proxy &&
+	if (!info || (!from_proxy &&
 		      info->sec_label == WORLD_ID)) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
@@ -342,7 +346,7 @@ skip_host_firewall:
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
 	/* See IPv4 comment. */
-	if (from_ingress_proxy && info->tunnel_endpoint && encrypt_key)
+	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_label, true);
 #endif
@@ -480,11 +484,15 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	int ret;
 	__u8 encrypt_key __maybe_unused = 0;
 	__u32 magic = MARK_MAGIC_IDENTITY;
-	bool from_ingress_proxy = false;
+	bool from_proxy = false;
 
 	if (from_host && tc_index_from_ingress_proxy(ctx)) {
-		from_ingress_proxy = true;
+		from_proxy = true;
 		magic = MARK_MAGIC_PROXY_INGRESS;
+	}
+	if (from_host && tc_index_from_egress_proxy(ctx)) {
+		from_proxy = true;
+		magic = MARK_MAGIC_PROXY_EGRESS;
 	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -621,7 +629,7 @@ skip_vtep:
 	/* We encrypt host to remote pod packets only if they are from ingress proxy. */
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-	if (from_ingress_proxy && info)
+	if (from_proxy && info)
 		encrypt_key = get_min_encrypt_key(info->key);
 #endif
 
@@ -647,7 +655,7 @@ skip_vtep:
 #endif
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-	if (!info || (!from_ingress_proxy &&
+	if (!info || (!from_proxy &&
 		      info->sec_label == WORLD_ID)) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
@@ -658,7 +666,7 @@ skip_vtep:
 		 * wrong to route a ctx to cilium_host for which we don't know
 		 * anything about it as otherwise we'll run into a routing loop.
 		 *
-		 * Note that we do not drop packets from ingress proxy even if
+		 * Note that we do not drop packets from proxy even if
 		 * they are going to WORLD_ID. This is to avoid
 		 * https://github.com/cilium/cilium/issues/21954.
 		 */
@@ -666,8 +674,8 @@ skip_vtep:
 	}
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	/* We encrypt host to remote pod packets only if they are from ingress proxy. */
-	if (from_ingress_proxy && info->tunnel_endpoint && encrypt_key)
+	/* We encrypt host to remote pod packets only if they are from proxy. */
+	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_label, true);
 #endif
