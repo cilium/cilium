@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
@@ -197,28 +196,28 @@ var nodeAddressTests = []struct {
 }
 
 func TestNodeAddress(t *testing.T) {
-	var (
-		db        *statedb.DB
-		devices   statedb.RWTable[*tables.Device]
-		nodeAddrs statedb.Table[tables.NodeAddress]
-	)
-	h := hive.New(
-		job.Cell,
-		statedb.Cell,
-		tables.NodeAddressCell,
-		tables.DeviceTableCell,
-		cell.Provide(func(t statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] { return t }),
-		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*tables.Device], na statedb.Table[tables.NodeAddress]) {
-			db = db_
-			devices = d
-			nodeAddrs = na
-		}),
-	)
-
-	require.NoError(t, h.Start(context.TODO()), "Start")
-
 	for _, tt := range nodeAddressTests {
 		t.Run(tt.name, func(t *testing.T) {
+			var (
+				db        *statedb.DB
+				devices   statedb.RWTable[*tables.Device]
+				nodeAddrs statedb.Table[tables.NodeAddress]
+			)
+			h := hive.New(
+				job.Cell,
+				statedb.Cell,
+				tables.NodeAddressCell,
+				tables.DeviceTableCell,
+				cell.Provide(func(t statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] { return t }),
+				cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*tables.Device], na statedb.Table[tables.NodeAddress]) {
+					db = db_
+					devices = d
+					nodeAddrs = na
+				}),
+			)
+
+			require.NoError(t, h.Start(context.TODO()), "Start")
+
 			txn := db.WriteTxn(devices)
 			_, watch := nodeAddrs.All(txn)
 
@@ -256,10 +255,10 @@ func TestNodeAddress(t *testing.T) {
 			}
 			require.ElementsMatch(t, local, ipStrings(tt.wantLocal), "LocalAddresses do not match")
 			require.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "LoadBalancerNodeAddresses do not match")
+			require.NoError(t, h.Stop(context.TODO()), "Stop")
 		})
 	}
 
-	assert.NoError(t, h.Stop(context.TODO()), "Stop")
 }
 
 var nodeAddressWhitelistTests = []struct {

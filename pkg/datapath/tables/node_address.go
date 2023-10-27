@@ -41,7 +41,10 @@ type NodeAddress struct {
 
 	// Primary is true if this is the primary IPv4 or IPv6 address of this device.
 	// This is mainly used to pick the address for BPF masquerading.
-	Primary    bool
+	Primary bool
+
+	// DeviceName is the name of the network device from which this address
+	// is derived from.
 	DeviceName string
 }
 
@@ -53,9 +56,20 @@ func (n *NodeAddress) String() string {
 	return fmt.Sprintf("%s (%s)", n.Addr, n.DeviceName)
 }
 
-var (
-	NodeAddressTableName statedb.TableName = "node-addresses"
+type NodeAddressConfig struct {
+	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
 
+	// AddressScopeMax controls the maximum address scope for addresses to be
+	// considered local ones. Affects which addresses are used for NodePort
+	// and which have HOST_ID in the ipcache.
+	AddressScopeMax string `mapstructure:"local-max-addr-scope"`
+}
+
+var (
+	// NodeAddressIndex is the primary index for node addresses:
+	//
+	//   var nodeAddresses Table[NodeAddress]
+	//   nodeAddresses.First(txn, NodeAddressIndex.Query(netip.MustParseAddr("1.2.3.4")))
 	NodeAddressIndex = statedb.Index[NodeAddress, netip.Addr]{
 		Name: "id",
 		FromObject: func(a NodeAddress) index.KeySet {
@@ -67,13 +81,14 @@ var (
 		Unique: true,
 	}
 
-	// NodeAddressTestTableCell provides the node address Table and RWTable
-	// for use in tests of modules that depend on node addresses.
-	NodeAddressTestTableCell = statedb.NewTableCell[NodeAddress](
-		NodeAddressTableName,
-		NodeAddressIndex,
-	)
+	NodeAddressTableName statedb.TableName = "node-addresses"
 
+	// NodeAddressCell provides Table[NodeAddress] and a background controller
+	// that derives the node addresses from the low-level Table[*Device].
+	//
+	// The Table[NodeAddress] contains the actual assigned addresses on the node,
+	// but not for example external Kubernetes node addresses that may be merely
+	// NATd to a private address. Those can be queried through [node.LocalNodeStore].
 	NodeAddressCell = cell.Module(
 		"node-address",
 		"Table of node addresses derived from system network devices",
@@ -85,18 +100,18 @@ var (
 		),
 		cell.Config(NodeAddressConfig{}),
 	)
+
+	// NodeAddressTestTableCell provides Table[NodeAddress] and RWTable[NodeAddress]
+	// for use in tests of modules that depend on node addresses.
+	NodeAddressTestTableCell = statedb.NewTableCell[NodeAddress](
+		NodeAddressTableName,
+		NodeAddressIndex,
+	)
 )
 
-type NodeAddressConfig struct {
-	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
-
-	// AddressScopeMax controls the maximum address scope for addresses to be
-	// considered local ones. Affects which addresses are used for NodePort
-	// and which have HOST_ID in the ipcache.
-	AddressScopeMax string `mapstructure:"local-max-addr-scope"`
-}
-
 const (
+	nodeAddressControllerMinInterval = 100 * time.Millisecond
+
 	addressScopeMaxFlag = "local-max-addr-scope"
 )
 
@@ -124,11 +139,11 @@ func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
 		nil,
 		"A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.")
 
-	flags.String(addressScopeMaxFlag, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
+	flags.String(addressScopeMaxFlag, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for node addresses")
 	flags.MarkHidden(addressScopeMaxFlag)
 }
 
-type nodeAddressSource struct {
+type nodeAddressControllerParams struct {
 	cell.In
 
 	HealthScope     cell.Scope
@@ -142,23 +157,54 @@ type nodeAddressSource struct {
 	AddressScopeMax AddressScopeMax
 }
 
-func newNodeAddressTable(n nodeAddressSource) (tbl statedb.Table[NodeAddress], err error) {
+type nodeAddressController struct {
+	nodeAddressControllerParams
+
+	// current is the current set of node addresses inserted by this controller.
+	current sets.Set[NodeAddress]
+
+	tracker *statedb.DeleteTracker[*Device]
+}
+
+// newNodeAddressTable constructs the node address controller & registers its
+// lifecycle hooks and then provides Table[NodeAddress] to the application.
+// This enforces proper ordering, e.g. controller is started before anything
+// that depends on Table[NodeAddress] and allows it to populate it before
+// it is accessed.
+func newNodeAddressTable(p nodeAddressControllerParams) (tbl statedb.Table[NodeAddress], err error) {
+	n := nodeAddressController{nodeAddressControllerParams: p}
 	n.register()
 	return n.NodeAddresses, nil
 }
 
-func (n *nodeAddressSource) register() {
+func (n *nodeAddressController) register() {
 	g := n.Jobs.NewGroup(n.HealthScope)
 	g.Add(job.OneShot("node-address-update", n.run))
 
 	n.Lifecycle.Append(
 		hive.Hook{
 			OnStart: func(ctx hive.HookContext) error {
+				txn := n.DB.WriteTxn(n.NodeAddresses, n.Devices /* for delete tracker */)
+				defer txn.Abort()
+
+				var err error
+				n.tracker, err = n.Devices.DeleteTracker(txn, "node-addresses")
+				if err != nil {
+					return fmt.Errorf("DeleteTracker: %w", err)
+				}
+
 				// Do an immediate update to populate the table
 				// before it is read from.
-				n.update(ctx)
+				addrs := sets.New[NodeAddress]()
+				devices, _ := n.Devices.All(txn)
+				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+					n.getAddressesFromDevice(dev, addrs)
+				}
+				n.update(txn, addrs, nil)
+				txn.Commit()
 
-				// Start the background refresh.
+				// Start the job in the background to incremental refresh
+				// the node addresses.
 				return g.Start(ctx)
 			},
 			OnStop: g.Stop,
@@ -166,11 +212,33 @@ func (n *nodeAddressSource) register() {
 
 }
 
-func (n *nodeAddressSource) run(ctx context.Context, reporter cell.HealthReporter) error {
-	limiter := rate.NewLimiter(100*time.Millisecond, 1)
+func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthReporter) error {
+	defer n.tracker.Close()
+
+	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
+	revision := statedb.Revision(0)
 	for {
-		watch, addrs := n.update(ctx)
-		reporter.OK(addrs)
+		txn := n.DB.WriteTxn(n.NodeAddresses)
+		process := func(dev *Device, deleted bool, rev statedb.Revision) error {
+			new := n.current.Clone()
+
+			// Remove the existing addresses for this device.
+			for addr := range new {
+				if addr.DeviceName == dev.Name {
+					new.Delete(addr)
+				}
+			}
+			if !deleted {
+				// Add in the new addresses.
+				n.getAddressesFromDevice(dev, new)
+			}
+			n.update(txn, new, reporter)
+			return nil
+		}
+		var watch <-chan struct{}
+		revision, watch, _ = n.tracker.Process(txn, revision, process)
+		txn.Commit()
+
 		select {
 		case <-ctx.Done():
 			return nil
@@ -182,125 +250,97 @@ func (n *nodeAddressSource) run(ctx context.Context, reporter cell.HealthReporte
 	}
 }
 
-func (n *nodeAddressSource) update(ctx context.Context) (<-chan struct{}, string) {
-	txn := n.DB.WriteTxn(n.NodeAddresses)
-	defer txn.Abort()
-
-	old := n.getCurrentAddresses(txn)
-	new, watch := n.getAddressesFromDevices(txn)
+func (n *nodeAddressController) update(txn statedb.WriteTxn, new sets.Set[NodeAddress], reporter cell.HealthReporter) {
 	updated := false
 
 	// Insert new addresses that did not exist.
-	for addr := range new.Difference(old) {
+	for addr := range new.Difference(n.current) {
 		updated = true
 		n.NodeAddresses.Insert(txn, addr)
 	}
 
 	// Remove addresses that were not part of the new set.
-	for addr := range old.Difference(new) {
+	for addr := range n.current.Difference(new) {
 		updated = true
 		n.NodeAddresses.Delete(txn, addr)
 	}
 
-	addrs := showAddresses(new)
 	if updated {
+		addrs := showAddresses(new)
 		n.Log.WithField("node-addresses", addrs).Info("Node addresses updated")
-		txn.Commit()
+		if reporter != nil {
+			reporter.OK(addrs)
+		}
 	}
-	return watch, addrs
 }
 
-func (n *nodeAddressSource) getCurrentAddresses(txn statedb.ReadTxn) sets.Set[NodeAddress] {
-	addrs := sets.New[NodeAddress]()
-	iter, _ := n.NodeAddresses.All(txn)
-	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
-		addrs.Insert(addr)
+func (n *nodeAddressController) getAddressesFromDevice(dev *Device, addrs sets.Set[NodeAddress]) {
+	if dev.Flags&net.FlagUp == 0 {
+		return
 	}
-	return addrs
-}
 
-func (n *nodeAddressSource) getAddressesFromDevices(txn statedb.ReadTxn) (sets.Set[NodeAddress], <-chan struct{}) {
-	addrs := sets.New[NodeAddress]()
+	// Skip obviously uninteresting devices.
+	// We include the HostDevice as its IP addresses are consider node addresses
+	// and added to e.g. ipcache as HOST_IDs.
+	if dev.Name != defaults.HostDevice {
+		skip := false
+		for _, prefix := range defaults.ExcludedDevicePrefixes {
+			if strings.HasPrefix(dev.Name, prefix) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			return
+		}
+	}
 
-	// FIXME: This will wake up pretty often and there may be a lot of devices
-	// (lxcs). Possible solutions:
-	// - Table[DeviceAddress]
-	// - Index based on whether the device is interesting or not.
-	// - Heavy rate limiting.
-	// - Or benchmark and see if it's cheap enough to iterate 10k devices every
-	//   few hundred millis.
-	// - Process the changes incrementally using a DeleteTracker.
+	// ipv4 and ipv6 are set to true when the primary address is picked.
+	// Used to implement 'NodePort' and 'Primary' flags.
+	ipv4, ipv6 := false, false
 
-	devices, watch := n.Devices.All(txn)
-	for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
-		if dev.Flags&net.FlagUp == 0 {
+	for _, addr := range sortAddresses(dev.Addrs) {
+		// We keep the scope-based address filtering as was introduced
+		// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
+		if addr.Scope > uint8(n.AddressScopeMax) {
+			// Addresses are sorted by scope, so can stop early.
+			break
+		}
+		if addr.Addr.IsLoopback() {
 			continue
 		}
 
-		// Skip obviously uninteresting devices.
-		// We include the HostDevice as its IP addresses are consider node addresses
-		// and added to e.g. ipcache as HOST_IDs.
-		if dev.Name != defaults.HostDevice {
-			skip := false
-			for _, prefix := range defaults.ExcludedDevicePrefixes {
-				if strings.HasPrefix(dev.Name, prefix) {
-					skip = true
-					break
-				}
-			}
-			if skip {
-				continue
-			}
-		}
-
-		// ipv4 and ipv6 are set to true when the primary address is picked.
-		ipv4, ipv6 := false, false
-
-		// The addresses are sorted by scope so global primary addresses come first.
-		for _, addr := range sortAddresses(dev.Addrs) {
-			// Keep the scope-based address filtering as was introduced
-			// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
-			if addr.Scope > uint8(n.AddressScopeMax) {
-				// Addresses are sorted by scope, so can stop early.
-				break
-			}
-			if addr.Addr.IsLoopback() {
-				continue
-			}
-
-			// Figure out if the address is usable for NodePort.
-			nodePort := false
-			primary := false
-			if dev.Selected && len(n.Config.NodePortAddresses) == 0 {
-				// The user has not specified IP ranges to filter on IPs on which to serve NodePort.
-				// Thus the default behavior is to use the primary IPv4 and IPv6 addresses of each
-				// device.
-				if addr.Addr.Is4() && !ipv4 {
-					ipv4 = true
-					nodePort = true
-					primary = true
-				}
-				if addr.Addr.Is6() && !ipv6 {
-					ipv6 = true
-					nodePort = true
-					primary = true
-				}
-			} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
-				// User specified --nodeport-addresses and this address was within the range.
+		// Figure out if the address is usable for NodePort.
+		nodePort := false
+		primary := false
+		if dev.Selected && len(n.Config.NodePortAddresses) == 0 {
+			// The user has not specified IP ranges to filter on IPs on which to serve NodePort.
+			// Thus the default behavior is to use the primary IPv4 and IPv6 addresses of each
+			// device.
+			if addr.Addr.Is4() && !ipv4 {
+				ipv4 = true
 				nodePort = true
-				if addr.Addr.Is4() && !ipv4 {
-					primary = true
-					ipv4 = true
-				} else if addr.Addr.Is6() && !ipv6 {
-					primary = true
-					ipv6 = true
-				}
+				primary = true
 			}
-
-			addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: primary, NodePort: nodePort, DeviceName: dev.Name})
+			if addr.Addr.Is6() && !ipv6 {
+				ipv6 = true
+				nodePort = true
+				primary = true
+			}
+		} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
+			// User specified --nodeport-addresses and this address was within the range.
+			nodePort = true
+			if addr.Addr.Is4() && !ipv4 {
+				primary = true
+				ipv4 = true
+			} else if addr.Addr.Is6() && !ipv6 {
+				primary = true
+				ipv6 = true
+			}
 		}
+
+		addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: primary, NodePort: nodePort, DeviceName: dev.Name})
 	}
-	return addrs, watch
 }
 
 // showAddresses formats a Set[NodeAddress] as "1.2.3.4 (eth0), fe80::1 (eth1)"
