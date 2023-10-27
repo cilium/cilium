@@ -118,7 +118,10 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 	var filterChains []*envoy_config_listener.FilterChain
 
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
-	insecureHttpConnectionManager, err := NewHTTPConnectionManager(insecureHttpConnectionManagerName, insecureHttpConnectionManagerName, WithXffNumTrustedHops())
+	insecureHttpConnectionManager, err := NewHTTPConnectionManager(
+		insecureHttpConnectionManagerName,
+		insecureHttpConnectionManagerName,
+		WithXffNumTrustedHops())
 	if err != nil {
 		return ciliumv2.XDSResource{}, err
 	}
@@ -137,7 +140,10 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 
 	for secret, hostNames := range tls {
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
-		secureHttpConnectionManager, err := NewHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName, WithXffNumTrustedHops())
+		secureHttpConnectionManager, err := NewHTTPConnectionManager(
+			secureHttpConnectionManagerName,
+			secureHttpConnectionManagerName,
+			WithXffNumTrustedHops())
 		if err != nil {
 			return ciliumv2.XDSResource{}, err
 		}
