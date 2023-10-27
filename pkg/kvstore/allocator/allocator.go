@@ -565,7 +565,7 @@ func (k *kvstoreBackend) keyToID(key string) (id idpool.ID, err error) {
 }
 
 func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
-	watcher := k.backend.ListAndWatch(ctx, k.idPrefix, k.idPrefix, 512)
+	watcher := k.backend.ListAndWatch(ctx, k.idPrefix, 512)
 
 	for {
 		select {

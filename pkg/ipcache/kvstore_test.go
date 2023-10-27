@@ -45,7 +45,7 @@ func (m *fakeIPCache) OnIPIdentityCacheChange(modType CacheModification, cidrClu
 	oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *K8sMetadata) {
 }
 
-func (fb *fakeBackend) ListAndWatch(ctx context.Context, _, prefix string, _ int) *kvstore.Watcher {
+func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *kvstore.Watcher {
 	var pair identity.IPIdentityPair
 	ch := make(kvstore.EventChan, 10)
 

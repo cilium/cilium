@@ -327,7 +327,7 @@ func (c *consulClient) Watch(ctx context.Context, w *Watcher) {
 		pairs, q, err := c.KV().List(w.Prefix, qo)
 		if err != nil {
 			sleepTime = 5 * time.Second
-			Trace("List of Watch failed", err, logrus.Fields{fieldPrefix: w.Prefix, fieldWatcher: w.Name})
+			Trace("List of Watch failed", err, logrus.Fields{fieldPrefix: w.Prefix})
 		}
 
 		if q != nil {
@@ -761,10 +761,10 @@ func (c *consulClient) Decode(in string) (out []byte, err error) {
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using consul
-func (c *consulClient) ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher {
-	w := newWatcher(name, prefix, chanSize)
+func (c *consulClient) ListAndWatch(ctx context.Context, prefix string, chanSize int) *Watcher {
+	w := newWatcher(prefix, chanSize)
 
-	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
+	log.WithField(fieldPrefix, prefix).Debug("Starting watcher...")
 
 	go c.Watch(ctx, w)
 

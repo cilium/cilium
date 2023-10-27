@@ -32,7 +32,7 @@ func NewFakeLWBackend(t *testing.T, prefix string, events []kvstore.KeyValueEven
 	}
 }
 
-func (fb *fakeLWBackend) ListAndWatch(ctx context.Context, _, prefix string, _ int) *kvstore.Watcher {
+func (fb *fakeLWBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *kvstore.Watcher {
 	ch := make(kvstore.EventChan)
 
 	go func() {

@@ -781,7 +781,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 		go ec.statusChecker()
 
-		watcher := ec.ListAndWatch(ctx, HeartbeatPath, HeartbeatPath, 128)
+		watcher := ec.ListAndWatch(ctx, HeartbeatPath, 128)
 
 		for {
 			select {
@@ -966,10 +966,8 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 		w.Stop()
 	}()
 
-	scopedLog := e.getLogger().WithFields(logrus.Fields{
-		fieldWatcher: w,
-		fieldPrefix:  w.Prefix,
-	})
+	scopedLog := e.getLogger().WithField(fieldPrefix, w.Prefix)
+	scopedLog.Debug("Starting watcher...")
 
 	err := <-e.Connected(ctx)
 	if err != nil {
@@ -1900,10 +1898,8 @@ func (e *etcdClient) Decode(in string) (out []byte, err error) {
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd
-func (e *etcdClient) ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher {
-	w := newWatcher(name, prefix, chanSize)
-
-	e.getLogger().WithField(fieldWatcher, w).Debug("Starting watcher...")
+func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string, chanSize int) *Watcher {
+	w := newWatcher(prefix, chanSize)
 
 	go e.Watch(ctx, w)
 
