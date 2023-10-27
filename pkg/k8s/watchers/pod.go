@@ -326,11 +326,11 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 
 	oldPodIPs := k8sUtils.ValidIPs(oldK8sPod.Status)
 	newPodIPs := k8sUtils.ValidIPs(newK8sPod.Status)
-	err = k.updatePodHostData(oldK8sPod, newK8sPod, oldPodIPs, newPodIPs)
-
-	if err != nil {
-		logger.WithError(err).Warning("Unable to update ipcache map entry on pod update")
-		return err
+	if len(oldPodIPs) != 0 || len(newPodIPs) != 0 {
+		err = k.updatePodHostData(oldK8sPod, newK8sPod, oldPodIPs, newPodIPs)
+		if err != nil {
+			logger.WithError(err).Warning("Unable to update ipcache map entry on pod update")
+		}
 	}
 
 	// Check annotation updates.
@@ -378,6 +378,12 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 
 	// Nothing changed.
 	if !annotationsChanged && !labelsChanged {
+		log.WithFields(logrus.Fields{
+			"old-labels":      oldK8sPod.GetObjectMeta().GetLabels(),
+			"old-annotations": oldK8sPod.GetObjectMeta().GetAnnotations(),
+			"new-labels":      newK8sPod.GetObjectMeta().GetLabels(),
+			"new-annotations": newK8sPod.GetObjectMeta().GetAnnotations(),
+		}).Debugf("Pod does not have any annotations nor labels changed")
 		return err
 	}
 
