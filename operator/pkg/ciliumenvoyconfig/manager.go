@@ -52,7 +52,7 @@ func newManager(ctx context.Context, client client.Clientset, indexer cache.Stor
 		algorithm:          algorithm,
 	}
 
-	envoyConfigManager, err := newEnvoyConfigManager(ctx, client, manager.maxRetries, manager.idleTimeoutSeconds)
+	envoyConfigManager, err := newEnvoyConfigManager(ctx, client)
 	if err != nil {
 		return nil, err
 	}
