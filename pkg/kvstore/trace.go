@@ -4,18 +4,10 @@
 package kvstore
 
 import (
-	"strings"
-
 	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
-	// Debugging can be enabled at compile with:
-	// -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".Debug=true"
-	Debug string
-
 	traceEnabled bool
 )
 
@@ -28,12 +20,5 @@ func EnableTracing() {
 func Trace(format string, err error, fields logrus.Fields, a ...interface{}) {
 	if traceEnabled {
 		log.WithError(err).WithFields(fields).Debugf(format)
-	}
-}
-
-func init() {
-	if strings.ToLower(Debug) == "true" {
-		logging.DefaultLogger.SetLevel(logrus.DebugLevel)
-		traceEnabled = true
 	}
 }
