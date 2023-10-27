@@ -5,8 +5,7 @@ package ctmap
 
 import (
 	"fmt"
-	"net"
-	"strconv"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/tuple"
@@ -14,51 +13,31 @@ import (
 )
 
 func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool) (bpf.MapKey, bool, error) {
-	ip, port, err := net.SplitHostPort(srcAddr)
+	srcAddrPort, err := netip.ParseAddrPort(srcAddr)
 	if err != nil {
 		return nil, false, fmt.Errorf("invalid source address '%s': %s", srcAddr, err)
 	}
 
-	sIP := net.ParseIP(ip)
-	if sIP == nil {
-		return nil, false, fmt.Errorf("unable to parse IP %s", ip)
-	}
-
-	sport, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return nil, false, fmt.Errorf("unable to parse port string: %s", err)
-	}
-
-	dstIp, dstPort, err := net.SplitHostPort(dstAddr)
+	dstAddrPort, err := netip.ParseAddrPort(dstAddr)
 	if err != nil {
 		return nil, false, fmt.Errorf("invalid destination address '%s': %s", dstAddr, err)
 	}
 
-	dIP := net.ParseIP(dstIp)
-	if dIP == nil {
-		return nil, false, fmt.Errorf("unable to parse IP %s", dstIp)
-	}
-
-	dport, err := strconv.ParseUint(dstPort, 10, 16)
-	if err != nil {
-		return nil, false, fmt.Errorf("unable to parse port string: %s", err)
-	}
-
-	if sIP.To4() != nil {
+	if srcAddrPort.Addr().Is4() {
 		if isGlobal {
 			key := &CtKey4Global{
 				TupleKey4Global: tuple.TupleKey4Global{
 					TupleKey4: tuple.TupleKey4{
-						SourcePort: uint16(sport),
-						DestPort:   uint16(dport),
+						SourcePort: uint16(srcAddrPort.Port()),
+						DestPort:   uint16(dstAddrPort.Port()),
 						NextHeader: proto,
 						Flags:      TUPLE_F_OUT,
 					},
 				},
 			}
 			// CTmap has the addresses in the reverse order w.r.t. the original direction
-			copy(key.SourceAddr[:], dIP.To4())
-			copy(key.DestAddr[:], sIP.To4())
+			key.SourceAddr.FromAddr(dstAddrPort.Addr())
+			key.DestAddr.FromAddr(srcAddrPort.Addr())
 			if ingress {
 				key.Flags = TUPLE_F_IN
 			}
@@ -67,15 +46,15 @@ func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8prot
 
 		key := &CtKey4{
 			TupleKey4: tuple.TupleKey4{
-				SourcePort: uint16(sport),
-				DestPort:   uint16(dport),
+				SourcePort: uint16(srcAddrPort.Port()),
+				DestPort:   uint16(dstAddrPort.Port()),
 				NextHeader: proto,
 				Flags:      TUPLE_F_OUT,
 			},
 		}
 		// CTmap has the addresses in the reverse order w.r.t. the original direction
-		copy(key.SourceAddr[:], dIP.To4())
-		copy(key.DestAddr[:], sIP.To4())
+		key.SourceAddr.FromAddr(dstAddrPort.Addr())
+		key.DestAddr.FromAddr(srcAddrPort.Addr())
 		if ingress {
 			key.Flags = TUPLE_F_IN
 		}
@@ -86,16 +65,16 @@ func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8prot
 		key := &CtKey6Global{
 			TupleKey6Global: tuple.TupleKey6Global{
 				TupleKey6: tuple.TupleKey6{
-					SourcePort: uint16(sport),
-					DestPort:   uint16(dport),
+					SourcePort: uint16(srcAddrPort.Port()),
+					DestPort:   uint16(dstAddrPort.Port()),
 					NextHeader: proto,
 					Flags:      TUPLE_F_OUT,
 				},
 			},
 		}
 		// CTmap has the addresses in the reverse order w.r.t. the original direction
-		copy(key.SourceAddr[:], dIP.To16())
-		copy(key.DestAddr[:], sIP.To16())
+		key.SourceAddr.FromAddr(dstAddrPort.Addr())
+		key.DestAddr.FromAddr(srcAddrPort.Addr())
 		if ingress {
 			key.Flags = TUPLE_F_IN
 		}
@@ -104,15 +83,15 @@ func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8prot
 
 	key := &CtKey6{
 		TupleKey6: tuple.TupleKey6{
-			SourcePort: uint16(sport),
-			DestPort:   uint16(dport),
+			SourcePort: uint16(srcAddrPort.Port()),
+			DestPort:   uint16(dstAddrPort.Port()),
 			NextHeader: proto,
 			Flags:      TUPLE_F_OUT,
 		},
 	}
 	// CTmap has the addresses in the reverse order w.r.t. the original direction
-	copy(key.SourceAddr[:], dIP.To16())
-	copy(key.DestAddr[:], sIP.To16())
+	key.SourceAddr.FromAddr(dstAddrPort.Addr())
+	key.DestAddr.FromAddr(srcAddrPort.Addr())
 	if ingress {
 		key.Flags = TUPLE_F_IN
 	}

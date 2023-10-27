@@ -27,3 +27,15 @@ func (v6 IPv6) String() string {
 func (v6 *IPv6) DeepCopyInto(out *IPv6) {
 	copy(out[:], v6[:])
 }
+
+// FromAddr will populate the receiver with the specified address if and only
+// if the provided address is a valid IPv6 address. Any other address,
+// including the "invalid ip" value netip.Addr{} will zero the receiver.
+func (v6 *IPv6) FromAddr(addr netip.Addr) {
+	if addr.Is6() {
+		a := IPv6(addr.As16())
+		copy(v6[:], a[:])
+	} else {
+		clear(v6[:])
+	}
+}
