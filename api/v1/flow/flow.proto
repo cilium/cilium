@@ -533,6 +533,8 @@ message FlowFilter {
     repeated string http_path = 22;
     // http_url is a list of regular expressions to filter on the HTTP URL.
     repeated string http_url = 31;
+    // http_header is a list of key:value pairs to filter on the HTTP headers.
+    repeated HTTPHeader http_header = 32;
 
     // tcp_flags filters flows based on TCP header flags
     repeated TCPFlags tcp_flags = 23;

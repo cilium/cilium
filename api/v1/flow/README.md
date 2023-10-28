@@ -341,6 +341,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | http_method | [string](#string) | repeated | GET, POST, PUT, etc. methods. This type of field is well suited for an enum but every single existing place is using a string already. |
 | http_path | [string](#string) | repeated | http_path is a list of regular expressions to filter on the HTTP path. |
 | http_url | [string](#string) | repeated | http_url is a list of regular expressions to filter on the HTTP URL. |
+| http_header | [HTTPHeader](#flow-HTTPHeader) | repeated | http_header is a list of key:value pairs to filter on the HTTP headers. |
 | tcp_flags | [TCPFlags](#flow-TCPFlags) | repeated | tcp_flags filters flows based on TCP header flags |
 | node_name | [string](#string) | repeated | node_name is a list of patterns to filter on the node name, e.g. &#34;k8s*&#34;, &#34;test-cluster/*.domain.com&#34;, &#34;cluster-name/&#34; etc. |
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
