@@ -481,6 +481,76 @@ func TestHTTPFilters(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		// headers filters
+		{
+			name: "http headers match",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpHeader: []*flowpb.HTTPHeader{
+							{Key: "Content", Value: "foo"},
+						},
+						EventType: []*flowpb.EventTypeFilter{
+							{Type: api.MessageTypeAccessLog},
+							{Type: api.MessageTypeTrace},
+						},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Headers: []*flowpb.HTTPHeader{{Key: "Content", Value: "foo"}}}),
+				},
+			},
+			want: []bool{
+				true,
+			},
+		},
+		{
+			name: "http headers no match",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpHeader: []*flowpb.HTTPHeader{
+							{Key: "Content", Value: "foo"},
+						},
+						EventType: []*flowpb.EventTypeFilter{
+							{Type: api.MessageTypeAccessLog},
+							{Type: api.MessageTypeTrace},
+						},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Headers: []*flowpb.HTTPHeader{{Key: "Content", Value: "bar"}}}),
+				},
+			},
+			want: []bool{
+				false,
+			},
+		},
+		{
+			name: "http headers multiple with only one match",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpHeader: []*flowpb.HTTPHeader{
+							{Key: "Cache-control", Value: "no-store"},
+						},
+						EventType: []*flowpb.EventTypeFilter{
+							{Type: api.MessageTypeAccessLog},
+							{Type: api.MessageTypeTrace},
+						},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Headers: []*flowpb.HTTPHeader{
+						{Key: "Cache-control", Value: "no-cache"},
+						{Key: "Cache-control", Value: "no-store"},
+					}}),
+				},
+			},
+			want: []bool{
+				true,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
