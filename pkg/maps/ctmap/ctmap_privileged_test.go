@@ -200,6 +200,116 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 	c.Assert(len(buf), Equals, 0)
 }
 
+// TestCtGcTcp tests whether TCP SNAT entries are removed upon a removal of
+// their CT entry.
+func (k *CTMapPrivilegedTestSuite) TestCtGcTcp(c *C) {
+	// Init maps
+	natMap := nat.NewMap("cilium_nat_any4_test", nat.IPv4, 1000)
+	err := natMap.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer natMap.Map.Unpin()
+
+	ctMapName := MapNameTCP4Global + "_test"
+	mapInfo[mapTypeIPv4TCPGlobal] = mapAttributes{
+		natMap: natMap, natMapLock: mapInfo[mapTypeIPv4TCPGlobal].natMapLock,
+	}
+
+	ctMap := newMap(ctMapName, mapTypeIPv4TCPGlobal)
+	err = ctMap.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer ctMap.Map.Unpin()
+
+	// Create the following entries and check that they get GC-ed:
+	//	- CT:	TCP OUT 192.168.61.11:38193 -> 192.168.61.12:80 <..>
+	//	- NAT: 	TCP OUT 192.168.61.11:38193 -> 192.168.61.12:80 XLATE_SRC 192.168.61.11:38194
+	//		TCP IN 192.168.61.12:80 -> 192.168.61.11:38194 XLATE_DST 192.168.61.11:38193
+
+	ctKey := &CtKey4Global{
+		tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				SourceAddr: types.IPv4{192, 168, 61, 12},
+				DestAddr:   types.IPv4{192, 168, 61, 11},
+				SourcePort: 0x3195,
+				DestPort:   0x50,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
+		},
+	}
+	ctVal := &CtEntry{
+		TxPackets: 1,
+		TxBytes:   216,
+		Lifetime:  37459,
+	}
+	err = ctMap.Map.Update(ctKey, ctVal)
+	c.Assert(err, IsNil)
+
+	natKey := &nat.NatKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				DestAddr:   types.IPv4{192, 168, 61, 12},
+				SourceAddr: types.IPv4{192, 168, 61, 11},
+				DestPort:   0x50,
+				SourcePort: 0x3195,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
+		},
+	}
+	natVal := &nat.NatEntry4{
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{192, 168, 61, 11},
+		Port:    0x3295,
+	}
+	err = natMap.Map.Update(natKey, natVal)
+	c.Assert(err, IsNil)
+	natKey = &nat.NatKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				SourceAddr: types.IPv4{192, 168, 61, 12},
+				DestAddr:   types.IPv4{192, 168, 61, 11},
+				SourcePort: 0x50,
+				DestPort:   0x3295,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_IN,
+			},
+		},
+	}
+	natVal = &nat.NatEntry4{
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{192, 168, 61, 11},
+		Port:    0x3195,
+	}
+	err = natMap.Map.Update(natKey, natVal)
+	c.Assert(err, IsNil)
+
+	buf := make(map[string][]string)
+	err = ctMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 1)
+
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 2)
+
+	// GC and check whether NAT entries have been collected
+	filter := &GCFilter{
+		RemoveExpired: true,
+		Time:          39000,
+	}
+	stats := doGC4(ctMap, filter)
+	c.Assert(stats.aliveEntries, Equals, uint32(0))
+	c.Assert(stats.deleted, Equals, uint32(1))
+
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 0)
+}
+
 // TestOrphanNat checks whether dangling NAT entries are GC'd (GH#12686)
 func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Init maps
