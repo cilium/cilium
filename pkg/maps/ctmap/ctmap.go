@@ -282,10 +282,20 @@ func newMap(mapName string, m mapType) *Map {
 
 func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 	err := m.Delete(key)
-	if err == nil && natMap != nil {
-		natMap.DeleteMapping(key.GetTupleKey())
+	if err != nil || natMap == nil {
+		return err
 	}
-	return err
+
+	t := key.GetTupleKey()
+
+	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
+		// To delete NAT entries created by DSR
+		nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
+	} else {
+		nat.DeleteMapping6(natMap, t.(*tuple.TupleKey6Global))
+	}
+
+	return nil
 }
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
@@ -381,10 +391,20 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 
 func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 	err := m.Delete(key)
-	if err == nil && natMap != nil {
-		natMap.DeleteMapping(key.GetTupleKey())
+	if err != nil || natMap == nil {
+		return err
 	}
-	return err
+
+	t := key.GetTupleKey()
+
+	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
+		// To delete NAT entries created by DSR
+		nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
+	} else {
+		nat.DeleteMapping4(natMap, t.(*tuple.TupleKey4Global))
+	}
+
+	return nil
 }
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
