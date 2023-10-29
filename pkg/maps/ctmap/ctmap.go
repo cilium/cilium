@@ -280,7 +280,7 @@ func newMap(mapName string, m mapType) *Map {
 	return result
 }
 
-func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
+func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err != nil || natMap == nil {
 		return err
@@ -289,8 +289,10 @@ func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 	t := key.GetTupleKey()
 
 	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
-		// To delete NAT entries created by DSR
-		nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
+		if entry.isDsrEntry() {
+			// To delete NAT entries created by DSR
+			nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
+		}
 	} else {
 		nat.DeleteMapping6(natMap, t.(*tuple.TupleKey6Global))
 	}
@@ -348,7 +350,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6Global, natMap)
+				err := purgeCtEntry6(m, currentKey6Global, entry, natMap)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6Global.String()).Error("Unable to delete CT entry")
 				} else {
@@ -368,7 +370,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6, natMap)
+				err := purgeCtEntry6(m, currentKey6, entry, natMap)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6.String()).Error("Unable to delete CT entry")
 				} else {
@@ -389,7 +391,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
+func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err != nil || natMap == nil {
 		return err
@@ -398,8 +400,10 @@ func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 	t := key.GetTupleKey()
 
 	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
-		// To delete NAT entries created by DSR
-		nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
+		if entry.isDsrEntry() {
+			// To delete NAT entries created by DSR
+			nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
+		}
 	} else {
 		nat.DeleteMapping4(natMap, t.(*tuple.TupleKey4Global))
 	}
@@ -456,7 +460,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry4(m, currentKey4Global, natMap)
+				err := purgeCtEntry4(m, currentKey4Global, entry, natMap)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey4Global.String()).Error("Unable to delete CT entry")
 				} else {
@@ -476,7 +480,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry4(m, currentKey4, natMap)
+				err := purgeCtEntry4(m, currentKey4, entry, natMap)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey4.String()).Error("Unable to delete CT entry")
 				} else {
