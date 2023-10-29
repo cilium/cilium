@@ -566,6 +566,10 @@ const (
 	MaxFlags
 )
 
+func (c *CtEntry) isDsrEntry() bool {
+	return c.Flags&DSR != 0
+}
+
 func (c *CtEntry) flagsString() string {
 	var sb strings.Builder
 
