@@ -21,8 +21,8 @@ func init() {
 	reporterMinTimeout = time.Millisecond * 10
 }
 
-func createRoot(hr HealthReporter) (Scope, func()) {
-	s := rootScope(hr)
+func createRoot(hr statusNodeReporter) (Scope, func()) {
+	s := rootScope(FullModuleID{"root.foo"}, hr)
 	s.start()
 	return s, func() {
 		flushAndClose(s, "test is done")
@@ -296,20 +296,13 @@ type mockReporter struct {
 	ok, degraded, stopped func(string)
 }
 
-func (s *mockReporter) OK(message string) {
-	if s.ok != nil {
-		s.ok(message)
-	}
-}
-
-func (s *mockReporter) Degraded(message string, err error) {
-	if s.degraded != nil {
-		s.degraded(message)
-	}
-}
-
-func (s *mockReporter) Stopped(message string) {
-	if s.stopped != nil {
-		s.stopped(message)
+func (s *mockReporter) setStatus(n Update) {
+	switch n.Level() {
+	case StatusOK:
+		s.ok(n.String())
+	case StatusDegraded:
+		s.degraded(n.String())
+	case StatusStopped:
+		s.stopped(n.String())
 	}
 }

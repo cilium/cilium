@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -423,7 +425,10 @@ func getHealthzHandler(d *Daemon, params GetHealthzParams) middleware.Responder 
 }
 
 func getHealthHandler(d *Daemon, params GetHealthParams) middleware.Responder {
-	sr := d.getHealthReport()
+	sr, err := d.getHealthReport()
+	if err != nil {
+		return api.Error(http.StatusInternalServerError, err)
+	}
 	return NewGetHealthOK().WithPayload(&sr)
 }
 
