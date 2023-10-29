@@ -5,8 +5,10 @@ package client_test
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -32,10 +34,9 @@ func TestGetAndFormatModulesHealth(t *testing.T) {
 		},
 		"happy-verbose": {
 			h: newTestMHappy(),
-			e: `Modules Health:
-  Module	Status	Message	Last Updated
-  m1	OK	a ok	          2s
-  m2	Degraded	doh	         20s`,
+			e: "Modules Health:\n" +
+				"  m1 OK status nominal 2s ago (x0)\n" +
+				"  m2 Degraded doh 20s ago (x0)",
 			v: true,
 		},
 	}
@@ -69,20 +70,22 @@ func newTestMHappy() *testMHappy {
 }
 
 func (m *testMHappy) GetHealth(params *daemon.GetHealthParams, opts ...daemon.ClientOption) (*daemon.GetHealthOK, error) {
+	t := time.Now().Add(-1 * time.Second * 2).Format(time.RFC3339)
+	t2 := time.Now().Add(-1 * time.Second * 20).Format(time.RFC3339)
 	return &daemon.GetHealthOK{
 		Payload: &models.ModulesHealth{
 			Modules: []*models.ModuleHealth{
 				{
 					ModuleID:    "m1",
 					Level:       string(cell.StatusOK),
-					Message:     "a ok",
+					Message:     fmt.Sprintf("{\"name\": \"m1\", \"level\":\"OK\",\"message\":\"status nominal\", \"timestamp\": %q}", t),
 					LastOk:      "3s",
 					LastUpdated: "2s",
 				},
 				{
 					ModuleID:    "m2",
 					Level:       string(cell.StatusDegraded),
-					Message:     "doh",
+					Message:     fmt.Sprintf("{\"name\": \"m2\", \"level\":\"Degraded\",\"message\":\"doh\", \"timestamp\": %q}", t2),
 					LastOk:      "5m30s",
 					LastUpdated: "20s",
 				},

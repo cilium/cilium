@@ -439,10 +439,10 @@ func (s *StatusNode) allOk() bool {
 func (s *StatusNode) writeTo(w io.Writer, d int) {
 	if len(s.SubStatuses) == 0 {
 		since := "never"
-		if s.UpdateTimestamp.IsZero() {
-			since = duration.HumanDuration(time.Since(s.UpdateTimestamp))
+		if !s.UpdateTimestamp.IsZero() {
+			since = duration.HumanDuration(time.Since(s.UpdateTimestamp)) + " ago"
 		}
-		fmt.Fprintf(w, "%s%s\t%s\t%s\t%s ago\t(x%d)\n", strings.Repeat("\t", d), s.Name, s.LastLevel, s.Message, since, s.Count)
+		fmt.Fprintf(w, "%s%s\t%s\t%s\t%s\t(x%d)\n", strings.Repeat("\t", d), s.Name, s.LastLevel, s.Message, since, s.Count)
 	} else {
 		fmt.Fprintf(w, "%s%s\n", strings.Repeat("\t", d), s.Name)
 		for _, ss := range s.SubStatuses {
