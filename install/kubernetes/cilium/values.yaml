@@ -2436,8 +2436,8 @@ operator:
 
   # -- Node tolerations for cilium-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-  tolerations:
-  - operator: Exists
+  tolerations: []
+ 
     # - key: "key"
     #   operator: "Equal|Exists"
     #   value: "value"
