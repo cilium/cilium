@@ -535,8 +535,10 @@ func GC(m *Map, filter *GCFilter) int {
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
 // orphan if it does not have a corresponding CT entry.
 //
-// This can happen when the CT entry is removed by the LRU eviction which
-// happens when the CT map becomes full.
+// Typically NAT entries should get removed along with their owning CT entry,
+// as part of purgeCtEntry*(). But stale NAT entries can get left behind if the
+// CT entry disappears for other reasons - for instance by LRU eviction, or
+// when the datapath re-purposes the CT entry.
 //
 // PurgeOrphanNATEntries() is triggered by the datapath via the GC signaling
 // mechanism. When the datapath SNAT fails to find free mapping after
