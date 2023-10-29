@@ -120,7 +120,7 @@ jobs:
           
           EXEMPT_FEATURES="GatewayPort8080,GatewayStaticAddresses,Mesh"
           if [ ${{ matrix.crd-channel }} == "standard" ]; then
-            EXEMPT_FEATURES+=",HTTPResponseHeaderModification,HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
+            EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
