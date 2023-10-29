@@ -46,7 +46,7 @@ func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 			DestPort:   0,
 			SourcePort: 0,
 			NextHeader: u8proto.TCP,
-			Flags:      0,
+			Flags:      tuple.TUPLE_F_OUT,
 		},
 	}
 	value := &CtEntry{
@@ -55,7 +55,7 @@ func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 		TxPackets:        4,
 		TxBytes:          216,
 		Lifetime:         37459,
-		Flags:            0x0011,
+		Flags:            SeenNonSyn | RxClosing,
 		RevNAT:           0,
 		TxFlagsSeen:      0x02,
 		RxFlagsSeen:      0x14,
@@ -142,7 +142,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 				DestPort:   0,
 				SourcePort: 0x3195,
 				NextHeader: u8proto.ICMP,
-				Flags:      0,
+				Flags:      tuple.TUPLE_F_OUT,
 			},
 		},
 	}
@@ -162,7 +162,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 				SourcePort: 0,
 				DestPort:   0x3195,
 				NextHeader: u8proto.ICMP,
-				Flags:      1,
+				Flags:      tuple.TUPLE_F_IN,
 			},
 		},
 	}
