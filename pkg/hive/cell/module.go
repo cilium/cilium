@@ -98,7 +98,7 @@ func (r *reporterHooks) Stop(ctx lifecycle.HookContext) error {
 }
 
 func createStructedScope(id FullModuleID, p Health, lc lifecycle.Lifecycle) Scope {
-	rs := rootScope(p.forModule(id))
+	rs := rootScope(id, p.forModule(id))
 	lc.Append(&reporterHooks{rootScope: rs})
 	return rs
 }
