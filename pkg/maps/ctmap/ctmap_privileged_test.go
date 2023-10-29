@@ -310,6 +310,96 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcTcp(c *C) {
 	c.Assert(len(buf), Equals, 0)
 }
 
+// TestCtGcLegacyDsr tests whether DSR NAT entries are removed upon a removal of
+// their legacy CT entry (== CT_INGRESS).
+// See https://github.com/cilium/cilium/pull/22978 for details.
+func (k *CTMapPrivilegedTestSuite) TestCtGcLegacyDsr(c *C) {
+	// Init maps
+	natMap := nat.NewMap("cilium_nat_any4_test", nat.IPv4, 1000)
+	err := natMap.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer natMap.Map.Unpin()
+
+	ctMapName := MapNameTCP4Global + "_test"
+	mapInfo[mapTypeIPv4TCPGlobal] = mapAttributes{
+		natMap: natMap, natMapLock: mapInfo[mapTypeIPv4TCPGlobal].natMapLock,
+	}
+
+	ctMap := newMap(ctMapName, mapTypeIPv4TCPGlobal)
+	err = ctMap.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer ctMap.Map.Unpin()
+
+	// Create the following entries and check that they get GC-ed:
+	//	- CT:	TCP IN 1.1.1.1:1111 -> 192.168.61.11:8080 <..>
+	//	- NAT: 	TCP OUT 192.168.61.11:8080 -> 1.1.1.1:1111 XLATE_SRC 2.2.2.2:80
+
+	ctKey := &CtKey4Global{
+		tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				SourceAddr: types.IPv4{192, 168, 61, 11},
+				DestAddr:   types.IPv4{1, 1, 1, 1},
+				SourcePort: 0x5704,
+				DestPort:   0x901f,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_IN,
+			},
+		},
+	}
+	ctVal := &CtEntry{
+		TxPackets: 1,
+		TxBytes:   216,
+		Lifetime:  37459,
+		Flags:     DSR,
+	}
+	err = ctMap.Map.Update(ctKey, ctVal)
+	c.Assert(err, IsNil)
+
+	natKey := &nat.NatKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				DestAddr:   types.IPv4{1, 1, 1, 1},
+				SourceAddr: types.IPv4{192, 168, 61, 11},
+				DestPort:   0x5704,
+				SourcePort: 0x901f,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
+		},
+	}
+	natVal := &nat.NatEntry4{
+		Created: 37400,
+		Addr:    types.IPv4{2, 2, 2, 2},
+		Port:    0x50,
+	}
+	err = natMap.Map.Update(natKey, natVal)
+	c.Assert(err, IsNil)
+
+	buf := make(map[string][]string)
+	err = ctMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 1)
+
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 1)
+
+	// GC and check whether NAT entry has been collected
+	filter := &GCFilter{
+		RemoveExpired: true,
+		Time:          39000,
+	}
+	stats := doGC4(ctMap, filter)
+	c.Assert(stats.aliveEntries, Equals, uint32(0))
+	c.Assert(stats.deleted, Equals, uint32(1))
+
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 0)
+}
+
 // TestOrphanNat checks whether dangling NAT entries are GC'd (GH#12686)
 func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Init maps
