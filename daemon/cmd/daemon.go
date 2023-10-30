@@ -326,6 +326,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 		if isRestoredIP(a) {
 			continue
 		}
+		log.WithField(logfields.IPAddr, a.IP).Debug("Removing stale router IP from cilium_host device")
 		if e := netlink.AddrDel(l, &a); e != nil {
 			err = errors.Join(err, resiliency.Retryable(fmt.Errorf("failed to remove IP %s: %w", a.IP, e)))
 		}
