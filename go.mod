@@ -10,9 +10,9 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.9.23
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.587
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.592
 	github.com/aws/aws-sdk-go-v2 v1.21.2
-	github.com/aws/aws-sdk-go-v2/config v1.19.0
+	github.com/aws/aws-sdk-go-v2/config v1.19.1
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.13
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.125.0
 	github.com/aws/smithy-go v1.15.0
@@ -32,7 +32,7 @@ require (
 	github.com/containernetworking/plugins v1.3.0
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/docker v24.0.6+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/fsnotify/fsnotify v1.6.0
@@ -79,15 +79,15 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
 	github.com/spiffe/go-spiffe/v2 v2.1.6
-	github.com/spiffe/spire-api-sdk v1.8.1
+	github.com/spiffe/spire-api-sdk v1.8.3
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.17.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20231024175852-77df5d35f725
 	github.com/vishvananda/netns v0.0.4
-	go.etcd.io/etcd/api/v3 v3.5.9
-	go.etcd.io/etcd/client/pkg/v3 v3.5.9
-	go.etcd.io/etcd/client/v3 v3.5.9
+	go.etcd.io/etcd/api/v3 v3.5.10
+	go.etcd.io/etcd/client/pkg/v3 v3.5.10
+	go.etcd.io/etcd/client/v3 v3.5.10
 	go.opentelemetry.io/otel v1.19.0
 	go.opentelemetry.io/otel/trace v1.19.0
 	go.uber.org/dig v1.17.1
