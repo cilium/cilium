@@ -48,41 +48,37 @@ spec:
       {{- end }}
       initContainers:
       - name: etcd-init
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
-        imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
-        command: ["/bin/sh", "-c"]
+        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
+        command:
+        - /usr/bin/clustermesh-apiserver
         args:
-        - |
-          rm -rf /var/run/etcd/*;
-          /usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
-
-          # The following key needs to be created before that the cilium agents
-          # have the possibility of connecting to etcd.
-          etcdctl put cilium/.has-cluster-config true
-
-          etcdctl user add root --no-password;
-          etcdctl user grant-role root root;
-          etcdctl user add admin-{{ .Values.cluster.name }} --no-password;
-          etcdctl user grant-role admin-{{ .Values.cluster.name }} root;
-          etcdctl user add externalworkload --no-password;
-          etcdctl role add externalworkload;
-          etcdctl role grant-permission externalworkload --from-key read '';
-          etcdctl role grant-permission externalworkload readwrite --prefix cilium/state/noderegister/v1/;
-          etcdctl role grant-permission externalworkload readwrite --prefix cilium/.initlock/;
-          etcdctl user grant-role externalworkload externalworkload;
-          etcdctl user add remote --no-password;
-          etcdctl role add remote;
-          etcdctl role grant-permission remote --from-key read '';
-          etcdctl user grant-role remote remote;
-          etcdctl auth enable;
-          exit
+        - etcdinit
+        {{- if .Values.debug.enabled }}
+        - --debug
+        {{- end }}
+        # These need to match the equivalent arguments to etcd in the main container.
+        - --etcd-cluster-name=clustermesh-apiserver
+        - --etcd-initial-cluster-token=clustermesh-apiserver
+        - --etcd-data-dir=/var/run/etcd
+        {{- with .Values.clustermesh.apiserver.etcd.init.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
         env:
-        - name: ETCDCTL_API
-          value: "3"
-        - name: HOSTNAME_IP
+          # The Cilium cluster name (specified via the `CILIUM_CLUSTER_NAME` environment variable) and the etcd cluster
+          # name (specified via the `--etcd-cluster-name` argument) are very different concepts. The Cilium cluster name
+          # is the name of the overall Cilium cluster, and is used to set the admin account username. The etcd cluster
+          # name is a concept that's only relevant for etcd itself. The etcd cluster name must be the same for both this
+          # command and the actual invocation of etcd in the main containers of this Pod, but it's otherwise not
+          # relevant to Cilium.
+        - name: CILIUM_CLUSTER_NAME
           valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
+            configMapKeyRef:
+              name: cilium-config
+              key: cluster-name
+        {{- with .Values.clustermesh.apiserver.etcd.init.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
         volumeMounts:
         - name: etcd-data-dir
           mountPath: /var/run/etcd
@@ -93,10 +89,11 @@ spec:
         {{- end }}
       containers:
       - name: etcd
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
-        imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
+        # The clustermesh-apiserver container image includes an etcd binary.
+        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
-        - /usr/local/bin/etcd
+        - /usr/bin/etcd
         args:
         - --data-dir=/var/run/etcd
         - --name=clustermesh-apiserver

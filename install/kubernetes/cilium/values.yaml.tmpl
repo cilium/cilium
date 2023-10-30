@@ -2866,14 +2866,9 @@ clustermesh:
       pullPolicy: "${PULL_POLICY}"
 
     etcd:
-      # -- Clustermesh API server etcd image.
-      image:
-        override: ~
-        repository: "${ETCD_REPO}"
-        tag: "${ETCD_VERSION}"
-        digest: "${ETCD_DIGEST}"
-        useDigest: true
-        pullPolicy: "${PULL_POLICY}"
+      # The etcd binary is included in the clustermesh API server image, so the same image from above is reused.
+      # Independent override isn't supported, because clustermesh-apiserver is tested against the etcd version it is
+      # built with.
 
       # -- Specifies the resources for etcd container in the apiserver
       resources: {}
@@ -2899,6 +2894,12 @@ clustermesh:
         #   limits:
         #     cpu: 100m
         #     memory: 100Mi
+
+        # -- Additional arguments to `clustermesh-apiserver etcdinit`.
+        extraArgs: []
+
+        # -- Additional environment variables to `clustermesh-apiserver etcdinit`.
+        extraEnv: []
 
     kvstoremesh:
       # -- Enable KVStoreMesh. KVStoreMesh caches the information retrieved

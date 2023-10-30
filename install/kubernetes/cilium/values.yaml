@@ -2869,14 +2869,9 @@ clustermesh:
       pullPolicy: "Always"
 
     etcd:
-      # -- Clustermesh API server etcd image.
-      image:
-        override: ~
-        repository: "quay.io/coreos/etcd"
-        tag: "v3.5.4"
-        digest: "sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
-        useDigest: true
-        pullPolicy: "Always"
+      # The etcd binary is included in the clustermesh API server image, so the same image from above is reused.
+      # Independent override isn't supported, because clustermesh-apiserver is tested against the etcd version it is
+      # built with.
 
       # -- Specifies the resources for etcd container in the apiserver
       resources: {}
@@ -2902,6 +2897,12 @@ clustermesh:
         #   limits:
         #     cpu: 100m
         #     memory: 100Mi
+
+        # -- Additional arguments to `clustermesh-apiserver etcdinit`.
+        extraArgs: []
+
+        # -- Additional environment variables to `clustermesh-apiserver etcdinit`.
+        extraEnv: []
 
     kvstoremesh:
       # -- Enable KVStoreMesh. KVStoreMesh caches the information retrieved

@@ -436,10 +436,14 @@
      - Affinity for clustermesh.apiserver
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}``
-   * - :spelling:ignore:`clustermesh.apiserver.etcd.image`
-     - Clustermesh API server etcd image.
-     - object
-     - ``{"digest":"sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3","override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4","useDigest":true}``
+   * - :spelling:ignore:`clustermesh.apiserver.etcd.init.extraArgs`
+     - Additional arguments to ``clustermesh-apiserver etcdinit``.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`clustermesh.apiserver.etcd.init.extraEnv`
+     - Additional environment variables to ``clustermesh-apiserver etcdinit``.
+     - list
+     - ``[]``
    * - :spelling:ignore:`clustermesh.apiserver.etcd.init.resources`
      - Specifies the resources for etcd init container in the apiserver
      - object
