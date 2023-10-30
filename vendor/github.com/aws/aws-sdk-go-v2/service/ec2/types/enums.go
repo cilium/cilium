@@ -3575,6 +3575,28 @@ const (
 	InstanceTypeR7iz12xlarge    InstanceType = "r7iz.12xlarge"
 	InstanceTypeR7iz16xlarge    InstanceType = "r7iz.16xlarge"
 	InstanceTypeR7iz32xlarge    InstanceType = "r7iz.32xlarge"
+	InstanceTypeC7aMedium       InstanceType = "c7a.medium"
+	InstanceTypeC7aLarge        InstanceType = "c7a.large"
+	InstanceTypeC7aXlarge       InstanceType = "c7a.xlarge"
+	InstanceTypeC7a2xlarge      InstanceType = "c7a.2xlarge"
+	InstanceTypeC7a4xlarge      InstanceType = "c7a.4xlarge"
+	InstanceTypeC7a8xlarge      InstanceType = "c7a.8xlarge"
+	InstanceTypeC7a12xlarge     InstanceType = "c7a.12xlarge"
+	InstanceTypeC7a16xlarge     InstanceType = "c7a.16xlarge"
+	InstanceTypeC7a24xlarge     InstanceType = "c7a.24xlarge"
+	InstanceTypeC7a32xlarge     InstanceType = "c7a.32xlarge"
+	InstanceTypeC7a48xlarge     InstanceType = "c7a.48xlarge"
+	InstanceTypeC7aMetal48xl    InstanceType = "c7a.metal-48xl"
+	InstanceTypeR7aMetal48xl    InstanceType = "r7a.metal-48xl"
+	InstanceTypeR7iLarge        InstanceType = "r7i.large"
+	InstanceTypeR7iXlarge       InstanceType = "r7i.xlarge"
+	InstanceTypeR7i2xlarge      InstanceType = "r7i.2xlarge"
+	InstanceTypeR7i4xlarge      InstanceType = "r7i.4xlarge"
+	InstanceTypeR7i8xlarge      InstanceType = "r7i.8xlarge"
+	InstanceTypeR7i12xlarge     InstanceType = "r7i.12xlarge"
+	InstanceTypeR7i16xlarge     InstanceType = "r7i.16xlarge"
+	InstanceTypeR7i24xlarge     InstanceType = "r7i.24xlarge"
+	InstanceTypeR7i48xlarge     InstanceType = "r7i.48xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4331,6 +4353,28 @@ func (InstanceType) Values() []InstanceType {
 		"r7iz.12xlarge",
 		"r7iz.16xlarge",
 		"r7iz.32xlarge",
+		"c7a.medium",
+		"c7a.large",
+		"c7a.xlarge",
+		"c7a.2xlarge",
+		"c7a.4xlarge",
+		"c7a.8xlarge",
+		"c7a.12xlarge",
+		"c7a.16xlarge",
+		"c7a.24xlarge",
+		"c7a.32xlarge",
+		"c7a.48xlarge",
+		"c7a.metal-48xl",
+		"r7a.metal-48xl",
+		"r7i.large",
+		"r7i.xlarge",
+		"r7i.2xlarge",
+		"r7i.4xlarge",
+		"r7i.8xlarge",
+		"r7i.12xlarge",
+		"r7i.16xlarge",
+		"r7i.24xlarge",
+		"r7i.48xlarge",
 	}
 }
 

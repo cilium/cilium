@@ -457,6 +457,7 @@
         "api_op_GetNetworkInsightsAccessScopeContent.go",
         "api_op_GetPasswordData.go",
         "api_op_GetReservedInstancesExchangeQuote.go",
+        "api_op_GetSecurityGroupsForVpc.go",
         "api_op_GetSerialConsoleAccessStatus.go",
         "api_op_GetSpotPlacementScores.go",
         "api_op_GetSubnetCidrReservations.go",
