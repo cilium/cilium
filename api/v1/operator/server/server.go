@@ -41,7 +41,33 @@ var Cell = cell.Module(
 	"cilium operator server",
 
 	cell.Provide(newForCell),
+	APICell,
 )
+
+// APICell provides the restapi.CiliumOperatorAPI type, populated
+// with the request handlers. This cell is an alternative to 'Cell' when only
+// the API type is required and not the full server implementation.
+var APICell = cell.Provide(newAPI)
+
+type apiParams struct {
+	cell.In
+
+	Spec *Spec
+
+	OperatorGetHealthzHandler operator.GetHealthzHandler
+	MetricsGetMetricsHandler  metrics.GetMetricsHandler
+}
+
+func newAPI(p apiParams) *restapi.CiliumOperatorAPI {
+	api := restapi.NewCiliumOperatorAPI(p.Spec.Document)
+
+	// Construct the API from the provided handlers
+
+	api.OperatorGetHealthzHandler = p.OperatorGetHealthzHandler
+	api.MetricsGetMetricsHandler = p.MetricsGetMetricsHandler
+
+	return api
+}
 
 type serverParams struct {
 	cell.In
@@ -50,24 +76,14 @@ type serverParams struct {
 	Shutdowner hive.Shutdowner
 	Logger     logrus.FieldLogger
 	Spec       *Spec
-
-	OperatorGetHealthzHandler operator.GetHealthzHandler
-	MetricsGetMetricsHandler  metrics.GetMetricsHandler
+	API        *restapi.CiliumOperatorAPI
 }
 
 func newForCell(p serverParams) (*Server, error) {
-	api := restapi.NewCiliumOperatorAPI(p.Spec.Document)
-
-	// Construct the API from the provided handlers
-
-	api.OperatorGetHealthzHandler = p.OperatorGetHealthzHandler
-	api.MetricsGetMetricsHandler = p.MetricsGetMetricsHandler
-
-	s := NewServer(api)
+	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
-
 	return s, nil
 }
 

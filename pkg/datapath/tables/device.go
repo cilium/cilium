@@ -4,9 +4,11 @@
 package tables
 
 import (
+	"fmt"
 	"net"
 	"net/netip"
 	"slices"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
@@ -98,6 +100,36 @@ func (d *Device) HasIP(ip net.IP) bool {
 		}
 	}
 	return false
+}
+
+func (*Device) TableHeader() []string {
+	return []string{
+		"Name",
+		"Index",
+		"Selected",
+		"Type",
+		"MTU",
+		"HWAddr",
+		"Flags",
+		"Addresses",
+	}
+}
+
+func (d *Device) TableRow() []string {
+	addrs := []string{}
+	for _, addr := range d.Addrs {
+		addrs = append(addrs, addr.Addr.String())
+	}
+	return []string{
+		d.Name,
+		fmt.Sprintf("%d", d.Index),
+		fmt.Sprintf("%v", d.Selected),
+		d.Type,
+		fmt.Sprintf("%d", d.MTU),
+		d.HardwareAddr.String(),
+		d.Flags.String(),
+		strings.Join(addrs, ", "),
+	}
 }
 
 type DeviceAddress struct {

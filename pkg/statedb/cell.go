@@ -20,6 +20,7 @@ var Cell = cell.Module(
 	cell.Provide(
 		newHiveDB,
 		newDumpHandler,
+		newQueryHandler,
 	),
 	cell.Metric(NewMetrics),
 )

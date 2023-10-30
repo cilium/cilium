@@ -82,6 +82,37 @@ func (r *Route) String() string {
 		r.Dst, r.Src, r.Table, r.LinkIndex)
 }
 
+func (*Route) TableHeader() []string {
+	return []string{
+		"Destination",
+		"Source",
+		"Gateway",
+		"LinkIndex",
+		"Table",
+		"Scope",
+	}
+}
+
+func (r *Route) TableRow() []string {
+	// Addr.String() shows "invalid IP" for zero value, but here
+	// we're expecting absence of IPs, so return empty string for
+	// invalid IPs.
+	showAddr := func(addr netip.Addr) string {
+		if !addr.IsValid() {
+			return ""
+		}
+		return addr.String()
+	}
+	return []string{
+		r.Dst.String(),
+		showAddr(r.Src),
+		showAddr(r.Gw),
+		fmt.Sprintf("%d", r.LinkIndex),
+		fmt.Sprintf("%d", r.Table),
+		fmt.Sprintf("%d", r.Scope),
+	}
+}
+
 func HasDefaultRoute(tbl statedb.Table[*Route], rxn statedb.ReadTxn, linkIndex int) bool {
 	// Device has a default route when a route exists in the main table
 	// with a zero destination.

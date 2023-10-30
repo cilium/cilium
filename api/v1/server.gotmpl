@@ -41,14 +41,17 @@ var Cell = cell.Module(
 	"{{ humanize .Name }} server",
 
 	cell.Provide(newForCell),
+	APICell,
 )
 
-type serverParams struct {
+// APICell provides the {{ .Package }}.{{pascalize .Name}}API type, populated
+// with the request handlers. This cell is an alternative to 'Cell' when only
+// the API type is required and not the full server implementation.
+var APICell = cell.Provide(newAPI)
+
+type apiParams struct {
 	cell.In
 
-	Lifecycle  hive.Lifecycle
-	Shutdowner hive.Shutdowner
-	Logger     logrus.FieldLogger
 	Spec       *Spec
 
 	{{- $package := .Package }}
@@ -57,7 +60,8 @@ type serverParams struct {
 	{{- end }}
 }
 
-func newForCell(p serverParams) (*Server, error) {
+
+func newAPI(p apiParams) *{{ .Package }}.{{pascalize .Name}}API {
 	api := {{ .Package }}.New{{pascalize .Name}}API(p.Spec.Document)
 
 	// Construct the API from the provided handlers
@@ -66,11 +70,25 @@ func newForCell(p serverParams) (*Server, error) {
 	  api.{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler = p.{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler
 	{{- end }}
 
-	s := NewServer(api)
+	return api
+}
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+	Spec       *Spec
+	API	   *{{ .Package }}.{{pascalize .Name}}API
+}
+
+
+func newForCell(p serverParams) (*Server, error) {
+	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
-
 	return s, nil
 }
 

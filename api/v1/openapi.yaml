@@ -739,6 +739,33 @@ paths:
           schema:
             type: string
             format: binary
+
+  "/statedb/query/{table}":
+    get:
+      produces:
+      - application/octet-stream
+      summary: Perform a query against a StateDB table
+      tags:
+      - statedb
+      parameters:
+      - "$ref": "#/parameters/statedb-table"
+      - "$ref": "#/parameters/statedb-index"
+      - "$ref": "#/parameters/statedb-key"
+      - "$ref": "#/parameters/statedb-lowerbound"
+      responses:
+        '200':
+          description: Success
+          schema:
+            # Stream of gob encoded revision and object pairs.
+            type: string
+            format: binary
+        '400':
+          description: Invalid parameters
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: Table or Index not found
+
   "/recorder":
     get:
       summary: Retrieve list of all recorders
@@ -1242,6 +1269,30 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/ServiceSpec"
+  statedb-table:
+    name: table
+    description: StateDB table name
+    required: true
+    in: path
+    type: string
+  statedb-index:
+    name: index
+    description: StateDB index name
+    required: true
+    in: query
+    type: string
+  statedb-key:
+    name: key
+    description: Query key (base64 encoded)
+    required: true
+    in: query
+    type: string
+  statedb-lowerbound:
+    name: lowerbound
+    description: If true perform a LowerBound search
+    required: true
+    in: query
+    type: boolean
   recorder-id:
     name: id
     description: ID of recorder
@@ -3119,6 +3170,24 @@ definitions:
     properties:
       realized:
         "$ref": "#/definitions/ServiceSpec"
+
+  StateDBQuery:
+    description: StateDB query
+    type: object
+    properties:
+      table:
+        description: Name of the table to query
+        type: string
+      index:
+        description: Index to query against
+        type: string
+      lowerbound:
+        description: LowerBound prefix search or full-matching Get
+        type: boolean
+      key:
+        description: Key to query with. Base64 encoded.
+        type: string
+
   Recorder:
     description: Collection of wildcard filters for pcap recorder
     type: object
