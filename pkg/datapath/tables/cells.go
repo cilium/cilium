@@ -8,7 +8,7 @@ import (
 )
 
 var Cell = cell.Module(
-	"datapath-tables",
+	"tables",
 	"Datapath state tables",
 
 	L2AnnounceTableCell,
