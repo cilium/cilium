@@ -32,7 +32,7 @@ require (
 	github.com/containernetworking/plugins v1.3.0
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/docker v24.0.6+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/fsnotify/fsnotify v1.6.0
