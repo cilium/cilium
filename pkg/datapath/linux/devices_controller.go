@@ -406,13 +406,13 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 					continue
 				}
 				addr := deviceAddressFromAddrUpdate(u)
+				i := slices.Index(d.Addrs, addr)
 				if u.NewAddr {
-					d.Addrs = append(d.Addrs, addr)
-				} else {
-					i := slices.Index(d.Addrs, addr)
-					if i >= 0 {
-						d.Addrs = slices.Delete(d.Addrs, i, i+1)
+					if i < 0 {
+						d.Addrs = append(d.Addrs, addr)
 					}
+				} else if i >= 0 {
+					d.Addrs = slices.Delete(d.Addrs, i, i+1)
 				}
 				deviceUpdated = true
 			case netlink.RouteUpdate:
