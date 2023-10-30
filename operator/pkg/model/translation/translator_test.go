@@ -295,7 +295,7 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 				m: defaultBackendModel,
 			},
 			expected: []string{
-				"random-namespace/default-backend:8080",
+				"random-namespace:default-backend:8080",
 			},
 		},
 		{
@@ -304,8 +304,8 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 				m: hostRulesModel,
 			},
 			expected: []string{
-				"random-namespace/foo-bar-com:http",
-				"random-namespace/wildcard-foo-com:8080",
+				"random-namespace:foo-bar-com:http",
+				"random-namespace:wildcard-foo-com:8080",
 			},
 		},
 		{
@@ -314,12 +314,12 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 				m: pathRulesModel,
 			},
 			expected: []string{
-				"random-namespace/aaa-prefix:8080",
-				"random-namespace/aaa-slash-bbb-prefix:8080",
-				"random-namespace/aaa-slash-bbb-slash-prefix:8080",
-				"random-namespace/foo-exact:8080",
-				"random-namespace/foo-prefix:8080",
-				"random-namespace/foo-slash-exact:8080",
+				"random-namespace:aaa-prefix:8080",
+				"random-namespace:aaa-slash-bbb-prefix:8080",
+				"random-namespace:aaa-slash-bbb-slash-prefix:8080",
+				"random-namespace:foo-exact:8080",
+				"random-namespace:foo-prefix:8080",
+				"random-namespace:foo-slash-exact:8080",
 			},
 		},
 		{
@@ -328,9 +328,9 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 				m: complexIngressModel,
 			},
 			expected: []string{
-				"dummy-namespace/another-dummy-backend:8081",
-				"dummy-namespace/default-backend:8080",
-				"dummy-namespace/dummy-backend:8080",
+				"dummy-namespace:another-dummy-backend:8081",
+				"dummy-namespace:default-backend:8080",
+				"dummy-namespace:dummy-backend:8080",
 			},
 		},
 	}

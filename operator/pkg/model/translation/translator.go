@@ -146,7 +146,7 @@ func (i *defaultTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSR
 	if len(m.HTTP) == 0 {
 		return nil
 	}
-	var tlsMap = make(map[model.TLSSecret][]string)
+	tlsMap := make(map[model.TLSSecret][]string)
 	for _, h := range m.HTTP {
 		for _, s := range h.TLS {
 			tlsMap[s] = append(tlsMap[s], h.Hostname)
@@ -167,11 +167,11 @@ func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSRe
 	if len(m.TLS) == 0 {
 		return nil
 	}
-	var backendsMap = make(map[string][]string)
+	backendsMap := make(map[string][]string)
 	for _, h := range m.TLS {
 		for _, route := range h.Routes {
 			for _, backend := range route.Backends {
-				key := fmt.Sprintf("%s/%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
+				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
 				backendsMap[key] = append(backendsMap[key], route.Hostnames...)
 			}
 		}
@@ -265,7 +265,13 @@ func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 	return res
 }
 
-func getBackendName(ns, name, port string) string {
+func getClusterName(ns, name, port string) string {
+	// the name is having the format of "namespace:name:port"
+	// -> slash would prevent ParseResources from rewriting with CEC namespace and name!
+	return fmt.Sprintf("%s:%s:%s", ns, name, port)
+}
+
+func getClusterServiceName(ns, name, port string) string {
 	// the name is having the format of "namespace/name:port"
 	return fmt.Sprintf("%s/%s:%s", ns, name, port)
 }
@@ -277,8 +283,9 @@ func (i *defaultTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 	for ns, v := range getNamespaceNamePortsMapForHTTP(m) {
 		for name, ports := range v {
 			for _, port := range ports {
-				b := getBackendName(ns, name, port)
-				sortedClusterNames = append(sortedClusterNames, b)
+				clusterName := getClusterName(ns, name, port)
+				clusterServiceName := getClusterServiceName(ns, name, port)
+				sortedClusterNames = append(sortedClusterNames, clusterName)
 				mutators := []ClusterMutator{
 					WithConnectionTimeout(5),
 					WithIdleTimeout(i.idleTimeoutSeconds),
@@ -289,16 +296,17 @@ func (i *defaultTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 				if isGRPCService(m, ns, name, port) {
 					mutators = append(mutators, WithProtocol(HTTPVersion2))
 				}
-				envoyClusters[b], _ = NewHTTPCluster(b, mutators...)
+				envoyClusters[clusterName], _ = NewHTTPCluster(clusterName, clusterServiceName, mutators...)
 			}
 		}
 	}
 	for ns, v := range getNamespaceNamePortsMapForTLS(m) {
 		for name, ports := range v {
 			for _, port := range ports {
-				b := getBackendName(ns, name, port)
-				sortedClusterNames = append(sortedClusterNames, b)
-				envoyClusters[b], _ = NewTCPClusterWithDefaults(b)
+				clusterName := getClusterName(ns, name, port)
+				clusterServiceName := getClusterServiceName(ns, name, port)
+				sortedClusterNames = append(sortedClusterNames, clusterName)
+				envoyClusters[clusterName], _ = NewTCPClusterWithDefaults(clusterName, clusterServiceName)
 			}
 		}
 	}

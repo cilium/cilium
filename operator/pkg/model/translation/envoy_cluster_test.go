@@ -68,7 +68,7 @@ func TestWithConnectionTimeout(t *testing.T) {
 }
 
 func TestNewHTTPCluster(t *testing.T) {
-	res, err := NewHTTPCluster("dummy-name")
+	res, err := NewHTTPCluster("dummy-name", "dummy-name")
 	require.Nil(t, err)
 
 	cluster := &envoy_config_cluster_v3.Cluster{}
@@ -82,7 +82,7 @@ func TestNewHTTPCluster(t *testing.T) {
 }
 
 func TestNewTCPCluster(t *testing.T) {
-	res, err := NewHTTPCluster("dummy-name")
+	res, err := NewHTTPCluster("dummy-name", "dummy-name")
 	require.Nil(t, err)
 
 	cluster := &envoy_config_cluster_v3.Cluster{}

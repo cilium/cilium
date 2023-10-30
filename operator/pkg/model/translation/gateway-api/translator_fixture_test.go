@@ -311,9 +311,9 @@ var basicTLSListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 								Name: "envoy.filters.network.tcp_proxy",
 								ConfigType: &envoy_config_listener.Filter_TypedConfig{
 									TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
-										StatPrefix: "default/my-service:8080",
+										StatPrefix: "default:my-service:8080",
 										ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
-											Cluster: "default/my-service:8080",
+											Cluster: "default:my-service:8080",
 										},
 									}),
 								},
@@ -370,7 +370,10 @@ var basicTLSListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			},
 			{
 				Any: toAny(&envoy_config_cluster_v3.Cluster{
-					Name: "default/my-service:8080",
+					Name: "default:my-service:8080",
+					EdsClusterConfig: &envoy_config_cluster_v3.Cluster_EdsClusterConfig{
+						ServiceName: "default/my-service:8080",
+					},
 					ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
 						Type: envoy_config_cluster_v3.Cluster_EDS,
 					},
@@ -3035,7 +3038,7 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Route{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
 											HostRewriteSpecifier: &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
 												HostRewriteLiteral: "one.example.org",
@@ -3052,7 +3055,7 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Route{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
+												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
 											},
 											HostRewriteSpecifier: &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
 												HostRewriteLiteral: "example.org",
@@ -3241,7 +3244,7 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Route{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
 											PrefixRewrite: "/prefix",
 										},
@@ -3280,7 +3283,7 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Route{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
 											RegexRewrite: &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 												Pattern: &envoy_type_matcher_v3.RegexMatcher{
@@ -3324,7 +3327,7 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Route{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
 											PrefixRewrite: "/one",
 										},
@@ -3339,7 +3342,7 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Route{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
 											RegexRewrite: &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 												Pattern: &envoy_type_matcher_v3.RegexMatcher{
@@ -3452,11 +3455,11 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Route{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+												Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
 											RequestMirrorPolicies: []*envoy_config_route_v3.RouteAction_RequestMirrorPolicy{
 												{
-													Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
+													Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
 													RuntimeFraction: &envoy_config_core_v3.RuntimeFractionalPercent{
 														DefaultValue: &envoy_type_v3.FractionalPercent{
 															Numerator: 100,
@@ -3480,7 +3483,10 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
-		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
+		Name: fmt.Sprintf("%s:%s:%s", namespace, name, port),
+		EdsClusterConfig: &envoy_config_cluster_v3.Cluster_EdsClusterConfig{
+			ServiceName: fmt.Sprintf("%s/%s:%s", namespace, name, port),
+		},
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_upstreams_http_v3.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
@@ -3508,7 +3514,7 @@ func toRouteAction(namespace, name, port string) *envoy_config_route_v3.Route_Ro
 	return &envoy_config_route_v3.Route_Route{
 		Route: &envoy_config_route_v3.RouteAction{
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-				Cluster: fmt.Sprintf("%s/%s:%s", namespace, name, port),
+				Cluster: fmt.Sprintf("%s:%s:%s", namespace, name, port),
 			},
 		},
 	}

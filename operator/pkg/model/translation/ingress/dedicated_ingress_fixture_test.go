@@ -71,7 +71,10 @@ var socketOptions = []*envoy_config_core_v3.SocketOption{
 
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
-		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
+		Name: fmt.Sprintf("%s:%s:%s", namespace, name, port),
+		EdsClusterConfig: &envoy_config_cluster_v3.Cluster_EdsClusterConfig{
+			ServiceName: fmt.Sprintf("%s/%s:%s", namespace, name, port),
+		},
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_upstreams_http_v3.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
@@ -99,7 +102,7 @@ func toRouteAction(namespace, name, port string) *envoy_config_route_v3.Route_Ro
 	return &envoy_config_route_v3.Route_Route{
 		Route: &envoy_config_route_v3.RouteAction{
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-				Cluster: fmt.Sprintf("%s/%s:%s", namespace, name, port),
+				Cluster: fmt.Sprintf("%s:%s:%s", namespace, name, port),
 			},
 		},
 	}
@@ -547,8 +550,8 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 										},
 									},
 									Action: toWeightedClusterRouteAction([]string{
-										"random-namespace/foo-bar-com:http",
-										"random-namespace/foo-bar-com:http",
+										"random-namespace:foo-bar-com:http",
+										"random-namespace:foo-bar-com:http",
 									}),
 								},
 							},

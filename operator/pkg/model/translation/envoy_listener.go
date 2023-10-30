@@ -213,7 +213,7 @@ func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string
 func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
-	for backed, hostNames := range backendsForHost {
+	for backend, hostNames := range backendsForHost {
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 			FilterChainMatch: toFilterChainMatch(hostNames),
 			Filters: []*envoy_config_listener.Filter{
@@ -221,9 +221,9 @@ func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFun
 					Name: tcpProxyType,
 					ConfigType: &envoy_config_listener.Filter_TypedConfig{
 						TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
-							StatPrefix: backed,
+							StatPrefix: backend,
 							ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
-								Cluster: backed,
+								Cluster: backend,
 							},
 						}),
 					},
