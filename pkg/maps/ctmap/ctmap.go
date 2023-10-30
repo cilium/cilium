@@ -287,18 +287,22 @@ func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	}
 
 	t := key.GetTupleKey()
+	tupleType := t.GetFlags()
 
-	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
-		if entry.isDsrEntry() {
-			// To delete NAT entries created by legacy DSR
-			nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
-		}
-	} else if t.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT &&
-		entry.isDsrEntry() {
-		// To delete NAT entries created by DSR
+	if tupleType == tuple.TUPLE_F_IN && entry.isDsrEntry() {
+		// To delete NAT entries created by legacy DSR
 		nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
-	} else {
-		nat.DeleteMapping6(natMap, t.(*tuple.TupleKey6Global))
+	}
+
+	if tupleType == tuple.TUPLE_F_OUT {
+		if entry.isDsrEntry() {
+			// To delete NAT entries created by DSR
+			nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
+		} else {
+			// To delete NAT entries created for SNAT
+			nat.DeleteMapping6(natMap, t.(*tuple.TupleKey6Global))
+
+		}
 	}
 
 	return nil
@@ -402,18 +406,21 @@ func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	}
 
 	t := key.GetTupleKey()
+	tupleType := t.GetFlags()
 
-	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
-		if entry.isDsrEntry() {
-			// To delete NAT entries created by legacy DSR
-			nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
-		}
-	} else if t.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT &&
-		entry.isDsrEntry() {
-		// To delete NAT entries created by DSR
+	if tupleType == tuple.TUPLE_F_IN && entry.isDsrEntry() {
+		// To delete NAT entries created by legacy DSR
 		nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
-	} else {
-		nat.DeleteMapping4(natMap, t.(*tuple.TupleKey4Global))
+	}
+
+	if tupleType == tuple.TUPLE_F_OUT {
+		if entry.isDsrEntry() {
+			// To delete NAT entries created by DSR
+			nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
+		} else {
+			// To delete NAT entries created for SNAT
+			nat.DeleteMapping4(natMap, t.(*tuple.TupleKey4Global))
+		}
 	}
 
 	return nil
