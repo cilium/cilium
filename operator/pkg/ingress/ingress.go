@@ -45,6 +45,7 @@ const (
 type ingressAddedEvent struct {
 	ingress *slim_networkingv1.Ingress
 }
+
 type ingressUpdatedEvent struct {
 	oldIngress *slim_networkingv1.Ingress
 	newIngress *slim_networkingv1.Ingress
@@ -280,38 +281,43 @@ func (ic *Controller) handleIngressAddedEvent(event ingressAddedEvent) error {
 }
 
 func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error {
-	if !ic.isCiliumIngressEntry(event.newIngress) {
+	oldIngressClassCilium := ic.isCiliumIngressEntry(event.oldIngress)
+	newIngressClassCilium := ic.isCiliumIngressEntry(event.newIngress)
+
+	oldLBModeDedicated := ic.isEffectiveLoadbalancerModeDedicated(event.oldIngress)
+	newLBModeDedicated := ic.isEffectiveLoadbalancerModeDedicated(event.newIngress)
+
+	if !oldIngressClassCilium && !newIngressClassCilium {
 		return nil
 	}
+
 	ic.secretManager.Add(event)
 
-	// Perform clean up if there is change in LB mode
-	oldLBMode := ic.isEffectiveLoadbalancerModeDedicated(event.oldIngress)
-	newLBMode := ic.isEffectiveLoadbalancerModeDedicated(event.newIngress)
+	// Cleanup
 
-	// If the ingress is being switched from dedicated to shared, we need to
-	// clean up the dedicated resources (service, endpoints, envoy config)
-	if oldLBMode && !newLBMode {
+	if oldLBModeDedicated && (!newLBModeDedicated || (oldIngressClassCilium && !newIngressClassCilium)) {
+		// Delete dedicated resources (service, endpoints, CEC)
+		// - if ingress class changed from "cilium" to something else
+		// - if the ingress mode is being switched from dedicated to shared
 		if err := ic.deleteResources(event.oldIngress); err != nil {
 			log.WithError(err).Warn("Failed to delete resources for ingress")
 			return err
 		}
-	}
-
-	// If the ingress is being switched from shared to dedicated, we need to update
-	// shared CiliumEnvoyConfig.
-	if !oldLBMode && newLBMode {
-		err := ic.ensureResources(event.newIngress, true)
-		if err != nil {
+	} else if !oldLBModeDedicated && (newLBModeDedicated || (oldIngressClassCilium && !newIngressClassCilium)) {
+		// Update shared CiliumEnvoyConfig
+		// - if ingress class changed from "cilium" to something else
+		// - if the ingress mode is being switched from shared to dedicated
+		if err := ic.ensureResources(event.newIngress, true); err != nil {
 			return err
 		}
 	}
 
-	err := ic.ensureResources(event.newIngress, false)
-	if err != nil {
-		return err
+	if !newIngressClassCilium {
+		// skip further processing for non Cilium Ingresses
+		return nil
 	}
-	return nil
+
+	return ic.ensureResources(event.newIngress, false)
 }
 
 func (ic *Controller) handleIngressDeletedEvent(event ingressDeletedEvent) error {
@@ -606,8 +612,7 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 		translator = ic.sharedTranslator
 		for _, k := range ic.ingressStore.ListKeys() {
 			item, _ := ic.getByKey(k)
-			if !ic.isCiliumIngressEntry(item) || ic.isEffectiveLoadbalancerModeDedicated(item) ||
-				ing.GetDeletionTimestamp() != nil {
+			if !ic.isCiliumIngressEntry(item) || ic.isEffectiveLoadbalancerModeDedicated(item) || ing.GetDeletionTimestamp() != nil {
 				continue
 			}
 			if annotations.GetAnnotationTLSPassthroughEnabled(item) {
