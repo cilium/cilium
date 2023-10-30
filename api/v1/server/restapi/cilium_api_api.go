@@ -189,6 +189,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		StatedbGetStatedbDumpHandler: statedb.GetStatedbDumpHandlerFunc(func(params statedb.GetStatedbDumpParams) middleware.Responder {
 			return middleware.NotImplemented("operation statedb.GetStatedbDump has not yet been implemented")
 		}),
+		StatedbGetStatedbQueryTableHandler: statedb.GetStatedbQueryTableHandlerFunc(func(params statedb.GetStatedbQueryTableParams) middleware.Responder {
+			return middleware.NotImplemented("operation statedb.GetStatedbQueryTable has not yet been implemented")
+		}),
 		DaemonPatchConfigHandler: daemon.PatchConfigHandlerFunc(func(params daemon.PatchConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.PatchConfig has not yet been implemented")
 		}),
@@ -349,6 +352,8 @@ type CiliumAPIAPI struct {
 	ServiceGetServiceIDHandler service.GetServiceIDHandler
 	// StatedbGetStatedbDumpHandler sets the operation handler for the get statedb dump operation
 	StatedbGetStatedbDumpHandler statedb.GetStatedbDumpHandler
+	// StatedbGetStatedbQueryTableHandler sets the operation handler for the get statedb query table operation
+	StatedbGetStatedbQueryTableHandler statedb.GetStatedbQueryTableHandler
 	// DaemonPatchConfigHandler sets the operation handler for the patch config operation
 	DaemonPatchConfigHandler daemon.PatchConfigHandler
 	// EndpointPatchEndpointIDHandler sets the operation handler for the patch endpoint ID operation
@@ -582,6 +587,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.StatedbGetStatedbDumpHandler == nil {
 		unregistered = append(unregistered, "statedb.GetStatedbDumpHandler")
+	}
+	if o.StatedbGetStatedbQueryTableHandler == nil {
+		unregistered = append(unregistered, "statedb.GetStatedbQueryTableHandler")
 	}
 	if o.DaemonPatchConfigHandler == nil {
 		unregistered = append(unregistered, "daemon.PatchConfigHandler")
@@ -882,6 +890,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/statedb/dump"] = statedb.NewGetStatedbDump(o.context, o.StatedbGetStatedbDumpHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/statedb/query/{table}"] = statedb.NewGetStatedbQueryTable(o.context, o.StatedbGetStatedbQueryTableHandler)
 	if o.handlers["PATCH"] == nil {
 		o.handlers["PATCH"] = make(map[string]http.Handler)
 	}

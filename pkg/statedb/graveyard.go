@@ -58,7 +58,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 
 			// Find objects to be deleted by iterating over the graveyard revision index up
 			// to the low watermark.
-			indexTree := txn.indexReadTxn(tableName, GraveyardRevisionIndex)
+			indexTree := txn.mustIndexReadTxn(tableName, GraveyardRevisionIndex)
 
 			objIter := indexTree.Root().Iterator()
 			for key, obj, ok := objIter.Next(); ok; key, obj, ok = objIter.Next() {
@@ -86,11 +86,11 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 			tableName := meta.Name()
 			cleaningTimes[tableName].Start()
 			for _, key := range deadObjs {
-				_, existed := txn.indexWriteTxn(tableName, GraveyardRevisionIndex).Delete(key)
+				_, existed := txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).Delete(key)
 				if existed {
 					// The dead object still existed (and wasn't replaced by a create->delete),
 					// delete it from the primary index.
-					txn.indexWriteTxn(tableName, GraveyardIndex).Delete(key[8:])
+					txn.mustIndexWriteTxn(tableName, GraveyardIndex).Delete(key[8:])
 				}
 			}
 			cleaningTimes[tableName].End(true)

@@ -40,22 +40,25 @@ var Cell = cell.Module(
 	"cilium health API server",
 
 	cell.Provide(newForCell),
+	APICell,
 )
 
-type serverParams struct {
+// APICell provides the restapi.CiliumHealthAPIAPI type, populated
+// with the request handlers. This cell is an alternative to 'Cell' when only
+// the API type is required and not the full server implementation.
+var APICell = cell.Provide(newAPI)
+
+type apiParams struct {
 	cell.In
 
-	Lifecycle  hive.Lifecycle
-	Shutdowner hive.Shutdowner
-	Logger     logrus.FieldLogger
-	Spec       *Spec
+	Spec *Spec
 
 	GetHealthzHandler                 restapi.GetHealthzHandler
 	ConnectivityGetStatusHandler      connectivity.GetStatusHandler
 	ConnectivityPutStatusProbeHandler connectivity.PutStatusProbeHandler
 }
 
-func newForCell(p serverParams) (*Server, error) {
+func newAPI(p apiParams) *restapi.CiliumHealthAPIAPI {
 	api := restapi.NewCiliumHealthAPIAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
@@ -64,11 +67,24 @@ func newForCell(p serverParams) (*Server, error) {
 	api.ConnectivityGetStatusHandler = p.ConnectivityGetStatusHandler
 	api.ConnectivityPutStatusProbeHandler = p.ConnectivityPutStatusProbeHandler
 
-	s := NewServer(api)
+	return api
+}
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+	Spec       *Spec
+	API        *restapi.CiliumHealthAPIAPI
+}
+
+func newForCell(p serverParams) (*Server, error) {
+	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
-
 	return s, nil
 }
 

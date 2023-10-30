@@ -230,6 +230,17 @@ type Indexer[Obj any] interface {
 	fromObject(obj Obj) index.KeySet
 }
 
+// TableWritable is a constraint for objects that implement tabular
+// pretty-printing. Used in "cilium-dbg statedb" sub-commands.
+type TableWritable interface {
+	// TableHeader returns the header columns that are independent of the
+	// object.
+	TableHeader() []string
+
+	// TableRow returns the row columns for this object.
+	TableRow() []string
+}
+
 //
 // Internal types and constants.
 //

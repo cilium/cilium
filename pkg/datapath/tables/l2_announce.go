@@ -67,3 +67,17 @@ var (
 		L2AnnounceOriginIndex,
 	)
 )
+
+func (*L2AnnounceEntry) TableHeader() []string {
+	return []string{
+		"IP",
+		"NetworkInterface",
+	}
+}
+
+func (e *L2AnnounceEntry) TableRow() []string {
+	return []string{
+		e.IP.String(),
+		e.NetworkInterface,
+	}
+}
