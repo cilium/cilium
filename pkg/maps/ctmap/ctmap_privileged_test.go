@@ -383,6 +383,7 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 		TxPackets: 1,
 		TxBytes:   216,
 		Lifetime:  37459,
+		Flags:     DSR,
 	}
 	err = bpf.UpdateElement(ctMapTCP.Map.GetFd(), ctMapTCP.Map.Name(), unsafe.Pointer(ctKey),
 		unsafe.Pointer(ctVal), 0)
