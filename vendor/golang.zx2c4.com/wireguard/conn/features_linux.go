@@ -18,15 +18,9 @@ func supportsUDPOffload(conn *net.UDPConn) (txOffload, rxOffload bool) {
 	}
 	err = rc.Control(func(fd uintptr) {
 		_, errSyscall := unix.GetsockoptInt(int(fd), unix.IPPROTO_UDP, unix.UDP_SEGMENT)
-		if errSyscall != nil {
-			return
-		}
-		txOffload = true
+		txOffload = errSyscall == nil
 		opt, errSyscall := unix.GetsockoptInt(int(fd), unix.IPPROTO_UDP, unix.UDP_GRO)
-		if errSyscall != nil {
-			return
-		}
-		rxOffload = opt == 1
+		rxOffload = errSyscall == nil && opt == 1
 	})
 	if err != nil {
 		return false, false

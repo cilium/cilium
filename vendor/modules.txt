@@ -117,7 +117,7 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.3.45
 ## explicit; go 1.15
 github.com/aws/aws-sdk-go-v2/internal/ini
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.125.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.128.0
 ## explicit; go 1.15
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
@@ -581,8 +581,8 @@ github.com/evanphx/json-patch/v5
 # github.com/fatih/color v1.15.0
 ## explicit; go 1.17
 github.com/fatih/color
-# github.com/fsnotify/fsnotify v1.6.0
-## explicit; go 1.16
+# github.com/fsnotify/fsnotify v1.7.0
+## explicit; go 1.17
 github.com/fsnotify/fsnotify
 # github.com/go-jose/go-jose/v3 v3.0.0
 ## explicit; go 1.12
@@ -755,7 +755,7 @@ github.com/google/gops/signal
 # github.com/google/renameio/v2 v2.0.0
 ## explicit; go 1.13
 github.com/google/renameio/v2
-# github.com/google/uuid v1.3.1
+# github.com/google/uuid v1.4.0
 ## explicit
 github.com/google/uuid
 # github.com/gorilla/mux v1.8.0
@@ -1214,8 +1214,8 @@ go.uber.org/dig/internal/digerror
 go.uber.org/dig/internal/digreflect
 go.uber.org/dig/internal/dot
 go.uber.org/dig/internal/graph
-# go.uber.org/goleak v1.2.1
-## explicit; go 1.18
+# go.uber.org/goleak v1.3.0
+## explicit; go 1.20
 go.uber.org/goleak
 go.uber.org/goleak/internal/stack
 # go.uber.org/multierr v1.11.0
@@ -1384,7 +1384,7 @@ golang.org/x/tools/internal/typesinternal
 # golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2
 ## explicit; go 1.17
 golang.zx2c4.com/wintun
-# golang.zx2c4.com/wireguard v0.0.0-20231010133717-42ec952eadc2
+# golang.zx2c4.com/wireguard v0.0.0-20231022001213-2e0774f246fb
 ## explicit; go 1.20
 golang.zx2c4.com/wireguard/conn
 golang.zx2c4.com/wireguard/conn/winrio
@@ -1433,7 +1433,7 @@ google.golang.org/genproto/googleapis/api/expr/v1alpha1
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20231016165738-49dd2c1f3d0b
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.58.3
+# google.golang.org/grpc v1.59.0
 ## explicit; go 1.19
 google.golang.org/grpc
 google.golang.org/grpc/attributes

@@ -14,35 +14,31 @@ import (
 	smithyendpoints "github.com/aws/smithy-go/endpoints"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-	"time"
 )
 
-// Describes the Spot price history. For more information, see Spot Instance
-// pricing history (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances-history.html)
-// in the Amazon EC2 User Guide for Linux Instances. When you specify a start and
-// end time, the operation returns the prices of the instance types within that
-// time range. It also returns the last price change before the start time, which
-// is the effective price as of the start time.
-func (c *Client) DescribeSpotPriceHistory(ctx context.Context, params *DescribeSpotPriceHistoryInput, optFns ...func(*Options)) (*DescribeSpotPriceHistoryOutput, error) {
+// Gets security groups that can be associated by the Amazon Web Services account
+// making the request with network interfaces in the specified VPC.
+func (c *Client) GetSecurityGroupsForVpc(ctx context.Context, params *GetSecurityGroupsForVpcInput, optFns ...func(*Options)) (*GetSecurityGroupsForVpcOutput, error) {
 	if params == nil {
-		params = &DescribeSpotPriceHistoryInput{}
+		params = &GetSecurityGroupsForVpcInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeSpotPriceHistory", params, optFns, c.addOperationDescribeSpotPriceHistoryMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetSecurityGroupsForVpc", params, optFns, c.addOperationGetSecurityGroupsForVpcMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeSpotPriceHistoryOutput)
+	out := result.(*GetSecurityGroupsForVpcOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// Contains the parameters for DescribeSpotPriceHistory.
-type DescribeSpotPriceHistoryInput struct {
+type GetSecurityGroupsForVpcInput struct {
 
-	// Filters the results by the specified Availability Zone.
-	AvailabilityZone *string
+	// The VPC ID where the security group can be used.
+	//
+	// This member is required.
+	VpcId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -50,27 +46,14 @@ type DescribeSpotPriceHistoryInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The date and time, up to the current date, from which to stop retrieving the
-	// price history data, in UTC format (for example, YYYY-MM-DDTHH:MM:SSZ).
-	EndTime *time.Time
-
-	// The filters.
-	//   - availability-zone - The Availability Zone for which prices should be
-	//   returned.
-	//   - instance-type - The type of instance (for example, m3.medium ).
-	//   - product-description - The product description for the Spot price ( Linux/UNIX
-	//   | Red Hat Enterprise Linux | SUSE Linux | Windows | Linux/UNIX (Amazon VPC) |
-	//   Red Hat Enterprise Linux (Amazon VPC) | SUSE Linux (Amazon VPC) | Windows
-	//   (Amazon VPC) ).
-	//   - spot-price - The Spot price. The value must match exactly (or use wildcards;
-	//   greater than or less than comparison is not supported).
-	//   - timestamp - The time stamp of the Spot price history, in UTC format (for
-	//   example, ddd MMM dd HH:mm:ss UTC YYYY). You can use wildcards ( * and ? ).
-	//   Greater than or less than comparison is not supported.
+	// The filters. If using multiple filters, the results include security groups
+	// which match all filters.
+	//   - group-id : The security group ID.
+	//   - description : The security group's description.
+	//   - group-name : The security group name.
+	//   - owner-id : The security group owner ID.
+	//   - primary-vpc-id : The VPC ID in which the security group was created.
 	Filters []types.Filter
-
-	// Filters the results by the specified instance types.
-	InstanceTypes []types.InstanceType
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
@@ -82,25 +65,17 @@ type DescribeSpotPriceHistoryInput struct {
 	// the end of the items returned by the previous request.
 	NextToken *string
 
-	// Filters the results by the specified basic product descriptions.
-	ProductDescriptions []string
-
-	// The date and time, up to the past 90 days, from which to start retrieving the
-	// price history data, in UTC format (for example, YYYY-MM-DDTHH:MM:SSZ).
-	StartTime *time.Time
-
 	noSmithyDocumentSerde
 }
 
-// Contains the output of DescribeSpotPriceHistory.
-type DescribeSpotPriceHistoryOutput struct {
+type GetSecurityGroupsForVpcOutput struct {
 
 	// The token to include in another request to get the next page of items. This
 	// value is null when there are no more items to return.
 	NextToken *string
 
-	// The historical Spot prices.
-	SpotPriceHistory []types.SpotPrice
+	// The security group that can be used by interfaces in the VPC.
+	SecurityGroupForVpcs []types.SecurityGroupForVpc
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -108,12 +83,12 @@ type DescribeSpotPriceHistoryOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeSpotPriceHistoryMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeSpotPriceHistory{}, middleware.After)
+func (c *Client) addOperationGetSecurityGroupsForVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	err = stack.Serialize.Add(&awsEc2query_serializeOpGetSecurityGroupsForVpc{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeSpotPriceHistory{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetSecurityGroupsForVpc{}, middleware.After)
 	if err != nil {
 		return err
 	}
@@ -156,10 +131,13 @@ func (c *Client) addOperationDescribeSpotPriceHistoryMiddlewares(stack *middlewa
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addDescribeSpotPriceHistoryResolveEndpointMiddleware(stack, options); err != nil {
+	if err = addGetSecurityGroupsForVpcResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSpotPriceHistory(options.Region), middleware.Before); err != nil {
+	if err = addOpGetSecurityGroupsForVpcValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetSecurityGroupsForVpc(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
@@ -180,17 +158,17 @@ func (c *Client) addOperationDescribeSpotPriceHistoryMiddlewares(stack *middlewa
 	return nil
 }
 
-// DescribeSpotPriceHistoryAPIClient is a client that implements the
-// DescribeSpotPriceHistory operation.
-type DescribeSpotPriceHistoryAPIClient interface {
-	DescribeSpotPriceHistory(context.Context, *DescribeSpotPriceHistoryInput, ...func(*Options)) (*DescribeSpotPriceHistoryOutput, error)
+// GetSecurityGroupsForVpcAPIClient is a client that implements the
+// GetSecurityGroupsForVpc operation.
+type GetSecurityGroupsForVpcAPIClient interface {
+	GetSecurityGroupsForVpc(context.Context, *GetSecurityGroupsForVpcInput, ...func(*Options)) (*GetSecurityGroupsForVpcOutput, error)
 }
 
-var _ DescribeSpotPriceHistoryAPIClient = (*Client)(nil)
+var _ GetSecurityGroupsForVpcAPIClient = (*Client)(nil)
 
-// DescribeSpotPriceHistoryPaginatorOptions is the paginator options for
-// DescribeSpotPriceHistory
-type DescribeSpotPriceHistoryPaginatorOptions struct {
+// GetSecurityGroupsForVpcPaginatorOptions is the paginator options for
+// GetSecurityGroupsForVpc
+type GetSecurityGroupsForVpcPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
 	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
@@ -202,23 +180,23 @@ type DescribeSpotPriceHistoryPaginatorOptions struct {
 	StopOnDuplicateToken bool
 }
 
-// DescribeSpotPriceHistoryPaginator is a paginator for DescribeSpotPriceHistory
-type DescribeSpotPriceHistoryPaginator struct {
-	options   DescribeSpotPriceHistoryPaginatorOptions
-	client    DescribeSpotPriceHistoryAPIClient
-	params    *DescribeSpotPriceHistoryInput
+// GetSecurityGroupsForVpcPaginator is a paginator for GetSecurityGroupsForVpc
+type GetSecurityGroupsForVpcPaginator struct {
+	options   GetSecurityGroupsForVpcPaginatorOptions
+	client    GetSecurityGroupsForVpcAPIClient
+	params    *GetSecurityGroupsForVpcInput
 	nextToken *string
 	firstPage bool
 }
 
-// NewDescribeSpotPriceHistoryPaginator returns a new
-// DescribeSpotPriceHistoryPaginator
-func NewDescribeSpotPriceHistoryPaginator(client DescribeSpotPriceHistoryAPIClient, params *DescribeSpotPriceHistoryInput, optFns ...func(*DescribeSpotPriceHistoryPaginatorOptions)) *DescribeSpotPriceHistoryPaginator {
+// NewGetSecurityGroupsForVpcPaginator returns a new
+// GetSecurityGroupsForVpcPaginator
+func NewGetSecurityGroupsForVpcPaginator(client GetSecurityGroupsForVpcAPIClient, params *GetSecurityGroupsForVpcInput, optFns ...func(*GetSecurityGroupsForVpcPaginatorOptions)) *GetSecurityGroupsForVpcPaginator {
 	if params == nil {
-		params = &DescribeSpotPriceHistoryInput{}
+		params = &GetSecurityGroupsForVpcInput{}
 	}
 
-	options := DescribeSpotPriceHistoryPaginatorOptions{}
+	options := GetSecurityGroupsForVpcPaginatorOptions{}
 	if params.MaxResults != nil {
 		options.Limit = *params.MaxResults
 	}
@@ -227,7 +205,7 @@ func NewDescribeSpotPriceHistoryPaginator(client DescribeSpotPriceHistoryAPIClie
 		fn(&options)
 	}
 
-	return &DescribeSpotPriceHistoryPaginator{
+	return &GetSecurityGroupsForVpcPaginator{
 		options:   options,
 		client:    client,
 		params:    params,
@@ -237,12 +215,12 @@ func NewDescribeSpotPriceHistoryPaginator(client DescribeSpotPriceHistoryAPIClie
 }
 
 // HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeSpotPriceHistoryPaginator) HasMorePages() bool {
+func (p *GetSecurityGroupsForVpcPaginator) HasMorePages() bool {
 	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
 }
 
-// NextPage retrieves the next DescribeSpotPriceHistory page.
-func (p *DescribeSpotPriceHistoryPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeSpotPriceHistoryOutput, error) {
+// NextPage retrieves the next GetSecurityGroupsForVpc page.
+func (p *GetSecurityGroupsForVpcPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*GetSecurityGroupsForVpcOutput, error) {
 	if !p.HasMorePages() {
 		return nil, fmt.Errorf("no more pages available")
 	}
@@ -256,7 +234,7 @@ func (p *DescribeSpotPriceHistoryPaginator) NextPage(ctx context.Context, optFns
 	}
 	params.MaxResults = limit
 
-	result, err := p.client.DescribeSpotPriceHistory(ctx, &params, optFns...)
+	result, err := p.client.GetSecurityGroupsForVpc(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
 	}
@@ -275,25 +253,25 @@ func (p *DescribeSpotPriceHistoryPaginator) NextPage(ctx context.Context, optFns
 	return result, nil
 }
 
-func newServiceMetadataMiddleware_opDescribeSpotPriceHistory(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opGetSecurityGroupsForVpc(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
 		SigningName:   "ec2",
-		OperationName: "DescribeSpotPriceHistory",
+		OperationName: "GetSecurityGroupsForVpc",
 	}
 }
 
-type opDescribeSpotPriceHistoryResolveEndpointMiddleware struct {
+type opGetSecurityGroupsForVpcResolveEndpointMiddleware struct {
 	EndpointResolver EndpointResolverV2
 	BuiltInResolver  builtInParameterResolver
 }
 
-func (*opDescribeSpotPriceHistoryResolveEndpointMiddleware) ID() string {
+func (*opGetSecurityGroupsForVpcResolveEndpointMiddleware) ID() string {
 	return "ResolveEndpointV2"
 }
 
-func (m *opDescribeSpotPriceHistoryResolveEndpointMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+func (m *opGetSecurityGroupsForVpcResolveEndpointMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
 	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
 ) {
 	if awsmiddleware.GetRequiresLegacyEndpoints(ctx) {
@@ -395,8 +373,8 @@ func (m *opDescribeSpotPriceHistoryResolveEndpointMiddleware) HandleSerialize(ct
 	return next.HandleSerialize(ctx, in)
 }
 
-func addDescribeSpotPriceHistoryResolveEndpointMiddleware(stack *middleware.Stack, options Options) error {
-	return stack.Serialize.Insert(&opDescribeSpotPriceHistoryResolveEndpointMiddleware{
+func addGetSecurityGroupsForVpcResolveEndpointMiddleware(stack *middleware.Stack, options Options) error {
+	return stack.Serialize.Insert(&opGetSecurityGroupsForVpcResolveEndpointMiddleware{
 		EndpointResolver: options.EndpointResolverV2,
 		BuiltInResolver: &builtInResolver{
 			Region:       options.Region,

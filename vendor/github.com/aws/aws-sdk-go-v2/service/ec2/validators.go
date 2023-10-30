@@ -5650,6 +5650,26 @@ func (m *validateOpGetReservedInstancesExchangeQuote) HandleInitialize(ctx conte
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetSecurityGroupsForVpc struct {
+}
+
+func (*validateOpGetSecurityGroupsForVpc) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetSecurityGroupsForVpc) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetSecurityGroupsForVpcInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetSecurityGroupsForVpcInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpGetSpotPlacementScores struct {
 }
 
@@ -9596,6 +9616,10 @@ func addOpGetPasswordDataValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpGetReservedInstancesExchangeQuoteValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetReservedInstancesExchangeQuote{}, middleware.After)
+}
+
+func addOpGetSecurityGroupsForVpcValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetSecurityGroupsForVpc{}, middleware.After)
 }
 
 func addOpGetSpotPlacementScoresValidationMiddleware(stack *middleware.Stack) error {
@@ -15750,6 +15774,21 @@ func validateOpGetReservedInstancesExchangeQuoteInput(v *GetReservedInstancesExc
 		if err := validateTargetConfigurationRequestSet(v.TargetConfigurations); err != nil {
 			invalidParams.AddNested("TargetConfigurations", err.(smithy.InvalidParamsError))
 		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetSecurityGroupsForVpcInput(v *GetSecurityGroupsForVpcInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetSecurityGroupsForVpcInput"}
+	if v.VpcId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

@@ -35,17 +35,8 @@ func getSrcFromControl(control []byte, ep *StdNetEndpoint) {
 func setSrcControl(control *[]byte, ep *StdNetEndpoint) {
 }
 
-// getGSOSize parses control for UDP_GRO and if found returns its GSO size data.
-func getGSOSize(control []byte) (int, error) {
-	return 0, nil
-}
-
-// setGSOSize sets a UDP_SEGMENT in control based on gsoSize.
-func setGSOSize(control *[]byte, gsoSize uint16) {
-}
-
-// controlSize returns the recommended buffer size for pooling sticky and UDP
+// stickyControlSize returns the recommended buffer size for pooling sticky
 // offloading control data.
-const controlSize = 0
+const stickyControlSize = 0
 
 const StdNetSupportsStickySockets = false
