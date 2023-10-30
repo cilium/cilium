@@ -12,40 +12,55 @@ Configuring Hubble exporter
 Hubble flows to a file for later consumption as logs. Hubble Exporter supports file
 rotation, size limits, filters, and field masks.
 
+Prerequisites
+=============
+
+.. include:: ../installation/k8s-install-download-release.rst
+
 Basic Configuration
 ===================
 
-Configure **Hubble Exporter** with Config Map with a default name of
-``cilium-config``. Hubble Exporter is disabled until you set a file path value
-for ``hubble-export-file-path``.
+Setup
+-----
+
+**Hubble Exporter** is enabled with Config Map property. It is disabled
+until you set a file path value for ``hubble-export-file-path``.
+
+You can use helm to install cilium with hubble exporter enabled:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+      --set hubble.enabled=true \\
+      --set hubble.export.static.enabled=true \\
+      --set hubble.export.static.filePath=/var/run/cilium/hubble/events.log
+
+Wait for ``cilium`` pod to become ready:
 
 .. code-block:: shell-session
 
-    kubectl -n kube-system patch cm cilium-config --patch-file=/dev/stdin <<-EOF
-    data:
-      hubble-export-file-path: "/var/run/cilium/hubble/events.log"
-    EOF
+    kubectl -n kube-system rollout status ds/cilium
 
-Restart ``cilium-agent`` to apply the change:
-
-.. code-block:: shell-session
-
-    kubectl -n kube-system rollout restart ds/cilium
-
-Verify that the change was applied (it can take a few minutes before the first flow is
-logged):
+Verify that flow logs are stored in target files:
 
 .. code-block:: shell-session
 
     kubectl -n kube-system exec ds/cilium -- tail -f /var/run/cilium/hubble/events.log
 
-Configure your logging solution to consume logs from your Hubble export file path.
+Now you can configure your logging solution to consume logs from your Hubble export file path.
 
-Other configuration options include:
+Configuration options
+---------------------
 
-- ``hubble-export-file-max-size-mb``: size in MB at which to rotate the Hubble export file. (default 10)
+Helm chart configuration options include:
 
-- ``hubble-export-file-max-backups``: number of rotated Hubble export files to keep. (default 5)
+- ``hubble.export.static.filePath``: file path of target log file. (default /var/run/cilium/hubble/events.log)
+
+- ``hubble.export.fileMaxSizeMb``: size in MB at which to rotate the Hubble export file. (default 10)
+
+- ``hubble.export.fileMaxBackups``: number of rotated Hubble export files to keep. (default 5)
+
+Additionally in ``cilium-config`` ConfigMap the following property might be set
 
 - ``hubble-export-file-compress``: compress rotated Hubble export files. (default false)
 
@@ -54,11 +69,11 @@ Performance tuning
 
 Configuration options impacting performance of **Hubble exporter** include:
 
-- ``hubble-export-allowlist``: specify an allowlist as JSON encoded FlowFilters to Hubble exporter.
+- ``hubble.export.static.allowList``: specify an allowlist as JSON encoded FlowFilters to Hubble exporter.
 
-- ``hubble-export-denylist``: specify a denylist as JSON encoded FlowFilters to Hubble exporter.
+- ``hubble.export.static.denyList``: specify a denylist as JSON encoded FlowFilters to Hubble exporter.
 
-- ``hubble-export-fieldmask``: specify a list of fields to use for field masking in Hubble exporter.
+- ``hubble.export.static.fieldMask``: specify a list of fields to use for field masking in Hubble exporter.
 
 Filters
 -------
@@ -86,6 +101,17 @@ Config Map:
       hubble-export-allowlist: '{"verdict":["DROPPED","ERROR"]}'
     EOF
 
+Or use helm chart to update your cilium installation setting value flag
+``hubble.export.static.allowList``.
+
+.. parsed-literal::
+
+   helm upgrade cilium |CHART_RELEASE| \\
+      --set hubble.enabled=true \\
+      --set hubble.export.static.enabled=true \\
+      --set hubble.export.static.allowList[0]='{"verdict":["DROPPED","ERROR"]}'
+
+
 You can do the same to selectively filter data. For example, to filter all flows in the
 ``kube-system`` namespace, run:
 
@@ -105,6 +131,17 @@ Map:
     data:
       hubble-export-denylist: '{"source_pod":["kube-system/"]},{"destination_pod":["kube-system/"]}'
     EOF
+
+Or use helm chart to update your cilium installation setting value flag
+``hubble.export.static.denyList``.
+
+.. parsed-literal::
+
+   helm upgrade cilium |CHART_RELEASE| \\
+      --set hubble.enabled=true \\
+      --set hubble.export.static.enabled=true \\
+      --set hubble.export.static.denyList[0]='{"source_pod":["kube-system/"]}' \\
+      --set hubble.export.static.denyList[1]='{"destination_pod":["kube-system/"]}'
 
 Field mask
 ----------
@@ -132,12 +169,16 @@ The following is a complete example of configuring Hubble Exporter.
 
  - Configuration:
 
-   .. code-block:: shell-session
+   .. parsed-literal::
 
-       hubble-export-file-path: "/var/run/cilium/hubble/events.log"
-       hubble-export-allowlist: '{"verdict":["DROPPED","ERROR"]}'
-       hubble-export-denylist: '{"source_pod":["kube-system/"]},{"destination_pod":["kube-system/"]}'
-       hubble-export-fieldmask: time source.namespace source.pod_name destination.namespace destination.pod_name l4 IP node_name is_reply verdict drop_reason_desc
+       helm upgrade cilium |CHART_RELEASE| \\
+          --set hubble.enabled=true \\
+          --set hubble.export.static.enabled=true \\
+          --set hubble.export.static.filePath=/var/run/cilium/hubble/events.log \\
+          --set hubble.export.static.allowList[0]='{"verdict":["DROPPED","ERROR"]}'
+          --set hubble.export.static.denyList[0]='{"source_pod":["kube-system/"]}' \\
+          --set hubble.export.static.denyList[1]='{"destination_pod":["kube-system/"]}' \\
+          --set "hubble.export.static.fieldMask={time,source.namespace,source.pod_name,destination.namespace,destination.pod_name,l4,IP,node_name,is_reply,verdict,drop_reason_desc}"
 
  - Command:
 
@@ -151,3 +192,89 @@ The following is a complete example of configuring Hubble Exporter.
 
        {"flow":{"time":"2023-08-21T12:12:13.517394084Z","verdict":"DROPPED","IP":{"source":"fe80::64d8:8aff:fe72:fc14","destination":"ff02::2","ipVersion":"IPv6"},"l4":{"ICMPv6":{"type":133}},"source":{},"destination":{},"node_name":"kind-kind/kind-worker","drop_reason_desc":"INVALID_SOURCE_IP"},"node_name":"kind-kind/kind-worker","time":"2023-08-21T12:12:13.517394084Z"}
        {"flow":{"time":"2023-08-21T12:12:18.510175415Z","verdict":"DROPPED","IP":{"source":"10.244.1.60","destination":"10.244.1.5","ipVersion":"IPv4"},"l4":{"TCP":{"source_port":44916,"destination_port":80,"flags":{"SYN":true}}},"source":{"namespace":"default","pod_name":"xwing"},"destination":{"namespace":"default","pod_name":"deathstar-7848d6c4d5-th9v2"},"node_name":"kind-kind/kind-worker","drop_reason_desc":"POLICY_DENIED"},"node_name":"kind-kind/kind-worker","time":"2023-08-21T12:12:18.510175415Z"}
+
+
+Dynamic exporter configuration
+==============================
+
+Standard hubble exporter configuration accepts only one set of filters and
+requires cilium pod restart to change config. Dynamic flow logs allow configuring
+multiple filters at the same time and saving output in separate files.
+Additionally it does not require cilium pod restarts to apply changed configuration.
+
+**Dynamic Hubble Exporter** is enabled with Config Map property. It is disabled
+until you set a file path value for ``hubble-flowlogs-config-path``.
+
+Install cilium with dynamic exporter enabled:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+      --set hubble.enabled=true \\
+      --set hubble.export.dynamic.enabled=true
+
+Wait for ``cilium`` pod to become ready:
+
+.. code-block:: shell-session
+
+    kubectl -n kube-system rollout status ds/cilium
+
+Verify that flow logs are stored in target files:
+
+.. code-block:: shell-session
+
+    kubectl -n kube-system exec ds/cilium -- tail -f /var/run/cilium/hubble/events.log
+
+You can change flow log settings without a need for pod to be restarted
+(changes should be reflected within 60s because of configmap propagation delay):
+
+.. parsed-literal::
+
+   helm upgrade cilium |CHART_RELEASE| \\
+      --set hubble.enabled=true \\
+      --set hubble.export.dynamic.enabled=true \\
+      --set hubble.export.dynamic.config.content[0].name=system \\
+      --set hubble.export.dynamic.config.content[0].filePath=/var/run/cilium/hubble/events-system.log \\
+      --set hubble.export.dynamic.config.content[0].IncludeFilters[0].source_pod[0]='kube_system/*' \\
+      --set hubble.export.dynamic.config.content[0].IncludeFilters[1].destination_pod[0]='kube_system/*'
+
+
+Dynamic flow logs can be configured with ``end`` property which means that it will
+automatically stop logging after specified date time. It supports the same
+field masking and filtering as static hubble exporter.
+
+For max output file size and backup files dynamic exporter reuses the same
+settings as static one: ``hubble.export.fileMaxSizeMb`` and ``hubble.export.fileMaxBackups``
+
+Sample dynamic flow logs configs:
+
+::
+
+  hubble:
+    export:
+      dynamic:
+        config:
+          enabled: true
+          content:
+          - name: "test001"
+            filePath: "/var/run/cilium/hubble/test001.log"
+            fieldMask: []
+            includeFilters: []
+            excludeFilters: []
+            end: "2023-10-09T23:59:59-07:00"
+          - name: "test002"
+            filePath: "/var/run/cilium/hubble/test002.log"
+            fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
+            includeFilters:
+            - source_pod: ["default/"]
+              event_type:
+              - type: 1
+            - destination_pod: ["frontend/webserver-975996d4c-7hhgt"]
+            excludeFilters: []
+            end: "2023-10-09T23:59:59-07:00"
+          - name: "test003"
+            filePath: "/var/run/cilium/hubble/test003.log"
+            fieldMask: ["source", "destination","verdict"]
+            includeFilters: []
+            excludeFilters:
+            - destination_pod: ["ingress/"]

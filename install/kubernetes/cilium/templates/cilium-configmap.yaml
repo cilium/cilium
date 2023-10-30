@@ -901,6 +901,19 @@ data:
 {{- end }}
 {{- end }}
 {{- end }}
+{{- if .Values.hubble.export }}
+  hubble-export-file-max-size-mb: {{ .Values.hubble.export.fileMaxSizeMb | quote }}
+  hubble-export-file-max-backups: {{ .Values.hubble.export.fileMaxBackups | quote }}
+{{- if .Values.hubble.export.static.enabled }}
+  hubble-export-file-path: {{ .Values.hubble.export.static.filePath | quote }}
+  hubble-export-fieldmask: {{ .Values.hubble.export.static.fieldMask | join " " | quote }}
+  hubble-export-allowlist: {{ .Values.hubble.export.static.allowList | join "," | quote }}
+  hubble-export-denylist: {{ .Values.hubble.export.static.denyList | join "," | quote }}
+{{- end }}
+{{- if .Values.hubble.export.dynamic.enabled }}
+  hubble-flowlogs-config-path: /flowlog-config/flowlogs.yaml
+{{- end }}
+{{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.hubble.listenAddress | quote }}

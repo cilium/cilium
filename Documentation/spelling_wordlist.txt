@@ -580,6 +580,7 @@ rebase
 rebased
 rebasing
 recompiles
+reconfigurations
 recv
 regenerations
 regexes

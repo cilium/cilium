@@ -190,6 +190,11 @@ func (d *Daemon) launchHubble() {
 			observerOpts = append(observerOpts, opt)
 		}
 	}
+	if option.Config.HubbleFlowlogsConfigFilePath != "" {
+		dynamicHubbleExporter := exporter.NewDynamicExporter(logger, option.Config.HubbleFlowlogsConfigFilePath, option.Config.HubbleExportFileMaxSizeMB, option.Config.HubbleExportFileMaxBackups)
+		opt := observeroption.WithOnDecodedEvent(dynamicHubbleExporter)
+		observerOpts = append(observerOpts, opt)
+	}
 	namespaceManager := observer.NewNamespaceManager()
 	go namespaceManager.Run(d.ctx)
 

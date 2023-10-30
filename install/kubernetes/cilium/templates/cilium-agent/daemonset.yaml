@@ -376,6 +376,11 @@ spec:
           mountPropagation: {{ .mountPropagation }}
           {{- end }}
         {{- end }}
+        {{- if .Values.hubble.export.dynamic.enabled }}
+        - name: hubble-flowlog-config
+          mountPath: /flowlog-config
+          readOnly: true
+        {{- end }}
         {{- with .Values.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -929,6 +934,12 @@ spec:
               - key: {{ .Values.tls.caBundle.key }}
                 path: client-ca.crt
           {{- end }}
+      {{- end }}
+      {{- if .Values.hubble.export.dynamic.enabled }}
+      - name: hubble-flowlog-config
+        configMap:
+          name: {{ .Values.hubble.export.dynamic.config.configMapName }}
+          optional: true
       {{- end }}
       {{- range .Values.extraHostPathMounts }}
       - name: {{ .name }}
