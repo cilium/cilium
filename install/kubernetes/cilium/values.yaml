@@ -1438,6 +1438,21 @@ hubble:
       # -- Hubble-ui backend security context.
       securityContext: {}
 
+      # -- hubble-ui backend environment.
+      env:
+        - name: FLOWS_API_ADDR
+          value: "hubble-relay:443"
+        - name: TLS_TO_RELAY_ENABLED
+          value: "true"
+        - name: TLS_RELAY_SERVER_NAME
+          value: ui.hubble-relay.cilium.io
+        - name: TLS_RELAY_CA_CERT_FILES
+          value: /var/lib/hubble-ui/certs/hubble-relay-ca.crt
+        - name: TLS_RELAY_CLIENT_CERT_FILE
+          value: /var/lib/hubble-ui/certs/client.crt
+        - name: TLS_RELAY_CLIENT_KEY_FILE
+          value: /var/lib/hubble-ui/certs/client.key
+
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
 
