@@ -93,6 +93,7 @@ func init() {
 
 		statedbTableCommand[*tables.Device]("devices"),
 		statedbTableCommand[*tables.Route]("routes"),
+		statedbTableCommand[*tables.NodeAddress]("node-addresses"),
 		statedbTableCommand[*tables.L2AnnounceEntry]("l2-announce"),
 	)
 	RootCmd.AddCommand(StatedbCmd)

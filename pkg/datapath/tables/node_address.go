@@ -28,9 +28,14 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
-// NodeAddress is a publicly routable IP address on the local Cilium node.
+// NodeAddress is a host IP address on a Cilium node. It is a real address
+// assigned to a specific network device. Derived from [*Device].
 type NodeAddress struct {
 	Addr netip.Addr
+
+	// DeviceName is the name of the network device from which this address
+	// is derived from.
+	DeviceName string
 
 	// NodePort is true if this address is to be used for NodePort.
 	// If --nodeport-addresses is set, then all addresses on native
@@ -42,10 +47,6 @@ type NodeAddress struct {
 	// Primary is true if this is the primary IPv4 or IPv6 address of this device.
 	// This is mainly used to pick the address for BPF masquerading.
 	Primary bool
-
-	// DeviceName is the name of the network device from which this address
-	// is derived from.
-	DeviceName string
 }
 
 func (n *NodeAddress) IP() net.IP {
@@ -56,12 +57,25 @@ func (n *NodeAddress) String() string {
 	return fmt.Sprintf("%s (%s)", n.Addr, n.DeviceName)
 }
 
+func (n *NodeAddress) TabHeader() string {
+	return "Address\tDeviceName\tNodePort\tPrimary\n"
+}
+
+func (n *NodeAddress) TabRow() string {
+	return fmt.Sprintf("%s\t%s\t%v\t%v\n", n.Addr, n.DeviceName, n.NodePort, n.Primary)
+}
+
 type NodeAddressConfig struct {
+	// NodePortAddresses is a set of CIDRs that limit which IP addresses are used for NodePort.
+	// By default empty, in which case the default semantics of using only the first IPv4
+	// and/or IPv6 address per network device. The first address is determined by sorting
+	// the addresses by secondary flag and scope, so that primary addresses with lowest
+	// scope (e.g. global) are preferred.
 	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
 
 	// AddressScopeMax controls the maximum address scope for addresses to be
-	// considered local ones. Affects which addresses are used for NodePort
-	// and which have HOST_ID in the ipcache.
+	// considered host addresses. Affects which addresses are used for NodePort
+	// and have HOST_ID entry in the ipcache.
 	AddressScopeMax string `mapstructure:"local-max-addr-scope"`
 }
 
