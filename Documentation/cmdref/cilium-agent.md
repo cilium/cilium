@@ -189,6 +189,7 @@ cilium-agent [flags]
       --hubble-export-file-max-backups int                        Number of rotated Hubble export files to keep. (default 5)
       --hubble-export-file-max-size-mb int                        Size in MB at which to rotate Hubble export file. (default 10)
       --hubble-export-file-path string                            Filepath to write Hubble events to.
+      --hubble-flowlogs-config-path string                        Filepath with configuration of hubble flowlogs
       --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                                    List of Hubble metrics to enable.
       --hubble-metrics-server string                              Address to serve Hubble metrics on.

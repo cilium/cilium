@@ -1608,6 +1608,55 @@ hubble:
       #    hosts:
       #      - chart-example.local
 
+  # -- Hubble flows export.
+  export:
+    # --- Defines max file size of output file before it gets rotated.
+    fileMaxSizeMb: 10
+    # --- Defines max number of backup/rotated files.
+    fileMaxBackups: 5
+    # --- Static exporter configuration.
+    # Static exporter is bound to agent lifecycle.
+    static:
+      enabled: false
+      filePath: /var/run/cilium/hubble/events.log
+      fieldMask: []
+      # - time
+      # - source
+      # - destination
+      # - verdict
+      allowList: []
+      # - '{"verdict":["DROPPED","ERROR"]}'
+      denyList: []
+      # - '{"source_pod":["kube-system/"]}'
+      # - '{"destination_pod":["kube-system/"]}'
+    # --- Dynamic exporters configuration.
+    # Dynamic exporters may be reconfigured without a need of agent restarts.
+    dynamic:
+      enabled: false
+      config:
+        # ---- Name of configmap with configuration that may be altered to reconfigure exporters within a running agents.
+        configMapName: cilium-flowlog-config
+        # ---- True if helm installer should create config map.
+        # Switch to false if you want to self maintain the file content.
+        createConfigMap: true
+        # ---- Exporters configuration in YAML format.
+        content:
+        - name: all
+          fieldMask: []
+          includeFilters: []
+          excludeFilters: []
+          filePath: "/var/run/cilium/hubble/events.log"
+        #- name: "test002"
+        #  filePath: "/var/log/network/flow-log/pa/test002.log"
+        #  fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
+        #  includeFilters:
+        #  - source_pod: ["default/"]
+        #    event_type:
+        #    - type: 1
+        #  - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
+        #  excludeFilters: []
+        #  end: "2023-10-09T23:59:59-07:00"
+
 # -- Method to use for identity allocation (`crd` or `kvstore`).
 identityAllocationMode: "crd"
 

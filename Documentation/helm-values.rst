@@ -1472,6 +1472,38 @@
      - Enable Hubble (true by default).
      - bool
      - ``true``
+   * - :spelling:ignore:`hubble.export`
+     - Hubble flows export.
+     - object
+     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"fileMaxBackups":5,"fileMaxSizeMb":10,"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}}``
+   * - :spelling:ignore:`hubble.export.dynamic`
+     - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
+     - object
+     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
+   * - :spelling:ignore:`hubble.export.dynamic.config.configMapName`
+     - -- Name of configmap with configuration that may be altered to reconfigure exporters within a running agents.
+     - string
+     - ``"cilium-flowlog-config"``
+   * - :spelling:ignore:`hubble.export.dynamic.config.content`
+     - -- Exporters configuration in YAML format.
+     - list
+     - ``[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
+   * - :spelling:ignore:`hubble.export.dynamic.config.createConfigMap`
+     - -- True if helm installer should create config map. Switch to false if you want to self maintain the file content.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`hubble.export.fileMaxBackups`
+     - - Defines max number of backup/rotated files.
+     - int
+     - ``5``
+   * - :spelling:ignore:`hubble.export.fileMaxSizeMb`
+     - - Defines max file size of output file before it gets rotated.
+     - int
+     - ``10``
+   * - :spelling:ignore:`hubble.export.static`
+     - - Static exporter configuration. Static exporter is bound to agent lifecycle.
+     - object
+     - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string

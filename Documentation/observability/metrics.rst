@@ -795,10 +795,10 @@ Name                             Labels                                   Defaul
 Labels
 """"""
 
-``source`` identifies the source of lost events, one of:
-- ``perf_event_ring_buffer``
-- ``observer_events_queue``
-- ``hubble_ring_buffer``
+- ``source`` identifies the source of lost events, one of:
+   - ``perf_event_ring_buffer``
+   - ``observer_events_queue``
+   - ``hubble_ring_buffer``
 
 
 ``dns``
@@ -1005,6 +1005,84 @@ Options
 """""""
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
+
+dynamic_exporter_exporters_total
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is dynamic hubble exporter metric.
+
+==================================== ======================================== ========== ==================================================
+Name                                 Labels                                   Default    Description
+==================================== ======================================== ========== ==================================================
+``dynamic_exporter_exporters_total`` ``source``                               Enabled    Number of configured hubble exporters
+==================================== ======================================== ========== ==================================================
+
+Labels
+""""""
+
+- ``status`` identifies status of exporters, can be one of:
+   - ``active``
+   - ``inactive``
+
+dynamic_exporter_up
+~~~~~~~~~~~~~~~~~~~
+
+This is dynamic hubble exporter metric.
+
+==================================== ======================================== ========== ==================================================
+Name                                 Labels                                   Default    Description
+==================================== ======================================== ========== ==================================================
+``dynamic_exporter_up``              ``source``                               Enabled    Status of exporter (1 - active, 0 - inactive)
+==================================== ======================================== ========== ==================================================
+
+Labels
+""""""
+
+- ``name`` identifies exporter name
+
+dynamic_exporter_reconfigurations_total
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is dynamic hubble exporter metric.
+
+=========================================== ======================================== ========== ==================================================
+Name                                        Labels                                   Default    Description
+=========================================== ======================================== ========== ==================================================
+``dynamic_exporter_reconfigurations_total`` ``op``                                   Enabled    Number of dynamic exporters reconfigurations
+=========================================== ======================================== ========== ==================================================
+
+Labels
+""""""
+
+- ``op`` identifies reconfiguration operation type, can be one of:
+   - ``add``
+   - ``update``
+   - ``remove``
+
+dynamic_exporter_config_hash
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is dynamic hubble exporter metric.
+
+==================================== ======================================== ========== ==================================================
+Name                                 Labels                                   Default    Description
+==================================== ======================================== ========== ==================================================
+``dynamic_exporter_config_hash``                                              Enabled    Hash of last applied config
+==================================== ======================================== ========== ==================================================
+
+dynamic_exporter_config_last_applied
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is dynamic hubble exporter metric.
+
+======================================== ======================================== ========== ==================================================
+Name                                     Labels                                   Default    Description
+======================================== ======================================== ========== ==================================================
+``dynamic_exporter_config_last_applied``                                          Enabled    Timestamp of last applied config
+======================================== ======================================== ========== ==================================================
+
+
+
 
 .. _clustermesh_apiserver_metrics_reference:
 

@@ -1,0 +1,13 @@
+flowLogs:
+- name: "test001"
+  filePath: "/var/log/network/flow-log/pa/test001.log"
+  fieldMask: []
+  includeFilters: []
+  excludeFilters: []
+  end: "2023-10-09T23:59:59-07:00"
+- name: "test001"
+  filePath: "/var/log/network/flow-log/pa/test002.log"
+  fieldMask: []
+  includeFilters: []
+  excludeFilters: []
+  end: "2023-10-09T23:59:59-07:00"
