@@ -30,7 +30,7 @@ import (
 
 // NodeAddress is a publicly routable IP address on the local Cilium node.
 type NodeAddress struct {
-	netip.Addr
+	Addr netip.Addr
 
 	// NodePort is true if this address is to be used for NodePort.
 	// If --nodeport-addresses is set, then all addresses on native
@@ -49,7 +49,7 @@ type NodeAddress struct {
 }
 
 func (n *NodeAddress) IP() net.IP {
-	return n.AsSlice()
+	return n.Addr.AsSlice()
 }
 
 func (n *NodeAddress) String() string {
