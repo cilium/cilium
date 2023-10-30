@@ -49,15 +49,18 @@ var Cell = cell.Module(
 	"cilium API server",
 
 	cell.Provide(newForCell),
+	APICell,
 )
 
-type serverParams struct {
+// APICell provides the restapi.CiliumAPIAPI type, populated
+// with the request handlers. This cell is an alternative to 'Cell' when only
+// the API type is required and not the full server implementation.
+var APICell = cell.Provide(newAPI)
+
+type apiParams struct {
 	cell.In
 
-	Lifecycle  hive.Lifecycle
-	Shutdowner hive.Shutdowner
-	Logger     logrus.FieldLogger
-	Spec       *Spec
+	Spec *Spec
 
 	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
@@ -103,6 +106,7 @@ type serverParams struct {
 	ServiceGetServiceHandler             service.GetServiceHandler
 	ServiceGetServiceIDHandler           service.GetServiceIDHandler
 	StatedbGetStatedbDumpHandler         statedb.GetStatedbDumpHandler
+	StatedbGetStatedbQueryTableHandler   statedb.GetStatedbQueryTableHandler
 	DaemonPatchConfigHandler             daemon.PatchConfigHandler
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
@@ -116,7 +120,7 @@ type serverParams struct {
 	ServicePutServiceIDHandler           service.PutServiceIDHandler
 }
 
-func newForCell(p serverParams) (*Server, error) {
+func newAPI(p apiParams) *restapi.CiliumAPIAPI {
 	api := restapi.NewCiliumAPIAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
@@ -165,6 +169,7 @@ func newForCell(p serverParams) (*Server, error) {
 	api.ServiceGetServiceHandler = p.ServiceGetServiceHandler
 	api.ServiceGetServiceIDHandler = p.ServiceGetServiceIDHandler
 	api.StatedbGetStatedbDumpHandler = p.StatedbGetStatedbDumpHandler
+	api.StatedbGetStatedbQueryTableHandler = p.StatedbGetStatedbQueryTableHandler
 	api.DaemonPatchConfigHandler = p.DaemonPatchConfigHandler
 	api.EndpointPatchEndpointIDHandler = p.EndpointPatchEndpointIDHandler
 	api.EndpointPatchEndpointIDConfigHandler = p.EndpointPatchEndpointIDConfigHandler
@@ -177,11 +182,24 @@ func newForCell(p serverParams) (*Server, error) {
 	api.RecorderPutRecorderIDHandler = p.RecorderPutRecorderIDHandler
 	api.ServicePutServiceIDHandler = p.ServicePutServiceIDHandler
 
-	s := NewServer(api)
+	return api
+}
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+	Spec       *Spec
+	API        *restapi.CiliumAPIAPI
+}
+
+func newForCell(p serverParams) (*Server, error) {
+	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
-
 	return s, nil
 }
 

@@ -82,6 +82,22 @@ func (r *Route) String() string {
 		r.Dst, r.Src, r.Table, r.LinkIndex)
 }
 
+func (*Route) TabHeader() string {
+	return "Destination\tSource\tGateway\tLinkIndex\tTable\tScope\n"
+}
+
+func (r *Route) TabRow() string {
+	showAddr := func(addr netip.Addr) string {
+		if !addr.IsValid() {
+			return ""
+		}
+		return addr.String()
+	}
+	return fmt.Sprintf("%s\t%s\t%s\t%d\t%d\t%v\n",
+		r.Dst, showAddr(r.Src), showAddr(r.Gw),
+		r.LinkIndex, r.Table, r.Scope)
+}
+
 func HasDefaultRoute(tbl statedb.Table[*Route], rxn statedb.ReadTxn, linkIndex int) bool {
 	// Device has a default route when a route exists in the main table
 	// with a zero destination.

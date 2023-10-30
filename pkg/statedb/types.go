@@ -230,6 +230,13 @@ type Indexer[Obj any] interface {
 	fromObject(obj Obj) index.KeySet
 }
 
+// TabWritable is a constraint for objects that implement tabular
+// pretty-printing. Used in "cilium-dbg statedb" sub-commands.
+type TabWritable interface {
+	TabHeader() string
+	TabRow() string
+}
+
 //
 // Internal types and constants.
 //

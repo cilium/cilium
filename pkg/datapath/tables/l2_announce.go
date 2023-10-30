@@ -4,6 +4,7 @@
 package tables
 
 import (
+	"fmt"
 	"net/netip"
 	"slices"
 
@@ -67,3 +68,13 @@ var (
 		L2AnnounceOriginIndex,
 	)
 )
+
+func (*L2AnnounceEntry) TabHeader() string {
+	return "IP\tNetworkInterface\n"
+}
+
+func (e *L2AnnounceEntry) TabRow() string {
+	return fmt.Sprintf("%s\t%s\n",
+		e.IP,
+		e.NetworkInterface)
+}
