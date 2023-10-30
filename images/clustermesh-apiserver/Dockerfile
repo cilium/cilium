@@ -2,8 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
+# These SHA256 digests are important for two reasons:
+# 1. They 'pin' the container image to a specific version. Unlike a tag that can be changed at any future point, a
+#    SHA265 hash cannot be modified. This increases the security of the build by protecting against a class of supply
+#    chain attacks where an attacker has write access to our 3rd party dependnecy image registries.
+# 2. These digests must be to the *overall* digest, not the digest for a specific image. This is because the images will
+#    be architecture specific, but the overall digest will contiain all of the architectures.
 ARG GOLANG_IMAGE=docker.io/library/golang:1.21.4@sha256:81cd210ae58a6529d832af2892db822b30d84f817a671b8e1c15cff0b271a3db
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.18.4@sha256:eece025e432126ce23f223450a0326fbebde39cdf496a85d8c016293fc851978
+# We don't use ETCD_IMAGE because that's used in Makefile.defs to select a ETCD image approrpate for the *host platform*
+# to run tests with.
+ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.5.10@sha256:fe1d616ac2740b834c8f57de01272cdeb344427f407c31b01f189bf13d17bb78
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -49,6 +58,8 @@ RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
     ./build-gops.sh
 
+FROM --platform=${TARGETARCH} ${ETCD_SERVER_IMAGE} as etcd
+
 FROM ${BASE_IMAGE} as release
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETOS
@@ -57,6 +68,9 @@ ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
+# While the etcd image uses /usr/local/bin, we're moving it to /usr/bin to keep consistency with the rest of our images.
+# We also don't grab the etcdctl or etcdutl binaries, as we don't need them for our application.
+COPY --from=etcd /usr/local/bin/etcd /usr/bin/etcd
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml /var/lib/cilium/etcd-config.yaml
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/clustermesh-apiserver /usr/bin/clustermesh-apiserver
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
