@@ -1215,31 +1215,14 @@ func (s *Service) restoreAndDeleteOrphanSourceRanges() error {
 // The removal is based on an assumption that during the sync period
 // UpsertService() is going to be called for each alive service.
 //
+// Additionally, it returns a list of services which are associated with
+// stale backends, and which shall be refreshed. Stale services shall be
+// refreshed regardless of whether an error is also returned or not.
+//
 // The localOnly flag allows to perform a two pass removal, handling local
 // services first, and processing global ones only after full synchronization
 // with all remote clusters.
-func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.StoppableWaitGroup) bool, localOnly bool,
-	localServices sets.Set[k8s.ServiceID]) error {
-	servicesWithStaleBackends := sets.New[lb.ServiceName]()
-
-	// We need to trigger the stale services refresh while not holding the
-	// lock, to ensure that the generated events can be processed, and to
-	// prevent a possible deadlock in case the events channel is already full.
-	defer func() {
-		swg := lock.NewStoppableWaitGroup()
-
-		for svc := range servicesWithStaleBackends {
-			ensurer(k8s.ServiceID{
-				Cluster:   svc.Cluster,
-				Namespace: svc.Namespace,
-				Name:      svc.Name,
-			}, swg)
-		}
-
-		swg.Stop()
-		swg.Wait()
-	}()
-
+func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s.ServiceID]) (stale []k8s.ServiceID, err error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -1262,11 +1245,11 @@ func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.Stoppabl
 				Warn("Deleting no longer present service")
 
 			if err := s.deleteServiceLocked(svc); err != nil {
-				return fmt.Errorf("Unable to remove service %+v: %s", svc, err)
+				return stale, fmt.Errorf("Unable to remove service %+v: %s", svc, err)
 			}
 		} else if svc.restoredBackendHashes.Len() > 0 {
 			// The service is still associated with stale backends
-			servicesWithStaleBackends.Insert(svc.svcName)
+			stale = append(stale, svcID)
 			log.WithFields(logrus.Fields{
 				logfields.ServiceID:      svc.frontend.ID,
 				logfields.ServiceName:    svc.svcName.String(),
@@ -1281,13 +1264,13 @@ func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.Stoppabl
 	if localOnly {
 		// Wait for full clustermesh synchronization before finalizing the
 		// removal of orphan backends and affinity matches.
-		return nil
+		return stale, nil
 	}
 
 	// Remove no longer existing affinity matches
 	if option.Config.EnableSessionAffinity {
 		if err := s.deleteOrphanAffinityMatchesLocked(); err != nil {
-			return err
+			return stale, err
 		}
 	}
 
@@ -1297,7 +1280,7 @@ func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.Stoppabl
 
 	}
 
-	return nil
+	return stale, nil
 }
 
 func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,

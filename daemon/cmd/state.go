@@ -23,6 +23,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -472,7 +473,19 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 									localServices = d.k8sWatcher.K8sSvcCache.LocalServices()
 								}
 
-								return d.svc.SyncWithK8sFinished(d.k8sWatcher.K8sSvcCache.EnsureService, localOnly, localServices)
+								stale, err := d.svc.SyncWithK8sFinished(localOnly, localServices)
+
+								// Always process the list of stale services, regardless
+								// of whether an error was returned.
+								swg := lock.NewStoppableWaitGroup()
+								for _, svc := range stale {
+									d.k8sWatcher.K8sSvcCache.EnsureService(svc, swg)
+								}
+
+								swg.Stop()
+								swg.Wait()
+
+								return err
 							},
 							Context: d.ctx,
 						},

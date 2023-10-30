@@ -25,7 +25,6 @@ import (
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -627,7 +626,8 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 
 	// cilium-agent finished the initialization, and thus SyncWithK8sFinished
 	// is called
-	err = m.svc.SyncWithK8sFinished(func(k8s.ServiceID, *lock.StoppableWaitGroup) bool { return true }, false, nil)
+	stale, err := m.svc.SyncWithK8sFinished(false, nil)
+	c.Assert(stale, IsNil)
 	c.Assert(err, IsNil)
 
 	// svc1 should be removed from cilium while svc2 is synced
@@ -745,33 +745,29 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap incorrectly modified")
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap incorrectly modified")
 
-			// Trigger a new upsertion: this mimics what would eventually happen when calling ServiceCache.EnsureService()
-			ensurer := func(id k8s.ServiceID, swg *lock.StoppableWaitGroup) bool {
-				defer swg.Done()
-				if id.Namespace == "foo" && id.Name == "bar" {
-					_, _, err := svc.upsertService(service("foo", "bar", "172.16.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.5"))
-					require.NoError(t, err, "Failed to upsert service")
-					return true
-				}
-				require.Fail(t, "Unexpected service ID", "Service ID: %v", id)
-				return false
-			}
-
 			svcID := k8s.ServiceID{Namespace: "foo", Name: "bar"}
 			localServices := sets.New[k8s.ServiceID]()
 			if tt.isLocal {
 				localServices.Insert(svcID)
 			}
 
-			require.NoError(t, svc.SyncWithK8sFinished(ensurer, tt.localOnly, localServices), "Failed to trigger garbage collection")
+			stale, err := svc.SyncWithK8sFinished(tt.localOnly, localServices)
+			require.NoError(t, err, "Failed to trigger garbage collection")
 
 			require.Contains(t, lbmap.ServiceByID, uint16(id1), "service incorrectly removed from lbmap")
 
 			// Stale backends should now have been removed (if appropriate)
 			if tt.expectStaleBackends {
+				require.Empty(t, stale)
 				require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "stale backends should not have been removed from lbmap")
 				require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "stale backends should not have been removed from lbmap")
 			} else {
+				require.ElementsMatch(t, stale, []k8s.ServiceID{svcID})
+
+				// Trigger a new upsertion: this mimics what would eventually happen when calling ServiceCache.EnsureService()
+				_, _, err := svc.upsertService(service("foo", "bar", "172.16.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.5"))
+				require.NoError(t, err, "Failed to upsert service")
+
 				require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "stale backends not correctly removed from lbmap")
 				require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "stale backends not correctly removed from lbmap")
 			}
