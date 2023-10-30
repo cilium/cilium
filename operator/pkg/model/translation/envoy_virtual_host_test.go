@@ -240,6 +240,6 @@ func Test_requestMirrorMutation(t *testing.T) {
 
 		res := requestMirrorMutation(mirror)(route)
 		require.Len(t, res.Route.RequestMirrorPolicies, 1)
-		require.Equal(t, res.Route.RequestMirrorPolicies[0].Cluster, "default/dummy-service:8080")
+		require.Equal(t, res.Route.RequestMirrorPolicies[0].Cluster, "default:dummy-service:8080")
 	})
 }
