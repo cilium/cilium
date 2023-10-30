@@ -90,8 +90,12 @@ func qualifyRouteConfigurationResourceNames(namespace, name string, routeConfig 
 		for _, rt := range vhost.Routes {
 			if action := rt.GetRoute(); action != nil {
 				if clusterName := action.GetCluster(); clusterName != "" {
-					action.GetClusterSpecifier().(*envoy_config_route.RouteAction_Cluster).Cluster =
-						api.ResourceQualifiedName(namespace, name, clusterName)
+					action.GetClusterSpecifier().(*envoy_config_route.RouteAction_Cluster).Cluster = api.ResourceQualifiedName(namespace, name, clusterName)
+				}
+				for _, r := range action.GetRequestMirrorPolicies() {
+					if clusterName := r.GetCluster(); clusterName != "" {
+						r.Cluster = api.ResourceQualifiedName(namespace, name, clusterName)
+					}
 				}
 				if weightedClusters := action.GetWeightedClusters(); weightedClusters != nil {
 					for _, cluster := range weightedClusters.GetClusters() {
@@ -221,9 +225,27 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 						if err != nil {
 							continue
 						}
-						_, ok := any.(*envoy_config_tcp.TcpProxy)
+						tcpProxy, ok := any.(*envoy_config_tcp.TcpProxy)
 						if !ok {
 							continue
+						}
+
+						updated := false
+						switch c := tcpProxy.GetClusterSpecifier().(type) {
+						case *envoy_config_tcp.TcpProxy_Cluster:
+							c.Cluster = api.ResourceQualifiedName(cecNamespace, cecName, c.Cluster)
+							updated = true
+						case *envoy_config_tcp.TcpProxy_WeightedClusters:
+							for _, wc := range c.WeightedClusters.Clusters {
+								wc.Name = api.ResourceQualifiedName(cecNamespace, cecName, wc.Name)
+							}
+							updated = true
+						}
+
+						if updated {
+							filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+								TypedConfig: toAny(tcpProxy),
+							}
 						}
 					default:
 						continue
