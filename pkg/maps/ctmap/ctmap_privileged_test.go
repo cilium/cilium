@@ -569,6 +569,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		TxPackets: 1,
 		TxBytes:   216,
 		Lifetime:  37459,
+		Flags:     DSR,
 	}
 	err = ctMapTCP.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -642,6 +643,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		TxPackets: 1,
 		TxBytes:   216,
 		Lifetime:  37459,
+		Flags:     DSR,
 	}
 	err = ctMapTCP.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
