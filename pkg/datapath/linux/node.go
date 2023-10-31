@@ -502,92 +502,12 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 			n.replaceNodeIPSecInRoute(cidr)
 		}
 		n.replaceNodeIPSecOutRoute(cidr)
-		if n.nodeConfig.EncryptNode {
-			n.replaceNodeExternalIPSecOutRoute(cidr)
-		}
 	}
 
 	for _, cidr := range v6CIDR {
 		n.replaceNodeIPSecInRoute(cidr)
 		n.replaceNodeIPSecOutRoute(cidr)
-		if n.nodeConfig.EncryptNode {
-			n.replaceNodeExternalIPSecOutRoute(cidr)
-		}
 	}
-}
-
-// encryptNode handles setting the IPsec state for node encryption (subnet
-// encryption = disabled).
-func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
-	var spi uint8
-	var err error
-
-	if n.nodeConfig.EnableIPv4 {
-		internalIPv4 := n.nodeAddressing.IPv4().PrimaryExternal()
-		exactMask := net.IPv4Mask(255, 255, 255, 255)
-		ipsecLocal := &net.IPNet{IP: internalIPv4, Mask: exactMask}
-		if newNode.IsLocal() {
-			wildcardIP := net.ParseIP(wildcardIPv4)
-			ipsecIPv4Wildcard := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
-			n.replaceNodeIPSecInRoute(ipsecLocal)
-			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, internalIPv4, wildcardIP, 0, ipsec.IPSecDirIn, false)
-			upsertIPsecLog(err, "EncryptNode local IPv4", ipsecLocal, ipsecIPv4Wildcard, spi)
-		} else {
-			if remoteIPv4 := newNode.GetNodeIP(false); remoteIPv4 != nil {
-				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
-				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv4, remoteIPv4, 0, ipsec.IPSecDirOutNode, false)
-				upsertIPsecLog(err, "EncryptNode IPv4", ipsecLocal, ipsecRemote, spi)
-			}
-			remoteIPv4 := newNode.GetCiliumInternalIP(false)
-			if remoteIPv4 != nil {
-				mask := newNode.IPv4AllocCIDR.Mask
-				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv4.Mask(mask), Mask: mask}
-				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: mask}
-				ipsecWildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
-
-				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
-				if remoteIPv4T := newNode.GetNodeIP(false); remoteIPv4T != nil {
-					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv4, remoteIPv4T, 0, ipsec.IPSecDirOutNode)
-				}
-				upsertIPsecLog(err, "EncryptNode Cilium IPv4", ipsecWildcard, ipsecRemote, spi)
-			}
-		}
-	}
-
-	if n.nodeConfig.EnableIPv6 {
-		internalIPv6 := n.nodeAddressing.IPv6().PrimaryExternal()
-		exactMask := net.CIDRMask(128, 128)
-		ipsecLocal := &net.IPNet{IP: internalIPv6, Mask: exactMask}
-		if newNode.IsLocal() {
-			wildcardIP := net.ParseIP(wildcardIPv6)
-			ipsecIPv6Wildcard := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 0)}
-			n.replaceNodeIPSecInRoute(ipsecLocal)
-			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, internalIPv6, wildcardIP, 0, ipsec.IPSecDirIn, false)
-			upsertIPsecLog(err, "EncryptNode local IPv6", ipsecLocal, ipsecIPv6Wildcard, spi)
-		} else {
-			if remoteIPv6 := newNode.GetNodeIP(true); remoteIPv6 != nil {
-				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
-				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv6, remoteIPv6, 0, ipsec.IPSecDirOut, false)
-				upsertIPsecLog(err, "EncryptNode IPv6", ipsecLocal, ipsecRemote, spi)
-			}
-			remoteIPv6 := newNode.GetCiliumInternalIP(true)
-			if remoteIPv6 != nil {
-				mask := newNode.IPv6AllocCIDR.Mask
-				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv6.Mask(mask), Mask: mask}
-				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: mask}
-				ipsecWildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
-
-				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
-				if remoteIPv6T := newNode.GetNodeIP(true); remoteIPv6T != nil {
-					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv6, remoteIPv6T, 0, ipsec.IPSecDirOutNode)
-				}
-				upsertIPsecLog(err, "EncryptNode Cilium IPv6", ipsecWildcard, ipsecRemote, spi)
-			}
-		}
-	}
-
 }
 
 func getNextHopIP(nodeIP net.IP, link netlink.Link) (nextHopIP net.IP, err error) {
@@ -1163,7 +1083,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		n.diffAndUnmapNodeIPs(oldNode.IPAddresses, newNode.IPAddresses)
 	}
 
-	if n.nodeConfig.EnableIPSec && !n.nodeConfig.EncryptNode {
+	if n.nodeConfig.EnableIPSec {
 		n.enableIPsec(newNode, remoteNodeID)
 		newKey = newNode.EncryptionKey
 	}
@@ -1174,10 +1094,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		// 1. newNode is accessed only by reads.
 		// 2. It is safe to invoke insertNeighbor for the same node.
 		go n.insertNeighbor(context.Background(), newNode, false)
-	}
-
-	if n.nodeConfig.EnableIPSec && n.nodeConfig.EncryptNode && !n.subnetEncryption() {
-		n.encryptNode(newNode)
 	}
 
 	if newNode.IsLocal() {
@@ -1403,27 +1319,6 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 	}
 }
 
-func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt bool) route.Route {
-	var tbl int
-	var mtu int
-
-	if dflt {
-		mtu = n.nodeConfig.MtuConfig.GetRouteMTU()
-	} else {
-		tbl = linux_defaults.RouteTableIPSec
-		mtu = n.nodeConfig.MtuConfig.GetRoutePostEncryptMTU()
-	}
-
-	// The default routing table accounts for encryption overhead for encrypt-node traffic
-	return route.Route{
-		Device: n.datapathConfig.HostDevice,
-		Prefix: *ip,
-		Table:  tbl,
-		Proto:  route.EncryptRouteProtocol,
-		MTU:    mtu,
-	}
-}
-
 // replaceNodeIPSecOutRoute replace the out IPSec route in the host routing
 // table with the new route. If no route exists the route is installed on the
 // host. The caller must ensure that the CIDR passed in must be non-nil.
@@ -1443,28 +1338,6 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
 	}
 }
 
-// replaceNodeExternalIPSecOutRoute replace the out IPSec route in the host
-// routing table with the new route. If no route exists the route is installed
-// on the host. The caller must ensure that the CIDR passed in must be non-nil.
-func (n *linuxNodeHandler) replaceNodeExternalIPSecOutRoute(ip *net.IPNet) {
-	if ip.IP.To4() != nil {
-		if !n.nodeConfig.EnableIPv4 {
-			return
-		}
-	} else {
-		if !n.nodeConfig.EnableIPv6 {
-			return
-		}
-	}
-
-	if err := route.Upsert(n.createNodeExternalIPSecOutRoute(ip, true)); err != nil {
-		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to replace the IPSec route OUT the default routing table")
-	}
-	if err := route.Upsert(n.createNodeExternalIPSecOutRoute(ip, false)); err != nil {
-		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to replace the IPSec route OUT the host routing table")
-	}
-}
-
 // The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) {
 	if ip.IP.To4() != nil {
@@ -1479,27 +1352,6 @@ func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) {
 
 	if err := route.Delete(n.createNodeIPSecOutRoute(ip)); err != nil {
 		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route OUT from the host routing table")
-	}
-}
-
-// The caller must ensure that the CIDR passed in must be non-nil.
-func (n *linuxNodeHandler) deleteNodeExternalIPSecOutRoute(ip *net.IPNet) {
-	if ip.IP.To4() != nil {
-		if !n.nodeConfig.EnableIPv4 {
-			return
-		}
-	} else {
-		if !n.nodeConfig.EnableIPv6 {
-			return
-		}
-	}
-
-	if err := route.Delete(n.createNodeExternalIPSecOutRoute(ip, true)); err != nil {
-		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route External OUT from the ipsec routing table")
-	}
-
-	if err := route.Delete(n.createNodeExternalIPSecOutRoute(ip, false)); err != nil {
-		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route External OUT from the host routing table")
 	}
 }
 
@@ -1540,13 +1392,6 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 		if !n.subnetEncryption() {
 			n.deleteNodeIPSecOutRoute(old4RouteNet)
 		}
-		if n.nodeConfig.EncryptNode {
-			if remoteIPv4 := oldNode.GetNodeIP(false); remoteIPv4 != nil {
-				exactMask := net.IPv4Mask(255, 255, 255, 255)
-				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
-				n.deleteNodeExternalIPSecOutRoute(ipsecRemote)
-			}
-		}
 	}
 
 	if n.nodeConfig.EnableIPv6 && oldNode.IPv6AllocCIDR != nil {
@@ -1554,13 +1399,6 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 		// See IPv4 case above.
 		if !n.subnetEncryption() {
 			n.deleteNodeIPSecOutRoute(old6RouteNet)
-		}
-		if n.nodeConfig.EncryptNode {
-			if remoteIPv6 := oldNode.GetNodeIP(true); remoteIPv6 != nil {
-				exactMask := net.CIDRMask(128, 128)
-				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
-				n.deleteNodeExternalIPSecOutRoute(ipsecRemote)
-			}
 		}
 	}
 }
