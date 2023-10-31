@@ -1275,8 +1275,7 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off, int l4
 	csum_l4_offset_and_flags(nexthdr, &csum);
 
 	if (old_port != new_port) {
-		__be32 from = old_port;
-		__be32 to = new_port;
+		int err;
 
 		switch (nexthdr) {
 		case IPPROTO_TCP:
@@ -1291,9 +1290,10 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off, int l4
 			return DROP_UNKNOWN_L4;
 		}
 
-		sum = csum_diff(&from, 4, &to, 4, sum);
-		if (l4_store_port(ctx, l4_off, port_off, new_port) < 0)
-			return DROP_WRITE_ERROR;
+		/* Amend the L4 checksum due to changing the ports. */
+		err = l4_modify_port(ctx, l4_off, port_off, &csum, new_port, old_port);
+		if (err < 0)
+			return err;
 	}
 
 	if (csum.offset &&
