@@ -160,7 +160,7 @@ func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.onDeleteLocked(id, key)
+	c.onDeleteLocked(id, key, true)
 }
 
 const syncIdentityControllerGroup = "sync-identity"
@@ -175,9 +175,9 @@ var masterKeyRecreateMaxInterval = time.Duration(0)
 var syncIdentityGroup = controller.NewGroup(syncIdentityControllerGroup)
 
 // onDeleteLocked must be called while holding c.Mutex for writing
-func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey) {
+func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey, recreateMissingLocalKeys bool) {
 	a := c.allocator
-	if a.enableMasterKeyProtection {
+	if a.enableMasterKeyProtection && recreateMissingLocalKeys {
 		if value := a.localKeys.lookupID(id); value != nil {
 			c.controllers.UpdateController(syncControllerName(id), controller.ControllerParams{
 				Context:          context.Background(),
@@ -195,6 +195,7 @@ func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey) {
 
 					ctx, cancel := context.WithTimeout(ctx, backendOpTimeout)
 					defer cancel()
+
 					// Each iteration will attempt to grab the key reference, if that succeeds
 					// then this completes (i.e. the key exists).
 					// Otherwise we will attempt to create the key, this process repeats until
@@ -264,7 +265,7 @@ func (c *cache) drain() {
 
 	c.mutex.Lock()
 	for id, key := range c.nextCache {
-		c.onDeleteLocked(id, key)
+		c.onDeleteLocked(id, key, false)
 	}
 	c.mutex.Unlock()
 }
@@ -280,7 +281,7 @@ func (c *cache) drainIf(isStale func(id idpool.ID) bool) {
 	c.mutex.Lock()
 	for id, key := range c.nextCache {
 		if isStale(id) {
-			c.onDeleteLocked(id, key)
+			c.onDeleteLocked(id, key, false)
 			log.WithFields(logrus.Fields{fieldID: id, fieldKey: key}).
 				Debug("Stale identity deleted")
 		}
