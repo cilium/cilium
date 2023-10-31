@@ -7,31 +7,46 @@ export LC_NUMERIC=C
 
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
+IMG_NAME=${3:-cilium-ci}
+IMG_REPO=${4:-quay.io}
+
+# For local testing, run 'make kind kind-image' and then
+# sudo ./test.sh cilium local cilium-dev localhost:5000
 
 ###########
 #  SETUP  #
 ###########
+
+BUILDER_IMAGE="quay.io/cilium/cilium-builder:719132b42fff53994dc9bf9b98fddce9f613c828"
+declare -a sources
 
 # bpf_xdp_veth_host is a dummy XDP program which is going to be attached to LB
 # node's veth pair end in the host netns. When bpf_xdp, which is attached in
 # the container netns, forwards a LB request with XDP_TX, the request needs to
 # be picked in the host netns by a NAPI handler. To register the handler, we
 # attach the dummy program.
-apt-get update
-apt-get install -y gcc-multilib libbpf-dev
-clang -O2 -Wall --target=bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
+sources[0]=bpf_xdp_veth_host.c
 
 # The worker (aka backend node) will receive IPIP packets from the LB node.
 # To decapsulate the packets instead of creating an ipip dev which would
 # complicate network setup, we will attach the following program which
 # terminates the tunnel.
 # The program is taken from the Linux kernel selftests.
-clang -O2 -Wall --target=bpf -c test_tc_tunnel.c -o test_tc_tunnel.o
+sources[1]=test_tc_tunnel.c
+
+for src in ${sources[*]}; do
+    docker run --rm -v "$PWD/../../:/work" "$BUILDER_IMAGE" \
+      clang -O2 -Wall --target=bpf -nostdinc -I/work/bpf/include -I/work/bpf \
+        -c "/work/test/l4lb/$src" -o "/work/test/l4lb/${src%.c}.o"
+done
 
 # With Docker-in-Docker we create two nodes:
 #
 # * "lb-node" runs cilium in the LB-only mode.
 # * "nginx" runs the nginx server.
+
+docker rm -f nginx lb-node || true
+docker network rm cilium-l4lb || true
 
 docker network create cilium-l4lb
 docker run --privileged --name lb-node -d \
@@ -55,13 +70,22 @@ while ! docker exec -t lb-node docker ps >/dev/null; do sleep 1; done
 
 # Install Cilium as standalone L4LB
 docker exec -t lb-node mount bpffs /sys/fs/bpf -t bpf
+
+# Pull the image to the host and push it to the lb-node to allow
+# use of locally built images.
+docker image inspect ${IMG_REPO}/${IMG_OWNER}/${IMG_NAME}:${IMG_TAG} &> /dev/null || \
+  docker pull ${IMG_REPO}/${IMG_OWNER}/${IMG_NAME}:${IMG_TAG}
+
+docker save ${IMG_REPO}/${IMG_OWNER}/${IMG_NAME}:${IMG_TAG} | \
+  docker exec -i lb-node docker load
+
 docker exec -t lb-node \
   docker run --name cilium-lb -td \
     -v /sys/fs/bpf:/sys/fs/bpf \
     -v /lib/modules:/lib/modules \
     --privileged=true \
     --network=host \
-    quay.io/${IMG_OWNER}/cilium-ci:${IMG_TAG} \
+    ${IMG_REPO}/${IMG_OWNER}/${IMG_NAME}:${IMG_TAG} \
     cilium-agent \
     --enable-ipv4=true \
     --enable-ipv6=false \
@@ -104,15 +128,21 @@ LB_VIP="10.0.0.2"
 nsenter -t $(docker inspect nginx -f '{{ .State.Pid }}') -n /bin/sh -c \
     "ip a a dev eth0 ${LB_VIP}/32"
 
+# Check that empty list works
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium-dbg service update --frontend "${LB_VIP}:80:TCP" --backends "${WORKER_IP}:80" --k8s-node-port
+    cilium-dbg service list
+
+docker exec -t lb-node docker exec -t cilium-lb \
+    cilium-dbg service update \
+      --frontend "${LB_VIP}:80:TCP" \
+      --backends "${WORKER_IP}:80" \
+      --k8s-node-port
 
 # Validate get & list
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium-dbg service get "${LB_VIP}:80:TCP"
-
+    cilium-dbg service get "${LB_VIP}:80:TCP" | grep "^${LB_VIP}:80:TCP"
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium-dbg service list
+    cilium-dbg service list | grep "^${LB_VIP}:80:TCP"
 
 LB_NODE_IP=$(docker exec lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1)
 ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
@@ -138,7 +168,11 @@ done
 
 # Set nginx to maintenance
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium-dbg service update --frontend "${LB_VIP}:80:TCP" --backends "${WORKER_IP}:80" --backend-weights "0" --k8s-node-port
+    cilium-dbg service update \
+      --frontend "${LB_VIP}:80:TCP" \
+      --backends "${WORKER_IP}:80" \
+      --backend-weights "0" \
+      --k8s-node-port
 
 # Do not stop on error
 set +e
@@ -154,7 +188,13 @@ set -e
 
 # Delete the frontend
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium service delete "${LB_VIP}:80:TCP"
+    cilium-dbg service delete "${LB_VIP}:80:TCP"
+
+# Validate that it's gone
+docker exec -t lb-node docker exec -t cilium-lb \
+    cilium-dbg service get "${LB_VIP}:80:TCP" || true
+docker exec -t lb-node docker exec -t cilium-lb \
+    cilium-dbg service list | grep "^${LB_VIP}:80:TCP" && false
 
 # Cleanup
 set +e
