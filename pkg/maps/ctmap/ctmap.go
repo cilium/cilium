@@ -281,27 +281,25 @@ func newMap(mapName string, m mapType) *Map {
 }
 
 func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
-	err := m.Delete(key)
-	if err != nil || natMap == nil {
-		return err
-	}
+	if natMap {
+		t := key.GetTupleKey()
 
-	t := key.GetTupleKey()
-
-	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
-		if entry.isDsrEntry() {
-			// To delete NAT entries created by legacy DSR
+		if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
+			if entry.isDsrEntry() {
+				// To delete NAT entries created by legacy DSR
+				nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
+			}
+		} else if t.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT &&
+			entry.isDsrEntry() {
+			// To delete NAT entries created by DSR
 			nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
+		} else {
+			nat.DeleteMapping6(natMap, t.(*tuple.TupleKey6Global))
 		}
-	} else if t.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT &&
-		entry.isDsrEntry() {
-		// To delete NAT entries created by DSR
-		nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
-	} else {
-		nat.DeleteMapping6(natMap, t.(*tuple.TupleKey6Global))
+
 	}
 
-	return nil
+	return m.Delete(key)
 }
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
@@ -396,27 +394,25 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 }
 
 func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
-	err := m.Delete(key)
-	if err != nil || natMap == nil {
-		return err
-	}
 
-	t := key.GetTupleKey()
+	if natMap {
+		t := key.GetTupleKey()
 
-	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
-		if entry.isDsrEntry() {
-			// To delete NAT entries created by legacy DSR
+		if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
+			if entry.isDsrEntry() {
+				// To delete NAT entries created by legacy DSR
+				nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
+			}
+		} else if t.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT &&
+			entry.isDsrEntry() {
+			// To delete NAT entries created by DSR
 			nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
+		} else {
+			nat.DeleteMapping4(natMap, t.(*tuple.TupleKey4Global))
 		}
-	} else if t.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT &&
-		entry.isDsrEntry() {
-		// To delete NAT entries created by DSR
-		nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
-	} else {
-		nat.DeleteMapping4(natMap, t.(*tuple.TupleKey4Global))
 	}
 
-	return nil
+	return m.Delete(key)
 }
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
