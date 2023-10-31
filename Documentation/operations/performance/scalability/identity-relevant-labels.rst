@@ -21,21 +21,22 @@ application.
 By default, Cilium considers all labels to be relevant for identities, with the
 following exceptions:
 
-============================================= =====================================================
-Label                                         Description
---------------------------------------------- -----------------------------------------------------
-``any:!io.kubernetes``                        Ignore all ``io.kubernetes`` labels
-``any:!kubernetes\.io``                       Ignore all other ``kubernetes.io`` labels
-``any:!statefulset\.kubernetes\.io/pod-name`` Ignore ``statefulset.kubernetes.io/pod-name`` label
-``any:!apps\.kubernetes\.io/pod-index``       Ignore ``apps.kubernetes.io/pod-index`` label
-``any:!beta\.kubernetes\.io``                 Ignore all ``beta.kubernetes.io`` labels
-``any:!k8s\.io``                              Ignore all ``k8s.io`` labels
-``any:!pod-template-generation``              Ignore all ``pod-template-generation`` labels
-``any:!pod-template-hash``                    Ignore all ``pod-template-hash`` labels
-``any:!controller-revision-hash``             Ignore all ``controller-revision-hash`` labels
-``any:!annotation.*``                         Ignore all ``annotation`` labels
-``any:!etcd_node``                            Ignore all ``etcd_node`` labels
-============================================= =====================================================
+=================================================== =========================================================
+Label                                               Description
+--------------------------------------------------- ---------------------------------------------------------
+``any:!io.kubernetes``                              Ignore all ``io.kubernetes`` labels
+``any:!kubernetes\.io``                             Ignore all other ``kubernetes.io`` labels
+``any:!statefulset\.kubernetes\.io/pod-name``       Ignore ``statefulset.kubernetes.io/pod-name`` label
+``any:!apps\.kubernetes\.io/pod-index``             Ignore ``apps.kubernetes.io/pod-index`` label
+``any:!batch\.kubernetes\.io/job-completion-index`` Ignore ``batch.kubernetes.io/job-completion-index`` label
+``any:!beta\.kubernetes\.io``                       Ignore all ``beta.kubernetes.io`` labels
+``any:!k8s\.io``                                    Ignore all ``k8s.io`` labels
+``any:!pod-template-generation``                    Ignore all ``pod-template-generation`` labels
+``any:!pod-template-hash``                          Ignore all ``pod-template-hash`` labels
+``any:!controller-revision-hash``                   Ignore all ``controller-revision-hash`` labels
+``any:!annotation.*``                               Ignore all ``annotation`` labels
+``any:!etcd_node``                                  Ignore all ``etcd_node`` labels
+=================================================== =========================================================
 
 The above label patterns are all *exclusive label patterns*, that is to say
 they define which label keys should be ignored. These are identified by the

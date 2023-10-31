@@ -111,6 +111,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"annotation.kubernetes.io/config.seen":                      "2017-05-30T14:22:17.691491034Z",
 		"controller-revision-hash":                                  "123456",
 		"statefulset.kubernetes.io/pod-name":                        "my-nginx-0",
+		"batch.kubernetes.io/job-completion-index":                  "42",
 		"apps.kubernetes.io/pod-index":                              "0",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
