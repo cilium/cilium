@@ -68,7 +68,9 @@ main() {
     run_url_id="$(basename "${1}")"
     ersion="$(echo ${2:-$(cat VERSION)} | sed 's/^v//')"
     version="v${ersion}"
+    branch=$(echo $version | sed 's/.*v\([0-9]\+\.[0-9]\+\).*/\1/')
     username=$(get_user_remote ${3:-})
+    upstream_remote="$(get_remote)"
 
     if [ ! -e "${PWD}/install/kubernetes/Makefile.digests" ]; then
         >&2 echo "Cannot find install/kubernetes/Makefile.digests"
@@ -80,7 +82,11 @@ main() {
     >&2 echo "Adding image SHAs to install/kubernetes/Makefile.digests"
     >&2 echo ""
     cp "${makefile_digest}" "${PWD}/install/kubernetes/Makefile.digests"
-    make -C install/kubernetes/
+    CILIUM_BRANCH="main"
+    if git branch -a | grep -q "${upstream_remote}/v${branch}$"; then
+        CILIUM_BRANCH="v${branch}"
+    fi
+    make -C install/kubernetes/ CILIUM_BRANCH=${CILIUM_BRANCH} RELEASE=yes
 
     >&2 echo "Generating manifest text for release notes"
     >&2 echo ""
