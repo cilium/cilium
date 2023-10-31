@@ -83,6 +83,7 @@
 #define CUSTOM_CALLS_MAP test_cilium_calls_custom_65535
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK_ACCOUNTING
+#define POLICY_ACCOUNTING
 #define DIRECT_ROUTING_DEV_IFINDEX 0
 
 #endif /* ___EP_CONFIG____ */
