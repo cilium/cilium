@@ -37,7 +37,8 @@ const (
 // a packet to the tunnel netdev, and only afterwards redirects to the WG netdev
 // for the encryption.
 func getInterNodeIface(ctx context.Context, t *check.Test,
-	client, clientHost, server, serverHost *check.Pod, ipFam features.IPFamily) string {
+	client, clientHost, server, serverHost *check.Pod, ipFam features.IPFamily,
+	wgEncap bool) string {
 
 	tunnelEnabled := false
 	tunnelMode := ""
@@ -56,9 +57,7 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 		ipRouteGetCmd = fmt.Sprintf("%s iif lo", ipRouteGetCmd)
 	}
 
-	// TODO(brb) version check
-	// The WG w/ tunnel case:
-	if enc, ok := t.Context().Feature(features.EncryptionPod); ok && enc.Enabled && enc.Mode == "wireguard" {
+	if enc, ok := t.Context().Feature(features.EncryptionPod); wgEncap && ok && enc.Enabled && enc.Mode == "wireguard" {
 		ipRouteGetCmd = fmt.Sprintf("ip -o route get %s", serverHost.Address(ipFam))
 	}
 
@@ -103,7 +102,7 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 // any unencrypted VXLAN pkt is leaked on a native device.
 func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod,
 	server, serverHost *check.Pod,
-	ipFam features.IPFamily, reqType requestType) string {
+	ipFam features.IPFamily, reqType requestType, wgEncap bool) string {
 
 	tunnelEnabled := false
 	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok && tunnelStatus.Enabled {
@@ -123,7 +122,7 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 		t.Fatalf("Invalid request type: %d", reqType)
 	}
 
-	if enc, ok := t.Context().Feature(features.EncryptionPod); tunnelEnabled && ok &&
+	if enc, ok := t.Context().Feature(features.EncryptionPod); wgEncap && tunnelEnabled && ok &&
 		enc.Enabled && enc.Mode == "wireguard" {
 
 		// Captures the following:
@@ -185,6 +184,24 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	return filter
 }
 
+// isWgEncap checks whether packets are encapsulated before encrypting with WG.
+//
+// In v1.14, it's an opt-in, and controlled by --wireguard-encapsulate.
+// TODO(brb; after merging v1.14, add vsn check): In v1.15, it's mandatory enabled.
+func isWgEncap(t *check.Test) bool {
+	if e, ok := t.Context().Feature(features.EncryptionPod); !(ok && e.Enabled && e.Mode == "wireguard") {
+		return false
+	}
+	if t, ok := t.Context().Feature(features.Tunnel); !(ok && t.Enabled) {
+		return false
+	}
+	if encap, ok := t.Context().Feature(features.WireguardEncapsulate); !(ok && encap.Enabled) {
+		return false
+	}
+
+	return true
+}
+
 // PodToPodEncryption is a test case which checks the following:
 //   - There is a connectivity between pods on different nodes when any
 //     encryption mode is on (either WireGuard or IPsec).
@@ -228,8 +245,13 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 		t.Debugf("%s test running in sanity mode, expecting unencrypted packets", s.Name())
 	}
 
+	wgEncap := isWgEncap(t)
+	if wgEncap {
+		t.Debug("Encapsulation before WG encryption")
+	}
+
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
-		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true)
+		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true, wgEncap)
 	})
 }
 
@@ -335,10 +357,10 @@ func (sniffer *leakSniffer) validate(ctx context.Context, a *check.Action, asser
 
 func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	client, server, clientHost *check.Pod, serverHost *check.Pod,
-	reqType requestType, ipFam features.IPFamily, assertNoLeaks, biDirCheck bool,
+	reqType requestType, ipFam features.IPFamily, assertNoLeaks, biDirCheck, wgEncap bool,
 ) {
-	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType)
-	srcIface := getInterNodeIface(ctx, t, client, clientHost, server, serverHost, ipFam)
+	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType, wgEncap)
+	srcIface := getInterNodeIface(ctx, t, client, clientHost, server, serverHost, ipFam, wgEncap)
 
 	srcSniffer, err := startLeakSniffer(ctx, t, clientHost, srcIface, srcFilter)
 	if err != nil {
@@ -347,8 +369,8 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 
 	var dstSniffer *leakSniffer
 	if biDirCheck {
-		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType)
-		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam)
+		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType, wgEncap)
+		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam, wgEncap)
 
 		dstSniffer, err = startLeakSniffer(ctx, t, serverHost, dstIface, dstFilter)
 		if err != nil {
@@ -444,31 +466,35 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 		t.Debugf("%s test running in sanity mode, expecting unencrypted packets", s.Name())
 	}
 
-	t.ForEachIPFamily(func(ipFam features.IPFamily) {
-		podToPodWGWithTunnel := false
-		if e, ok := t.Context().Feature(features.EncryptionPod); ok && e.Enabled && e.Mode == "wireguard" {
-			if n, ok := t.Context().Feature(features.EncryptionNode); ok && !n.Enabled {
-				if t, ok := t.Context().Feature(features.Tunnel); ok && t.Enabled {
-					podToPodWGWithTunnel = true
-				}
-			}
+	wgEncap := isWgEncap(t)
+	if wgEncap {
+		t.Debug("Encapsulation before WG encryption")
+	}
+	onlyPodToPodWGWithTunnel := false
+	if wgEncap {
+		if n, ok := t.Context().Feature(features.EncryptionNode); ok && !n.Enabled {
+			onlyPodToPodWGWithTunnel = true
 		}
+	}
+
+	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+
 		// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
 		// does not have a HTTP server running)
-		if !podToPodWGWithTunnel {
+		if !onlyPodToPodWGWithTunnel {
 			// In tunnel case ignore this check which expects unencrypted pkts.
 			// The filter built for this check doesn't take into account that
 			// pod-to-remote-node is SNAT-ed. Thus 'host $SRC_HOST and host $DST_HOST and icmp'
 			// doesn't catch any pkt.
-			testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks, false)
+			testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks, false, wgEncap)
 		}
 		// Test host-to-remote-host
-		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks, true)
+		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, &serverHost, requestICMPEcho, ipFam, assertNoLeaks, true, wgEncap)
 		// Test host-to-remote-pod (going to be encrypted with WG pod-to-pod + tunnel)
 		hostToPodAssertNoLeaks := assertNoLeaks
-		if podToPodWGWithTunnel {
+		if onlyPodToPodWGWithTunnel {
 			hostToPodAssertNoLeaks = true
 		}
-		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, &serverHost, requestHTTP, ipFam, hostToPodAssertNoLeaks, false)
+		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, &serverHost, requestHTTP, ipFam, hostToPodAssertNoLeaks, false, wgEncap)
 	})
 }
