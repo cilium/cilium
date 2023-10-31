@@ -184,7 +184,7 @@ type restoredIPRule struct {
 }
 
 // map from EP IPs to *Endpoint
-type restoredEPs map[string]*endpoint.Endpoint
+type restoredEPs map[netip.Addr]*endpoint.Endpoint
 
 // asIPRule returns a new restore.IPRule representing the rules, including the provided IP map.
 func asIPRule(r *regexp.Regexp, IPs map[string]struct{}) restore.IPRule {
@@ -307,10 +307,10 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	p.Lock()
 	defer p.Unlock()
 	if ep.IPv4.IsValid() {
-		p.restoredEPs[ep.IPv4.String()] = ep
+		p.restoredEPs[ep.IPv4] = ep
 	}
 	if ep.IPv6.IsValid() {
-		p.restoredEPs[ep.IPv6.String()] = ep
+		p.restoredEPs[ep.IPv6] = ep
 	}
 	restoredRules := make(map[uint16][]restoredIPRule, len(ep.DNSRules))
 	for port, dnsRule := range ep.DNSRules {
@@ -504,7 +504,7 @@ func (allow perEPAllow) getPortRulesForID(endpointID uint64, destPort uint16) (r
 
 // LookupEndpointIDByIPFunc wraps logic to lookup an endpoint with any backend.
 // See DNSProxy.LookupRegisteredEndpoint for usage.
-type LookupEndpointIDByIPFunc func(ip net.IP) (endpoint *endpoint.Endpoint, err error)
+type LookupEndpointIDByIPFunc func(ip netip.Addr) (endpoint *endpoint.Endpoint, err error)
 
 // LookupSecIDByIPFunc Func wraps logic to lookup an IP's security ID from the
 // ipcache.
@@ -697,11 +697,11 @@ func shutdownServers(dnsServers []*dns.Server) {
 }
 
 // LookupEndpointByIP wraps LookupRegisteredEndpoint by falling back to an restored EP, if available
-func (p *DNSProxy) LookupEndpointByIP(ip net.IP) (endpoint *endpoint.Endpoint, err error) {
+func (p *DNSProxy) LookupEndpointByIP(ip netip.Addr) (endpoint *endpoint.Endpoint, err error) {
 	endpoint, err = p.LookupRegisteredEndpoint(ip)
 	if err != nil {
 		// Check restored endpoints
-		endpoint, found := p.restoredEPs[ip.String()]
+		endpoint, found := p.restoredEPs[ip]
 		if found {
 			return endpoint, nil
 		}
@@ -818,7 +818,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	scopedLog.Debug("Handling DNS query from endpoint")
 
-	addr, _, err := net.SplitHostPort(epIPPort)
+	addrPort, err := netip.ParseAddrPort(epIPPort)
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint IP from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint IP from DNS request: %w", err)
@@ -827,7 +827,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
-	ep, err := p.LookupEndpointByIP(net.ParseIP(addr))
+	ep, err := p.LookupEndpointByIP(addrPort.Addr())
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %w", err)

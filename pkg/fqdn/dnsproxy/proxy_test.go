@@ -195,7 +195,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 
 	proxy, err := StartDNSProxy("", 0, true, 1000, // any address, any port, enable compression, max 1000 restore IPs
 		// LookupEPByIP
-		func(ip net.IP) (*endpoint.Endpoint, error) {
+		func(ip netip.Addr) (*endpoint.Endpoint, error) {
 			if s.restoring {
 				return nil, fmt.Errorf("No EPs available when restoring")
 			}
