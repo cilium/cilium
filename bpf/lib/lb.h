@@ -365,9 +365,8 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 			int ret;
 
 			/* Port offsets for UDP and TCP are the same */
-			ret = l4_load_port(ctx, l4_off + TCP_SPORT_OFF, &old_port);
-			if (IS_ERR(ret))
-				return ret;
+			if (l4_load_port(ctx, l4_off + TCP_SPORT_OFF, &old_port) < 0)
+				return DROP_INVALID;
 
 			if (port != old_port) {
 #ifdef ENABLE_SCTP
