@@ -116,6 +116,9 @@ from one cluster to another:
   kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
     kubectl --context $CLUSTER2 create -f -
 
+  # Annotate the secret so that it isn't removed by Helm
+  kubectl --context=$CLUSTER2 annotate secret -n kube-system cilium-ca helm.sh/resource-policy=keep
+
 .. _enable_clustermesh:
 
 Enable Cluster Mesh
