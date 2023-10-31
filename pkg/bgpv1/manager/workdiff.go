@@ -54,10 +54,10 @@ func newReconcileDiff(node *node.LocalNode, ciliumNode *v2api.CiliumNode) *recon
 // withdraw, or reconcile in the reconcileDiff's respective fields.
 func (wd *reconcileDiff) diff(m LocalASNMap, policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
 	if err := wd.registerOrReconcileDiff(m, policy); err != nil {
-		return fmt.Errorf("encountered error creating reconcile diff: %v", err)
+		return fmt.Errorf("encountered error creating register or reconcile diff: %v", err)
 	}
-	if err := wd.withdrawDiff(m, policy); err != nil {
-		return fmt.Errorf("encountered error creating reconcile diff: %v", err)
+	if err := wd.withdrawDiff(m); err != nil {
+		return fmt.Errorf("encountered error creating withdraw diff: %v", err)
 	}
 	return nil
 }
@@ -106,9 +106,9 @@ func (wd *reconcileDiff) registerOrReconcileDiff(m LocalASNMap, policy *v2alpha1
 	return nil
 }
 
-// withdrawDiff will populate the `remove` field of a reconcileDiff, indicating which
+// withdrawDiff will populate the `withdraw` field of a reconcileDiff, indicating which
 // existing BgpServers must disconnected and removed from the Manager.
-func (wd *reconcileDiff) withdrawDiff(m LocalASNMap, policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
+func (wd *reconcileDiff) withdrawDiff(m LocalASNMap) error {
 	for k := range m {
 		if _, ok := wd.seen[k]; !ok {
 			wd.withdraw = append(wd.withdraw, k)
