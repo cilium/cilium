@@ -2866,7 +2866,8 @@ type FlowFilter struct {
 	// source_pod filters by a list of source pod name prefixes, optionally
 	// within a given namespace (e.g. "xwing", "kube-system/coredns-").
 	// The pod name can be omitted to only filter by namespace
-	// (e.g. "kube-system/")
+	// (e.g. "kube-system/") or the namespace can be omitted to filter for
+	// pods in any namespace (e.g. "/xwing")
 	SourcePod []string `protobuf:"bytes,2,rep,name=source_pod,json=sourcePod,proto3" json:"source_pod,omitempty"`
 	// source_fqdn filters by a list of source fully qualified domain names
 	SourceFqdn []string `protobuf:"bytes,7,rep,name=source_fqdn,json=sourceFqdn,proto3" json:"source_fqdn,omitempty"`

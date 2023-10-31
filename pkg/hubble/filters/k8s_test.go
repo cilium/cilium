@@ -233,6 +233,49 @@ func TestPodFilter(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "all namespaces",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{SourcePod: []string{"/xwing"}},
+					{DestinationPod: []string{"/xwing"}},
+				},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{
+						Source:      &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+						Destination: &flowpb.Endpoint{Namespace: "kube-system", PodName: "kube-proxy"},
+					}},
+					{Event: &flowpb.Flow{
+						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+					}},
+					{Event: &flowpb.Flow{
+						Source:      &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					}},
+					{Event: &flowpb.Flow{
+						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					}},
+					{Event: &flowpb.Flow{
+						Source:      &flowpb.Endpoint{Namespace: "hoth", PodName: "tiefighter"},
+						Destination: &flowpb.Endpoint{Namespace: "endor", PodName: "xwing"},
+					}},
+					{Event: &flowpb.Flow{
+						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "ywing"},
+					}},
+				},
+			},
+			want: []bool{
+				false,
+				false,
+				true,
+				true,
+				true,
+				false,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -299,6 +342,28 @@ func TestServiceFilter(t *testing.T) {
 				true,
 				true,
 				false,
+			},
+		},
+		{
+			name: "any namespace",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{DestinationService: []string{"/kube-"}},
+				},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "default", Name: "xwing"}}},
+					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "default", Name: "deathstar"}}},
+					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "kube-system", Name: "kube-dns"}}},
+					{Event: &flowpb.Flow{SourceService: &flowpb.Service{Namespace: "kube-system", Name: "deathstar"}}},
+					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "monitoring", Name: "kube-prometheus"}}},
+				},
+			},
+			want: []bool{
+				false,
+				false,
+				true,
+				false,
+				true,
 			},
 		},
 	}

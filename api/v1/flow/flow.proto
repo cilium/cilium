@@ -471,7 +471,8 @@ message FlowFilter {
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
     // The pod name can be omitted to only filter by namespace
-    // (e.g. "kube-system/")
+    // (e.g. "kube-system/") or the namespace can be omitted to filter for
+    // pods in any namespace (e.g. "/xwing")
     repeated string source_pod = 2;
     // source_fqdn filters by a list of source fully qualified domain names
     repeated string source_fqdn = 7;
