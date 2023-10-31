@@ -205,14 +205,16 @@ spec:
         {{- end }}
         {{- if .Values.cni.install }}
         lifecycle:
-          {{- if ne .Values.cni.chainingMode "aws-cni" }}
-          postStart:
-            exec:
-              command:
-              - "bash"
-              - "-c"
-              - |
-                {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 20 }}
+          {{- if .Values.cni.chainingMode }}
+            {{- if ne .Values.cni.chainingMode "aws-cni" }}
+            postStart:
+              exec:
+                command:
+                - "bash"
+                - "-c"
+                - |
+                  {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 20 }}
+            {{- end }}
           {{- end }}
           preStop:
             exec:
