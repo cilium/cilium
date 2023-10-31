@@ -65,6 +65,9 @@ var Cell = cell.Module(
 		newDatapath,
 	),
 
+	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
+	tables.NodeAddressCell,
+
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
 	// the datapath of the liveness of the agent.
 	agentliveness.Cell,
@@ -72,10 +75,6 @@ var Cell = cell.Module(
 	// The responder reconciler takes desired state about L3->L2 address translation responses and reconciles
 	// it to the BPF L2 responder map.
 	l2responder.Cell,
-
-	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
-	// between datapath components and more high-level components.
-	tables.Cell,
 
 	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
 	garp.Cell,

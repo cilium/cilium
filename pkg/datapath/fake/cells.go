@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
@@ -36,9 +37,17 @@ var Cell = cell.Module(
 		func() egressmap.PolicyMap { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() *iptables.Manager { return &iptables.Manager{} },
+
+		tables.NewDeviceTable, statedb.RWTable[*tables.Device].ToTable,
+		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
+		tables.NewRouteTable, statedb.RWTable[*tables.Route].ToTable,
 	),
 
-	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
-	// between datapath components and more high-level components.
-	tables.Cell,
+	tables.NodeAddressCell,
+
+	cell.Invoke(
+		statedb.RegisterTable[*tables.Device],
+		statedb.RegisterTable[*tables.L2AnnounceEntry],
+		statedb.RegisterTable[*tables.Route],
+	),
 )

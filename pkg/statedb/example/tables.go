@@ -51,11 +51,13 @@ var (
 		},
 		Unique: true,
 	}
+)
 
-	BackendTableCell = statedb.NewTableCell[Backend](
+func NewBackendTable() statedb.RWTable[Backend] {
+	return statedb.NewTable[Backend](
 		"backends",
 		BackendIDIndex,
 		BackendIPIndex,
 		BackendPortIndex,
 	)
-)
+}

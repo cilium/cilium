@@ -45,14 +45,16 @@ var (
 			return index.Bool(selected)
 		},
 	}
+)
 
-	DeviceTableCell = statedb.NewPrivateRWTableCell[*Device](
+func NewDeviceTable() statedb.RWTable[*Device] {
+	return statedb.NewTable[*Device](
 		"devices",
 		DeviceIDIndex,
 		DeviceNameIndex,
 		DeviceSelectedIndex,
 	)
-)
+}
 
 // HardwareAddr is the physical address for a network device.
 // Defined here instead of using net.Hardwareaddr for proper

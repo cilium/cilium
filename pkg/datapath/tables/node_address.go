@@ -99,21 +99,22 @@ var (
 		"node-address",
 		"Table of node addresses derived from system network devices",
 
-		statedb.NewPrivateRWTableCell[NodeAddress](NodeAddressTableName, NodeAddressIndex, NodeAddressDeviceNameIndex),
+		cell.ProvidePrivate(NewNodeAddressTable),
 		cell.Provide(
-			newNodeAddressTable,
+			newNodeAddressController,
 			newAddressScopeMax,
 		),
 		cell.Config(NodeAddressConfig{}),
 	)
+)
 
-	// NodeAddressTestTableCell provides Table[NodeAddress] and RWTable[NodeAddress]
-	// for use in tests of modules that depend on node addresses.
-	NodeAddressTestTableCell = statedb.NewTableCell[NodeAddress](
+func NewNodeAddressTable() statedb.RWTable[NodeAddress] {
+	return statedb.NewTable[NodeAddress](
 		NodeAddressTableName,
 		NodeAddressIndex,
+		NodeAddressDeviceNameIndex,
 	)
-)
+}
 
 const (
 	nodeAddressControllerMinInterval = 100 * time.Millisecond
@@ -168,12 +169,16 @@ type nodeAddressController struct {
 	tracker *statedb.DeleteTracker[*Device]
 }
 
-// newNodeAddressTable constructs the node address controller & registers its
+// newNodeAddressController constructs the node address controller & registers its
 // lifecycle hooks and then provides Table[NodeAddress] to the application.
 // This enforces proper ordering, e.g. controller is started before anything
 // that depends on Table[NodeAddress] and allows it to populate it before
 // it is accessed.
-func newNodeAddressTable(p nodeAddressControllerParams) (tbl statedb.Table[NodeAddress], err error) {
+func newNodeAddressController(p nodeAddressControllerParams) (tbl statedb.Table[NodeAddress], err error) {
+	if err := p.DB.RegisterTable(p.NodeAddresses); err != nil {
+		return nil, err
+	}
+
 	n := nodeAddressController{nodeAddressControllerParams: p}
 	n.register()
 	return n.NodeAddresses, nil

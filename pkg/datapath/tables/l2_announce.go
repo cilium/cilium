@@ -60,13 +60,15 @@ var (
 			return index.Stringer(id)
 		},
 	}
+)
 
-	L2AnnounceTableCell = statedb.NewTableCell[*L2AnnounceEntry](
+func NewL2AnnounceTable() statedb.RWTable[*L2AnnounceEntry] {
+	return statedb.NewTable[*L2AnnounceEntry](
 		"l2-announce",
 		L2AnnounceIDIndex,
 		L2AnnounceOriginIndex,
 	)
-)
+}
 
 func (*L2AnnounceEntry) TableHeader() []string {
 	return []string{

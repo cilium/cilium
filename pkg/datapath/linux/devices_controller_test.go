@@ -253,7 +253,6 @@ func TestDevicesController(t *testing.T) {
 		)
 		h := hive.New(
 			statedb.Cell,
-			tables.Cell,
 			DevicesControllerCell,
 			cell.Provide(func() (*netlinkFuncs, error) {
 				// Provide the normal netlink interface, but restrict it to the test network
@@ -335,7 +334,6 @@ func TestDevicesController_Wildcards(t *testing.T) {
 		)
 		h := hive.New(
 			statedb.Cell,
-			tables.Cell,
 			DevicesControllerCell,
 			cell.Provide(func() DevicesConfig {
 				return DevicesConfig{

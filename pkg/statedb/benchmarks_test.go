@@ -263,26 +263,17 @@ func BenchmarkDB_PropagationDelay(b *testing.B) {
 
 	var (
 		db     *DB
-		table1 RWTable[testObject]
-		table2 RWTable[testObject2]
+		table1 RWTable[testObject]  = NewTable[testObject]("test", idIndex)
+		table2 RWTable[testObject2] = NewTable[testObject2]("test2", id2Index)
 	)
 
 	logging.SetLogLevel(logrus.ErrorLevel)
 
 	h := hive.New(
 		Cell, // DB
-		NewTableCell[testObject](
-			"test",
-			idIndex,
-		),
-		NewTableCell[testObject2](
-			"test2",
-			id2Index,
-		),
-		cell.Invoke(func(db_ *DB, table1_ RWTable[testObject], table2_ RWTable[testObject2]) {
+		cell.Invoke(func(db_ *DB) error {
 			db = db_
-			table1 = table1_
-			table2 = table2_
+			return db.RegisterTable(table1, table2)
 		}),
 	)
 

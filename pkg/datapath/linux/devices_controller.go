@@ -46,8 +46,10 @@ var DevicesControllerCell = cell.Module(
 	// ordering and to populate the tables before there are any readers.
 	// But these cells are still usable directly in tests to provide
 	// the modules under test device and route test data.
-	tables.DeviceTableCell,
-	tables.RouteTableCell,
+	cell.ProvidePrivate(
+		tables.NewDeviceTable,
+		tables.NewRouteTable,
+	),
 
 	cell.Provide(
 		newDevicesController,
@@ -115,6 +117,10 @@ type devicesController struct {
 }
 
 func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route]) {
+	p.DB.RegisterTable(
+		p.DeviceTable,
+		p.RouteTable,
+	)
 	dc := &devicesController{
 		params:          p,
 		initialized:     make(chan struct{}),
