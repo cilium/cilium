@@ -196,6 +196,7 @@ func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.
 		if _, err = c.AllocateID(ctx, id, key); err != nil {
 			return fmt.Errorf("Unable recreate missing CRD identity %q->%q: %s", key, id, err)
 		}
+
 		return nil
 	}
 
@@ -310,7 +311,7 @@ func (c *crdBackend) getById(ctx context.Context, id idpool.ID) (idty *v2.Cilium
 
 	identity, ok := obj.(*v2.CiliumIdentity)
 	if !ok {
-		return nil, false, fmt.Errorf("invalid object")
+		return nil, false, fmt.Errorf("invalid object %T", obj)
 	}
 	return identity, true, nil
 }
