@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -27,6 +28,8 @@ type idMap map[idpool.ID]AllocatorKey
 type keyMap map[string]idpool.ID
 
 type cache struct {
+	controllers *controller.Manager
+
 	allocator *Allocator
 
 	stopChan chan struct{}
@@ -67,10 +70,11 @@ type cache struct {
 
 func newCache(a *Allocator) (c cache) {
 	c = cache{
-		allocator: a,
-		cache:     idMap{},
-		keyCache:  keyMap{},
-		stopChan:  make(chan struct{}),
+		allocator:   a,
+		cache:       idMap{},
+		keyCache:    keyMap{},
+		stopChan:    make(chan struct{}),
+		controllers: controller.NewManager(),
 	}
 	c.changeSrc, c.emitChange, c.completeChangeSrc = stream.Multicast[AllocatorChange]()
 	return
@@ -159,17 +163,51 @@ func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 	c.onDeleteLocked(id, key)
 }
 
+const syncIdentityControllerGroup = "sync-identity"
+
+func syncControllerName(id idpool.ID) string {
+	return syncIdentityControllerGroup + "-" + id.String()
+}
+
+// no max interval by default, exposed as a variable for testing.
+var masterKeyRecreateMaxInterval = time.Duration(0)
+
+var syncIdentityGroup = controller.NewGroup(syncIdentityControllerGroup)
+
 // onDeleteLocked must be called while holding c.Mutex for writing
 func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey) {
 	a := c.allocator
 	if a.enableMasterKeyProtection {
 		if value := a.localKeys.lookupID(id); value != nil {
-			ctx, cancel := context.WithTimeout(context.TODO(), backendOpTimeout)
-			defer cancel()
-			err := a.backend.UpdateKey(ctx, id, value, true)
-			if err != nil {
-				log.WithError(err).Errorf("OnDelete MasterKeyProtection update for key %q", id)
-			}
+			c.controllers.UpdateController(syncControllerName(id), controller.ControllerParams{
+				Context:          context.Background(),
+				MaxRetryInterval: masterKeyRecreateMaxInterval,
+				Group:            syncIdentityGroup,
+				DoFunc: func(ctx context.Context) error {
+					c.mutex.Lock()
+					defer c.mutex.Unlock()
+					// For each attempt, check if this ciliumidentity is still a candidate for recreation.
+					// It's possible that since the last iteration that this agent has legitimately deleted
+					// the key, in which case we can stop trying to recreate it.
+					if value := c.allocator.localKeys.lookupID(id); value == nil {
+						return nil
+					}
+
+					ctx, cancel := context.WithTimeout(ctx, backendOpTimeout)
+					defer cancel()
+					// Each iteration will attempt to grab the key reference, if that succeeds
+					// then this completes (i.e. the key exists).
+					// Otherwise we will attempt to create the key, this process repeats until
+					// the key is created.
+					if err := a.backend.UpdateKey(ctx, id, value, true); err != nil {
+						log.WithField("id", id).WithError(err).Error("OnDelete MasterKeyProtection update for key")
+						return err
+					}
+					log.WithField("id", id).Info("OnDelete MasterKeyProtection update succeeded")
+					return nil
+				},
+			})
+
 			return
 		}
 	}
@@ -211,6 +249,10 @@ func (c *cache) start() waitChan {
 func (c *cache) stop() {
 	close(c.stopChan)
 	c.stopWatchWg.Wait()
+	// Drain/stop any remaining sync identity controllers.
+	// Backend watch is now stopped, any running controllers attempting to
+	// sync identities will complete and stop (possibly in a unresolved state).
+	c.controllers.RemoveAllAndWait()
 	c.completeChangeSrc(nil)
 }
 
