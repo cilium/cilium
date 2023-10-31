@@ -794,9 +794,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	// Write Identity and ClusterID related macros.
 	cDefinesMap["CLUSTER_ID_MAX"] = fmt.Sprintf("%d", option.Config.MaxConnectedClusters)
 
-	identityMax := (1 << identity.GetClusterIDShift()) - 1
-	cDefinesMap["IDENTITY_MAX"] = fmt.Sprintf("%d", identityMax)
-	cDefinesMap["IDENTITY_LEN"] = fmt.Sprintf("%d", identity.GetClusterIDShift())
+	fmt.Fprint(fw, declareConfig("identity_length", identity.GetClusterIDShift(), "Identity length in bits"))
+	fmt.Fprint(fw, assignConfig("identity_length", identity.GetClusterIDShift()))
 
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent written format to the writer. This maintains

@@ -3,10 +3,13 @@
 
 #ifndef __CLUSTERMESH_IDENTITY__
 #define __CLUSTERMESH_IDENTITY__
-#define CLUSTER_ID_LEN 8
 #define CLUSTER_ID_MAX 255
-#define IDENTITY_LEN 16
-#define IDENTITY_MAX 65535
+#endif
+
+#ifndef __CLUSTERMESH_HELPERS__
+#define __CLUSTERMESH_HELPERS__
+#define IDENTITY_LEN 8
+#define IDENTITY_MAX 255
 #endif
 
 #include "common.h"
@@ -16,8 +19,8 @@
 #include <lib/clustermesh.h>
 
 #define CLUSTER_LOCAL_IDENTITY 0xAAAA
-#define TEST_CLUSTER_ID 0xFF
-#define IDENTITY (0x00000000 | (TEST_CLUSTER_ID << IDENTITY_LEN) | CLUSTER_LOCAL_IDENTITY)
+#define TEST_CLUSTER_ID 0xFFu
+#define IDENTITY (0x00000000u | (TEST_CLUSTER_ID << IDENTITY_LEN) | CLUSTER_LOCAL_IDENTITY)
 
 CHECK("tc", "set_and_get_identity")
 int check_get_identity(struct __ctx_buff *ctx)

@@ -89,12 +89,11 @@ func TestGetClusterIDShift(t *testing.T) {
 	tests := []struct {
 		name                   string
 		maxConnectedClusters   uint32
-		expectedClusterIDShift int
+		expectedClusterIDShift uint32
 	}{
 		{
-			name:                 "clustermesh255",
-			maxConnectedClusters: 255,
-
+			name:                   "clustermesh255",
+			maxConnectedClusters:   255,
 			expectedClusterIDShift: 16,
 		},
 		{
