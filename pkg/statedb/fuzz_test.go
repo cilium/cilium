@@ -72,11 +72,11 @@ var idIndex = statedb.Index[fuzzObj, uint64]{
 }
 
 var (
-	tableFuzz1, _ = statedb.NewTable[fuzzObj]("fuzz1", idIndex)
-	tableFuzz2, _ = statedb.NewTable[fuzzObj]("fuzz2", idIndex)
-	tableFuzz3, _ = statedb.NewTable[fuzzObj]("fuzz3", idIndex)
-	fuzzTables    = []statedb.TableMeta{tableFuzz1, tableFuzz2, tableFuzz3}
-	fuzzDB, _     = statedb.NewDB(fuzzTables, statedb.NewMetrics())
+	tableFuzz1 = statedb.NewTable[fuzzObj]("fuzz1", idIndex)
+	tableFuzz2 = statedb.NewTable[fuzzObj]("fuzz2", idIndex)
+	tableFuzz3 = statedb.NewTable[fuzzObj]("fuzz3", idIndex)
+	fuzzTables = []statedb.TableMeta{tableFuzz1, tableFuzz2, tableFuzz3}
+	fuzzDB, _  = statedb.NewDB(fuzzTables, statedb.NewMetrics())
 )
 
 func randomSubset[T any](xs []T) []T {

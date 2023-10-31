@@ -213,12 +213,15 @@ func TestNodeAddress(t *testing.T) {
 				job.Cell,
 				statedb.Cell,
 				tables.NodeAddressCell,
-				tables.DeviceTableCell,
-				cell.Provide(func(t statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] { return t }),
+				cell.Provide(
+					tables.NewDeviceTable,
+					statedb.RWTable[*tables.Device].ToTable,
+				),
 				cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*tables.Device], na statedb.Table[tables.NodeAddress]) {
 					db = db_
 					devices = d
 					nodeAddrs = na
+					db.RegisterTable(d)
 				}),
 
 				// option.DaemonConfig needed for AddressMaxScope. This flag will move into NodeAddressConfig
@@ -379,12 +382,15 @@ func TestNodeAddressWhitelist(t *testing.T) {
 				job.Cell,
 				statedb.Cell,
 				tables.NodeAddressCell,
-				tables.DeviceTableCell,
-				cell.Provide(func(t statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] { return t }),
+				cell.Provide(
+					tables.NewDeviceTable,
+					statedb.RWTable[*tables.Device].ToTable,
+				),
 				cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*tables.Device], na statedb.Table[tables.NodeAddress]) {
 					db = db_
 					devices = d
 					nodeAddrs = na
+					db.RegisterTable(d)
 				}),
 
 				// option.DaemonConfig needed for AddressMaxScope. This flag will move into NodeAddressConfig

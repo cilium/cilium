@@ -72,6 +72,19 @@ type RWTable[Obj any] interface {
 	// write transaction return the fresh uncommitted modifications if any.
 	Table[Obj]
 
+	// ToTable returns the Table[Obj] interface. Useful with cell.Provide
+	// to avoid the anonymous function:
+	//
+	//   cell.ProvidePrivate(NewMyTable), // RWTable
+	//   cell.Invoke(statedb.Register[statedb.RWTable[Foo])
+	//
+	//   // with anononymous function:
+	//   cell.Provide(func(t statedb.RWTable[Foo]) statedb.Table[Foo] { return t })
+	//
+	//   // with ToTable:
+	//   cell.Provide(statedb.RWTable[Foo].ToTable),
+	ToTable() Table[Obj]
+
 	// Insert an object into the table. Returns the object that was
 	// replaced if there was one.
 	//

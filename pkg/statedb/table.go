@@ -13,11 +13,14 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
+// NewTable creates a new table with given name and indexes.
+// Panics if indexes are malformed which allows this to be used at
+// package initialization time.
 func NewTable[Obj any](
 	tableName TableName,
 	primaryIndexer Indexer[Obj],
 	secondaryIndexers ...Indexer[Obj],
-) (RWTable[Obj], error) {
+) RWTable[Obj] {
 	toAnyIndexer := func(idx Indexer[Obj]) anyIndexer {
 		return anyIndexer{
 			name: idx.indexName(),
@@ -41,7 +44,7 @@ func NewTable[Obj any](
 
 	// Primary index must always be unique
 	if !primaryIndexer.isUnique() {
-		return nil, tableError(tableName, ErrPrimaryIndexNotUnique)
+		panic(tableError(tableName, ErrPrimaryIndexNotUnique))
 	}
 
 	// Validate that indexes have unique ids.
@@ -49,16 +52,16 @@ func NewTable[Obj any](
 	indexNames.Insert(primaryIndexer.indexName())
 	for _, indexer := range secondaryIndexers {
 		if indexNames.Has(indexer.indexName()) {
-			return nil, fmt.Errorf("index %q: %w", indexer.indexName(), ErrDuplicateIndex)
+			panic(fmt.Sprintf("table %q, index %q: %s", tableName, indexer.indexName(), ErrDuplicateIndex))
 		}
 		indexNames.Insert(indexer.indexName())
 	}
 	for name := range indexNames {
 		if strings.HasPrefix(name, reservedIndexPrefix) {
-			return nil, fmt.Errorf("index %q: %w", name, ErrReservedPrefix)
+			panic(fmt.Sprintf("table %q, index %q: %s", tableName, name, ErrReservedPrefix))
 		}
 	}
-	return table, nil
+	return table
 }
 
 type genTable[Obj any] struct {
@@ -82,6 +85,10 @@ func (t *genTable[Obj]) secondaryIndexers() map[string]anyIndexer {
 
 func (t *genTable[Obj]) Name() string {
 	return t.table
+}
+
+func (t *genTable[Obj]) ToTable() Table[Obj] {
+	return t
 }
 
 func (t *genTable[Obj]) Revision(txn ReadTxn) Revision {

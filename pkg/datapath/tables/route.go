@@ -40,13 +40,15 @@ var (
 			return index.Int(linkIndex)
 		},
 	}
+)
 
-	RouteTableCell = statedb.NewPrivateRWTableCell[*Route](
+func NewRouteTable() statedb.RWTable[*Route] {
+	return statedb.NewTable[*Route](
 		"routes",
 		RouteIDIndex,
 		RouteLinkIndex,
 	)
-)
+}
 
 type RouteID struct {
 	Table     int

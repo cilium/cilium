@@ -47,6 +47,7 @@ import (
 var Cell = cell.Module(
 	"l2-announcer",
 	"L2 Announcer",
+
 	cell.Provide(NewL2Announcer),
 	cell.Provide(l2AnnouncementPolicyResource),
 )

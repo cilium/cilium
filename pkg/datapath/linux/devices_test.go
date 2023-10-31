@@ -20,7 +20,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
@@ -672,7 +671,6 @@ func newDeviceManagerForTests() (dm *DeviceManager, err error) {
 	ns, _ := netns.Get()
 	h := hive.New(
 		statedb.Cell,
-		tables.Cell,
 		DevicesControllerCell,
 		cell.Provide(func() DevicesConfig {
 			return DevicesConfig{Devices: option.Config.GetDevices()}
