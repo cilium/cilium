@@ -1,4 +1,4 @@
-tunnel: disabled
+routingMode: native
 
 bgpControlPlane:
   enabled: true
