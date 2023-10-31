@@ -90,7 +90,7 @@ var (
 
 	// clusterIDShift is the number of bits to shift a cluster ID in a numeric
 	// identity and is equal to the number of bits that represent a cluster-local identity.
-	clusterIDShift int
+	clusterIDShift uint32
 )
 
 const (
@@ -386,7 +386,7 @@ func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
 // GetClusterIDShift returns the number of bits to shift a cluster ID in a numeric
 // identity and is equal to the number of bits that represent a cluster-local identity.
 // A sync.Once is used to ensure we only initialize clusterIDShift once.
-func GetClusterIDShift() int {
+func GetClusterIDShift() uint32 {
 	clusterIDInit.Do(initClusterIDShift)
 	return clusterIDShift
 }
@@ -395,7 +395,7 @@ func GetClusterIDShift() int {
 // ID in a numeric identity.
 func initClusterIDShift() {
 	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
-	clusterIDLen := int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+	clusterIDLen := uint32(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
 	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric identity
 	clusterIDShift = NumericIdentityBitlength - clusterIDLen
 }

@@ -6,10 +6,8 @@
 
 #include "lib/common.h"
 #include "linux/ip.h"
+#include "lib/clustermesh.h"
 
-#define CLUSTER_ID_LOWER_MASK 0x000000FF
-#define CLUSTER_ID_UPPER_MASK (CLUSTER_ID_MAX & ~CLUSTER_ID_LOWER_MASK) << (8 + IDENTITY_LEN)
-#define MARK_MAGIC_CLUSTER_ID_MASK	CLUSTER_ID_LOWER_MASK | CLUSTER_ID_UPPER_MASK
 
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct __sk_buff *ctx)
@@ -45,7 +43,7 @@ static __always_inline __maybe_unused int
 get_identity(const struct __sk_buff *ctx)
 {
 	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
-	__u32 cluster_id_upper = (ctx->mark & CLUSTER_ID_UPPER_MASK) >> (8 + IDENTITY_LEN);
+	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
 	__u32 identity = (ctx->mark >> 16) & IDENTITY_MAX;
 
 	return (cluster_id_lower | cluster_id_upper) << IDENTITY_LEN | identity;
@@ -121,13 +119,13 @@ ctx_get_cluster_id_mark(struct __sk_buff *ctx)
 {
 	__u32 ret = 0;
 	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
-	__u32 cluster_id_upper = (ctx->mark & CLUSTER_ID_UPPER_MASK) >> (8 + IDENTITY_LEN);
+	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
 
 	if ((ctx->mark & MARK_MAGIC_CLUSTER_ID) != MARK_MAGIC_CLUSTER_ID)
 		return ret;
 
 	ret = (cluster_id_upper | cluster_id_lower) & CLUSTER_ID_MAX;
-	ctx->mark &= ~(__u32)(MARK_MAGIC_CLUSTER_ID | MARK_MAGIC_CLUSTER_ID_MASK);
+	ctx->mark &= ~(__u32)(MARK_MAGIC_CLUSTER_ID | get_mark_magic_cluster_id_mask());
 
 	return ret;
 }
