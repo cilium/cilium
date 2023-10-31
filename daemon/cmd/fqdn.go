@@ -425,14 +425,10 @@ func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate ma
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to
-func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
-	endpointAddr, ok := ippkg.AddrFromIP(endpointIP)
-	if !ok {
-		return nil, fmt.Errorf("invalid IP %s for endpoint lookup", endpointIP)
-	}
+func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpoint, err error) {
 	e := d.endpointManager.LookupIP(endpointAddr)
 	if e == nil {
-		return nil, fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
+		return nil, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
 	}
 
 	return e, nil
