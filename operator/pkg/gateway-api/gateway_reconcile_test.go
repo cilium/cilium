@@ -229,7 +229,7 @@ var gwFixture = []client.Object{
 
 func Test_gatewayReconciler_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
-		WithScheme(scheme).
+		WithScheme(testScheme()).
 		WithObjects(gwFixture...).
 		WithStatusSubresource(&gatewayv1.Gateway{}).
 		Build()

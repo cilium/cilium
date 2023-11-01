@@ -55,7 +55,7 @@ var (
 
 func Test_gatewayClassReconciler_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
-		WithScheme(scheme).
+		WithScheme(testScheme()).
 		WithObjects(gwcFixture...).
 		WithStatusSubresource(&gatewayv1.GatewayClass{}).
 		Build()

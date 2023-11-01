@@ -33,6 +33,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
+	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
@@ -202,6 +203,9 @@ var (
 			// Endpoints. Either once or periodically it validates all the present
 			// Cilium Endpoints and delete the ones that should be deleted.
 			endpointgc.Cell,
+
+			// Integrates the controller-runtime library and provides its components via Hive.
+			controllerruntime.Cell,
 
 			// Cilium Gateway API controller that manages the Gateway API related CRDs.
 			gatewayapi.Cell,

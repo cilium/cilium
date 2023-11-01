@@ -425,7 +425,7 @@ var (
 
 func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
-		WithScheme(scheme).
+		WithScheme(testScheme()).
 		WithObjects(httpRouteFixture...).
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
