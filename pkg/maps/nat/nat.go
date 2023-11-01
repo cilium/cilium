@@ -162,7 +162,7 @@ func doFlush4(m *Map) gcStats {
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
 		err := (&m.Map).Delete(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete CT entry")
+			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
 		} else {
 			stats.deleted++
 		}
@@ -176,7 +176,7 @@ func doFlush6(m *Map) gcStats {
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
 		err := (&m.Map).Delete(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete CT entry")
+			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete NAT entry")
 		} else {
 			stats.deleted++
 		}
