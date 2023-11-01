@@ -55,7 +55,7 @@ const (
 	testConnDisruptServiceName          = "test-conn-disrupt"
 	KindTestConnDisrupt                 = "test-conn-disrupt"
 
-	EchoServerHostPort = 40000
+	EchoServerHostPort = 4000
 
 	IngressServiceName         = "ingress-service"
 	ingressServiceInsecurePort = "31000"
