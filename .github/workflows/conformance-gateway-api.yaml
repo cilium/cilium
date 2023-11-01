@@ -126,7 +126,9 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=debug.verbose=envoy \
             --helm-set kubeProxyReplacement=true \
-            --helm-set=gatewayAPI.enabled=true"
+            --helm-set=gatewayAPI.enabled=true \
+            --helm-set=l2announcements.enabled=true \
+            --helm-set=devices='{eth0}'"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
@@ -189,31 +191,40 @@ jobs:
           cilium status --wait
           kubectl -n kube-system get pods
 
-      - name: Install metallb for LB service
+      - name: Install Cilium LB IPPool and L2 Announcement Policy
         timeout-minutes: 10
         run: |
           KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
-          METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
-          METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
-          METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
-          
-          cat << EOF > metallb_values.yaml
-          configInline:
-            address-pools:
-            - name: default
-              protocol: layer2
-              addresses:
-              - ${METALLB_IP_RANGE}
-          psp:
-            create: false
+          LB_CIDR=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200/28@")
+
+          echo "Deploying LB-IPAM Pool..."
+          cat << EOF > pool.yaml
+          apiVersion: "cilium.io/v2alpha1"
+          kind: CiliumLoadBalancerIPPool
+          metadata:
+            name: "pool"
+          spec:
+            cidrs:
+              - cidr: "$LB_CIDR"
           EOF
+          kubectl apply -f pool.yaml
           
-          helm install --namespace metallb-system \
-            --create-namespace \
-            --repo https://metallb.github.io/metallb metallb metallb \
-            --version ${{ env.metallb_version }} \
-            --values metallb_values.yaml \
-            --wait
+          echo "Deploying L2-Announcement Policy..."
+          cat << 'EOF' > l2policy.yaml
+          apiVersion: "cilium.io/v2alpha1"
+          kind: CiliumL2AnnouncementPolicy
+          metadata:
+            name: l2policy
+          spec:
+            loadBalancerIPs: true
+            interfaces:
+              - eth0
+            nodeSelector:
+              matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+          EOF
+          kubectl apply -f l2policy.yaml
 
       - name: Run simple Gateway API GRPCRoute test (temporary till upstream conformance tests)
         timeout-minutes: 10
