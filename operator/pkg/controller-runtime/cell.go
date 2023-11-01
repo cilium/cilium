@@ -6,6 +6,7 @@ package controllerruntime
 import (
 	"context"
 	"fmt"
+	"runtime/pprof"
 
 	"github.com/bombsimon/logrusr/v4"
 	"github.com/sirupsen/logrus"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -40,7 +42,7 @@ func newScheme() *runtime.Scheme {
 	return scheme
 }
 
-func newManager(lc hive.Lifecycle, logger logrus.FieldLogger, scheme *runtime.Scheme) (ctrlRuntime.Manager, error) {
+func newManager(lc hive.Lifecycle, logger logrus.FieldLogger, jobRegistry job.Registry, scope cell.Scope, scheme *runtime.Scheme) (ctrlRuntime.Manager, error) {
 	ctrlRuntime.SetLogger(logrusr.New(logger))
 
 	mgr, err := ctrlRuntime.NewManager(ctrlRuntime.GetConfigOrDie(), ctrlRuntime.Options{
@@ -55,22 +57,17 @@ func newManager(lc hive.Lifecycle, logger logrus.FieldLogger, scheme *runtime.Sc
 		return nil, fmt.Errorf("failed to create new controller-runtime manager: %w", err)
 	}
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	jobGroup := jobRegistry.NewGroup(
+		scope,
+		job.WithLogger(logger),
+		job.WithPprofLabels(pprof.Labels("cell", "controller-runtime")),
+	)
 
-	lc.Append(hive.Hook{
-		OnStart: func(_ hive.HookContext) error {
-			go func() {
-				if err := mgr.Start(ctx); err != nil {
-					logger.WithError(err).Error("Unable to start manager")
-				}
-			}()
-			return nil
-		},
-		OnStop: func(_ hive.HookContext) error {
-			ctxCancel()
-			return nil
-		},
-	})
+	jobGroup.Add(job.OneShot("manager", func(ctx context.Context, health cell.HealthReporter) error {
+		return mgr.Start(ctx)
+	}))
+
+	lc.Append(jobGroup)
 
 	return mgr, nil
 }
