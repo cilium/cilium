@@ -11,7 +11,6 @@ import (
 	"github.com/bombsimon/logrusr/v4"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -33,13 +32,18 @@ var Cell = cell.Module(
 	cell.Provide(newManager),
 )
 
-func newScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
+func newScheme() (*runtime.Scheme, error) {
+	scheme := clientgoscheme.Scheme
 
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2.AddToScheme(scheme))
+	for gv, f := range map[fmt.Stringer]func(s *runtime.Scheme) error{
+		ciliumv2.SchemeGroupVersion: ciliumv2.AddToScheme,
+	} {
+		if err := f(scheme); err != nil {
+			return nil, fmt.Errorf("failed to add types from %s to scheme: %w", gv, err)
+		}
+	}
 
-	return scheme
+	return scheme, nil
 }
 
 func newManager(lc hive.Lifecycle, logger logrus.FieldLogger, jobRegistry job.Registry, scope cell.Scope, scheme *runtime.Scheme) (ctrlRuntime.Manager, error) {
