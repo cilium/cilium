@@ -450,6 +450,32 @@ func (m *BGPRouterManager) GetRoutes(ctx context.Context, params restapi.GetBgpR
 	return res, nil
 }
 
+// GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
+func (m *BGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	// validate router ASN
+	if params.RouterAsn != nil {
+		if _, found := m.Servers[*params.RouterAsn]; !found {
+			return nil, fmt.Errorf("virtual router with ASN %d does not exist", *params.RouterAsn)
+		}
+	}
+
+	var res []*models.BgpRoutePolicy
+	for _, s := range m.Servers {
+		if params.RouterAsn != nil && *params.RouterAsn != s.Config.LocalASN {
+			continue // return policies matching provided router ASN only
+		}
+		rs, err := s.Server.GetRoutePolicies(ctx)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, api.ToAPIRoutePolicies(rs.Policies, s.Config.LocalASN)...)
+	}
+	return res, nil
+}
+
 // Stop cleans up all servers, should be called at shutdown
 func (m *BGPRouterManager) Stop() {
 	m.Lock()

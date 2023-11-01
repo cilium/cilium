@@ -34,3 +34,19 @@ func TestRouteConversions(t *testing.T) {
 		})
 	}
 }
+
+// Test conversion of common route policies
+func TestRoutePolicyConversions(t *testing.T) {
+	for _, tt := range types.TestCommonRoutePolicies {
+		t.Run(tt.Name, func(t *testing.T) {
+			apiPolicies := ToAPIRoutePolicies([]*types.RoutePolicy{tt.Policy}, testRouterASN)
+			require.NotZero(t, apiPolicies)
+
+			agentPolicies, err := ToAgentRoutePolicies(apiPolicies)
+			require.NoError(t, err)
+			require.NotZero(t, agentPolicies)
+
+			require.EqualValues(t, tt.Policy, agentPolicies[0])
+		})
+	}
+}

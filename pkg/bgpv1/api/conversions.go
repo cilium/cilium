@@ -16,6 +16,15 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 )
 
+const (
+	routePolicyTypeExport = "export"
+	routePolicyTypeImport = "import"
+
+	routePolicyActionNone   = "none"
+	routePolicyActionAccept = "accept"
+	routePolicyActionReject = "reject"
+)
+
 func ToAgentGetRoutesRequest(params restapi.GetBgpRoutesParams) (*types.GetRoutesRequest, error) {
 	ret := &types.GetRoutesRequest{}
 
@@ -260,4 +269,184 @@ func ToAgentRoutes(ms []*models.BgpRoute) ([]*types.Route, error) {
 	}
 
 	return ret, nil
+}
+
+func ToAPIRoutePolicies(policies []*types.RoutePolicy, routerASN int64) []*models.BgpRoutePolicy {
+	ret := make([]*models.BgpRoutePolicy, 0, len(policies))
+
+	for _, p := range policies {
+		policy := ToAPIRoutePolicy(p, routerASN)
+		ret = append(ret, policy)
+	}
+	return ret
+}
+
+func ToAgentRoutePolicies(policies []*models.BgpRoutePolicy) ([]*types.RoutePolicy, error) {
+	var retErr error
+	ret := make([]*types.RoutePolicy, 0, len(policies))
+
+	for _, p := range policies {
+		policy, err := ToAgentRoutePolicy(p)
+		if err != nil {
+			retErr = errors.Join(retErr, err)
+			continue
+		}
+		ret = append(ret, policy)
+	}
+	return ret, retErr
+}
+
+func ToAPIRoutePolicy(policy *types.RoutePolicy, routerASN int64) *models.BgpRoutePolicy {
+	return &models.BgpRoutePolicy{
+		RouterAsn:  routerASN,
+		Name:       policy.Name,
+		Type:       ToApiRoutePolicyType(policy.Type),
+		Statements: ToAPIRoutePolicyStatements(policy.Statements),
+	}
+}
+
+func ToAgentRoutePolicy(policy *models.BgpRoutePolicy) (*types.RoutePolicy, error) {
+	stmts, err := ToAgentRoutePolicyStatements(policy.Statements)
+	if err != nil {
+		return nil, err
+	}
+	return &types.RoutePolicy{
+		Name:       policy.Name,
+		Type:       ToAgentRoutePolicyType(policy.Type),
+		Statements: stmts,
+	}, nil
+}
+
+func ToAPIRoutePolicyStatements(statements []*types.RoutePolicyStatement) []*models.BgpRoutePolicyStatement {
+	ret := make([]*models.BgpRoutePolicyStatement, 0, len(statements))
+
+	for _, s := range statements {
+		ret = append(ret, ToAPIRoutePolicyStatement(s))
+	}
+	return ret
+}
+
+func ToAgentRoutePolicyStatements(statements []*models.BgpRoutePolicyStatement) ([]*types.RoutePolicyStatement, error) {
+	var retErr error
+	ret := make([]*types.RoutePolicyStatement, 0, len(statements))
+
+	for _, s := range statements {
+		stmt, err := ToAgentRoutePolicyStatement(s)
+		if err != nil {
+			retErr = errors.Join(retErr, err)
+			continue
+		}
+		ret = append(ret, stmt)
+	}
+	return ret, retErr
+}
+
+func ToAPIRoutePolicyStatement(s *types.RoutePolicyStatement) *models.BgpRoutePolicyStatement {
+	localPref := int64(-1)
+	if s.Actions.SetLocalPreference != nil {
+		localPref = *s.Actions.SetLocalPreference
+	}
+	ret := &models.BgpRoutePolicyStatement{
+		MatchNeighbors:      s.Conditions.MatchNeighbors,
+		MatchPrefixes:       ToApiMatchPrefixes(s.Conditions.MatchPrefixes),
+		RouteAction:         ToApiRoutePolicyAction(s.Actions.RouteAction),
+		AddCommunities:      s.Actions.AddCommunities,
+		AddLargeCommunities: s.Actions.AddLargeCommunities,
+		SetLocalPreference:  localPref,
+	}
+	return ret
+}
+
+func ToAgentRoutePolicyStatement(s *models.BgpRoutePolicyStatement) (*types.RoutePolicyStatement, error) {
+	var localPref *int64
+	if s.SetLocalPreference >= 0 {
+		localPref = &s.SetLocalPreference
+	}
+	prefixes, err := ToAgentMatchPrefixes(s.MatchPrefixes)
+	if err != nil {
+		return nil, err
+	}
+	ret := &types.RoutePolicyStatement{
+		Conditions: types.RoutePolicyConditions{
+			MatchNeighbors: s.MatchNeighbors,
+			MatchPrefixes:  prefixes,
+		},
+		Actions: types.RoutePolicyActions{
+			RouteAction:         ToAgentRoutePolicyAction(s.RouteAction),
+			AddCommunities:      s.AddCommunities,
+			AddLargeCommunities: s.AddLargeCommunities,
+			SetLocalPreference:  localPref,
+		},
+	}
+	return ret, nil
+}
+
+func ToApiMatchPrefixes(prefixes []*types.RoutePolicyPrefixMatch) []*models.BgpRoutePolicyPrefixMatch {
+	ret := make([]*models.BgpRoutePolicyPrefixMatch, 0, len(prefixes))
+
+	for _, p := range prefixes {
+		ret = append(ret, &models.BgpRoutePolicyPrefixMatch{
+			Cidr:         p.CIDR.String(),
+			PrefixLenMin: int64(p.PrefixLenMin),
+			PrefixLenMax: int64(p.PrefixLenMax),
+		})
+	}
+	return ret
+}
+
+func ToAgentMatchPrefixes(prefixes []*models.BgpRoutePolicyPrefixMatch) ([]*types.RoutePolicyPrefixMatch, error) {
+	var retErr error
+	ret := make([]*types.RoutePolicyPrefixMatch, 0, len(prefixes))
+
+	for _, p := range prefixes {
+		cidr, err := netip.ParsePrefix(p.Cidr)
+		if err != nil {
+			retErr = errors.Join(retErr, err)
+			continue
+		}
+		ret = append(ret, &types.RoutePolicyPrefixMatch{
+			CIDR:         cidr,
+			PrefixLenMin: int(p.PrefixLenMin),
+			PrefixLenMax: int(p.PrefixLenMax),
+		})
+	}
+	return ret, retErr
+}
+
+func ToApiRoutePolicyType(t types.RoutePolicyType) string {
+	if t == types.RoutePolicyTypeExport {
+		return routePolicyTypeExport
+	}
+	return routePolicyTypeImport
+}
+
+func ToAgentRoutePolicyType(t string) types.RoutePolicyType {
+	if t == routePolicyTypeExport {
+		return types.RoutePolicyTypeExport
+	}
+	return types.RoutePolicyTypeImport
+}
+
+func ToApiRoutePolicyAction(a types.RoutePolicyAction) string {
+	switch a {
+	case types.RoutePolicyActionNone:
+		return routePolicyActionNone
+	case types.RoutePolicyActionAccept:
+		return routePolicyActionAccept
+	case types.RoutePolicyActionReject:
+		return routePolicyActionReject
+	}
+	return routePolicyActionNone
+}
+
+func ToAgentRoutePolicyAction(a string) types.RoutePolicyAction {
+	switch a {
+	case routePolicyActionNone:
+		return types.RoutePolicyActionNone
+	case routePolicyActionAccept:
+		return types.RoutePolicyActionAccept
+	case routePolicyActionReject:
+		return types.RoutePolicyActionReject
+	}
+	return types.RoutePolicyActionNone
 }

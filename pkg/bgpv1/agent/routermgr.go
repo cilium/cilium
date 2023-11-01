@@ -46,6 +46,9 @@ type BGPRouterManager interface {
 	// GetRoutes fetches BGP routes from underlying routing daemon's RIBs.
 	GetRoutes(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 
+	// GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
+	GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
+
 	// Stop will stop all BGP instances and clean up local state.
 	Stop()
 }

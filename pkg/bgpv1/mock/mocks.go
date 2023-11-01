@@ -37,10 +37,11 @@ func (m *MockNodeLister) Get(name string) (*v1.Node, error) {
 var _ agent.BGPRouterManager = (*MockBGPRouterManager)(nil)
 
 type MockBGPRouterManager struct {
-	ConfigurePeers_ func(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, node *node.LocalNode, ciliumNode *v2.CiliumNode) error
-	GetPeers_       func(ctx context.Context) ([]*models.BgpPeer, error)
-	GetRoutes_      func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
-	Stop_           func()
+	ConfigurePeers_   func(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, node *node.LocalNode, ciliumNode *v2.CiliumNode) error
+	GetPeers_         func(ctx context.Context) ([]*models.BgpPeer, error)
+	GetRoutes_        func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
+	GetRoutePolicies_ func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
+	Stop_             func()
 }
 
 func (m *MockBGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, node *node.LocalNode, ciliumNode *v2.CiliumNode) error {
@@ -53,6 +54,10 @@ func (m *MockBGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer,
 
 func (m *MockBGPRouterManager) GetRoutes(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
 	return m.GetRoutes_(ctx, params)
+}
+
+func (m *MockBGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
+	return m.GetRoutePolicies_(ctx, params)
 }
 
 func (m *MockBGPRouterManager) Stop() {
