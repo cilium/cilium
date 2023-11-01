@@ -206,16 +206,12 @@ data:
   # Metrics that should be enabled or disabled from the default metric
   # list. (+metric_foo to enable metric_foo , -metric_bar to disable
   # metric_bar).
-  metrics: {{- range .Values.prometheus.metrics }}
-    {{ . }}
-  {{- end }}
+  metrics: {{ .Values.prometheus.metrics | join "," | quote }}
   {{- end }}
   {{- if .Values.prometheus.controllerGroupMetrics }}
-  # A space-separated list of controller groups for which to enable metrics.
+  # A comma-separated list of controller groups for which to enable metrics.
   # The special values of "all" and "none" are supported.
-  controller-group-metrics: {{- range .Values.prometheus.controllerGroupMetrics }}
-    {{ . }}
-  {{- end }}
+  controller-group-metrics: {{ .Values.prometheus.controllerGroupMetrics | join "," | quote }}
   {{- end }}
 {{- end }}
 

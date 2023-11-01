@@ -36,7 +36,7 @@ type RegistryConfig struct {
 
 func (rc RegistryConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("prometheus-serve-addr", rc.PrometheusServeAddr, "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
-	flags.StringSlice("metrics", rc.Metrics, "Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)")
+	flags.StringSlice("metrics", rc.Metrics, "Comma separated list of metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)")
 }
 
 // RegistryParams are the parameters needed to construct a Registry

@@ -335,6 +335,10 @@ Annotations:
   The existing Gateway API resources will continue to work as usual, however, it is
   better to migrate your resources from v1beta1 to v1 for GatewayClass, Gateway and
   HTTPRoute resources.
+* Config flag ``metrics`` is now parsed as comma-separated list of metrics
+  (no longer space-separated).
+* Config flag ``controller-group-metrics`` is now parsed as comma-separated list of
+  controller groups (no longer space-separated).
 
 .. _upgrade_cilium_cli_helm_mode:
 

@@ -58,7 +58,7 @@ cilium-agent hive dot-graph [flags]
       --mesh-auth-rotated-identities-queue-size int               The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string                      The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string                       The path for the SPIRE admin agent Unix socket.
-      --metrics strings                                           Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
+      --metrics strings                                           Comma separated list of metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
       --monitor-queue-size int                                    Size of the event queue when reading monitor events
       --nodeport-addresses strings                                A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
       --pprof                                                     Enable serving pprof debugging API

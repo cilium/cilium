@@ -273,7 +273,7 @@ cilium-agent [flags]
       --mesh-auth-rotated-identities-queue-size int               The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string                      The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string                       The path for the SPIRE admin agent Unix socket.
-      --metrics strings                                           Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
+      --metrics strings                                           Comma separated list of metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
       --monitor-aggregation string                                Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-aggregation-flags strings                         TCP flags that trigger monitor reports when monitor aggregation is enabled (default [syn,fin,rst])
       --monitor-aggregation-interval duration                     Monitor report interval when monitor aggregation is enabled (default 5s)
