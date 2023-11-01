@@ -13,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -75,6 +74,10 @@ func registerController(lc hive.Lifecycle, p params, config gatewayApiConfig, ct
 	}
 
 	registerGatewayAPITypesToScheme(scheme)
+
+	if err := registerGatewayAPITypesToScheme(scheme); err != nil {
+		return err
+	}
 
 	if err := registerReconcilers(
 		ctrlRuntimeManager,
@@ -143,8 +146,16 @@ func registerReconcilers(mgr ctrlRuntime.Manager, enableSecretSync bool, secrets
 	return nil
 }
 
-func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) {
-	utilruntime.Must(gatewayv1.AddToScheme(scheme))
-	utilruntime.Must(gatewayv1beta1.AddToScheme(scheme))
-	utilruntime.Must(gatewayv1alpha2.AddToScheme(scheme))
+func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) error {
+	for gv, f := range map[fmt.Stringer]func(s *runtime.Scheme) error{
+		gatewayv1.GroupVersion:       gatewayv1.AddToScheme,
+		gatewayv1beta1.GroupVersion:  gatewayv1beta1.AddToScheme,
+		gatewayv1alpha2.GroupVersion: gatewayv1alpha2.AddToScheme,
+	} {
+		if err := f(scheme); err != nil {
+			return fmt.Errorf("failed to add types from %s to scheme: %w", gv, err)
+		}
+	}
+
+	return nil
 }
