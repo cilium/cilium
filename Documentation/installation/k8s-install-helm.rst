@@ -85,75 +85,21 @@ Install Cilium
 
        .. include:: ../installation/requirements-aks.rst
 
-       .. tabs::
+       **Install Cilium:**
 
-          .. tab:: BYOCNI
+       Deploy Cilium release via Helm:
 
-             .. include:: ../installation/requirements-aks-byocni.rst
+       .. parsed-literal::
 
-             **Install Cilium:**
+          helm install cilium |CHART_RELEASE| \\
+            --namespace kube-system \\
+            --set aksbyocni.enabled=true \\
+            --set nodeinit.enabled=true
+         
+         .. note::
 
-             Deploy Cilium release via Helm:
-
-             .. parsed-literal::
-
-                helm install cilium |CHART_RELEASE| \\
-                  --namespace kube-system \\
-                  --set aksbyocni.enabled=true \\
-                  --set nodeinit.enabled=true
-
-          .. tab:: Legacy Azure IPAM
-
-             .. include:: ../installation/requirements-aks-azure-ipam.rst
-
-             **Create a Service Principal:**
-
-             In order to allow cilium-operator to interact with the Azure API, a
-             Service Principal with ``Contributor`` privileges over the AKS cluster is
-             required (see :ref:`Azure IPAM required privileges <ipam_azure_required_privileges>`
-             for more details). It is recommended to create a dedicated Service
-             Principal for each Cilium installation with minimal privileges over the
-             AKS node resource group:
-
-             .. code-block:: shell-session
-
-                AZURE_SUBSCRIPTION_ID=$(az account show --query "id" --output tsv)
-                AZURE_NODE_RESOURCE_GROUP=$(az aks show --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --query "nodeResourceGroup" --output tsv)
-                AZURE_SERVICE_PRINCIPAL=$(az ad sp create-for-rbac --scopes /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_NODE_RESOURCE_GROUP} --role Contributor --output json --only-show-errors)
-                AZURE_TENANT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.tenant')
-                AZURE_CLIENT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.appId')
-                AZURE_CLIENT_SECRET=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.password')
-
-             .. note::
-
-                The ``AZURE_NODE_RESOURCE_GROUP`` node resource group is *not* the
-                resource group of the AKS cluster. A single resource group may hold
-                multiple AKS clusters, but each AKS cluster regroups all resources in
-                an automatically managed secondary resource group. See `Why are two
-                resource groups created with AKS? <https://docs.microsoft.com/en-us/azure/aks/faq#why-are-two-resource-groups-created-with-aks>`__
-                for more details.
-
-                This ensures the Service Principal only has privileges over the AKS
-                cluster itself and not any other resources within the resource group.
-
-             **Install Cilium:**
-
-             Deploy Cilium release via Helm:
-
-             .. parsed-literal::
-
-                helm install cilium |CHART_RELEASE| \\
-                  --namespace kube-system \\
-                  --set azure.enabled=true \\
-                  --set azure.resourceGroup=$AZURE_NODE_RESOURCE_GROUP \\
-                  --set azure.subscriptionID=$AZURE_SUBSCRIPTION_ID \\
-                  --set azure.tenantID=$AZURE_TENANT_ID \\
-                  --set azure.clientID=$AZURE_CLIENT_ID \\
-                  --set azure.clientSecret=$AZURE_CLIENT_SECRET \\
-                  --set routingMode=native \\
-                  --set ipam.mode=azure \\
-                  --set enableIPv4Masquerade=false \\
-                  --set nodeinit.enabled=true
+            Installing Cilium via helm is supported only for AKS BYOCNI cluster and 
+            not for Azure CNI Powered by Cilium clusters.
 
     .. group-tab:: EKS
 
