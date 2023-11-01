@@ -335,6 +335,10 @@ Annotations:
   The existing Gateway API resources will continue to work as usual, however, it is
   better to migrate your resources from v1beta1 to v1 for GatewayClass, Gateway and
   HTTPRoute resources.
+* Cilium Operator config flag ``ingress-lb-annotation-prefixes`` is now parsed as
+  comma-separated list of prefixes (no longer space-separated).
+* Cilium Operator config flag ``loadbalancer-l7-ports`` is now parsed as
+  comma-separated list of ports (no longer space-separated).
 
 .. _upgrade_cilium_cli_helm_mode:
 

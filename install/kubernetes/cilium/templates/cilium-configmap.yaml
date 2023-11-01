@@ -253,7 +253,7 @@ data:
   enable-ingress-proxy-protocol: {{ .Values.ingressController.enableProxyProtocol | quote }}
   enable-ingress-secrets-sync: {{ .Values.ingressController.secretsNamespace.sync | quote }}
   ingress-secrets-namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
-  ingress-lb-annotation-prefixes: {{ .Values.ingressController.ingressLBAnnotationPrefixes | join " " | quote }}
+  ingress-lb-annotation-prefixes: {{ .Values.ingressController.ingressLBAnnotationPrefixes | join "," | quote }}
   ingress-default-lb-mode: {{ .Values.ingressController.loadbalancerMode }}
   ingress-shared-lb-service-name: {{ .Values.ingressController.service.name }}
   {{- if and .Values.ingressController.defaultSecretNamespace .Values.ingressController.defaultSecretName }}
@@ -271,7 +271,7 @@ data:
 {{- if hasKey .Values "loadBalancer" }}
 {{- if eq .Values.loadBalancer.l7.backend "envoy" }}
   loadbalancer-l7: "envoy"
-  loadbalancer-l7-ports: {{ .Values.loadBalancer.l7.ports | join " " | quote }}
+  loadbalancer-l7-ports: {{ .Values.loadBalancer.l7.ports | join "," | quote }}
   loadbalancer-l7-algorithm: {{ .Values.loadBalancer.l7.algorithm | quote }}
 {{- end }}
 {{- end }}
