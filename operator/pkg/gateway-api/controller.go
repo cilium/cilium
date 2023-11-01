@@ -37,9 +37,7 @@ const (
 	gatewayIndex        = "gatewayIndex"
 )
 
-var (
-	scheme = runtime.NewScheme()
-)
+var scheme = runtime.NewScheme()
 
 func init() {
 	utilruntime.Must(gatewayv1.AddToScheme(scheme))
@@ -49,15 +47,8 @@ func init() {
 	utilruntime.Must(ciliumv2.AddToScheme(scheme))
 }
 
-type internalModel struct {
-	// TODO(tam): I am not sure if we need to cache anything for performance gain,
-	// the client is reading from cache already.
-}
-
 type Controller struct {
 	mgr ctrl.Manager
-
-	model *internalModel
 }
 
 // NewController returns a new gateway controller, which is implemented
@@ -75,12 +66,9 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 		return nil, err
 	}
 
-	m := new(internalModel)
-
 	gwcReconciler := &gatewayClassReconciler{
 		Client:         mgr.GetClient(),
 		Scheme:         mgr.GetScheme(),
-		Model:          m,
 		controllerName: controllerName,
 	}
 	if err = gwcReconciler.SetupWithManager(mgr); err != nil {
@@ -91,7 +79,6 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 		Client:             mgr.GetClient(),
 		Scheme:             mgr.GetScheme(),
 		SecretsNamespace:   secretsNamespace,
-		Model:              m,
 		controllerName:     controllerName,
 		IdleTimeoutSeconds: idleTimeoutSeconds,
 	}
@@ -102,7 +89,6 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 	hrReconciler := &httpRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Model:  m,
 	}
 	if err = hrReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
@@ -111,7 +97,6 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 	grReconciler := &grpcRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Model:  m,
 	}
 	if err = grReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
@@ -120,7 +105,6 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 	tlsReconciler := &tlsRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Model:  m,
 	}
 	if err = tlsReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
@@ -129,7 +113,6 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 	rgReconciler := &referenceGrantReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Model:  m,
 	}
 	if err = rgReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
@@ -148,8 +131,7 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 	}
 
 	return &Controller{
-		mgr:   mgr,
-		model: m,
+		mgr: mgr,
 	}, nil
 }
 

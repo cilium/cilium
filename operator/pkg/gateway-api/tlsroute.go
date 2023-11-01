@@ -28,8 +28,6 @@ import (
 type tlsRouteReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-
-	Model *internalModel
 }
 
 // SetupWithManager sets up the controller with the Manager.
