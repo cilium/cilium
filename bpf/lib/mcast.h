@@ -199,6 +199,69 @@ static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
 	return DROP_IGMP_HANDLED;
 }
 
+static __always_inline __s32 mcast_ipv4_handle_v2_membership_report(void *ctx,
+								    void *group_map,
+								    const struct iphdr *ip4,
+								    const void *data,
+								    const void *data_end)
+{
+	struct mcast_subscriber_v4 subscriber = {
+		.saddr = ip4->saddr,
+		.ifindex = ctx_get_ingress_ifindex(ctx)
+	};
+	int ip_len = ip4->ihl * 4;
+	const struct igmphdr *hdr;
+	void *sub_map = 0;
+
+	if (data + ETH_HLEN + ip_len + sizeof(struct igmphdr) > data_end)
+		return DROP_INVALID;
+
+	hdr = data + ETH_HLEN + ip_len;
+
+	if (hdr->type != IGMPV2_HOST_MEMBERSHIP_REPORT)
+		return DROP_INVALID;
+
+	/* lookup user configured multicast group */
+	sub_map = map_lookup_elem(group_map, &hdr->group);
+	if (!sub_map)
+		return DROP_IGMP_HANDLED;
+
+	if (mcast_ipv4_add_subscriber(sub_map, &subscriber))
+		return DROP_IGMP_SUBSCRIBED;
+
+	return DROP_IGMP_HANDLED;
+}
+
+static __always_inline __s32 mcast_ipv4_handle_igmp_leave(void *group_map,
+							  const struct iphdr *ip4,
+							  const void *data,
+							  const void *data_end)
+{
+	struct mcast_subscriber_v4 subscriber = {
+		.saddr = ip4->saddr,
+	};
+	int ip_len = ip4->ihl * 4;
+	const struct igmphdr *hdr;
+	void *sub_map = 0;
+
+	if (data + ETH_HLEN + ip_len + sizeof(struct igmphdr) > data_end)
+		return DROP_INVALID;
+
+	hdr = data + ETH_HLEN + ip_len;
+
+	if (hdr->type != IGMP_HOST_LEAVE_MESSAGE)
+		return DROP_INVALID;
+
+	/* lookup user configured multicast group */
+	sub_map = map_lookup_elem(group_map, &hdr->group);
+	if (!sub_map)
+		return DROP_IGMP_HANDLED;
+
+	mcast_ipv4_remove_subscriber(sub_map, &subscriber);
+
+	return DROP_IGMP_HANDLED;
+}
+
 /* ipv4 igmp handler which dispatches to specific igmp message handlers */
 static __always_inline __s32 mcast_ipv4_handle_igmp(void *ctx,
 						    struct iphdr *ip4,
@@ -217,6 +280,17 @@ static __always_inline __s32 mcast_ipv4_handle_igmp(void *ctx,
 							      ip4,
 							      data,
 							      data_end);
+	case IGMPV2_HOST_MEMBERSHIP_REPORT:
+		return mcast_ipv4_handle_v2_membership_report(ctx,
+							      &cilium_mcast_group_outer_v4_map,
+							      ip4,
+							      data,
+							      data_end);
+	case IGMP_HOST_LEAVE_MESSAGE:
+		return mcast_ipv4_handle_igmp_leave(&cilium_mcast_group_outer_v4_map,
+						    ip4,
+						    data,
+						    data_end);
 	}
 
 	return DROP_IGMP_HANDLED;
