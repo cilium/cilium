@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 )
 
 // Cell integrates the components of the controller-runtime library into Hive.
@@ -46,10 +47,14 @@ func newScheme() (*runtime.Scheme, error) {
 	return scheme, nil
 }
 
-func newManager(lc hive.Lifecycle, logger logrus.FieldLogger, jobRegistry job.Registry, scope cell.Scope, scheme *runtime.Scheme) (ctrlRuntime.Manager, error) {
+func newManager(lc hive.Lifecycle, logger logrus.FieldLogger, jobRegistry job.Registry, scope cell.Scope, k8sClient client.Clientset, scheme *runtime.Scheme) (ctrlRuntime.Manager, error) {
+	if !k8sClient.IsEnabled() {
+		return nil, nil
+	}
+
 	ctrlRuntime.SetLogger(logrusr.New(logger))
 
-	mgr, err := ctrlRuntime.NewManager(ctrlRuntime.GetConfigOrDie(), ctrlRuntime.Options{
+	mgr, err := ctrlRuntime.NewManager(k8sClient.RestConfig(), ctrlRuntime.Options{
 		Scheme: scheme,
 		// Disable controller metrics server in favour of cilium's metrics server.
 		Metrics: metricsserver.Options{
