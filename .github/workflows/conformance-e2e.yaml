@@ -277,7 +277,7 @@ jobs:
           cmd: |
             git config --global --add safe.directory /host
 
-      - name: Setup K8s cluster (${{ join(matrix.*, ', ') }})
+      - name: Setup K8s cluster
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -300,7 +300,7 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Install Cilium (${{ join(matrix.*, ', ') }})
+      - name: Install Cilium
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -318,7 +318,7 @@ jobs:
 
             mkdir -p cilium-junits
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Run tests
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -333,8 +333,8 @@ jobs:
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
+              --junit-property github_job_step="Run tests" \
               \$EXTRA
 
             ./contrib/scripts/kind-down.sh
