@@ -57,7 +57,13 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
 		ret = nodeport_lb6(ctx, ip6, *identity, ext_err);
-		if (ret < 0)
+		/* nodeport_lb6() returns with TC_ACT_REDIRECT for
+		 * traffic to L7 LB. Policy enforcement needs to take
+		 * place after L7 LB has processed the packet, so we
+		 * return to stack immediately here with
+		 * TC_ACT_REDIRECT.
+		 */
+		if (ret < 0 || ret == TC_ACT_REDIRECT)
 			return ret;
 	}
 #endif
@@ -282,8 +288,13 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
 		int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, ext_err);
-
-		if (ret < 0)
+		/* nodeport_lb4() returns with TC_ACT_REDIRECT for
+		 * traffic to L7 LB. Policy enforcement needs to take
+		 * place after L7 LB has processed the packet, so we
+		 * return to stack immediately here with
+		 * TC_ACT_REDIRECT.
+		 */
+		if (ret < 0 || ret == TC_ACT_REDIRECT)
 			return ret;
 	}
 #endif
