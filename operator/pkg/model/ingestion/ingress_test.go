@@ -603,6 +603,7 @@ var complexIngress = slim_networkingv1.Ingress{
 		Name:        "dummy-ingress",
 		Namespace:   "dummy-namespace",
 		Annotations: testAnnotations,
+		Labels:      testAnnotations,
 		UID:         "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	},
 	Spec: slim_networkingv1.IngressSpec{

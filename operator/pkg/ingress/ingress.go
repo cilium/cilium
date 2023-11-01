@@ -629,8 +629,8 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 		"loadbalancer": loadbalancerMode,
 	}).Debug("Generated model for ingress")
 	cec, svc, ep, err := translator.Translate(m)
-	// Propagate Ingress annotation if required. This is applicable only for dedicated LB mode.
-	// For shared LB mode, the service annotation is defined in other higher level (e.g. helm).
+	// Propagate Ingress annotation and label if required. This is applicable only for dedicated LB mode.
+	// For shared LB mode, the service annotation and label are defined in other higher level (e.g. helm).
 	if svc != nil {
 		for key, value := range ing.GetAnnotations() {
 			for _, prefix := range ic.lbAnnotationPrefixes {
@@ -639,6 +639,17 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 						svc.Annotations = make(map[string]string)
 					}
 					svc.Annotations[key] = value
+				}
+			}
+		}
+		// Same lbAnnotationPrefixes config option is used for label propagation
+		for key, value := range ing.GetLabels() {
+			for _, prefix := range ic.lbAnnotationPrefixes {
+				if strings.HasPrefix(key, prefix) {
+					if svc.Labels == nil {
+						svc.Labels = make(map[string]string)
+					}
+					svc.Labels[key] = value
 				}
 			}
 		}
