@@ -121,28 +121,3 @@ func NewPrivateRWTableCell[Obj any](
 		}),
 	)
 }
-
-type tableOutMeta[Obj any] struct {
-	cell.Out
-	Meta TableMeta `group:"statedb-tables"`
-}
-
-func NewPrivateRWTableCell[Obj any](
-	tableName TableName,
-	primaryIndexer Indexer[Obj],
-	secondaryIndexers ...Indexer[Obj],
-) cell.Cell {
-	rwtable, err := NewTable(tableName, primaryIndexer, secondaryIndexers...)
-	return cell.Group(
-		cell.Provide(func() (tableOutMeta[Obj], error) {
-			if err != nil {
-				return tableOutMeta[Obj]{}, err
-			}
-			return tableOutMeta[Obj]{Meta: rwtable}, nil
-		}),
-		// Provide RWTable[Obj] only in the module's scope.
-		cell.ProvidePrivate(func() (RWTable[Obj], error) {
-			return rwtable, err
-		}),
-	)
-}

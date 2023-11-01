@@ -95,6 +95,15 @@ var (
 		Unique: true,
 	}
 
+	NodeAddressDeviceNameIndex = statedb.Index[NodeAddress, string]{
+		Name: "name",
+		FromObject: func(a NodeAddress) index.KeySet {
+			return index.NewKeySet(index.String(a.DeviceName))
+		},
+		FromKey: index.String,
+		Unique:  false,
+	}
+
 	NodeAddressTableName statedb.TableName = "node-addresses"
 
 	// NodeAddressCell provides Table[NodeAddress] and a background controller
@@ -107,7 +116,7 @@ var (
 		"node-address",
 		"Table of node addresses derived from system network devices",
 
-		statedb.NewPrivateRWTableCell[NodeAddress](NodeAddressTableName, NodeAddressIndex),
+		statedb.NewPrivateRWTableCell[NodeAddress](NodeAddressTableName, NodeAddressIndex, NodeAddressDeviceNameIndex),
 		cell.Provide(
 			newNodeAddressTable,
 			newAddressScopeMax,
@@ -174,9 +183,6 @@ type nodeAddressControllerParams struct {
 type nodeAddressController struct {
 	nodeAddressControllerParams
 
-	// current is the current set of node addresses inserted by this controller.
-	current sets.Set[NodeAddress]
-
 	tracker *statedb.DeleteTracker[*Device]
 }
 
@@ -209,12 +215,10 @@ func (n *nodeAddressController) register() {
 
 				// Do an immediate update to populate the table
 				// before it is read from.
-				addrs := sets.New[NodeAddress]()
 				devices, _ := n.Devices.All(txn)
 				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
-					n.getAddressesFromDevice(dev, addrs)
+					n.update(txn, nil, n.getAddressesFromDevice(dev), nil)
 				}
-				n.update(txn, addrs, nil)
 				txn.Commit()
 
 				// Start the job in the background to incremental refresh
@@ -234,19 +238,13 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 	for {
 		txn := n.DB.WriteTxn(n.NodeAddresses)
 		process := func(dev *Device, deleted bool, rev statedb.Revision) error {
-			new := n.current.Clone()
-
-			// Remove the existing addresses for this device.
-			for addr := range new {
-				if addr.DeviceName == dev.Name {
-					new.Delete(addr)
-				}
-			}
+			addrIter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(dev.Name))
+			existing := sets.New[NodeAddress](statedb.Collect[NodeAddress](addrIter)...)
+			var new sets.Set[NodeAddress]
 			if !deleted {
-				// Add in the new addresses.
-				n.getAddressesFromDevice(dev, new)
+				new = n.getAddressesFromDevice(dev)
 			}
-			n.update(txn, new, reporter)
+			n.update(txn, existing, new, reporter)
 			return nil
 		}
 		var watch <-chan struct{}
@@ -264,19 +262,23 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 	}
 }
 
-func (n *nodeAddressController) update(txn statedb.WriteTxn, new sets.Set[NodeAddress], reporter cell.HealthReporter) {
+func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.Set[NodeAddress], reporter cell.HealthReporter) {
 	updated := false
 
 	// Insert new addresses that did not exist.
-	for addr := range new.Difference(n.current) {
-		updated = true
-		n.NodeAddresses.Insert(txn, addr)
+	for addr := range new {
+		if !existing.Has(addr) {
+			updated = true
+			n.NodeAddresses.Insert(txn, addr)
+		}
 	}
 
 	// Remove addresses that were not part of the new set.
-	for addr := range n.current.Difference(new) {
-		updated = true
-		n.NodeAddresses.Delete(txn, addr)
+	for addr := range existing {
+		if !new.Has(addr) {
+			updated = true
+			n.NodeAddresses.Delete(txn, addr)
+		}
 	}
 
 	if updated {
@@ -288,7 +290,9 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, new sets.Set[NodeAd
 	}
 }
 
-func (n *nodeAddressController) getAddressesFromDevice(dev *Device, addrs sets.Set[NodeAddress]) {
+func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.Set[NodeAddress]) {
+	addrs = sets.New[NodeAddress]()
+
 	if dev.Flags&net.FlagUp == 0 {
 		return
 	}
@@ -355,6 +359,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device, addrs sets.S
 
 		addrs.Insert(NodeAddress{Addr: addr.Addr, Primary: primary, NodePort: nodePort, DeviceName: dev.Name})
 	}
+	return
 }
 
 // showAddresses formats a Set[NodeAddress] as "1.2.3.4 (eth0), fe80::1 (eth1)"
