@@ -254,6 +254,26 @@ func ParseNetworkPolicy(np *slim_networkingv1.NetworkPolicy) (api.Rules, error) 
 	return api.Rules{rule}, nil
 }
 
+// NetworkPolicyHasEndPort returns true if the network policy has an
+// EndPort.
+func NetworkPolicyHasEndPort(np *slim_networkingv1.NetworkPolicy) bool {
+	for _, iRule := range np.Spec.Ingress {
+		for _, port := range iRule.Ports {
+			if port.EndPort != nil && *port.EndPort > 0 {
+				return true
+			}
+		}
+	}
+	for _, eRule := range np.Spec.Egress {
+		for _, port := range eRule.Ports {
+			if port.EndPort != nil && *port.EndPort > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func ipBlockToCIDRRule(block *slim_networkingv1.IPBlock) api.CIDRRule {
 	cidrRule := api.CIDRRule{}
 	cidrRule.Cidr = api.CIDR(block.CIDR)
