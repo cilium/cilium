@@ -71,6 +71,7 @@ type apiParams struct {
 	RecorderDeleteRecorderIDHandler      recorder.DeleteRecorderIDHandler
 	ServiceDeleteServiceIDHandler        service.DeleteServiceIDHandler
 	BgpGetBgpPeersHandler                bgp.GetBgpPeersHandler
+	BgpGetBgpRoutePoliciesHandler        bgp.GetBgpRoutePoliciesHandler
 	BgpGetBgpRoutesHandler               bgp.GetBgpRoutesHandler
 	DaemonGetCgroupDumpMetadataHandler   daemon.GetCgroupDumpMetadataHandler
 	DaemonGetClusterNodesHandler         daemon.GetClusterNodesHandler
@@ -134,6 +135,7 @@ func newAPI(p apiParams) *restapi.CiliumAPIAPI {
 	api.RecorderDeleteRecorderIDHandler = p.RecorderDeleteRecorderIDHandler
 	api.ServiceDeleteServiceIDHandler = p.ServiceDeleteServiceIDHandler
 	api.BgpGetBgpPeersHandler = p.BgpGetBgpPeersHandler
+	api.BgpGetBgpRoutePoliciesHandler = p.BgpGetBgpRoutePoliciesHandler
 	api.BgpGetBgpRoutesHandler = p.BgpGetBgpRoutesHandler
 	api.DaemonGetCgroupDumpMetadataHandler = p.DaemonGetCgroupDumpMetadataHandler
 	api.DaemonGetClusterNodesHandler = p.DaemonGetClusterNodesHandler
