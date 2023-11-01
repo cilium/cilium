@@ -173,6 +173,8 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
 
+	metrics.BPFMapOps.AddLabelValues(metrics.LabelMapName, name)
+
 	return &Map{
 		spec: &ebpf.MapSpec{
 			Type:       mapType,

@@ -32,6 +32,8 @@ var (
 	NoOpGauge             metricpkg.Gauge                         = &gauge{NoOpMetric, NoOpCollector}
 	NoOpGaugeVec          metricpkg.Vec[metricpkg.Gauge]          = &gaugeVec{NoOpCollector}
 	NoOpGaugeDeletableVec metricpkg.DeletableVec[metricpkg.Gauge] = &gaugeDeletableVec{gaugeVec{NoOpCollector}}
+
+	NoOpCounterDeletableVec metricpkg.LabeledVec[metricpkg.Counter] = &counterLabeledVec{counterDeletableVec{counterVec{NoOpCollector}}}
 )
 
 // Metric
@@ -156,6 +158,32 @@ func (g *gauge) SetEnabled(bool)      {}
 func (g *gauge) Opts() metricpkg.Opts { return metricpkg.Opts{} }
 
 // GaugeVec
+
+type counterDeletableVec struct {
+	counterVec
+}
+
+func (c *counterDeletableVec) Delete(ll prometheus.Labels) bool {
+	return false
+}
+
+func (c *counterDeletableVec) DeleteLabelValues(lvs ...string) bool {
+	return false
+}
+
+func (c *counterDeletableVec) DeletePartialMatch(labels prometheus.Labels) int {
+	return 0
+}
+
+func (c *counterDeletableVec) Reset() {}
+
+type counterLabeledVec struct {
+	counterDeletableVec
+}
+
+func (c *counterLabeledVec) AddLabelValues(label string, vals ...string) error {
+	return nil
+}
 
 type gaugeDeletableVec struct {
 	gaugeVec

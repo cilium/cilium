@@ -509,7 +509,7 @@ var (
 
 	// BPFMapOps is the metric to measure the number of operations done to a
 	// bpf map.
-	BPFMapOps = NoOpCounterVec
+	BPFMapOps = NoOpCounterDeletableVec
 
 	// BPFMapCapacity is the max capacity of bpf maps, labelled by map group classification.
 	BPFMapCapacity = NoOpGaugeVec
@@ -695,7 +695,7 @@ type LegacyMetrics struct {
 	IPCacheErrorsTotal               metric.Vec[metric.Counter]
 	IPCacheEventsTotal               metric.Vec[metric.Counter]
 	BPFSyscallDuration               metric.Vec[metric.Observer]
-	BPFMapOps                        metric.Vec[metric.Counter]
+	BPFMapOps                        metric.LabeledVec[metric.Counter]
 	BPFMapCapacity                   metric.Vec[metric.Gauge]
 	TriggerPolicyUpdateTotal         metric.Vec[metric.Counter]
 	TriggerPolicyUpdateFolds         metric.Gauge
@@ -1232,13 +1232,25 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Duration of BPF system calls",
 		}, []string{LabelOperation, LabelOutcome}),
 
-		BPFMapOps: metric.NewCounterVec(metric.CounterOpts{
+		BPFMapOps: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemBPF + "_map_ops_total",
 			Namespace:  Namespace,
 			Subsystem:  SubsystemBPF,
 			Name:       "map_ops_total",
 			Help:       "Total operations on map, tagged by map name",
-		}, []string{LabelMapName, LabelOperation, LabelOutcome}),
+		},
+			metric.Labels{
+				{Name: LabelMapName},
+				{
+					Name:   LabelOperation,
+					Values: metric.NewValues("create", "delete", "lookup", "update", "getNextKey"),
+				},
+				{
+					Name:   LabelOutcome,
+					Values: metric.NewValues("success", "fail"),
+				},
+			},
+		),
 
 		BPFMapCapacity: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_" + SubsystemBPF + "_map_capacity",

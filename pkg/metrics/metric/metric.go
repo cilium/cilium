@@ -152,6 +152,14 @@ type Vec[T any] interface {
 	WithLabelValues(lvs ...string) T
 }
 
+// LabeledVec is a deletable vectorized metric, that also has potential label values
+// declared up front for management of metric initialization.
+type LabeledVec[T any] interface {
+	DeletableVec[T]
+
+	AddLabelValues(label string, vals ...string) error
+}
+
 // DeletableVec is a generic type to describe a vectorized version of another metric type, like Vec[T], but with the
 // additional ability to remove labels without re-creating the metric.
 type DeletableVec[T any] interface {

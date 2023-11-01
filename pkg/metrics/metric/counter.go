@@ -4,6 +4,8 @@
 package metric
 
 import (
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
@@ -70,7 +72,7 @@ func NewCounterVec(opts CounterOpts, labelNames []string) DeletableVec[Counter] 
 	}
 }
 
-func NewCounterVecWithLabels(opts CounterOpts, labels Labels) DeletableVec[Counter] {
+func NewCounterVecWithLabels(opts CounterOpts, labels Labels) LabeledVec[Counter] {
 	cv := &counterVec{
 		CounterVec: prometheus.NewCounterVec(opts.toPrometheus(), labels.labelNames()),
 		metric: metric{
@@ -83,6 +85,35 @@ func NewCounterVecWithLabels(opts CounterOpts, labels Labels) DeletableVec[Count
 		cv.WithLabelValues(vs...)
 	})
 	return cv
+}
+
+var ErrNoLabels = fmt.Errorf("metric was created without labelset, label names must be registered when creating metric")
+
+func (c *counterVec) AddLabelValues(label string, vals ...string) error {
+	if c.labels == nil {
+		return ErrNoLabels
+	}
+	fmt.Println("[tom-debug] add label values:", label, vals)
+	// Add new value range to label values.
+	for _, l := range c.labels.lbls {
+		if l.Name == label {
+			if l.Values == nil {
+				l.Values = make(map[string]struct{})
+			}
+			for _, val := range vals {
+				l.Values[val] = struct{}{}
+			}
+		}
+	}
+
+	// Reinitialize the metric.
+	// TODO: This is potentially expensive for large label/value domains.
+	// Consider only updating the metric with the new label values.
+	c.forEachLabelVector(func(vs []string) {
+		fmt.Println("[tom-debug] init:", vs)
+		c.WithLabelValues(vs...)
+	})
+	return nil
 }
 
 type counterVec struct {

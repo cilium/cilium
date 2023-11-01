@@ -41,3 +41,5 @@ clustermesh:
           path: /cilium-binaries/clustermesh-apiserver
           type: File
         name: clustermesh-apiserver-binary
+metrics:
+  enabled: true

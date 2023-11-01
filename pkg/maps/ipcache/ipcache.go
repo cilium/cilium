@@ -141,6 +141,14 @@ type Map struct {
 }
 
 func newIPCacheMap(name string) *bpf.Map {
+	fmt.Println(bpf.NewMap(
+		"foo_test_map",
+		ebpf.LPMTrie,
+		&Key{},
+		&RemoteEndpointInfo{},
+		MaxEntries,
+		bpf.BPF_F_NO_PREALLOC))
+
 	return bpf.NewMap(
 		name,
 		ebpf.LPMTrie,
