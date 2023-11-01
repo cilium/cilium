@@ -724,8 +724,7 @@ ingressController:
   # -- Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
   enableProxyProtocol: false
 
-  # -- IngressLBAnnotations are the annotation prefixes, which are used to filter annotations to propagate
-  # from Ingress to the Load Balancer service
+  # -- IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service
   ingressLBAnnotationPrefixes: ['service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
 
   # -- Default secret namespace for ingresses without .spec.tls[].secretName set.
