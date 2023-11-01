@@ -676,6 +676,10 @@ data:
   enable-runtime-device-detection: "true"
 {{- end }}
 
+{{- if hasKey .Values "nodePortAddresses" }}
+  nodeport-addresses: {{ join " " .Values.nodePortAddresses | quote }}
+{{- end }}
+
   kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
 
 {{- if ne $kubeProxyReplacement "disabled" }}

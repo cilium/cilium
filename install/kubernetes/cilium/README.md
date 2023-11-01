@@ -614,6 +614,7 @@ contributors across the globe, there is almost always someone available to help.
 | nodePort.enableHealthCheck | bool | `true` | Enable healthcheck nodePort server for NodePort services |
 | nodePort.enableHealthCheckLoadBalancerIP | bool | `false` | Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs EnableHealthCheck to be enabled |
 | nodePort.enabled | bool | `false` | Enable the Cilium NodePort service implementation. |
+| nodePortAddresses | string | `""` | Specify CIDRs to limit which addresses on the node can be used for external NodePort traffic (e.g. traffic coming from outside the cluster). Only relevant when "kubeProxyReplacement" is enabled. If not set then only the primary IPv4 and/or IPv6 address of each device is used. |
 | nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node selector for cilium-agent. |
 | nodeinit.affinity | object | `{}` | Affinity for cilium-nodeinit |
 | nodeinit.annotations | object | `{}` | Annotations to be added to all top-level nodeinit objects (resources under templates/cilium-nodeinit) |

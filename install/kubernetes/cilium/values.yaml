@@ -667,6 +667,12 @@ daemon:
 # be considered.
 enableRuntimeDeviceDetection: false
 
+# -- Specify CIDRs to limit which addresses on the node can be used for external
+# NodePort traffic (e.g. traffic coming from outside the cluster). Only relevant
+# when "kubeProxyReplacement" is enabled. If not set then only the primary
+# IPv4 and/or IPv6 address of each device is used.
+nodePortAddresses: ""
+
 # -- Chains to ignore when installing feeder rules.
 # disableIptablesFeederRules: ""
 
