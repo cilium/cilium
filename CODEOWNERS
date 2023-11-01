@@ -372,6 +372,7 @@ Makefile* @cilium/build
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
 /operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
+/operator/pkg/controller-runtime @cilium/sig-servicemesh
 /operator/pkg/gateway-api @cilium/sig-servicemesh
 /operator/pkg/ingress @cilium/sig-servicemesh
 /operator/pkg/lbipam @cilium/sig-lb

@@ -6,27 +6,20 @@ package gateway_api
 import (
 	"context"
 
-	"github.com/bombsimon/logrusr/v4"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -37,42 +30,16 @@ const (
 	gatewayIndex        = "gatewayIndex"
 )
 
-var scheme = runtime.NewScheme()
-
-func init() {
-	utilruntime.Must(gatewayv1.AddToScheme(scheme))
-	utilruntime.Must(gatewayv1beta1.AddToScheme(scheme))
-	utilruntime.Must(gatewayv1alpha2.AddToScheme(scheme))
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2.AddToScheme(scheme))
-}
-
-type Controller struct {
-	mgr ctrl.Manager
-}
-
-// NewController returns a new gateway controller, which is implemented
+// newController returns a new gateway controller, which is implemented
 // using the controller-runtime library.
-func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSeconds int) (*Controller, error) {
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-		// Disable controller metrics server in favour of cilium's metrics server.
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-		Logger: logrusr.New(log, logrusr.WithName("controller-runtime")),
-	})
-	if err != nil {
-		return nil, err
-	}
-
+func newController(mgr ctrl.Manager, enableSecretSync bool, secretsNamespace string, idleTimeoutSeconds int) error {
 	gwcReconciler := &gatewayClassReconciler{
 		Client:         mgr.GetClient(),
 		Scheme:         mgr.GetScheme(),
 		controllerName: controllerName,
 	}
-	if err = gwcReconciler.SetupWithManager(mgr); err != nil {
-		return nil, err
+	if err := gwcReconciler.SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	gwReconciler := &gatewayReconciler{
@@ -82,40 +49,40 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 		controllerName:     controllerName,
 		IdleTimeoutSeconds: idleTimeoutSeconds,
 	}
-	if err = gwReconciler.SetupWithManager(mgr); err != nil {
-		return nil, err
+	if err := gwReconciler.SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	hrReconciler := &httpRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}
-	if err = hrReconciler.SetupWithManager(mgr); err != nil {
-		return nil, err
+	if err := hrReconciler.SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	grReconciler := &grpcRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}
-	if err = grReconciler.SetupWithManager(mgr); err != nil {
-		return nil, err
+	if err := grReconciler.SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	tlsReconciler := &tlsRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}
-	if err = tlsReconciler.SetupWithManager(mgr); err != nil {
-		return nil, err
+	if err := tlsReconciler.SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	rgReconciler := &referenceGrantReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}
-	if err = rgReconciler.SetupWithManager(mgr); err != nil {
-		return nil, err
+	if err := rgReconciler.SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	if enableSecretSync {
@@ -125,20 +92,12 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 			SecretsNamespace: secretsNamespace,
 			controllerName:   controllerName,
 		}
-		if err = secretReconciler.SetupWithManager(mgr); err != nil {
-			return nil, err
+		if err := secretReconciler.SetupWithManager(mgr); err != nil {
+			return err
 		}
 	}
 
-	return &Controller{
-		mgr: mgr,
-	}, nil
-}
-
-func (m *Controller) Run() {
-	if err := m.mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		log.WithField(logfields.Controller, "gateway-api").WithError(err).Error("Unable to start controller")
-	}
+	return nil
 }
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string) func(object client.Object) bool {

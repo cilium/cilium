@@ -8,11 +8,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bombsimon/logrusr/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -22,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Cell manages the Gateway API related controllers.
@@ -63,7 +63,7 @@ type params struct {
 	Logger    logrus.FieldLogger
 }
 
-func registerController(lc hive.Lifecycle, p params, config gatewayApiConfig) error {
+func registerController(lc hive.Lifecycle, p params, config gatewayApiConfig, ctrlRuntimeManager ctrlRuntime.Manager, scheme *runtime.Scheme) error {
 	if !operatorOption.Config.EnableGatewayAPI {
 		return nil
 	}
@@ -74,24 +74,16 @@ func registerController(lc hive.Lifecycle, p params, config gatewayApiConfig) er
 		return nil
 	}
 
-	// Setting global logger for controller-runtime
-	ctrlRuntime.SetLogger(logrusr.New(logging.DefaultLogger, logrusr.WithName("controller-runtime")))
+	registerGatewayAPITypesToScheme(scheme)
 
-	gatewayController, err := NewController(
+	if err := newController(
+		ctrlRuntimeManager,
 		config.EnableGatewayAPISecretsSync,
 		config.GatewayAPISecretsNamespace,
 		operatorOption.Config.ProxyIdleTimeoutSeconds,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
-
-	lc.Append(hive.Hook{
-		OnStart: func(_ hive.HookContext) error {
-			go gatewayController.Run()
-			return nil
-		},
-	})
 
 	return nil
 }
@@ -123,4 +115,10 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 	}
 
 	return res
+}
+
+func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) {
+	utilruntime.Must(gatewayv1.AddToScheme(scheme))
+	utilruntime.Must(gatewayv1beta1.AddToScheme(scheme))
+	utilruntime.Must(gatewayv1alpha2.AddToScheme(scheme))
 }

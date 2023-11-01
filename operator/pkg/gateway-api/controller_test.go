@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -23,7 +26,19 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
+
+func testScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(ciliumv2.AddToScheme(scheme))
+
+	registerGatewayAPITypesToScheme(scheme)
+
+	return scheme
+}
 
 var controllerTestFixture = []client.Object{
 	// Cilium Gateway Class
@@ -211,7 +226,7 @@ var namespaceFixtures = []client.Object{
 }
 
 func Test_hasMatchingController(t *testing.T) {
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(controllerTestFixture...).Build()
+	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
 	fn := hasMatchingController(context.Background(), c, "io.cilium/gateway-controller")
 
 	t.Run("invalid object", func(t *testing.T) {
@@ -239,7 +254,7 @@ func Test_hasMatchingController(t *testing.T) {
 }
 
 func Test_getGatewaysForSecret(t *testing.T) {
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(controllerTestFixture...).Build()
+	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
 
 	t.Run("secret is used in gateway", func(t *testing.T) {
 		gwList := getGatewaysForSecret(context.Background(), c, &corev1.Secret{
@@ -267,7 +282,7 @@ func Test_getGatewaysForSecret(t *testing.T) {
 
 func Test_getGatewaysForNamespace(t *testing.T) {
 	c := fake.NewClientBuilder().
-		WithScheme(scheme).
+		WithScheme(testScheme()).
 		WithObjects(namespaceFixtures...).
 		WithObjects(controllerTestFixture...).
 		Build()
