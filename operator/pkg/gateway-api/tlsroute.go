@@ -30,6 +30,13 @@ type tlsRouteReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+func newTLSRouteReconciler(mgr ctrl.Manager) *tlsRouteReconciler {
+	return &tlsRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, backendServiceIndex,

@@ -30,6 +30,13 @@ type grpcRouteReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+func newGRPCRouteReconciler(mgr ctrl.Manager) *grpcRouteReconciler {
+	return &grpcRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},

@@ -76,7 +76,7 @@ func registerController(lc hive.Lifecycle, p params, config gatewayApiConfig, ct
 
 	registerGatewayAPITypesToScheme(scheme)
 
-	if err := newController(
+	if err := registerReconcilers(
 		ctrlRuntimeManager,
 		config.EnableGatewayAPISecretsSync,
 		config.GatewayAPISecretsNamespace,
@@ -115,6 +115,32 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 	}
 
 	return res
+}
+
+// registerReconcilers registers the Gateway API reconcilers to the controller-runtime library manager.
+func registerReconcilers(mgr ctrlRuntime.Manager, enableSecretSync bool, secretsNamespace string, idleTimeoutSeconds int) error {
+	reconcilers := []interface {
+		SetupWithManager(mgr ctrlRuntime.Manager) error
+	}{
+		newGatewayClassReconciler(mgr),
+		newGatewayReconciler(mgr, secretsNamespace, idleTimeoutSeconds),
+		newReferenceGrantReconciler(mgr),
+		newHTTPRouteReconciler(mgr),
+		newGRPCRouteReconciler(mgr),
+		newTLSRouteReconciler(mgr),
+	}
+
+	if enableSecretSync {
+		reconcilers = append(reconcilers, newSecretSyncReconciler(mgr, secretsNamespace))
+	}
+
+	for _, r := range reconcilers {
+		if err := r.SetupWithManager(mgr); err != nil {
+			return fmt.Errorf("failed to setup reconciler: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) {
