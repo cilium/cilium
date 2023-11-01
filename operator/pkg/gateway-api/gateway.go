@@ -42,6 +42,16 @@ type gatewayReconciler struct {
 	controllerName string
 }
 
+func newGatewayReconciler(mgr ctrl.Manager, secretsNamespace string, idleTimeoutSeconds int) *gatewayReconciler {
+	return &gatewayReconciler{
+		Client:             mgr.GetClient(),
+		Scheme:             mgr.GetScheme(),
+		SecretsNamespace:   secretsNamespace,
+		controllerName:     controllerName,
+		IdleTimeoutSeconds: idleTimeoutSeconds,
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 // The reconciler will be triggered by Gateway, or any cilium-managed GatewayClass events
 func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {

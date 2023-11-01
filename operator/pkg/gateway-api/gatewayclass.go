@@ -20,6 +20,14 @@ type gatewayClassReconciler struct {
 	controllerName string
 }
 
+func newGatewayClassReconciler(mgr ctrl.Manager) *gatewayClassReconciler {
+	return &gatewayClassReconciler{
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		controllerName: controllerName,
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *gatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).

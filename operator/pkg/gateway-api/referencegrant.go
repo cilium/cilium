@@ -16,6 +16,13 @@ type referenceGrantReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+func newReferenceGrantReconciler(mgr ctrl.Manager) *referenceGrantReconciler {
+	return &referenceGrantReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *referenceGrantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).

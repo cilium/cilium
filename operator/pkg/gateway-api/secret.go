@@ -36,6 +36,15 @@ type secretSyncer struct {
 	controllerName   string
 }
 
+func newSecretSyncReconciler(mgr ctrl.Manager, secretsNamespace string) *secretSyncer {
+	return &secretSyncer{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		SecretsNamespace: secretsNamespace,
+		controllerName:   controllerName,
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, r.controllerName)

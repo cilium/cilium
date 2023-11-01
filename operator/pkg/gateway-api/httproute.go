@@ -30,6 +30,13 @@ type httpRouteReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+func newHTTPRouteReconciler(mgr ctrl.Manager) *httpRouteReconciler {
+	return &httpRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, backendServiceIndex,
