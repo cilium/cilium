@@ -228,7 +228,9 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
            cilium install |CHART_VERSION|
 
     .. group-tab:: AKS
-
+       
+       .. include:: ../installation/requirements-aks.rst
+   
        **Install Cilium:**
 
        Install Cilium into the AKS cluster:
@@ -236,23 +238,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
        .. parsed-literal::
 
            cilium install |CHART_VERSION| --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}"
-
-       The Cilium CLI will automatically install Cilium using one of the
-       following installation modes based on the ``--network-plugin``
-       configuration detected from the AKS cluster:
-
-       .. include:: ../installation/requirements-aks.rst
-
-       .. tabs::
-
-          .. tab:: BYOCNI
-
-             .. include:: ../installation/requirements-aks-byocni.rst
-
-          .. tab:: Legacy Azure IPAM
-
-             .. include:: ../installation/requirements-aks-azure-ipam.rst
-
+           
     .. group-tab:: EKS
 
        .. include:: ../installation/requirements-eks.rst
