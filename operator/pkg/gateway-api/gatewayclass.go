@@ -17,8 +17,6 @@ type gatewayClassReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	Model *internalModel
-
 	controllerName string
 }
 

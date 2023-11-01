@@ -40,7 +40,6 @@ type gatewayReconciler struct {
 	IdleTimeoutSeconds int
 
 	controllerName string
-	Model          *internalModel
 }
 
 // SetupWithManager sets up the controller with the Manager.
