@@ -19,9 +19,11 @@ import (
 )
 
 var (
-	dummyNodeCfg = datapath.LocalNodeConfiguration{}
-	dummyDevCfg  = testutils.NewTestEndpoint()
-	dummyEPCfg   = testutils.NewTestEndpoint()
+	dummyNodeCfg = datapath.LocalNodeConfiguration{
+		MtuConfig: &fake.MTU{},
+	}
+	dummyDevCfg = testutils.NewTestEndpoint()
+	dummyEPCfg  = testutils.NewTestEndpoint()
 )
 
 // TesthashDatapath is done in this package just for easy access to dummy

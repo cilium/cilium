@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -100,6 +101,9 @@ var Cell = cell.Module(
 
 	// IPsec cell provides the IPsecKeyCustodian.
 	ipsec.Cell,
+
+	// MTU provides the MTU configuration of the node.
+	mtu.Cell,
 
 	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
 		return dp.NodeIDs()

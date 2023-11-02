@@ -9,9 +9,14 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/mtu"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
+
+type MTUConfiguration interface {
+	GetDeviceMTU() int
+	GetRouteMTU() int
+	GetRoutePostEncryptMTU() int
+}
 
 // LocalNodeConfiguration represents the configuration of the local node
 type LocalNodeConfiguration struct {
@@ -19,7 +24,7 @@ type LocalNodeConfiguration struct {
 	//
 	// This field is immutable at runtime. The value will not change in
 	// subsequent calls to NodeConfigurationChanged().
-	MtuConfig mtu.Configuration
+	MtuConfig MTUConfiguration
 
 	// AuxiliaryPrefixes is the list of auxiliary prefixes that should be
 	// configured in addition to the node PodCIDR

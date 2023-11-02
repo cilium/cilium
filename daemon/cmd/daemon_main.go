@@ -84,6 +84,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -1670,6 +1671,7 @@ type daemonParams struct {
 	TunnelConfig        tunnel.Config
 	BandwidthManager    bandwidth.Manager
 	IPsecKeyCustodian   datapath.IPsecKeyCustodian
+	MTU                 mtu.MTU
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

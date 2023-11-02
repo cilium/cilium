@@ -93,10 +93,16 @@ var (
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map) *linuxNodeHandler {
+func NewNodeHandler(
+	datapathConfig DatapathConfiguration,
+	nodeAddressing datapath.NodeAddressing,
+	nodeMap nodemap.Map,
+	mtu datapath.MTUConfiguration,
+) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
+		nodeConfig:             datapath.LocalNodeConfiguration{MtuConfig: mtu},
 		nodes:                  map[nodeTypes.Identity]*nodeTypes.Node{},
 		neighNextHopByNode4:    map[nodeTypes.Identity]map[string]string{},
 		neighNextHopByNode6:    map[nodeTypes.Identity]map[string]string{},

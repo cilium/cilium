@@ -42,6 +42,7 @@ type DatapathParams struct {
 	NodeMap        nodemap.Map
 	BWManager      bandwidth.Manager
 	NodeAddressing datapath.NodeAddressing
+	MTU            datapath.MTUConfiguration
 }
 
 // NewDatapath creates a new Linux datapath
@@ -57,7 +58,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		bwmgr:           p.BWManager,
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU)
 	return dp
 }
 

@@ -40,7 +40,9 @@ func Test(t *testing.T) {
 var (
 	_ = Suite(&ConfigSuite{})
 
-	dummyNodeCfg  = datapath.LocalNodeConfiguration{}
+	dummyNodeCfg = datapath.LocalNodeConfiguration{
+		MtuConfig: &fake.MTU{},
+	}
 	dummyDevCfg   = testutils.NewTestEndpoint()
 	dummyEPCfg    = testutils.NewTestEndpoint()
 	ipv4DummyAddr = netip.MustParseAddr("192.0.2.3")
