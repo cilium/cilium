@@ -90,7 +90,7 @@ func enableLocalNodeRoute() bool {
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientset, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
+func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientset, mtu mtu.MTU, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -114,7 +114,7 @@ func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientse
 	return &NodeDiscovery{
 		Manager: manager,
 		LocalConfig: datapath.LocalNodeConfiguration{
-			MtuConfig:               mtuConfig,
+			MtuConfig:               mtu,
 			EnableIPv4:              option.Config.EnableIPv4,
 			EnableIPv6:              option.Config.EnableIPv6,
 			EnableEncapsulation:     option.Config.TunnelingEnabled(),
