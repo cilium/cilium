@@ -175,71 +175,13 @@ func TestAddRemoveRoutePolicy(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			// compile a map of created defined sets
-			definedSets := make(map[string]*gobgp.DefinedSet)
-			err = gobgpServer.ListDefinedSet(context.Background(), &gobgp.ListDefinedSetRequest{DefinedType: gobgp.DefinedType_NEIGHBOR}, func(ds *gobgp.DefinedSet) {
-				definedSets[ds.Name] = ds
-			})
-			require.NoError(t, err)
-			err = gobgpServer.ListDefinedSet(context.Background(), &gobgp.ListDefinedSetRequest{DefinedType: gobgp.DefinedType_PREFIX}, func(ds *gobgp.DefinedSet) {
-				definedSets[ds.Name] = ds
-			})
+			// retrieve policies
+			pResp, err := router.GetRoutePolicies(context.Background())
 			require.NoError(t, err)
 
-			// check that policy was added properly
-			cnt := 0
-			err = gobgpServer.ListPolicy(context.Background(), &gobgp.ListPolicyRequest{}, func(p *gobgp.Policy) {
-				cnt++
-				require.Equal(t, tt.policy.Name, p.Name)
-				require.Len(t, p.Statements, len(tt.policy.Statements))
-				for i, stmt := range p.Statements {
-					expStmt := tt.policy.Statements[i]
-					require.Equal(t, policyStatementName(tt.policy.Name, i), stmt.Name)
-					if len(expStmt.Conditions.MatchNeighbors) > 0 {
-						require.NotNil(t, stmt.Conditions.NeighborSet)
-						require.NotNil(t, definedSets[stmt.Conditions.NeighborSet.Name], "defined set for MatchNeighbors must exist")
-						require.Equal(t, expStmt.Conditions.MatchNeighbors, definedSets[stmt.Conditions.NeighborSet.Name].List)
-					}
-					if len(expStmt.Conditions.MatchPrefixes) > 0 {
-						require.NotNil(t, stmt.Conditions.PrefixSet)
-						require.NotNil(t, definedSets[stmt.Conditions.PrefixSet.Name], "defined set for MatchPrefixes must exist")
-						require.Equal(t, len(expStmt.Conditions.MatchPrefixes), len(definedSets[stmt.Conditions.PrefixSet.Name].Prefixes))
-						for j, expPrefix := range expStmt.Conditions.MatchPrefixes {
-							prefix := definedSets[stmt.Conditions.PrefixSet.Name].Prefixes[j]
-							require.Equal(t, expPrefix.CIDR, netip.MustParsePrefix(prefix.IpPrefix))
-							require.EqualValues(t, expPrefix.PrefixLenMin, prefix.MaskLengthMin)
-							require.EqualValues(t, expPrefix.PrefixLenMax, prefix.MaskLengthMax)
-						}
-					}
-					require.Equal(t, toGoBGPRouteAction(expStmt.Actions.RouteAction), stmt.Actions.RouteAction)
-					if len(expStmt.Actions.AddCommunities) > 0 {
-						require.NotNil(t, stmt.Actions.Community)
-						require.Equal(t, expStmt.Actions.AddCommunities, stmt.Actions.Community.Communities)
-					}
-					if len(expStmt.Actions.AddLargeCommunities) > 0 {
-						require.NotNil(t, stmt.Actions.LargeCommunity)
-						require.Equal(t, expStmt.Actions.AddLargeCommunities, stmt.Actions.LargeCommunity.Communities)
-					}
-					if expStmt.Actions.SetLocalPreference != nil {
-						require.NotNil(t, stmt.Actions.LocalPref)
-						require.EqualValues(t, *expStmt.Actions.SetLocalPreference, stmt.Actions.LocalPref.Value)
-					}
-				}
-			})
-			require.NoError(t, err)
-			require.Equal(t, 1, cnt)
-
-			// check policy assignment
-			cnt = 0
-			err = gobgpServer.ListPolicyAssignment(context.Background(), &gobgp.ListPolicyAssignmentRequest{}, func(a *gobgp.PolicyAssignment) {
-				if a.Direction == toGoBGPPolicyDirection(tt.policy.Type) {
-					require.Len(t, a.Policies, 1)
-					require.Equal(t, tt.policy.Name, a.Policies[0].Name)
-				}
-				cnt += len(a.Policies)
-			})
-			require.NoError(t, err)
-			require.Equal(t, 1, cnt)
+			// check that retrieved policy matches the expected
+			require.Len(t, pResp.Policies, 1)
+			require.EqualValues(t, tt.policy, pResp.Policies[0])
 
 			// remove testing policy
 			err = router.RemoveRoutePolicy(context.Background(), types.RoutePolicyRequest{Policy: tt.policy})

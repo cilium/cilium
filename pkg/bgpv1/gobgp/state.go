@@ -281,3 +281,48 @@ func (g *GoBGPServer) GetRoutes(ctx context.Context, r *types.GetRoutesRequest) 
 		Routes: routes,
 	}, nil
 }
+
+// GetRoutePolicies retrieves route policies from the underlying router
+func (g *GoBGPServer) GetRoutePolicies(ctx context.Context) (*types.GetRoutePoliciesResponse, error) {
+	// list defined sets into a map for later use
+	definedSets := make(map[string]*gobgp.DefinedSet)
+	err := g.server.ListDefinedSet(ctx, &gobgp.ListDefinedSetRequest{DefinedType: gobgp.DefinedType_NEIGHBOR}, func(ds *gobgp.DefinedSet) {
+		definedSets[ds.Name] = ds
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed listing neighbor defined sets: %w", err)
+	}
+	err = g.server.ListDefinedSet(ctx, &gobgp.ListDefinedSetRequest{DefinedType: gobgp.DefinedType_PREFIX}, func(ds *gobgp.DefinedSet) {
+		definedSets[ds.Name] = ds
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed listing prefix defined sets: %w", err)
+	}
+
+	// list policy assignments into a map for later use
+	assignments := make(map[string]*gobgp.PolicyAssignment)
+	err = g.server.ListPolicyAssignment(ctx, &gobgp.ListPolicyAssignmentRequest{}, func(a *gobgp.PolicyAssignment) {
+		for _, p := range a.Policies {
+			assignments[p.Name] = a
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed listing policy assignments: %w", err)
+	}
+
+	// list & convert policies
+	var policies []*types.RoutePolicy
+	err = g.server.ListPolicy(ctx, &gobgp.ListPolicyRequest{}, func(p *gobgp.Policy) {
+		// process only assigned policies
+		if assignment, exists := assignments[p.Name]; exists {
+			policies = append(policies, toAgentPolicy(p, definedSets, assignment))
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed listing route policies: %w", err)
+	}
+
+	return &types.GetRoutePoliciesResponse{
+		Policies: policies,
+	}, nil
+}

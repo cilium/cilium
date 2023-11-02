@@ -6,6 +6,7 @@ package gobgp
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/apiutil"
@@ -110,6 +111,17 @@ func toGoBGPPolicy(apiPolicy *types.RoutePolicy) (*gobgp.Policy, []*gobgp.Define
 	return policy, definedSets
 }
 
+func toAgentPolicy(p *gobgp.Policy, definedSets map[string]*gobgp.DefinedSet, assignment *gobgp.PolicyAssignment) *types.RoutePolicy {
+	policy := &types.RoutePolicy{
+		Name: p.Name,
+		Type: toAgentPolicyType(assignment.Direction),
+	}
+	for _, s := range p.Statements {
+		policy.Statements = append(policy.Statements, toAgentPolicyStatement(s, definedSets))
+	}
+	return policy
+}
+
 func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name string) (*gobgp.Statement, []*gobgp.DefinedSet) {
 	var definedSets []*gobgp.DefinedSet
 
@@ -181,6 +193,42 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 	return s, definedSets
 }
 
+func toAgentPolicyStatement(s *gobgp.Statement, definedSets map[string]*gobgp.DefinedSet) *types.RoutePolicyStatement {
+	stmt := &types.RoutePolicyStatement{}
+
+	if s.Conditions != nil {
+		if s.Conditions.NeighborSet != nil && definedSets[s.Conditions.NeighborSet.Name] != nil {
+			stmt.Conditions.MatchNeighbors = definedSets[s.Conditions.NeighborSet.Name].List
+		}
+		if s.Conditions.PrefixSet != nil && definedSets[s.Conditions.PrefixSet.Name] != nil {
+			for _, pfx := range definedSets[s.Conditions.PrefixSet.Name].Prefixes {
+				cidr, err := netip.ParsePrefix(pfx.IpPrefix)
+				if err == nil {
+					stmt.Conditions.MatchPrefixes = append(stmt.Conditions.MatchPrefixes, &types.RoutePolicyPrefixMatch{
+						CIDR:         cidr,
+						PrefixLenMin: int(pfx.MaskLengthMin),
+						PrefixLenMax: int(pfx.MaskLengthMax),
+					})
+				}
+			}
+		}
+	}
+	if s.Actions != nil {
+		stmt.Actions.RouteAction = toAgentRouteAction(s.Actions.RouteAction)
+		if s.Actions.Community != nil {
+			stmt.Actions.AddCommunities = s.Actions.Community.Communities
+		}
+		if s.Actions.LargeCommunity != nil {
+			stmt.Actions.AddLargeCommunities = s.Actions.LargeCommunity.Communities
+		}
+		if s.Actions.LocalPref != nil {
+			localPref := int64(s.Actions.LocalPref.Value)
+			stmt.Actions.SetLocalPreference = &localPref
+		}
+	}
+	return stmt
+}
+
 func policyStatementName(policyName string, cnt int) string {
 	return fmt.Sprintf("%s-%d", policyName, cnt)
 }
@@ -203,6 +251,16 @@ func toGoBGPRouteAction(a types.RoutePolicyAction) gobgp.RouteAction {
 	return gobgp.RouteAction_NONE
 }
 
+func toAgentRouteAction(a gobgp.RouteAction) types.RoutePolicyAction {
+	switch a {
+	case gobgp.RouteAction_ACCEPT:
+		return types.RoutePolicyActionAccept
+	case gobgp.RouteAction_REJECT:
+		return types.RoutePolicyActionReject
+	}
+	return types.RoutePolicyActionNone
+}
+
 func toGoBGPPolicyDirection(policyType types.RoutePolicyType) gobgp.PolicyDirection {
 	switch policyType {
 	case types.RoutePolicyTypeExport:
@@ -211,6 +269,13 @@ func toGoBGPPolicyDirection(policyType types.RoutePolicyType) gobgp.PolicyDirect
 		return gobgp.PolicyDirection_IMPORT
 	}
 	return gobgp.PolicyDirection_UNKNOWN
+}
+
+func toAgentPolicyType(d gobgp.PolicyDirection) types.RoutePolicyType {
+	if d == gobgp.PolicyDirection_IMPORT {
+		return types.RoutePolicyTypeImport
+	}
+	return types.RoutePolicyTypeExport
 }
 
 func toGoBGPSoftResetDirection(direction types.SoftResetDirection) gobgp.ResetPeerRequest_SoftResetDirection {
