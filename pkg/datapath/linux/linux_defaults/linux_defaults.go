@@ -19,6 +19,9 @@ const (
 	// RouteTableVtep is the default table ID to use for VTEP routing rules
 	RouteTableVtep = 202
 
+	// RouteTableProxy is the default table ID to use for proxy routing rules.
+	RouteTableProxy = 2004
+
 	// RouteTableInterfacesOffset is the offset for the per-ENI routing tables.
 	// Each ENI interface will have its own table starting with this offset. It
 	// is 10 because it is highly unlikely to collide with the main routing
