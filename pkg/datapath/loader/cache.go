@@ -68,6 +68,7 @@ var ignoredELFPrefixes = []string{
 	"cilium_per_cluster_ct",      // Global
 	"cilium_world_cidrs4",        // Global
 	"cilium_l2_responder_v4",     // Global
+	"cilium_ratelimit",           // Global
 	"tc",                         // Program Section
 	"xdp",                        // Program Section
 	".BTF",                       // Debug

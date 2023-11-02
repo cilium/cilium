@@ -110,6 +110,7 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	struct icmp6hdr *l4;
+	struct ratelimit_value *value;
 
 	test_init();
 
@@ -152,6 +153,16 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	 * wireshark
 	 */
 	assert(l4->icmp6_cksum == bpf_htons(0x7da8));
+
+	struct ratelimit_key key = {
+		.netdev_idx = 1,
+	};
+
+	value = map_lookup_elem(&RATELIMIT_MAP, &key);
+	if (!value)
+		test_fatal("ratelimit map lookup failed");
+
+	assert(value->tokens > 0);
 
 	test_finish();
 }
