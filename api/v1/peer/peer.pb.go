@@ -129,15 +129,15 @@ type ChangeNotification struct {
 	// Examples:
 	//   - runtime1
 	//   - testcluster/runtime1
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty" yaml:"name"`
 	// Address is the address of the peer's gRPC service.
-	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty" yaml:"address"`
 	// ChangeNotificationType indicates the type of change, ie whether the peer
 	// was added, deleted or updated.
-	Type ChangeNotificationType `protobuf:"varint,3,opt,name=type,proto3,enum=peer.ChangeNotificationType" json:"type,omitempty"`
+	Type ChangeNotificationType `protobuf:"varint,3,opt,name=type,proto3,enum=peer.ChangeNotificationType" json:"type,omitempty" yaml:"type"`
 	// TLS provides information to connect to the Address with TLS enabled.
 	// If not set, TLS shall be assumed to be disabled.
-	Tls *TLS `protobuf:"bytes,4,opt,name=tls,proto3" json:"tls,omitempty"`
+	Tls *TLS `protobuf:"bytes,4,opt,name=tls,proto3" json:"tls,omitempty" yaml:"tls"`
 }
 
 func (x *ChangeNotification) Reset() {
@@ -207,7 +207,7 @@ type TLS struct {
 	unknownFields protoimpl.UnknownFields
 
 	// ServerName is used to verify the hostname on the returned certificate.
-	ServerName string `protobuf:"bytes,1,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
+	ServerName string `protobuf:"bytes,1,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty" yaml:"server_name"`
 }
 
 func (x *TLS) Reset() {

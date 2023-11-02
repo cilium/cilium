@@ -1271,92 +1271,92 @@ type Flow struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
+	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty" yaml:"time"`
 	// uuid is a universally unique identifier for this flow.
-	Uuid    string  `protobuf:"bytes,34,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	Verdict Verdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=flow.Verdict" json:"verdict,omitempty"`
+	Uuid    string  `protobuf:"bytes,34,opt,name=uuid,proto3" json:"uuid,omitempty" yaml:"uuid"`
+	Verdict Verdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=flow.Verdict" json:"verdict,omitempty" yaml:"verdict"`
 	// only applicable to Verdict = DROPPED.
 	// deprecated in favor of drop_reason_desc.
 	//
 	// Deprecated: Marked as deprecated in flow/flow.proto.
-	DropReason uint32 `protobuf:"varint,3,opt,name=drop_reason,json=dropReason,proto3" json:"drop_reason,omitempty"`
+	DropReason uint32 `protobuf:"varint,3,opt,name=drop_reason,json=dropReason,proto3" json:"drop_reason,omitempty" yaml:"drop_reason"`
 	// auth_type is the authentication type specified for the flow in Cilium Network Policy.
 	// Only set on policy verdict events.
-	AuthType AuthType `protobuf:"varint,35,opt,name=auth_type,json=authType,proto3,enum=flow.AuthType" json:"auth_type,omitempty"`
+	AuthType AuthType `protobuf:"varint,35,opt,name=auth_type,json=authType,proto3,enum=flow.AuthType" json:"auth_type,omitempty" yaml:"auth_type"`
 	// l2
-	Ethernet *Ethernet `protobuf:"bytes,4,opt,name=ethernet,proto3" json:"ethernet,omitempty"`
+	Ethernet *Ethernet `protobuf:"bytes,4,opt,name=ethernet,proto3" json:"ethernet,omitempty" yaml:"ethernet"`
 	// l3
-	IP *IP `protobuf:"bytes,5,opt,name=IP,proto3" json:"IP,omitempty"`
+	IP *IP `protobuf:"bytes,5,opt,name=IP,proto3" json:"IP,omitempty" yaml:"ip"`
 	// l4
-	L4          *Layer4   `protobuf:"bytes,6,opt,name=l4,proto3" json:"l4,omitempty"`
-	Source      *Endpoint `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
-	Destination *Endpoint `protobuf:"bytes,9,opt,name=destination,proto3" json:"destination,omitempty"`
-	Type        FlowType  `protobuf:"varint,10,opt,name=Type,proto3,enum=flow.FlowType" json:"Type,omitempty"`
+	L4          *Layer4   `protobuf:"bytes,6,opt,name=l4,proto3" json:"l4,omitempty" yaml:"l_4"`
+	Source      *Endpoint `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty" yaml:"source"`
+	Destination *Endpoint `protobuf:"bytes,9,opt,name=destination,proto3" json:"destination,omitempty" yaml:"destination"`
+	Type        FlowType  `protobuf:"varint,10,opt,name=Type,proto3,enum=flow.FlowType" json:"Type,omitempty" yaml:"type"`
 	// NodeName is the name of the node from which this Flow was captured.
-	NodeName string `protobuf:"bytes,11,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	NodeName string `protobuf:"bytes,11,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty" yaml:"node_name"`
 	// all names the source IP can have.
-	SourceNames []string `protobuf:"bytes,13,rep,name=source_names,json=sourceNames,proto3" json:"source_names,omitempty"`
+	SourceNames []string `protobuf:"bytes,13,rep,name=source_names,json=sourceNames,proto3" json:"source_names,omitempty" yaml:"source_names"`
 	// all names the destination IP can have.
-	DestinationNames []string `protobuf:"bytes,14,rep,name=destination_names,json=destinationNames,proto3" json:"destination_names,omitempty"`
+	DestinationNames []string `protobuf:"bytes,14,rep,name=destination_names,json=destinationNames,proto3" json:"destination_names,omitempty" yaml:"destination_names"`
 	// L7 information. This field is set if and only if FlowType is L7.
-	L7 *Layer7 `protobuf:"bytes,15,opt,name=l7,proto3" json:"l7,omitempty"`
+	L7 *Layer7 `protobuf:"bytes,15,opt,name=l7,proto3" json:"l7,omitempty" yaml:"l_7"`
 	// Deprecated. This suffers from false negatives due to protobuf not being
 	// able to distinguish between the value being false or it being absent.
 	// Please use is_reply instead.
 	//
 	// Deprecated: Marked as deprecated in flow/flow.proto.
-	Reply bool `protobuf:"varint,16,opt,name=reply,proto3" json:"reply,omitempty"`
+	Reply bool `protobuf:"varint,16,opt,name=reply,proto3" json:"reply,omitempty" yaml:"reply"`
 	// EventType of the originating Cilium event
-	EventType *CiliumEventType `protobuf:"bytes,19,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	EventType *CiliumEventType `protobuf:"bytes,19,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty" yaml:"event_type"`
 	// source_service contains the service name of the source
-	SourceService *Service `protobuf:"bytes,20,opt,name=source_service,json=sourceService,proto3" json:"source_service,omitempty"`
+	SourceService *Service `protobuf:"bytes,20,opt,name=source_service,json=sourceService,proto3" json:"source_service,omitempty" yaml:"source_service"`
 	// destination_service contains the service name of the destination
-	DestinationService *Service `protobuf:"bytes,21,opt,name=destination_service,json=destinationService,proto3" json:"destination_service,omitempty"`
+	DestinationService *Service `protobuf:"bytes,21,opt,name=destination_service,json=destinationService,proto3" json:"destination_service,omitempty" yaml:"destination_service"`
 	// traffic_direction of the connection, e.g. ingress or egress
-	TrafficDirection TrafficDirection `protobuf:"varint,22,opt,name=traffic_direction,json=trafficDirection,proto3,enum=flow.TrafficDirection" json:"traffic_direction,omitempty"`
+	TrafficDirection TrafficDirection `protobuf:"varint,22,opt,name=traffic_direction,json=trafficDirection,proto3,enum=flow.TrafficDirection" json:"traffic_direction,omitempty" yaml:"traffic_direction"`
 	// policy_match_type is only applicable to the cilium event type PolicyVerdict
 	// https://github.com/cilium/cilium/blob/e831859b5cc336c6d964a6d35bbd34d1840e21b9/pkg/monitor/datapath_policy.go#L50
-	PolicyMatchType uint32 `protobuf:"varint,23,opt,name=policy_match_type,json=policyMatchType,proto3" json:"policy_match_type,omitempty"`
+	PolicyMatchType uint32 `protobuf:"varint,23,opt,name=policy_match_type,json=policyMatchType,proto3" json:"policy_match_type,omitempty" yaml:"policy_match_type"`
 	// Only applicable to cilium trace notifications, blank for other types.
-	TraceObservationPoint TraceObservationPoint `protobuf:"varint,24,opt,name=trace_observation_point,json=traceObservationPoint,proto3,enum=flow.TraceObservationPoint" json:"trace_observation_point,omitempty"`
+	TraceObservationPoint TraceObservationPoint `protobuf:"varint,24,opt,name=trace_observation_point,json=traceObservationPoint,proto3,enum=flow.TraceObservationPoint" json:"trace_observation_point,omitempty" yaml:"trace_observation_point"`
 	// only applicable to Verdict = DROPPED.
-	DropReasonDesc DropReason `protobuf:"varint,25,opt,name=drop_reason_desc,json=dropReasonDesc,proto3,enum=flow.DropReason" json:"drop_reason_desc,omitempty"`
+	DropReasonDesc DropReason `protobuf:"varint,25,opt,name=drop_reason_desc,json=dropReasonDesc,proto3,enum=flow.DropReason" json:"drop_reason_desc,omitempty" yaml:"drop_reason_desc"`
 	// is_reply indicates that this was a packet (L4) or message (L7) in the
 	// reply direction. May be absent (in which case it is unknown whether it
 	// is a reply or not).
-	IsReply *wrapperspb.BoolValue `protobuf:"bytes,26,opt,name=is_reply,json=isReply,proto3" json:"is_reply,omitempty"`
+	IsReply *wrapperspb.BoolValue `protobuf:"bytes,26,opt,name=is_reply,json=isReply,proto3" json:"is_reply,omitempty" yaml:"is_reply"`
 	// Only applicable to cilium debug capture events, blank for other types
-	DebugCapturePoint DebugCapturePoint `protobuf:"varint,27,opt,name=debug_capture_point,json=debugCapturePoint,proto3,enum=flow.DebugCapturePoint" json:"debug_capture_point,omitempty"`
+	DebugCapturePoint DebugCapturePoint `protobuf:"varint,27,opt,name=debug_capture_point,json=debugCapturePoint,proto3,enum=flow.DebugCapturePoint" json:"debug_capture_point,omitempty" yaml:"debug_capture_point"`
 	// interface is the network interface on which this flow was observed
-	Interface *NetworkInterface `protobuf:"bytes,28,opt,name=interface,proto3" json:"interface,omitempty"`
+	Interface *NetworkInterface `protobuf:"bytes,28,opt,name=interface,proto3" json:"interface,omitempty" yaml:"interface"`
 	// proxy_port indicates the port of the proxy to which the flow was forwarded
-	ProxyPort uint32 `protobuf:"varint,29,opt,name=proxy_port,json=proxyPort,proto3" json:"proxy_port,omitempty"`
+	ProxyPort uint32 `protobuf:"varint,29,opt,name=proxy_port,json=proxyPort,proto3" json:"proxy_port,omitempty" yaml:"proxy_port"`
 	// trace_context contains information about a trace related to the flow, if
 	// any.
-	TraceContext *TraceContext `protobuf:"bytes,30,opt,name=trace_context,json=traceContext,proto3" json:"trace_context,omitempty"`
+	TraceContext *TraceContext `protobuf:"bytes,30,opt,name=trace_context,json=traceContext,proto3" json:"trace_context,omitempty" yaml:"trace_context"`
 	// sock_xlate_point is the socket translation point.
 	// Only applicable to TraceSock notifications, blank for other types
-	SockXlatePoint SocketTranslationPoint `protobuf:"varint,31,opt,name=sock_xlate_point,json=sockXlatePoint,proto3,enum=flow.SocketTranslationPoint" json:"sock_xlate_point,omitempty"`
+	SockXlatePoint SocketTranslationPoint `protobuf:"varint,31,opt,name=sock_xlate_point,json=sockXlatePoint,proto3,enum=flow.SocketTranslationPoint" json:"sock_xlate_point,omitempty" yaml:"sock_xlate_point"`
 	// socket_cookie is the Linux kernel socket cookie for this flow.
 	// Only applicable to TraceSock notifications, zero for other types
-	SocketCookie uint64 `protobuf:"varint,32,opt,name=socket_cookie,json=socketCookie,proto3" json:"socket_cookie,omitempty"`
+	SocketCookie uint64 `protobuf:"varint,32,opt,name=socket_cookie,json=socketCookie,proto3" json:"socket_cookie,omitempty" yaml:"socket_cookie"`
 	// cgroup_id of the process which emitted this event.
 	// Only applicable to TraceSock notifications, zero for other types
-	CgroupId uint64 `protobuf:"varint,33,opt,name=cgroup_id,json=cgroupId,proto3" json:"cgroup_id,omitempty"`
+	CgroupId uint64 `protobuf:"varint,33,opt,name=cgroup_id,json=cgroupId,proto3" json:"cgroup_id,omitempty" yaml:"cgroup_id"`
 	// This is a temporary workaround to support summary field for pb.Flow without
 	// duplicating logic from the old parser. This field will be removed once we
 	// fully migrate to the new parser.
 	//
 	// Deprecated: Marked as deprecated in flow/flow.proto.
-	Summary string `protobuf:"bytes,100000,opt,name=Summary,proto3" json:"Summary,omitempty"`
+	Summary string `protobuf:"bytes,100000,opt,name=Summary,proto3" json:"Summary,omitempty" yaml:"summary"`
 	// extensions can be used to add arbitrary additional metadata to flows.
 	// This can be used to extend functionality for other Hubble compatible
 	// APIs, or experiment with new functionality without needing to change the public API.
-	Extensions *anypb.Any `protobuf:"bytes,150000,opt,name=extensions,proto3" json:"extensions,omitempty"`
+	Extensions *anypb.Any `protobuf:"bytes,150000,opt,name=extensions,proto3" json:"extensions,omitempty" yaml:"extensions"`
 	// The CiliumNetworkPolicies allowing the egress of the flow.
-	EgressAllowedBy []*Policy `protobuf:"bytes,21001,rep,name=egress_allowed_by,json=egressAllowedBy,proto3" json:"egress_allowed_by,omitempty"`
+	EgressAllowedBy []*Policy `protobuf:"bytes,21001,rep,name=egress_allowed_by,json=egressAllowedBy,proto3" json:"egress_allowed_by,omitempty" yaml:"egress_allowed_by"`
 	// The CiliumNetworkPolicies allowing the ingress of the flow.
-	IngressAllowedBy []*Policy `protobuf:"bytes,21002,rep,name=ingress_allowed_by,json=ingressAllowedBy,proto3" json:"ingress_allowed_by,omitempty"`
+	IngressAllowedBy []*Policy `protobuf:"bytes,21002,rep,name=ingress_allowed_by,json=ingressAllowedBy,proto3" json:"ingress_allowed_by,omitempty" yaml:"ingress_allowed_by"`
 }
 
 func (x *Flow) Reset() {
@@ -1733,24 +1733,24 @@ type isLayer4_Protocol interface {
 }
 
 type Layer4_TCP struct {
-	TCP *TCP `protobuf:"bytes,1,opt,name=TCP,proto3,oneof"`
+	TCP *TCP `protobuf:"bytes,1,opt,name=TCP,proto3,oneof" yaml:"tcp"`
 }
 
 type Layer4_UDP struct {
-	UDP *UDP `protobuf:"bytes,2,opt,name=UDP,proto3,oneof"`
+	UDP *UDP `protobuf:"bytes,2,opt,name=UDP,proto3,oneof" yaml:"udp"`
 }
 
 type Layer4_ICMPv4 struct {
 	// ICMP is technically not L4, but mutually exclusive with the above
-	ICMPv4 *ICMPv4 `protobuf:"bytes,3,opt,name=ICMPv4,proto3,oneof"`
+	ICMPv4 *ICMPv4 `protobuf:"bytes,3,opt,name=ICMPv4,proto3,oneof" yaml:"icm_pv_4"`
 }
 
 type Layer4_ICMPv6 struct {
-	ICMPv6 *ICMPv6 `protobuf:"bytes,4,opt,name=ICMPv6,proto3,oneof"`
+	ICMPv6 *ICMPv6 `protobuf:"bytes,4,opt,name=ICMPv6,proto3,oneof" yaml:"icm_pv_6"`
 }
 
 type Layer4_SCTP struct {
-	SCTP *SCTP `protobuf:"bytes,5,opt,name=SCTP,proto3,oneof"`
+	SCTP *SCTP `protobuf:"bytes,5,opt,name=SCTP,proto3,oneof" yaml:"sctp"`
 }
 
 func (*Layer4_TCP) isLayer4_Protocol() {}
@@ -1769,9 +1769,9 @@ type Layer7 struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type L7FlowType `protobuf:"varint,1,opt,name=type,proto3,enum=flow.L7FlowType" json:"type,omitempty"`
+	Type L7FlowType `protobuf:"varint,1,opt,name=type,proto3,enum=flow.L7FlowType" json:"type,omitempty" yaml:"type"`
 	// Latency of the response
-	LatencyNs uint64 `protobuf:"varint,2,opt,name=latency_ns,json=latencyNs,proto3" json:"latency_ns,omitempty"`
+	LatencyNs uint64 `protobuf:"varint,2,opt,name=latency_ns,json=latencyNs,proto3" json:"latency_ns,omitempty" yaml:"latency_ns"`
 	// L7 field. This field is set if and only if FlowType is L7.
 	//
 	// Types that are assignable to Record:
@@ -1861,15 +1861,15 @@ type isLayer7_Record interface {
 }
 
 type Layer7_Dns struct {
-	Dns *DNS `protobuf:"bytes,100,opt,name=dns,proto3,oneof"`
+	Dns *DNS `protobuf:"bytes,100,opt,name=dns,proto3,oneof" yaml:"dns"`
 }
 
 type Layer7_Http struct {
-	Http *HTTP `protobuf:"bytes,101,opt,name=http,proto3,oneof"`
+	Http *HTTP `protobuf:"bytes,101,opt,name=http,proto3,oneof" yaml:"http"`
 }
 
 type Layer7_Kafka struct {
-	Kafka *Kafka `protobuf:"bytes,102,opt,name=kafka,proto3,oneof"`
+	Kafka *Kafka `protobuf:"bytes,102,opt,name=kafka,proto3,oneof" yaml:"kafka"`
 }
 
 func (*Layer7_Dns) isLayer7_Record() {}
@@ -1887,7 +1887,7 @@ type TraceContext struct {
 	unknownFields protoimpl.UnknownFields
 
 	// parent identifies the incoming request in a tracing system.
-	Parent *TraceParent `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	Parent *TraceParent `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty" yaml:"parent"`
 }
 
 func (x *TraceContext) Reset() {
@@ -1937,7 +1937,7 @@ type TraceParent struct {
 
 	// trace_id is a unique value that identifies a trace. It is a byte array
 	// represented as a hex string.
-	TraceId string `protobuf:"bytes,1,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	TraceId string `protobuf:"bytes,1,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty" yaml:"trace_id"`
 }
 
 func (x *TraceParent) Reset() {
@@ -1984,13 +1984,13 @@ type Endpoint struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ID        uint32 `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
-	Identity  uint32 `protobuf:"varint,2,opt,name=identity,proto3" json:"identity,omitempty"`
-	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	ID        uint32 `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty" yaml:"id"`
+	Identity  uint32 `protobuf:"varint,2,opt,name=identity,proto3" json:"identity,omitempty" yaml:"identity"`
+	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty" yaml:"namespace"`
 	// labels in `foo=bar` format.
-	Labels    []string    `protobuf:"bytes,4,rep,name=labels,proto3" json:"labels,omitempty"`
-	PodName   string      `protobuf:"bytes,5,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
-	Workloads []*Workload `protobuf:"bytes,6,rep,name=workloads,proto3" json:"workloads,omitempty"`
+	Labels    []string    `protobuf:"bytes,4,rep,name=labels,proto3" json:"labels,omitempty" yaml:"labels"`
+	PodName   string      `protobuf:"bytes,5,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty" yaml:"pod_name"`
+	Workloads []*Workload `protobuf:"bytes,6,rep,name=workloads,proto3" json:"workloads,omitempty" yaml:"workloads"`
 }
 
 func (x *Endpoint) Reset() {
@@ -2072,8 +2072,8 @@ type Workload struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty" yaml:"name"`
+	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty" yaml:"kind"`
 }
 
 func (x *Workload) Reset() {
@@ -2127,9 +2127,9 @@ type TCP struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SourcePort      uint32    `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
-	DestinationPort uint32    `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
-	Flags           *TCPFlags `protobuf:"bytes,3,opt,name=flags,proto3" json:"flags,omitempty"`
+	SourcePort      uint32    `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty" yaml:"source_port"`
+	DestinationPort uint32    `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty" yaml:"destination_port"`
+	Flags           *TCPFlags `protobuf:"bytes,3,opt,name=flags,proto3" json:"flags,omitempty" yaml:"flags"`
 }
 
 func (x *TCP) Reset() {
@@ -2190,12 +2190,12 @@ type IP struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Source      string    `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
-	Destination string    `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty"`
-	IpVersion   IPVersion `protobuf:"varint,3,opt,name=ipVersion,proto3,enum=flow.IPVersion" json:"ipVersion,omitempty"`
+	Source      string    `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty" yaml:"source"`
+	Destination string    `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty" yaml:"destination"`
+	IpVersion   IPVersion `protobuf:"varint,3,opt,name=ipVersion,proto3,enum=flow.IPVersion" json:"ipVersion,omitempty" yaml:"ip_version"`
 	// This field indicates whether the TraceReasonEncryptMask is set or not.
 	// https://github.com/cilium/cilium/blob/ba0ed147bd5bb342f67b1794c2ad13c6e99d5236/pkg/monitor/datapath_trace.go#L27
-	Encrypted bool `protobuf:"varint,4,opt,name=encrypted,proto3" json:"encrypted,omitempty"`
+	Encrypted bool `protobuf:"varint,4,opt,name=encrypted,proto3" json:"encrypted,omitempty" yaml:"encrypted"`
 }
 
 func (x *IP) Reset() {
@@ -2263,8 +2263,8 @@ type Ethernet struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Source      string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
-	Destination string `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty"`
+	Source      string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty" yaml:"source"`
+	Destination string `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty" yaml:"destination"`
 }
 
 func (x *Ethernet) Reset() {
@@ -2318,15 +2318,15 @@ type TCPFlags struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	FIN bool `protobuf:"varint,1,opt,name=FIN,proto3" json:"FIN,omitempty"`
-	SYN bool `protobuf:"varint,2,opt,name=SYN,proto3" json:"SYN,omitempty"`
-	RST bool `protobuf:"varint,3,opt,name=RST,proto3" json:"RST,omitempty"`
-	PSH bool `protobuf:"varint,4,opt,name=PSH,proto3" json:"PSH,omitempty"`
-	ACK bool `protobuf:"varint,5,opt,name=ACK,proto3" json:"ACK,omitempty"`
-	URG bool `protobuf:"varint,6,opt,name=URG,proto3" json:"URG,omitempty"`
-	ECE bool `protobuf:"varint,7,opt,name=ECE,proto3" json:"ECE,omitempty"`
-	CWR bool `protobuf:"varint,8,opt,name=CWR,proto3" json:"CWR,omitempty"`
-	NS  bool `protobuf:"varint,9,opt,name=NS,proto3" json:"NS,omitempty"`
+	FIN bool `protobuf:"varint,1,opt,name=FIN,proto3" json:"FIN,omitempty" yaml:"fin"`
+	SYN bool `protobuf:"varint,2,opt,name=SYN,proto3" json:"SYN,omitempty" yaml:"syn"`
+	RST bool `protobuf:"varint,3,opt,name=RST,proto3" json:"RST,omitempty" yaml:"rst"`
+	PSH bool `protobuf:"varint,4,opt,name=PSH,proto3" json:"PSH,omitempty" yaml:"psh"`
+	ACK bool `protobuf:"varint,5,opt,name=ACK,proto3" json:"ACK,omitempty" yaml:"ack"`
+	URG bool `protobuf:"varint,6,opt,name=URG,proto3" json:"URG,omitempty" yaml:"urg"`
+	ECE bool `protobuf:"varint,7,opt,name=ECE,proto3" json:"ECE,omitempty" yaml:"ece"`
+	CWR bool `protobuf:"varint,8,opt,name=CWR,proto3" json:"CWR,omitempty" yaml:"cwr"`
+	NS  bool `protobuf:"varint,9,opt,name=NS,proto3" json:"NS,omitempty" yaml:"ns"`
 }
 
 func (x *TCPFlags) Reset() {
@@ -2429,8 +2429,8 @@ type UDP struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SourcePort      uint32 `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
-	DestinationPort uint32 `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
+	SourcePort      uint32 `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty" yaml:"source_port"`
+	DestinationPort uint32 `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty" yaml:"destination_port"`
 }
 
 func (x *UDP) Reset() {
@@ -2484,8 +2484,8 @@ type SCTP struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SourcePort      uint32 `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
-	DestinationPort uint32 `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
+	SourcePort      uint32 `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty" yaml:"source_port"`
+	DestinationPort uint32 `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty" yaml:"destination_port"`
 }
 
 func (x *SCTP) Reset() {
@@ -2539,8 +2539,8 @@ type ICMPv4 struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type uint32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
-	Code uint32 `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"`
+	Type uint32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty" yaml:"type"`
+	Code uint32 `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty" yaml:"code"`
 }
 
 func (x *ICMPv4) Reset() {
@@ -2594,8 +2594,8 @@ type ICMPv6 struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type uint32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
-	Code uint32 `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"`
+	Type uint32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty" yaml:"type"`
+	Code uint32 `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty" yaml:"code"`
 }
 
 func (x *ICMPv6) Reset() {
@@ -2649,10 +2649,10 @@ type Policy struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name      string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Namespace string   `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	Labels    []string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty"`
-	Revision  uint64   `protobuf:"varint,4,opt,name=revision,proto3" json:"revision,omitempty"`
+	Name      string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty" yaml:"name"`
+	Namespace string   `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty" yaml:"namespace"`
+	Labels    []string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty" yaml:"labels"`
+	Revision  uint64   `protobuf:"varint,4,opt,name=revision,proto3" json:"revision,omitempty" yaml:"revision"`
 }
 
 func (x *Policy) Reset() {
@@ -2723,13 +2723,13 @@ type EventTypeFilter struct {
 
 	// type is the primary flow type as defined by:
 	// github.com/cilium/cilium/pkg/monitor/api.MessageType*
-	Type int32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	Type int32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty" yaml:"type"`
 	// match_sub_type is set to true when matching on the sub_type should
 	// be done. This flag is required as 0 is a valid sub_type.
-	MatchSubType bool `protobuf:"varint,2,opt,name=match_sub_type,json=matchSubType,proto3" json:"match_sub_type,omitempty"`
+	MatchSubType bool `protobuf:"varint,2,opt,name=match_sub_type,json=matchSubType,proto3" json:"match_sub_type,omitempty" yaml:"match_sub_type"`
 	// sub_type is the secondary type, e.g.
 	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
-	SubType int32 `protobuf:"varint,3,opt,name=sub_type,json=subType,proto3" json:"sub_type,omitempty"`
+	SubType int32 `protobuf:"varint,3,opt,name=sub_type,json=subType,proto3" json:"sub_type,omitempty" yaml:"sub_type"`
 }
 
 func (x *EventTypeFilter) Reset() {
@@ -2793,12 +2793,12 @@ type CiliumEventType struct {
 
 	// type of event the flow originated from, i.e.
 	// github.com/cilium/cilium/pkg/monitor/api.MessageType*
-	Type int32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	Type int32 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty" yaml:"type"`
 	// sub_type may indicate more details depending on type, e.g.
 	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
 	// - github.com/cilium/cilium/pkg/monitor/api.Drop*
 	// - github.com/cilium/cilium/pkg/monitor/api.DbgCapture*
-	SubType int32 `protobuf:"varint,2,opt,name=sub_type,json=subType,proto3" json:"sub_type,omitempty"`
+	SubType int32 `protobuf:"varint,2,opt,name=sub_type,json=subType,proto3" json:"sub_type,omitempty" yaml:"sub_type"`
 }
 
 func (x *CiliumEventType) Reset() {
@@ -2855,82 +2855,82 @@ type FlowFilter struct {
 	unknownFields protoimpl.UnknownFields
 
 	// uuid filters by a list of flow uuids.
-	Uuid []string `protobuf:"bytes,29,rep,name=uuid,proto3" json:"uuid,omitempty"`
+	Uuid []string `protobuf:"bytes,29,rep,name=uuid,proto3" json:"uuid,omitempty" yaml:"uuid"`
 	// source_ip filters by a list of source ips. Each of the source ips can be
 	// specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
 	// "1.1.1.0/24").
-	SourceIp []string `protobuf:"bytes,1,rep,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty"`
+	SourceIp []string `protobuf:"bytes,1,rep,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty" yaml:"source_ip"`
 	// source_pod filters by a list of source pod name prefixes, optionally
 	// within a given namespace (e.g. "xwing", "kube-system/coredns-").
 	// The pod name can be omitted to only filter by namespace
 	// (e.g. "kube-system/")
-	SourcePod []string `protobuf:"bytes,2,rep,name=source_pod,json=sourcePod,proto3" json:"source_pod,omitempty"`
+	SourcePod []string `protobuf:"bytes,2,rep,name=source_pod,json=sourcePod,proto3" json:"source_pod,omitempty" yaml:"source_pod"`
 	// source_fqdn filters by a list of source fully qualified domain names
-	SourceFqdn []string `protobuf:"bytes,7,rep,name=source_fqdn,json=sourceFqdn,proto3" json:"source_fqdn,omitempty"`
+	SourceFqdn []string `protobuf:"bytes,7,rep,name=source_fqdn,json=sourceFqdn,proto3" json:"source_fqdn,omitempty" yaml:"source_fqdn"`
 	// source_labels filters on a list of source label selectors. Selectors
 	// support the full Kubernetes label selector syntax.
-	SourceLabel []string `protobuf:"bytes,10,rep,name=source_label,json=sourceLabel,proto3" json:"source_label,omitempty"`
+	SourceLabel []string `protobuf:"bytes,10,rep,name=source_label,json=sourceLabel,proto3" json:"source_label,omitempty" yaml:"source_label"`
 	// source_service filters on a list of source service names. This field
 	// supports the same syntax as the source_pod field.
-	SourceService []string `protobuf:"bytes,16,rep,name=source_service,json=sourceService,proto3" json:"source_service,omitempty"`
+	SourceService []string `protobuf:"bytes,16,rep,name=source_service,json=sourceService,proto3" json:"source_service,omitempty" yaml:"source_service"`
 	// source_workload filters by a list of source workload.
-	SourceWorkload []*Workload `protobuf:"bytes,26,rep,name=source_workload,json=sourceWorkload,proto3" json:"source_workload,omitempty"`
+	SourceWorkload []*Workload `protobuf:"bytes,26,rep,name=source_workload,json=sourceWorkload,proto3" json:"source_workload,omitempty" yaml:"source_workload"`
 	// destination_ip filters by a list of destination ips. Each of the
 	// destination ips can be specified as an exact match (e.g. "1.1.1.1") or
 	// as a CIDR range (e.g. "1.1.1.0/24").
-	DestinationIp []string `protobuf:"bytes,3,rep,name=destination_ip,json=destinationIp,proto3" json:"destination_ip,omitempty"`
+	DestinationIp []string `protobuf:"bytes,3,rep,name=destination_ip,json=destinationIp,proto3" json:"destination_ip,omitempty" yaml:"destination_ip"`
 	// destination_pod filters by a list of destination pod names
-	DestinationPod []string `protobuf:"bytes,4,rep,name=destination_pod,json=destinationPod,proto3" json:"destination_pod,omitempty"`
+	DestinationPod []string `protobuf:"bytes,4,rep,name=destination_pod,json=destinationPod,proto3" json:"destination_pod,omitempty" yaml:"destination_pod"`
 	// destination_fqdn filters by a list of destination fully qualified domain names
-	DestinationFqdn []string `protobuf:"bytes,8,rep,name=destination_fqdn,json=destinationFqdn,proto3" json:"destination_fqdn,omitempty"`
+	DestinationFqdn []string `protobuf:"bytes,8,rep,name=destination_fqdn,json=destinationFqdn,proto3" json:"destination_fqdn,omitempty" yaml:"destination_fqdn"`
 	// destination_label filters on a list of destination label selectors
-	DestinationLabel []string `protobuf:"bytes,11,rep,name=destination_label,json=destinationLabel,proto3" json:"destination_label,omitempty"`
+	DestinationLabel []string `protobuf:"bytes,11,rep,name=destination_label,json=destinationLabel,proto3" json:"destination_label,omitempty" yaml:"destination_label"`
 	// destination_service filters on a list of destination service names
-	DestinationService []string `protobuf:"bytes,17,rep,name=destination_service,json=destinationService,proto3" json:"destination_service,omitempty"`
+	DestinationService []string `protobuf:"bytes,17,rep,name=destination_service,json=destinationService,proto3" json:"destination_service,omitempty" yaml:"destination_service"`
 	// destination_workload filters by a list of destination workload.
-	DestinationWorkload []*Workload `protobuf:"bytes,27,rep,name=destination_workload,json=destinationWorkload,proto3" json:"destination_workload,omitempty"`
+	DestinationWorkload []*Workload `protobuf:"bytes,27,rep,name=destination_workload,json=destinationWorkload,proto3" json:"destination_workload,omitempty" yaml:"destination_workload"`
 	// traffic_direction filters flow by direction of the connection, e.g.
 	// ingress or egress.
-	TrafficDirection []TrafficDirection `protobuf:"varint,30,rep,packed,name=traffic_direction,json=trafficDirection,proto3,enum=flow.TrafficDirection" json:"traffic_direction,omitempty"`
+	TrafficDirection []TrafficDirection `protobuf:"varint,30,rep,packed,name=traffic_direction,json=trafficDirection,proto3,enum=flow.TrafficDirection" json:"traffic_direction,omitempty" yaml:"traffic_direction"`
 	// only return Flows that were classified with a particular verdict.
-	Verdict []Verdict `protobuf:"varint,5,rep,packed,name=verdict,proto3,enum=flow.Verdict" json:"verdict,omitempty"`
+	Verdict []Verdict `protobuf:"varint,5,rep,packed,name=verdict,proto3,enum=flow.Verdict" json:"verdict,omitempty" yaml:"verdict"`
 	// event_type is the list of event types to filter on
-	EventType []*EventTypeFilter `protobuf:"bytes,6,rep,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	EventType []*EventTypeFilter `protobuf:"bytes,6,rep,name=event_type,json=eventType,proto3" json:"event_type,omitempty" yaml:"event_type"`
 	// http_status_code is a list of string prefixes (e.g. "4+", "404", "5+")
 	// to filter on the HTTP status code
-	HttpStatusCode []string `protobuf:"bytes,9,rep,name=http_status_code,json=httpStatusCode,proto3" json:"http_status_code,omitempty"`
+	HttpStatusCode []string `protobuf:"bytes,9,rep,name=http_status_code,json=httpStatusCode,proto3" json:"http_status_code,omitempty" yaml:"http_status_code"`
 	// protocol filters flows by L4 or L7 protocol, e.g. (e.g. "tcp", "http")
-	Protocol []string `protobuf:"bytes,12,rep,name=protocol,proto3" json:"protocol,omitempty"`
+	Protocol []string `protobuf:"bytes,12,rep,name=protocol,proto3" json:"protocol,omitempty" yaml:"protocol"`
 	// source_port filters flows by L4 source port
-	SourcePort []string `protobuf:"bytes,13,rep,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
+	SourcePort []string `protobuf:"bytes,13,rep,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty" yaml:"source_port"`
 	// destination_port filters flows by L4 destination port
-	DestinationPort []string `protobuf:"bytes,14,rep,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
+	DestinationPort []string `protobuf:"bytes,14,rep,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty" yaml:"destination_port"`
 	// reply filters flows based on the direction of the flow.
-	Reply []bool `protobuf:"varint,15,rep,packed,name=reply,proto3" json:"reply,omitempty"`
+	Reply []bool `protobuf:"varint,15,rep,packed,name=reply,proto3" json:"reply,omitempty" yaml:"reply"`
 	// dns_query filters L7 DNS flows by query patterns (RE2 regex), e.g. 'kube.*local'.
-	DnsQuery []string `protobuf:"bytes,18,rep,name=dns_query,json=dnsQuery,proto3" json:"dns_query,omitempty"`
+	DnsQuery []string `protobuf:"bytes,18,rep,name=dns_query,json=dnsQuery,proto3" json:"dns_query,omitempty" yaml:"dns_query"`
 	// source_identity filters by the security identity of the source endpoint.
-	SourceIdentity []uint32 `protobuf:"varint,19,rep,packed,name=source_identity,json=sourceIdentity,proto3" json:"source_identity,omitempty"`
+	SourceIdentity []uint32 `protobuf:"varint,19,rep,packed,name=source_identity,json=sourceIdentity,proto3" json:"source_identity,omitempty" yaml:"source_identity"`
 	// destination_identity filters by the security identity of the destination endpoint.
-	DestinationIdentity []uint32 `protobuf:"varint,20,rep,packed,name=destination_identity,json=destinationIdentity,proto3" json:"destination_identity,omitempty"`
+	DestinationIdentity []uint32 `protobuf:"varint,20,rep,packed,name=destination_identity,json=destinationIdentity,proto3" json:"destination_identity,omitempty" yaml:"destination_identity"`
 	// GET, POST, PUT, etc. methods. This type of field is well suited for an
 	// enum but every single existing place is using a string already.
-	HttpMethod []string `protobuf:"bytes,21,rep,name=http_method,json=httpMethod,proto3" json:"http_method,omitempty"`
+	HttpMethod []string `protobuf:"bytes,21,rep,name=http_method,json=httpMethod,proto3" json:"http_method,omitempty" yaml:"http_method"`
 	// http_path is a list of regular expressions to filter on the HTTP path.
-	HttpPath []string `protobuf:"bytes,22,rep,name=http_path,json=httpPath,proto3" json:"http_path,omitempty"`
+	HttpPath []string `protobuf:"bytes,22,rep,name=http_path,json=httpPath,proto3" json:"http_path,omitempty" yaml:"http_path"`
 	// http_url is a list of regular expressions to filter on the HTTP URL.
-	HttpUrl []string `protobuf:"bytes,31,rep,name=http_url,json=httpUrl,proto3" json:"http_url,omitempty"`
+	HttpUrl []string `protobuf:"bytes,31,rep,name=http_url,json=httpUrl,proto3" json:"http_url,omitempty" yaml:"http_url"`
 	// http_header is a list of key:value pairs to filter on the HTTP headers.
-	HttpHeader []*HTTPHeader `protobuf:"bytes,32,rep,name=http_header,json=httpHeader,proto3" json:"http_header,omitempty"`
+	HttpHeader []*HTTPHeader `protobuf:"bytes,32,rep,name=http_header,json=httpHeader,proto3" json:"http_header,omitempty" yaml:"http_header"`
 	// tcp_flags filters flows based on TCP header flags
-	TcpFlags []*TCPFlags `protobuf:"bytes,23,rep,name=tcp_flags,json=tcpFlags,proto3" json:"tcp_flags,omitempty"`
+	TcpFlags []*TCPFlags `protobuf:"bytes,23,rep,name=tcp_flags,json=tcpFlags,proto3" json:"tcp_flags,omitempty" yaml:"tcp_flags"`
 	// node_name is a list of patterns to filter on the node name, e.g. "k8s*",
 	// "test-cluster/*.domain.com", "cluster-name/" etc.
-	NodeName []string `protobuf:"bytes,24,rep,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	NodeName []string `protobuf:"bytes,24,rep,name=node_name,json=nodeName,proto3" json:"node_name,omitempty" yaml:"node_name"`
 	// filter based on IP version (ipv4 or ipv6)
-	IpVersion []IPVersion `protobuf:"varint,25,rep,packed,name=ip_version,json=ipVersion,proto3,enum=flow.IPVersion" json:"ip_version,omitempty"`
+	IpVersion []IPVersion `protobuf:"varint,25,rep,packed,name=ip_version,json=ipVersion,proto3,enum=flow.IPVersion" json:"ip_version,omitempty" yaml:"ip_version"`
 	// trace_id filters flows by trace ID
-	TraceId []string `protobuf:"bytes,28,rep,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	TraceId []string `protobuf:"bytes,28,rep,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty" yaml:"trace_id"`
 }
 
 func (x *FlowFilter) Reset() {
@@ -3196,28 +3196,28 @@ type DNS struct {
 	unknownFields protoimpl.UnknownFields
 
 	// DNS name that's being looked up: e.g. "isovalent.com."
-	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty" yaml:"query"`
 	// List of IP addresses in the DNS response.
-	Ips []string `protobuf:"bytes,2,rep,name=ips,proto3" json:"ips,omitempty"`
+	Ips []string `protobuf:"bytes,2,rep,name=ips,proto3" json:"ips,omitempty" yaml:"ips"`
 	// TTL in the DNS response.
-	Ttl uint32 `protobuf:"varint,3,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	Ttl uint32 `protobuf:"varint,3,opt,name=ttl,proto3" json:"ttl,omitempty" yaml:"ttl"`
 	// List of CNames in the DNS response.
-	Cnames []string `protobuf:"bytes,4,rep,name=cnames,proto3" json:"cnames,omitempty"`
+	Cnames []string `protobuf:"bytes,4,rep,name=cnames,proto3" json:"cnames,omitempty" yaml:"cnames"`
 	// Corresponds to DNSDataSource defined in:
 	//
 	//	https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L253
-	ObservationSource string `protobuf:"bytes,5,opt,name=observation_source,json=observationSource,proto3" json:"observation_source,omitempty"`
+	ObservationSource string `protobuf:"bytes,5,opt,name=observation_source,json=observationSource,proto3" json:"observation_source,omitempty" yaml:"observation_source"`
 	// Return code of the DNS request defined in:
 	//
 	//	https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
-	Rcode uint32 `protobuf:"varint,6,opt,name=rcode,proto3" json:"rcode,omitempty"`
+	Rcode uint32 `protobuf:"varint,6,opt,name=rcode,proto3" json:"rcode,omitempty" yaml:"rcode"`
 	// String representation of qtypes defined in:
 	//
 	//	https://tools.ietf.org/html/rfc1035#section-3.2.3
-	Qtypes []string `protobuf:"bytes,7,rep,name=qtypes,proto3" json:"qtypes,omitempty"`
+	Qtypes []string `protobuf:"bytes,7,rep,name=qtypes,proto3" json:"qtypes,omitempty" yaml:"qtypes"`
 	// String representation of rrtypes defined in:
 	// https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
-	Rrtypes []string `protobuf:"bytes,8,rep,name=rrtypes,proto3" json:"rrtypes,omitempty"`
+	Rrtypes []string `protobuf:"bytes,8,rep,name=rrtypes,proto3" json:"rrtypes,omitempty" yaml:"rrtypes"`
 }
 
 func (x *DNS) Reset() {
@@ -3313,8 +3313,8 @@ type HTTPHeader struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty" yaml:"key"`
+	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty" yaml:"value"`
 }
 
 func (x *HTTPHeader) Reset() {
@@ -3369,11 +3369,11 @@ type HTTP struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Code     uint32        `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
-	Method   string        `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty"`
-	Url      string        `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
-	Protocol string        `protobuf:"bytes,4,opt,name=protocol,proto3" json:"protocol,omitempty"`
-	Headers  []*HTTPHeader `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty"`
+	Code     uint32        `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty" yaml:"code"`
+	Method   string        `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty" yaml:"method"`
+	Url      string        `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty" yaml:"url"`
+	Protocol string        `protobuf:"bytes,4,opt,name=protocol,proto3" json:"protocol,omitempty" yaml:"protocol"`
+	Headers  []*HTTPHeader `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" yaml:"headers"`
 }
 
 func (x *HTTP) Reset() {
@@ -3449,11 +3449,11 @@ type Kafka struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ErrorCode     int32  `protobuf:"varint,1,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
-	ApiVersion    int32  `protobuf:"varint,2,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
-	ApiKey        string `protobuf:"bytes,3,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
-	CorrelationId int32  `protobuf:"varint,4,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`
-	Topic         string `protobuf:"bytes,5,opt,name=topic,proto3" json:"topic,omitempty"`
+	ErrorCode     int32  `protobuf:"varint,1,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty" yaml:"error_code"`
+	ApiVersion    int32  `protobuf:"varint,2,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty" yaml:"api_version"`
+	ApiKey        string `protobuf:"bytes,3,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty" yaml:"api_key"`
+	CorrelationId int32  `protobuf:"varint,4,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty" yaml:"correlation_id"`
+	Topic         string `protobuf:"bytes,5,opt,name=topic,proto3" json:"topic,omitempty" yaml:"topic"`
 }
 
 func (x *Kafka) Reset() {
@@ -3528,8 +3528,8 @@ type Service struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name      string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name      string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty" yaml:"name"`
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty" yaml:"namespace"`
 }
 
 func (x *Service) Reset() {
@@ -3586,12 +3586,12 @@ type LostEvent struct {
 	unknownFields protoimpl.UnknownFields
 
 	// source is the location where events got lost.
-	Source LostEventSource `protobuf:"varint,1,opt,name=source,proto3,enum=flow.LostEventSource" json:"source,omitempty"`
+	Source LostEventSource `protobuf:"varint,1,opt,name=source,proto3,enum=flow.LostEventSource" json:"source,omitempty" yaml:"source"`
 	// num_events_lost is the number of events that haven been lost at source.
-	NumEventsLost uint64 `protobuf:"varint,2,opt,name=num_events_lost,json=numEventsLost,proto3" json:"num_events_lost,omitempty"`
+	NumEventsLost uint64 `protobuf:"varint,2,opt,name=num_events_lost,json=numEventsLost,proto3" json:"num_events_lost,omitempty" yaml:"num_events_lost"`
 	// cpu on which the event was lost if the source of lost events is
 	// PERF_EVENT_RING_BUFFER.
-	Cpu *wrapperspb.Int32Value `protobuf:"bytes,3,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	Cpu *wrapperspb.Int32Value `protobuf:"bytes,3,opt,name=cpu,proto3" json:"cpu,omitempty" yaml:"cpu"`
 }
 
 func (x *LostEvent) Reset() {
@@ -3652,7 +3652,7 @@ type AgentEvent struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type AgentEventType `protobuf:"varint,1,opt,name=type,proto3,enum=flow.AgentEventType" json:"type,omitempty"`
+	Type AgentEventType `protobuf:"varint,1,opt,name=type,proto3,enum=flow.AgentEventType" json:"type,omitempty" yaml:"type"`
 	// Types that are assignable to Notification:
 	//
 	//	*AgentEvent_Unknown
@@ -3773,39 +3773,39 @@ type isAgentEvent_Notification interface {
 }
 
 type AgentEvent_Unknown struct {
-	Unknown *AgentEventUnknown `protobuf:"bytes,100,opt,name=unknown,proto3,oneof"`
+	Unknown *AgentEventUnknown `protobuf:"bytes,100,opt,name=unknown,proto3,oneof" yaml:"unknown"`
 }
 
 type AgentEvent_AgentStart struct {
-	AgentStart *TimeNotification `protobuf:"bytes,101,opt,name=agent_start,json=agentStart,proto3,oneof"`
+	AgentStart *TimeNotification `protobuf:"bytes,101,opt,name=agent_start,json=agentStart,proto3,oneof" yaml:"agent_start"`
 }
 
 type AgentEvent_PolicyUpdate struct {
 	// used for POLICY_UPDATED and POLICY_DELETED
-	PolicyUpdate *PolicyUpdateNotification `protobuf:"bytes,102,opt,name=policy_update,json=policyUpdate,proto3,oneof"`
+	PolicyUpdate *PolicyUpdateNotification `protobuf:"bytes,102,opt,name=policy_update,json=policyUpdate,proto3,oneof" yaml:"policy_update"`
 }
 
 type AgentEvent_EndpointRegenerate struct {
 	// used for ENDPOINT_REGENERATE_SUCCESS and ENDPOINT_REGENERATE_FAILURE
-	EndpointRegenerate *EndpointRegenNotification `protobuf:"bytes,103,opt,name=endpoint_regenerate,json=endpointRegenerate,proto3,oneof"`
+	EndpointRegenerate *EndpointRegenNotification `protobuf:"bytes,103,opt,name=endpoint_regenerate,json=endpointRegenerate,proto3,oneof" yaml:"endpoint_regenerate"`
 }
 
 type AgentEvent_EndpointUpdate struct {
 	// used for ENDPOINT_CREATED and ENDPOINT_DELETED
-	EndpointUpdate *EndpointUpdateNotification `protobuf:"bytes,104,opt,name=endpoint_update,json=endpointUpdate,proto3,oneof"`
+	EndpointUpdate *EndpointUpdateNotification `protobuf:"bytes,104,opt,name=endpoint_update,json=endpointUpdate,proto3,oneof" yaml:"endpoint_update"`
 }
 
 type AgentEvent_IpcacheUpdate struct {
 	// used for IPCACHE_UPSERTED and IPCACHE_DELETED
-	IpcacheUpdate *IPCacheNotification `protobuf:"bytes,105,opt,name=ipcache_update,json=ipcacheUpdate,proto3,oneof"`
+	IpcacheUpdate *IPCacheNotification `protobuf:"bytes,105,opt,name=ipcache_update,json=ipcacheUpdate,proto3,oneof" yaml:"ipcache_update"`
 }
 
 type AgentEvent_ServiceUpsert struct {
-	ServiceUpsert *ServiceUpsertNotification `protobuf:"bytes,106,opt,name=service_upsert,json=serviceUpsert,proto3,oneof"`
+	ServiceUpsert *ServiceUpsertNotification `protobuf:"bytes,106,opt,name=service_upsert,json=serviceUpsert,proto3,oneof" yaml:"service_upsert"`
 }
 
 type AgentEvent_ServiceDelete struct {
-	ServiceDelete *ServiceDeleteNotification `protobuf:"bytes,107,opt,name=service_delete,json=serviceDelete,proto3,oneof"`
+	ServiceDelete *ServiceDeleteNotification `protobuf:"bytes,107,opt,name=service_delete,json=serviceDelete,proto3,oneof" yaml:"service_delete"`
 }
 
 func (*AgentEvent_Unknown) isAgentEvent_Notification() {}
@@ -3829,8 +3829,8 @@ type AgentEventUnknown struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type         string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	Notification string `protobuf:"bytes,2,opt,name=notification,proto3" json:"notification,omitempty"`
+	Type         string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty" yaml:"type"`
+	Notification string `protobuf:"bytes,2,opt,name=notification,proto3" json:"notification,omitempty" yaml:"notification"`
 }
 
 func (x *AgentEventUnknown) Reset() {
@@ -3884,7 +3884,7 @@ type TimeNotification struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
+	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty" yaml:"time"`
 }
 
 func (x *TimeNotification) Reset() {
@@ -3931,9 +3931,9 @@ type PolicyUpdateNotification struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Labels    []string `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty"`
-	Revision  uint64   `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	RuleCount int64    `protobuf:"varint,3,opt,name=rule_count,json=ruleCount,proto3" json:"rule_count,omitempty"`
+	Labels    []string `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty" yaml:"labels"`
+	Revision  uint64   `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty" yaml:"revision"`
+	RuleCount int64    `protobuf:"varint,3,opt,name=rule_count,json=ruleCount,proto3" json:"rule_count,omitempty" yaml:"rule_count"`
 }
 
 func (x *PolicyUpdateNotification) Reset() {
@@ -3994,9 +3994,9 @@ type EndpointRegenNotification struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id     uint64   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Labels []string `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty"`
-	Error  string   `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	Id     uint64   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty" yaml:"id"`
+	Labels []string `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" yaml:"labels"`
+	Error  string   `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty" yaml:"error"`
 }
 
 func (x *EndpointRegenNotification) Reset() {
@@ -4057,11 +4057,11 @@ type EndpointUpdateNotification struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id        uint64   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Labels    []string `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty"`
-	Error     string   `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	PodName   string   `protobuf:"bytes,4,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
-	Namespace string   `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Id        uint64   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty" yaml:"id"`
+	Labels    []string `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" yaml:"labels"`
+	Error     string   `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty" yaml:"error"`
+	PodName   string   `protobuf:"bytes,4,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty" yaml:"pod_name"`
+	Namespace string   `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty" yaml:"namespace"`
 }
 
 func (x *EndpointUpdateNotification) Reset() {
@@ -4136,14 +4136,14 @@ type IPCacheNotification struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Cidr        string                  `protobuf:"bytes,1,opt,name=cidr,proto3" json:"cidr,omitempty"`
-	Identity    uint32                  `protobuf:"varint,2,opt,name=identity,proto3" json:"identity,omitempty"`
-	OldIdentity *wrapperspb.UInt32Value `protobuf:"bytes,3,opt,name=old_identity,json=oldIdentity,proto3" json:"old_identity,omitempty"`
-	HostIp      string                  `protobuf:"bytes,4,opt,name=host_ip,json=hostIp,proto3" json:"host_ip,omitempty"`
-	OldHostIp   string                  `protobuf:"bytes,5,opt,name=old_host_ip,json=oldHostIp,proto3" json:"old_host_ip,omitempty"`
-	EncryptKey  uint32                  `protobuf:"varint,6,opt,name=encrypt_key,json=encryptKey,proto3" json:"encrypt_key,omitempty"`
-	Namespace   string                  `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	PodName     string                  `protobuf:"bytes,8,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
+	Cidr        string                  `protobuf:"bytes,1,opt,name=cidr,proto3" json:"cidr,omitempty" yaml:"cidr"`
+	Identity    uint32                  `protobuf:"varint,2,opt,name=identity,proto3" json:"identity,omitempty" yaml:"identity"`
+	OldIdentity *wrapperspb.UInt32Value `protobuf:"bytes,3,opt,name=old_identity,json=oldIdentity,proto3" json:"old_identity,omitempty" yaml:"old_identity"`
+	HostIp      string                  `protobuf:"bytes,4,opt,name=host_ip,json=hostIp,proto3" json:"host_ip,omitempty" yaml:"host_ip"`
+	OldHostIp   string                  `protobuf:"bytes,5,opt,name=old_host_ip,json=oldHostIp,proto3" json:"old_host_ip,omitempty" yaml:"old_host_ip"`
+	EncryptKey  uint32                  `protobuf:"varint,6,opt,name=encrypt_key,json=encryptKey,proto3" json:"encrypt_key,omitempty" yaml:"encrypt_key"`
+	Namespace   string                  `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty" yaml:"namespace"`
+	PodName     string                  `protobuf:"bytes,8,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty" yaml:"pod_name"`
 }
 
 func (x *IPCacheNotification) Reset() {
@@ -4239,8 +4239,8 @@ type ServiceUpsertNotificationAddr struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ip   string `protobuf:"bytes,1,opt,name=ip,proto3" json:"ip,omitempty"`
-	Port uint32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
+	Ip   string `protobuf:"bytes,1,opt,name=ip,proto3" json:"ip,omitempty" yaml:"ip"`
+	Port uint32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty" yaml:"port"`
 }
 
 func (x *ServiceUpsertNotificationAddr) Reset() {
@@ -4294,16 +4294,16 @@ type ServiceUpsertNotification struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id               uint32                           `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	FrontendAddress  *ServiceUpsertNotificationAddr   `protobuf:"bytes,2,opt,name=frontend_address,json=frontendAddress,proto3" json:"frontend_address,omitempty"`
-	BackendAddresses []*ServiceUpsertNotificationAddr `protobuf:"bytes,3,rep,name=backend_addresses,json=backendAddresses,proto3" json:"backend_addresses,omitempty"`
-	Type             string                           `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	Id               uint32                           `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty" yaml:"id"`
+	FrontendAddress  *ServiceUpsertNotificationAddr   `protobuf:"bytes,2,opt,name=frontend_address,json=frontendAddress,proto3" json:"frontend_address,omitempty" yaml:"frontend_address"`
+	BackendAddresses []*ServiceUpsertNotificationAddr `protobuf:"bytes,3,rep,name=backend_addresses,json=backendAddresses,proto3" json:"backend_addresses,omitempty" yaml:"backend_addresses"`
+	Type             string                           `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty" yaml:"type"`
 	// Deprecated: Marked as deprecated in flow/flow.proto.
-	TrafficPolicy    string `protobuf:"bytes,5,opt,name=traffic_policy,json=trafficPolicy,proto3" json:"traffic_policy,omitempty"`
-	Name             string `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
-	Namespace        string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	ExtTrafficPolicy string `protobuf:"bytes,8,opt,name=ext_traffic_policy,json=extTrafficPolicy,proto3" json:"ext_traffic_policy,omitempty"`
-	IntTrafficPolicy string `protobuf:"bytes,9,opt,name=int_traffic_policy,json=intTrafficPolicy,proto3" json:"int_traffic_policy,omitempty"`
+	TrafficPolicy    string `protobuf:"bytes,5,opt,name=traffic_policy,json=trafficPolicy,proto3" json:"traffic_policy,omitempty" yaml:"traffic_policy"`
+	Name             string `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty" yaml:"name"`
+	Namespace        string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty" yaml:"namespace"`
+	ExtTrafficPolicy string `protobuf:"bytes,8,opt,name=ext_traffic_policy,json=extTrafficPolicy,proto3" json:"ext_traffic_policy,omitempty" yaml:"ext_traffic_policy"`
+	IntTrafficPolicy string `protobuf:"bytes,9,opt,name=int_traffic_policy,json=intTrafficPolicy,proto3" json:"int_traffic_policy,omitempty" yaml:"int_traffic_policy"`
 }
 
 func (x *ServiceUpsertNotification) Reset() {
@@ -4407,7 +4407,7 @@ type ServiceDeleteNotification struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id uint32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id uint32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty" yaml:"id"`
 }
 
 func (x *ServiceDeleteNotification) Reset() {
@@ -4454,8 +4454,8 @@ type NetworkInterface struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Index uint32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
-	Name  string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Index uint32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty" yaml:"index"`
+	Name  string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty" yaml:"name"`
 }
 
 func (x *NetworkInterface) Reset() {
@@ -4509,14 +4509,14 @@ type DebugEvent struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type    DebugEventType          `protobuf:"varint,1,opt,name=type,proto3,enum=flow.DebugEventType" json:"type,omitempty"`
-	Source  *Endpoint               `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
-	Hash    *wrapperspb.UInt32Value `protobuf:"bytes,3,opt,name=hash,proto3" json:"hash,omitempty"`
-	Arg1    *wrapperspb.UInt32Value `protobuf:"bytes,4,opt,name=arg1,proto3" json:"arg1,omitempty"`
-	Arg2    *wrapperspb.UInt32Value `protobuf:"bytes,5,opt,name=arg2,proto3" json:"arg2,omitempty"`
-	Arg3    *wrapperspb.UInt32Value `protobuf:"bytes,6,opt,name=arg3,proto3" json:"arg3,omitempty"`
-	Message string                  `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty"`
-	Cpu     *wrapperspb.Int32Value  `protobuf:"bytes,8,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	Type    DebugEventType          `protobuf:"varint,1,opt,name=type,proto3,enum=flow.DebugEventType" json:"type,omitempty" yaml:"type"`
+	Source  *Endpoint               `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty" yaml:"source"`
+	Hash    *wrapperspb.UInt32Value `protobuf:"bytes,3,opt,name=hash,proto3" json:"hash,omitempty" yaml:"hash"`
+	Arg1    *wrapperspb.UInt32Value `protobuf:"bytes,4,opt,name=arg1,proto3" json:"arg1,omitempty" yaml:"arg_1"`
+	Arg2    *wrapperspb.UInt32Value `protobuf:"bytes,5,opt,name=arg2,proto3" json:"arg2,omitempty" yaml:"arg_2"`
+	Arg3    *wrapperspb.UInt32Value `protobuf:"bytes,6,opt,name=arg3,proto3" json:"arg3,omitempty" yaml:"arg_3"`
+	Message string                  `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty" yaml:"message"`
+	Cpu     *wrapperspb.Int32Value  `protobuf:"bytes,8,opt,name=cpu,proto3" json:"cpu,omitempty" yaml:"cpu"`
 }
 
 func (x *DebugEvent) Reset() {

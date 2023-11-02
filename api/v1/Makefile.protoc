@@ -36,4 +36,7 @@ all:
 			--go-grpc_out=require_unimplemented_servers=false,paths=source_relative:. \
 			--go-json_out=orig_name=true,paths=source_relative:. \
 			$${proto}; \
+		$(PROTOC) --plugin=$(GOPATH)/bin/protoc-gen-gotag -I $(HUBBLE_PROTO_PATH) \
+			--gotag_out=auto="yaml-as-snake",paths=source_relative:. \
+			$${proto}; \
 	done

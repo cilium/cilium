@@ -149,12 +149,12 @@ type isRecordRequest_RequestType interface {
 
 type RecordRequest_Start struct {
 	// start starts a new recording with the given parameters.
-	Start *StartRecording `protobuf:"bytes,1,opt,name=start,proto3,oneof"`
+	Start *StartRecording `protobuf:"bytes,1,opt,name=start,proto3,oneof" yaml:"start"`
 }
 
 type RecordRequest_Stop struct {
 	// stop stops the running recording.
-	Stop *StopRecording `protobuf:"bytes,2,opt,name=stop,proto3,oneof"`
+	Stop *StopRecording `protobuf:"bytes,2,opt,name=stop,proto3,oneof" yaml:"stop"`
 }
 
 func (*RecordRequest_Start) isRecordRequest_RequestType() {}
@@ -169,16 +169,16 @@ type StartRecording struct {
 	// filesink configures the outfile of this recording
 	// Future alternative sink configurations may be added as a
 	// backwards-compatible change by moving this field into a oneof.
-	Filesink *FileSinkConfiguration `protobuf:"bytes,1,opt,name=filesink,proto3" json:"filesink,omitempty"`
+	Filesink *FileSinkConfiguration `protobuf:"bytes,1,opt,name=filesink,proto3" json:"filesink,omitempty" yaml:"filesink"`
 	// include list for this recording. Packets matching any of the provided
 	// filters will be recorded.
-	Include []*Filter `protobuf:"bytes,2,rep,name=include,proto3" json:"include,omitempty"`
+	Include []*Filter `protobuf:"bytes,2,rep,name=include,proto3" json:"include,omitempty" yaml:"include"`
 	// max_capture_length specifies the maximum packet length.
 	// Full packet length will be captured if absent/zero.
-	MaxCaptureLength uint32 `protobuf:"varint,3,opt,name=max_capture_length,json=maxCaptureLength,proto3" json:"max_capture_length,omitempty"`
+	MaxCaptureLength uint32 `protobuf:"varint,3,opt,name=max_capture_length,json=maxCaptureLength,proto3" json:"max_capture_length,omitempty" yaml:"max_capture_length"`
 	// stop_condition defines conditions which will cause the recording to
 	// stop early after any of the stop conditions has been hit
-	StopCondition *StopCondition `protobuf:"bytes,4,opt,name=stop_condition,json=stopCondition,proto3" json:"stop_condition,omitempty"`
+	StopCondition *StopCondition `protobuf:"bytes,4,opt,name=stop_condition,json=stopCondition,proto3" json:"stop_condition,omitempty" yaml:"stop_condition"`
 }
 
 func (x *StartRecording) Reset() {
@@ -253,12 +253,12 @@ type StopCondition struct {
 	// bytes_captured_count stops the recording after at least this many bytes
 	// have been captured. Note: The resulting file might be slightly larger due
 	// to added pcap headers.
-	BytesCapturedCount uint64 `protobuf:"varint,1,opt,name=bytes_captured_count,json=bytesCapturedCount,proto3" json:"bytes_captured_count,omitempty"`
+	BytesCapturedCount uint64 `protobuf:"varint,1,opt,name=bytes_captured_count,json=bytesCapturedCount,proto3" json:"bytes_captured_count,omitempty" yaml:"bytes_captured_count"`
 	// packets_captured_count stops the recording after at least this many packets have
 	// been captured.
-	PacketsCapturedCount uint64 `protobuf:"varint,2,opt,name=packets_captured_count,json=packetsCapturedCount,proto3" json:"packets_captured_count,omitempty"`
+	PacketsCapturedCount uint64 `protobuf:"varint,2,opt,name=packets_captured_count,json=packetsCapturedCount,proto3" json:"packets_captured_count,omitempty" yaml:"packets_captured_count"`
 	// time_elapsed stops the recording after this duration has elapsed.
-	TimeElapsed *durationpb.Duration `protobuf:"bytes,3,opt,name=time_elapsed,json=timeElapsed,proto3" json:"time_elapsed,omitempty"`
+	TimeElapsed *durationpb.Duration `protobuf:"bytes,3,opt,name=time_elapsed,json=timeElapsed,proto3" json:"time_elapsed,omitempty" yaml:"time_elapsed"`
 }
 
 func (x *StopCondition) Reset() {
@@ -328,7 +328,7 @@ type FileSinkConfiguration struct {
 	// The generated filename will be of format
 	//
 	//	<file_prefix>_<unixtime>_<unique_random>_<node_name>.pcap
-	FilePrefix string `protobuf:"bytes,1,opt,name=file_prefix,json=filePrefix,proto3" json:"file_prefix,omitempty"`
+	FilePrefix string `protobuf:"bytes,1,opt,name=file_prefix,json=filePrefix,proto3" json:"file_prefix,omitempty" yaml:"file_prefix"`
 }
 
 func (x *FileSinkConfiguration) Reset() {
@@ -377,16 +377,16 @@ type Filter struct {
 
 	// source_cidr. Must not be empty.
 	// Set to 0.0.0.0/0 to match any IPv4 source address (::/0 for IPv6).
-	SourceCidr string `protobuf:"bytes,1,opt,name=source_cidr,json=sourceCidr,proto3" json:"source_cidr,omitempty"`
+	SourceCidr string `protobuf:"bytes,1,opt,name=source_cidr,json=sourceCidr,proto3" json:"source_cidr,omitempty" yaml:"source_cidr"`
 	// source_port. Matches any source port if empty.
-	SourcePort uint32 `protobuf:"varint,2,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
+	SourcePort uint32 `protobuf:"varint,2,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty" yaml:"source_port"`
 	// destination_cidr. Must not be empty.
 	// Set to 0.0.0.0/0 to match any IPv4 destination address (::/0 for IPv6).
-	DestinationCidr string `protobuf:"bytes,3,opt,name=destination_cidr,json=destinationCidr,proto3" json:"destination_cidr,omitempty"`
+	DestinationCidr string `protobuf:"bytes,3,opt,name=destination_cidr,json=destinationCidr,proto3" json:"destination_cidr,omitempty" yaml:"destination_cidr"`
 	// destination_port. Matches any destination port if empty.
-	DestinationPort uint32 `protobuf:"varint,4,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
+	DestinationPort uint32 `protobuf:"varint,4,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty" yaml:"destination_port"`
 	// protocol. Matches any protocol if empty.
-	Protocol Protocol `protobuf:"varint,5,opt,name=protocol,proto3,enum=recorder.Protocol" json:"protocol,omitempty"`
+	Protocol Protocol `protobuf:"varint,5,opt,name=protocol,proto3,enum=recorder.Protocol" json:"protocol,omitempty" yaml:"protocol"`
 }
 
 func (x *Filter) Reset() {
@@ -500,9 +500,9 @@ type RecordResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// name of the node where this recording is happening
-	NodeName string `protobuf:"bytes,1,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	NodeName string `protobuf:"bytes,1,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty" yaml:"node_name"`
 	// time at which this event was observed on the above node
-	Time *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=time,proto3" json:"time,omitempty"`
+	Time *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=time,proto3" json:"time,omitempty" yaml:"time"`
 	// Note: In this initial design, any fatal error will be returned as
 	// gRPC errors and are not part of the regular response type.
 	// It is a forward-compatible change to introduce additional more
@@ -589,12 +589,12 @@ type isRecordResponse_ResponseType interface {
 type RecordResponse_Running struct {
 	// running means that the recording is capturing packets. This is
 	// emitted in regular intervals
-	Running *RecordingRunningResponse `protobuf:"bytes,3,opt,name=running,proto3,oneof"`
+	Running *RecordingRunningResponse `protobuf:"bytes,3,opt,name=running,proto3,oneof" yaml:"running"`
 }
 
 type RecordResponse_Stopped struct {
 	// stopped means the recording has stopped
-	Stopped *RecordingStoppedResponse `protobuf:"bytes,4,opt,name=stopped,proto3,oneof"`
+	Stopped *RecordingStoppedResponse `protobuf:"bytes,4,opt,name=stopped,proto3,oneof" yaml:"stopped"`
 }
 
 func (*RecordResponse_Running) isRecordResponse_ResponseType() {}
@@ -607,15 +607,15 @@ type RecordingStatistics struct {
 	unknownFields protoimpl.UnknownFields
 
 	// bytes_captured is the total amount of bytes captured in the recording
-	BytesCaptured uint64 `protobuf:"varint,1,opt,name=bytes_captured,json=bytesCaptured,proto3" json:"bytes_captured,omitempty"`
+	BytesCaptured uint64 `protobuf:"varint,1,opt,name=bytes_captured,json=bytesCaptured,proto3" json:"bytes_captured,omitempty" yaml:"bytes_captured"`
 	// packets_captured is the total amount of packets captured the recording
-	PacketsCaptured uint64 `protobuf:"varint,2,opt,name=packets_captured,json=packetsCaptured,proto3" json:"packets_captured,omitempty"`
+	PacketsCaptured uint64 `protobuf:"varint,2,opt,name=packets_captured,json=packetsCaptured,proto3" json:"packets_captured,omitempty" yaml:"packets_captured"`
 	// packets_lost is the total amount of packets matching the filter during
 	// the recording, but never written to the sink because it was overloaded.
-	PacketsLost uint64 `protobuf:"varint,3,opt,name=packets_lost,json=packetsLost,proto3" json:"packets_lost,omitempty"`
+	PacketsLost uint64 `protobuf:"varint,3,opt,name=packets_lost,json=packetsLost,proto3" json:"packets_lost,omitempty" yaml:"packets_lost"`
 	// bytes_lost is the total amount of bytes matching the filter during
 	// the recording, but never written to the sink because it was overloaded.
-	BytesLost uint64 `protobuf:"varint,4,opt,name=bytes_lost,json=bytesLost,proto3" json:"bytes_lost,omitempty"`
+	BytesLost uint64 `protobuf:"varint,4,opt,name=bytes_lost,json=bytesLost,proto3" json:"bytes_lost,omitempty" yaml:"bytes_lost"`
 }
 
 func (x *RecordingStatistics) Reset() {
@@ -684,7 +684,7 @@ type RecordingRunningResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// stats for the running recording
-	Stats *RecordingStatistics `protobuf:"bytes,1,opt,name=stats,proto3" json:"stats,omitempty"`
+	Stats *RecordingStatistics `protobuf:"bytes,1,opt,name=stats,proto3" json:"stats,omitempty" yaml:"stats"`
 }
 
 func (x *RecordingRunningResponse) Reset() {
@@ -732,9 +732,9 @@ type RecordingStoppedResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// stats for the recording
-	Stats *RecordingStatistics `protobuf:"bytes,1,opt,name=stats,proto3" json:"stats,omitempty"`
+	Stats *RecordingStatistics `protobuf:"bytes,1,opt,name=stats,proto3" json:"stats,omitempty" yaml:"stats"`
 	// filesink contains the path to the captured file
-	Filesink *FileSinkResult `protobuf:"bytes,2,opt,name=filesink,proto3" json:"filesink,omitempty"`
+	Filesink *FileSinkResult `protobuf:"bytes,2,opt,name=filesink,proto3" json:"filesink,omitempty" yaml:"filesink"`
 }
 
 func (x *RecordingStoppedResponse) Reset() {
@@ -789,7 +789,7 @@ type FileSinkResult struct {
 	unknownFields protoimpl.UnknownFields
 
 	// file_path is the absolute path to the captured pcap file
-	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty" yaml:"file_path"`
 }
 
 func (x *FileSinkResult) Reset() {
