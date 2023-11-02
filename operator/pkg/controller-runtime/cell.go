@@ -47,28 +47,40 @@ func newScheme() (*runtime.Scheme, error) {
 	return scheme, nil
 }
 
-func newManager(lc hive.Lifecycle, logger logrus.FieldLogger, jobRegistry job.Registry, scope cell.Scope, k8sClient client.Clientset, scheme *runtime.Scheme) (ctrlRuntime.Manager, error) {
-	if !k8sClient.IsEnabled() {
+type managerParams struct {
+	cell.In
+
+	Logger      logrus.FieldLogger
+	Lifecycle   hive.Lifecycle
+	JobRegistry job.Registry
+	Scope       cell.Scope
+
+	K8sClient client.Clientset
+	Scheme    *runtime.Scheme
+}
+
+func newManager(params managerParams) (ctrlRuntime.Manager, error) {
+	if !params.K8sClient.IsEnabled() {
 		return nil, nil
 	}
 
-	ctrlRuntime.SetLogger(logrusr.New(logger))
+	ctrlRuntime.SetLogger(logrusr.New(params.Logger))
 
-	mgr, err := ctrlRuntime.NewManager(k8sClient.RestConfig(), ctrlRuntime.Options{
-		Scheme: scheme,
+	mgr, err := ctrlRuntime.NewManager(params.K8sClient.RestConfig(), ctrlRuntime.Options{
+		Scheme: params.Scheme,
 		// Disable controller metrics server in favour of cilium's metrics server.
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
-		Logger: logrusr.New(logger),
+		Logger: logrusr.New(params.Logger),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new controller-runtime manager: %w", err)
 	}
 
-	jobGroup := jobRegistry.NewGroup(
-		scope,
-		job.WithLogger(logger),
+	jobGroup := params.JobRegistry.NewGroup(
+		params.Scope,
+		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "controller-runtime")),
 	)
 
@@ -76,7 +88,7 @@ func newManager(lc hive.Lifecycle, logger logrus.FieldLogger, jobRegistry job.Re
 		return mgr.Start(ctx)
 	}))
 
-	lc.Append(jobGroup)
+	params.Lifecycle.Append(jobGroup)
 
 	return mgr, nil
 }
