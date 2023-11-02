@@ -15,15 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 )
 
-const (
-	// Mark/mask set by the bpf datapath to denote packets destined to the proxy.
-	tproxyMark = 0x200
-	tproxyMask = 0xf00
-
-	// Routing table for redirecting packets to the proxy through the local stack.
-	proxyRoutingTable = 2004
-)
-
 var (
 	// Routing rule for traffic to proxy.
 	tproxyRule = route.Rule{
@@ -31,14 +22,14 @@ var (
 		// table 255 to pref 100 during startup, to create space to insert its own
 		// rules between 0-99.
 		Priority: linux_defaults.RulePriorityProxyIngress,
-		Mark:     tproxyMark,
-		Mask:     tproxyMask,
-		Table:    proxyRoutingTable,
+		Mark:     int(linux_defaults.MagicMarkIsToProxy),
+		Mask:     linux_defaults.MagicMarkHostMask,
+		Table:    linux_defaults.RouteTableProxy,
 	}
 
 	// Default IPv4 route for local delivery.
 	route4 = route.Route{
-		Table:  proxyRoutingTable,
+		Table:  linux_defaults.RouteTableProxy,
 		Type:   route.RTN_LOCAL,
 		Local:  net.IPv4zero,
 		Device: "lo",
@@ -46,7 +37,7 @@ var (
 
 	// Default IPv6 route for local delivery.
 	route6 = route.Route{
-		Table:  proxyRoutingTable,
+		Table:  linux_defaults.RouteTableProxy,
 		Type:   route.RTN_LOCAL,
 		Local:  net.IPv6zero,
 		Device: "lo",
@@ -72,7 +63,7 @@ func removeRoutesIPv4() error {
 	if err := route.DeleteRule(netlink.FAMILY_V4, tproxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
 		return fmt.Errorf("removing ipv4 proxy routing rule: %w", err)
 	}
-	if err := route.DeleteRouteTable(proxyRoutingTable, netlink.FAMILY_V4); err != nil {
+	if err := route.DeleteRouteTable(linux_defaults.RouteTableProxy, netlink.FAMILY_V4); err != nil {
 		return fmt.Errorf("removing ipv4 proxy route table: %w", err)
 	}
 
@@ -97,7 +88,7 @@ func removeRoutesIPv6() error {
 	if err := route.DeleteRule(netlink.FAMILY_V6, tproxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
 		return fmt.Errorf("removing ipv6 proxy routing rule: %w", err)
 	}
-	if err := route.DeleteRouteTable(proxyRoutingTable, netlink.FAMILY_V6); err != nil {
+	if err := route.DeleteRouteTable(linux_defaults.RouteTableProxy, netlink.FAMILY_V6); err != nil {
 		return fmt.Errorf("removing ipv6 proxy route table: %w", err)
 	}
 

@@ -20,6 +20,7 @@ import (
 	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -124,7 +125,7 @@ func listenConfig(mark int, ipFamily ipfamily.IPFamily) *net.ListenConfig {
 
 func bindResponseUDPConnection(ipFamily ipfamily.IPFamily) (*net.IPConn, error) {
 	// Mark outgoing packets as proxy egress return traffic (0x0b00)
-	conn, err := listenConfig(0xb00, ipFamily).ListenPacket(context.Background(), "ip:udp", ipFamily.Localhost)
+	conn, err := listenConfig(linux_defaults.MagicMarkEgress, ipFamily).ListenPacket(context.Background(), "ip:udp", ipFamily.Localhost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind UDP for address %s: %w", ipFamily.Localhost, err)
 	}
