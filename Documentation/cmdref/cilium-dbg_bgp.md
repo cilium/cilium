@@ -22,5 +22,6 @@ Access to BGP control plane
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
 * [cilium-dbg bgp peers](cilium-dbg_bgp_peers.md)	 - List current state of all peers
+* [cilium-dbg bgp route-policies](cilium-dbg_bgp_route-policies.md)	 - List configured route policies
 * [cilium-dbg bgp routes](cilium-dbg_bgp_routes.md)	 - List routes in the BGP Control Plane's RIBs
 
