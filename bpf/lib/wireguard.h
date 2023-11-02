@@ -113,16 +113,32 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 #endif /* TUNNEL_MODE */
 
 	/* Unless node encryption is enabled, we don't want to encrypt
-	 * traffic from the hostns.
+	 * traffic from the hostns (an exception - L7 proxy traffic).
 	 *
 	 * NB: if iptables has SNAT-ed the packet, its sec id is HOST_ID.
 	 * This means that the packet won't be encrypted. This is fine,
 	 * as with --encrypt-node=false we encrypt only pod-to-pod packets.
 	 */
 #ifndef ENABLE_NODE_ENCRYPTION
+# ifdef TUNNEL_MODE
 	if (!src || src->sec_identity == HOST_ID)
+# else
+	/* In the native routing mode, a pkt coming from L7 proxy (i.e., Envoy
+	 * on behalf of a client pod) has src IP addr of a host, but not of the
+	 * client pod. Such a pkt must be encrypted. Unfortunately, there is no
+	 * straightforward way to differentiate between L7 proxy and host netns
+	 * traffic. Nevertheless, a host netns pkt should have the
+	 * MARK_MAGIC_HOST set.
+	 *
+	 * The check bellow assumes that any non-host netns pkt with the HOST_ID
+	 * is L7 proxy traffic, which might need to be encrypted (depending on
+	 * the dst check far bellow).
+	 */
+	if (!src || (src->sec_identity == HOST_ID &&
+		     ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)))
+# endif /* TUNNEL_MODE */
 		goto out;
-#endif /* ENABLE_NODE_ENCRYPTION */
+#endif /* !ENABLE_NODE_ENCRYPTION */
 
 	/* We don't want to encrypt any traffic that originates from outside
 	 * the cluster.
