@@ -46,6 +46,7 @@ var Cell = cell.Module(
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() *iptables.Manager { return &iptables.Manager{} },
 		func() bandwidth.Manager { return &BandwidthManager{} },
+		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
 
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,

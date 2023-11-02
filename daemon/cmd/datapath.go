@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -468,26 +467,6 @@ func (d *Daemon) initMaps() error {
 	}
 
 	return nil
-}
-
-func setupIPSec() (int, uint8, error) {
-	if !option.Config.EncryptNode {
-		ipsec.DeleteIPsecEncryptRoute()
-	}
-
-	if !option.Config.EnableIPSec {
-		return 0, 0, nil
-	}
-
-	authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
-	if err != nil {
-		return 0, 0, err
-	}
-	if err := ipsec.SetIPSecSPI(spi); err != nil {
-		return 0, 0, err
-	}
-	node.SetIPsecKeyIdentity(spi)
-	return authKeySize, spi, nil
 }
 
 func setupVTEPMapping() error {
