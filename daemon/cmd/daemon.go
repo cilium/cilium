@@ -250,7 +250,7 @@ func (d *Daemon) GetPolicyRepository() *policy.Repository {
 
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
-	return option.Config.Opts.IsEnabled(option.Debug)
+	return option.Config.Opts.IsEnabled(option.DatapathDebug)
 }
 
 // GetOptions returns the datapath configuration options of the daemon.
@@ -1305,7 +1305,7 @@ func (d *Daemon) TriggerDatapathRegen(force bool, reason string) {
 
 func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d := data.(*Daemon)
-	if key == option.Debug {
+	if key == option.DatapathDebug {
 		// Set the debug toggle (this can be a no-op)
 		if d.DebugEnabled() {
 			logging.SetLogLevelToDebug()

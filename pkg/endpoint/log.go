@@ -88,7 +88,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
 	shouldUpdate := epLogger == nil || (e.Options != nil &&
-		e.Options.IsEnabled(option.Debug) != (epLogger.Level == logrus.DebugLevel))
+		e.Options.IsEnabled(option.DatapathDebug) != (epLogger.Level == logrus.DebugLevel))
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
@@ -106,7 +106,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger.
 	// If this endpoint is not set to debug, it will use the log level set by the user.
-	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
+	if e.Options != nil && e.Options.IsEnabled(option.DatapathDebug) {
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}
 

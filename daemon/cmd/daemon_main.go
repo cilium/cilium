@@ -1331,7 +1331,7 @@ func initEnv(vp *viper.Viper) {
 	bpf.CheckOrMountFS(option.Config.BPFRoot)
 	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot)
 
-	option.Config.Opts.SetBool(option.Debug, debugDatapath)
+	option.Config.Opts.SetBool(option.DatapathDebug, debugDatapath)
 	option.Config.Opts.SetBool(option.DebugLB, debugDatapath)
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)

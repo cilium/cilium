@@ -778,7 +778,7 @@ func optionChanged(key string, value option.OptionSetting, data interface{}) {
 // returns true if there were any options changed.
 func (e *Endpoint) applyOptsLocked(opts option.OptionMap) bool {
 	changed := e.Options.ApplyValidated(opts, optionChanged, e) > 0
-	_, exists := opts[option.Debug]
+	_, exists := opts[option.DatapathDebug]
 	if exists && changed {
 		e.UpdateLogger(nil)
 	}
@@ -1619,7 +1619,7 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 				// The option won't be changed.
 				continue
 			}
-			if config != option.Debug && config != option.DebugLB &&
+			if config != option.DatapathDebug && config != option.DebugLB &&
 				config != option.TraceNotify && config != option.PolicyVerdictNotify &&
 				config != option.PolicyAuditMode && config != option.MonitorAggregation &&
 				config != option.PolicyTracing {
