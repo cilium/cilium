@@ -36,9 +36,11 @@ var buildConfigHive = hive.New(
 var buildConfigCmd = &cobra.Command{
 	Use:   "build-config --node-name $K8S_NODE_NAME",
 	Short: "Resolve all of the configuration sources that apply to this node",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Running")
-		return buildConfigHive.Run()
+		if err := buildConfigHive.Run(); err != nil {
+			Fatalf("Build config failed: %v\n", err)
+		}
 	},
 }
 
