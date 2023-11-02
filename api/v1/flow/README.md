@@ -1001,6 +1001,7 @@ here.
 | UNENCRYPTED_TRAFFIC | 195 |  |
 | TTL_EXCEEDED | 196 |  |
 | NO_NODE_ID | 197 |  |
+| DROP_RATE_LIMITED | 198 |  |
 
 
 

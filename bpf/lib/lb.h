@@ -11,6 +11,7 @@
 #include "hash.h"
 #include "ids.h"
 #include "nat_46x64.h"
+#include "ratelimit.h"
 
 #ifndef SKIP_CALLS_MAP
 #include "drop.h"
@@ -1917,12 +1918,23 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	union macaddr dmac = {};
 	struct in6_addr saddr;
 	struct in6_addr daddr;
+	struct ratelimit_key rkey = {};
+	/* Rate limit to 100 ICMPv6 replies per second, burstable to 1000 responses/s */
+	struct ratelimit_settings settings = {
+		.bucket_size = 1000,
+		.tokens_per_topup = 100,
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
 	__wsum csum;
 	__u64 sample_len;
 	int i;
 	int ret;
 	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
 		sizeof(struct icmp6hdr);
+
+	rkey.netdev_idx = ctx_get_ifindex(ctx);
+	if (!ratelimit_check_and_take(&rkey, &settings))
+		return DROP_RATE_LIMITED;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
