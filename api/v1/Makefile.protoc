@@ -29,15 +29,12 @@ all:
 	@echo NOTE: The warning about package github.com/golang/protobuf/protoc-gen-go/generator can be ignored
 	$(QUIET)set -e; \
 	for proto in $(HUBBLE_PROTO_SOURCES) ; do \
-		DEEPCOPY=""; \
-		if [ "$${proto}" = "./flow/flow.proto" ]; then \
-			DEEPCOPY="--deepcopy_out=paths=source_relative:."; \
-		fi; \
 		echo Generating $${proto} && \
 		$(PROTOC) $(HUBBLE_PROTOC_PLUGINS) -I $(HUBBLE_PROTO_PATH) \
 			--doc_out=./ \
 			--doc_opt=markdown,README.md,source_relative \
-			--go_out=paths=source_relative:. $${DEEPCOPY} \
+			--go_out=paths=source_relative:. \
+			--deepcopy_out=paths=source_relative:. \
 			--go-grpc_out=require_unimplemented_servers=false,paths=source_relative:. \
 			--go-json_out=orig_name=true,paths=source_relative:. \
 			$${proto}; \
