@@ -121,9 +121,9 @@
      - bool
      - ``true``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.tolerations`
-     - SPIRE agent tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - SPIRE agent tolerations configuration By default it follows the same tolerations as the agent itself to allow the Cilium agent on this node to connect to SPIRE. ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
-     - ``[]``
+     - ``[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]``
    * - :spelling:ignore:`authentication.mutual.spire.install.enabled`
      - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
      - bool
