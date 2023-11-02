@@ -1172,7 +1172,8 @@ struct lb6_src_range_key {
 
 static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 				       int ifindex __maybe_unused,
-				       bool needs_backlog __maybe_unused)
+				       bool needs_backlog __maybe_unused,
+				       bool from_tunnel)
 {
 	/* Going via CPU backlog queue (aka needs_backlog) is required
 	 * whenever we cannot do a fast ingress -> ingress switch but
@@ -1181,15 +1182,15 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 	 */
 	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING)) {
 		return ctx_redirect(ctx, ifindex, 0);
-	} else {
-# ifdef HAVE_ENCAP
-		/* When coming from overlay, we need to set packet type
-		 * to HOST as otherwise we might get dropped in IP layer.
-		 */
-		ctx_change_type(ctx, PACKET_HOST);
-# endif /* HAVE_ENCAP */
-		return ctx_redirect_peer(ctx, ifindex, 0);
 	}
+
+	/* When coming from overlay, we need to set packet type
+	 * to HOST as otherwise we might get dropped in IP layer.
+	 */
+	if (from_tunnel)
+		ctx_change_type(ctx, PACKET_HOST);
+
+	return ctx_redirect_peer(ctx, ifindex, 0);
 }
 
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
