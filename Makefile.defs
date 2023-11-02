@@ -141,7 +141,7 @@ CILIUM_DATAPATH_SHA256=$(shell cd $(ROOT_DIR); cat $(BPF_SRCFILES) | sha256sum |
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA256=$(CILIUM_DATAPATH_SHA256)"
 
 GO_BUILD_FLAGS += -mod=vendor
-GO_TEST_FLAGS += -mod=vendor
+GO_TEST_FLAGS += -mod=vendor -vet=all
 GO_CLEAN_FLAGS += -mod=vendor
 
 GO_BUILD = CGO_ENABLED=0 $(GO) build
