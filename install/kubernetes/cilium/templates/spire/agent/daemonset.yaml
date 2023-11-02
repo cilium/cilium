@@ -99,10 +99,12 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.authentication.mutual.spire.install.agent.tolerations }}
       tolerations:
-        {{- toYaml . | trim | nindent 8 }}
-      {{- end }}
+        {{- with .Values.authentication.mutual.spire.install.agent.tolerations }}
+          {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        - key:  {{ .Values.agentNotReadyTaintKey | default "node.cilium.io/agent-not-ready" }}
+          effect: NoSchedule
       volumes:
         - name: spire-config
           configMap:
