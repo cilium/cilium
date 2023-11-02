@@ -246,6 +246,11 @@ type GetRoutesResponse struct {
 	Routes []*Route
 }
 
+// GetRoutePoliciesResponse contains route policies retrieved from the underlying router
+type GetRoutePoliciesResponse struct {
+	Policies []*RoutePolicy
+}
+
 // Router is vendor-agnostic cilium bgp configuration layer. Parameters of this layer
 // are standard BGP RFC complaint and not specific to any underlying implementation.
 type Router interface {
@@ -280,6 +285,9 @@ type Router interface {
 
 	// GetRoutes retrieves routes from the RIB of underlying router
 	GetRoutes(ctx context.Context, r *GetRoutesRequest) (*GetRoutesResponse, error)
+
+	// GetRoutePolicies retrieves route policies from the underlying router
+	GetRoutePolicies(ctx context.Context) (*GetRoutePoliciesResponse, error)
 
 	// GetBGP returns configured BGP global parameters
 	GetBGP(ctx context.Context) (GetBGPResponse, error)
