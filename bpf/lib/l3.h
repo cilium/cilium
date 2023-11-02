@@ -103,7 +103,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	}
 # endif /* !ENABLE_NODEPORT */
 
-	return redirect_ep(ctx, ep->ifindex, from_host);
+	return redirect_ep(ctx, ep->ifindex, from_host, from_tunnel);
 #else
 # ifndef DISABLE_LOOPBACK_LB
 	/* Skip ingress policy enforcement for hairpin traffic. As the hairpin
@@ -112,7 +112,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	 * enforcement, and directly redirect it to the endpoint.
 	 */
 	if (unlikely(hairpin_flow))
-		return redirect_ep(ctx, ep->ifindex, from_host);
+		return redirect_ep(ctx, ep->ifindex, from_host, from_tunnel);
 # endif /* DISABLE_LOOPBACK_LB */
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
