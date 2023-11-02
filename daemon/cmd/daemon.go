@@ -428,11 +428,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	lbmap.Init(lbmapInitParams)
 
-	authKeySize, encryptKeyID, err := setupIPSec()
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
-	}
-
 	var mtuConfig mtu.Configuration
 	externalIP := node.GetIPv4()
 	if externalIP == nil {
@@ -445,7 +440,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	// ExternalIP could be nil but we are covering that case inside NewConfiguration
 	mtuConfig = mtu.NewConfiguration(
-		authKeySize,
+		params.IPsecKeyCustodian.AuthKeySize(),
 		option.Config.EnableIPSec,
 		params.TunnelConfig.ShouldAdaptMTU(),
 		option.Config.EnableWireguard,
@@ -1009,7 +1004,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				params.Clientset,
 				nodeTypes.GetName(),
 				latestLocalNode.Node,
-				encryptKeyID)
+				params.IPsecKeyCustodian.SPI())
 		}
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")

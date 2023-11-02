@@ -1669,6 +1669,7 @@ type daemonParams struct {
 	BigTCPConfig        *bigtcp.Configuration
 	TunnelConfig        tunnel.Config
 	BandwidthManager    bandwidth.Manager
+	IPsecKeyCustodian   datapath.IPsecKeyCustodian
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
