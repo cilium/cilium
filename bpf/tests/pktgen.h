@@ -688,61 +688,284 @@ pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 	return l4;
 }
 
+static __always_inline void pktgen__finish_eth(const struct pktgen *builder, int i)
+{
+	struct ethhdr *eth_layer;
+	__u64 layer_off;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct ethhdr))
+		return;
+
+	eth_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)eth_layer + sizeof(struct ethhdr) > ctx_data_end(builder->ctx))
+		return;
+
+	if (i + 1 >= PKT_BUILDER_LAYERS)
+		return;
+
+	/* Set the proper next hdr value */
+	switch (builder->layers[i + 1]) {
+	case PKT_LAYER_IPV4:
+		eth_layer->h_proto = __bpf_htons(ETH_P_IP);
+		break;
+	case PKT_LAYER_IPV6:
+		eth_layer->h_proto = __bpf_htons(ETH_P_IPV6);
+		break;
+	case PKT_LAYER_ARP:
+		eth_layer->h_proto = __bpf_htons(ETH_P_ARP);
+		break;
+	default:
+		break;
+	}
+}
+
+static __always_inline void pktgen__finish_ipv4(const struct pktgen *builder, int i)
+{
+	struct iphdr *ipv4_layer;
+	__u64 layer_off;
+	__u16 v4len;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct iphdr))
+		return;
+
+	ipv4_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)ipv4_layer + sizeof(struct iphdr) > ctx_data_end(builder->ctx))
+		return;
+
+	if (i + 1 >= PKT_BUILDER_LAYERS)
+		return;
+
+	switch (builder->layers[i + 1]) {
+	case PKT_LAYER_TCP:
+		ipv4_layer->protocol = IPPROTO_TCP;
+		break;
+	case PKT_LAYER_UDP:
+		ipv4_layer->protocol = IPPROTO_UDP;
+		break;
+	case PKT_LAYER_ICMP:
+		ipv4_layer->protocol = IPPROTO_ICMP;
+		break;
+	case PKT_LAYER_SCTP:
+		ipv4_layer->protocol = IPPROTO_SCTP;
+		break;
+	case PKT_LAYER_ESP:
+		ipv4_layer->protocol = IPPROTO_ESP;
+		break;
+	default:
+		break;
+	}
+
+	v4len = (__be16)(builder->cur_off - builder->layer_offsets[i]);
+	/* Calculate total length, which is IPv4 hdr + all layers after it */
+	ipv4_layer->tot_len = __bpf_htons(v4len);
+}
+
+static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, int i)
+{
+	struct ipv6hdr *ipv6_layer;
+	__u64 layer_off;
+	__u16 v6len;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
+		return;
+
+	ipv6_layer = ctx_data(builder->ctx) + builder->layer_offsets[i];
+	if ((void *)ipv6_layer + sizeof(struct ipv6hdr) >
+		ctx_data_end(builder->ctx))
+		return;
+
+	if (i + 1 >= PKT_BUILDER_LAYERS)
+		return;
+
+	switch (builder->layers[i + 1]) {
+	case PKT_LAYER_IPV6_HOP_BY_HOP:
+		ipv6_layer->nexthdr = NEXTHDR_HOP;
+		break;
+	case PKT_LAYER_IPV6_AUTH:
+		ipv6_layer->nexthdr = NEXTHDR_AUTH;
+		break;
+	case PKT_LAYER_IPV6_DEST:
+		ipv6_layer->nexthdr = NEXTHDR_DEST;
+		break;
+	case PKT_LAYER_TCP:
+		ipv6_layer->nexthdr = IPPROTO_TCP;
+		break;
+	case PKT_LAYER_UDP:
+		ipv6_layer->nexthdr = IPPROTO_UDP;
+		break;
+	case PKT_LAYER_ICMPV6:
+		ipv6_layer->nexthdr = IPPROTO_ICMPV6;
+		break;
+	case PKT_LAYER_SCTP:
+		ipv6_layer->nexthdr = IPPROTO_SCTP;
+		break;
+	case PKT_LAYER_ESP:
+		ipv6_layer->nexthdr = IPPROTO_ESP;
+		break;
+	default:
+		break;
+	}
+
+	v6len = (__be16)(builder->cur_off + sizeof(struct ipv6hdr) -
+		builder->layer_offsets[i]);
+
+	/* Calculate payload length, which doesn't include the header size */
+	ipv6_layer->payload_len = __bpf_htons(v6len);
+}
+
+static __always_inline void pktgen__finish_ipv6_opt(const struct pktgen *builder, int i)
+{
+	struct ipv6_opt_hdr *ipv6_opt_layer;
+	__u64 layer_off;
+
+	layer_off = builder->layer_offsets[i];
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct ipv6_opt_hdr))
+		return;
+
+	ipv6_opt_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)(ipv6_opt_layer + 1) > ctx_data_end(builder->ctx))
+		return;
+
+	if (i + 1 >= PKT_BUILDER_LAYERS)
+		return;
+
+	switch (builder->layers[i + 1]) {
+	case PKT_LAYER_IPV6_HOP_BY_HOP:
+		ipv6_opt_layer->nexthdr = NEXTHDR_HOP;
+		break;
+	case PKT_LAYER_IPV6_AUTH:
+		ipv6_opt_layer->nexthdr = NEXTHDR_AUTH;
+		break;
+	case PKT_LAYER_IPV6_DEST:
+		ipv6_opt_layer->nexthdr = NEXTHDR_DEST;
+		break;
+	case PKT_LAYER_TCP:
+		ipv6_opt_layer->nexthdr = IPPROTO_TCP;
+		break;
+	case PKT_LAYER_UDP:
+		ipv6_opt_layer->nexthdr = IPPROTO_UDP;
+		break;
+	case PKT_LAYER_ICMPV6:
+		ipv6_opt_layer->nexthdr = IPPROTO_ICMPV6;
+		break;
+	case PKT_LAYER_SCTP:
+		ipv6_opt_layer->nexthdr = IPPROTO_SCTP;
+		break;
+	default:
+		break;
+	}
+}
+
+static __always_inline void pktgen__finish_tcp(const struct pktgen *builder, int i)
+{
+	struct tcphdr *tcp_layer;
+	__u64 layer_off;
+	__u64 hdr_size;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct tcphdr))
+		return;
+
+	tcp_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)tcp_layer + sizeof(struct tcphdr) >
+		ctx_data_end(builder->ctx))
+		return;
+
+	if (i + 1 >= PKT_BUILDER_LAYERS)
+		return;
+
+	/* Calculate the data offset, this is the diff between start of header
+	 * and start of data in 32-bit words (bytes divided by 4).
+	 */
+
+	if (builder->layers[i + 1] == PKT_LAYER_NONE) {
+		/* If no data or next header exists, calc using the current offset */
+		hdr_size = builder->cur_off - builder->layer_offsets[i];
+	} else {
+		hdr_size = builder->layer_offsets[i + 1] -
+				builder->layer_offsets[i];
+	}
+
+	tcp_layer->doff = (__u16)hdr_size / 4;
+}
+
+static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int i)
+{
+	struct udphdr *udp_layer;
+	__u64 layer_off;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct udphdr))
+		return;
+
+	udp_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)udp_layer + sizeof(struct udphdr) >
+		ctx_data_end(builder->ctx))
+		return;
+}
+
+static __always_inline void pktgen__finish_geneve(const struct pktgen *builder, int i)
+{
+	struct genevehdr *geneve_layer;
+	__u64 layer_off;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct genevehdr))
+		return;
+
+	geneve_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)geneve_layer + sizeof(struct genevehdr) >
+		ctx_data_end(builder->ctx))
+		return;
+
+	if (i + 1 >= PKT_BUILDER_LAYERS)
+		return;
+
+	switch (builder->layers[i + 1]) {
+	case PKT_LAYER_ETH:
+		geneve_layer->protocol_type = __bpf_htons(ETH_P_TEB);
+		break;
+	default:
+		break;
+	}
+}
+
 /* Do a finishing pass on all the layers, which will set correct next layer
  * fields and length values. TODO checksum calculation?
  */
 static __always_inline
 void pktgen__finish(const struct pktgen *builder)
 {
-	struct ethhdr *eth_layer;
-	struct iphdr *ipv4_layer;
-	struct ipv6hdr *ipv6_layer;
-	struct ipv6_opt_hdr *ipv6_opt_layer;
-	struct genevehdr *geneve_layer;
-	struct tcphdr *tcp_layer;
-	struct udphdr *udp_layer;
-	__u64 layer_off;
-	__u16 v4len;
-	__be16 v6len;
-	__u64 hdr_size;
-
 	#pragma unroll
 	for (int i = 0; i < PKT_BUILDER_LAYERS; i++) {
 		switch (builder->layers[i]) {
 		case PKT_LAYER_NONE:
 			/* A none signals the end of the layer stack */
-			goto exit;
+			return;
 
 		case PKT_LAYER_ETH:
-			layer_off = builder->layer_offsets[i];
-			/* Check that any value within the struct will not exceed a u16 which
-			 * is the max allowed offset within a packet from ctx->data.
-			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct ethhdr))
-				return;
-
-			eth_layer = ctx_data(builder->ctx) + layer_off;
-			if ((void *)eth_layer + sizeof(struct ethhdr) > ctx_data_end(builder->ctx))
-				return;
-
-			if (i + 1 >= PKT_BUILDER_LAYERS)
-				return;
-
-			/* Set the proper next hdr value */
-			switch (builder->layers[i + 1]) {
-			case PKT_LAYER_IPV4:
-				eth_layer->h_proto = __bpf_htons(ETH_P_IP);
-				break;
-			case PKT_LAYER_IPV6:
-				eth_layer->h_proto = __bpf_htons(ETH_P_IPV6);
-				break;
-			case PKT_LAYER_ARP:
-				eth_layer->h_proto = __bpf_htons(ETH_P_ARP);
-				break;
-			default:
-				break;
-			}
-
+			pktgen__finish_eth(builder, i);
 			break;
 
 		case PKT_LAYER_8021Q:
@@ -750,171 +973,21 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_IPV4:
-			layer_off = builder->layer_offsets[i];
-			/* Check that any value within the struct will not exceed a u16 which
-			 * is the max allowed offset within a packet from ctx->data.
-			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct iphdr))
-				return;
-
-			ipv4_layer = ctx_data(builder->ctx) + layer_off;
-			if ((void *)ipv4_layer + sizeof(struct iphdr) > ctx_data_end(builder->ctx))
-				return;
-
-			if (i + 1 >= PKT_BUILDER_LAYERS)
-				return;
-
-			switch (builder->layers[i + 1]) {
-			case PKT_LAYER_TCP:
-				ipv4_layer->protocol = IPPROTO_TCP;
-				break;
-			case PKT_LAYER_UDP:
-				ipv4_layer->protocol = IPPROTO_UDP;
-				break;
-			case PKT_LAYER_ICMP:
-				ipv4_layer->protocol = IPPROTO_ICMP;
-				break;
-			case PKT_LAYER_SCTP:
-				ipv4_layer->protocol = IPPROTO_SCTP;
-				break;
-			case PKT_LAYER_ESP:
-				ipv4_layer->protocol = IPPROTO_ESP;
-				break;
-			default:
-				break;
-			}
-
-			v4len = (__be16)(builder->cur_off - builder->layer_offsets[i]);
-			/* Calculate total length, which is IPv4 hdr + all layers after it */
-			ipv4_layer->tot_len = __bpf_htons(v4len);
-
+			pktgen__finish_ipv4(builder, i);
 			break;
 
 		case PKT_LAYER_IPV6:
-			layer_off = builder->layer_offsets[i];
-			/* Check that any value within the struct will not exceed a u16 which
-			 * is the max allowed offset within a packet from ctx->data.
-			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
-				return;
-
-			ipv6_layer = ctx_data(builder->ctx) + builder->layer_offsets[i];
-			if ((void *)ipv6_layer + sizeof(struct ipv6hdr) >
-				ctx_data_end(builder->ctx))
-				return;
-
-			if (i + 1 >= PKT_BUILDER_LAYERS)
-				return;
-
-			switch (builder->layers[i + 1]) {
-			case PKT_LAYER_IPV6_HOP_BY_HOP:
-				ipv6_layer->nexthdr = NEXTHDR_HOP;
-				break;
-			case PKT_LAYER_IPV6_AUTH:
-				ipv6_layer->nexthdr = NEXTHDR_AUTH;
-				break;
-			case PKT_LAYER_IPV6_DEST:
-				ipv6_layer->nexthdr = NEXTHDR_DEST;
-				break;
-			case PKT_LAYER_TCP:
-				ipv6_layer->nexthdr = IPPROTO_TCP;
-				break;
-			case PKT_LAYER_UDP:
-				ipv6_layer->nexthdr = IPPROTO_UDP;
-				break;
-			case PKT_LAYER_ICMPV6:
-				ipv6_layer->nexthdr = IPPROTO_ICMPV6;
-				break;
-			case PKT_LAYER_SCTP:
-				ipv6_layer->nexthdr = IPPROTO_SCTP;
-				break;
-			case PKT_LAYER_ESP:
-				ipv6_layer->nexthdr = IPPROTO_ESP;
-				break;
-			default:
-				break;
-			}
-
-			v6len = (__be16)(builder->cur_off + sizeof(struct ipv6hdr) -
-				builder->layer_offsets[i]);
-
-			/* Calculate payload length, which doesn't include the header size */
-			ipv6_layer->payload_len = __bpf_htons(v6len);
-
+			pktgen__finish_ipv6(builder, i);
 			break;
 
 		case PKT_LAYER_IPV6_HOP_BY_HOP:
 		case PKT_LAYER_IPV6_AUTH:
 		case PKT_LAYER_IPV6_DEST:
-			layer_off = builder->layer_offsets[i];
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct ipv6_opt_hdr))
-				return;
-
-			ipv6_opt_layer = ctx_data(builder->ctx) + layer_off;
-			if ((void *)(ipv6_opt_layer + 1) > ctx_data_end(builder->ctx))
-				return;
-
-			if (i + 1 >= PKT_BUILDER_LAYERS)
-				return;
-
-			switch (builder->layers[i + 1]) {
-			case PKT_LAYER_IPV6_HOP_BY_HOP:
-				ipv6_opt_layer->nexthdr = NEXTHDR_HOP;
-				break;
-			case PKT_LAYER_IPV6_AUTH:
-				ipv6_opt_layer->nexthdr = NEXTHDR_AUTH;
-				break;
-			case PKT_LAYER_IPV6_DEST:
-				ipv6_opt_layer->nexthdr = NEXTHDR_DEST;
-				break;
-			case PKT_LAYER_TCP:
-				ipv6_opt_layer->nexthdr = IPPROTO_TCP;
-				break;
-			case PKT_LAYER_UDP:
-				ipv6_opt_layer->nexthdr = IPPROTO_UDP;
-				break;
-			case PKT_LAYER_ICMPV6:
-				ipv6_opt_layer->nexthdr = IPPROTO_ICMPV6;
-				break;
-			case PKT_LAYER_SCTP:
-				ipv6_opt_layer->nexthdr = IPPROTO_SCTP;
-				break;
-			default:
-				break;
-			}
-
+			pktgen__finish_ipv6_opt(builder, i);
 			break;
 
 		case PKT_LAYER_TCP:
-			layer_off = builder->layer_offsets[i];
-			/* Check that any value within the struct will not exceed a u16 which
-			 * is the max allowed offset within a packet from ctx->data.
-			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct tcphdr))
-				return;
-
-			tcp_layer = ctx_data(builder->ctx) + layer_off;
-			if ((void *)tcp_layer + sizeof(struct tcphdr) >
-				ctx_data_end(builder->ctx))
-				return;
-
-			if (i + 1 >= PKT_BUILDER_LAYERS)
-				return;
-
-			/* Calculate the data offset, this is the diff between start of header
-			 * and start of data in 32-bit words (bytes divided by 4).
-			 */
-
-			if (builder->layers[i + 1] == PKT_LAYER_NONE) {
-				/* If no data or next header exists, calc using the current offset */
-				hdr_size = builder->cur_off - builder->layer_offsets[i];
-			} else {
-				hdr_size = builder->layer_offsets[i + 1] -
-						builder->layer_offsets[i];
-			}
-
-			tcp_layer->doff = (__u16)hdr_size / 4;
-
+			pktgen__finish_tcp(builder, i);
 			break;
 
 		case PKT_LAYER_ESP:
@@ -926,17 +999,7 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_UDP:
-			layer_off = builder->layer_offsets[i];
-			/* Check that any value within the struct will not exceed a u16 which
-			 * is the max allowed offset within a packet from ctx->data.
-			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct udphdr))
-				return;
-
-			udp_layer = ctx_data(builder->ctx) + layer_off;
-			if ((void *)udp_layer + sizeof(struct udphdr) >
-			    ctx_data_end(builder->ctx))
-				return;
+			pktgen__finish_udp(builder, i);
 			break;
 
 		case PKT_LAYER_ICMP:
@@ -952,29 +1015,7 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_GENEVE:
-			layer_off = builder->layer_offsets[i];
-			/* Check that any value within the struct will not exceed a u16 which
-			 * is the max allowed offset within a packet from ctx->data.
-			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct genevehdr))
-				return;
-
-			geneve_layer = ctx_data(builder->ctx) + layer_off;
-			if ((void *)geneve_layer + sizeof(struct genevehdr) >
-			    ctx_data_end(builder->ctx))
-				return;
-
-			if (i + 1 >= PKT_BUILDER_LAYERS)
-				return;
-
-			switch (builder->layers[i + 1]) {
-			case PKT_LAYER_ETH:
-				geneve_layer->protocol_type = __bpf_htons(ETH_P_TEB);
-				break;
-			default:
-				break;
-			}
-
+			pktgen__finish_geneve(builder, i);
 			break;
 
 		case PKT_LAYER_VXLAN:
@@ -985,8 +1026,6 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 		}
 	}
-exit:
-	return;
 };
 
 #endif /* __TEST_PKTGEN__ */
