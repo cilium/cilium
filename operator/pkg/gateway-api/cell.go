@@ -21,6 +21,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
 
@@ -33,7 +34,7 @@ var Cell = cell.Module(
 		EnableGatewayAPISecretsSync: true,
 		GatewayAPISecretsNamespace:  "cilium-secrets",
 	}),
-	cell.Invoke(registerController),
+	cell.Invoke(initGatewayAPIController),
 )
 
 var requiredGVK = []schema.GroupVersionKind{
@@ -55,34 +56,38 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 }
 
-type params struct {
+type gatewayAPIParams struct {
 	cell.In
 
-	Clientset k8sClient.Clientset
 	Logger    logrus.FieldLogger
+	Lifecycle hive.Lifecycle
+
+	K8sClient          client.Clientset
+	CtrlRuntimeManager ctrlRuntime.Manager
+	Scheme             *runtime.Scheme
+
+	Config gatewayApiConfig
 }
 
-func registerController(lc hive.Lifecycle, p params, config gatewayApiConfig, ctrlRuntimeManager ctrlRuntime.Manager, scheme *runtime.Scheme) error {
+func initGatewayAPIController(params gatewayAPIParams) error {
 	if !operatorOption.Config.EnableGatewayAPI {
 		return nil
 	}
 
-	p.Logger.WithField("requiredGVK", requiredGVK).Info("Checking for required GatewayAPI resources")
-	if err := checkRequiredCRDs(context.Background(), p.Clientset); err != nil {
-		p.Logger.WithError(err).Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions")
+	params.Logger.WithField("requiredGVK", requiredGVK).Info("Checking for required GatewayAPI resources")
+	if err := checkRequiredCRDs(context.Background(), params.K8sClient); err != nil {
+		params.Logger.WithError(err).Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions")
 		return nil
 	}
 
-	registerGatewayAPITypesToScheme(scheme)
-
-	if err := registerGatewayAPITypesToScheme(scheme); err != nil {
+	if err := registerGatewayAPITypesToScheme(params.Scheme); err != nil {
 		return err
 	}
 
 	if err := registerReconcilers(
-		ctrlRuntimeManager,
-		config.EnableGatewayAPISecretsSync,
-		config.GatewayAPISecretsNamespace,
+		params.CtrlRuntimeManager,
+		params.Config.EnableGatewayAPISecretsSync,
+		params.Config.GatewayAPISecretsNamespace,
 		operatorOption.Config.ProxyIdleTimeoutSeconds,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
