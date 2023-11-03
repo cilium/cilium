@@ -20,6 +20,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		demoDSPath     string
+		cnpPath        string
 		ciliumFilename string
 		testDSService  = "testds-service"
 	)
@@ -27,6 +28,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
+		cnpPath = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-cidr-oneoneoneone.yaml")
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
@@ -48,6 +50,12 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 	Context("Connectivity demo application", func() {
 		BeforeEach(func() {
 			kubectl.ApplyDefault(demoDSPath).ExpectSuccess("DS deployment cannot be applied")
+			// this NP needs to be a separate namespace; it is just to trigger CIDR allocation
+			kubectl.NamespaceCreate("cilium-test-unused").ExpectSuccess("Namespace cilium-test-unused could not be created")
+			kubectl.Apply(helpers.ApplyOptions{
+				FilePath:  cnpPath,
+				Namespace: "cilium-test-unused",
+			}).ExpectSuccess("CNP cannot be applied")
 
 			err := kubectl.WaitforPods(
 				helpers.DefaultNamespace, "-l zgroup=testDS", helpers.HelperTimeout)
@@ -65,6 +73,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 		// - tests connectivity of all client pods to the backend pods directly via ping
 		// - tests connectivity of all client pods to the ClusterIP of the test-ds service via curl
 		// - tests connectivity of all client pods to the DNS name for the test-ds service via curl
+		// - tests that CIDR identities are stable after restoration
 		connectivityTest := func() {
 			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=testDSClient")
 			Expect(err).To(BeNil(), "Cannot get pods names")
@@ -119,6 +128,12 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 			By("Checking connectivity before restarting Cilium")
 			connectivityTest()
 
+			By("Determining the identity for an extra-cluster cidr")
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).To(BeNil(), "Could not list Cilium pods")
+			origID, err := kubectl.GetCiliumIdentityForIP(ciliumPodK8s1, "1.1.1.1")
+			Expect(err).To(BeNil(), "Could not look up numeric identity for 1.1.1.1")
+
 			By("Deleting cilium pods")
 			res := kubectl.Exec(fmt.Sprintf("%s -n %s delete pods -l k8s-app=cilium",
 				helpers.KubectlCmd, helpers.CiliumNamespace))
@@ -132,6 +147,13 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 
 			By("Checking connectivity after restarting Cilium")
 			connectivityTest()
+
+			By("Determining the identity for an extra-cluster cidr")
+			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).To(BeNil(), "Could not list Cilium pods")
+			newID, err := kubectl.GetCiliumIdentityForIP(ciliumPodK8s1, "1.1.1.1")
+			Expect(err).To(BeNil(), "Could not look up numeric identity for 1.1.1.1")
+			Expect(origID).To(Equal(newID), "Numeric identity for 1.1.1.1 should not change after restart.")
 
 			By("Uninstall cilium pods")
 
@@ -155,6 +177,13 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 
 			By("Checking connectivity after reinstalling Cilium")
 			connectivityTest()
+
+			By("Determining the identity for an extra-cluster cidr")
+			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).To(BeNil(), "Could not list Cilium pods")
+			newID, err = kubectl.GetCiliumIdentityForIP(ciliumPodK8s1, "1.1.1.1")
+			Expect(err).To(BeNil(), "Could not look up numeric identity for 1.1.1.1")
+			Expect(origID).To(Equal(newID), "Numeric identity for 1.1.1.1 should not change after restart.")
 		})
 	})
 

@@ -743,6 +743,34 @@ func (kub *Kubectl) GetCiliumHostEndpointState(ciliumPod string) (string, error)
 	return strings.TrimSpace(res.Stdout()), nil
 }
 
+// GetCiliumIdentityForIP returns the numeric identity for a given IP address
+// according to a node's BPF ipcache.
+func (kub *Kubectl) GetCiliumIdentityForIP(ciliumPod, ip string) (int, error) {
+	cmd := fmt.Sprintf("cilium-dbg bpf ipcache get %s", ip)
+	res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
+	if !res.WasSuccessful() {
+		return 0, fmt.Errorf("unable to run command '%s' to retrieve state of host endpoint from %s: %s",
+			cmd, ciliumPod, res.OutputPrettyPrint())
+	}
+
+	// output looks like
+	// 172.19.0.2 maps to identity identity=16777217 encryptkey=0 tunnelendpoint=0.0.0.0
+	words := strings.Fields(res.Stdout())
+	if len(words) < 5 {
+		return 0, fmt.Errorf("could not parse output %s from command %s on from %s", res.Stdout(), cmd, ciliumPod)
+	}
+	kv := strings.SplitN(words[4], "=", 2)
+	if len(kv) < 2 {
+		return 0, fmt.Errorf("could not parse output %s from command %s on from %s", res.Stdout(), cmd, ciliumPod)
+	}
+
+	i, err := strconv.Atoi(kv[1])
+	if err != nil {
+		return 0, fmt.Errorf("could not parse output %s from command %s on from %s", res.Stdout(), cmd, ciliumPod)
+	}
+	return i, nil
+}
+
 // GetNumCiliumNodes returns the number of Kubernetes nodes running cilium
 func (kub *Kubectl) GetNumCiliumNodes() int {
 	getNodesCmd := fmt.Sprintf("%s get nodes -o jsonpath='{.items.*.metadata.name}'", KubectlCmd)
