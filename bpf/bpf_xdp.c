@@ -110,7 +110,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 			goto out;
 		}
 
-#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+#if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 		{
 			int l4_off, inner_l2_off;
 			struct genevehdr geneve;
@@ -182,7 +182,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 			}
 		}
 no_encap:
-#endif /* ENABLE_DSR && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
+#endif /* ENABLE_DSR && !ENABLE_DSR_HYBRID && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
 		ret = nodeport_lb4(ctx, ip4, l3_off, 0, &ext_err);
 		if (ret == NAT_46X64_RECIRC) {
