@@ -362,7 +362,8 @@ func (dc *devicesController) processUpdates(
 
 func deviceAddressFromAddrUpdate(upd netlink.AddrUpdate) tables.DeviceAddress {
 	return tables.DeviceAddress{
-		Addr: ip.MustAddrFromIP(upd.LinkAddress.IP),
+		Addr:      ip.MustAddrFromIP(upd.LinkAddress.IP),
+		Secondary: upd.Flags&unix.IFA_F_SECONDARY != 0,
 
 		// ifaddrmsg.ifa_scope is uint8, vishvananda/netlink has wrong type
 		Scope: uint8(upd.Scope),
