@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -30,32 +31,30 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	original := &corev1.Secret{}
 	if err := r.client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
+			scopedLog.WithError(err).Debug("Unable to get Secret - either deleted or not yet available")
+
+			// Check if there's an existing synced secret for the deleted Secret
+			syncSecret := &corev1.Secret{}
+			if err := r.client.Get(ctx, types.NamespacedName{Namespace: r.secretsNamespace, Name: req.Namespace + "-" + req.Name}, syncSecret); err == nil {
+				// Try to delete existing synced secret
+				scopedLog.Debug("Delete synced secret")
+				if err := r.client.Delete(ctx, syncSecret); err != nil {
+					return fail(err)
+				}
+			}
+
 			// there is nothing to copy, the related gateway is not accepted anyway.
 			// if later the secret is created, the gateway will be reconciled again,
 			// then this secret will be copied.
-			scopedLog.WithError(err).Warn("Unable to get Secret")
 			return success()
 		}
+
 		return fail(err)
 	}
 
-	c := &corev1.Secret{}
-	c.SetNamespace(r.secretsNamespace)
-	c.SetName(original.Namespace + "-" + original.Name)
-	c.SetAnnotations(original.GetAnnotations())
-	c.SetLabels(original.GetLabels())
-	if c.Labels == nil {
-		c.Labels = map[string]string{}
-	}
-	c.Labels[owningSecretNamespace] = original.Namespace
-	c.Labels[owningSecretName] = original.Name
-	c.Immutable = original.Immutable
-	c.Data = original.Data
-	c.StringData = original.StringData
-	c.Type = original.Type
+	desiredSync := desiredSyncSecret(r.secretsNamespace, original)
 
-	if err := r.ensureSecret(ctx, c); err != nil {
-		scopedLog.WithError(err).Error("Unable to sync secret")
+	if err := r.ensureSyncedSecret(ctx, desiredSync); err != nil {
 		return fail(err)
 	}
 
@@ -63,10 +62,28 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	return success()
 }
 
-func (r *secretSyncer) ensureSecret(ctx context.Context, desired *corev1.Secret) error {
+func desiredSyncSecret(secretsNamespace string, original *corev1.Secret) *corev1.Secret {
+	s := &corev1.Secret{}
+	s.SetNamespace(secretsNamespace)
+	s.SetName(original.Namespace + "-" + original.Name)
+	s.SetAnnotations(original.GetAnnotations())
+	s.SetLabels(original.GetLabels())
+	if s.Labels == nil {
+		s.Labels = map[string]string{}
+	}
+	s.Labels[owningSecretNamespace] = original.Namespace
+	s.Labels[owningSecretName] = original.Name
+	s.Immutable = original.Immutable
+	s.Data = original.Data
+	s.StringData = original.StringData
+	s.Type = original.Type
+
+	return s
+}
+
+func (r *secretSyncer) ensureSyncedSecret(ctx context.Context, desired *corev1.Secret) error {
 	existing := &corev1.Secret{}
-	err := r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
-	if err != nil {
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return r.client.Create(ctx, desired)
 		}
