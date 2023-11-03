@@ -1129,7 +1129,7 @@ recircle:
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 	ret = DROP_MISSED_TAIL_CALL;
 
- drop_err:
+drop_err:
 	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, CTX_ACT_DROP,
 					  METRIC_INGRESS);
 }
@@ -2583,17 +2583,17 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 					CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 					nodeport_rev_dnat_ingress_ipv4,
 					&trace, &ext_err);
-		if (IS_ERR(ret))
-			goto drop_err;
+	if (IS_ERR(ret))
+		goto drop_err;
 
-		/* No redirect needed: */
-		if (ret == CTX_ACT_OK)
-			goto recircle;
+	/* No redirect needed: */
+	if (ret == CTX_ACT_OK)
+		goto recircle;
 
-		/* Redirected to egress interface: */
-		edt_set_aggregate(ctx, 0);
-		cilium_capture_out(ctx);
-		return ret;
+	/* Redirected to egress interface: */
+	edt_set_aggregate(ctx, 0);
+	cilium_capture_out(ctx);
+	return ret;
 #endif
 
 recircle:
@@ -2601,7 +2601,7 @@ recircle:
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 	ret = DROP_MISSED_TAIL_CALL;
 
- drop_err:
+drop_err:
 	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, CTX_ACT_DROP,
 					  METRIC_INGRESS);
 }
