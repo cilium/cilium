@@ -160,7 +160,7 @@ func (i *ingressClassManager) handleSyncEvent() error {
 // If an error is returned, then the IngressClass contained in the event should be retried at a later
 // point in time.
 func (i *ingressClassManager) handleUpsertEvent(event resource.Event[*slim_networkingv1.IngressClass]) error {
-	log.WithField(logfields.IngressClass, event.Object).Warn("Handling IngressClass Upsert event")
+	log.WithField(logfields.IngressClass, event.Object).Debug("Handling IngressClass Upsert event")
 
 	if event.Object == nil || !isIngressClassCilium(event.Object) {
 		return nil
