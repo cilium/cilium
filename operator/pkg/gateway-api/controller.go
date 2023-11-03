@@ -52,7 +52,7 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 	}
 }
 
-func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Object) []types.NamespacedName {
+func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Object) []*gatewayv1.Gateway {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Controller: gateway,
 		logfields.Resource:   obj.GetName(),
@@ -64,8 +64,9 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 		return nil
 	}
 
-	var gateways []types.NamespacedName
+	var gateways []*gatewayv1.Gateway
 	for _, gw := range gwList.Items {
+		gwCopy := gw
 		for _, l := range gw.Spec.Listeners {
 			if l.TLS == nil {
 				continue
@@ -76,12 +77,8 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 					continue
 				}
 				ns := helpers.NamespaceDerefOr(cert.Namespace, gw.GetNamespace())
-				if string(cert.Name) == obj.GetName() &&
-					ns == obj.GetNamespace() {
-					gateways = append(gateways, client.ObjectKey{
-						Namespace: ns,
-						Name:      gw.GetName(),
-					})
+				if string(cert.Name) == obj.GetName() && ns == obj.GetNamespace() {
+					gateways = append(gateways, &gwCopy)
 				}
 			}
 		}

@@ -245,7 +245,10 @@ func (r *gatewayReconciler) enqueueRequestForTLSSecret() handler.EventHandler {
 		reqs := make([]reconcile.Request, 0, len(gateways))
 		for _, gw := range gateways {
 			reqs = append(reqs, reconcile.Request{
-				NamespacedName: gw,
+				NamespacedName: types.NamespacedName{
+					Namespace: gw.GetNamespace(),
+					Name:      gw.GetName(),
+				},
 			})
 		}
 		return reqs

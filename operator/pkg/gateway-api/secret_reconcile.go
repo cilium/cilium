@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -34,13 +35,8 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			scopedLog.WithError(err).Debug("Unable to get Secret - either deleted or not yet available")
 
 			// Check if there's an existing synced secret for the deleted Secret
-			syncSecret := &corev1.Secret{}
-			if err := r.client.Get(ctx, types.NamespacedName{Namespace: r.secretsNamespace, Name: req.Namespace + "-" + req.Name}, syncSecret); err == nil {
-				// Try to delete existing synced secret
-				scopedLog.Debug("Delete synced secret")
-				if err := r.client.Delete(ctx, syncSecret); err != nil {
-					return fail(err)
-				}
+			if err := r.cleanupSyncedSecret(ctx, req, scopedLog); err != nil {
+				return fail(err)
 			}
 
 			// there is nothing to copy, the related gateway is not accepted anyway.
@@ -52,6 +48,14 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return fail(err)
 	}
 
+	if !r.isUsedByCiliumGateway(ctx, original) {
+		// Check if there's an existing synced secret that should be deleted
+		if err := r.cleanupSyncedSecret(ctx, req, scopedLog); err != nil {
+			return fail(err)
+		}
+		return success()
+	}
+
 	desiredSync := desiredSyncSecret(r.secretsNamespace, original)
 
 	if err := r.ensureSyncedSecret(ctx, desiredSync); err != nil {
@@ -60,6 +64,19 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 	scopedLog.Info("Successfully synced secrets")
 	return success()
+}
+
+func (r *secretSyncer) cleanupSyncedSecret(ctx context.Context, req reconcile.Request, scopedLog *logrus.Entry) error {
+	syncSecret := &corev1.Secret{}
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: r.secretsNamespace, Name: req.Namespace + "-" + req.Name}, syncSecret); err == nil {
+		// Try to delete existing synced secret
+		scopedLog.Debug("Delete synced secret")
+		if err := r.client.Delete(ctx, syncSecret); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func desiredSyncSecret(secretsNamespace string, original *corev1.Secret) *corev1.Secret {
@@ -79,6 +96,17 @@ func desiredSyncSecret(secretsNamespace string, original *corev1.Secret) *corev1
 	s.Type = original.Type
 
 	return s
+}
+
+func (r *secretSyncer) isUsedByCiliumGateway(ctx context.Context, obj *corev1.Secret) bool {
+	gateways := getGatewaysForSecret(ctx, r.client, obj)
+	for _, gw := range gateways {
+		if hasMatchingController(ctx, r.client, r.controllerName)(gw) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (r *secretSyncer) ensureSyncedSecret(ctx context.Context, desired *corev1.Secret) error {
