@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/dig"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command"
 )
 
@@ -105,7 +106,8 @@ func decoderConfig(target any) *mapstructure.DecoderConfig {
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
 			mapstructure.StringToSliceHookFunc(","),
-			stringToMapHookFunc(),
+			stringToCIDRHookFunc,
+			stringToMapHookFunc,
 		),
 		ZeroFields: true,
 		// Error out if the config struct has fields that are
@@ -143,14 +145,23 @@ func (c *config[Cfg]) Info(cont container) (info Info) {
 	return
 }
 
-// stringToMapHookFunc returns a DecodeHookFunc that converts string
+// stringToMapHookFunc is a DecodeHookFunc that converts string
 // to map[string]string supporting both json and KV formats.
-func stringToMapHookFunc() mapstructure.DecodeHookFunc {
-	return func(from reflect.Kind, to reflect.Kind, data interface{}) (interface{}, error) {
-		if from != reflect.String || to != reflect.Map {
-			return data, nil
-		}
-
-		return command.ToStringMapStringE(data.(string))
+func stringToMapHookFunc(from reflect.Kind, to reflect.Kind, data interface{}) (interface{}, error) {
+	if from != reflect.String || to != reflect.Map {
+		return data, nil
 	}
+	return command.ToStringMapStringE(data.(string))
+}
+
+// stringToCIDRSliceHookFunc is a DecodeHookFunc that converts string to []*cidr.CIDR.
+func stringToCIDRHookFunc(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	if from.Kind() != reflect.String {
+		return data, nil
+	}
+	s := data.(string)
+	if to != reflect.TypeOf((*cidr.CIDR)(nil)) {
+		return data, nil
+	}
+	return cidr.ParseCIDR(s)
 }
