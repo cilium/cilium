@@ -184,6 +184,15 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: mirrorHTTPListenersCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/HTTPRouteWithBackendRefPortUnset",
+			args: args{
+				m: &model.Model{
+					HTTP: unsetBackendPortHTTPListeners,
+				},
+			},
+			want: unsetBackendPortHTTPListenersCiliumEnvoyConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

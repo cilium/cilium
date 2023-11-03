@@ -337,11 +337,18 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 	namespaceNamePortMap := map[string]map[string][]string{}
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
-			for _, be := range r.Backends {
+			for bIdx, be := range r.Backends {
 				namePortMap, exist := namespaceNamePortMap[be.Namespace]
 				if exist {
 					namePortMap[be.Name] = slices.SortedUnique(append(namePortMap[be.Name], be.Port.GetPort()))
 				} else {
+					if be.Port == nil {
+						be.Port = &model.BackendPort{
+							Port: l.Port,
+						}
+						r.Backends[bIdx] = be
+					}
+
 					namePortMap = map[string][]string{
 						be.Name: {be.Port.GetPort()},
 					}

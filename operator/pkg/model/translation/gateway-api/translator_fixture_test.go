@@ -3478,6 +3478,94 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
+// unsetBackendPortHTTPListeners is the internal model representation of a HTTP listeners for backend ref with unset port
+var unsetBackendPortHTTPListeners = []model.HTTPListener{
+	{
+		Name: "prod-web-gw",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "my-gateway",
+				Namespace: "default",
+				Group:     "gateway.networking.k8s.io",
+				Version:   "v1beta1",
+				Kind:      "Gateway",
+			},
+		},
+		Address:  "",
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/bar",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "my-service",
+						Namespace: "default",
+					},
+				},
+			},
+		},
+	},
+}
+
+// unsetBackendPortHTTPListenersCiliumEnvoyConfig is the generated CiliumEnvoyConfig for http listener model with unset backend ref port.
+var unsetBackendPortHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-my-gateway",
+		Namespace: "default",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1",
+				Kind:       "Gateway",
+				Name:       "my-gateway",
+				Controller: model.AddressOf(true),
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-my-gateway",
+				Namespace: "default",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "my-service",
+				Namespace: "default",
+				Ports:     []string{"80"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/bar",
+										},
+									},
+									Action: toRouteAction("default", "my-service", "80"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: toAny(toEnvoyCluster("default", "my-service", "80"))},
+		},
+	},
+}
+
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
 		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
