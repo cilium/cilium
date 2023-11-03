@@ -377,7 +377,9 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression,
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
+		option.Config.EnableIPv4, option.Config.EnableIPv6,
+		option.Config.ToFQDNsEnableDNSCompression,
 		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.lookupIPsBySecID,
 		d.notifyOnDNSMsg, option.Config.DNSProxyConcurrencyLimit, option.Config.DNSProxyConcurrencyProcessingGracePeriod)
 	if err == nil {

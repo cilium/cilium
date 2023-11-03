@@ -588,7 +588,7 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 }
 
 // StartDNSProxy starts a proxy used for DNS L7 redirects that listens on
-// address and port.
+// address and port on IPv4 and/or IPv6 depending on the values of ipv4/ipv6.
 // address is the bind address to listen on. Empty binds to all local
 // addresses.
 // port is the port to bind to for both UDP and TCP. 0 causes the kernel to
@@ -599,7 +599,10 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
 func StartDNSProxy(
-	address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int,
+	address string, port uint16,
+	ipv4 bool, ipv6 bool,
+	enableDNSCompression bool,
+	maxRestoreDNSIPs int,
 	lookupEPFunc LookupEndpointIDByIPFunc,
 	lookupSecIDFunc LookupSecIDByIPFunc,
 	lookupIPsFunc LookupIPsBySecIDFunc,
@@ -644,7 +647,7 @@ func StartDNSProxy(
 
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
-		dnsServers, bindPort, err = bindToAddr(address, port, p, option.Config.EnableIPv4, option.Config.EnableIPv6)
+		dnsServers, bindPort, err = bindToAddr(address, port, p, ipv4, ipv6)
 		if err == nil {
 			break
 		}
