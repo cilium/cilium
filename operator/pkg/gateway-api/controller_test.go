@@ -89,6 +89,26 @@ var controllerTestFixture = []client.Object{
 		},
 	},
 
+	&gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "valid-gateway-2",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1.Listener{
+				{
+					Name:     "https",
+					Hostname: model.AddressOf[gatewayv1.Hostname]("example2.com"),
+					Port:     443,
+					TLS: &gatewayv1.GatewayTLSConfig{
+						CertificateRefs: []gatewayv1.SecretObjectReference{},
+					},
+				},
+			},
+		},
+	},
+
 	// Gateway with no TLS listener
 	&gatewayv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
