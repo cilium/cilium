@@ -30,18 +30,18 @@ const (
 
 // secretSyncer syncs Gateway API secrets to dedicated namespace.
 type secretSyncer struct {
-	client.Client
-	Scheme *runtime.Scheme
+	client client.Client
+	scheme *runtime.Scheme
 
-	SecretsNamespace string
+	secretsNamespace string
 	controllerName   string
 }
 
 func newSecretSyncReconciler(mgr ctrl.Manager, secretsNamespace string) *secretSyncer {
 	return &secretSyncer{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		SecretsNamespace: secretsNamespace,
+		client:           mgr.GetClient(),
+		scheme:           mgr.GetScheme(),
+		secretsNamespace: secretsNamespace,
 		controllerName:   controllerName,
 	}
 }
@@ -60,7 +60,7 @@ func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *secretSyncer) notInSecretsNamespace() builder.Predicates {
 	return builder.WithPredicates(predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() != r.SecretsNamespace
+		return object.GetNamespace() != r.secretsNamespace
 	}))
 }
 
@@ -77,7 +77,7 @@ func (r *secretSyncer) enqueueTLSSecrets() handler.EventHandler {
 		}
 
 		// Check whether Gateway is managed by Cilium
-		if !hasMatchingController(ctx, r.Client, r.controllerName)(gw) {
+		if !hasMatchingController(ctx, r.client, r.controllerName)(gw) {
 			return nil
 		}
 
@@ -130,7 +130,7 @@ func enqueueOwningSecretFromLabels() handler.EventHandler {
 
 func (r *secretSyncer) deletedOrChangedInSecretsNamespace() builder.Predicates {
 	return builder.WithPredicates(&deletedOrChangedInSecretsNamespaceStruct{
-		secretsNamespace: r.SecretsNamespace,
+		secretsNamespace: r.secretsNamespace,
 	})
 }
 

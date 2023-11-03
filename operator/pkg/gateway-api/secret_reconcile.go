@@ -28,7 +28,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	scopedLog.Info("Syncing secrets")
 
 	original := &corev1.Secret{}
-	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
 			// there is nothing to copy, the related gateway is not accepted anyway.
 			// if later the secret is created, the gateway will be reconciled again,
@@ -40,7 +40,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 
 	c := &corev1.Secret{}
-	c.SetNamespace(r.SecretsNamespace)
+	c.SetNamespace(r.secretsNamespace)
 	c.SetName(original.Namespace + "-" + original.Name)
 	c.SetAnnotations(original.GetAnnotations())
 	c.SetLabels(original.GetLabels())
@@ -65,10 +65,10 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 func (r *secretSyncer) ensureSecret(ctx context.Context, desired *corev1.Secret) error {
 	existing := &corev1.Secret{}
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
+	err := r.client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return r.Client.Create(ctx, desired)
+			return r.client.Create(ctx, desired)
 		}
 		return err
 	}
@@ -81,5 +81,5 @@ func (r *secretSyncer) ensureSecret(ctx context.Context, desired *corev1.Secret)
 	temp.StringData = desired.StringData
 	temp.Type = desired.Type
 
-	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
+	return r.client.Patch(ctx, temp, client.MergeFrom(existing))
 }
