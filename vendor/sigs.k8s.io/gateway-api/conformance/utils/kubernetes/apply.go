@@ -102,14 +102,14 @@ func (a Applier) prepareGateway(t *testing.T, uObj *unstructured.Unstructured) {
 		//
 		// Note: I would really love to find a better way to do this kind of
 		// thing in the future.
-		var overlayUsable, overlayUnusuable bool
+		var overlayUsable, overlayUnusable bool
 		var specialAddrs []v1beta1.GatewayAddress
 		for _, addr := range gwspec.Addresses {
 			switch addr.Value {
 			case "PLACEHOLDER_USABLE_ADDRS":
 				overlayUsable = true
 			case "PLACEHOLDER_UNUSABLE_ADDRS":
-				overlayUnusuable = true
+				overlayUnusable = true
 			}
 
 			if addr.Type != nil && *addr.Type == "test/fake-invalid-type" {
@@ -122,12 +122,12 @@ func (a Applier) prepareGateway(t *testing.T, uObj *unstructured.Unstructured) {
 			t.Logf("the test provides %d special addresses that will be kept", len(specialAddrs))
 			primOverlayAddrs = append(primOverlayAddrs, convertGatewayAddrsToPrimitives(specialAddrs)...)
 		}
-		if overlayUnusuable {
-			t.Logf("address pool of %d unusable addresses will be overlayed", len(a.UnusableNetworkAddresses))
+		if overlayUnusable {
+			t.Logf("address pool of %d unusable addresses will be overlaid", len(a.UnusableNetworkAddresses))
 			primOverlayAddrs = append(primOverlayAddrs, convertGatewayAddrsToPrimitives(a.UnusableNetworkAddresses)...)
 		}
 		if overlayUsable {
-			t.Logf("address pool of %d usable addresses will be overlayed", len(a.UsableNetworkAddresses))
+			t.Logf("address pool of %d usable addresses will be overlaid", len(a.UsableNetworkAddresses))
 			primOverlayAddrs = append(primOverlayAddrs, convertGatewayAddrsToPrimitives(a.UsableNetworkAddresses)...)
 		}
 

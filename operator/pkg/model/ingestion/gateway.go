@@ -5,6 +5,7 @@ package ingestion
 
 import (
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -173,6 +174,7 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 					RequestRedirect:        requestRedirectFilter,
 					Rewrite:                rewriteFilter,
 					RequestMirrors:         requestMirrors,
+					Timeout:                toTimeout(rule.Timeouts),
 				})
 			}
 
@@ -190,11 +192,30 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 					RequestRedirect:        requestRedirectFilter,
 					Rewrite:                rewriteFilter,
 					RequestMirrors:         requestMirrors,
+					Timeout:                toTimeout(rule.Timeouts),
 				})
 			}
 		}
 	}
 	return httpRoutes
+}
+
+func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
+	res := model.Timeout{}
+	if timeouts == nil {
+		return res
+	}
+	if timeouts.BackendRequest != nil {
+		if duration, err := time.ParseDuration(string(*timeouts.BackendRequest)); err == nil {
+			res.Backend = model.AddressOf(duration)
+		}
+	}
+	if timeouts.Request != nil {
+		if duration, err := time.ParseDuration(string(*timeouts.Request)); err == nil {
+			res.Request = model.AddressOf(duration)
+		}
+	}
+	return res
 }
 
 func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPCRoute, services []corev1.Service, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {

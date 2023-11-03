@@ -87,6 +87,11 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 									},
 								},
 							},
+							CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+								MaxStreamDuration: &durationpb.Duration{
+									Seconds: 0,
+								},
+							},
 						}),
 					},
 				},
@@ -3032,9 +3037,6 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
-											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
-											},
 											HostRewriteSpecifier: &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
 												HostRewriteLiteral: "one.example.org",
 											},
@@ -3051,9 +3053,6 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
-											},
-											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 											},
 											HostRewriteSpecifier: &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
 												HostRewriteLiteral: "example.org",
@@ -3244,9 +3243,6 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
-											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
-											},
 											PrefixRewrite: "/prefix",
 										},
 									},
@@ -3285,9 +3281,6 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
-											},
-											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 											},
 											RegexRewrite: &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 												Pattern: &envoy_type_matcher_v3.RegexMatcher{
@@ -3333,9 +3326,6 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
-											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
-											},
 											PrefixRewrite: "/one",
 										},
 									},
@@ -3350,9 +3340,6 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 										Route: &envoy_config_route_v3.RouteAction{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
-											},
-											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 											},
 											RegexRewrite: &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 												Pattern: &envoy_type_matcher_v3.RegexMatcher{
@@ -3467,9 +3454,6 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
 											},
-											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
-											},
 											RequestMirrorPolicies: []*envoy_config_route_v3.RouteAction_RequestMirrorPolicy{
 												{
 													Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
@@ -3525,9 +3509,6 @@ func toRouteAction(namespace, name, port string) *envoy_config_route_v3.Route_Ro
 		Route: &envoy_config_route_v3.RouteAction{
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 				Cluster: fmt.Sprintf("%s/%s:%s", namespace, name, port),
-			},
-			MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-				MaxStreamDuration: &durationpb.Duration{Seconds: 0},
 			},
 		},
 	}
