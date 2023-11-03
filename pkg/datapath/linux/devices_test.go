@@ -7,6 +7,7 @@ package linux
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"runtime"
 	"slices"
@@ -573,21 +574,23 @@ func setBondMaster(iface string, master string) error {
 	defer netlink.LinkSetUp(link)
 	return netlink.LinkSetBondSlave(link, masterLink.(*netlink.Bond))
 }
-
 func addAddr(iface string, cidr string) error {
+	return addAddrScoped(iface, cidr, netlink.SCOPE_SITE, 0)
+}
+
+func addAddrScoped(iface string, cidr string, scope netlink.Scope, flags int) error {
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return err
+		return fmt.Errorf("ParseCIDR: %w", err)
 	}
 	ipnet.IP = ip
-
 	link, err := netlink.LinkByName(iface)
 	if err != nil {
-		return err
+		return fmt.Errorf("LinkByName: %w", err)
 	}
 
-	if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: ipnet}); err != nil {
-		return err
+	if err := netlink.AddrAdd(link, &netlink.Addr{IPNet: ipnet, Scope: int(scope), Flags: flags}); err != nil {
+		return fmt.Errorf("AddrAdd: %w", err)
 	}
 	return nil
 }
