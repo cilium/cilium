@@ -122,7 +122,6 @@ jobs:
           #    CIDRs. Thus, we enable BPF masquerading where we can add multiple
           #    non-masquerade CIDRs.
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --helm-set=debug.verbose=envoy \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=autoDirectNodeRoutes=true \
             --helm-set=routingMode=native \
