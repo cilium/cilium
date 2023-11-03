@@ -49,11 +49,15 @@ func newSecretSyncReconciler(mgr ctrl.Manager, secretsNamespace string) *secretS
 func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, r.controllerName)
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Secret{}).
-		Watches(&gatewayv1.Gateway{},
-			r.enqueueRequestForGatewayTLS(),
-			builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
+		For(&corev1.Secret{}, r.notInSecretsNamespace()).
+		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGatewayTLS(), builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
 		Complete(r)
+}
+
+func (r *secretSyncer) notInSecretsNamespace() builder.Predicates {
+	return builder.WithPredicates(predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return object.GetNamespace() != r.SecretsNamespace
+	}))
 }
 
 func (r *secretSyncer) enqueueRequestForGatewayTLS() handler.EventHandler {
