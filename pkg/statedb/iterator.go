@@ -3,12 +3,28 @@
 
 package statedb
 
-import "fmt"
+import (
+	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+)
+
+// Collect creates a slice of objects out of the iterator.
+// The iterator is consumed in the process.
 func Collect[Obj any](iter Iterator[Obj]) []Obj {
 	objs := []Obj{}
 	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
 		objs = append(objs, obj)
+	}
+	return objs
+}
+
+// CollectSet creates a set of objects out of the iterator.
+// The iterator is consumed in the process.
+func CollectSet[Obj comparable](iter Iterator[Obj]) sets.Set[Obj] {
+	objs := sets.New[Obj]()
+	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+		objs.Insert(obj)
 	}
 	return objs
 }
