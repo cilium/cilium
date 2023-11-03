@@ -48,13 +48,13 @@ func newSecretSyncReconciler(mgr ctrl.Manager, secretsNamespace string) *secretS
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
-	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, r.controllerName)
 	return ctrl.NewControllerManagedBy(mgr).
 		// Source Secrets outside of the secrets namespace
 		For(&corev1.Secret{}, r.notInSecretsNamespace()).
 		// Synced Secrets in the secrets namespace
 		Watches(&corev1.Secret{}, enqueueOwningSecretFromLabels(), r.deletedOrChangedInSecretsNamespace()).
-		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGatewayTLS(), builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
+		// Watch Gateways referencing TLS secrets
+		Watches(&gatewayv1.Gateway{}, r.enqueueTLSSecrets()).
 		Complete(r)
 }
 
@@ -64,7 +64,7 @@ func (r *secretSyncer) notInSecretsNamespace() builder.Predicates {
 	}))
 }
 
-func (r *secretSyncer) enqueueRequestForGatewayTLS() handler.EventHandler {
+func (r *secretSyncer) enqueueTLSSecrets() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.Controller: "secrets",
@@ -73,6 +73,11 @@ func (r *secretSyncer) enqueueRequestForGatewayTLS() handler.EventHandler {
 
 		gw, ok := obj.(*gatewayv1.Gateway)
 		if !ok {
+			return nil
+		}
+
+		// Check whether Gateway is managed by Cilium
+		if !hasMatchingController(ctx, r.Client, r.controllerName)(gw) {
 			return nil
 		}
 
