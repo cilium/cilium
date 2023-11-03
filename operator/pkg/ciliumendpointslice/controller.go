@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -62,10 +63,10 @@ type Controller struct {
 	// CES requests going to api-server, ensures a single CES will not be proccessed
 	// multiple times concurrently, and if CES is added multiple times before it
 	// can be processed, this will only be processed only once.
-	queue           workqueue.RateLimitingInterface
-	queueTerminated chan struct{}
-	writeQPSLimit   float64
-	writeQPSBurst   int
+	queue            workqueue.RateLimitingInterface
+	queueRateLimiter *rate.Limiter
+	writeQPSLimit    float64
+	writeQPSBurst    int
 
 	enqueuedAt     map[CESName]time.Time
 	enqueuedAtLock lock.Mutex
