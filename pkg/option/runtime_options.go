@@ -15,6 +15,7 @@ const (
 	TraceSockNotify      = "TraceSockNotification"
 	PolicyVerdictNotify  = "PolicyVerdictNotification"
 	PolicyAuditMode      = "PolicyAuditMode"
+	PolicyAccounting     = "PolicyAccounting"
 	MonitorAggregation   = "MonitorAggregationLevel"
 	SourceIPVerification = "SourceIPVerification"
 	AlwaysEnforce        = "always"
@@ -58,6 +59,11 @@ var (
 	specTraceNotify = Option{
 		Define:      "TRACE_NOTIFY",
 		Description: "Enable trace notifications",
+	}
+
+	specPolicyAccounting = Option{
+		Define:      "POLICY_ACCOUNTING",
+		Description: "Enable policy accounting ",
 	}
 
 	specPolicyVerdictNotify = Option{
