@@ -28,6 +28,7 @@ LOCALSTATEDIR?=/var
 RUNDIR?=/var/run
 CONFDIR?=/etc
 
+export GO ?= go
 NATIVE_ARCH = $(shell GOARCH= $(GO) env GOARCH)
 export GOARCH ?= $(NATIVE_ARCH)
 
@@ -65,7 +66,6 @@ endif
 CONSUL_IMAGE=consul:1.7.2
 
 export CILIUM_CLI ?= cilium
-export GO ?= go
 export KUBECTL ?= kubectl
 
 # go build/test/clean flags
