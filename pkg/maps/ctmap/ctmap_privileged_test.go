@@ -708,6 +708,29 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(buf), Equals, 0)
 
+	// When a connection is re-opened and switches from DSR to local-backend,
+	// its CT entry gets re-created but uses the same CT tuple as key.
+	//
+	// Validate that we clean up the stale DSR NAT entry in such a case.
+	ctVal.Flags = 0
+
+	err = ctMapTCP.Map.Update(ctKey, ctVal)
+	c.Assert(err, IsNil)
+
+	err = natMap.Map.Update(natKey, natVal)
+	c.Assert(err, IsNil)
+
+	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
+	c.Assert(stats.IngressAlive, Equals, uint32(0))
+	c.Assert(stats.IngressDeleted, Equals, uint32(0))
+	c.Assert(stats.EgressAlive, Equals, uint32(0))
+	c.Assert(stats.EgressDeleted, Equals, uint32(1))
+	// Check that the orphan NAT entry has been removed
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 0)
+
 	// Test DSR (new, tracked by nodeport.h)
 	//
 	// Create the following entries and check that SNAT entries are NOT GC-ed
@@ -771,6 +794,29 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Now remove the CT entry which should remove the NAT entry
 	err = ctMapTCP.Map.Delete(ctKey)
 	c.Assert(err, IsNil)
+	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
+	c.Assert(stats.IngressAlive, Equals, uint32(0))
+	c.Assert(stats.IngressDeleted, Equals, uint32(0))
+	c.Assert(stats.EgressAlive, Equals, uint32(0))
+	c.Assert(stats.EgressDeleted, Equals, uint32(1))
+	// Check that the orphan NAT entry has been removed
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 0)
+
+	// When a connection is re-opened and switches from DSR to local-backend,
+	// its CT entry gets re-created but uses the same CT tuple as key.
+	//
+	// Validate that we clean up the stale DSR NAT entry in such a case.
+	ctVal.Flags = 0
+
+	err = ctMapTCP.Map.Update(ctKey, ctVal)
+	c.Assert(err, IsNil)
+
+	err = natMap.Map.Update(natKey, natVal)
+	c.Assert(err, IsNil)
+
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
 	c.Assert(stats.IngressAlive, Equals, uint32(0))
 	c.Assert(stats.IngressDeleted, Equals, uint32(0))
