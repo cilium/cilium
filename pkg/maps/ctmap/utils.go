@@ -172,7 +172,16 @@ func egressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
 	}
 }
 
-func ctEntryExist(ctMap *Map, ctKey bpf.MapKey) bool {
-	_, err := ctMap.Lookup(ctKey)
-	return !errors.Is(err, unix.ENOENT)
+func ctEntryExist(ctMap *Map, ctKey bpf.MapKey, f func(*CtEntry) bool) bool {
+	v, err := ctMap.Lookup(ctKey)
+
+	if err != nil {
+		return !errors.Is(err, unix.ENOENT)
+	}
+
+	if f == nil {
+		return true
+	}
+
+	return f(v.(*CtEntry))
 }
