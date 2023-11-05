@@ -609,7 +609,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		if natKey.GetFlags()&tuple.TUPLE_F_IN == tuple.TUPLE_F_IN { // natKey is r(everse)tuple
 			ctKey := egressCTKeyFromIngressNatKeyAndVal(natKey, natVal)
 
-			if !ctEntryExist(ctMap, ctKey) {
+			if !ctEntryExist(ctMap, ctKey, nil) {
 				// No egress CT entry is found, delete the orphan ingress SNAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
 					stats.IngressDeleted += 1
@@ -618,11 +618,16 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 				stats.IngressAlive += 1
 			}
 		} else if natKey.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT {
+			checkDsr := func(entry *CtEntry) bool {
+				return entry.isDsrEntry()
+			}
+
 			ingressCTKey := ingressCTKeyFromEgressNatKey(natKey)
 			egressCTKey := egressCTKeyFromEgressNatKey(natKey)
 
-			if !ctEntryExist(ctMap, ingressCTKey) && !ctEntryExist(ctMap, egressCTKey) {
-				// No ingress and egress CT entries were found, delete the orphan egress NAT entry
+			if !ctEntryExist(ctMap, ingressCTKey, checkDsr) &&
+				!ctEntryExist(ctMap, egressCTKey, nil) {
+				// No relevant CT entries were found, delete the orphan egress NAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
 					stats.EgressDeleted += 1
 				}
