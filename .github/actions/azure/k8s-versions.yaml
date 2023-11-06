@@ -10,4 +10,7 @@ include:
   - version: "1.27"
     location: eastasia
     index: 3
+  - version: "1.28"
+    location: eastus
+    index: 4
     default: true
