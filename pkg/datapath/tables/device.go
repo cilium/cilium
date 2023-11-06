@@ -47,7 +47,7 @@ var (
 	}
 )
 
-func NewDeviceTable() statedb.RWTable[*Device] {
+func NewDeviceTable() (statedb.RWTable[*Device], error) {
 	return statedb.NewTable[*Device](
 		"devices",
 		DeviceIDIndex,

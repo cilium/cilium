@@ -108,7 +108,7 @@ var (
 	)
 )
 
-func NewNodeAddressTable() statedb.RWTable[NodeAddress] {
+func NewNodeAddressTable() (statedb.RWTable[NodeAddress], error) {
 	return statedb.NewTable[NodeAddress](
 		NodeAddressTableName,
 		NodeAddressIndex,

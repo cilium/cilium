@@ -53,7 +53,7 @@ var (
 	}
 )
 
-func NewBackendTable() statedb.RWTable[Backend] {
+func NewBackendTable() (statedb.RWTable[Backend], error) {
 	return statedb.NewTable[Backend](
 		"backends",
 		BackendIDIndex,
