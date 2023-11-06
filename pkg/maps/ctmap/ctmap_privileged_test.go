@@ -40,6 +40,23 @@ func (k *CTMapPrivilegedTestSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func BenchmarkMapBatchLookup(b *testing.B) {
+	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
+	err := m.OpenOrCreate()
+	assert.NoError(b, m.Map.Unpin())
+	assert.NoError(b, err)
+
+	_ = populateFakeDataCTMap4(b, m, option.CTMapEntriesGlobalTCPDefault)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		count, err := m.Count()
+		assert.NoError(b, err)
+		assert.Greater(b, count, option.CTMapEntriesGlobalAnyDefault)
+	}
+}
+
 func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
 	err := m.OpenOrCreate()
