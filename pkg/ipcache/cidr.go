@@ -82,7 +82,7 @@ func (ipc *IPCache) AllocateCIDRs(
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
 	if upsert {
-		ipc.UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
+		ipc.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
 	}
 
 	identities := make([]*identity.Identity, 0, len(allocatedIdentities))
@@ -151,17 +151,28 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[netip
 		if !ok {
 			continue
 		}
-		if _, ok := ipc.LookupByIPRLocked(prefix.String()); ok {
-			// Already there; continue
+		existing, ok := ipc.LookupByIPRLocked(prefix.String())
+		if !ok {
+			// We need this identity, but it was somehow deleted
+			metrics.IPCacheErrorsTotal.WithLabelValues(
+				metricTypeRecover, metricErrorUnexpected,
+			).Inc()
+			toUpsert[prefix] = id
 			continue
 		}
-		toUpsert[prefix] = id
+		if existing.createdFromMetadata {
+			// the createdFromMetadata field is used to tell the ipcache that it is safe to delete
+			// a prefix when all entries are removed from the metadata layer. However, as this is the
+			// "old-style" API, we need to tell InjectLabels(): hands off!
+			//
+			// This upsert tells the ipcache that the prefix is now in the domain of an older user
+			// and thus should not be deleted by clearing createdFromMetadata
+			toUpsert[prefix] = id
+		}
 	}
 	ipc.mutex.RUnlock()
 	for prefix, id := range toUpsert {
-		metrics.IPCacheErrorsTotal.WithLabelValues(
-			metricTypeRecover, metricErrorUnexpected,
-		).Inc()
+
 		ipc.Upsert(prefix.String(), nil, 0, nil, Identity{
 			ID:     id.ID,
 			Source: source.Generated,

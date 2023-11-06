@@ -455,6 +455,47 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	assert.True(t, realID == nil)
 }
 
+// This test ensures that the ipcache does the right thing when legacy and new
+// APIs are interleaved, with the legacy call happening *second*, temporally.
+func TestInjectLegacySecond(t *testing.T) {
+	cancel := setupTest(t)
+	defer cancel()
+
+	prefix := netip.MustParsePrefix("172.19.0.5/32")
+	resource := types.NewResourceID(
+		types.ResourceKindCNP, "default", "policy")
+	labels := labels.GetCIDRLabels(prefix)
+
+	IPIdentityCache.metadata.upsertLocked(prefix, source.Generated, resource, labels)
+	remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok := IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	wantID := id.ID
+
+	// Allocate via old APIs
+	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
+	currentlyAllocatedIdentities, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
+	assert.NoError(t, err)
+	assert.Len(t, newlyAllocatedIdentities, 0)
+	assert.Len(t, currentlyAllocatedIdentities, 1)
+	assert.Equal(t, wantID, currentlyAllocatedIdentities[0].ID)
+	IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities, currentlyAllocatedIdentities)
+
+	// Remove via new APIs
+	IPIdentityCache.metadata.remove(prefix, resource, labels)
+	remaining, err = IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	// Ensure the ipcache still has the correct ID
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, wantID, id.ID)
+}
+
 func TestFilterMetadataByLabels(t *testing.T) {
 	cancel := setupTest(t)
 	defer cancel()
