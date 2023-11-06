@@ -453,7 +453,7 @@ func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string
 	}
 
 	if errString := result.Stderr.String(); errString != "" {
-		return bytes.Buffer{}, fmt.Errorf("command failed: %s", errString)
+		return bytes.Buffer{}, fmt.Errorf("command failed (pod=%s/%s, container=%s): %q", namespace, pod, container, errString)
 	}
 
 	return result.Stdout, nil

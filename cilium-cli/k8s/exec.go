@@ -73,7 +73,8 @@ func (c *Client) execInPodWithWriters(connCtx, killCmdCtx context.Context, p Exe
 
 func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, error) {
 	result := &ExecResult{}
-	err := c.execInPodWithWriters(ctx, nil, p, &result.Stdout, &result.Stderr)
-
-	return result, err
+	if err := c.execInPodWithWriters(ctx, nil, p, &result.Stdout, &result.Stderr); err != nil {
+		return result, fmt.Errorf("error with exec request (pod=%s/%s, container=%s): %w", p.Namespace, p.Pod, p.Container, err)
+	}
+	return result, nil
 }
