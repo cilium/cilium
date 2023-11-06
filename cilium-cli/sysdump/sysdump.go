@@ -1027,7 +1027,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Hubble Relay pods: %w", err)
 				}
-				if err := c.SubmitGopsSubtasks(FilterPods(p, c.NodeList), hubbleRelayContainerName); err != nil {
+				if err := c.SubmitGopsSubtasks(AllPods(p), hubbleRelayContainerName); err != nil {
 					return fmt.Errorf("failed to collect Hubble Relay gops: %w", err)
 				}
 				return nil
@@ -1114,7 +1114,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Cilium operator pods")
 				}
-				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(AllPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium operator pods")
 				}
 				return nil
@@ -1131,7 +1131,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from 'clustermesh-apiserver' pods")
 				}
-				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(AllPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from 'clustermesh-apiserver' pods")
 				}
 				return nil
@@ -1165,7 +1165,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble Relay pods")
 				}
-				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(AllPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble Relay pods")
 				}
 				return nil
@@ -1182,7 +1182,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble UI pods")
 				}
-				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(AllPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble UI pods")
 				}
 				return nil
@@ -1470,7 +1470,7 @@ func (c *Collector) getSPIRETasks() []Task {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Cilium SPIRE server pods")
 				}
-				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(AllPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium SPIRE server pods")
 				}
 				return nil
@@ -2265,12 +2265,21 @@ func buildNodeNameList(nodes *corev1.NodeList, filter string) ([]string, error) 
 	return r, nil
 }
 
+// AllPods converts a PodList into a slice of Pod objects.
+func AllPods(l *corev1.PodList) []*corev1.Pod {
+	return filterPods(l, func(*corev1.Pod) bool { return true })
+}
+
 // FilterPods filters a list of pods by node names.
 func FilterPods(l *corev1.PodList, n []string) []*corev1.Pod {
+	return filterPods(l, func(po *corev1.Pod) bool { return slices.Contains(n, po.Spec.NodeName) })
+}
+
+func filterPods(l *corev1.PodList, filter func(po *corev1.Pod) bool) []*corev1.Pod {
 	r := make([]*corev1.Pod, 0)
 	for _, p := range l.Items {
 		p := p
-		if slices.Contains(n, p.Spec.NodeName) {
+		if filter(&p) {
 			r = append(r, &p)
 		}
 	}
