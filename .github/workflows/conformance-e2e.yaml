@@ -52,7 +52,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.11
+  cilium_cli_version: v0.15.12
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -209,6 +209,34 @@ jobs:
             encryption-node: 'true'
             lb-mode: 'snat'
             egress-gateway: 'true'
+
+          - name: '13'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.0-20231019.053646'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'vxlan'
+            encryption: 'wireguard'
+            encryption-node: 'false'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            misc: 'encryption.wireguard.encapsulate=true'
+
+          - name: '14'
+            # We don't want to update bpf-next after branching
+            kernel: 'bpf-next-20230420.212204'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'vxlan'
+            encryption: 'wireguard'
+            encryption-node: 'true'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            misc: 'encryption.wireguard.encapsulate=true'
 
     timeout-minutes: 60
     steps:
