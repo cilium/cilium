@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/utils/features"
@@ -187,13 +188,16 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 // isWgEncap checks whether packets are encapsulated before encrypting with WG.
 //
 // In v1.14, it's an opt-in, and controlled by --wireguard-encapsulate.
-// TODO(brb; after merging v1.14, add vsn check): In v1.15, it's mandatory enabled.
+// In v1.15, it's enabled, and it's not possible to opt-out.
 func isWgEncap(t *check.Test) bool {
 	if e, ok := t.Context().Feature(features.EncryptionPod); !(ok && e.Enabled && e.Mode == "wireguard") {
 		return false
 	}
 	if t, ok := t.Context().Feature(features.Tunnel); !(ok && t.Enabled) {
 		return false
+	}
+	if versioncheck.MustCompile(">=1.15.0")(t.Context().CiliumVersion) {
+		return true
 	}
 	if encap, ok := t.Context().Feature(features.WireguardEncapsulate); !(ok && encap.Enabled) {
 		return false
