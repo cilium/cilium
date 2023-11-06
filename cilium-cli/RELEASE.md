@@ -19,7 +19,7 @@ table](https://github.com/cilium/cilium-cli#releases) for the most recent suppor
 Set `RELEASE` environment variable to the new version. This variable will be
 used in the commands throughout the documenat to allow copy-pasting.
 
-    export RELEASE=v0.15.13
+    export RELEASE=v0.15.14
 
 ## Prepare the release
 
