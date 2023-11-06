@@ -398,6 +398,7 @@ Makefile* @cilium/build
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
 /pkg/command/ @cilium/cli
+/pkg/common/ipsec/ @cilium/ipsec
 /pkg/completion/ @cilium/proxy
 /pkg/components/ @cilium/sig-agent
 /pkg/contexthelpers/ @cilium/kvstore
