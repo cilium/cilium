@@ -36,6 +36,7 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 	Description: "A Gateway in the gateway-conformance-infra namespace should be attached to routes.",
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
+		suite.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/gateway-with-attached-routes.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
@@ -90,6 +91,41 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
 		})
+
+		t.Run("Gateway listener should have AttachedRoutes set even when Gateway has unresolved refs", func(t *testing.T) {
+			gwNN := types.NamespacedName{Name: "unresolved-gateway-with-one-attached-unresolved-route", Namespace: "gateway-conformance-infra"}
+			listeners := []v1.ListenerStatus{{
+				Name: v1.SectionName("tls"),
+				SupportedKinds: []v1.RouteGroupKind{{
+					Group: (*v1.Group)(&v1.GroupVersion.Group),
+					Kind:  v1.Kind("HTTPRoute"),
+				}},
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(v1.ListenerConditionProgrammed),
+						Status: metav1.ConditionFalse,
+						Reason: "", // any reason
+					},
+					{
+						Type:   string(v1.ListenerConditionResolvedRefs),
+						Status: metav1.ConditionFalse,
+						Reason: "", // any reason
+					},
+				},
+				AttachedRoutes: 1,
+			}}
+
+			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
+
+			hrouteNN := types.NamespacedName{Name: "http-route-4", Namespace: "gateway-conformance-infra"}
+			unresolved := metav1.Condition{
+				Type:   string(v1.RouteConditionResolvedRefs),
+				Status: metav1.ConditionFalse,
+				Reason: "", // any reason
+			}
+
+			kubernetes.HTTPRouteMustHaveCondition(t, s.Client, s.TimeoutConfig, hrouteNN, gwNN, unresolved)
+		})
 	},
 }
 
@@ -99,6 +135,7 @@ var GatewayWithAttachedRoutesWithPort8080 = suite.ConformanceTest{
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
 		suite.SupportGatewayPort8080,
+		suite.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/gateway-with-attached-routes-with-port-8080.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

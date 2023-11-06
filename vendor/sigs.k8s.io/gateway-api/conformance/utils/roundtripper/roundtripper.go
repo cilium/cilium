@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -29,7 +30,13 @@ import (
 	"net/url"
 	"regexp"
 
+	"golang.org/x/net/http2"
+
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
+)
+
+const (
+	H2CPriorKnowledgeProtocol = "H2C_PRIOR_KNOWLEDGE"
 )
 
 // RoundTripper is an interface used to make requests within conformance tests.
@@ -104,19 +111,7 @@ type DefaultRoundTripper struct {
 	CustomDialContext func(context.Context, string, string) (net.Conn, error)
 }
 
-// CaptureRoundTrip makes a request with the provided parameters and returns the
-// captured request and response from echoserver. An error will be returned if
-// there is an error running the function but not if an HTTP error status code
-// is received.
-func (d *DefaultRoundTripper) CaptureRoundTrip(request Request) (*CapturedRequest, *CapturedResponse, error) {
-	client := &http.Client{}
-
-	if request.UnfollowRedirect {
-		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		}
-	}
-
+func (d *DefaultRoundTripper) httpTransport(request Request) (http.RoundTripper, error) {
 	transport := &http.Transport{
 		DialContext: d.CustomDialContext,
 		// We disable keep-alives so that we don't leak established TCP connections.
@@ -131,10 +126,61 @@ func (d *DefaultRoundTripper) CaptureRoundTrip(request Request) (*CapturedReques
 	if request.Server != "" && len(request.CertPem) != 0 && len(request.KeyPem) != 0 {
 		tlsConfig, err := tlsClientConfig(request.Server, request.CertPem, request.KeyPem)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		transport.TLSClientConfig = tlsConfig
 	}
+
+	return transport, nil
+}
+
+func (d *DefaultRoundTripper) h2cPriorKnowledgeTransport(request Request) (http.RoundTripper, error) {
+	if request.Server != "" && len(request.CertPem) != 0 && len(request.KeyPem) != 0 {
+		return nil, errors.New("request has configured cert and key but h2 prior knowledge is not encrypted")
+	}
+
+	transport := &http2.Transport{
+		AllowHTTP: true,
+		DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, network, addr)
+		},
+	}
+
+	return transport, nil
+}
+
+// CaptureRoundTrip makes a request with the provided parameters and returns the
+// captured request and response from echoserver. An error will be returned if
+// there is an error running the function but not if an HTTP error status code
+// is received.
+func (d *DefaultRoundTripper) CaptureRoundTrip(request Request) (*CapturedRequest, *CapturedResponse, error) {
+	var transport http.RoundTripper
+	var err error
+
+	switch request.Protocol {
+	case H2CPriorKnowledgeProtocol:
+		transport, err = d.h2cPriorKnowledgeTransport(request)
+	default:
+		transport, err = d.httpTransport(request)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return d.defaultRoundTrip(request, transport)
+}
+
+func (d *DefaultRoundTripper) defaultRoundTrip(request Request, transport http.RoundTripper) (*CapturedRequest, *CapturedResponse, error) {
+	client := &http.Client{}
+
+	if request.UnfollowRedirect {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+
 	client.Transport = transport
 
 	method := "GET"

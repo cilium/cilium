@@ -178,34 +178,4 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 }
 #endif /* SKIP_POLICY_MAP */
 
-static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
-{
-#ifdef ENABLE_IPSEC
-	__u8 local_key = 0;
-	__u32 encrypt_key = 0;
-	struct encrypt_config *cfg;
-
-	cfg = map_lookup_elem(&ENCRYPT_MAP, &encrypt_key);
-	/* Having no key info for a context is the same as no encryption */
-	if (cfg)
-		local_key = cfg->encrypt_key;
-
-	/* If both ends can encrypt/decrypt use smaller of the two this
-	 * way both ends will have keys installed assuming key IDs are
-	 * always increasing. However, we have to handle roll-over case
-	 * and to do this safely we assume keys are no more than one ahead.
-	 * We expect user/control-place to accomplish this. Notice zero
-	 * will always be returned if either local or peer have the zero
-	 * key indicating no encryption.
-	 */
-	if (peer_key == MAX_KEY_INDEX)
-		return local_key == 1 ? peer_key : local_key;
-	if (local_key == MAX_KEY_INDEX)
-		return peer_key == 1 ? local_key : peer_key;
-	return local_key < peer_key ? local_key : peer_key;
-#else
-	return 0;
-#endif /* ENABLE_IPSEC */
-}
-
 #endif

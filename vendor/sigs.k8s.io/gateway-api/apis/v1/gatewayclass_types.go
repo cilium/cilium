@@ -216,6 +216,8 @@ const (
 	//
 	// Controllers should prefer to use the values of GatewayClassConditionReason
 	// for the corresponding Reason, where appropriate.
+	//
+	// <gateway:experimental>
 	GatewayClassConditionStatusSupportedVersion GatewayClassConditionType = "SupportedVersion"
 
 	// This reason is used with the "SupportedVersion" condition when the

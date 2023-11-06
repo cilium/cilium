@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	toolscache "k8s.io/client-go/tools/cache"
@@ -210,6 +211,9 @@ func (c *multiNamespaceCache) Get(ctx context.Context, key client.ObjectKey, obj
 
 	cache, ok := c.namespaceToCache[key.Namespace]
 	if !ok {
+		if global, hasGlobal := c.namespaceToCache[metav1.NamespaceAll]; hasGlobal {
+			return global.Get(ctx, key, obj, opts...)
+		}
 		return fmt.Errorf("unable to get: %v because of unknown namespace for the cache", key)
 	}
 	return cache.Get(ctx, key, obj, opts...)

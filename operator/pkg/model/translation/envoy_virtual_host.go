@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
@@ -32,22 +33,6 @@ const (
 )
 
 type VirtualHostMutator func(*envoy_config_route_v3.VirtualHost) *envoy_config_route_v3.VirtualHost
-
-func WithMaxStreamDuration(seconds int64) VirtualHostMutator {
-	return func(vh *envoy_config_route_v3.VirtualHost) *envoy_config_route_v3.VirtualHost {
-		for _, route := range vh.Routes {
-			if route.GetRoute() == nil {
-				continue
-			}
-			route.GetRoute().MaxStreamDuration = &envoy_config_route_v3.RouteAction_MaxStreamDuration{
-				MaxStreamDuration: &durationpb.Duration{
-					Seconds: seconds,
-				},
-			}
-		}
-		return vh
-	}
-}
 
 // SortableRoute is a slice of envoy Route, which can be sorted based on
 // matching order as per Ingress requirement.
@@ -128,10 +113,7 @@ type VirtualHostParameter struct {
 // the same path matching (e.g. exact, prefix or regex), the incoming
 // request will be load-balanced to multiple backends equally.
 func NewVirtualHostWithDefaults(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
-	fns := append(mutators,
-		WithMaxStreamDuration(0),
-	)
-	return NewVirtualHost(httpRoutes, param, fns...)
+	return NewVirtualHost(httpRoutes, param, mutators...)
 }
 
 // NewVirtualHost creates a new VirtualHost with the given host and routes.
@@ -334,6 +316,20 @@ func requestMirrorMutation(mirrors []*model.HTTPRequestMirror) routeActionMutati
 	}
 }
 
+func timeoutMutation(backend *time.Duration, request *time.Duration) routeActionMutation {
+	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
+		if backend == nil && request == nil {
+			return route
+		}
+		minTimeout := backend
+		if request != nil && (minTimeout == nil || *request < *minTimeout) {
+			minTimeout = request
+		}
+		route.Route.Timeout = durationpb.New(*minTimeout)
+		return route
+	}
+}
+
 func getRouteAction(route *model.HTTPRoute, backends []model.Backend, rewrite *model.HTTPURLRewriteFilter, mirrors []*model.HTTPRequestMirror) *envoy_config_route_v3.Route_Route {
 	var routeAction *envoy_config_route_v3.Route_Route
 
@@ -342,6 +338,7 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, rewrite *m
 		pathPrefixMutation(rewrite, route),
 		pathFullReplaceMutation(rewrite),
 		requestMirrorMutation(mirrors),
+		timeoutMutation(route.Timeout.Backend, route.Timeout.Request),
 	}
 
 	if len(backends) == 1 {
