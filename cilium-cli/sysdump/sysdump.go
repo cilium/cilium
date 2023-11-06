@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
 )
@@ -2270,7 +2270,7 @@ func FilterPods(l *corev1.PodList, n []string) []*corev1.Pod {
 	r := make([]*corev1.Pod, 0)
 	for _, p := range l.Items {
 		p := p
-		if utils.Contains(n, p.Spec.NodeName) {
+		if slices.Contains(n, p.Spec.NodeName) {
 			r = append(r, &p)
 		}
 	}
