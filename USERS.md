@@ -180,6 +180,12 @@ Users (Alphabetically)
       U: ENI Networking, Service load-balancing, Encryption
       Q: @lbernail, @roboll
 
+    * N: Dcode.tech
+      D: We specialize in AWS and Kubernetes, and actively implement Cilium at our clients. 
+      U: CNI, CiliumNetworkPolicy, Hubble UI
+      L: https://dcode.tech/
+      Q: @eliranw, @maordavidov
+  
     * N: Deckhouse
       D: Deckhouse Kubernetes Platform is using Cilium as a one of the supported CNIs.
       U: Networking, Security, Hubble UI for network visibility
