@@ -10,7 +10,12 @@
 Mutual Authentication (Beta)
 ****************************
 
-.. include:: ../../../beta.rst
+.. note::
+
+    This is a beta feature. Please provide feedback and file a GitHub issue if
+    you experience any problems.
+
+    This feature is still incomplete, see :ref:`mutual_auth_roadmap` below for more details.
 
 Mutual Authentication and mTLS Background
 #########################################
@@ -102,7 +107,7 @@ the mutual authentication feature:
 
 Limitations
 ###########
-
+* Cilium Mutual Authentication is still in development and considered beta. Several planned security features have not been implemented yet, see below for details.
 * Cilium's Mutual authentication has only been validated with SPIRE, the production-ready implementation of SPIFFE.
   As Cilium uses SPIFFE APIs, it's possible that other SPIFFE implementations may work.
   However, Cilium is currently only tested with the supplied SPIRE install, and using any other SPIFFE implementation is currently not supported.
@@ -111,3 +116,40 @@ Limitations
 * The current support of mutual authentication only works within a Cilium-managed cluster and is not compatible with an external mTLS solution.
 
 
+.. _mutual_auth_roadmap:
+
+Detailed Roadmap Status
+#######################
+
+The following table shows the roadmap status of the mutual authentication feature.
+There are several work items outstanding before the feature is complete from a security model perspective.
+For details, see the [roadmap issue](https://github.com/cilium/cilium/issues/28986).
+
+
++--------------------------------------------------+----------------------------------------------------------+
+| SPIFFE/SPIRE Integration                         | Beta                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Authentication API for agent                     | Beta                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| mTLS handshake between agents                    | Beta                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Auth cache to enable per-identity handshake      | Beta                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| CiliumNetworkPolicy support                      | Beta                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Integrate with Wireguard                         | TODO                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Per-connection handshake                         | TODO                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Sync ipcache with auth data                      | TODO                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Detailed documentation of security model         | TODO                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Conduct penetration test of model                | TODO                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Minimize packet drops                            | TODO                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Use auth secret for network encryption           | TODO                                                     |
++--------------------------------------------------+----------------------------------------------------------+
+| Review maturity and consider for stable          | TODO                                                     |
++--------------------------------------------------+----------------------------------------------------------+
