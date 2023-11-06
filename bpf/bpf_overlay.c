@@ -683,17 +683,6 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	__u32 cluster_id __maybe_unused = 0;
 	__s8 ext_err = 0;
 
-	/* When WireGuard strict mode is enabled, we have additional information
-	 * regarding to which CIDRs packets must encrypted. We have to check the
-	 * packets against the CIDRs before encapsulation. If the packet is not
-	 * encrypted, we drop it.
-	 */
-	#if defined(TUNNEL_MODE) && defined(ENCRYPTION_STRICT_MODE)
-	if (!strict_allow(ctx))
-		return send_drop_notify_error(ctx, 0, DROP_UNENCRYPTED_TRAFFIC,
-					      CTX_ACT_DROP, METRIC_EGRESS);
-	#endif
-
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
 	 * phys dev where FQ runs, but the issue is that the aggregate state

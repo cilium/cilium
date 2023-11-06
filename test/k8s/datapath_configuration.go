@@ -519,21 +519,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			checkNoLeakP2RemoteService(srcPod, dstPod, srcPodIP.String(), dsSvcIP.String(), true)
 		}
 
-		It("Pod-to-pod traffic is encrypted in tunneling mode with per-endpoint routes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "vxlan",
-				"ipv6.enabled":           "false",
-				"endpointRoutes.enabled": "true",
-				"encryption.enabled":     "true",
-				"encryption.type":        "wireguard",
-				"l7Proxy":                "false",
-				"ipam.operator.clusterPoolIPv4PodCIDRList": "10.244.0.0/16",
-				"encryption.strictMode.enabled":            "true",
-				"encryption.strictMode.cidr":               "10.244.0.0/16",
-			}, DeployCiliumOptionsAndDNS)
-
-			testStrictWireguard("cilium_vxlan")
-		})
 		It("Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                 "disabled",

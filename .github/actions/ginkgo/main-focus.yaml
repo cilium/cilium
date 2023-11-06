@@ -107,7 +107,6 @@ include:
     cliFocus: "K8sDatapathConfig Encapsulation|K8sDatapathConfig Etcd|K8sDatapathConfig Etcd|K8sDatapathConfig MonitorAggregation"
 
   ###
-  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in tunneling mode with per-endpoint routes
   # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes
   # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes and overlapping node and pod CIDRs
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting
