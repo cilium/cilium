@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -399,15 +400,6 @@ func (k *K8sHubble) enableHubble(ctx context.Context) error {
 	return k.updateConfigMap(ctx)
 }
 
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
-}
-
 // Removes any values that are not related to hubble from configmap patch
 func (k *K8sHubble) filterConfigmapPatch(patch []byte) ([]byte, error) {
 	patchYaml := map[string]interface{}{}
@@ -421,7 +413,7 @@ func (k *K8sHubble) filterConfigmapPatch(patch []byte) ([]byte, error) {
 	if data.Kind() == reflect.Map {
 		for _, key := range data.MapKeys() {
 			keyStr := key.Interface().(string)
-			if contains(defaults.HubbleKeys, keyStr) {
+			if slices.Contains(defaults.HubbleKeys, keyStr) {
 				if data.MapIndex(key).Interface() == nil {
 					hubbleOnlyFields[keyStr] = nil
 				} else {
