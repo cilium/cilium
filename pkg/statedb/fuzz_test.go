@@ -72,9 +72,9 @@ var idIndex = statedb.Index[fuzzObj, uint64]{
 }
 
 var (
-	tableFuzz1 = statedb.NewTable[fuzzObj]("fuzz1", idIndex)
-	tableFuzz2 = statedb.NewTable[fuzzObj]("fuzz2", idIndex)
-	tableFuzz3 = statedb.NewTable[fuzzObj]("fuzz3", idIndex)
+	tableFuzz1 = statedb.MustNewTable[fuzzObj]("fuzz1", idIndex)
+	tableFuzz2 = statedb.MustNewTable[fuzzObj]("fuzz2", idIndex)
+	tableFuzz3 = statedb.MustNewTable[fuzzObj]("fuzz3", idIndex)
 	fuzzTables = []statedb.TableMeta{tableFuzz1, tableFuzz2, tableFuzz3}
 	fuzzDB, _  = statedb.NewDB(fuzzTables, statedb.NewMetrics())
 )

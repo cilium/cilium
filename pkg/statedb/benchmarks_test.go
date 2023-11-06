@@ -263,8 +263,8 @@ func BenchmarkDB_PropagationDelay(b *testing.B) {
 
 	var (
 		db     *DB
-		table1 RWTable[testObject]  = NewTable[testObject]("test", idIndex)
-		table2 RWTable[testObject2] = NewTable[testObject2]("test2", id2Index)
+		table1 = MustNewTable[testObject]("test", idIndex)
+		table2 = MustNewTable[testObject2]("test2", id2Index)
 	)
 
 	logging.SetLogLevel(logrus.ErrorLevel)

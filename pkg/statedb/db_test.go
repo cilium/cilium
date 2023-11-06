@@ -71,12 +71,14 @@ func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, RWT
 	var (
 		db      *DB
 		metrics Metrics
-		table   = NewTable[testObject](
-			"test",
-			idIndex,
-			secondaryIndexers...,
-		)
 	)
+	table, err := NewTable[testObject](
+		"test",
+		idIndex,
+		secondaryIndexers...,
+	)
+	require.NoError(t, err, "NewTable[testObject]")
+
 	logging.SetLogLevel(logrus.ErrorLevel)
 
 	h := hive.New(
