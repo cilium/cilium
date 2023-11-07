@@ -23,7 +23,7 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
+	scopedLog := r.logger.WithFields(logrus.Fields{
 		logfields.Controller: "secret-syncer",
 		logfields.Resource:   req.NamespacedName,
 	})

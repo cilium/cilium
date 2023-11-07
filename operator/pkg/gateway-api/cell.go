@@ -139,7 +139,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, enableSecretSync bool, secrets
 	}
 
 	if enableSecretSync {
-		reconcilers = append(reconcilers, newSecretSyncReconciler(mgr, secretsNamespace))
+		reconcilers = append(reconcilers, newSecretSyncReconciler(mgr, log, secretsNamespace))
 	}
 
 	for _, r := range reconcilers {
