@@ -76,8 +76,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 
 	params.Logger.WithField("requiredGVK", requiredGVK).Info("Checking for required GatewayAPI resources")
 	if err := checkRequiredCRDs(context.Background(), params.K8sClient); err != nil {
-		params.Logger.WithError(err).Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions")
-		return nil
+		return fmt.Errorf("required GatewayAPI resources are not found, please refer to docs for installation instructions: %w", err)
 	}
 
 	if err := registerGatewayAPITypesToScheme(params.Scheme); err != nil {
