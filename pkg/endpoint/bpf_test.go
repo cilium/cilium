@@ -32,7 +32,12 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	testutils.IntegrationTest(b)
 
 	e := NewEndpointWithState(&suite, &suite, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
-	dp := linux.NewDatapath(linux.DatapathParams{ConfigWriter: &config.HeaderfileWriter{}}, linux.DatapathConfiguration{})
+	dp := linux.NewDatapath(linux.DatapathParams{
+		RuleManager:    nil,
+		NodeAddressing: nil,
+		NodeMap:        nil,
+		ConfigWriter:   &config.HeaderfileWriter{},
+	}, linux.DatapathConfiguration{})
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)

@@ -45,6 +45,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -1657,6 +1658,7 @@ type daemonParams struct {
 	HealthProvider       cell.Health
 	HealthScope          cell.Scope
 	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
+	Devices              statedb.Table[*datapathTables.Device]
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.

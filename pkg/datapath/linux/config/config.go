@@ -66,11 +66,12 @@ import (
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
 	log                logrus.FieldLogger
+	nodeAddressing     datapath.NodeAddressing
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 }
 
-func NewHeaderfileWriter(p configWriterParams) (datapath.ConfigWriter, error) {
+func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 	merged := make(dpdef.Map)
 	for _, defines := range p.NodeExtraDefines {
 		if err := merged.Merge(defines); err != nil {
@@ -78,6 +79,7 @@ func NewHeaderfileWriter(p configWriterParams) (datapath.ConfigWriter, error) {
 		}
 	}
 	return &HeaderfileWriter{
+		nodeAddressing:     p.NodeAddressing,
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
 		log:                p.Log,
@@ -104,12 +106,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.EnableIPv6 {
 		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
 		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
-		fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6Addrs())
+		fmt.Fprintf(fw, " cilium.v6.nodeport.str %v\n", h.nodeAddressing.IPv6().LoadBalancerNodeAddresses())
 		fmt.Fprintf(fw, "\n")
 	}
 	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4Router().String())
-	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4Addrs())
+	fmt.Fprintf(fw, " cilium.v4.nodeport.str %v\n", h.nodeAddressing.IPv4().LoadBalancerNodeAddresses())
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
 		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
@@ -538,34 +540,23 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 
 	if option.Config.DirectRoutingDeviceRequired() {
-		directRoutingIface := option.Config.DirectRoutingDevice
-		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
-		if err != nil {
-			return err
-		}
-		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", directRoutingIfIndex)
 		if option.Config.EnableIPv4 {
-			ip, ok := node.GetNodePortIPv4AddrsWithDevices()[directRoutingIface]
+			ifindex, ip, ok := h.nodeAddressing.IPv4().DirectRouting()
 			if !ok {
-				h.log.WithFields(logrus.Fields{
-					"directRoutingIface": directRoutingIface,
-				}).Fatal("Direct routing device's IPv4 address not found")
+				return fmt.Errorf("IPv4 direct routing device not found")
 			}
-
 			ipv4 := byteorder.NetIPv4ToHost32(ip)
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
+			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 		}
-
 		if option.Config.EnableIPv6 {
-			directRoutingIPv6, ok := node.GetNodePortIPv6AddrsWithDevices()[directRoutingIface]
+			ifindex, ip, ok := h.nodeAddressing.IPv6().DirectRouting()
 			if !ok {
-				h.log.WithFields(logrus.Fields{
-					"directRoutingIface": directRoutingIface,
-				}).Fatal("Direct routing device's IPv6 address not found")
+				return fmt.Errorf("IPv6 direct routing device not found")
 			}
-
-			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
+			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
+			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip))
+			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 		}
 	} else {
 		var directRoutingIPv6 net.IP
@@ -705,14 +696,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	ciliumNetLink, err := netlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
 	}
 	cDefinesMap["CILIUM_NET_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumNetLink.Attrs().HardwareAddr))
 	cDefinesMap["HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumNetLink.Attrs().Index)
 
 	ciliumHostLink, err := netlink.LinkByName(defaults.HostDevice)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
 	}
 	cDefinesMap["HOST_IFINDEX_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
 	cDefinesMap["CILIUM_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
