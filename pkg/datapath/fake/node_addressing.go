@@ -101,6 +101,10 @@ func (a *addressFamily) LoadBalancerNodeAddresses() []net.IP {
 	return a.lbNodeAddresses
 }
 
+func (a *addressFamily) DirectRouting() (int, net.IP, bool) {
+	return 0, nil, false
+}
+
 func (n *fakeNodeAddressing) IPv6() types.NodeAddressingFamily {
 	return &n.ipv6
 }

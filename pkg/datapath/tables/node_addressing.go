@@ -11,9 +11,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
+// NodeAddressingCell provides the [NodeAddressing] interface that provides
+// access to local node addressing information. This will be eventually
+// superceded by Table[NodeAddress].
 var NodeAddressingCell = cell.Module(
 	"node-addressing",
 	"Accessors for looking up local node IP addresses",
@@ -30,73 +34,6 @@ func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, nodeAddre
 	}
 }
 
-func (a addressFamilyIPv4) Router() net.IP {
-	if n, err := a.localNode.Get(context.Background()); err == nil {
-		return n.GetCiliumInternalIP(false)
-	}
-	return nil
-}
-
-func (a addressFamilyIPv4) PrimaryExternal() net.IP {
-	if n, err := a.localNode.Get(context.Background()); err == nil {
-		return n.GetNodeIP(false)
-	}
-	return nil
-}
-
-func (a addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
-	if n, err := a.localNode.Get(context.Background()); err == nil {
-		return n.IPv4AllocCIDR
-	}
-	return nil
-}
-
-func (a addressFamilyIPv4) LocalAddresses() (addrs []net.IP, err error) {
-	return a.getNodeAddresses(a.db.ReadTxn(), ipv4), nil
-}
-
-// LoadBalancerNodeAddresses returns all IPv4 node addresses on which the
-// loadbalancer should implement HostPort and NodePort services.
-func (a addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
-	addrs := a.getNodeAddresses(a.db.ReadTxn(), ipv4|nodePort)
-	addrs = append(addrs, net.IPv4zero)
-	return addrs
-}
-
-func (a addressFamilyIPv6) Router() net.IP {
-	if n, err := a.localNode.Get(context.Background()); err == nil {
-		return n.GetCiliumInternalIP(true)
-	}
-	return nil
-}
-
-func (a addressFamilyIPv6) PrimaryExternal() net.IP {
-	if n, err := a.localNode.Get(context.Background()); err == nil {
-		return n.GetNodeIP(true)
-	}
-	return nil
-}
-
-func (a addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
-	if n, err := a.localNode.Get(context.Background()); err == nil {
-		return n.IPv6AllocCIDR
-	}
-	return nil
-}
-
-func (a addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
-	return a.getNodeAddresses(a.db.ReadTxn(), ipv6), nil
-}
-
-// LoadBalancerNodeAddresses returns all IPv6 node addresses on which the
-// loadbalancer should implement HostPort and NodePort services.
-func (a addressFamilyIPv6) LoadBalancerNodeAddresses() []net.IP {
-	addrs := a.getNodeAddresses(a.db.ReadTxn(), ipv6|nodePort)
-	addrs = append(addrs, net.IPv6zero)
-
-	return addrs
-}
-
 type nodeAddressing struct {
 	localNode     *node.LocalNodeStore
 	db            *statedb.DB
@@ -104,16 +41,90 @@ type nodeAddressing struct {
 	devices       statedb.Table[*Device]
 }
 
-type getFlag int
+func (n *nodeAddressing) IPv6() types.NodeAddressingFamily {
+	return addressFamily{n, ipv6}
+}
+
+func (n *nodeAddressing) IPv4() types.NodeAddressingFamily {
+	return addressFamily{n, ipv4}
+}
+
+func (a addressFamily) Router() net.IP {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		return n.GetCiliumInternalIP(a.flags&ipv6 != 0)
+	}
+	return nil
+}
+
+func (a addressFamily) PrimaryExternal() net.IP {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		return n.GetNodeIP(a.flags&ipv6 != 0)
+	}
+	return nil
+}
+
+func (a addressFamily) AllocationCIDR() *cidr.CIDR {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		if a.flags&ipv6 != 0 {
+			return n.IPv6AllocCIDR
+		} else {
+			return n.IPv4AllocCIDR
+		}
+	}
+	return nil
+}
+
+func (a addressFamily) LocalAddresses() (addrs []net.IP, err error) {
+	return a.getNodeAddresses(a.db.ReadTxn(), a.flags), nil
+}
+
+func (a addressFamily) DirectRouting() (int, net.IP, bool) {
+	return a.getDirectRouting(a.flags)
+}
+
+// LoadBalancerNodeAddresses returns all node addresses on which the
+// loadbalancer should implement HostPort and NodePort services.
+func (a addressFamily) LoadBalancerNodeAddresses() []net.IP {
+	addrs := a.getNodeAddresses(a.db.ReadTxn(), a.flags|nodePort)
+	if a.flags&ipv6 != 0 {
+		addrs = append(addrs, net.IPv6zero)
+	} else {
+		addrs = append(addrs, net.IPv4zero)
+	}
+	return addrs
+}
+
+type getFlags int
 
 const (
-	ipv4     getFlag = 1 << 0
-	ipv6     getFlag = 1 << 1
-	nodePort getFlag = 1 << 2
+	ipv4     getFlags = 1 << 0
+	ipv6     getFlags = 1 << 1
+	nodePort getFlags = 1 << 2
 )
 
-func (na *nodeAddressing) getNodeAddresses(txn statedb.ReadTxn, flag getFlag) (addrs []net.IP) {
-	nodeAddrs, _ := na.nodeAddresses.All(txn)
+func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
+	if option.Config.DirectRoutingDevice == "" {
+		return 0, nil, false
+	}
+	dev, _, ok := a.devices.First(a.db.ReadTxn(), DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
+	if !ok {
+		return 0, nil, false
+	}
+	var addr net.IP
+	for _, a := range dev.Addrs {
+		if flags&ipv6 != 0 && a.Addr.Is6() {
+			addr = a.AsIP()
+			break
+		} else if flags&ipv6 == 0 && a.Addr.Is4() {
+			addr = a.AsIP()
+			break
+		}
+	}
+	return dev.Index, addr, true
+}
+
+func (a addressFamily) getNodeAddresses(txn statedb.ReadTxn, flag getFlags) (addrs []net.IP) {
+	nodeAddrs, _ := a.nodeAddresses.All(txn)
 	for addr, _, ok := nodeAddrs.Next(); ok; addr, _, ok = nodeAddrs.Next() {
 		if flag&nodePort != 0 && !addr.NodePort {
 			continue
@@ -127,13 +138,7 @@ func (na *nodeAddressing) getNodeAddresses(txn statedb.ReadTxn, flag getFlag) (a
 	return
 }
 
-type addressFamilyIPv4 struct{ *nodeAddressing }
-type addressFamilyIPv6 struct{ *nodeAddressing }
-
-func (n *nodeAddressing) IPv6() types.NodeAddressingFamily {
-	return addressFamilyIPv6{n}
-}
-
-func (n *nodeAddressing) IPv4() types.NodeAddressingFamily {
-	return addressFamilyIPv4{n}
+type addressFamily struct {
+	*nodeAddressing
+	flags getFlags
 }
