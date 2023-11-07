@@ -15,7 +15,6 @@ import (
 	ciliumdns "github.com/cilium/dns"
 
 	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -203,7 +202,7 @@ func (ds *DaemonFQDNSuite) Benchmark_notifyOnDNSMsg(c *C) {
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
 	nameManager.Lock()
 	for _, sel := range selectorsToAdd {
-		nameManager.RegisterForIdentityUpdatesLocked(sel)
+		nameManager.RegisterForIPUpdatesLocked(sel)
 	}
 	nameManager.Unlock()
 
@@ -264,67 +263,6 @@ func (ds *DaemonFQDNSuite) Benchmark_notifyOnDNSMsg(c *C) {
 	}
 
 	wg.Wait()
-}
-
-func (ds *DaemonFQDNSuite) TestFQDNIdentityReferenceCounting(c *C) {
-	var (
-		idAllocator             = ds.d.identityAllocator.(*FakeRefcountingIdentityAllocator)
-		nameManager             = ds.d.dnsNameManager
-		ciliumIOSel             = api.FQDNSelector{MatchName: "cilium.io"}
-		ciliumIOSelMatchPattern = api.FQDNSelector{MatchPattern: "*cilium.io."}
-		ebpfIOSel               = api.FQDNSelector{MatchName: "ebpf.io"}
-		ciliumDNSRecord         = map[string]*fqdn.DNSIPRecords{
-			dns.FQDN("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("192.0.2.3")}},
-		}
-		ebpfDNSRecord = map[string]*fqdn.DNSIPRecords{
-			dns.FQDN("ebpf.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("192.0.2.4")}},
-		}
-	)
-
-	// add rules
-	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
-	nameManager.Lock()
-	for _, sel := range selectorsToAdd {
-		nameManager.RegisterForIdentityUpdatesLocked(sel)
-	}
-	nameManager.Unlock()
-
-	// poll DNS once, check that we only generate 1 IP for cilium.io
-	_, _, _, err := nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
-	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
-	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 1,
-		Commentf("Unexpected number of identities allocated during DNS name event handler"))
-
-	// Same thing, new reference for same identity but otherwise the same.
-	_, _, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
-	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
-	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 1,
-		Commentf("Unexpected number of identities allocated during DNS name event handler"))
-
-	// poll DNS for ebpf.io, check that we now have two different identities referenced
-	_, _, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ebpfDNSRecord)
-	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
-	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 2,
-		Commentf("Unexpected number of identities allocated during DNS name event handler"))
-
-	// Two selectors are selecting the same identity. If we remove one of
-	// them, then the identity should remain referenced by the other
-	// existing selector.
-	var wg sync.WaitGroup
-	ds.d.policy.GetSelectorCache().UpdateFQDNSelector(ciliumIOSel, nil, &wg)
-	wg.Wait()
-	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 2,
-		Commentf("Unexpected number of identities allocated during DNS name event handler"))
-
-	// Similar to FQDN garbage collection, set the list of identities that
-	// each selector would select to the empty set and then observe that
-	// the outstanding identity references are released.
-	for _, sel := range selectorsToAdd {
-		ds.d.policy.GetSelectorCache().UpdateFQDNSelector(sel, nil, &wg)
-	}
-	wg.Wait()
-	c.Assert(idAllocator.IdentityReferenceCounter(), checker.DeepEquals, counter.IntCounter{},
-		Commentf("The Daemon code leaked references to one or more identities"))
 }
 
 func (ds *DaemonFQDNSuite) Test_getMutexesForResponseIPs(c *C) {

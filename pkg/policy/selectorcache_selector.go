@@ -6,6 +6,7 @@ package policy
 import (
 	"bytes"
 	"encoding/json"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -138,11 +139,6 @@ type identitySelector interface {
 	// Called with NameManager and SelectorCache locks held
 	removeUser(CachedSelectionUser, identityNotifier) (last bool)
 
-	// fetchIdentityMappings returns all of the identities currently
-	// reference-counted by this selector. It is used during cleanup of the
-	// selector.
-	fetchIdentityMappings() []identity.NumericIdentity
-
 	// This may be called while the NameManager lock is held. wg.Wait()
 	// returns after user notifications have been completed, which may require
 	// taking Endpoint and SelectorCache locks, so these locks must not be
@@ -152,9 +148,13 @@ type identitySelector interface {
 	numUsers() int
 }
 
+// fqdnSelector is implemented as an updatable bag-of-labels. Any identity that matches
+// any of the labels in wantLabels is selected. Unlike the identitySelector, this selector
+// is "mutable" in that the FQDN subsystem may update the set of matched labels arbitrarily.
 type fqdnSelector struct {
 	selectorManager
-	selector api.FQDNSelector
+	selector   api.FQDNSelector
+	wantLabels labels.LabelArray // MUST be sorted
 }
 
 // lock must be held
@@ -168,51 +168,55 @@ func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.
 	}
 }
 
-// transferIdentityReferencesToSelector walks through the specified slice of
-// identities, and associates them with the received selector. If any of the
-// identities passed into this function are already associated with the
-// selector, then these identities are returned to the caller.
-//
-// The goal of this function is to ensure that at any given point in time,
-// the selector holds a maximum of one reference to any given identity.
-// If the calling code opportunistically allocates references to identities
-// twice for a given selector, this function will detect this case and collect
-// the set of identities that are referenced twice.
-//
-// The caller MUST release references to each identity in the returned slice
-// after releasing SelectorCache.mutex.
-func (f *fqdnSelector) transferIdentityReferencesToSelector(currentlyAllocatedIdentities []*identity.Identity) []identity.NumericIdentity {
-	identitiesToRelease := make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
-	for _, id := range currentlyAllocatedIdentities {
-		if _, exists := f.cachedSelections[id.ID]; exists {
-			identitiesToRelease = append(identitiesToRelease, id.ID)
-		}
-		f.cachedSelections[id.ID] = struct{}{}
-	}
-
-	return identitiesToRelease
-}
-
-// fetchIdentityMappings returns the set of identities that this selector
-// holds references for. This should be used during cleanup of the selector
-// to ensure that all remaining references to local identities are released,
-// in order to prevent leaking of identities.
-func (f *fqdnSelector) fetchIdentityMappings() []identity.NumericIdentity {
-	ids := make([]identity.NumericIdentity, 0, len(f.cachedSelections))
-	for id := range f.cachedSelections {
-		ids = append(ids, id)
-	}
-
-	return ids
-}
-
 // locks must be held for the dnsProxy and the SelectorCache
 func (f *fqdnSelector) removeUser(user CachedSelectionUser, dnsProxy identityNotifier) (last bool) {
 	delete(f.users, user)
 	if len(f.users) == 0 {
-		dnsProxy.UnregisterForIdentityUpdatesLocked(f.selector)
+		dnsProxy.UnregisterForIPUpdatesLocked(f.selector)
 		return true
 	}
+	return false
+}
+
+// setSelectorIPs updates the set of desired labels associated with this selector.
+// lock must be held
+func (f *fqdnSelector) setSelectorIPs(ips []netip.Addr) {
+	lbls := make(labels.LabelArray, 0, len(ips))
+	for _, ip := range ips {
+		l, err := labels.IPStringToLabel(ip.String())
+		if err != nil {
+			// not possible
+			continue
+		}
+		lbls = append(lbls, l)
+	}
+	lbls.Sort()
+	f.wantLabels = lbls
+}
+
+// matches returns true if the identity contains at least one label
+// that is in wantLabels.
+// This is reasonably efficient, as it relies on both arrays being sorted.
+func (f *fqdnSelector) matches(identity scIdentity) bool {
+	wantIdx := 0
+	checkIdx := 0
+
+	// Both arrays are sorted; walk through until we get a match
+	for wantIdx < len(f.wantLabels) && checkIdx < len(identity.lbls) {
+		want := f.wantLabels[wantIdx]
+		check := identity.lbls[checkIdx]
+		if want == check {
+			return true
+		}
+
+		// Not equal, bump
+		if check.Key < want.Key {
+			checkIdx++
+		} else {
+			wantIdx++
+		}
+	}
+
 	return false
 }
 
@@ -257,11 +261,6 @@ func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
 
 func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
-}
-
-func (l *labelIdentitySelector) fetchIdentityMappings() []identity.NumericIdentity {
-	// labelIdentitySelectors don't retain identity references, so no-op.
-	return nil
 }
 
 type selectorManager struct {

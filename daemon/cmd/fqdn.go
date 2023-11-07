@@ -29,11 +29,11 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
-	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
 	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -61,104 +61,69 @@ const (
 	dnsSourceConnection = "connection"
 )
 
-func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
-	var err error
+// requestNameKey is used as a key to context.Value(). It is used
+// to pass the triggering DNS name for logging purposes.
+type requestNameKey struct{}
 
-	// Used to track identities which are allocated in calls to
-	// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
-	// we have to undo all of our changes and release the identities.
-	// This is best effort, as releasing can fail as well.
-	usedIdentities := make([]*identity.Identity, 0, len(selectorsWithIPsToUpdate))
-	selectorIdentitySliceMapping := make(map[policyApi.FQDNSelector][]*identity.Identity, len(selectorsWithIPsToUpdate))
-	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
-
-	// Allocate identities for each IPNet and then map to selector
-	//
-	// The incoming IPs may already have had corresponding identities
-	// allocated for them from a prior call to this function, even with the
-	// exact same selector. In that case, this function will then allocate
-	// new references to the same identities again! Ideally we would avoid
-	// this, but at this layer we do not know which of the IPs already has
-	// had a corresponding identity allocated to it via this selector code.
-	//
-	// One might be tempted to think that if the Identity shows up in
-	// 'newlyAllocatedIdentities' that this is newly allocated by the
-	// selector (hence this code is responsible for release), and that if
-	// an Identity is *not* part of this slice then that means the selector
-	// already allocated this Identity (hence this code is not responsible
-	// for release). However, the Identity could have been previously
-	// allocated by some other path like via regular CIDR policy. If that's
-	// the case and we tried to use 'newlyAllocatedIdentities' to determine
-	// when we are duplicating identity allocation from the same selector,
-	// and then the user deleted the CIDR policy, then we could actually
-	// end up cleaning up the last reference to that identity, even though
-	// the selector referenced here is still using it.
-	//
-	// Therefore, for now we just let the duplicate allocations go through
-	// here and then balance the dereferences over in the corresponding
-	// SelectorCache.updateFQDNSelector() call where we have access both
-	// to the existing set of allocated identities and the newly allocated
-	// set here. This way we can ensure that each identity is referenced
-	// exactly once from each selector that selects the identity.
-	for selector, selectorIPs := range selectorsWithIPsToUpdate {
-		log.WithFields(logrus.Fields{
-			"fqdnSelector": selector,
-			"ips":          selectorIPs,
-		}).Debug("getting identities for IPs associated with FQDNSelector")
-		var currentlyAllocatedIdentities []*identity.Identity
-		if currentlyAllocatedIdentities, err = identityAllocator.AllocateCIDRsForIPs(selectorIPs, newlyAllocatedIdentities); err != nil {
-			identityAllocator.ReleaseSlice(context.TODO(), usedIdentities)
-			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
-				"failed to allocate identities for IPs")
-			return nil, nil, nil, err
-		}
-		usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
-		selectorIdentitySliceMapping[selector] = currentlyAllocatedIdentities
-	}
-
-	return selectorIdentitySliceMapping, usedIdentities, newlyAllocatedIdentities, nil
-}
-
-func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) *sync.WaitGroup {
+// updateSelectors propagates the mapping of FQDNSelector to IPs
+// to the policy engine.
+// First, it updates any selectors in the SelectorCache, then it triggers
+// all endpoints to push incremental updates via UpdatePolicyMaps.
+//
+// returns a WaitGroup that is done when all policymaps have been updated
+// and all endpoints referencing the IPs are able to pass traffic.
+func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQDNSelector][]netip.Addr, ipcacheRevision uint64) (wg *sync.WaitGroup) {
 	// There may be nothing to update - in this case, we exit and do not need
 	// to trigger policy updates for all endpoints.
-	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
+	if len(selectors) == 0 {
 		return &sync.WaitGroup{}
 	}
+	logger := log.WithField("qname", ctx.Value(requestNameKey{}))
 
+	// notifyWg is a waitgroup that is incremented for every "user" of a selector; i.e.
+	// every single SelectorPolicy. Once that selector has pushed out incremental changes
+	// to every relevant endpoint, the WaitGroup will be done.
 	notifyWg := &sync.WaitGroup{}
+	updateResult := policy.UpdateResultUnchanged
 	// Update mapping of selector to set of IPs in selector cache.
-	for selector, identitySlice := range selectors {
-		log.WithFields(logrus.Fields{
+	for selector, ips := range selectors {
+		logger.WithFields(logrus.Fields{
 			"fqdnSelectorString": selector,
-			"identitySlice":      identitySlice}).Debug("updating FQDN selector")
-		numIds := make([]identity.NumericIdentity, 0, len(identitySlice))
-		for _, numId := range identitySlice {
-			// Nil check here? Hopefully not necessary...
-			numIds = append(numIds, numId.ID)
-		}
-		d.policy.GetSelectorCache().UpdateFQDNSelector(selector, numIds, notifyWg)
+			"ips":                ips}).Debug("updating FQDN selector")
+		res := d.policy.GetSelectorCache().UpdateFQDNSelector(selector, ips, notifyWg)
+		updateResult |= res
 	}
 
-	if len(selectorsWithoutIPs) > 0 {
-		// Selectors which no longer map to IPs (due to TTL expiry, cache being
-		// cleared forcibly via CLI, etc.) still exist in the selector cache
-		// since policy is imported which allows it, but the selector does
-		// not map to any IPs anymore.
-		log.WithFields(logrus.Fields{
-			"fqdnSelectors": selectorsWithoutIPs,
-		}).Debug("removing all identities from FQDN selectors")
-		d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs, notifyWg)
+	// UpdatePolicyMaps consumes notifyWG, and returns its own WaitGroup
+	// that is Done() when all endpoints have pushed their incremental changes
+	// down in to their bpf PolicyMap.
+	if updateResult&policy.UpdateResultUpdatePolicyMaps > 0 {
+		logger.Debug("FQDN selector update requires UpdatePolicyMaps.")
+		wg = d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
+	} else {
+		wg = &sync.WaitGroup{}
 	}
 
-	return d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
+	// If any of the selectors indicated they're missing identities,
+	// we also need to wait for a full ipcache round.
+	if updateResult&policy.UpdateResultIdentitiesNeeded > 0 && ipcacheRevision > 0 {
+		wg.Add(1)
+		go func() {
+			logger.Debug("FQDN selector update requires IPCache completion.")
+			d.ipcache.WaitForRevision(ipcacheRevision)
+			wg.Done()
+		}()
+	}
+
+	// This releases the nameManager lock; at this point, it is safe for another fqdn update to proceed
+	return
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
 // dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
-func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
+func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string, ipcache fqdn.IPCache) (err error) {
 	d.initDNSProxyContext(option.Config.DNSProxyLockCount)
 
 	cfg := fqdn.Config{
@@ -166,7 +131,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		Cache:               fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
 		UpdateSelectors:     d.updateSelectors,
 		GetEndpointsDNSInfo: d.getEndpointsDNSInfo,
-		IPCache:             d.ipcache,
+		IPCache:             ipcache,
 	}
 	// Disable cleanup tracking on the default DNS cache. This cache simply
 	// tracks which api.FQDNSelector are present in policy which apply to
@@ -264,21 +229,6 @@ func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
 	}
 
 	return d.l7Proxy.AckProxyPort(ctx, proxytypes.DNSProxyName)
-}
-
-// updateSelectors propagates the mapping of FQDNSelector to identity, as well
-// as the set of FQDNSelectors which have no IPs which correspond to them
-// (usually due to TTL expiry), down to policy layer managed by this daemon.
-func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
-	// Convert set of selectors with IPs to update to set of selectors
-	// with identities corresponding to said IPs.
-	selectorsIdentities, usedIdentities, newlyAllocatedIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
-	if err != nil {
-		return &sync.WaitGroup{}, nil, nil, err
-	}
-
-	// Update mapping in selector cache with new identities.
-	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), usedIdentities, newlyAllocatedIdentities, nil
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to
@@ -408,54 +358,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
-		// Create a critical section especially for when multiple DNS requests
-		// are in-flight for the same name (i.e. cilium.io).
-		//
-		// In the absence of such a critical section, consider the following
-		// race condition:
-		//
-		//              G1                                    G2
-		//
-		// T0 --> NotifyOnDNSMsg()               NotifyOnDNSMsg()            <-- T0
-		//
-		// T1 --> UpdateGenerateDNS()            UpdateGenerateDNS()         <-- T1
-		//
-		// T2 ----> mutex.Lock()                 +---------------------------+
-		//                                       |No identities need updating|
-		// T3 ----> mutex.Unlock()               +---------------------------+
-		//
-		// T4 --> UpsertGeneratedIdentities()    UpsertGeneratedIdentities() <-- T4
-		//
-		// T5 ---->  Upsert()                    DNS released back to pod    <-- T5
-		//                                                    |
-		// T6 --> DNS released back to pod                    |
-		//              |                                     |
-		//              |                                     |
-		//              v                                     v
-		//       Traffic flows fine                   Leads to policy drop
-		//
-		// Note how G2 releases the DNS msg back to the pod at T5 because
-		// UpdateGenerateDNS() was a no-op. It's a no-op because G1 had executed
-		// UpdateGenerateDNS() first at T1 and performed the necessary identity
-		// allocation for the response IPs. Due to G1 performing all the work
-		// first, G2 executes T4 also as a no-op and releases the msg back to the
-		// pod at T5 before G1 would at T6.
-		mutexAcquireStart := time.Now()
-		mutexes := d.dnsProxyContext.getMutexesForResponseIPs(responseIPs)
-		for _, m := range mutexes {
-			d.dnsProxyContext.responseMutexes[m].Lock()
-			defer d.dnsProxyContext.responseMutexes[m].Unlock()
-		}
-		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
-			log.WithFields(logrus.Fields{
-				logfields.DNSName:  qname,
-				logfields.Duration: d,
-				logfields.Expected: option.Config.DNSProxyLockTimeout,
-			}).Warnf("Lock acquisition time took longer than expected. "+
-				"Potentially too many parallel DNS requests being processed, "+
-				"consider adjusting --%s and/or --%s",
-				option.DNSProxyLockCount, option.DNSProxyLockTimeout)
-		}
 
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
@@ -475,18 +377,17 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			"ips":   responseIPs,
 		}).Debug("Updating DNS name in cache from response to query")
 
-		updateCtx, updateCancel := context.WithTimeout(context.TODO(), option.Config.FQDNProxyResponseMaxDelay)
+		updateCtx, updateCancel := context.WithTimeout(
+			context.WithValue(d.ctx, requestNameKey{}, qname), // set the name as a context key for logging
+			option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
 		updateStart := time.Now()
 
-		wg, usedIdentities, newlyAllocatedIdentities, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
+		wg := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
 			}})
-		if err != nil {
-			log.WithError(err).Error("error updating internal DNS cache for rule generation")
-		}
 
 		stat.PolicyGenerationTime.End(true)
 		stat.DataplaneTime.Start()
@@ -508,9 +409,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			logfields.EndpointID: ep.GetID(),
 			"qname":              qname,
 		}).Debug("Waited for endpoints to regenerate due to a DNS response")
-
-		// Add new identities to the ipcache after the wait for the policy updates above
-		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
 
 		endMetric()
 	}
