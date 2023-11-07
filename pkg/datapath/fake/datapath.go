@@ -25,9 +25,13 @@ type FakeDatapath struct {
 
 // NewDatapath returns a new fake datapath
 func NewDatapath() *FakeDatapath {
+	return newDatapath(NewNodeAddressing())
+}
+
+func newDatapath(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
 		node:           NewNodeHandler(),
-		nodeAddressing: NewNodeAddressing(),
+		nodeAddressing: na,
 		loader:         &fakeLoader{},
 		lbmap:          mockmaps.NewLBMockMap(),
 	}

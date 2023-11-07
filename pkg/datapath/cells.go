@@ -71,6 +71,9 @@ var Cell = cell.Module(
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
 	tables.NodeAddressCell,
 
+	// Provides the legacy accessor for the above, the NodeAddressing interface.
+	tables.NodeAddressingCell,
+
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
 	// the datapath of the liveness of the agent.
 	agentliveness.Cell,
@@ -104,7 +107,9 @@ var Cell = cell.Module(
 		// Provide the configured devices to the devices controller.
 		// This is temporary until DevicesController takes ownership of the
 		// device-related configuration options.
-		return linuxdatapath.DevicesConfig{Devices: cfg.GetDevices()}
+		return linuxdatapath.DevicesConfig{
+			Devices: cfg.GetDevices(),
+		}
 	}),
 
 	// Synchronizes the userspace ipcache with the corresponding BPF map.
@@ -147,10 +152,11 @@ func newDatapath(params datapathParams) types.Datapath {
 	}
 
 	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{
-		ConfigWriter: params.ConfigWriter,
-		RuleManager:  params.IptablesManager,
-		WGAgent:      params.WgAgent,
-		NodeMap:      params.NodeMap,
+		ConfigWriter:   params.ConfigWriter,
+		RuleManager:    params.IptablesManager,
+		WGAgent:        params.WgAgent,
+		NodeMap:        params.NodeMap,
+		NodeAddressing: params.NodeAddressing,
 	}, datapathConfig)
 
 	params.LC.Append(hive.Hook{
@@ -174,6 +180,8 @@ type datapathParams struct {
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 
 	NodeMap nodemap.Map
+
+	NodeAddressing types.NodeAddressing
 
 	// Depend on DeviceManager to ensure devices have been resolved.
 	// This is required until option.Config.GetDevices() has been removed and
