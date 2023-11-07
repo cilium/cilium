@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package gateway_api
+package secretsync
 
 import (
 	"context"
@@ -40,9 +40,6 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 				return controllerruntime.Fail(err)
 			}
 
-			// there is nothing to copy, the related gateway is not accepted anyway.
-			// if later the secret is created, the gateway will be reconciled again,
-			// then this secret will be copied.
 			return controllerruntime.Success()
 		}
 
@@ -89,8 +86,8 @@ func desiredSyncSecret(secretsNamespace string, original *corev1.Secret) *corev1
 	if s.Labels == nil {
 		s.Labels = map[string]string{}
 	}
-	s.Labels[owningSecretNamespace] = original.Namespace
-	s.Labels[owningSecretName] = original.Name
+	s.Labels[OwningSecretNamespace] = original.Namespace
+	s.Labels[OwningSecretName] = original.Name
 	s.Immutable = original.Immutable
 	s.Data = original.Data
 	s.StringData = original.StringData

@@ -19,6 +19,7 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -139,7 +140,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, enableSecretSync bool, secrets
 	}
 
 	if enableSecretSync {
-		reconcilers = append(reconcilers, newSecretSyncReconciler(mgr, log, &gatewayv1.Gateway{}, enqueueTLSSecrets(mgr.GetClient()), isUsedByCiliumGateway, secretsNamespace))
+		reconcilers = append(reconcilers, secretsync.NewSecretSyncReconciler(mgr.GetClient(), log, &gatewayv1.Gateway{}, enqueueTLSSecrets(mgr.GetClient()), isUsedByCiliumGateway, secretsNamespace))
 	}
 
 	for _, r := range reconcilers {
