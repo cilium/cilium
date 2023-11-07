@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -22,7 +23,7 @@ import (
 // FQDNSelector. Returns the mapping of DNSName to set of IPs which back said
 // DNS name, the set of FQDNSelectors which do not map to any IPs, and the set
 // of FQDNSelectors mapping to a set of IPs.
-func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector]struct{}) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
+func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSelector]) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
 	missing := make(map[api.FQDNSelector]struct{}) // a set to dedup missing dnsNames
 	selectorIPMapping = make(map[api.FQDNSelector][]net.IP)
 
