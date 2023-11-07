@@ -51,6 +51,13 @@ func (m *MockIPCache) DeleteOnMetadataMatch(IP string, source source.Source, nam
 	return false
 }
 
+func (m *MockIPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) uint64 {
+	return 0
+}
+
+func (m *MockIPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
+}
+
 func NewMockIPCache() *MockIPCache {
 	return &MockIPCache{}
 }

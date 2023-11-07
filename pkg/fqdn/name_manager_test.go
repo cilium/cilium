@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 // TestNameManagerCIDRGeneration tests rule generation output:
@@ -27,8 +28,9 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 		selIPMap map[api.FQDNSelector][]net.IP
 
 		nameManager = NewNameManager(Config{
-			MinTTL: 1,
-			Cache:  NewDNSCache(0),
+			MinTTL:  1,
+			Cache:   NewDNSCache(0),
+			IPCache: testipcache.NewMockIPCache(),
 
 			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
 				for k, v := range selectorIPMapping {
@@ -73,8 +75,9 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 		selIPMap map[api.FQDNSelector][]net.IP
 
 		nameManager = NewNameManager(Config{
-			MinTTL: 1,
-			Cache:  NewDNSCache(0),
+			MinTTL:  1,
+			Cache:   NewDNSCache(0),
+			IPCache: testipcache.NewMockIPCache(),
 
 			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
 				for k, v := range selectorIPMapping {

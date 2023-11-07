@@ -10,7 +10,9 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/identity"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // Config is a simple configuration structure to set how pkg/fqdn subcomponents
@@ -30,10 +32,17 @@ type Config struct {
 	// GetEndpointsDNSInfo is a function that returns a list of fqdn-relevant fields from all Endpoints known to the agent.
 	// The endpoint's DNSHistory and DNSZombies are used as part of the garbage collection and restoration processes.
 	GetEndpointsDNSInfo func() []EndpointDNSInfo
+
+	IPCache IPCache
 }
 
 type EndpointDNSInfo struct {
 	ID         string
 	DNSHistory *DNSCache
 	DNSZombies *DNSZombieMappings
+}
+
+type IPCache interface {
+	UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) uint64
+	RemovePrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID)
 }

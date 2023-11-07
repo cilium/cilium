@@ -11,6 +11,8 @@ import (
 	"sort"
 	"unsafe"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	ippkg "github.com/cilium/cilium/pkg/ip"
@@ -469,6 +471,12 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string)
 	return names
 }
 
+// ipExistsLocked returns true if the IP is known to the cache.
+func (c *DNSCache) ipExistsLocked(ip netip.Addr) bool {
+	_, exists := c.reverse[ip]
+	return exists
+}
+
 // updateWithEntryIPs adds a mapping for every IP found in `entry` to `ipEntries`
 // (which maps IP -> cacheEntry). It will replace existing IP->old mappings in
 // `entries` if the current entry expires sooner (or has already expired).
@@ -558,6 +566,20 @@ func (c *DNSCache) removeReverse(ip netip.Addr, entry *cacheEntry) {
 	if len(entries) == 0 {
 		delete(c.reverse, ip)
 	}
+}
+
+// GetIPs takes a snapshot of all IPs in the reverse cache.
+func (c *DNSCache) GetIPs() sets.Set[netip.Addr] {
+	c.RWMutex.RLock()
+	defer c.RWMutex.RUnlock()
+
+	out := make(sets.Set[netip.Addr], len(c.reverse))
+
+	for ip := range c.reverse {
+		out.Insert(ip)
+	}
+
+	return out
 }
 
 // ForceExpire is used to clear entries from the cache before their TTL is
