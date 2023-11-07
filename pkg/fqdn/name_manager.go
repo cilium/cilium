@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
@@ -177,11 +178,11 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
-	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
+	affectedFQDNSels := make(sets.Set[api.FQDNSelector], 0)
 	for _, dnsName := range namesToRegen {
 		for fqdnSel, fqdnRegEx := range n.allSelectors {
 			if fqdnRegEx.MatchString(dnsName) {
-				affectedFQDNSels[fqdnSel] = struct{}{}
+				affectedFQDNSels.Insert(fqdnSel)
 			}
 		}
 	}
@@ -209,9 +210,9 @@ func (n *NameManager) CompleteBootstrap() {
 // affectedSelectors: a set of all FQDNSelectors which match DNS Names whose
 // corresponding set of IPs has changed.
 // updatedNames: a map of DNS names to all the valid IPs we store for each.
-func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors map[api.FQDNSelector]struct{}, updatedNames map[string][]net.IP) {
+func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors sets.Set[api.FQDNSelector], updatedNames map[string][]net.IP) {
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
-	affectedSelectors = make(map[api.FQDNSelector]struct{}, len(updatedDNSIPs))
+	affectedSelectors = make(sets.Set[api.FQDNSelector], len(updatedDNSIPs))
 
 	for dnsName, lookupIPs := range updatedDNSIPs {
 		addrs := ip.MustAddrsFromIPs(lookupIPs.IPs)
@@ -239,7 +240,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 		for fqdnSel, fqdnRegex := range n.allSelectors {
 			matches := fqdnRegex.MatchString(dnsName)
 			if matches {
-				affectedSelectors[fqdnSel] = struct{}{}
+				affectedSelectors.Insert(fqdnSel)
 			}
 		}
 	}

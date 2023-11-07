@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
@@ -650,7 +651,7 @@ type identityNotifier interface {
 	// associated with the specified FQDN selector, based on the
 	// currently-known DNS mappings for the IPs held inside the
 	// identityNotifier.
-	MapSelectorsToIPsLocked(map[api.FQDNSelector]struct{}) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP)
+	MapSelectorsToIPsLocked(sets.Set[api.FQDNSelector]) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP)
 }
 
 type labelIdentitySelector struct {
@@ -880,8 +881,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 	// a real slice of ids, while the other will receive nil. We must fold
 	// them together below.
 	sc.localIdentityNotifier.RegisterForIdentityUpdatesLocked(newFQDNSel.selector)
-	selectors := map[api.FQDNSelector]struct{}{newFQDNSel.selector: {}}
-	_, selectorIPMapping := sc.localIdentityNotifier.MapSelectorsToIPsLocked(selectors)
+	_, selectorIPMapping := sc.localIdentityNotifier.MapSelectorsToIPsLocked(sets.New(newFQDNSel.selector))
 
 	// Allocate identities corresponding to the slice of IPs identified as
 	// being selected by this FQDN selector above. This could plausibly

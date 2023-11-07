@@ -6,6 +6,8 @@ package testidentity
 import (
 	"net"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -50,6 +52,6 @@ func (d *DummyIdentityNotifier) UnregisterForIdentityUpdatesLocked(selector api.
 
 // MapSelectorsToIPsLocked is a dummy implementation that does not implement
 // the selectors of the real implementation.
-func (d *DummyIdentityNotifier) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector]struct{}) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
+func (d *DummyIdentityNotifier) MapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSelector]) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
 	return nil, nil
 }

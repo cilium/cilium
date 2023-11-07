@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -51,7 +53,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		activeConnectionsTTL = int(2 * DNSGCJobInterval.Seconds())
 		activeConnections    = NewDNSCache(activeConnectionsTTL)
 	)
-	namesToClean := make(map[string]struct{})
+	namesToClean := make(sets.Set[string])
 
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
 	endpoints := n.config.GetEndpointsDNSInfo()
@@ -67,11 +69,8 @@ func (n *NameManager) GC(ctx context.Context) error {
 			}
 		}
 		affectedNames := ep.DNSHistory.GC(GCStart, ep.DNSZombies)
-		for _, name := range affectedNames {
-			if _, found := namesToClean[name]; !found {
-				namesToClean[name] = struct{}{}
-			}
-		}
+		namesToClean.Insert(affectedNames...)
+
 		alive, dead := ep.DNSZombies.GC()
 		if metrics.FQDNAliveZombieConnections.IsEnabled() {
 			metrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
@@ -92,9 +91,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		lookupTime := time.Now()
 		for _, zombie := range alive {
 			for _, name := range zombie.Names {
-				if _, found := namesToClean[name]; !found {
-					namesToClean[name] = struct{}{}
-				}
+				namesToClean.Insert(name)
 				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, activeConnectionsTTL)
 			}
 		}
@@ -103,11 +100,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		// Entries here have been evicted from the DNS cache (via .GC due to
 		// TTL expiration or overlimit) and are no longer active connections.
 		for _, zombie := range dead {
-			for _, name := range zombie.Names {
-				if _, found := namesToClean[name]; !found {
-					namesToClean[name] = struct{}{}
-				}
-			}
+			namesToClean.Insert(zombie.Names...)
 		}
 	}
 
@@ -128,10 +121,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		caches = append(caches, ep.DNSHistory)
 	}
 
-	namesToCleanSlice := make([]string, 0, len(namesToClean))
-	for name := range namesToClean {
-		namesToCleanSlice = append(namesToCleanSlice, name)
-	}
+	namesToCleanSlice := namesToClean.UnsortedList()
 
 	n.cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
 
@@ -169,23 +159,23 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 		}
 	}
 
-	namesToRegen := []string{}
+	namesToRegen := sets.Set[string]{}
 
 	// Clear any to-delete entries globally
 	// Clear any to-delete entries in each endpoint, then update globally to
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
-	namesToRegen = append(namesToRegen, n.cache.ForceExpire(expireLookupsBefore, nameMatcher)...)
+	namesToRegen.Insert(n.cache.ForceExpire(expireLookupsBefore, nameMatcher)...)
 	for _, ep := range n.config.GetEndpointsDNSInfo() {
-		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
+		namesToRegen.Insert(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		n.cache.UpdateFromCache(ep.DNSHistory, nil)
 
-		namesToRegen = append(namesToRegen, ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
+		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		activeConnections := NewDNSCache(0)
 		zombies, _ := ep.DNSZombies.GC()
 		lookupTime := time.Now()
 		for _, zombie := range zombies {
-			namesToRegen = append(namesToRegen, zombie.Names...)
+			namesToRegen.Insert(zombie.Names...)
 			for _, name := range zombie.Names {
 				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, 0)
 			}
@@ -194,7 +184,7 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 	}
 
 	// Swallow error here; the caller doesn't care if this fails
-	n.ForceGenerateDNS(context.TODO(), namesToRegen)
+	n.ForceGenerateDNS(context.TODO(), namesToRegen.UnsortedList())
 	return nil
 }
 
