@@ -3342,6 +3342,8 @@ authentication:
         enabled: true
         # -- SPIRE namespace to install into
         namespace: cilium-spire
+        # -- SPIRE namespace already exists. Set to true if Helm should not create, manage, and import the SPIRE namespace.
+        existingNamespace: false
         # -- init container image of SPIRE agent and server
         initImage:
           override: ~
