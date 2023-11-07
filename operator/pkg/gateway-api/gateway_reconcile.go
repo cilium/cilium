@@ -20,6 +20,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
@@ -44,17 +45,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	original := &gatewayv1.Gateway{}
 	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
-			return success()
+			return controllerruntime.Success()
 		}
 		scopedLog.WithError(err).Error("Unable to get Gateway")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	// Ignore deleting Gateway, this can happen when foregroundDeletion is enabled
 	// The reconciliation loop will automatically kick off for related Gateway resources.
 	if original.GetDeletionTimestamp() != nil {
 		scopedLog.Info("Gateway is being deleted, doing nothing")
-		return success()
+		return controllerruntime.Success()
 	}
 
 	gw := original.DeepCopy()
@@ -72,41 +73,41 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			Error("Unable to get GatewayClass")
 		if k8serrors.IsNotFound(err) {
 			setGatewayAccepted(gw, false, "GatewayClass does not exist")
-			return fail(err)
+			return controllerruntime.Fail(err)
 		}
 		setGatewayAccepted(gw, false, "Unable to get GatewayClass")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	httpRouteList := &gatewayv1.HTTPRouteList{}
 	if err := r.Client.List(ctx, httpRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list HTTPRoutes")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	grpcRouteList := &gatewayv1alpha2.GRPCRouteList{}
 	if err := r.Client.List(ctx, grpcRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list GRPCRoutes")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	tlsRouteList := &gatewayv1alpha2.TLSRouteList{}
 	if err := r.Client.List(ctx, tlsRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list TLSRoutes")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	// TODO(tam): Only list the services used by accepted Routes
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list Services")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
 		scopedLog.WithError(err).Error("Unable to list ReferenceGrants")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	httpListeners, tlsListeners := ingestion.GatewayAPI(ingestion.Input{
@@ -122,7 +123,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to set listener status")
 		setGatewayAccepted(gw, false, "Unable to set listener status")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled")
 
@@ -131,37 +132,37 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		scopedLog.WithError(err).Error("Unable to translate resources")
 		setGatewayAccepted(gw, false, "Unable to translate resources")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	if err = r.ensureService(ctx, svc); err != nil {
 		scopedLog.WithError(err).Error("Unable to create Service")
 		setGatewayAccepted(gw, false, "Unable to create Service resource")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	if err = r.ensureEndpoints(ctx, ep); err != nil {
 		scopedLog.WithError(err).Error("Unable to ensure Endpoints")
 		setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.WithError(err).Error("Unable to ensure CiliumEnvoyConfig")
 		setGatewayAccepted(gw, false, "Unable to ensure CEC resource")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	// Step 4: Update the status of the Gateway
 	if err = r.setAddressStatus(ctx, gw); err != nil {
 		scopedLog.WithError(err).Error("Address is not ready")
 		setGatewayProgrammed(gw, false, "Address is not ready")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	setGatewayProgrammed(gw, true, "Gateway successfully reconciled")
 	scopedLog.Info("Successfully reconciled Gateway")
-	return success()
+	return controllerruntime.Success()
 }
 
 func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.Service) error {
@@ -263,8 +264,8 @@ func parentRefMatched(gw *gatewayv1.Gateway, listener *gatewayv1.Listener, route
 			if ref.SectionName == nil && ref.Port == nil {
 				return true
 			}
-			var sectionNameCheck = ref.SectionName == nil || *ref.SectionName == listener.Name
-			var portCheck = ref.Port == nil || *ref.Port == listener.Port
+			sectionNameCheck := ref.SectionName == nil || *ref.SectionName == listener.Name
+			portCheck := ref.Port == nil || *ref.Port == listener.Port
 			if sectionNameCheck && portCheck {
 				return true
 			}

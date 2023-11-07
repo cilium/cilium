@@ -9,9 +9,9 @@ import (
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
-
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -30,15 +30,15 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	gwc := &gatewayv1.GatewayClass{}
 	if err := r.Client.Get(ctx, req.NamespacedName, gwc); err != nil {
 		if k8serrors.IsNotFound(err) {
-			return success()
+			return controllerruntime.Success()
 		}
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	// Ignore deleted GatewayClass, this can happen when foregroundDeletion is enabled
 	// The reconciliation loop will automatically kick off for related Gateway resources.
 	if gwc.GetDeletionTimestamp() != nil {
-		return success()
+		return controllerruntime.Success()
 	}
 
 	// TODO(tam): Support spec.ParametersRef later for different use cases
@@ -71,8 +71,8 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if err := r.Client.Status().Update(ctx, gwc); err != nil {
 		scopedLog.WithError(err).Error("Failed to update GatewayClass status")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 	scopedLog.Info("Successfully reconciled GatewayClass")
-	return success()
+	return controllerruntime.Success()
 }

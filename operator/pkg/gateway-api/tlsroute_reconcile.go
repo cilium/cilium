@@ -17,6 +17,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -37,15 +38,15 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	original := &gatewayv1alpha2.TLSRoute{}
 	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
-			return success()
+			return controllerruntime.Success()
 		}
 		scopedLog.WithError(err).Error("Unable to fetch TLSRoute")
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	// Ignore deleted TLSRoute, this can happen when foregroundDeletion is enabled
 	if original.GetDeletionTimestamp() != nil {
-		return success()
+		return controllerruntime.Success()
 	}
 
 	tr := original.DeepCopy()
@@ -58,7 +59,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// check if this cert is allowed to be used by this gateway
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
-		return fail(fmt.Errorf("failed to retrieve reference grants: %w", err))
+		return controllerruntime.Fail(fmt.Errorf("failed to retrieve reference grants: %w", err))
 	}
 
 	// input for the validators
@@ -121,7 +122,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	scopedLog.Info("Successfully reconciled TLSRoute")
-	return success()
+	return controllerruntime.Success()
 }
 
 func (r *tlsRouteReconciler) updateStatus(ctx context.Context, original *gatewayv1alpha2.TLSRoute, new *gatewayv1alpha2.TLSRoute) error {
