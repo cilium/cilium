@@ -124,19 +124,21 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 	d.initDNSProxyContext(128)
 	d.identityAllocator = NewFakeIdentityAllocator(nil)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator, nil, nil, nil)
-	d.dnsNameManager = fqdn.NewNameManager(fqdn.Config{
-		MinTTL:          1,
-		Cache:           fqdn.NewDNSCache(0),
-		UpdateSelectors: d.updateSelectors,
-	})
-	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil)
-	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
 		IdentityAllocator: d.identityAllocator,
 		PolicyHandler:     d.policy.GetSelectorCache(),
 		DatapathHandler:   d.endpointManager,
 	})
+	d.dnsNameManager = fqdn.NewNameManager(fqdn.Config{
+		MinTTL:          1,
+		Cache:           fqdn.NewDNSCache(0),
+		UpdateSelectors: d.updateSelectors,
+		IPCache:         d.ipcache,
+	})
+	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil)
+	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
+
 	ds.d = d
 
 	logger.SetEndpointInfoRegistry(&dummyInfoRegistry{})

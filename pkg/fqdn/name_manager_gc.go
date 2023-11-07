@@ -55,6 +55,10 @@ func (n *NameManager) GC(ctx context.Context) error {
 	)
 	namesToClean := make(sets.Set[string])
 
+	// Take a snapshot of the *entire* reverse cache, so we can compute the set of
+	// IPs that have been completely removed and safely delete their metadata.
+	maybeStaleIPs := n.cache.GetIPs()
+
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
 	endpoints := n.config.GetEndpointsDNSInfo()
 	for _, ep := range endpoints {
@@ -135,6 +139,11 @@ func (n *NameManager) GC(ctx context.Context) error {
 	}
 	log.WithField(logfields.Controller, dnsGCJobName).Infof(
 		"FQDN garbage collector work deleted %d name entries: %s", namesCount, strings.Join(namesToCleanSlice, ","))
+
+	// Remove any now-stale ipcache metadata.
+	// Need to RLock here so we don't race on re-insertion.
+	n.maybeRemoveMetadata(maybeStaleIPs)
+
 	return err
 }
 
@@ -159,6 +168,7 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 		}
 	}
 
+	maybeStaleIPs := n.cache.GetIPs()
 	namesToRegen := sets.Set[string]{}
 
 	// Clear any to-delete entries globally
@@ -185,6 +195,9 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 
 	// Swallow error here; the caller doesn't care if this fails
 	n.ForceGenerateDNS(context.TODO(), namesToRegen.UnsortedList())
+
+	// We may have removed entries; remove them from the ipcache metadata layer
+	n.maybeRemoveMetadata(maybeStaleIPs)
 	return nil
 }
 
@@ -233,6 +246,9 @@ func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDN
 			}
 		}
 	}
+
+	// Ensure there's a metadata entry for the fqdn subsystem in ipcache.
+	n.upsertMetadata(n.cache.GetIPs().UnsortedList())
 }
 
 // readPreCache returns a fqdn.DNSCache object created from the json data at

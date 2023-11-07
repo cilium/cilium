@@ -17,9 +17,11 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -139,11 +141,6 @@ func NewNameManager(config Config) *NameManager {
 	}
 }
 
-// GetDNSCache returns the DNSCache used by the NameManager
-func (n *NameManager) GetDNSCache() *DNSCache {
-	return n.cache
-}
-
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
 func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
@@ -227,6 +224,9 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 			continue
 		}
 
+		// Upsert in to the ipcache metadata layer
+		n.upsertMetadata(addrs)
+
 		// record the IPs that were different
 		updatedNames[dnsName] = lookupIPs.IPs
 
@@ -265,4 +265,37 @@ func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, new
 	// function is called with already expired data and if other cache data
 	// from before also expired.
 	return (len(cacheIPs) == 0 && len(sortedNewIPs) == 0) || !ip.SortedIPListsAreEqual(sortedNewIPs, cacheIPs)
+}
+
+var ipcacheResource = ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "", "fqdn-name-manager")
+
+// upsertMetadata adds an entry in the ipcache metadata layer for the set of IPs.
+// Returns the ipcache queue revision (to pass to .WaitForRevision()).
+func (n *NameManager) upsertMetadata(ips []netip.Addr) uint64 {
+	prefixes := make([]netip.Prefix, 0, len(ips))
+	for _, ip := range ips {
+		prefixes = append(prefixes, netip.PrefixFrom(ip, ip.BitLen()))
+	}
+	return n.config.IPCache.UpsertPrefixes(prefixes, source.Generated, ipcacheResource)
+}
+
+// maybeRemoveMetadata removes the ipcache metadata from every IP in maybeRemoved,
+// as long as that IP is not still in the dns cache.
+func (n *NameManager) maybeRemoveMetadata(maybeRemoved sets.Set[netip.Addr]) {
+	// Need to take an RLock here so that no DNS updates are processed.
+	// Otherwise, we might accidentally remove an IP that is newly inserted.
+	n.RWMutex.RLock()
+	defer n.RWMutex.RUnlock()
+
+	n.cache.RLock()
+	prefixes := make([]netip.Prefix, 0, len(maybeRemoved))
+	for ip := range maybeRemoved {
+		if !n.cache.ipExistsLocked(ip) {
+			prefixes = append(prefixes, netip.PrefixFrom(ip, ip.BitLen()))
+		}
+	}
+	n.cache.RUnlock()
+
+	log.WithField(logfields.Prefix, prefixes).Debug("Removing fqdn entry from ipcache metadata layer")
+	n.config.IPCache.RemovePrefixes(prefixes, source.Generated, ipcacheResource)
 }
