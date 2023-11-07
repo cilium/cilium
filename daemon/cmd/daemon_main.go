@@ -798,6 +798,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.CTMapEntriesTimeoutSYNName, 60*time.Second, "Establishment timeout for entries in TCP CT table")
 	option.BindEnv(vp, option.CTMapEntriesTimeoutSYNName)
 
+	flags.Duration(option.CTMapEntriesTimeoutClosingName, 8000*time.Second, "Closing Timeout for entries in TCP CT table")
+	option.BindEnv(vp, option.CTMapEntriesTimeoutClosingName)
+
 	flags.Duration(option.CTMapEntriesTimeoutFINName, 10*time.Second, "Teardown timeout for entries in TCP CT table")
 	option.BindEnv(vp, option.CTMapEntriesTimeoutFINName)
 

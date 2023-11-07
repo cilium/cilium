@@ -267,7 +267,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		    ct_entry_expired_rebalance(entry))
 			goto ct_new;
 #endif
-		if (ct_entry_alive(entry))
+		if (ct_entry_alive(entry) && !ct_entry_closing(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
 		ct_state->rev_nat_index = entry->rev_nat_index;
@@ -298,6 +298,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		}
 #endif
 		switch (action) {
+		__u32 lifetime;
 		case ACTION_CREATE:
 			if (unlikely(ct_entry_closing(entry))) {
 				ct_reset_closing(entry);
@@ -315,6 +316,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			 * see both directions, so flags of established
 			 * connections would not include both SYNs.)
 			 */
+			
 			if (!ct_entry_seen_both_syns(entry) &&
 			    (seen_flags.value & TCP_FLAG_RST) &&
 			    dir != CT_SERVICE) {
@@ -327,10 +329,9 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			}
 
 			*monitor = TRACE_PAYLOAD_LEN;
-			if (ct_entry_alive(entry))
-				break;
-			__ct_update_timeout(entry, bpf_sec_to_mono(CT_CLOSE_TIMEOUT),
-					    dir, seen_flags, CT_REPORT_FLAGS);
+			lifetime = ct_entry_alive(entry) ? CT_CLOSING_TIMEOUT : CT_CLOSE_TIMEOUT;
+			__ct_update_timeout(entry, bpf_sec_to_mono(lifetime), dir, seen_flags, CT_REPORT_FLAGS);
+
 			break;
 		default:
 			break;

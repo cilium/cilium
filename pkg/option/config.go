@@ -568,6 +568,7 @@ const (
 
 	// CTMapEntriesTimeout* name option and default value mappings
 	CTMapEntriesTimeoutSYNName         = "bpf-ct-timeout-regular-tcp-syn"
+	CTMapEntriesTimeoutClosingName     = "bpf-ct-timeout-regular-tcp-closing"
 	CTMapEntriesTimeoutFINName         = "bpf-ct-timeout-regular-tcp-fin"
 	CTMapEntriesTimeoutTCPName         = "bpf-ct-timeout-regular-tcp"
 	CTMapEntriesTimeoutAnyName         = "bpf-ct-timeout-regular-any"
@@ -1534,6 +1535,7 @@ type DaemonConfig struct {
 	CTMapEntriesTimeoutSVCAny      time.Duration
 	CTMapEntriesTimeoutSYN         time.Duration
 	CTMapEntriesTimeoutFIN         time.Duration
+	CTMapEntriesTimeoutClosing     time.Duration
 
 	// MaxInternalTimerDelay sets a maximum on all periodic timers in
 	// the agent in order to flush out timer-related bugs in the agent.
@@ -3137,6 +3139,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.CTMapEntriesTimeoutSVCTCPGrace = vp.GetDuration(CTMapEntriesTimeoutSVCTCPGraceName)
 	c.CTMapEntriesTimeoutSVCAny = vp.GetDuration(CTMapEntriesTimeoutSVCAnyName)
 	c.CTMapEntriesTimeoutSYN = vp.GetDuration(CTMapEntriesTimeoutSYNName)
+	c.CTMapEntriesTimeoutClosing = vp.GetDuration(CTMapEntriesTimeoutClosingName)
 	c.CTMapEntriesTimeoutFIN = vp.GetDuration(CTMapEntriesTimeoutFINName)
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
