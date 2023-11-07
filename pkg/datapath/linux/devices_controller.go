@@ -398,7 +398,10 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			d = d.DeepCopy()
 		}
 		deviceDeleted := false
-		deviceUpdated := false // Set to true if the batch contained an address or link update.
+
+		// Set to true if the device was modified. This is done to avoid unnecessary
+		// modifications to the device that would wake up watchers.
+		deviceUpdated := false
 
 		for _, u := range updates {
 			switch u := u.(type) {
@@ -458,6 +461,18 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			}
 		}
 
+		// Recheck the viability of the device after the updates have been applied.
+		// Since route changes may cause device to be selected (e.g. veth device that
+		// has default route), always recheck viability if device is not selected.
+		if deviceUpdated || !d.Selected {
+			oldSelected := d.Selected
+			oldReason := d.NotSelectedReason
+			d.Selected, d.NotSelectedReason = dc.isSelectedDevice(d, txn)
+			if d.Selected != oldSelected || d.NotSelectedReason != oldReason {
+				deviceUpdated = true
+			}
+		}
+
 		if deviceDeleted {
 			// Remove the deleted device.
 			dc.params.DeviceTable.Delete(txn, d)
@@ -469,9 +484,6 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				dc.params.RouteTable.Delete(txn, r)
 			}
 		} else if deviceUpdated {
-			// Recheck the viability of the device after the updates have been applied.
-			d.Selected, d.NotSelectedReason = dc.isSelectedDevice(d, txn)
-
 			// Create or update the device.
 			_, _, err := dc.params.DeviceTable.Insert(txn, d)
 			if err != nil {
