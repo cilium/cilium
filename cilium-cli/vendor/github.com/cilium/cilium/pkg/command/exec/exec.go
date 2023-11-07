@@ -10,9 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func warnToLog(cmd *exec.Cmd, out []byte, scopedLog *logrus.Entry, err error) {

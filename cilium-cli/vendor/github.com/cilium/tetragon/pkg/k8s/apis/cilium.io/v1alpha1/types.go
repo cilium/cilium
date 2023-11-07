@@ -259,6 +259,14 @@ type ListSpec struct {
 	Validated bool `json:"validated"`
 }
 
+type OptionSpec struct {
+	// Name of the option
+	Name string `json:"name"`
+	// +kubebuilder:validation:Optional
+	// Value of the option
+	Value string `json:"value"`
+}
+
 type PodInfoSpec struct {
 	// Host networking requested for this pod. Use the host's network namespace.
 	// If this option is set, the ports that will be used must be specified.

@@ -5,11 +5,11 @@ package safetime
 
 import (
 	"runtime"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // TimeSinceSafe returns the duration since t. If the duration is negative,

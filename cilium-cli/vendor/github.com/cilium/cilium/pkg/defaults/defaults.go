@@ -178,6 +178,10 @@ const (
 	// ExecTimeout is a timeout for executing commands.
 	ExecTimeout = 300 * time.Second
 
+	// MaxInternalTimerDelay does not enforce a maximum on timer values in
+	// the agent by default.
+	MaxInternalTimerDelay = 0 * time.Second
+
 	// StatusCollectorInterval is the interval between a probe invocations
 	StatusCollectorInterval = 5 * time.Second
 
