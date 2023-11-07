@@ -130,7 +130,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 	n.cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
 
 	metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToCleanSlice)))
-	_, err := n.ForceGenerateDNS(ctx, namesToCleanSlice)
+	n.ForceGenerateDNS(ctx, namesToCleanSlice)
 	namesCount := len(namesToCleanSlice)
 	// Limit the amount of info level logging to some sane amount
 	if namesCount > 20 {
@@ -144,7 +144,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 	// Need to RLock here so we don't race on re-insertion.
 	n.maybeRemoveMetadata(maybeStaleIPs)
 
-	return err
+	return nil
 }
 
 func (n *NameManager) StartGC(ctx context.Context) {

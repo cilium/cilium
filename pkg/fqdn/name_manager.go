@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -70,47 +69,53 @@ func (n *NameManager) GetModel() *models.NameManager {
 	}
 }
 
-// Lock must be held during any calls to RegisterForIdentityUpdatesLocked or
-// UnregisterForIdentityUpdatesLocked.
+// Lock must be held during any calls to RegisterForIPUpdatesLocked or
+// UnregisterForIPUpdatesLocked.
+// Because the NameManager and SelectorCache have interleaving locks, we
+// must ALWAYS lock the NameManager first before locking the SelectorCache.
 func (n *NameManager) Lock() {
 	n.RWMutex.Lock()
 }
 
-// Unlock must be called after calls to RegisterForIdentityUpdatesLocked or
-// UnregisterForIdentityUpdatesLocked are done.
+// Unlock must be called after calls to RegisterForIPUpdatesLocked or
+// UnregisterForIPUpdatesLocked are done.
 func (n *NameManager) Unlock() {
 	n.RWMutex.Unlock()
 }
 
-// RegisterForIdentityUpdatesLocked exposes this FQDNSelector so that identities
-// for IPs contained in a DNS response that matches said selector can be
+// RegisterForIPUpdatesLocked exposes this FQDNSelector so that updates to
+// IPs for names that this selector maches can be
 // propagated back to the SelectorCache via `UpdateFQDNSelector`. All DNS names
 // contained within the NameManager's cache are iterated over to see if they match
-// the FQDNSelector. All IPs which correspond to the DNS names which match this
-// Selector will be returned as CIDR identities, as other DNS Names which have
-// already been resolved may match this FQDNSelector.
-func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
+// the FQDNSelector. All already-existing IPs which correspond to the DNS names
+// which match this Selector will be returned so the selector is ready for updates.
+//
+// Because this method is called by the SelectorCache, we cannot make any calls
+// back in to the SelectorCache from this method.
+func (n *NameManager) RegisterForIPUpdatesLocked(selector api.FQDNSelector) []netip.Addr {
 	_, exists := n.allSelectors[selector]
 	if exists {
-		log.WithField("fqdnSelector", selector).Warning("FQDNSelector was already registered for updates, returning without any identities")
-		return
+		log.WithField("fqdnSelector", selector).Warning("FQDNSelector was already registered for updates.")
+	} else {
+		// This error should never occur since the FQDNSelector has already been
+		// validated, but account for it for good measure.
+		regex, err := selector.ToRegex()
+		if err != nil {
+			log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
+			return nil
+		}
+
+		n.allSelectors[selector] = regex
 	}
 
-	// This error should never occur since the FQDNSelector has already been
-	// validated, but account for it for good measure.
-	regex, err := selector.ToRegex()
-	if err != nil {
-		log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
-		return
-	}
-
-	n.allSelectors[selector] = regex
+	selectorIPMapping := n.mapSelectorsToIPsLocked(sets.New(selector))
+	return selectorIPMapping[selector]
 }
 
-// UnregisterForIdentityUpdatesLocked removes this FQDNSelector from the set of
+// UnregisterForIPUpdatesLocked removes this FQDNSelector from the set of
 // FQDNSelectors which are being tracked by the NameManager. No more updates
 // for IPs which correspond to said selector are propagated.
-func (n *NameManager) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
+func (n *NameManager) UnregisterForIPUpdatesLocked(selector api.FQDNSelector) {
 	delete(n.allSelectors, selector)
 }
 
@@ -123,8 +128,8 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
-			return &sync.WaitGroup{}, nil, nil, nil
+		config.UpdateSelectors = func(ctx context.Context, selectorsToIPs map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
+			return &sync.WaitGroup{}
 		}
 	}
 	if config.GetEndpointsDNSInfo == nil {
@@ -143,12 +148,12 @@ func NewNameManager(config Config) *NameManager {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) *sync.WaitGroup {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
-	fqdnSelectorsToUpdate, updatedDNSNames := n.updateDNSIPs(lookupTime, updatedDNSIPs)
+	fqdnSelectorsToUpdate, updatedDNSNames, ipcacheRevision := n.updateDNSIPs(lookupTime, updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
 		log.WithFields(logrus.Fields{
 			"matchName":             dnsName,
@@ -157,13 +162,10 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 		}).Debug("Updated FQDN with new IPs")
 	}
 
-	namesMissingIPs, selectorIPMapping := n.MapSelectorsToIPsLocked(fqdnSelectorsToUpdate)
-	if len(namesMissingIPs) != 0 {
-		log.WithField(logfields.DNSName, namesMissingIPs).
-			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
-	}
+	selectorIPMapping := n.mapSelectorsToIPsLocked(fqdnSelectorsToUpdate)
 
-	return n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	// Update SelectorCache selectors and push changes down in to BPF.
+	return n.config.UpdateSelectors(ctx, selectorIPMapping, ipcacheRevision)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
@@ -171,7 +173,7 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 // matchNames that match them will cause these rules to regenerate.
 // Note: This is used only when DNS entries are cleaned up, not when new results
 // are ingested.
-func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
+func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) *sync.WaitGroup {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
@@ -184,16 +186,10 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 		}
 	}
 
-	namesMissingIPs, selectorIPMapping := n.MapSelectorsToIPsLocked(affectedFQDNSels)
-	if len(namesMissingIPs) != 0 {
-		log.WithField(logfields.DNSName, namesMissingIPs).
-			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
-	}
+	selectorIPMapping := n.mapSelectorsToIPsLocked(affectedFQDNSels)
 
-	// Emit the new rules.
-	// Ignore newly allocated IDs (3rd result) as this is only used for deletes.
-	wg, _, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
-	return wg, err
+	// Update SelectorCache selectors and push changes down in to BPF.
+	return n.config.UpdateSelectors(ctx, selectorIPMapping, 0)
 }
 
 func (n *NameManager) CompleteBootstrap() {
@@ -207,9 +203,11 @@ func (n *NameManager) CompleteBootstrap() {
 // affectedSelectors: a set of all FQDNSelectors which match DNS Names whose
 // corresponding set of IPs has changed.
 // updatedNames: a map of DNS names to all the valid IPs we store for each.
-func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors sets.Set[api.FQDNSelector], updatedNames map[string][]net.IP) {
+// ipcacheRevision: a revision number to pass to WaitForRevision()
+func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors sets.Set[api.FQDNSelector], updatedNames map[string][]net.IP, ipcacheRevision uint64) {
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
 	affectedSelectors = make(sets.Set[api.FQDNSelector], len(updatedDNSIPs))
+	addrsToUpsert := sets.Set[netip.Addr]{}
 
 	for dnsName, lookupIPs := range updatedDNSIPs {
 		addrs := ip.MustAddrsFromIPs(lookupIPs.IPs)
@@ -224,8 +222,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 			continue
 		}
 
-		// Upsert in to the ipcache metadata layer
-		n.upsertMetadata(addrs)
+		addrsToUpsert.Insert(addrs...)
 
 		// record the IPs that were different
 		updatedNames[dnsName] = lookupIPs.IPs
@@ -244,8 +241,11 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 			}
 		}
 	}
+	if len(addrsToUpsert) > 0 {
+		ipcacheRevision = n.upsertMetadata(addrsToUpsert.UnsortedList())
+	}
 
-	return affectedSelectors, updatedNames
+	return affectedSelectors, updatedNames, ipcacheRevision
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of

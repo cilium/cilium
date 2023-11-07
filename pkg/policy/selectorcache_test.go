@@ -4,9 +4,12 @@
 package policy
 
 import (
+	"net/netip"
 	"sync"
+	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -403,30 +406,38 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 
 func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
+	di := sc.localIdentityNotifier.(*testidentity.DummyIdentityNotifier)
 
 	// Add some identities to the identity cache
 	googleSel := api.FQDNSelector{MatchName: "google.com"}
 	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
 
-	googleIdentities := []identity.NumericIdentity{321, 456, 987}
-	ciliumIdentities := []identity.NumericIdentity{123, 456, 789}
+	ciliumIPs := []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.1.1.1")}
+	googleIPs := []netip.Addr{netip.MustParseAddr("1.1.1.2"), netip.MustParseAddr("2.1.1.2")}
 
-	wg := &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
-	sc.UpdateFQDNSelector(googleSel, googleIdentities, wg)
-	wg.Wait()
+	initialCiliumIdentities := cache.IdentityCache{
+		1111: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32")).LabelArray().Sort(),
+		2111: labels.GetCIDRLabels(netip.MustParsePrefix("2.1.1.1/32")).LabelArray().Sort(),
+	}
 
-	_, exists := sc.selectors[ciliumSel.String()]
-	c.Assert(exists, Equals, true)
+	initialGoogleIdentities := cache.IdentityCache{
+		1112: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.2/32")).LabelArray().Sort(),
+		2112: labels.GetCIDRLabels(netip.MustParsePrefix("2.1.1.2/32")).LabelArray().Sort(),
+	}
+
+	sc.UpdateIdentities(initialCiliumIdentities, nil, nil)
+	sc.UpdateIdentities(initialGoogleIdentities, nil, nil)
+
+	// Configure the dummy NameManager so that each selector has one IP
+	di.SetSelectorIPs(googleSel, googleIPs[:1])
+	di.SetSelectorIPs(ciliumSel, ciliumIPs[:1])
 
 	user1 := newUser(c, "user1", sc)
 	cached := user1.AddFQDNSelector(ciliumSel)
 
 	selections := cached.GetSelections()
-	c.Assert(len(selections), Equals, 3)
-	for i, selection := range selections {
-		c.Assert(selection, Equals, ciliumIdentities[i])
-	}
+	c.Assert(len(selections), Equals, 1)
+	c.Assert(int(selections[0]), Equals, 1111)
 
 	// Add another selector from the same user
 	cached2 := user1.AddFQDNSelector(googleSel)
@@ -434,103 +445,81 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections2 := cached2.GetSelections()
-	c.Assert(len(selections2), Equals, 3)
-	for i, selection := range selections2 {
-		c.Assert(selection, Equals, googleIdentities[i])
-	}
+	c.Assert(len(selections2), Equals, 1)
+	c.Assert(int(selections2[0]), Equals, 1112)
 
-	// Add some identities to the identity cache
+	// Add an additional IP to the selector (for which the identity exists)
 	user1.Reset()
-	ciliumIdentities = append(ciliumIdentities, identity.NumericIdentity(123456))
-	wg = &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
+	wg := &sync.WaitGroup{}
+	sc.UpdateFQDNSelector(ciliumSel, ciliumIPs, wg)
 	wg.Wait()
 
 	adds, deletes := user1.WaitForUpdate()
 	c.Assert(adds, Equals, 1)
 	c.Assert(deletes, Equals, 0)
 
+	selections = cached.GetSelections()
+	c.Assert(len(selections), Equals, 2)
+	c.Assert(int(selections[0]), Equals, 1111)
+	c.Assert(int(selections[1]), Equals, 2111)
+
+	// Change to a different IP that does not yet exist
 	user1.Reset()
-	ciliumIdentities = ciliumIdentities[:1]
 	wg = &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
+	sc.UpdateFQDNSelector(ciliumSel, []netip.Addr{netip.MustParseAddr("4.4.4.4")}, wg)
 	wg.Wait()
 
 	adds, deletes = user1.WaitForUpdate()
-	c.Assert(adds, Equals, 1)
-	c.Assert(deletes, Equals, 3)
+	c.Assert(adds, Equals, 1) // these values are not cleared on Reset(), so this is the same as before
+	c.Assert(deletes, Equals, 2)
+
+	selections = cached.GetSelections()
+	c.Assert(len(selections), Equals, 0)
+
+	// Now, add the identity that the selector selects
+	newIdentities := cache.IdentityCache{
+		4444: labels.GetCIDRLabels(netip.MustParsePrefix("4.4.4.4/32")).LabelArray().Sort(),
+	}
 
 	user1.Reset()
-	ciliumIdentities = []identity.NumericIdentity{}
 	wg = &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
+	sc.UpdateIdentities(newIdentities, nil, wg)
 	wg.Wait()
+
+	// We should now see another add
+	selections = cached.GetSelections()
+	c.Assert(len(selections), Equals, 1)
+	c.Assert(int(selections[0]), Equals, 4444)
 
 	adds, deletes = user1.WaitForUpdate()
-	c.Assert(adds, Equals, 1)
-	c.Assert(deletes, Equals, 4)
+	c.Assert(adds, Equals, 2) // Again, this is one more than before
+	c.Assert(deletes, Equals, 2)
 
-	user1.RemoveSelector(cached)
-	user1.RemoveSelector(cached2)
-
-	// All identities removed
-	c.Assert(len(sc.selectors), Equals, 0)
-
-	yahooSel := api.FQDNSelector{MatchName: "yahoo.com"}
-	_, added := sc.AddFQDNSelector(user1, nil, yahooSel)
-	c.Assert(added, Equals, true)
-}
-
-func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
-
-	// Add some identities to the identity cache
-	googleSel := api.FQDNSelector{MatchName: "google.com"}
-	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
-
-	googleIdentities := []identity.NumericIdentity{321, 456, 987}
-	ciliumIdentities := []identity.NumericIdentity{123, 456, 789}
-
-	wg := &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
-	sc.UpdateFQDNSelector(googleSel, googleIdentities, wg)
+	// Delete an unrelated identity, ensure nothing changes
+	user1.Reset()
+	wg = &sync.WaitGroup{}
+	sc.UpdateIdentities(nil, initialCiliumIdentities, wg)
 	wg.Wait()
 
-	_, exists := sc.selectors[ciliumSel.String()]
-	c.Assert(exists, Equals, true)
+	// We should now see no changes
+	selections = cached.GetSelections()
+	c.Assert(len(selections), Equals, 1)
+	c.Assert(int(selections[0]), Equals, 4444)
 
-	user1 := newUser(c, "user1", sc)
-	cached := user1.AddFQDNSelector(ciliumSel)
+	// In this case, user1 will not get an update, since adds + deletes = 0
 
-	selections := cached.GetSelections()
-	c.Assert(len(selections), Equals, 3)
-	for i, selection := range selections {
-		c.Assert(selection, Equals, ciliumIdentities[i])
-	}
-
-	// Add another selector from the same user
-	cached2 := user1.AddFQDNSelector(googleSel)
-	c.Assert(cached2, Not(Equals), cached)
-
-	// Current selections contain the numeric identities of existing identities that match
-	selections2 := cached2.GetSelections()
-	c.Assert(len(selections2), Equals, 3)
-	for i, selection := range selections2 {
-		c.Assert(selection, Equals, googleIdentities[i])
-	}
-
+	// Delete a selected identity, ensure we get the delete
+	user1.Reset()
 	wg = &sync.WaitGroup{}
-	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelector{
-		googleSel,
-		ciliumSel,
-	}, wg)
+	sc.UpdateIdentities(nil, newIdentities, wg)
 	wg.Wait()
 
 	selections = cached.GetSelections()
 	c.Assert(len(selections), Equals, 0)
 
-	selections2 = cached2.GetSelections()
-	c.Assert(len(selections2), Equals, 0)
+	adds, deletes = user1.WaitForUpdate()
+	c.Assert(adds, Equals, 2)
+	c.Assert(deletes, Equals, 3)
 }
 
 func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
@@ -632,4 +621,38 @@ func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
+}
+
+func TestFQDNSelectorMatches(t *testing.T) {
+
+	f := fqdnSelector{}
+
+	ip1 := netip.MustParseAddr("1.1.1.1")
+	ip2 := netip.MustParseAddr("1.1.1.2")
+
+	l1 := labels.GetCIDRLabels(netip.PrefixFrom(ip1, ip1.BitLen())).LabelArray()
+	l2 := labels.GetCIDRLabels(netip.PrefixFrom(ip2, ip2.BitLen())).LabelArray()
+
+	i1 := scIdentity{lbls: l1}
+	i2 := scIdentity{lbls: l2}
+	i3 := scIdentity{}
+
+	assert.False(t, f.matches(i1))
+	assert.False(t, f.matches(i2))
+	assert.False(t, f.matches(i3))
+
+	f.setSelectorIPs([]netip.Addr{ip1})
+	assert.True(t, f.matches(i1))
+	assert.False(t, f.matches(i2))
+	assert.False(t, f.matches(i3))
+
+	f.setSelectorIPs([]netip.Addr{ip2})
+	assert.False(t, f.matches(i1))
+	assert.True(t, f.matches(i2))
+	assert.False(t, f.matches(i3))
+
+	f.setSelectorIPs([]netip.Addr{ip1, ip2})
+	assert.True(t, f.matches(i1))
+	assert.True(t, f.matches(i2))
+	assert.False(t, f.matches(i3))
 }

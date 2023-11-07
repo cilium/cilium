@@ -24,6 +24,6 @@ func FuzzMapSelectorsToIPsLocked(f *testing.F) {
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 		})
-		_, _ = nameManager.MapSelectorsToIPsLocked(fqdnSelectors)
+		nameManager.mapSelectorsToIPsLocked(fqdnSelectors)
 	})
 }

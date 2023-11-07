@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -48,59 +47,56 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	selectors := sets.New[api.FQDNSelector](ciliumIOSel)
 
 	// Empty cache.
-	selsMissingIPs, selIPMapping := nameManager.MapSelectorsToIPsLocked(selectors)
-	c.Assert(len(selsMissingIPs), Equals, 1)
-	c.Assert(selsMissingIPs[0], Equals, ciliumIOSel)
-	c.Assert(len(selIPMapping), Equals, 0)
+	selIPMapping := nameManager.mapSelectorsToIPsLocked(selectors)
+	c.Assert(len(selIPMapping), Equals, 1)
+	ips, exists := selIPMapping[ciliumIOSel]
+	c.Assert(exists, Equals, true)
+	c.Assert(len(ips), Equals, 0)
 
 	// Just one IP.
 	changed := cache.Update(now, prepareMatchName(ciliumIOSel.MatchName), []netip.Addr{ciliumIP1}, 100)
 	c.Assert(changed, Equals, true)
-	selsMissingIPs, selIPMapping = nameManager.MapSelectorsToIPsLocked(selectors)
-	c.Assert(len(selsMissingIPs), Equals, 0)
+	selIPMapping = nameManager.mapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selIPMapping), Equals, 1)
 	ciliumIPs, ok := selIPMapping[ciliumIOSel]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 1)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[0]), Equals, ciliumIP1)
+	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
 
 	// Two IPs now.
 	changed = cache.Update(now, prepareMatchName(ciliumIOSel.MatchName), []netip.Addr{ciliumIP1, ciliumIP2}, 100)
 	c.Assert(changed, Equals, true)
-	selsMissingIPs, selIPMapping = nameManager.MapSelectorsToIPsLocked(selectors)
-	c.Assert(len(selsMissingIPs), Equals, 0)
+	selIPMapping = nameManager.mapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selIPMapping), Equals, 1)
 	ciliumIPs, ok = selIPMapping[ciliumIOSel]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[0]), Equals, ciliumIP1)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[1]), Equals, ciliumIP2)
+	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
+	c.Assert(ciliumIPs[1], Equals, ciliumIP2)
 
 	// Test with a MatchPattern.
 	selectors = sets.New(ciliumIOSelMatchPattern)
 
-	selsMissingIPs, selIPMapping = nameManager.MapSelectorsToIPsLocked(selectors)
-	c.Assert(len(selsMissingIPs), Equals, 0)
+	selIPMapping = nameManager.mapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selIPMapping), Equals, 1)
 	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[0]), Equals, ciliumIP1)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[1]), Equals, ciliumIP2)
+	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
+	c.Assert(ciliumIPs[1], Equals, ciliumIP2)
 
 	selectors = sets.New(ciliumIOSelMatchPattern, ciliumIOSel)
 
-	selsMissingIPs, selIPMapping = nameManager.MapSelectorsToIPsLocked(selectors)
-	c.Assert(len(selsMissingIPs), Equals, 0)
+	selIPMapping = nameManager.mapSelectorsToIPsLocked(selectors)
 	c.Assert(len(selIPMapping), Equals, 2)
 	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[0]), Equals, ciliumIP1)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[1]), Equals, ciliumIP2)
+	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
+	c.Assert(ciliumIPs[1], Equals, ciliumIP2)
 	ciliumIPs, ok = selIPMapping[ciliumIOSel]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[0]), Equals, ciliumIP1)
-	c.Assert(ip.MustAddrFromIP(ciliumIPs[1]), Equals, ciliumIP2)
+	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
+	c.Assert(ciliumIPs[1], Equals, ciliumIP2)
 }
