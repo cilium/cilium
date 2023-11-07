@@ -606,7 +606,7 @@ func (pt paramGroupedSlice) callGroupProviders(c containerStore) (int, error) {
 		providers := c.getGroupProviders(pt.Group, pt.Type.Elem())
 		itemCount += len(providers)
 		for _, n := range providers {
-			if err := n.Call(c); err != nil {
+			if err := n.Call(n.OrigScope()); err != nil {
 				return 0, errParamGroupFailed{
 					CtorID: n.ID(),
 					Key:    key{group: pt.Group, t: pt.Type.Elem()},

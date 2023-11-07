@@ -391,13 +391,14 @@ func newFuncInfos(bfis []bpfFuncInfo, spec *Spec) (FuncInfos, error) {
 	return fis, nil
 }
 
-// LoadFuncInfos parses btf func info in wire format.
+// LoadFuncInfos parses BTF func info in kernel wire format.
 func LoadFuncInfos(reader io.Reader, bo binary.ByteOrder, recordNum uint32, spec *Spec) (FuncInfos, error) {
 	fis, err := parseFuncInfoRecords(
 		reader,
 		bo,
 		FuncInfoSize,
 		recordNum,
+		false,
 	)
 	if err != nil {
 		return FuncInfos{}, fmt.Errorf("parsing BTF func info: %w", err)
@@ -441,7 +442,7 @@ func parseFuncInfos(r io.Reader, bo binary.ByteOrder, strings *stringTable) (map
 			return nil, err
 		}
 
-		records, err := parseFuncInfoRecords(r, bo, recordSize, infoHeader.NumInfo)
+		records, err := parseFuncInfoRecords(r, bo, recordSize, infoHeader.NumInfo, true)
 		if err != nil {
 			return nil, fmt.Errorf("section %v: %w", secName, err)
 		}
@@ -453,7 +454,7 @@ func parseFuncInfos(r io.Reader, bo binary.ByteOrder, strings *stringTable) (map
 // parseFuncInfoRecords parses a stream of func_infos into a funcInfos.
 // These records appear after a btf_ext_info_sec header in the func_info
 // sub-section of .BTF.ext.
-func parseFuncInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, recordNum uint32) ([]bpfFuncInfo, error) {
+func parseFuncInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, recordNum uint32, offsetInBytes bool) ([]bpfFuncInfo, error) {
 	var out []bpfFuncInfo
 	var fi bpfFuncInfo
 
@@ -467,13 +468,15 @@ func parseFuncInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, r
 			return nil, fmt.Errorf("can't read function info: %v", err)
 		}
 
-		if fi.InsnOff%asm.InstructionSize != 0 {
-			return nil, fmt.Errorf("offset %v is not aligned with instruction size", fi.InsnOff)
-		}
+		if offsetInBytes {
+			if fi.InsnOff%asm.InstructionSize != 0 {
+				return nil, fmt.Errorf("offset %v is not aligned with instruction size", fi.InsnOff)
+			}
 
-		// ELF tracks offset in bytes, the kernel expects raw BPF instructions.
-		// Convert as early as possible.
-		fi.InsnOff /= asm.InstructionSize
+			// ELF tracks offset in bytes, the kernel expects raw BPF instructions.
+			// Convert as early as possible.
+			fi.InsnOff /= asm.InstructionSize
+		}
 
 		out = append(out, fi)
 	}
@@ -537,13 +540,14 @@ type bpfLineInfo struct {
 	LineCol     uint32
 }
 
-// LoadLineInfos parses btf line info in wire format.
+// LoadLineInfos parses BTF line info in kernel wire format.
 func LoadLineInfos(reader io.Reader, bo binary.ByteOrder, recordNum uint32, spec *Spec) (LineInfos, error) {
 	lis, err := parseLineInfoRecords(
 		reader,
 		bo,
 		LineInfoSize,
 		recordNum,
+		false,
 	)
 	if err != nil {
 		return LineInfos{}, fmt.Errorf("parsing BTF line info: %w", err)
@@ -649,7 +653,7 @@ func parseLineInfos(r io.Reader, bo binary.ByteOrder, strings *stringTable) (map
 			return nil, err
 		}
 
-		records, err := parseLineInfoRecords(r, bo, recordSize, infoHeader.NumInfo)
+		records, err := parseLineInfoRecords(r, bo, recordSize, infoHeader.NumInfo, true)
 		if err != nil {
 			return nil, fmt.Errorf("section %v: %w", secName, err)
 		}
@@ -661,7 +665,7 @@ func parseLineInfos(r io.Reader, bo binary.ByteOrder, strings *stringTable) (map
 // parseLineInfoRecords parses a stream of line_infos into a lineInfos.
 // These records appear after a btf_ext_info_sec header in the line_info
 // sub-section of .BTF.ext.
-func parseLineInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, recordNum uint32) ([]bpfLineInfo, error) {
+func parseLineInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, recordNum uint32, offsetInBytes bool) ([]bpfLineInfo, error) {
 	var out []bpfLineInfo
 	var li bpfLineInfo
 
@@ -675,13 +679,15 @@ func parseLineInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, r
 			return nil, fmt.Errorf("can't read line info: %v", err)
 		}
 
-		if li.InsnOff%asm.InstructionSize != 0 {
-			return nil, fmt.Errorf("offset %v is not aligned with instruction size", li.InsnOff)
-		}
+		if offsetInBytes {
+			if li.InsnOff%asm.InstructionSize != 0 {
+				return nil, fmt.Errorf("offset %v is not aligned with instruction size", li.InsnOff)
+			}
 
-		// ELF tracks offset in bytes, the kernel expects raw BPF instructions.
-		// Convert as early as possible.
-		li.InsnOff /= asm.InstructionSize
+			// ELF tracks offset in bytes, the kernel expects raw BPF instructions.
+			// Convert as early as possible.
+			li.InsnOff /= asm.InstructionSize
+		}
 
 		out = append(out, li)
 	}

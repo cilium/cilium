@@ -1411,11 +1411,7 @@ func (mi *MapIterator) Next(keyOut, valueOut interface{}) bool {
 			return false
 		}
 
-		// The user can get access to nextKey since unmarshalBytes
-		// does not copy when unmarshaling into a []byte.
-		// Make a copy to prevent accidental corruption of
-		// iterator state.
-		copy(mi.curKey, nextKey)
+		mi.curKey = nextKey
 
 		mi.count++
 		mi.err = mi.target.Lookup(nextKey, valueOut)
