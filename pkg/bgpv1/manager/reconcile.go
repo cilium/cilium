@@ -485,31 +485,12 @@ func (r *LBServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 		return fmt.Errorf("attempted load balancer service reconciliation with nil local CiliumNode")
 	}
 
-	var existingSelector *slim_metav1.LabelSelector
-	if p.CurrentServer != nil && p.CurrentServer.Config != nil {
-		existingSelector = p.CurrentServer.Config.ServiceSelector
-	}
-
 	ls := r.populateLocalServices(p.CiliumNode.Name)
 
-	// If the existing selector was updated, went from nil to something or something to nil, we need to perform full
-	// reconciliation and check if every existing announcement's service still matches the selector.
-	changed := (existingSelector != nil && p.DesiredConfig.ServiceSelector != nil && !p.DesiredConfig.ServiceSelector.DeepEqual(existingSelector)) ||
-		((existingSelector == nil) != (p.DesiredConfig.ServiceSelector == nil))
-
-	if changed {
-		if err := r.fullReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls); err != nil {
-			return fmt.Errorf("full reconciliation: %w", err)
-		}
-
-		return nil
+	if r.requiresFullReconciliation(p) {
+		return r.fullReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls)
 	}
-
-	if err := r.svcDiffReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls); err != nil {
-		return fmt.Errorf("svc Diff reconciliation: %w", err)
-	}
-
-	return nil
+	return r.svcDiffReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls)
 }
 
 func (r *LBServiceReconciler) getMetadata(sc *ServerWithConfig) LBServiceReconcilerMetadata {
@@ -525,6 +506,19 @@ func (r *LBServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim
 		Namespace: eps.ServiceID.Namespace,
 	}
 	return r.diffStore.GetByKey(k)
+}
+
+// requiresFullReconciliation returns true if the desired config requires full reconciliation
+// (reconciliation of all services), false if partial (diff) reconciliation is sufficient.
+func (r *LBServiceReconciler) requiresFullReconciliation(p ReconcileParams) bool {
+	var existingSelector *slim_metav1.LabelSelector
+	if p.CurrentServer != nil && p.CurrentServer.Config != nil {
+		existingSelector = p.CurrentServer.Config.ServiceSelector
+	}
+	// If the existing selector was updated, went from nil to something or something to nil, we need to perform full
+	// reconciliation and check if every existing announcement's service still matches the selector.
+	return (existingSelector != nil && p.DesiredConfig.ServiceSelector != nil && !p.DesiredConfig.ServiceSelector.DeepEqual(existingSelector)) ||
+		((existingSelector == nil) != (p.DesiredConfig.ServiceSelector == nil))
 }
 
 // Populate locally available services used for externalTrafficPolicy=local handling
@@ -649,39 +643,19 @@ func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
 // fullReconciliation reconciles all services, this is a heavy operation due to the potential amount of services and
 // thus should be avoided if partial reconciliation is an option.
 func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
-	// Loop over all existing announcements, delete announcements for services which no longer exist
-	serviceAnnouncements := r.getMetadata(sc)
-	for svcKey := range serviceAnnouncements {
-		_, found, err := r.diffStore.GetByKey(svcKey)
-		if err != nil {
-			return fmt.Errorf("diffStore.GetByKey(); %w", err)
-		}
-		// if the service no longer exists, withdraw all associated routes
-		if !found {
-			if err := r.withdrawService(ctx, sc, svcKey); err != nil {
-				return fmt.Errorf("withdrawService(): %w", err)
-			}
-			continue
+	toReconcile, toWithdraw, err := r.fullReconciliationServiceList(sc)
+	if err != nil {
+		return err
+	}
+	for _, svc := range toReconcile {
+		if err := r.reconcileService(ctx, sc, newc, svc, ls); err != nil {
+			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
 	}
-
-	// Loop over all services, reconcile any updates to the service
-	iter := r.diffStore.IterKeys()
-	for iter.Next() {
-		svcKey := iter.Key()
-		svc, found, err := r.diffStore.GetByKey(iter.Key())
-		if err != nil {
-			return fmt.Errorf("diffStore.GetByKey(); %w", err)
+	for _, svc := range toWithdraw {
+		if err := r.withdrawService(ctx, sc, svc); err != nil {
+			return fmt.Errorf("failed to withdraw service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
-		if !found {
-			// edgecase: If the service was removed between the call to IterKeys() and GetByKey()
-			if err := r.withdrawService(ctx, sc, svcKey); err != nil {
-				return fmt.Errorf("withdrawService(): %w", err)
-			}
-			continue
-		}
-
-		r.reconcileService(ctx, sc, newc, svc, ls)
 	}
 	return nil
 }
@@ -689,9 +663,65 @@ func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *Server
 // svcDiffReconciliation performs reconciliation, only on services which have been created, updated or deleted since
 // the last diff reconciliation.
 func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
+	toReconcile, toWithdraw, err := r.diffReconciliationServiceList()
+	if err != nil {
+		return err
+	}
+	for _, svc := range toReconcile {
+		if err := r.reconcileService(ctx, sc, newc, svc, ls); err != nil {
+			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
+		}
+	}
+	// Loop over the deleted services
+	for _, svcKey := range toWithdraw {
+		if err := r.withdrawService(ctx, sc, svcKey); err != nil {
+			return fmt.Errorf("failed to withdraw service %s: %w", svcKey, err)
+		}
+	}
+	return nil
+}
+
+// fullReconciliationServiceList return a list of services to reconcile and to withdraw when performing
+// full service reconciliation.
+func (r *LBServiceReconciler) fullReconciliationServiceList(sc *ServerWithConfig) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
+	// Loop over all existing announcements, find announcements for services which no longer exist
+	serviceAnnouncements := r.getMetadata(sc)
+	for svcKey := range serviceAnnouncements {
+		_, found, err := r.diffStore.GetByKey(svcKey)
+		if err != nil {
+			return nil, nil, fmt.Errorf("diffStore.GetByKey(): %w", err)
+		}
+		// if the service no longer exists, withdraw it
+		if !found {
+			toWithdraw = append(toWithdraw, svcKey)
+		}
+	}
+
+	// Loop over all services, find services to reconcile
+	iter := r.diffStore.IterKeys()
+	for iter.Next() {
+		svcKey := iter.Key()
+		svc, found, err := r.diffStore.GetByKey(iter.Key())
+		if err != nil {
+			return nil, nil, fmt.Errorf("diffStore.GetByKey(): %w", err)
+		}
+		if !found {
+			// edgecase: If the service was removed between the call to IterKeys() and GetByKey()
+			toWithdraw = append(toWithdraw, svcKey)
+			continue
+		}
+		toReconcile = append(toReconcile, svc)
+	}
+
+	return toReconcile, toWithdraw, nil
+}
+
+// diffReconciliationServiceList returns a list of services to reconcile and to withdraw when
+// performing partial (diff) service reconciliation.
+func (r *LBServiceReconciler) diffReconciliationServiceList() (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
 	upserted, deleted, err := r.diffStore.Diff()
 	if err != nil {
-		return fmt.Errorf("svc store diff: %w", err)
+		return nil, nil, fmt.Errorf("svc store diff: %w", err)
 	}
 
 	// For externalTrafficPolicy=local, we need to take care of
@@ -702,7 +732,7 @@ func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *Ser
 	// nothing to do.
 	epsUpserted, _, err := r.epDiffStore.Diff()
 	if err != nil {
-		return fmt.Errorf("endpoints store diff: %w", err)
+		return nil, nil, fmt.Errorf("endpoints store diff: %w", err)
 	}
 
 	for _, eps := range epsUpserted {
@@ -737,20 +767,7 @@ func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *Ser
 		},
 	)
 
-	for _, svc := range deduped {
-		if err := r.reconcileService(ctx, sc, newc, svc, ls); err != nil {
-			return fmt.Errorf("reconcile service: %w", err)
-		}
-	}
-
-	// Loop over the deleted services
-	for _, svcKey := range deleted {
-		if err := r.withdrawService(ctx, sc, svcKey); err != nil {
-			return fmt.Errorf("withdrawService(): %w", err)
-		}
-	}
-
-	return nil
+	return deduped, deleted, nil
 }
 
 // svcDesiredRoutes determines which, if any routes should be announced for the given service. This determines the
@@ -807,17 +824,22 @@ func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtua
 }
 
 // reconcileService gets the desired routes of a given service and makes sure that is what is being announced.
-// Adding missing announcements or withdrawing unwanted ones.
 func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) error {
+
+	desiredRoutes, err := r.svcDesiredRoutes(newc, svc, ls)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve svc desired routes: %w", err)
+	}
+	return r.reconcileServiceRoutes(ctx, sc, svc, desiredRoutes)
+}
+
+// reconcileServiceRoutes ensures that desired routes of a given service are announced,
+// adding missing announcements or withdrawing unwanted ones.
+func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *ServerWithConfig, svc *slim_corev1.Service, desiredRoutes []netip.Prefix) error {
 	serviceAnnouncements := r.getMetadata(sc)
 	svcKey := resource.NewKey(svc)
 
-	desiredCidrs, err := r.svcDesiredRoutes(newc, svc, ls)
-	if err != nil {
-		return fmt.Errorf("svcDesiredRoutes(): %w", err)
-	}
-
-	for _, desiredCidr := range desiredCidrs {
+	for _, desiredCidr := range desiredRoutes {
 		// If this route has already been announced, don't add it again
 		if slices.IndexFunc(serviceAnnouncements[svcKey], func(existing *types.Path) bool {
 			return desiredCidr.String() == existing.NLRI.String()
@@ -839,7 +861,7 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 	for i := len(serviceAnnouncements[svcKey]) - 1; i >= 0; i-- {
 		announcement := serviceAnnouncements[svcKey][i]
 		// If the announcement is within the list of desired routes, don't remove it
-		if slices.IndexFunc(desiredCidrs, func(existing netip.Prefix) bool {
+		if slices.IndexFunc(desiredRoutes, func(existing netip.Prefix) bool {
 			return existing.String() == announcement.NLRI.String()
 		}) != -1 {
 			continue
@@ -852,7 +874,6 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 		// Delete announcement from slice
 		serviceAnnouncements[svcKey] = slices.Delete(serviceAnnouncements[svcKey], i, i+1)
 	}
-
 	return nil
 }
 
