@@ -12,7 +12,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -179,12 +178,4 @@ func onlyStatusChanged() predicate.Predicate {
 			}
 		},
 	}
-}
-
-func success() (ctrl.Result, error) {
-	return ctrl.Result{}, nil
-}
-
-func fail(e error) (ctrl.Result, error) {
-	return ctrl.Result{}, e
 }

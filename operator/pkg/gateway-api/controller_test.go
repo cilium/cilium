@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	controllerruntime "sigs.k8s.io/controller-runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -25,6 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -356,18 +357,18 @@ func Test_getGatewaysForNamespace(t *testing.T) {
 func Test_success(t *testing.T) {
 	tests := []struct {
 		name    string
-		want    controllerruntime.Result
+		want    ctrl.Result
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
 			name:    "success",
-			want:    controllerruntime.Result{},
+			want:    ctrl.Result{},
 			wantErr: assert.NoError,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := success()
+			got, err := controllerruntime.Success()
 			if !tt.wantErr(t, err, "success()") {
 				return
 			}
@@ -383,7 +384,7 @@ func Test_fail(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    controllerruntime.Result
+		want    ctrl.Result
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
@@ -391,13 +392,13 @@ func Test_fail(t *testing.T) {
 			args: args{
 				e: errors.New("fail"),
 			},
-			want:    controllerruntime.Result{},
+			want:    ctrl.Result{},
 			wantErr: assert.Error,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := fail(tt.args.e)
+			got, err := controllerruntime.Fail(tt.args.e)
 			if !tt.wantErr(t, err, fmt.Sprintf("fail(%v)", tt.args.e)) {
 				return
 			}

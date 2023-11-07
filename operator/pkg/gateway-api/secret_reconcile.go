@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -36,34 +37,34 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 			// Check if there's an existing synced secret for the deleted Secret
 			if err := r.cleanupSyncedSecret(ctx, req, scopedLog); err != nil {
-				return fail(err)
+				return controllerruntime.Fail(err)
 			}
 
 			// there is nothing to copy, the related gateway is not accepted anyway.
 			// if later the secret is created, the gateway will be reconciled again,
 			// then this secret will be copied.
-			return success()
+			return controllerruntime.Success()
 		}
 
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	if !r.mainObjectReferencedFunc(ctx, r.client, original) {
 		// Check if there's an existing synced secret that should be deleted
 		if err := r.cleanupSyncedSecret(ctx, req, scopedLog); err != nil {
-			return fail(err)
+			return controllerruntime.Fail(err)
 		}
-		return success()
+		return controllerruntime.Success()
 	}
 
 	desiredSync := desiredSyncSecret(r.secretsNamespace, original)
 
 	if err := r.ensureSyncedSecret(ctx, desiredSync); err != nil {
-		return fail(err)
+		return controllerruntime.Fail(err)
 	}
 
 	scopedLog.Info("Successfully synced secrets")
-	return success()
+	return controllerruntime.Success()
 }
 
 func (r *secretSyncer) cleanupSyncedSecret(ctx context.Context, req reconcile.Request, scopedLog *logrus.Entry) error {
