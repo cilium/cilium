@@ -20,7 +20,5 @@ var _ = check.Suite(&linuxTestSuite{})
 func (s *linuxTestSuite) TestNewDatapath(c *check.C) {
 	dp := NewDatapath(DatapathParams{}, DatapathConfiguration{})
 	c.Assert(dp, check.Not(check.IsNil))
-
 	c.Assert(dp.Node(), check.Not(check.IsNil))
-	c.Assert(dp.LocalNodeAddressing(), check.Not(check.IsNil))
 }

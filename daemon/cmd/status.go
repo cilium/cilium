@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
@@ -33,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
-	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -239,22 +239,17 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devicesLegacy := option.Config.GetDevices()
-	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(devicesLegacy))
-	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
-	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()
-	for i, iface := range devicesLegacy {
+	devices, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())
+	devicesList := make([]*models.KubeProxyReplacementDeviceListItems0, len(devices))
+	for i, dev := range devices {
 		info := &models.KubeProxyReplacementDeviceListItems0{
-			Name: iface,
-			IP:   make([]string, 0),
+			Name: dev.Name,
+			IP:   make([]string, len(dev.Addrs)),
 		}
-		if addr, ok := v4Addrs[iface]; ok {
-			info.IP = append(info.IP, addr.String())
+		for _, addr := range dev.Addrs {
+			info.IP = append(info.IP, addr.Addr.String())
 		}
-		if addr, ok := v6Addrs[iface]; ok {
-			info.IP = append(info.IP, addr.String())
-		}
-		devices[i] = info
+		devicesList[i] = info
 	}
 
 	features := &models.KubeProxyReplacementFeatures{
@@ -330,8 +325,8 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 
 	return &models.KubeProxyReplacement{
 		Mode:                mode,
-		Devices:             devicesLegacy,
-		DeviceList:          devices,
+		Devices:             datapathTables.DeviceNames(devices),
+		DeviceList:          devicesList,
 		DirectRoutingDevice: option.Config.DirectRoutingDevice,
 		Features:            features,
 	}

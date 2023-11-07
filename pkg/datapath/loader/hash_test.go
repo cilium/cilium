@@ -4,10 +4,17 @@
 package loader
 
 import (
-	. "github.com/cilium/checkmate"
+	"context"
 
+	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -20,7 +27,21 @@ var (
 // TesthashDatapath is done in this package just for easy access to dummy
 // configuration objects.
 func (s *LoaderTestSuite) TesthashDatapath(c *C) {
-	cfg := &config.HeaderfileWriter{}
+	var cfg datapath.ConfigWriter
+	hv := hive.New(
+		cell.Provide(
+			fake.NewNodeAddressing,
+			func() bandwidth.Manager { return &fake.BandwidthManager{} },
+			config.NewHeaderfileWriter,
+		),
+		cell.Invoke(func(writer_ datapath.ConfigWriter) {
+			cfg = writer_
+		}),
+	)
+
+	require.NoError(c, hv.Start(context.TODO()))
+	c.Cleanup(func() { require.Nil(c, hv.Stop(context.TODO())) })
+
 	h := newDatapathHash()
 	baseHash := h.String()
 

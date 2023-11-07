@@ -325,7 +325,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	// Replace program on cilium_net.
 	if _, err := netlink.LinkByName(defaults.SecondHostDevice); err != nil {
 		log.WithError(err).WithField("device", defaults.SecondHostDevice).Error("Link does not exist")
-		return err
+		return fmt.Errorf("device '%s' not found: %w", defaults.SecondHostDevice, err)
 	}
 
 	secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
