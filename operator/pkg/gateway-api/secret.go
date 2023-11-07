@@ -32,14 +32,19 @@ type secretSyncer struct {
 	client client.Client
 	logger logrus.FieldLogger
 
-	secretsNamespace string
+	mainObject            client.Object
+	mainObjectEnqueueFunc handler.EventHandler
+	secretsNamespace      string
 }
 
-func newSecretSyncReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, secretsNamespace string) *secretSyncer {
+func newSecretSyncReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, mainObject client.Object, mainObjectEnqueueFunc handler.EventHandler, secretsNamespace string) *secretSyncer {
 	return &secretSyncer{
-		client:           mgr.GetClient(),
-		logger:           logger,
-		secretsNamespace: secretsNamespace,
+		client: mgr.GetClient(),
+		logger: logger,
+
+		mainObject:            mainObject,
+		mainObjectEnqueueFunc: mainObjectEnqueueFunc,
+		secretsNamespace:      secretsNamespace,
 	}
 }
 
@@ -50,8 +55,8 @@ func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 		For(&corev1.Secret{}, r.notInSecretsNamespace()).
 		// Synced Secrets in the secrets namespace
 		Watches(&corev1.Secret{}, enqueueOwningSecretFromLabels(), r.deletedOrChangedInSecretsNamespace()).
-		// Watch Gateways referencing TLS secrets
-		Watches(&gatewayv1.Gateway{}, enqueueTLSSecrets(r.client)).
+		// Watch main object referencing TLS secrets
+		Watches(r.mainObject, r.mainObjectEnqueueFunc).
 		Complete(r)
 }
 

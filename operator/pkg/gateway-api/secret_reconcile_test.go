@@ -154,9 +154,11 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		WithObjects(secretFixture...).
 		Build()
 	r := &secretSyncer{
-		client:           c,
-		logger:           logrus.New(),
-		secretsNamespace: secretsNamespace,
+		client:                c,
+		logger:                logrus.New(),
+		mainObject:            &gatewayv1.Gateway{},
+		mainObjectEnqueueFunc: enqueueTLSSecrets(c),
+		secretsNamespace:      secretsNamespace,
 	}
 
 	t.Run("delete synced secret if source secret doesn't exist", func(t *testing.T) {
