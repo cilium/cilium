@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	owningSecretName      = "io.cilium.gateway/owning-secret-name"
-	owningSecretNamespace = "io.cilium.gateway/owning-secret-namespace"
+	owningSecretNamespace = "secretsync.cilium.io/owning-secret-namespace"
+	owningSecretName      = "secretsync.cilium.io/owning-secret-name"
 )
 
 // secretSyncer syncs Gateway API secrets to dedicated namespace.
