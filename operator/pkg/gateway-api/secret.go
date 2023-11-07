@@ -8,7 +8,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -32,7 +31,6 @@ const (
 type secretSyncer struct {
 	client client.Client
 	logger logrus.FieldLogger
-	scheme *runtime.Scheme
 
 	secretsNamespace string
 }
@@ -41,7 +39,6 @@ func newSecretSyncReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, secret
 	return &secretSyncer{
 		client:           mgr.GetClient(),
 		logger:           logger,
-		scheme:           mgr.GetScheme(),
 		secretsNamespace: secretsNamespace,
 	}
 }
