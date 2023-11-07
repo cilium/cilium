@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -154,6 +155,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		Build()
 	r := &secretSyncer{
 		client:           c,
+		logger:           logrus.New(),
 		secretsNamespace: secretsNamespace,
 	}
 

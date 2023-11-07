@@ -31,14 +31,16 @@ const (
 // secretSyncer syncs Gateway API secrets to dedicated namespace.
 type secretSyncer struct {
 	client client.Client
+	logger logrus.FieldLogger
 	scheme *runtime.Scheme
 
 	secretsNamespace string
 }
 
-func newSecretSyncReconciler(mgr ctrl.Manager, secretsNamespace string) *secretSyncer {
+func newSecretSyncReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, secretsNamespace string) *secretSyncer {
 	return &secretSyncer{
 		client:           mgr.GetClient(),
+		logger:           logger,
 		scheme:           mgr.GetScheme(),
 		secretsNamespace: secretsNamespace,
 	}
@@ -64,7 +66,7 @@ func (r *secretSyncer) notInSecretsNamespace() builder.Predicates {
 
 func (r *secretSyncer) enqueueTLSSecrets() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
+		scopedLog := r.logger.WithFields(logrus.Fields{
 			logfields.Controller: "secrets",
 			logfields.Resource:   obj.GetName(),
 		})
