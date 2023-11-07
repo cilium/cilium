@@ -32,19 +32,21 @@ type secretSyncer struct {
 	client client.Client
 	logger logrus.FieldLogger
 
-	mainObject            client.Object
-	mainObjectEnqueueFunc handler.EventHandler
-	secretsNamespace      string
+	mainObject               client.Object
+	mainObjectEnqueueFunc    handler.EventHandler
+	mainObjectReferencedFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool
+	secretsNamespace         string
 }
 
-func newSecretSyncReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, mainObject client.Object, mainObjectEnqueueFunc handler.EventHandler, secretsNamespace string) *secretSyncer {
+func newSecretSyncReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, mainObject client.Object, mainObjectEnqueueFunc handler.EventHandler, mainObjectReferencedFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool, secretsNamespace string) *secretSyncer {
 	return &secretSyncer{
 		client: mgr.GetClient(),
 		logger: logger,
 
-		mainObject:            mainObject,
-		mainObjectEnqueueFunc: mainObjectEnqueueFunc,
-		secretsNamespace:      secretsNamespace,
+		mainObject:               mainObject,
+		mainObjectEnqueueFunc:    mainObjectEnqueueFunc,
+		mainObjectReferencedFunc: mainObjectReferencedFunc,
+		secretsNamespace:         secretsNamespace,
 	}
 }
 
