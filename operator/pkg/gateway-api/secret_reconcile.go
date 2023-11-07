@@ -101,7 +101,7 @@ func desiredSyncSecret(secretsNamespace string, original *corev1.Secret) *corev1
 func (r *secretSyncer) isUsedByCiliumGateway(ctx context.Context, obj *corev1.Secret) bool {
 	gateways := getGatewaysForSecret(ctx, r.client, obj)
 	for _, gw := range gateways {
-		if hasMatchingController(ctx, r.client, r.controllerName)(gw) {
+		if hasMatchingController(ctx, r.client, controllerName)(gw) {
 			return true
 		}
 	}

@@ -38,8 +38,6 @@ type gatewayReconciler struct {
 	Scheme             *runtime.Scheme
 	SecretsNamespace   string
 	IdleTimeoutSeconds int
-
-	controllerName string
 }
 
 func newGatewayReconciler(mgr ctrl.Manager, secretsNamespace string, idleTimeoutSeconds int) *gatewayReconciler {
@@ -47,7 +45,6 @@ func newGatewayReconciler(mgr ctrl.Manager, secretsNamespace string, idleTimeout
 		Client:             mgr.GetClient(),
 		Scheme:             mgr.GetScheme(),
 		SecretsNamespace:   secretsNamespace,
-		controllerName:     controllerName,
 		IdleTimeoutSeconds: idleTimeoutSeconds,
 	}
 }
@@ -55,7 +52,7 @@ func newGatewayReconciler(mgr ctrl.Manager, secretsNamespace string, idleTimeout
 // SetupWithManager sets up the controller with the Manager.
 // The reconciler will be triggered by Gateway, or any cilium-managed GatewayClass events
 func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, r.controllerName)
+	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, controllerName)
 	return ctrl.NewControllerManagedBy(mgr).
 		// Watch its own resource
 		For(&gatewayv1.Gateway{},
