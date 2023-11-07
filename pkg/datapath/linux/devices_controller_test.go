@@ -60,10 +60,15 @@ func devicesControllerTestSetup(t *testing.T) {
 	})
 }
 
-func containsAddress(dev *tables.Device, addrStr string) bool {
+const (
+	secondaryAddress = true
+	primaryAddress   = false
+)
+
+func containsAddress(dev *tables.Device, addrStr string, secondary bool) bool {
 	addr := netip.MustParseAddr(addrStr)
 	for _, a := range dev.Addrs {
-		if a.Addr == addr {
+		if a.Addr == addr && a.Secondary == secondary {
 			return true
 		}
 	}
@@ -154,10 +159,8 @@ func TestDevicesController(t *testing.T) {
 				return len(devs) == 2 &&
 					"dummy1" == devs[1].Name &&
 					devs[1].Selected &&
-					devs[1].Addrs[0].Addr == netip.MustParseAddr("192.168.1.1") &&
-					!devs[1].Addrs[0].Secondary &&
-					devs[1].Addrs[1].Addr == netip.MustParseAddr("192.168.1.2") &&
-					devs[1].Addrs[1].Secondary
+					containsAddress(devs[1], "192.168.1.1", primaryAddress) &&
+					containsAddress(devs[1], "192.168.1.2", secondaryAddress)
 			},
 		},
 
@@ -182,8 +185,7 @@ func TestDevicesController(t *testing.T) {
 			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
 				return len(devs) == 1 &&
 					"dummy1" == devs[0].Name &&
-					containsAddress(devs[0], "192.168.1.1") &&
-					!orphanRoutes(devs, routes)
+					containsAddress(devs[0], "192.168.1.1", primaryAddress)
 			},
 		},
 
@@ -198,7 +200,7 @@ func TestDevicesController(t *testing.T) {
 					devs[0].Name == "dummy1" &&
 					devs[0].Selected &&
 					devs[1].Name == "veth0" &&
-					containsAddress(devs[1], "192.168.4.1") &&
+					containsAddress(devs[1], "192.168.4.1", primaryAddress) &&
 					devs[1].Selected
 			},
 		},
@@ -290,12 +292,9 @@ func TestDevicesController(t *testing.T) {
 				routesIter, routesIterInvalidated := routesTable.All(txn)
 				routes := statedb.Collect(routesIter)
 
-				if step.check(t, devs, routes) {
-					break
-				}
-
-				// Check that there are no orphan routes
-				if !orphanRoutes(allDevs, routes) {
+				// Stop if the test case passes and there are no orphan routes left in the
+				// route table.
+				if step.check(t, devs, routes) && !orphanRoutes(allDevs, routes) {
 					break
 				}
 
