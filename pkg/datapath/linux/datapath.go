@@ -36,11 +36,12 @@ type linuxDatapath struct {
 }
 
 type DatapathParams struct {
-	ConfigWriter datapath.ConfigWriter
-	RuleManager  datapath.IptablesManager
-	WGAgent      datapath.WireguardAgent
-	NodeMap      nodemap.Map
-	BWManager    bandwidth.Manager
+	ConfigWriter   datapath.ConfigWriter
+	RuleManager    datapath.IptablesManager
+	WGAgent        datapath.WireguardAgent
+	NodeMap        nodemap.Map
+	BWManager      bandwidth.Manager
+	NodeAddressing datapath.NodeAddressing
 }
 
 // NewDatapath creates a new Linux datapath
@@ -48,7 +49,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 	dp := &linuxDatapath{
 		ConfigWriter:    p.ConfigWriter,
 		IptablesManager: p.RuleManager,
-		nodeAddressing:  NewNodeAddressing(),
+		nodeAddressing:  p.NodeAddressing,
 		config:          cfg,
 		loader:          loader.NewLoader(),
 		wgAgent:         p.WGAgent,

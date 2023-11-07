@@ -302,7 +302,6 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 		if n.AddressScopeMax < unix.RT_SCOPE_LINK {
 			for _, addr := range sortedAddresses(dev.Addrs) {
 				if addr.Scope == unix.RT_SCOPE_LINK {
-					n.Log.Infof("HII2 - adding addr: %v prim: %v np: %v dev: %v", addr.Addr, !addr.Secondary, false, dev.Name)
 					addrs.Insert(NodeAddress{
 						Addr:       addr.Addr,
 						NodePort:   false,
@@ -361,8 +360,6 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 				ipv6Found = true
 			}
 		}
-
-		n.Log.Infof("HII - adding addr: %v prim: %v np: %v dev: %v", addr.Addr, primary, nodePort, dev.Name)
 
 		addrs.Insert(NodeAddress{
 			Addr:       addr.Addr,
