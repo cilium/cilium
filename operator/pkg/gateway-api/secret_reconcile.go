@@ -48,7 +48,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return fail(err)
 	}
 
-	if !r.isUsedByCiliumGateway(ctx, original) {
+	if !r.mainObjectReferencedFunc(ctx, r.client, original) {
 		// Check if there's an existing synced secret that should be deleted
 		if err := r.cleanupSyncedSecret(ctx, req, scopedLog); err != nil {
 			return fail(err)
@@ -98,10 +98,10 @@ func desiredSyncSecret(secretsNamespace string, original *corev1.Secret) *corev1
 	return s
 }
 
-func (r *secretSyncer) isUsedByCiliumGateway(ctx context.Context, obj *corev1.Secret) bool {
-	gateways := getGatewaysForSecret(ctx, r.client, obj)
+func isUsedByCiliumGateway(ctx context.Context, c client.Client, obj *corev1.Secret) bool {
+	gateways := getGatewaysForSecret(ctx, c, obj)
 	for _, gw := range gateways {
-		if hasMatchingController(ctx, r.client, controllerName)(gw) {
+		if hasMatchingController(ctx, c, controllerName)(gw) {
 			return true
 		}
 	}
