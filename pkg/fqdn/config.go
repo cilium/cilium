@@ -26,4 +26,14 @@ type Config struct {
 	// UpdateSelectors is a callback to update the mapping of FQDNSelector to
 	// sets of IPs.
 	UpdateSelectors func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error)
+
+	// GetEndpointsDNSInfo is a function that returns a list of fqdn-relevant fields from all Endpoints known to the agent.
+	// The endpoint's DNSHistory and DNSZombies are used as part of the garbage collection and restoration processes.
+	GetEndpointsDNSInfo func() []EndpointDNSInfo
+}
+
+type EndpointDNSInfo struct {
+	ID         string
+	DNSHistory *DNSCache
+	DNSZombies *DNSZombieMappings
 }
