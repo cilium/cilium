@@ -13,10 +13,10 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20231026172044-2ee56d76ec1a
-	github.com/cilium/cilium v1.15.0-pre.1.0.20231025133600-0a8f3f91f109
+	github.com/cilium/charts v0.0.0-20231101091419-6a72c25e3c8e
+	github.com/cilium/cilium v1.15.0-pre.2
 	github.com/cilium/hubble v0.12.2
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20231027135814-0fd246f5b760
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20231106163022-09de1f83eb12
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/distribution/reference v0.5.0
@@ -24,10 +24,10 @@ require (
 	github.com/google/gops v0.3.28
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-	golang.org/x/mod v0.13.0
+	golang.org/x/mod v0.14.0
 	google.golang.org/grpc v1.59.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	helm.sh/helm/v3 v3.13.1
@@ -41,7 +41,7 @@ require (
 
 require (
 	github.com/Microsoft/hcsshim v0.11.0 // indirect
-	github.com/cilium/ebpf v0.12.0 // indirect
+	github.com/cilium/ebpf v0.12.2 // indirect
 	github.com/cilium/proxy v0.0.0-20231018073547-ab187719b71b // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -53,8 +53,9 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
-	go.uber.org/dig v1.17.0 // indirect
+	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go4.org/netipx v0.0.0-20230824141953-6213f710f925 // indirect
 	google.golang.org/genproto v0.0.0-20231012201019-e917dd12ba7a // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231002182017-d307bd883b97 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231016165738-49dd2c1f3d0b // indirect
@@ -93,7 +94,7 @@ require (
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/color v1.15.0 // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
@@ -118,7 +119,7 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/uuid v1.3.1 // indirect
+	github.com/google/uuid v1.4.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
@@ -205,7 +206,7 @@ require (
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/sync v0.4.0 // indirect
+	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect

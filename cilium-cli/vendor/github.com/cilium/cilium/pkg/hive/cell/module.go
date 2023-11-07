@@ -6,11 +6,11 @@ package cell
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	"go.uber.org/dig"
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -98,7 +98,7 @@ func (r *reporterHooks) Stop(ctx lifecycle.HookContext) error {
 }
 
 func createStructedScope(id FullModuleID, p Health, lc lifecycle.Lifecycle) Scope {
-	rs := rootScope(p.forModule(id))
+	rs := rootScope(id, p.forModule(id))
 	lc.Append(&reporterHooks{rootScope: rs})
 	return rs
 }

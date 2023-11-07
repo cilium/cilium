@@ -7,4 +7,4 @@ package v1alpha1
 // Used to determine if CRD needs to be updated in cluster
 //
 // Developers: Bump patch for each change in the CRD schema.
-const CustomResourceDefinitionSchemaVersion = "1.0.0"
+const CustomResourceDefinitionSchemaVersion = "1.1.0"

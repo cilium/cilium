@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"unsafe"
@@ -595,9 +595,9 @@ func GetAllReservedIdentities() []NumericIdentity {
 // GetWorldIdentityFromIP gets the correct world identity based
 // on the IP address version. If Cilium is not in dual-stack mode
 // then ReservedIdentityWorld will always be returned.
-func GetWorldIdentityFromIP(ip net.IP) NumericIdentity {
+func GetWorldIdentityFromIP(addr netip.Addr) NumericIdentity {
 	if option.Config.IsDualStack() {
-		if ip.To4() == nil {
+		if addr.Is6() {
 			return ReservedIdentityWorldIPv6
 		}
 		return ReservedIdentityWorldIPv4
