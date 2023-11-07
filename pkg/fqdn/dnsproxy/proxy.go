@@ -120,6 +120,9 @@ type DNSProxy struct {
 	// this mutex protects variables below this point
 	lock.RWMutex
 
+	// DNSClients is a container for dns.SharedClient instances.
+	DNSClients *dns.SharedClients
+
 	// usedServers is the set of DNS servers that have been allowed and used successfully.
 	// This is used to limit the number of IPs we store for restored DNS rules.
 	usedServers map[string]struct{}
@@ -631,6 +634,7 @@ func StartDNSProxy(
 		cache:                    make(regexCache),
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
+		DNSClients:               dns.NewSharedClients(),
 	}
 	if concurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(concurrencyLimit))
@@ -762,13 +766,83 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 	return false, nil
 }
 
-func setSoMark(fd int, secId identity.NumericIdentity) error {
-	mark := linux_defaults.MagicMarkIdentity
+// setSoMarks sets the socket options needed for a transparent proxy to integrate it's upstream
+// (forwarded) connection with Cilium datapath. Some considerations for this design:
+//
+//   - Since a transparent proxy must reuse the original source IP address (and we must also
+//     intercept the responses), we instruct the host networking namespace to allow binding the
+//     local address to a foreign address and to receive packets destined to a non-local (foreign)
+//     IP address of the source pod via the IP_TRANSPARENT socket option.
+//
+//   - In order to NOT hijack some random by-standing traffic going to the original pod, we must also
+//     use the original port number.
+//
+//   - (DNS) clients use ephemeral source ports, i.e., the port can be different in every
+//     request. Typically, a DNS resolver library uses the same ephemeral port only to requests from
+//     a single "gethostbyname" API call, or equivalent.
+//
+//   - To be able to receive responses to the ephemeral source port, we must have a socket bound to
+//     that address:port (for UDP), or a connection from that address:port to the DNS server
+//     address:port (for TCP).
+//
+//   - This leads to a new DNS client and socket for every different original source address -
+//     ephemeral port pair we see. We also need to make sure these were actually used to communicate
+//     with the DNS server, so we use the whole 5-tuple as a key.
+//
+// Why can't we keep DNS clients pooled and ready to receive traffic between client requests?
+//
+//   - We have no guarantees that the source pod will keep on using the same ephemeral port in
+//     future. We've had upstream socket bind errors (in Envoy, where we have operated in this mode
+//     for years already) when a client pod has rapidly cycled through its ephemeral port space,
+//     e.g. when performing netperf CRR or similar performance tests.
+//
+//   - We could try keep the client and its bound socket around for some minimal time to save
+//     resources when a DNS resolver is enumerating through its domain suffix list, where is seems
+//     likely that the same source ephemeral port is going to be reused until the resolver gets an
+//     actual result with an IPv4/6 address or quits trying. It might be safe to close the client
+//     socket only after a response with the `A`/`AAAA` records have been passed back to the pod,
+//     or after a timeout of a few milliseconds. This would be something we currently don't do and
+//     is prone to socket bind errors, so this is left for a later exercise.
+//
+//   - So the client socket can not be left lingering around, as it causes network traffic destined
+//     for the source pod to be intercepted to the dnsproxy, which is exactly what we want but only
+//     until a DNS response has been received.
+func setSoMarks(fd int, ipFamily ipfamily.IPFamily, secId identity.NumericIdentity) error {
+	// Set IP_TRANSPARENT to be able to use a non-host address as the source address
+	if err := unix.SetsockoptInt(fd, ipFamily.SocketOptsFamily, ipFamily.SocketOptsTransparent, 1); err != nil {
+		return fmt.Errorf("setsockopt(IP_TRANSPARENT) for %s failed: %w", ipFamily.Name, err)
+	}
+
+	// Set SO_MARK to allow datapath to know these upstream packets from an egress proxy
+	mark := linux_defaults.MagicMarkEgress
 	mark |= int(uint32(secId&0xFFFF)<<16 | uint32((secId&0xFF0000)>>16))
 	err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_MARK, mark)
 	if err != nil {
 		return fmt.Errorf("error setting SO_MARK: %w", err)
 	}
+
+	// Set SO_REUSEADDR to allow binding to an address that is already used by some other
+	// connection in a lingering state. This is needed in cases where we close a client
+	// connection but the client issues new requests re-using its source port. In that case we
+	// need to be able to reuse the address likely very soon after the prior close, which may
+	// not be allowed without this option.
+	if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1); err != nil {
+		return fmt.Errorf("setsockopt(SO_REUSEADDR) failed: %w", err)
+	}
+
+	// Set SO_REUSEPORT to allow two active connections to bind to the same address and
+	// port. Normally this would not be needed, but is set to allow a new connection to be
+	// created on a port where the old connection may not yet be closed. If two UDP sockets
+	// using the same port due to this option were reading at the same time, the OS stack would
+	// distribute incoming packets to them essentially randomly. We do not want that, so we
+	// strive to avoid that situation. This may be helpful in avoiding bind errors in some cases
+	// regardless.
+	if !option.Config.EnableBPFTProxy {
+		if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1); err != nil {
+			return fmt.Errorf("setsockopt(SO_REUSEPORT) failed: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -830,7 +904,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
-	ep, err := p.LookupEndpointByIP(addrPort.Addr())
+	epAddr := addrPort.Addr()
+	ep, err := p.LookupEndpointByIP(epAddr)
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %w", err)
@@ -899,12 +974,12 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
 	// requests that were too large for UDP.
-	var client *dns.Client
+	var originalSrcAddr net.Addr
 	switch protocol {
 	case "udp":
-		client = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+		originalSrcAddr = net.UDPAddrFromAddrPort(addrPort)
 	case "tcp":
-		client = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+		originalSrcAddr = net.TCPAddrFromAddrPort(addrPort)
 	default:
 		scopedLog.Error("Cannot parse DNS proxy client network to select forward client")
 		stat.Err = fmt.Errorf("Cannot parse DNS proxy client network to select forward client: %w", err)
@@ -916,33 +991,45 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.ProcessingTime.End(true)
 	stat.UpstreamTime.Start()
 
+	var ipFamily ipfamily.IPFamily
+	if targetServerAddr.Is4() {
+		ipFamily = ipfamily.IPv4()
+	} else {
+		ipFamily = ipfamily.IPv6()
+	}
+
 	dialer := net.Dialer{
 		Timeout: 2 * time.Second,
 		Control: func(network, address string, c syscall.RawConn) error {
 			var soerr error
 			if err := c.Control(func(su uintptr) {
-				soerr = setSoMark(int(su), ep.GetIdentity())
+				soerr = setSoMarks(int(su), ipFamily, ep.GetIdentity())
 			}); err != nil {
 				return err
 			}
 			return soerr
 		},
 	}
-	client.Dialer = &dialer
 
-	conn, err := client.Dial(targetServerAddrStr)
-	if err != nil {
-		err := fmt.Errorf("failed to dial connection to %v: %w", targetServerAddrStr, err)
-		stat.Err = err
-		scopedLog.WithError(err).Error("Failed to dial connection to the upstream DNS server, cannot service DNS request")
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, false, &stat)
-		p.sendRefused(scopedLog, w, request)
-		return
+	var key string
+	// Do not use original source address if the source is known to be in the host networking
+	// namespace
+	if !ep.IsHost() && !epAddr.IsLoopback() {
+		dialer.LocalAddr = originalSrcAddr
+		key = protocol + "-" + originalSrcAddr.String() + "-" + targetServerAddrStr
 	}
-	defer conn.Close()
+
+	conf := &dns.Client{
+		Net:            protocol,
+		Dialer:         &dialer,
+		Timeout:        ProxyForwardTimeout,
+		SingleInflight: false,
+	}
 
 	request.Id = dns.Id() // force a random new ID for this request
-	response, _, err := client.ExchangeWithConn(request, conn)
+	response, _, closer, err := p.DNSClients.Exchange(key, conf, request, targetServerAddrStr)
+	defer closer()
+
 	stat.UpstreamTime.End(err == nil)
 	if err != nil {
 		stat.Err = err
