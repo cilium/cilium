@@ -97,6 +97,10 @@ type TracingPolicySpec struct {
 	// +kubebuilder:validation:Optional
 	// A killer spec.
 	Killers []KillerSpec `json:"killers,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// A list of overloaded options
+	Options []OptionSpec `json:"options,omitempty"`
 }
 
 func (tp *TracingPolicy) TpName() string {

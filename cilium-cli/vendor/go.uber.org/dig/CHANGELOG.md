@@ -4,13 +4,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.17.1] - 2023-10-19
+### Added
+- Suggestions for value vs. pointer elements for slice and array types.
+
+### Fixed
+- An issue where value group values were not getting decorated
+  by decorators within the same module when using dig.Export(true).
+- A typo in docs.
+- An issue where false positives in cycle detection were occurring
+  when providing to a child scope.
+
+Thanks to @paullen and @lcarilla for their contributions to this release.
+
+[1.17.1]: https://github.com/uber-go/dig/compare/v1.17.0...v1.17.1
+
 ## [1.17.0] - 2023-05-02
 ### Added
 - Allow using `dig.As` with `dig.Group`.
 - Add `FillInvokeInfo` Option and `InvokeInfo` struct to help
   extract the types requested by an `Invoke` statement.
 - To get visibility into constructor and decorator calls, introduce
-  `WithCallback` Option to provide callback functions.
+  `WithProviderCallback` and `WithDecoratorCallback` Options to provide callback functions.
 
 [1.17.0]: https://github.com/uber-go/dig/compare/v1.16.1...v1.17.0
 

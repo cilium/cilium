@@ -219,7 +219,7 @@ const (
 type AttachFlags uint32
 
 // PinType determines whether a map is pinned into a BPFFS.
-type PinType int
+type PinType uint32
 
 // Valid pin types.
 //

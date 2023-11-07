@@ -4,9 +4,9 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -26,18 +26,22 @@ func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
 		fmt.Fprintf(w, "\t%s\n", err)
 		return
 	}
+
 	if resp.Payload == nil {
 		fmt.Fprintf(w, "\tno health payload detected\n")
 		return
 	}
 	if verbose {
-		fmt.Fprintf(w, "\n  Module\tStatus\tMessage\tLast Updated\n")
+		fmt.Fprintln(w)
 		for _, m := range resp.Payload.Modules {
-			if strings.Contains(m.Message, "\n") {
-				fmt.Fprintf(w, "  %s\t%s\t%12s\n%s", m.ModuleID, m.Level, m.LastUpdated, m.Message)
-			} else {
-				fmt.Fprintf(w, "  %s\t%s\t%s\t%12s\n", m.ModuleID, m.Level, m.Message, m.LastUpdated)
+			n := &cell.StatusNode{}
+			if err := json.Unmarshal([]byte(m.Message), n); err != nil {
+				panic(err)
 			}
+			if m.Level == string(cell.StatusUnknown) {
+				continue
+			}
+			fmt.Fprintf(w, "%s", n.StringIndent(2))
 		}
 		return
 	}

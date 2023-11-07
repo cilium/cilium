@@ -414,6 +414,28 @@ func newErrMissingTypes(c containerStore, k key) errMissingTypes {
 		suggestions = append(suggestions, k.t.Elem())
 	}
 
+	if k.t.Kind() == reflect.Slice {
+		// Maybe the user meant a slice of pointers while we have the slice of elements
+		suggestions = append(suggestions, reflect.SliceOf(reflect.PtrTo(k.t.Elem())))
+
+		// Maybe the user meant a slice of elements while we have the slice of pointers
+		sliceElement := k.t.Elem()
+		if sliceElement.Kind() == reflect.Ptr {
+			suggestions = append(suggestions, reflect.SliceOf(sliceElement.Elem()))
+		}
+	}
+
+	if k.t.Kind() == reflect.Array {
+		// Maybe the user meant an array of pointers while we have the array of elements
+		suggestions = append(suggestions, reflect.ArrayOf(k.t.Len(), reflect.PtrTo(k.t.Elem())))
+
+		// Maybe the user meant an array of elements while we have the array of pointers
+		arrayElement := k.t.Elem()
+		if arrayElement.Kind() == reflect.Ptr {
+			suggestions = append(suggestions, reflect.ArrayOf(k.t.Len(), arrayElement.Elem()))
+		}
+	}
+
 	knownTypes := c.knownTypes()
 	if k.t.Kind() == reflect.Interface {
 		// Maybe we have an implementation of the interface.

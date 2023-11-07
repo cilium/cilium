@@ -6,6 +6,7 @@ package cell
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"runtime"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 
 	"golang.org/x/exp/maps"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -103,17 +105,18 @@ func GetHealthReporter(parent Scope, name string) HealthReporter {
 }
 
 // TestScope exposes creating a root scope for testing purposes only.
-func TestScope(hr HealthReporter) Scope {
-	switch hr.(type) {
-	case *reporter, *subReporter:
-		panic("test scope should only be used on test health reporter implementations")
-	}
-	s := rootScope(hr)
+func TestScope() Scope {
+	return TestScopeFromProvider(FullModuleID{"test"}, NewHealthProvider())
+}
+
+// TestScope exposes creating a root scope from a health provider for testing purposes only.
+func TestScopeFromProvider(moduleID FullModuleID, hp Health) Scope {
+	s := rootScope(moduleID, hp.forModule(moduleID))
 	s.start()
 	return s
 }
 
-func rootScope(hr HealthReporter) *scope {
+func rootScope(id FullModuleID, hr statusNodeReporter) *scope {
 	r := &subReporter{
 		base: &subreporterBase{
 			hr:           hr,
@@ -123,26 +126,25 @@ func rootScope(hr HealthReporter) *scope {
 		},
 	}
 	// create root node, required in case reporters are created without any subscopes.
-	r.id = r.base.addChild("", "", false)
+	r.id = r.base.addChild("", id.String(), false)
 	r.base.rootID = r.id
 
 	// Realize walks the tree and creates a updated status for the reporter.
 	// Because this is blocking and can be expensive, we have a reconcile loop
 	// that only performs this if the revision has changed.
 	realize := func() {
+		if r.base.stopped {
+			return
+		}
 		statusTree := r.base.getStatusTreeLocked(r.base.rootID)
 		if r.base.stopped {
-			r.base.hr.Stopped("stopping scoped health reporter")
+			r.base.hr.setStatus(statusTree)
 			return
 		}
 		if r.base.revision.Load() == 0 {
 			return
 		}
-		if statusTree.allOk() {
-			r.base.hr.OK(statusTree.toString(2))
-		} else {
-			r.base.hr.Degraded(statusTree.toString(2), nil)
-		}
+		r.base.hr.setStatus(statusTree)
 	}
 
 	r.scheduleRealize = func() {
@@ -195,7 +197,11 @@ func flushAndClose(rs Scope, reason string) {
 
 	// Mark the module as stopped, and emit a stopped status.
 	rs.scope().base.stopped = true
-	rs.scope().base.hr.Stopped(reason)
+	rs.scope().base.hr.setStatus(&StatusNode{
+		ID:        rs.scope().base.rootID,
+		LastLevel: StatusStopped,
+		Message:   reason,
+	})
 	rs.scope().base.removeTreeLocked(rs.scope().id)
 }
 
@@ -314,7 +320,7 @@ type subreporterBase struct {
 	lock.Mutex
 
 	// Module level health reporter, all realized status is emitted to this reporter.
-	hr HealthReporter
+	hr statusNodeReporter
 
 	// idToChildren is the adjacency map of parentID to children IDs.
 	idToChildren map[string]children
@@ -347,7 +353,7 @@ func (s *subreporterBase) addChild(pid string, name string, isReporter bool) str
 		id:       id,
 		parentID: pid,
 		count:    1,
-		Update: Update{
+		nodeUpdate: nodeUpdate{
 			Level:     StatusUnknown,
 			Timestamp: time.Now(),
 		},
@@ -358,7 +364,7 @@ func (s *subreporterBase) addChild(pid string, name string, isReporter bool) str
 	return id
 }
 
-func (s *subreporterBase) setStatus(id string, level Level, message string) error {
+func (s *subreporterBase) setStatus(id string, level Level, message string, err error) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -380,6 +386,7 @@ func (s *subreporterBase) setStatus(id string, level Level, message string) erro
 
 	n.Level = level
 	n.Message = message
+	n.Error = err
 	return nil
 }
 
@@ -402,22 +409,40 @@ func (s *subreporterBase) removeTreeLocked(rid string) {
 // In the future we will want to use this to generate a structured JSON representation
 // of the status tree.
 type StatusNode struct {
-	ID          string        `json:"id"`
-	Level       Level         `json:"level,omitempty"`
-	Name        string        `json:"name"`
-	Message     string        `json:"message,omitempty"`
-	Timestamp   time.Time     `json:"timestamp"`
-	Count       int           `json:"count"`
-	SubStatuses []*StatusNode `json:"sub_statuses,omitempty"`
+	ID              string        `json:"id"`
+	LastLevel       Level         `json:"level,omitempty"`
+	Name            string        `json:"name"`
+	Message         string        `json:"message,omitempty"`
+	UpdateTimestamp time.Time     `json:"timestamp"`
+	Count           int           `json:"count"`
+	SubStatuses     []*StatusNode `json:"sub_statuses,omitempty"`
+}
+
+var _ Update = (*StatusNode)(nil)
+
+func (s *StatusNode) Level() Level {
+	return s.LastLevel
+}
+
+func (s *StatusNode) Timestamp() time.Time {
+	return s.UpdateTimestamp
+}
+
+func (s *StatusNode) JSON() ([]byte, error) {
+	return json.MarshalIndent(s, "", "  ")
 }
 
 func (s *StatusNode) allOk() bool {
-	return s.Level == StatusOK
+	return s.LastLevel == StatusOK
 }
 
 func (s *StatusNode) writeTo(w io.Writer, d int) {
 	if len(s.SubStatuses) == 0 {
-		fmt.Fprintf(w, "%s%s\t%s\t%s\t%s ago\t(x%d)\n", strings.Repeat("\t", d), s.Name, s.Level, s.Message, time.Since(s.Timestamp), s.Count)
+		since := "never"
+		if !s.UpdateTimestamp.IsZero() {
+			since = duration.HumanDuration(time.Since(s.UpdateTimestamp)) + " ago"
+		}
+		fmt.Fprintf(w, "%s%s\t%s\t%s\t%s\t(x%d)\n", strings.Repeat("\t", d), s.Name, s.LastLevel, s.Message, since, s.Count)
 	} else {
 		fmt.Fprintf(w, "%s%s\n", strings.Repeat("\t", d), s.Name)
 		for _, ss := range s.SubStatuses {
@@ -426,7 +451,7 @@ func (s *StatusNode) writeTo(w io.Writer, d int) {
 	}
 }
 
-func (s *StatusNode) toString(ident int) string {
+func (s *StatusNode) StringIndent(ident int) string {
 	if s == nil {
 		return ""
 	}
@@ -438,18 +463,18 @@ func (s *StatusNode) toString(ident int) string {
 }
 
 func (s *StatusNode) String() string {
-	return s.toString(0)
+	return s.Message
 }
 
 func (s *subreporterBase) getStatusTreeLocked(nid string) *StatusNode {
 	if children, ok := s.idToChildren[nid]; ok {
 		rn := s.nodes[nid]
 		n := &StatusNode{
-			ID:        nid,
-			Message:   rn.Message,
-			Name:      rn.name,
-			Timestamp: rn.Timestamp,
-			Count:     rn.count,
+			ID:              nid,
+			Message:         rn.Message,
+			Name:            rn.name,
+			UpdateTimestamp: rn.Timestamp,
+			Count:           rn.count,
 		}
 		allok := true
 		childIDs := maps.Keys(children)
@@ -469,12 +494,12 @@ func (s *subreporterBase) getStatusTreeLocked(nid string) *StatusNode {
 		// case 1: Non-reporter, has no children, should be ok?
 		// case 2: Non-reporter, has children, defer down to children.
 		if rn.isReporter {
-			n.Level = rn.Level
+			n.LastLevel = rn.Level
 		} else {
 			if allok {
-				n.Level = StatusOK
+				n.LastLevel = StatusOK
 			} else {
-				n.Level = StatusDegraded
+				n.LastLevel = StatusDegraded
 			}
 		}
 
@@ -490,7 +515,13 @@ type node struct {
 	isReporter bool
 	count      int
 	refs       int
-	Update
+	Message    string
+	Error      error
+	nodeUpdate
+}
+type nodeUpdate struct {
+	Level
+	Timestamp time.Time
 }
 
 func (b *subreporterBase) removeRefLocked(id string) {
@@ -525,7 +556,7 @@ type subReporter struct {
 }
 
 func (s *subReporter) OK(message string) {
-	if err := s.base.setStatus(s.id, StatusOK, message); err != nil {
+	if err := s.base.setStatus(s.id, StatusOK, message, nil); err != nil {
 		log.WithError(err).Warnf("could not set OK status on subreporter %q", s.id)
 		return
 	}
@@ -533,15 +564,7 @@ func (s *subReporter) OK(message string) {
 }
 
 func (s *subReporter) Degraded(message string, err error) {
-	var m string
-	// TODO: For now, we just append the error to the message, this won't be ideal
-	// for longer errs. Figure out a better way to bubble up errors.
-	if err != nil {
-		m = message + ": " + err.Error()
-	} else {
-		m = message
-	}
-	if err := s.base.setStatus(s.id, StatusDegraded, m); err != nil {
+	if err := s.base.setStatus(s.id, StatusDegraded, message, err); err != nil {
 		log.WithError(err).Warnf("could not set degraded status on subreporter %q", s.id)
 		return
 	}

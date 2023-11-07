@@ -52,11 +52,11 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20231026172044-2ee56d76ec1a
+# github.com/cilium/charts v0.0.0-20231101091419-6a72c25e3c8e
 ## explicit; go 1.17
 github.com/cilium/charts
-# github.com/cilium/cilium v1.15.0-pre.1.0.20231025133600-0a8f3f91f109
-## explicit; go 1.21.3
+# github.com/cilium/cilium v1.15.0-pre.2
+## explicit; go 1.21.0
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/bgp
 github.com/cilium/cilium/api/v1/client/daemon
@@ -100,6 +100,7 @@ github.com/cilium/cilium/pkg/hive
 github.com/cilium/cilium/pkg/hive/cell
 github.com/cilium/cilium/pkg/hive/cell/lifecycle
 github.com/cilium/cilium/pkg/hive/internal
+github.com/cilium/cilium/pkg/hive/metrics
 github.com/cilium/cilium/pkg/iana
 github.com/cilium/cilium/pkg/identity
 github.com/cilium/cilium/pkg/inctimer
@@ -137,9 +138,11 @@ github.com/cilium/cilium/pkg/promise
 github.com/cilium/cilium/pkg/safetime
 github.com/cilium/cilium/pkg/slices
 github.com/cilium/cilium/pkg/spanstat
+github.com/cilium/cilium/pkg/stream
+github.com/cilium/cilium/pkg/time
 github.com/cilium/cilium/pkg/version
 github.com/cilium/cilium/pkg/versioncheck
-# github.com/cilium/ebpf v0.12.0
+# github.com/cilium/ebpf v0.12.2
 ## explicit; go 1.20
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
@@ -401,7 +404,7 @@ github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 github.com/cilium/proxy/go/envoy/watchdog/v3
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/tetragon/pkg/k8s v0.0.0-20231027135814-0fd246f5b760
+# github.com/cilium/tetragon/pkg/k8s v0.0.0-20231106163022-09de1f83eb12
 ## explicit; go 1.21.3
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
@@ -548,8 +551,8 @@ github.com/exponent-io/jsonpath
 # github.com/fatih/color v1.15.0
 ## explicit; go 1.17
 github.com/fatih/color
-# github.com/fsnotify/fsnotify v1.6.0
-## explicit; go 1.16
+# github.com/fsnotify/fsnotify v1.7.0
+## explicit; go 1.17
 github.com/fsnotify/fsnotify
 # github.com/go-errors/errors v1.4.2
 ## explicit; go 1.14
@@ -682,7 +685,7 @@ github.com/google/gops/signal
 # github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 ## explicit; go 1.13
 github.com/google/shlex
-# github.com/google/uuid v1.3.1
+# github.com/google/uuid v1.4.0
 ## explicit
 github.com/google/uuid
 # github.com/gorilla/mux v1.8.0
@@ -954,7 +957,7 @@ github.com/spf13/afero/mem
 # github.com/spf13/cast v1.5.1
 ## explicit; go 1.18
 github.com/spf13/cast
-# github.com/spf13/cobra v1.7.0
+# github.com/spf13/cobra v1.8.0
 ## explicit; go 1.15
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
@@ -1082,8 +1085,8 @@ go.starlark.net/resolve
 go.starlark.net/starlark
 go.starlark.net/starlarkstruct
 go.starlark.net/syntax
-# go.uber.org/dig v1.17.0
-## explicit; go 1.18
+# go.uber.org/dig v1.17.1
+## explicit; go 1.20
 go.uber.org/dig
 go.uber.org/dig/internal/digerror
 go.uber.org/dig/internal/digreflect
@@ -1092,6 +1095,9 @@ go.uber.org/dig/internal/graph
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
+# go4.org/netipx v0.0.0-20230824141953-6213f710f925
+## explicit; go 1.18
+go4.org/netipx
 # golang.org/x/crypto v0.14.0
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
@@ -1120,7 +1126,7 @@ golang.org/x/exp/slices
 golang.org/x/exp/slog
 golang.org/x/exp/slog/internal
 golang.org/x/exp/slog/internal/buffer
-# golang.org/x/mod v0.13.0
+# golang.org/x/mod v0.14.0
 ## explicit; go 1.18
 golang.org/x/mod/semver
 # golang.org/x/net v0.17.0
@@ -1139,8 +1145,8 @@ golang.org/x/net/trace
 ## explicit; go 1.18
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.4.0
-## explicit; go 1.17
+# golang.org/x/sync v0.5.0
+## explicit; go 1.18
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 # golang.org/x/sys v0.13.0
