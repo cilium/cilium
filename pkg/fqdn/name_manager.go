@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
@@ -43,6 +44,8 @@ type NameManager struct {
 	cache *DNSCache
 
 	bootstrapCompleted bool
+
+	manager *controller.Manager
 }
 
 // GetModel returns the API model of the NameManager.
@@ -121,13 +124,18 @@ func NewNameManager(config Config) *NameManager {
 			return &sync.WaitGroup{}, nil, nil, nil
 		}
 	}
+	if config.GetEndpointsDNSInfo == nil {
+		config.GetEndpointsDNSInfo = func() []EndpointDNSInfo {
+			return nil
+		}
+	}
 
 	return &NameManager{
 		config:       config,
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		cache:        config.Cache,
+		manager:      controller.NewManager(),
 	}
-
 }
 
 // GetDNSCache returns the DNSCache used by the NameManager
