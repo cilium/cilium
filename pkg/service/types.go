@@ -4,10 +4,11 @@
 package service
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -60,7 +61,7 @@ type ServiceManager interface {
 
 	// SyncWithK8sFinished removes services which we haven't heard about during
 	// a sync period of cilium-agent's k8s service cache.
-	SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.StoppableWaitGroup) bool) error
+	SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s.ServiceID]) (stale []k8s.ServiceID, err error)
 
 	// UpdateBackendsState updates all the service(s) with the updated state of
 	// the given backends. It also persists the updated backend states to the BPF maps.
