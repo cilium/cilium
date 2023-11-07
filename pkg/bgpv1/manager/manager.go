@@ -6,7 +6,6 @@ package manager
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -85,18 +84,39 @@ type BGPRouterManager struct {
 //
 // See BGPRouterManager for details.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
-	for i := len(params.Reconcilers) - 1; i >= 0; i-- {
-		if params.Reconcilers[i] == nil {
-			params.Reconcilers = slices.Delete(params.Reconcilers, i, i+1)
+	reconcilers := make(map[string]ConfigReconciler)
+	for _, r := range params.Reconcilers {
+		if r == nil {
+			continue // reconciler not initialized
 		}
+		if existing, exists := reconcilers[r.Name()]; exists {
+			if existing.Priority() == r.Priority() {
+				log.Warnf("Skipping duplicate reconciler %s with the same priority (%d)", existing.Name(), existing.Priority())
+				continue
+			}
+			if existing.Priority() < r.Priority() {
+				log.Debugf("Skipping reconciler %s (priority %d) as it has lower priority than the existing one (%d)",
+					r.Name(), r.Priority(), existing.Priority())
+				continue
+			}
+			log.Debugf("Overriding existing reconciler %s (priority %d) with higher priority one (%d)",
+				existing.Name(), existing.Priority(), r.Priority())
+		}
+		reconcilers[r.Name()] = r
 	}
-	sort.Slice(params.Reconcilers, func(i, j int) bool {
-		return params.Reconcilers[i].Priority() < params.Reconcilers[j].Priority()
+
+	var activeReconcilers []ConfigReconciler
+	for _, r := range reconcilers {
+		log.Debugf("Adding BGP reconciler: %v (priority %d)", r.Name(), r.Priority())
+		activeReconcilers = append(activeReconcilers, r)
+	}
+	sort.Slice(activeReconcilers, func(i, j int) bool {
+		return activeReconcilers[i].Priority() < activeReconcilers[j].Priority()
 	})
 
 	return &BGPRouterManager{
 		Servers:     make(LocalASNMap),
-		Reconcilers: params.Reconcilers,
+		Reconcilers: activeReconcilers,
 	}
 }
 
