@@ -377,6 +377,7 @@ Makefile* @cilium/build
 /operator/pkg/ingress @cilium/sig-servicemesh
 /operator/pkg/lbipam @cilium/sig-lb
 /operator/pkg/model @cilium/sig-servicemesh
+/operator/pkg/secretsync @cilium/sig-servicemesh
 /operator/watchers/bgp.go @cilium/sig-bgp
 /pkg/ @cilium/tophat
 /pkg/annotation @cilium/sig-k8s

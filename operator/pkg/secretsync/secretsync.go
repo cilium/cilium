@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package gateway_api
+package secretsync
 
 import (
 	"context"
@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	owningSecretNamespace = "secretsync.cilium.io/owning-secret-namespace"
-	owningSecretName      = "secretsync.cilium.io/owning-secret-name"
+	OwningSecretNamespace = "secretsync.cilium.io/owning-secret-namespace"
+	OwningSecretName      = "secretsync.cilium.io/owning-secret-name"
 )
 
-// secretSyncer syncs Gateway API secrets to dedicated namespace.
+// secretSyncer syncs secrets to dedicated namespace.
 type secretSyncer struct {
 	client client.Client
 	logger logrus.FieldLogger
@@ -34,9 +34,9 @@ type secretSyncer struct {
 	secretsNamespace         string
 }
 
-func newSecretSyncReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, mainObject client.Object, mainObjectEnqueueFunc handler.EventHandler, mainObjectReferencedFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool, secretsNamespace string) *secretSyncer {
+func NewSecretSyncReconciler(c client.Client, logger logrus.FieldLogger, mainObject client.Object, mainObjectEnqueueFunc handler.EventHandler, mainObjectReferencedFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool, secretsNamespace string) *secretSyncer {
 	return &secretSyncer{
-		client: mgr.GetClient(),
+		client: c,
 		logger: logger,
 
 		mainObject:               mainObject,
@@ -72,8 +72,8 @@ func enqueueOwningSecretFromLabels() handler.EventHandler {
 			return nil
 		}
 
-		owningSecretNamespace, owningSecretNamespacePresent := labels[owningSecretNamespace]
-		owningSecretName, owningSecretNamePresent := labels[owningSecretName]
+		owningSecretNamespace, owningSecretNamespacePresent := labels[OwningSecretNamespace]
+		owningSecretName, owningSecretNamePresent := labels[OwningSecretName]
 
 		if !owningSecretNamespacePresent || !owningSecretNamePresent {
 			return nil

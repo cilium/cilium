@@ -18,6 +18,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/secretsync"
 )
 
 var secretsNamespace = "cilium-secrets-test"
@@ -28,8 +29,8 @@ var secretFixture = []client.Object{
 			Namespace: secretsNamespace,
 			Name:      "test-synced-secret-no-source",
 			Labels: map[string]string{
-				owningSecretNamespace: "test",
-				owningSecretName:      "synced-secret-no-source",
+				secretsync.OwningSecretNamespace: "test",
+				secretsync.OwningSecretName:      "synced-secret-no-source",
 			},
 		},
 	},
@@ -44,8 +45,8 @@ var secretFixture = []client.Object{
 			Namespace: secretsNamespace,
 			Name:      "test-synced-secret-no-reference",
 			Labels: map[string]string{
-				owningSecretNamespace: "test",
-				owningSecretName:      "syced-secret-no-reference",
+				secretsync.OwningSecretNamespace: "test",
+				secretsync.OwningSecretName:      "syced-secret-no-reference",
 			},
 		},
 	},
@@ -60,8 +61,8 @@ var secretFixture = []client.Object{
 			Namespace: secretsNamespace,
 			Name:      "test-synced-secret-with-source-and-ref",
 			Labels: map[string]string{
-				owningSecretNamespace: "test",
-				owningSecretName:      "synced-secret-with-source-and-ref",
+				secretsync.OwningSecretNamespace: "test",
+				secretsync.OwningSecretName:      "synced-secret-with-source-and-ref",
 			},
 		},
 	},
@@ -153,14 +154,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		WithScheme(testScheme()).
 		WithObjects(secretFixture...).
 		Build()
-	r := &secretSyncer{
-		client:                   c,
-		logger:                   logrus.New(),
-		mainObject:               &gatewayv1.Gateway{},
-		mainObjectEnqueueFunc:    enqueueTLSSecrets(c),
-		mainObjectReferencedFunc: isUsedByCiliumGateway,
-		secretsNamespace:         secretsNamespace,
-	}
+	r := secretsync.NewSecretSyncReconciler(c, logrus.New(), &gatewayv1.Gateway{}, enqueueTLSSecrets(c), isUsedByCiliumGateway, secretsNamespace)
 
 	t.Run("delete synced secret if source secret doesn't exist", func(t *testing.T) {
 		result, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -173,7 +167,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-no-source"}, secret)
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-no-source"}, secret)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "secrets \"test-synced-secret-no-source\" not found")
@@ -190,7 +184,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-no-reference"}, secret)
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-no-reference"}, secret)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "secrets \"test-synced-secret-no-reference\" not found")
@@ -207,7 +201,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-with-source-and-ref"}, secret)
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-with-source-and-ref"}, secret)
 		require.NoError(t, err)
 	})
 
@@ -222,7 +216,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-non-cilium-ref"}, secret)
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-non-cilium-ref"}, secret)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "secrets \"test-synced-secret-non-cilium-ref\" not found")
@@ -239,7 +233,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-with-ref-not-synced"}, secret)
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-with-ref-not-synced"}, secret)
 		require.NoError(t, err)
 	})
 }
