@@ -139,7 +139,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, enableSecretSync bool, secrets
 	}
 
 	if enableSecretSync {
-		reconcilers = append(reconcilers, newSecretSyncReconciler(mgr, log, secretsNamespace))
+		reconcilers = append(reconcilers, newSecretSyncReconciler(mgr, log, &gatewayv1.Gateway{}, enqueueTLSSecrets(mgr.GetClient()), secretsNamespace))
 	}
 
 	for _, r := range reconcilers {
