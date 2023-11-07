@@ -155,7 +155,6 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 	r := &secretSyncer{
 		client:           c,
 		secretsNamespace: secretsNamespace,
-		controllerName:   controllerName,
 	}
 
 	t.Run("delete synced secret if source secret doesn't exist", func(t *testing.T) {

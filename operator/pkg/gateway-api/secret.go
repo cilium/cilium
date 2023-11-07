@@ -34,7 +34,6 @@ type secretSyncer struct {
 	scheme *runtime.Scheme
 
 	secretsNamespace string
-	controllerName   string
 }
 
 func newSecretSyncReconciler(mgr ctrl.Manager, secretsNamespace string) *secretSyncer {
@@ -42,7 +41,6 @@ func newSecretSyncReconciler(mgr ctrl.Manager, secretsNamespace string) *secretS
 		client:           mgr.GetClient(),
 		scheme:           mgr.GetScheme(),
 		secretsNamespace: secretsNamespace,
-		controllerName:   controllerName,
 	}
 }
 
@@ -77,7 +75,7 @@ func (r *secretSyncer) enqueueTLSSecrets() handler.EventHandler {
 		}
 
 		// Check whether Gateway is managed by Cilium
-		if !hasMatchingController(ctx, r.client, r.controllerName)(gw) {
+		if !hasMatchingController(ctx, r.client, controllerName)(gw) {
 			return nil
 		}
 
