@@ -128,6 +128,10 @@
      - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
      - bool
      - ``true``
+   * - :spelling:ignore:`authentication.mutual.spire.install.existingNamespace`
+     - SPIRE namespace already exists. Set to true if Helm should not create, manage, and import the SPIRE namespace.
+     - bool
+     - ``false``
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
