@@ -1,3 +1,4 @@
+
 .. raw:: html
 
    <picture>
