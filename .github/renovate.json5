@@ -509,6 +509,14 @@
     },
     {
       "fileMatch": [
+        "^install/kubernetes/Makefile\\.values$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_DIGEST = (?<currentDigest>sha256:[a-f0-9]+)"
+      ]
+    },
+    {
+      "fileMatch": [
         "^\\.travis\\.yml$"
       ],
       "matchStrings": [
