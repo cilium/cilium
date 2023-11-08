@@ -8,7 +8,6 @@ HOST_PREFIX=${HOST_PREFIX:-/host}
 
 BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
-CILIUM_CNI_CONF=${CILIUM_CNI_CONF:-${HOST_PREFIX}/etc/cni/net.d/${CNI_CONF_NAME}}
 
 if [ ! -d "${CNI_DIR}/bin" ]; then
 	mkdir -p "${CNI_DIR}/bin"
