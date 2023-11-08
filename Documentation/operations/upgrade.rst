@@ -387,6 +387,9 @@ Helm Options
 * ``egressGateway.installRoutes`` has been deprecated because the setting is no
   longer necessary.
 
+* Value ``tunnel`` was deprecated in Cilium 1.14 in favor of ``routingMode`` and
+  ``tunnelProtocol``, and has been removed.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
