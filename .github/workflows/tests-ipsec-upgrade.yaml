@@ -144,6 +144,7 @@ jobs:
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
+          image-tag: '49860e4d1e0ec567f211052214d6c3102d2f19c4'
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
