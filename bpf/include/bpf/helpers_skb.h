@@ -17,6 +17,7 @@ static int BPF_FUNC(redirect, int ifindex, __u32 flags);
 static int BPF_FUNC(redirect_neigh, int ifindex, struct bpf_redir_neigh *params,
 		    int plen, __u32 flags);
 static int BPF_FUNC(redirect_peer, int ifindex, __u32 flags);
+static int BPF_FUNC(clone_redirect, struct __sk_buff *skb, __u32 ifindex, __u64 flags);
 
 /* Packet manipulation */
 static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, __u32 off,

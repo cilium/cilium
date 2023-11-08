@@ -10,7 +10,11 @@
 
 #include "bpf/ctx/skb.h"
 #include "bpf/helpers.h"
+#include "bpf/helpers_skb.h"
 #include "lib/common.h"
+#include "lib/drop.h"
+#include "lib/eth.h"
+#include "linux/bpf.h"
 
 /* the below structures are define outside of an IFDEF guard to satisfy
  * enterprise_bpf_alignchecker.c requirement
@@ -69,6 +73,14 @@ struct {
 		__uint(map_flags, CONDITIONAL_PREALLOC);
 	});
 } cilium_mcast_group_outer_v4_map __section_maps_btf;
+
+/* lookup a subscriber map for the given ipv4 multicast group
+ * returns a void pointer to a inner subscriper map if one exists
+ */
+static __always_inline void *mcast_lookup_subscriber_map(__be32 *group)
+{
+	return map_lookup_elem(&cilium_mcast_group_outer_v4_map, group);
+}
 
 /* returns 1 if ip4 header is followed by an IGMP payload, 0 if not */
 static __always_inline bool mcast_ipv4_is_igmp(const struct iphdr *ip4)
@@ -294,6 +306,132 @@ static __always_inline __s32 mcast_ipv4_handle_igmp(void *ctx,
 	}
 
 	return DROP_IGMP_HANDLED;
+}
+
+/* encodes a multicast mac address given a ipv4 group address
+ * results are in big endian format and written directly into 'mac'
+ */
+static __always_inline void mcast_encode_ipv4_mac(union macaddr *mac,
+						  const __u8 group[4])
+{
+	mac->addr[0] = 0x01;
+	mac->addr[1] = 0x00;
+	mac->addr[2] = 0x0E;
+	mac->addr[3] = group[1] & 0x7F;
+	mac->addr[4] = group[2];
+	mac->addr[5] = group[3];
+}
+
+/* callback data used for __mcast_ep_delivery */
+struct _mcast_ep_delivery_ctx {
+	void *ctx;
+	__s32 ret;
+};
+
+/* performs packet replication and delivery for multicast traffic egressing
+ * an endpoint.
+ *
+ * to be used as a callback function for bpf_for_each_map_elem
+ *
+ * callback functions must return 1 or 0 to pass eBPF verifier.
+ */
+static long __mcast_ep_delivery(__maybe_unused void *sub_map,
+				__maybe_unused const __u32 *key,
+				const struct mcast_subscriber_v4 *sub,
+				struct _mcast_ep_delivery_ctx *cb_ctx)
+{
+	int ret = 0;
+	__u8 from_overlay = 0;
+	struct bpf_tunnel_key tun_key = {0};
+
+	if (!cb_ctx || !sub)
+		return 1;
+
+	if (!cb_ctx->ctx)
+		return 1;
+
+	if (!sub->ifindex)
+		return 1;
+
+	from_overlay = (ctx_get_ingress_ifindex(cb_ctx->ctx) == ENCAP_IFINDEX);
+
+	/* set tunnel key for remote delivery
+	 * this helper sets the tunnel metadata on the skb_buff but only
+	 * tunnel drivers will read it, therefore any local delivery will
+	 * simply ignore if its present and deliver without an issue.
+	 *
+	 * if the ingress interface is set to our tunnel interface, do not
+	 * perform delivery, this would cause a loop, since the sender's node
+	 * already delivered to all remote nodes.
+	 *
+	 * checking ctx->ingress_ifindex is reliable since
+	 * __netif_receive_skb_core sets the skb's input interface before
+	 * calling ingress TC programs.
+	 */
+	if (sub->flags & MCAST_SUB_F_REMOTE) {
+		if (from_overlay)
+			return 0;
+
+		tun_key.tunnel_id = 2; /* WORLD ID FOR NOW */
+		tun_key.remote_ipv4 = bpf_ntohl(sub->saddr);
+		tun_key.tunnel_ttl = IPDEFTTL;
+
+		ret = ctx_set_tunnel_key(cb_ctx->ctx,
+					 &tun_key,
+					 TUNNEL_KEY_WITHOUT_SRC_IP,
+					 BPF_F_ZERO_CSUM_TX);
+
+		if (ret < 0) {
+			cb_ctx->ret = ret;
+			return 1;
+		}
+	}
+
+	ret = clone_redirect(cb_ctx->ctx, sub->ifindex, 0);
+	if (ret != 0) {
+		cb_ctx->ret = ret;
+		return 1;
+	}
+	return 0;
+};
+
+/* tailcall to perform multicast packet replication and delivery.
+ * when this call is entered we should already know that the packet is destined
+ * for a multicast group and the multicast group exists in
+ * cilium_mcast_group_outer_v4_map
+ */
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_MULTICAST_EP_DELIVERY)
+int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
+{
+	struct _mcast_ep_delivery_ctx cb_ctx = {
+		.ctx = ctx,
+		.ret = 0
+	};
+	union macaddr mac = {0};
+	void *data, *data_end;
+	struct iphdr *ip4 = 0;
+	void *sub_map = 0;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	sub_map = map_lookup_elem(&cilium_mcast_group_outer_v4_map, &ip4->daddr);
+	if (!sub_map)
+		return DROP_INVALID;
+
+	mcast_encode_ipv4_mac(&mac, (__u8 *)&ip4->daddr);
+
+	eth_store_daddr(ctx, &mac.addr[0], 0);
+
+	for_each_map_elem(sub_map, __mcast_ep_delivery, &cb_ctx, 0);
+
+	return send_drop_notify(ctx,
+				0,
+				0,
+				0,
+				DROP_MULTICAST_HANDLED,
+				CTX_ACT_DROP,
+				METRIC_INGRESS);
 }
 
 #endif /* ENABLE_MULTICAST */
