@@ -132,6 +132,7 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           chart-dir: './cilium-${{ steps.vars.outputs.downgrade_version }}/install/kubernetes/cilium/'
+          image-tag: ${{ steps.vars.outputs.downgrade_version }}
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
