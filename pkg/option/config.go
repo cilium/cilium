@@ -510,12 +510,6 @@ const (
 	// RoutingMode is the name of the option to choose between native routing and tunneling mode
 	RoutingMode = "routing-mode"
 
-	// TunnelProtocol is the name of the option to select the tunneling protocol
-	TunnelProtocol = "tunnel-protocol"
-
-	// TunnelPortName is the name of the TunnelPort option
-	TunnelPortName = "tunnel-port"
-
 	// SingleClusterRouteName is the name of the SingleClusterRoute option
 	//
 	// SingleClusterRoute enables use of a single route covering the entire
@@ -1216,18 +1210,6 @@ var (
 	MonitorAggregationFlagsDefault = []string{"syn", "fin", "rst"}
 )
 
-// Available option for DaemonConfig.Tunnel
-const (
-	// TunnelVXLAN specifies VXLAN encapsulation
-	TunnelVXLAN = "vxlan"
-
-	// TunnelGeneve specifies Geneve encapsulation
-	TunnelGeneve = "geneve"
-
-	// TunnelDisabled specifies to disable encapsulation
-	TunnelDisabled = "disabled"
-)
-
 // Available options for DaemonConfig.RoutingMode
 const (
 	// RoutingModeNative specifies native routing mode
@@ -1445,10 +1427,8 @@ type DaemonConfig struct {
 	// devices.
 	EnableRuntimeDeviceDetection bool
 
-	DatapathMode   string // Datapath mode
-	RoutingMode    string // Routing mode
-	TunnelProtocol string // Tunneling protocol
-	TunnelPort     int    // Tunnel port
+	DatapathMode string // Datapath mode
+	RoutingMode  string // Routing mode
 
 	DryMode bool // Do not create BPF maps, devices, ..
 
@@ -2621,26 +2601,6 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.RoutingMode != RoutingModeNative
 }
 
-// TunnelDevice returns cilium_{vxlan,geneve} depending on the config or "" if disabled.
-func (c *DaemonConfig) TunnelDevice() string {
-	if c.TunnelingEnabled() {
-		return fmt.Sprintf("cilium_%s", c.TunnelProtocol)
-	} else {
-		return ""
-	}
-}
-
-// TunnelExists returns true if some traffic may go through a tunnel, including
-// if the primary mode is native routing. For example, in the egress gateway,
-// we may send such traffic to a gateway node via a tunnel.
-// In conjunction with the DSR Geneve and the direct routing, traffic from
-// intermediate nodes to backend pods go through a tunnel, but the datapath logic
-// takes care of the MTU overhead. So no need to take it into account here.
-// See encap_geneve_dsr_opt[4,6] in nodeport.h
-func (c *DaemonConfig) TunnelExists() bool {
-	return c.TunnelingEnabled() || c.EgressGatewayCommonEnabled() || c.EnableHighScaleIPcache
-}
-
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
@@ -2772,12 +2732,6 @@ func (c *DaemonConfig) K8sGatewayAPIEnabled() bool {
 	return c.EnableGatewayAPI
 }
 
-// EgressGatewayCommonEnabled returns true if at least one egress gateway implementation
-// is enabled.
-func (c *DaemonConfig) EgressGatewayCommonEnabled() bool {
-	return c.EnableIPv4EgressGateway
-}
-
 func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
 	for _, mode := range c.PolicyCIDRMatchMode {
 		if mode == "nodes" {
@@ -2892,12 +2846,6 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	default:
 		return fmt.Errorf("invalid routing mode %q, valid modes = {%q, %q}",
 			c.RoutingMode, RoutingModeTunnel, RoutingModeNative)
-	}
-
-	switch c.TunnelProtocol {
-	case TunnelVXLAN, TunnelGeneve:
-	default:
-		return fmt.Errorf("invalid tunnel protocol %q", c.TunnelProtocol)
 	}
 
 	if c.RoutingMode == RoutingModeNative && c.UseSingleClusterRoute {
@@ -3263,25 +3211,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.TCFilterPriority = uint16(tcFilterPrio)
 
 	c.RoutingMode = vp.GetString(RoutingMode)
-	c.TunnelProtocol = vp.GetString(TunnelProtocol)
-	c.TunnelPort = vp.GetInt(TunnelPortName)
-
-	if c.TunnelPort == 0 {
-		// manually pick port for native-routing and DSR with Geneve dispatch:
-		if !c.TunnelingEnabled() &&
-			(c.EnableNodePort || (c.KubeProxyReplacement == KubeProxyReplacementStrict || c.KubeProxyReplacement == KubeProxyReplacementTrue)) &&
-			c.NodePortMode != NodePortModeSNAT &&
-			c.LoadBalancerDSRDispatch == DSRDispatchGeneve {
-			c.TunnelPort = defaults.TunnelPortGeneve
-		} else {
-			switch c.TunnelProtocol {
-			case TunnelVXLAN:
-				c.TunnelPort = defaults.TunnelPortVXLAN
-			case TunnelGeneve:
-				c.TunnelPort = defaults.TunnelPortGeneve
-			}
-		}
-	}
 
 	if vp.IsSet(AddressScopeMax) {
 		c.AddressScopeMax, err = ip.ParseScope(vp.GetString(AddressScopeMax))

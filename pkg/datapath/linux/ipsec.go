@@ -321,7 +321,7 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	if !option.Config.TunnelingEnabled() {
 		device = option.Config.EncryptInterface[0]
 	} else {
-		device = option.Config.TunnelDevice()
+		device = n.datapathConfig.TunnelDevice
 	}
 	return route.Route{
 		Nexthop: nil,

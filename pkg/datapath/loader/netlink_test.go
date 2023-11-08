@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
@@ -136,7 +137,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 		})
 
 		netns0.Do(func(_ ns.NetNS) error {
-			err := setupTunnelDevice(option.TunnelGeneve, defaults.TunnelPortGeneve, mtu)
+			err := setupTunnelDevice(tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
 
 			link, err := netlink.LinkByName(defaults.GeneveDevice)
@@ -145,7 +146,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			geneve, ok := link.(*netlink.Geneve)
 			require.True(t, ok)
 			require.True(t, geneve.FlowBased)
-			require.Equal(t, int(geneve.Dport), defaults.TunnelPortGeneve)
+			require.EqualValues(t, geneve.Dport, defaults.TunnelPortGeneve)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -165,10 +166,10 @@ func TestSetupTunnelDevice(t *testing.T) {
 		})
 
 		netns0.Do(func(_ ns.NetNS) error {
-			err := setupTunnelDevice(option.TunnelGeneve, defaults.TunnelPortGeneve, mtu)
+			err := setupTunnelDevice(tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
 
-			err = setupTunnelDevice(option.TunnelGeneve, 12345, mtu)
+			err = setupTunnelDevice(tunnel.Geneve, 12345, mtu)
 			require.NoError(t, err)
 
 			link, err := netlink.LinkByName(defaults.GeneveDevice)
@@ -177,7 +178,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			geneve, ok := link.(*netlink.Geneve)
 			require.True(t, ok)
 			require.True(t, geneve.FlowBased)
-			require.Equal(t, int(geneve.Dport), 12345)
+			require.EqualValues(t, geneve.Dport, 12345)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -197,7 +198,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 		})
 
 		netns0.Do(func(_ ns.NetNS) error {
-			err := setupTunnelDevice(option.TunnelGeneve, defaults.TunnelPortGeneve, mtu)
+			err := setupTunnelDevice(tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
 
 			link, err := netlink.LinkByName(defaults.GeneveDevice)
@@ -206,7 +207,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			// Ensure the ifindex does not change when specifying a different MTU.
 			ifindex := link.Attrs().Index
 
-			err = setupTunnelDevice(option.TunnelGeneve, defaults.TunnelPortGeneve, mtu-1)
+			err = setupTunnelDevice(tunnel.Geneve, defaults.TunnelPortGeneve, mtu-1)
 			require.NoError(t, err)
 
 			link, err = netlink.LinkByName(defaults.GeneveDevice)
@@ -230,7 +231,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 		})
 
 		netns0.Do(func(_ ns.NetNS) error {
-			err := setupTunnelDevice(option.TunnelVXLAN, defaults.TunnelPortVXLAN, mtu)
+			err := setupTunnelDevice(tunnel.VXLAN, defaults.TunnelPortVXLAN, mtu)
 			require.NoError(t, err)
 
 			link, err := netlink.LinkByName(defaults.VxlanDevice)
@@ -239,7 +240,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			vxlan, ok := link.(*netlink.Vxlan)
 			require.True(t, ok)
 			require.True(t, vxlan.FlowBased)
-			require.Equal(t, vxlan.Port, defaults.TunnelPortVXLAN)
+			require.EqualValues(t, vxlan.Port, defaults.TunnelPortVXLAN)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -259,10 +260,10 @@ func TestSetupTunnelDevice(t *testing.T) {
 		})
 
 		netns0.Do(func(_ ns.NetNS) error {
-			err := setupTunnelDevice(option.TunnelVXLAN, defaults.TunnelPortVXLAN, mtu)
+			err := setupTunnelDevice(tunnel.VXLAN, defaults.TunnelPortVXLAN, mtu)
 			require.NoError(t, err)
 
-			err = setupTunnelDevice(option.TunnelVXLAN, 12345, mtu)
+			err = setupTunnelDevice(tunnel.VXLAN, 12345, mtu)
 			require.NoError(t, err)
 
 			link, err := netlink.LinkByName(defaults.VxlanDevice)
@@ -271,7 +272,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			vxlan, ok := link.(*netlink.Vxlan)
 			require.True(t, ok)
 			require.True(t, vxlan.FlowBased)
-			require.Equal(t, vxlan.Port, 12345)
+			require.EqualValues(t, vxlan.Port, 12345)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -291,7 +292,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 		})
 
 		netns0.Do(func(_ ns.NetNS) error {
-			err := setupTunnelDevice(option.TunnelVXLAN, defaults.TunnelPortVXLAN, mtu)
+			err := setupTunnelDevice(tunnel.VXLAN, defaults.TunnelPortVXLAN, mtu)
 			require.NoError(t, err)
 
 			link, err := netlink.LinkByName(defaults.VxlanDevice)
@@ -300,7 +301,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			// Ensure the ifindex does not change when specifying a different MTU.
 			ifindex := link.Attrs().Index
 
-			err = setupTunnelDevice(option.TunnelVXLAN, defaults.TunnelPortVXLAN, mtu-1)
+			err = setupTunnelDevice(tunnel.VXLAN, defaults.TunnelPortVXLAN, mtu-1)
 			require.NoError(t, err)
 
 			link, err = netlink.LinkByName(defaults.VxlanDevice)
@@ -325,7 +326,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 
 		netns0.Do(func(_ ns.NetNS) error {
 			// Start with a Geneve tunnel.
-			err := setupTunnelDevice(option.TunnelGeneve, defaults.TunnelPortGeneve, mtu)
+			err := setupTunnelDevice(tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
 			_, err = netlink.LinkByName(defaults.GeneveDevice)
 			require.NoError(t, err)
@@ -333,7 +334,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			require.Error(t, err)
 
 			// Switch to vxlan mode.
-			err = setupTunnelDevice(option.TunnelVXLAN, defaults.TunnelPortVXLAN, mtu)
+			err = setupTunnelDevice(tunnel.VXLAN, defaults.TunnelPortVXLAN, mtu)
 			require.NoError(t, err)
 			_, err = netlink.LinkByName(defaults.GeneveDevice)
 			require.Error(t, err)
@@ -341,7 +342,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			require.NoError(t, err)
 
 			// Switch back to Geneve.
-			err = setupTunnelDevice(option.TunnelGeneve, defaults.TunnelPortGeneve, mtu)
+			err = setupTunnelDevice(tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
 			_, err = netlink.LinkByName(defaults.GeneveDevice)
 			require.NoError(t, err)
@@ -349,7 +350,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			require.Error(t, err)
 
 			// Disable tunneling.
-			err = setupTunnelDevice(option.TunnelDisabled, 0, mtu)
+			err = setupTunnelDevice(tunnel.Disabled, 0, mtu)
 			require.NoError(t, err)
 			_, err = netlink.LinkByName(defaults.VxlanDevice)
 			require.Error(t, err)

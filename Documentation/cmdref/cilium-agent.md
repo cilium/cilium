@@ -318,7 +318,7 @@ cilium-agent [flags]
       --tofqdns-proxy-response-max-delay duration                 The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)
       --trace-payloadlen int                                      Length of payload to capture when tracing (default 128)
       --trace-sock                                                Enable tracing for socket-based LB (default true)
-      --tunnel-port int                                           Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
+      --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --version                                                   Print version information
       --vlan-bpf-bypass strings                                   List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs

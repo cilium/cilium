@@ -9,6 +9,7 @@ import (
 	. "github.com/cilium/checkmate"
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -35,7 +36,7 @@ type kprConfig struct {
 	expectedErrorRegex string
 
 	routingMode    string
-	tunnelProtocol string
+	tunnelProtocol tunnel.Protocol
 	nodePortMode   string
 	dispatchMode   string
 }
@@ -54,7 +55,6 @@ func (cfg *kprConfig) set() {
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
 	option.Config.EnableSocketLBTracing = true
 	option.Config.RoutingMode = cfg.routingMode
-	option.Config.TunnelProtocol = cfg.tunnelProtocol
 	option.Config.LoadBalancerDSRDispatch = cfg.dispatchMode
 
 	if cfg.nodePortMode == option.NodePortModeDSR || cfg.nodePortMode == option.NodePortModeHybrid {
@@ -62,8 +62,8 @@ func (cfg *kprConfig) set() {
 	}
 }
 
-func (cfg *kprConfig) verify(c *C) {
-	err := initKubeProxyReplacementOptions()
+func (cfg *kprConfig) verify(c *C, tc tunnel.Config) {
+	err := initKubeProxyReplacementOptions(tc)
 	if err != nil || cfg.expectedErrorRegex != "" {
 		c.Assert(err, ErrorMatches, cfg.expectedErrorRegex)
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {
@@ -239,7 +239,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
-				cfg.tunnelProtocol = option.TunnelVXLAN
+				cfg.tunnelProtocol = tunnel.VXLAN
 				cfg.nodePortMode = option.NodePortModeDSR
 				cfg.dispatchMode = option.DSRDispatchOption
 			},
@@ -261,6 +261,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeNative
+				cfg.tunnelProtocol = tunnel.Geneve
 				cfg.nodePortMode = option.NodePortModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -280,7 +281,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
-				cfg.tunnelProtocol = option.TunnelGeneve
+				cfg.tunnelProtocol = tunnel.Geneve
 				cfg.nodePortMode = option.NodePortModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -300,7 +301,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
-				cfg.tunnelProtocol = option.TunnelVXLAN
+				cfg.tunnelProtocol = tunnel.VXLAN
 				cfg.nodePortMode = option.NodePortModeDSR
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -322,6 +323,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeNative
+				cfg.tunnelProtocol = tunnel.Geneve
 				cfg.nodePortMode = option.NodePortModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -341,7 +343,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
-				cfg.tunnelProtocol = option.TunnelGeneve
+				cfg.tunnelProtocol = tunnel.Geneve
 				cfg.nodePortMode = option.NodePortModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -361,7 +363,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementTrue
 				cfg.routingMode = option.RoutingModeTunnel
-				cfg.tunnelProtocol = option.TunnelVXLAN
+				cfg.tunnelProtocol = tunnel.VXLAN
 				cfg.nodePortMode = option.NodePortModeHybrid
 				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
@@ -385,7 +387,7 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 		cfg := def
 		testCase.mod(&cfg)
 		cfg.set()
-		testCase.out.verify(c)
+		testCase.out.verify(c, tunnel.NewTestConfig(cfg.tunnelProtocol))
 		def.set()
 	}
 }

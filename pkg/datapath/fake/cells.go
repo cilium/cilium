@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/authmap"
@@ -50,4 +51,6 @@ var Cell = cell.Module(
 		statedb.RegisterTable[*tables.L2AnnounceEntry],
 		statedb.RegisterTable[*tables.Route],
 	),
+
+	tunnel.Cell,
 )

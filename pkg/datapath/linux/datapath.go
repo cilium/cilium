@@ -16,6 +16,9 @@ type DatapathConfiguration struct {
 	// HostDevice is the name of the device to be used to access the host.
 	HostDevice string
 
+	// TunnelDevice is the name of the tunnel device (if any).
+	TunnelDevice string
+
 	ProcFs string
 }
 
