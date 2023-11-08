@@ -244,7 +244,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				k8s1Backends = append(k8s1Backends, net.JoinHostPort(epIP, "80"))
 			}
 
-			ciliumAddService(kubectl, 31080, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, "ClusterIP", "Cluster")
+			ciliumAddService(kubectl, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, "ClusterIP", "Cluster")
 		})
 
 		It("across K8s nodes, skipped due to native routing CIDR", func() {

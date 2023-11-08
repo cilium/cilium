@@ -45,11 +45,11 @@ function no_service_init {
 
 function service_init {
   log "beginning service init"
-  cilium-dbg service update --frontend "$SVC_IP4:80" --id 2233 \
+  cilium-dbg service update --frontend "$SVC_IP4:80" \
 			--backends "$SERVER1_IP4:80" \
 			--backends "$SERVER2_IP4:80"
 
-  cilium-dbg service update --frontend "[$SVC_IP]:80" --id 2234 \
+  cilium-dbg service update --frontend "[$SVC_IP]:80" \
 			--backends "[$SERVER1_IP]:80" \
 			--backends "[$SERVER2_IP]:80"
 

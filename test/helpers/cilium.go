@@ -841,10 +841,10 @@ func (s *SSHMeta) GatherLogs() {
 
 // ServiceAdd creates a new Cilium service with the provided ID, frontend,
 // backends. Returns the result of creating said service.
-func (s *SSHMeta) ServiceAdd(id int, frontend string, backends []string) *CmdRes {
+func (s *SSHMeta) ServiceAdd(frontend string, backends []string) *CmdRes {
 	cmd := fmt.Sprintf(
-		"service update --frontend '%s' --backends '%s' --id '%d'",
-		frontend, strings.Join(backends, ","), id)
+		"service update --frontend '%s' --backends '%s'",
+		frontend, strings.Join(backends, ","))
 	return s.ExecCilium(cmd)
 }
 

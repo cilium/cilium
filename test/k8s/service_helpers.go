@@ -39,11 +39,11 @@ func applyPolicy(kubectl *helpers.Kubectl, path string) {
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 }
 
-func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backends []string, svcType, trafficPolicy string) {
+func ciliumAddService(kubectl *helpers.Kubectl, frontend string, backends []string, svcType, trafficPolicy string) {
 	ciliumPods, err := kubectl.GetCiliumPods()
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 	for _, pod := range ciliumPods {
-		err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
+		err := kubectl.CiliumServiceAdd(pod, frontend, backends, svcType, trafficPolicy)
 		ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
 	}
 }
