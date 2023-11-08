@@ -546,7 +546,7 @@ Geneve dispatch enabled would look as follows:
 .. parsed-literal::
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=disabled \\
+        --set routingMode=native \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=geneve \\
@@ -562,7 +562,8 @@ The example configuration in DSR with Geneve dispatch and tunneling mode is as f
 .. parsed-literal::
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=geneve \\
+        --set routingMode=tunnel \\
+        --set tunnelProtocol=geneve \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=geneve \\
