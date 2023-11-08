@@ -129,7 +129,7 @@ jobs:
         id: cilium-stable-config
         uses: ./.github/actions/cilium-config
         with:
-          image-tag: v${{ env.cilium_stable_version }}
+          #image-tag: v${{ env.cilium_stable_version }}
           chart-dir: './cilium-${{ env.cilium_stable_version }}/install/kubernetes/cilium/'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
@@ -143,6 +143,7 @@ jobs:
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
+          image-tag: 'b416c74f7f5889152b0e45a660a753700d1c98a5'
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
