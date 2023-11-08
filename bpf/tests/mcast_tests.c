@@ -11,6 +11,7 @@
 
 #define ENABLE_IPV4
 #define ENABLE_MULTICAST 1
+#define ENCAP_IFINDEX 1
 
 #include <linux/igmp.h>
 #include <linux/in.h>

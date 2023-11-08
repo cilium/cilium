@@ -96,6 +96,7 @@ var errors = map[uint8]string{
 	198: "Rate limited",
 	199: "IGMP handled",
 	200: "IGMP subscribed",
+	201: "Multicast handled",
 }
 
 func extendedReason(reason uint8, extError int8) string {
