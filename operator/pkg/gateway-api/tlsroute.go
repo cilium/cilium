@@ -92,8 +92,8 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
-		Watches(&gatewayv1alpha2.ReferenceGrant{}, r.enqueueRequestForRequestGrant()).
-		// Watch for changes to Gateways and enqueue TLSRoutes that reference them,
+		Watches(&gatewayv1alpha2.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
+		// Watch for changes to Gateways and enqueue TLSRoutes that reference them
 		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
 				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName)),
@@ -107,8 +107,9 @@ func (r *tlsRouteReconciler) enqueueRequestForBackendService() handler.EventHand
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
 }
 
-// enqueueRequestForRequestGrant makes sure that TLS Routes in the same namespace are reconciled
-func (r *tlsRouteReconciler) enqueueRequestForRequestGrant() handler.EventHandler {
+// enqueueRequestForReferenceGrant makes sure that all TLS Routes are reconciled
+// if a ReferenceGrant changes
+func (r *tlsRouteReconciler) enqueueRequestForReferenceGrant() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueAll())
 }
 

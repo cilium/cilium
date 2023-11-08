@@ -57,8 +57,8 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
-		Watches(&gatewayv1alpha2.ReferenceGrant{}, r.enqueueRequestForRequestGrant()).
-		// Watch for changes to Gateways and enqueue GRPCRoutes that reference them,
+		Watches(&gatewayv1alpha2.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
+		// Watch for changes to Gateways and enqueue GRPCRoutes that reference them
 		Watches(&gatewayv1beta1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
 				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName)))).
@@ -113,8 +113,9 @@ func (r *grpcRouteReconciler) enqueueRequestForBackendService() handler.EventHan
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
 }
 
-// enqueueRequestForRequestGrant makes sure that GRPC Routes in the same namespace are reconciled
-func (r *grpcRouteReconciler) enqueueRequestForRequestGrant() handler.EventHandler {
+// enqueueRequestForReferenceGrant makes sure that all GRPC Routes are reconciled
+// if a ReferenceGrant changes
+func (r *grpcRouteReconciler) enqueueRequestForReferenceGrant() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueAll())
 }
 
