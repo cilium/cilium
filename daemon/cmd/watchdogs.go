@@ -37,6 +37,7 @@ type epBPFProgWatchdogParams struct {
 	Logger        logrus.FieldLogger
 	Lifecycle     hive.Lifecycle
 	DaemonPromise promise.Promise[*Daemon]
+	Scope         cell.Scope
 }
 
 var (
@@ -68,7 +69,8 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 			mgr.UpdateController(
 				epBPFProgWatchdog,
 				controller.ControllerParams{
-					Group: controller.NewGroup(epBPFProgWatchdog),
+					Group:          controller.NewGroup(epBPFProgWatchdog),
+					HealthReporter: cell.GetHealthReporter(p.Scope, epBPFProgWatchdog),
 					DoFunc: func(ctx context.Context) error {
 						d, err := p.DaemonPromise.Await(ctx)
 						if err != nil {
