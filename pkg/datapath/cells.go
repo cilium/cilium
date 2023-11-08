@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
@@ -85,6 +86,9 @@ var Cell = cell.Module(
 	// BIG TCP increases GSO/GRO limits when enabled.
 	bigtcp.Cell,
 
+	// Tunnel protocol configuration and alike.
+	tunnel.Cell,
+
 	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
 		return dp.NodeIDs()
 	}),
@@ -129,8 +133,9 @@ func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *
 
 func newDatapath(params datapathParams) types.Datapath {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: defaults.HostDevice,
-		ProcFs:     option.Config.ProcFs,
+		HostDevice:   defaults.HostDevice,
+		TunnelDevice: params.TunnelConfig.DeviceName(),
+		ProcFs:       option.Config.ProcFs,
 	}
 
 	datapath := linuxdatapath.NewDatapath(datapathConfig, params.IptablesManager, params.WgAgent, params.NodeMap, params.ConfigWriter)
@@ -167,4 +172,6 @@ type datapathParams struct {
 	IptablesManager *iptables.Manager
 
 	ConfigWriter types.ConfigWriter
+
+	TunnelConfig tunnel.Config
 }

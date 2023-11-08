@@ -44,6 +44,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/egressgateway"
@@ -766,12 +767,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.String(option.RoutingMode, defaults.RoutingMode, fmt.Sprintf("Routing mode (%q or %q)", option.RoutingModeNative, option.RoutingModeTunnel))
 	option.BindEnv(vp, option.RoutingMode)
-
-	flags.String(option.TunnelProtocol, defaults.TunnelProtocol, "Encapsulation protocol to use for the overlay (\"vxlan\" or \"geneve\")")
-	option.BindEnv(vp, option.TunnelProtocol)
-
-	flags.Int(option.TunnelPortName, 0, fmt.Sprintf("Tunnel port (default %d for \"vxlan\" and %d for \"geneve\")", defaults.TunnelPortVXLAN, defaults.TunnelPortGeneve))
-	option.BindEnv(vp, option.TunnelPortName)
 
 	flags.Int(option.TracePayloadlen, 128, "Length of payload to capture when tracing")
 	option.BindEnv(vp, option.TracePayloadlen)
@@ -1674,6 +1669,7 @@ type daemonParams struct {
 	EndpointRegenerator *endpoint.Regenerator
 	ClusterInfo         cmtypes.ClusterInfo
 	BigTCPConfig        *bigtcp.Configuration
+	TunnelConfig        tunnel.Config
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

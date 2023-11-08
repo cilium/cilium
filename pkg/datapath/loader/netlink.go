@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/inctimer"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -476,9 +477,9 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 
 // setupTunnelDevice ensures the cilium_{mode} device is created and
 // unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(mode string, port, mtu int) error {
+func setupTunnelDevice(mode tunnel.Protocol, port uint16, mtu int) error {
 	switch mode {
-	case option.TunnelGeneve:
+	case tunnel.Geneve:
 		if err := setupGeneveDevice(port, mtu); err != nil {
 			return fmt.Errorf("setting up geneve device: %w", err)
 		}
@@ -486,7 +487,7 @@ func setupTunnelDevice(mode string, port, mtu int) error {
 			return fmt.Errorf("removing %s: %w", defaults.VxlanDevice, err)
 		}
 
-	case option.TunnelVXLAN:
+	case tunnel.VXLAN:
 		if err := setupVxlanDevice(port, mtu); err != nil {
 			return fmt.Errorf("setting up vxlan device: %w", err)
 		}
@@ -511,7 +512,7 @@ func setupTunnelDevice(mode string, port, mtu int) error {
 //
 // Changing the destination port will recreate the device. Changing the MTU will
 // modify the device without recreating it.
-func setupGeneveDevice(dport, mtu int) error {
+func setupGeneveDevice(dport uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return err
@@ -524,7 +525,7 @@ func setupGeneveDevice(dport, mtu int) error {
 			HardwareAddr: net.HardwareAddr(mac),
 		},
 		FlowBased: true,
-		Dport:     uint16(dport),
+		Dport:     dport,
 	}
 
 	l, err := ensureDevice(dev)
@@ -535,7 +536,7 @@ func setupGeneveDevice(dport, mtu int) error {
 	// Recreate the device with the correct destination port. Modifying the device
 	// without recreating it is not supported.
 	geneve, _ := l.(*netlink.Geneve)
-	if geneve.Dport != uint16(dport) {
+	if geneve.Dport != dport {
 		if err := netlink.LinkDel(l); err != nil {
 			return fmt.Errorf("deleting outdated geneve device: %w", err)
 		}
@@ -552,7 +553,7 @@ func setupGeneveDevice(dport, mtu int) error {
 //
 // Changing the port will recreate the device. Changing the MTU will modify the
 // device without recreating it.
-func setupVxlanDevice(port, mtu int) error {
+func setupVxlanDevice(port uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return err
@@ -565,7 +566,7 @@ func setupVxlanDevice(port, mtu int) error {
 			HardwareAddr: net.HardwareAddr(mac),
 		},
 		FlowBased: true,
-		Port:      port,
+		Port:      int(port),
 	}
 
 	l, err := ensureDevice(dev)
@@ -576,7 +577,7 @@ func setupVxlanDevice(port, mtu int) error {
 	// Recreate the device with the correct destination port. Modifying the device
 	// without recreating it is not supported.
 	vxlan, _ := l.(*netlink.Vxlan)
-	if vxlan.Port != port {
+	if vxlan.Port != int(port) {
 		if err := netlink.LinkDel(l); err != nil {
 			return fmt.Errorf("deleting outdated vxlan device: %w", err)
 		}
