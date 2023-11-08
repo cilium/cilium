@@ -33,7 +33,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes/kops
   kops_version: v1.28.0
   # renovate: datasource=golang-version depName=go
-  go_version: 1.21.3
+  go_version: 1.21.4
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
   cluster_name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
