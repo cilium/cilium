@@ -451,19 +451,9 @@ data:
 {{- else if .Values.routingMode }}
   routing-mode: {{ .Values.routingMode | quote }}
 {{- else }}
-  {{- if eq .Values.tunnel "disabled" }}
-  routing-mode: "native"
-  {{- else if eq .Values.tunnel "vxlan" }}
-  routing-mode: "tunnel"
-  tunnel-protocol: "vxlan"
-  {{- else if eq .Values.tunnel "geneve" }}
-  routing-mode: "tunnel"
-  tunnel-protocol: "geneve"
-  {{- else }}
   # Default case
   routing-mode: "tunnel"
   tunnel-protocol: "vxlan"
-  {{- end }}
 {{- end }}
 
 {{- if .Values.tunnelProtocol }}

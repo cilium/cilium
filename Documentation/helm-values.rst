@@ -2880,10 +2880,6 @@
      - Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
      - ``[{"operator":"Exists"}]``
-   * - :spelling:ignore:`tunnel`
-     - Configure the encapsulation configuration for communication between nodes. Deprecated in favor of tunnelProtocol and routingMode. To be removed in 1.15. Possible values:   - disabled   - vxlan   - geneve
-     - string
-     - ``"vxlan"``
    * - :spelling:ignore:`tunnelPort`
      - Configure VXLAN and Geneve tunnel port.
      - int

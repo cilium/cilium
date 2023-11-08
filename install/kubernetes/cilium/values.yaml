@@ -2250,15 +2250,6 @@ tls:
     #   ...
     #   -----END CERTIFICATE-----
 
-# -- Configure the encapsulation configuration for communication between nodes.
-# Deprecated in favor of tunnelProtocol and routingMode. To be removed in 1.15.
-# Possible values:
-#   - disabled
-#   - vxlan
-#   - geneve
-# @default -- `"vxlan"`
-tunnel: ""
-
 # -- Tunneling protocol to use in tunneling mode and for ad-hoc tunnels.
 # Possible values:
 #   - ""
