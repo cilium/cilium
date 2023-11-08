@@ -35,7 +35,7 @@ env:
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
   test_name: node-throughput
-  cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
+  cluster_base_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
   CILIUM_CLI_MODE: helm
 
 jobs:
@@ -68,8 +68,11 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --wait=false"
 
+          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_base_name }}"
+
           echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -131,7 +134,7 @@ jobs:
         uses: ./.github/actions/scale-tests/create-cluster
         timeout-minutes: 30
         with:
-          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
           control_plane_size: n2-standard-4
           control_plane_count: 1
           node_size: e2-standard-8
@@ -147,7 +150,7 @@ jobs:
         uses: ./.github/actions/scale-tests/validate-cluster
         timeout-minutes: 20
         with:
-          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Wait for Cilium status to be ready
@@ -184,7 +187,7 @@ jobs:
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
         uses: ./.github/actions/scale-tests/cleanup-cluster
         with:
-          cluster_name: ${{ env.test_name }}-${{ env.cluster_name }}
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
