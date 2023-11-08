@@ -293,6 +293,16 @@ func (ct *ConnectivityTest) GetTest(name string) (*Test, error) {
 	panic("missing test descriptor for a registered name")
 }
 
+// GetTestOrDie returns the test scope for test named "name" if found,
+// or panics otherwise.
+func (ct *ConnectivityTest) GetTestOrDie(name string) *Test {
+	test, err := ct.GetTest(name)
+	if err != nil {
+		panic(err)
+	}
+	return test
+}
+
 // SetupAndValidate sets up and validates the connectivity test infrastructure
 // such as the client pods and validates the deployment of them along with
 // Cilium. This must be run before Run() is called.
