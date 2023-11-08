@@ -154,7 +154,14 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		WithScheme(testScheme()).
 		WithObjects(secretFixture...).
 		Build()
-	r := secretsync.NewSecretSyncReconciler(c, logrus.New(), &gatewayv1.Gateway{}, enqueueTLSSecrets(c), isUsedByCiliumGateway, secretsNamespace)
+	r := secretsync.NewSecretSyncReconciler(c, logrus.New(), []*secretsync.SecretSyncRegistration{
+		{
+			RefObject:            &gatewayv1.Gateway{},
+			RefObjectEnqueueFunc: enqueueTLSSecrets(c),
+			RefObjectCheckFunc:   isReferencedByCiliumGateway,
+			SecretsNamespace:     secretsNamespace,
+		},
+	})
 
 	t.Run("delete synced secret if source secret doesn't exist", func(t *testing.T) {
 		result, err := r.Reconcile(context.Background(), ctrl.Request{
