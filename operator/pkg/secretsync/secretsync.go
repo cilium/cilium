@@ -5,10 +5,12 @@ package secretsync
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,39 +30,67 @@ type secretSyncer struct {
 	client client.Client
 	logger logrus.FieldLogger
 
-	mainObject               client.Object
-	mainObjectEnqueueFunc    handler.EventHandler
-	mainObjectReferencedFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool
-	secretsNamespace         string
+	registrations    []*SecretSyncRegistration
+	secretNamespaces []string
 }
 
-func NewSecretSyncReconciler(c client.Client, logger logrus.FieldLogger, mainObject client.Object, mainObjectEnqueueFunc handler.EventHandler, mainObjectReferencedFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool, secretsNamespace string) *secretSyncer {
+type SecretSyncRegistration struct {
+	// RefObject defines the Kubernetes Object that is referencing a K8s Secret that needs to be synced.
+	RefObject client.Object
+	// RefObjectEnqueueFunc defines the mapping function from the reference object to the Secret.
+	RefObjectEnqueueFunc handler.EventHandler
+	// RefObjectCheckFunc defines a function that is called to check whether the given K8s Secret
+	// is still referenced by a reference object.
+	// Synced Secrets that origin from K8s Secrets that are no longer referenced by any registration are deleted.
+	RefObjectCheckFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool
+	// SecretsNamespace defines the name of the namespace in which the referenced K8s Secrets are to be synchronized.
+	SecretsNamespace string
+}
+
+func (r SecretSyncRegistration) String() string {
+	return fmt.Sprintf("%T -> %q", r.RefObject, r.SecretsNamespace)
+}
+
+func NewSecretSyncReconciler(c client.Client, logger logrus.FieldLogger, registrations []*SecretSyncRegistration) *secretSyncer {
+	regs := []*SecretSyncRegistration{}
+	secretNamespaces := []string{}
+	for _, r := range registrations {
+		if r != nil {
+			regs = append(regs, r)
+			secretNamespaces = append(secretNamespaces, r.SecretsNamespace)
+		}
+	}
+
 	return &secretSyncer{
 		client: c,
 		logger: logger,
 
-		mainObject:               mainObject,
-		mainObjectEnqueueFunc:    mainObjectEnqueueFunc,
-		mainObjectReferencedFunc: mainObjectReferencedFunc,
-		secretsNamespace:         secretsNamespace,
+		registrations:    regs,
+		secretNamespaces: secretNamespaces,
 	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	r.logger.WithField("registrations", r.registrations).Info("Setting up Secret synchronization")
+
+	builder := ctrl.NewControllerManagedBy(mgr).
 		// Source Secrets outside of the secrets namespace
 		For(&corev1.Secret{}, r.notInSecretsNamespace()).
 		// Synced Secrets in the secrets namespace
-		Watches(&corev1.Secret{}, enqueueOwningSecretFromLabels(), r.deletedOrChangedInSecretsNamespace()).
+		Watches(&corev1.Secret{}, enqueueOwningSecretFromLabels(), r.deletedOrChangedInSecretsNamespace())
+
+	for _, r := range r.registrations {
 		// Watch main object referencing TLS secrets
-		Watches(r.mainObject, r.mainObjectEnqueueFunc).
-		Complete(r)
+		builder = builder.Watches(r.RefObject, r.RefObjectEnqueueFunc)
+	}
+
+	return builder.Complete(r)
 }
 
 func (r *secretSyncer) notInSecretsNamespace() builder.Predicates {
 	return builder.WithPredicates(predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() != r.secretsNamespace
+		return !slices.Contains(r.secretNamespaces, object.GetNamespace())
 	}))
 }
 
@@ -92,14 +122,18 @@ func enqueueOwningSecretFromLabels() handler.EventHandler {
 
 func (r *secretSyncer) deletedOrChangedInSecretsNamespace() builder.Predicates {
 	return builder.WithPredicates(&deletedOrChangedInSecretsNamespaceStruct{
-		secretsNamespace: r.secretsNamespace,
+		secretNamespaces: r.secretNamespaces,
 	})
+}
+
+func (r *secretSyncer) hasRegistrations() bool {
+	return len(r.registrations) > 0
 }
 
 var _ predicate.Predicate = &deletedOrChangedInSecretsNamespaceStruct{}
 
 type deletedOrChangedInSecretsNamespaceStruct struct {
-	secretsNamespace string
+	secretNamespaces []string
 }
 
 func (r *deletedOrChangedInSecretsNamespaceStruct) Create(event.CreateEvent) bool {
@@ -107,11 +141,11 @@ func (r *deletedOrChangedInSecretsNamespaceStruct) Create(event.CreateEvent) boo
 }
 
 func (r *deletedOrChangedInSecretsNamespaceStruct) Update(event event.UpdateEvent) bool {
-	return event.ObjectOld.GetNamespace() == r.secretsNamespace
+	return slices.Contains(r.secretNamespaces, event.ObjectOld.GetNamespace())
 }
 
 func (r *deletedOrChangedInSecretsNamespaceStruct) Delete(event event.DeleteEvent) bool {
-	return event.Object.GetNamespace() == r.secretsNamespace
+	return slices.Contains(r.secretNamespaces, event.Object.GetNamespace())
 }
 
 func (r *deletedOrChangedInSecretsNamespaceStruct) Generic(event.GenericEvent) bool {

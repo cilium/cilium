@@ -37,6 +37,7 @@ import (
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
+	"github.com/cilium/cilium/operator/pkg/secretsync"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/components"
@@ -213,6 +214,12 @@ var (
 
 			// Cilium Ingress controller that manages the Kubernetes Ingress related CRDs.
 			ingress.Cell,
+
+			// Cilium Secret synchronizes K8s TLS Secrets referenced by
+			// Ciliums "Ingress resources" from the application namespaces into a dedicated
+			// secrets namespace that is accessible by the Cilium Agents.
+			// Resources might be K8s `Ingress` or Gateway API `Gateway`.
+			secretsync.Cell,
 
 			// Cilium L7 LoadBalancing with Envoy.
 			ciliumenvoyconfig.Cell,
