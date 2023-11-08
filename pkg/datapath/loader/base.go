@@ -235,6 +235,7 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) err
 }
 
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
+	maybeRemoveXDPLinks()
 	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode)
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
