@@ -62,6 +62,7 @@ var sourceFileNames = map[int]string{
 	105: "nodeport.h",
 	106: "lb.h",
 	107: "encrypt.h",
+	108: "mcast.h",
 	//end
 }
 
