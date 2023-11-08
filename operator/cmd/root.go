@@ -357,18 +357,6 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 		}
 	}
 
-	// We only support Operator in HA mode for Kubernetes Versions having support for
-	// LeasesResourceLock.
-	// See docs on capabilities.LeasesResourceLock for more context.
-	if !k8sversion.Capabilities().LeasesResourceLock {
-		log.Info("Support for coordination.k8s.io/v1 not present, fallback to non HA mode")
-
-		if err := lc.Start(leaderElectionCtx); err != nil {
-			log.WithError(err).Fatal("Failed to start leading")
-		}
-		return
-	}
-
 	// Get hostname for identity name of the lease lock holder.
 	// We identify the leader of the operator cluster using hostname.
 	operatorID, err := os.Hostname()

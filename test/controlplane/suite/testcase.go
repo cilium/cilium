@@ -161,11 +161,6 @@ func (cpt *ControlPlaneTest) StartOperator(
 
 	h.Viper().Set(apis.SkipCRDCreation, true)
 
-	// Disable support for operator HA. This should be cleaned up
-	// by injecting the capabilities, or by supporting the leader
-	// election machinery in the controlplane tests.
-	version.DisableLeasesResourceLock()
-
 	err := startCiliumOperator(h)
 	if err != nil {
 		cpt.t.Fatalf("Failed to start operator: %s", err)

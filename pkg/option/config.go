@@ -2289,14 +2289,6 @@ type DaemonConfig struct {
 	// map.
 	SizeofSockRevElement int
 
-	// k8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
-	// for the support of Leases in Kubernetes when there is an error in discovering
-	// API groups using Discovery API.
-	// We require to check for Leases capabilities in operator only, which uses Leases for leader
-	// election purposes in HA mode.
-	// This is only enabled for cilium-operator
-	K8sEnableLeasesFallbackDiscovery bool
-
 	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
 	LBMapEntries int
 
@@ -2482,8 +2474,6 @@ var (
 		AllocatorListTimeout:            defaults.AllocatorListTimeout,
 		EnableICMPRules:                 defaults.EnableICMPRules,
 		UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
-
-		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
 		ExternalClusterIP:      defaults.ExternalClusterIP,
 		EnableVTEP:             defaults.EnableVTEP,
