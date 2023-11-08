@@ -171,7 +171,7 @@ struct ipv4_nat_entry *snat_v4_lookup(const struct ipv4_ct_tuple *tuple)
 	return __snat_lookup(&SNAT_MAPPING_IPV4, tuple);
 }
 
-static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
+static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map,
 					       struct ipv4_ct_tuple *otuple,
 					       struct ipv4_nat_entry *ostate,
 					       const struct ipv4_nat_target *target,
@@ -181,7 +181,6 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 	struct ipv4_nat_entry rstate;
 	int ret, retries;
 	__u16 port;
-	void *map;
 
 	memset(&rstate, 0, sizeof(rstate));
 	memset(ostate, 0, sizeof(*ostate));
@@ -206,10 +205,6 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
-
-	map = get_cluster_snat_map_v4(target->cluster_id);
-	if (!map)
-		return DROP_SNAT_NO_MAP_FOUND;
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
@@ -306,8 +301,8 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state)
 		return 0;
 	else
-		return snat_v4_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct,
-					   ext_err);
+		return snat_v4_new_mapping(ctx, map, tuple, (*state = tmp),
+					   target, needs_ct, ext_err);
 }
 
 static __always_inline int
