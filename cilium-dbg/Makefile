@@ -7,6 +7,7 @@ include ${ROOT_DIR}/../Makefile.defs
 
 TARGET := cilium-dbg
 TARGET_OLD := cilium
+TARGET_SHORTCUT := c
 
 .PHONY: all $(TARGET) clean install
 
@@ -27,6 +28,7 @@ install-binary:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 	$(QUIET)ln -rs $(DESTDIR)$(BINDIR)/$(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET_OLD)
+	$(QUIET)ln -rs $(DESTDIR)$(BINDIR)/$(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET_SHORTCUT)
 
 install-bash-completion: $(TARGET) install-bash-completion-only
 
