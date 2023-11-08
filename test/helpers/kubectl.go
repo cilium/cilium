@@ -228,25 +228,6 @@ var (
 	}
 )
 
-// HelmOverride returns the value of a Helm override option for the currently
-// enabled CNI_INTEGRATION
-func HelmOverride(option string) string {
-	integration := strings.ToLower(os.Getenv("CNI_INTEGRATION"))
-	if overrides, exists := helmOverrides[integration]; exists {
-		return overrides[option]
-	}
-	return ""
-}
-
-// NativeRoutingEnabled returns true when native routing is enabled for a
-// particular CNI_INTEGRATION
-func NativeRoutingEnabled() bool {
-	tunnelDisabled := HelmOverride("tunnel") == "disabled" ||
-		HelmOverride("routingMode") == "native"
-	gkeEnabled := HelmOverride("gke.enabled") == "true"
-	return tunnelDisabled || gkeEnabled
-}
-
 func Init() {
 	if config.CiliumTestConfig.CiliumImage != "" {
 		os.Setenv("CILIUM_IMAGE", config.CiliumTestConfig.CiliumImage)
