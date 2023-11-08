@@ -5,13 +5,17 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -62,6 +66,26 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
 		if !used {
 			netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkGeneric)))
 			netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkDriver)))
+		}
+	}
+}
+
+// maybeRemoveXDPLinks removes bpf_links for XDP programs.
+//
+// This is needed for the downgrade path from newer Cilium versions that attach
+// XDP using bpf_link. If this is not supported by an old version of Cilium, the
+// bpf_link needs to be removed by deleting its pin from bpffs. Then, the old
+// version will be able to attach XDP programs using the legacy netlink again.
+func maybeRemoveXDPLinks() {
+	links, err := netlink.LinkList()
+	if err != nil {
+		log.WithError(err).Warn("Failed to list links for XDP link removal")
+	}
+
+	for _, link := range links {
+		bpfLinkPath := filepath.Join(bpffsDeviceLinksDir(bpf.CiliumPath(), link), symbolFromHostNetdevXDP)
+		if err := os.Remove(bpfLinkPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			log.WithError(err).Errorf("Failed to remove link %s", bpfLinkPath)
 		}
 	}
 }
