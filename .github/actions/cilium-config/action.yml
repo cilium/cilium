@@ -85,7 +85,7 @@ runs:
 
           TUNNEL="--helm-set-string=tunnelProtocol=${{ inputs.tunnel }}"
           if [ "${{ inputs.tunnel }}" == "disabled" ]; then
-            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
+            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
             TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
           fi
 

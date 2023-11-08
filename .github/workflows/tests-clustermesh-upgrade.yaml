@@ -147,7 +147,8 @@ jobs:
             --set=bpf.masquerade=false \
             --set=bpf.monitorAggregation=none \
             --set=hubble.enabled=false \
-            --set=tunnel=vxlan \
+            --set=routingMode=tunnel \
+            --set=tunnelProtocol=vxlan \
             --set=ipv4.enabled=true \
             --set=ipv6.enabled=false \
             --set=clustermesh.useAPIServer=true \
