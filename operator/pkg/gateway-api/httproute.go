@@ -91,7 +91,7 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
-		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForRequestGrant()).
+		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch for changes to Gateways and enqueue HTTPRoutes that reference them,
 		Watches(&gatewayv1beta1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
@@ -105,8 +105,9 @@ func (r *httpRouteReconciler) enqueueRequestForBackendService() handler.EventHan
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
 }
 
-// enqueueRequestForRequestGrant makes sure that HTTP Routes in the same namespace are reconciled
-func (r *httpRouteReconciler) enqueueRequestForRequestGrant() handler.EventHandler {
+// enqueueRequestForReferenceGrant makes sure that all HTTP Routes are reconciled
+// if a ReferenceGrant changes
+func (r *httpRouteReconciler) enqueueRequestForReferenceGrant() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueAll())
 }
 
