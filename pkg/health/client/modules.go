@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
@@ -43,6 +44,9 @@ func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
 	}
 	if verbose {
 		r := newRoot(rootNode)
+		sort.Slice(resp.Payload.Modules, func(i, j int) bool {
+			return resp.Payload.Modules[i].ModuleID < resp.Payload.Modules[j].ModuleID
+		})
 		for _, m := range resp.Payload.Modules {
 			if m.Level == string(cell.StatusUnknown) {
 				continue
