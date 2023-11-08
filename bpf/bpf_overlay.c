@@ -6,6 +6,7 @@
 
 #include <node_config.h>
 #include <netdev_config.h>
+#include "lib/mcast.h"
 
 #define IS_BPF_OVERLAY 1
 
@@ -292,6 +293,15 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	if (ipv4_is_fragment(ip4))
 		return DROP_FRAG_NOSUPPORT;
 #endif
+
+#ifdef ENABLE_MULTICAST
+	if (IN_MULTICAST(bpf_ntohl(ip4->daddr))) {
+		if (mcast_lookup_subscriber_map(&ip4->daddr)) {
+			ep_tail_call(ctx, CILIUM_CALL_MULTICAST_EP_DELIVERY);
+			return DROP_MISSED_TAIL_CALL;
+		}
+	}
+#endif /* ENABLE_MULTICAST */
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {

@@ -4,6 +4,7 @@
 #include "bpf/types_mapper.h"
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
+#include <linux/in.h>
 
 #include <ep_config.h>
 #include <node_config.h>
@@ -1335,6 +1336,13 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 		 * need to forward to the stack
 		 */
 		return mcast_ipv4_handle_igmp(ctx, ip4, data, data_end);
+	}
+
+	if (IN_MULTICAST(bpf_ntohl(ip4->daddr))) {
+		if (mcast_lookup_subscriber_map(&ip4->daddr)) {
+			ep_tail_call(ctx, CILIUM_CALL_MULTICAST_EP_DELIVERY);
+			return DROP_MISSED_TAIL_CALL;
+		}
 	}
 #endif /* ENABLE_MULTICAST */
 

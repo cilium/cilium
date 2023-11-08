@@ -37,6 +37,8 @@ static int BPF_FUNC(map_update_elem, const void *map, const void *key,
 static int BPF_FUNC(map_delete_elem, const void *map, const void *key);
 static void *BPF_FUNC(map_lookup_percpu_elem, void *map, const void *key,
 				unsigned int cpu);
+static long BPF_FUNC(for_each_map_elem, void *map, void *callback_fn,
+		     void *callback_ctx, __u64 flags);
 
 /* Time access */
 static __u64 BPF_FUNC(ktime_get_ns);
