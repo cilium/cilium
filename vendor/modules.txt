@@ -181,8 +181,8 @@ github.com/cilium/customvet/analysis/timeafter
 ## explicit; go 1.14
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
-# github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
-## explicit; go 1.14
+# github.com/cilium/dns v1.1.51-0.20231108175042-eaf71f6affd2
+## explicit; go 1.18
 github.com/cilium/dns
 # github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2
 ## explicit; go 1.18
@@ -820,6 +820,8 @@ github.com/mdlayher/raw
 # github.com/mdlayher/socket v0.0.0-20211102153432-57e3fa563ecb
 ## explicit; go 1.17
 github.com/mdlayher/socket
+# github.com/miekg/dns v1.1.51
+## explicit; go 1.14
 # github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721
 ## explicit
 github.com/mikioh/ipaddr
