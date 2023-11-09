@@ -444,7 +444,7 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
 // interface is invoked.
-func (m *manager) NodeUpdated(n nodeTypes.Node) {
+func (m *manager) NodeUpdated(n nodeTypes.Node) error {
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)
 
 	nodeIdentifier := n.Identity()
@@ -561,15 +561,15 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			// was discovered locally and then is subsequently
 			// updated by the k8s watcher.
 			m.mutex.Unlock()
-			return
+			return nil
 		}
 
 		entry.mutex.Lock()
 		m.mutex.Unlock()
 		oldNode := entry.node
 		entry.node = n
+		var errs error
 		if dpUpdate {
-			var errs error
 			m.Iter(func(nh datapath.NodeHandler) {
 				if err := nh.NodeUpdate(oldNode, entry.node); err != nil {
 					log.WithFields(logrus.Fields{
@@ -592,6 +592,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.removeNodeFromIPCache(oldNode, resource, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
 
 		entry.mutex.Unlock()
+		return errs
 	} else {
 		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
 		m.metrics.NumNodes.Inc()
@@ -614,13 +615,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			})
 		}
 		entry.mutex.Unlock()
-		hr := cell.GetHealthReporter(m.healthScope, "nodes-add")
-		if errs != nil {
-			hr.Degraded("Failed to add nodes", errs)
-		} else {
-			hr.OK("Node adds successful")
-		}
 
+		return errs
 	}
 }
 
@@ -703,7 +699,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 // from the manager if the node is still owned by the source of which the event
 // origins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
-func (m *manager) NodeDeleted(n nodeTypes.Node) {
+func (m *manager) NodeDeleted(n nodeTypes.Node) error {
 	m.metrics.EventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
 
 	log.Debugf("Received node delete event from %s", n.Source)
@@ -714,7 +710,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	entry, oldNodeExists := m.nodes[nodeIdentifier]
 	if !oldNodeExists {
 		m.mutex.Unlock()
-		return
+		return nil
 	}
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
@@ -731,7 +727,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 			log.Debugf("Ignoring delete event of node %s from source %s. The node is owned by %s",
 				n.Name, n.Source, entry.node.Source)
 		}
-		return
+		return nil
 	}
 
 	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil)
@@ -758,12 +754,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	})
 	entry.mutex.Unlock()
 
-	hr := cell.GetHealthReporter(m.healthScope, "nodes-delete")
-	if errs != nil {
-		hr.Degraded("Failed to delete nodes", errs)
-	} else {
-		hr.OK("Node deletions successful")
-	}
+	return errs
 }
 
 // GetNodeIdentities returns a list of all node identities store in node

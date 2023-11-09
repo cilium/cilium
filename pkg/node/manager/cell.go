@@ -48,10 +48,10 @@ type NodeManager interface {
 
 	// NodeUpdated is called when the store detects a change in node
 	// information
-	NodeUpdated(n types.Node)
+	NodeUpdated(n types.Node) error
 
 	// NodeDeleted is called when the store detects a deletion of a node
-	NodeDeleted(n types.Node)
+	NodeDeleted(n types.Node) error
 
 	// ClusterSizeDependantInterval returns a time.Duration that is dependent on
 	// the cluster size, i.e. the number of nodes that have been discovered. This
