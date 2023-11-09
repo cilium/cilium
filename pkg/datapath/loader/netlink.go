@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -192,7 +193,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 
 // attachProgram attaches prog to link.
 // If xdpFlags is non-zero, attaches prog to XDP.
-func attachProgram(link netlink.Link, prog *ebpf.Program, progName string, qdiscParent uint32, xdpFlags uint32) error {
+func attachProgram(link netlink.Link, prog *ebpf.Program, progName string, qdiscParent uint32, xdpFlags link.XDPAttachFlags) error {
 	if prog == nil {
 		return errors.New("cannot attach a nil program")
 	}

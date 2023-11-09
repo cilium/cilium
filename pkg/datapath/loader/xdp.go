@@ -13,7 +13,8 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netlink/nl"
+
+	"github.com/cilium/ebpf/link"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"
@@ -21,16 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func xdpModeToFlag(xdpMode string) uint32 {
+func xdpModeToFlag(xdpMode string) link.XDPAttachFlags {
 	switch xdpMode {
-	case option.XDPModeNative:
-		return nl.XDP_FLAGS_DRV_MODE
-	case option.XDPModeGeneric:
-		return nl.XDP_FLAGS_SKB_MODE
-	case option.XDPModeLinkDriver:
-		return nl.XDP_FLAGS_DRV_MODE
-	case option.XDPModeLinkGeneric:
-		return nl.XDP_FLAGS_SKB_MODE
+	case option.XDPModeNative, option.XDPModeLinkDriver:
+		return link.XDPDriverMode
+	case option.XDPModeGeneric, option.XDPModeLinkGeneric:
+		return link.XDPGenericMode
 	}
 	return 0
 }
@@ -56,7 +53,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
 		used := false
 		for _, xdpDev := range xdpDevs {
 			if link.Attrs().Name == xdpDev &&
-				linkxdp.AttachMode == xdpModeToFlag(xdpMode) {
+				linkxdp.AttachMode == uint32(xdpModeToFlag(xdpMode)) {
 				// XDP mode matches; don't unload, otherwise we might introduce
 				// intermittent connectivity problems
 				used = true
