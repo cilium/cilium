@@ -81,7 +81,7 @@ by using the following commands below.
 
 .. include:: ../../installation/k8s-install-download-release.rst
 
-Next, generate the required YAML files and deploy them. 
+Next, generate the required YAML files and deploy them.
 
 .. important::
 
@@ -835,12 +835,14 @@ with Accelerated Networking using Azure CLI
 for more details.
 
 When *Accelerated Networking* is enabled, ``lspci`` will show a
-Mellanox ConnectX-3 or ConnectX-4 Lx NIC:
+Mellanox ConnectX NIC:
 
 .. code-block:: shell-session
 
     $ lspci | grep Ethernet
     2846:00:02.0 Ethernet controller: Mellanox Technologies MT27710 Family [ConnectX-4 Lx Virtual Function] (rev 80)
+
+XDP acceleration can only be enabled on NICs ConnectX-4 Lx and onwards.
 
 In order to run XDP, large receive offload (LRO) needs to be disabled on the
 ``hv_netvsc`` device. If not the case already, this can be achieved by:
@@ -898,9 +900,9 @@ have Kubernetes InternalIP or ExternalIP assigned. InternalIP is preferred over
 ExternalIP if both exist. To change the devices, set their names in the
 ``devices`` Helm option, e.g. ``devices='{eth0,eth1,eth2}'``. Each
 listed device has to be named the same on all Cilium managed nodes. Alternatively
-if the devices do not match across different nodes, the wildcard option can be 
+if the devices do not match across different nodes, the wildcard option can be
 used, e.g. ``devices=eth+``, which would match any device starting with prefix
-``eth``. If no device can be matched the Cilium agent will try to perform auto 
+``eth``. If no device can be matched the Cilium agent will try to perform auto
 detection.
 
 When multiple devices are used, only one device can be used for direct routing
