@@ -1,5 +1,82 @@
 # Changelog
 
+## v1.14.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* certmanager: solve CannotRegenerateKey (Backport PR #29030, Upstream PR #28787, @universam1)
+* Cilium DNS proxy now uses the original pod's address as the source address towards the DNS servers. (Backport PR #29086, Upstream PR #28928, @jrajahalme)
+* Cilium now properly deletes stale (deleted) nodes from the node_connectivity_status and node_connectivity_latency_seconds metrics, reducing metric cardinality. (Backport PR #28980, Upstream PR #28382, @derailed)
+* Display interfaces used for IPsec decryption in `cilium encrypt status`. (Backport PR #28759, Upstream PR #28640, @pchaigno)
+* helm: delete AWS iptables in all deployments aside from AWS CNI chaining environments (Backport PR #28870, Upstream PR #28697, @nebril)
+* ipsec: New Prometheus metrics for XFRM configs (Backport PR #28759, Upstream PR #28400, @pchaigno)
+* policy: Cilium will not process or enforce network policies with port ranges or Kubernetes network policies that use "EndPort". (Backport PR #29030, Upstream PR #28704, @nathanjsweet)
+* policy: Fixed a bug that incorrectly omitted port-protocol policy rules that omitted the "protocol" field. An omitted "protocol" field now, correctly, is the same as using the "ANY" protocol. (Backport PR #28759, Upstream PR #28703, @nathanjsweet)
+* v1.14: WG tunneling (#28917, @brb)
+
+**Bugfixes:**
+* bpf: Add TC_ACT_REDIRECT check for nodeport (Backport PR #29030, Upstream PR #28927, @sayboras)
+* Don't bind a /64 address to cilium_host to avoid misrouting cross-node traffic (Backport PR #28759, Upstream PR #28633, @CallMeFoxie)
+* envoy: fix lb backend endpoint calculation (Backport PR #28870, Upstream PR #27923, @mhofstetter)
+* Fix CIDR labels computation (Backport PR #28870, Upstream PR #28788, @pippolo84)
+* Fix concurrency issue when changing labels on pods started before Cilium setup their network. Cilium will now process pod labels modified while setting up the pod network. (Backport PR #28870, Upstream PR #28789, @aanm)
+* Fix false positives of 'Key allocation attempt failed' in CRD mode (Backport PR #29064, Upstream PR #28810, @aanm)
+* Fix incorrect logic used by the Ingress Controller to sync Cilium's IngressClass on startup. (Backport PR #28870, Upstream PR #28663, @learnitall)
+* Fix IPsec error logs to always have all information needed to identify the XFRM configuration on which the error happened. (Backport PR #29030, Upstream PR #28642, @pchaigno)
+* Fix issue causing KVStoreMesh metrics to be included in the dedicated Service/ServiceMonitor when KVStoreMesh is disabled (Backport PR #28759, Upstream PR #28481, @giorio94)
+* fix: Correct spire labels identation in helm chart (Backport PR #28759, Upstream PR #28610, @sayboras)
+* fixed cilium-operator delete CEC cilium-ingress when other ingressclass resources are created (Backport PR #28759, Upstream PR #28638, @chaunceyjiang)
+* Improved event handling for pod events by removing an unnecessary early return, allowing unrelated components to execute correctly, while enhancing ipcache error logging. (Backport PR #29030, Upstream PR #28840, @aanm)
+* ingress: cleanup resources on changed ingress class field (Backport PR #29030, Upstream PR #28886, @mhofstetter)
+* Print full labelset for all identities in 'cilium ip list' output (Backport PR #28759, Upstream PR #28425, @joestringer)
+* Remove AWS-CONNMARK-CHAIN iptable rules when running in ENI mode. (Backport PR #28759, Upstream PR #28676, @nebril)
+* spire: add scheduling configurations to helm-chart (Backport PR #28759, Upstream PR #27229, @tvonhacht-apple)
+* When the CT entry for a DSR connection is garbage-collected, the corresponding SNAT entry is now also removed. (Backport PR #28870, Upstream PR #28857, @julianwiedmann)
+
+**CI Changes:**
+* [v1.14] Use pull_request_target in Update Backport Label workflow (#29009, @pippolo84)
+* ci: disable envoy tracing in multi-pool workflow (Backport PR #29030, Upstream PR #28966, @tklauser)
+* gh/workflows: Dump Cilium LB node logs in case of failure (Backport PR #29030, Upstream PR #28808, @brb)
+* Test both VXLAN and GENEVE tunneling as part of the Conformance Cluster Mesh workflow (Backport PR #28870, Upstream PR #28767, @giorio94)
+
+**Misc Changes:**
+* bpf: lb: fix missing drop reason in reverse_map_l4_port() (Backport PR #29030, Upstream PR #28884, @julianwiedmann)
+* bpf: lxc: remove stale ENABLE_IDENTITY_MARK ifdefs (Backport PR #28759, Upstream PR #28391, @julianwiedmann)
+* bugtool: Collect XFRM error counters twice (Backport PR #28870, Upstream PR #28790, @pchaigno)
+* chore(deps): update all github action dependencies (v1.14) (minor) (#29010, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (patch) (#28733, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.14) (patch) (#28734, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.14) (patch) (#28867, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.11 (v1.14) (#28735, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.12 (v1.14) (#28998, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.18.4 (v1.14) (#28739, @renovate[bot])
+* chore(deps): update gcr.io/distroless/static-debian11:nonroot docker digest to 91ca472 (v1.14) (#28731, @renovate[bot])
+* chore(deps): update go to v1.20.11 (v1.14) (patch) (#29044, @renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to bpf-next-20231106.012832 (v1.14) (#28999, @renovate[bot])
+* ci: Bump timeout on ci-runtime privileged worksflow (Backport PR #29030, Upstream PR #28923, @jrajahalme)
+* datapath: Move `linuxNodeHandler` IPsec functions to their own file (Backport PR #29030, Upstream PR #28941, @pchaigno)
+* doc: Add roadmap for mutual authentication (Backport PR #29030, Upstream PR #29006, @tgraf)
+* docs: Clarify BPF Map Pressure Metric (Backport PR #28759, Upstream PR #28682, @nathanjsweet)
+* docs: Update IPsec key rotation command (Backport PR #28759, Upstream PR #28141, @jschwinger233)
+* go.mod, vendor: use github.com/cilium/dns fork directly (Backport PR #29086, Upstream PR #27582, @tklauser)
+* Improve deletion of stale backends associated with non-global services, without waiting for full Cluster Mesh synchronization (Backport PR #29030, Upstream PR #28745, @giorio94)
+* ipsec: Improve `encrypt flush` command (Backport PR #29030, Upstream PR #28795, @pchaigno)
+* ipsec: Remove dead code for IPsec node encryption (Backport PR #29030, Upstream PR #28898, @pchaigno)
+* labels/cidr: Memoize labels for already seen prefixes (Backport PR #28870, Upstream PR #28465, @pippolo84)
+* labels/cidr: On the fly char replacement for IPv6 (Backport PR #29021, Upstream PR #28647, @pippolo84)
+* labels: Use slices.Sort instead of sort.Strings (Backport PR #29021, Upstream PR #28649, @pippolo84)
+* pkg/allocator: store key in variable for error message (Backport PR #29064, Upstream PR #29076, @aanm)
+* Update the clustermesh troubleshooting guide (Backport PR #28759, Upstream PR #26798, @giorio94)
+
+**Other Changes:**
+* [1.14 Backport] ci: use renovate to upgrade Helm in ginkgo tests (#28940, @nebril)
+* [v1.14] Always migrate cilium_calls_* during ELF load (#28830, @ti-mo)
+* [v1.14] envoy: Bump version to v1.26.6 (#28853, @sayboras)
+* ci-e2e: Enable WG encapsulation tests (#28997, @brb)
+* install: Update image digests for v1.14.3 (#28683, @jrajahalme)
+
 ## v1.14.3
 
 Summary of Changes
