@@ -97,7 +97,7 @@ type CachedSelectionUser interface {
 	IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity)
 }
 
-// identitySelector is the internal interface for all selectors in the
+// identitySelector is the internal type for all selectors in the
 // selector cache.
 //
 // identitySelector represents the mapping of an EndpointSelector
@@ -129,53 +129,37 @@ type CachedSelectionUser interface {
 // map, slice, or a func, or a runtime panic will be triggered. In all
 // cases below identitySelector is being implemented by structs.
 //
-// Because the selector exposed to the user is used as a map key, it must always
-// be passed to the user as a pointer to the actual implementation type.
-// For this reason 'notifyUsers' must be implemented by each type separately.
-type identitySelector interface {
-	CachedSelector
-	addUser(CachedSelectionUser) (added bool)
+// identitySelector is used in the policy engine as a map key,
+// so it must always be given to the user as a pointer to the actual type.
+// (The public methods only expose the CachedSelector interface.)
+type identitySelector struct {
+	source           selectorSource
+	key              string
+	selections       atomic.Pointer[identity.NumericIdentitySlice]
+	users            map[CachedSelectionUser]struct{}
+	cachedSelections map[identity.NumericIdentity]struct{}
+	metadataLbls     labels.LabelArray
+}
 
-	// Called with NameManager and SelectorCache locks held
-	removeUser(CachedSelectionUser, identityNotifier) (last bool)
+// identitySelector implements CachedSelector
+var _ CachedSelector = (*identitySelector)(nil)
 
-	// This may be called while the NameManager lock is held. wg.Wait()
-	// returns after user notifications have been completed, which may require
-	// taking Endpoint and SelectorCache locks, so these locks must not be
-	// held when calling wg.Wait().
-	notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup)
+type selectorSource interface {
+	matches(scIdentity) bool
 
-	numUsers() int
+	remove(identityNotifier)
 }
 
 // fqdnSelector is implemented as an updatable bag-of-labels. Any identity that matches
 // any of the labels in wantLabels is selected. Unlike the identitySelector, this selector
 // is "mutable" in that the FQDN subsystem may update the set of matched labels arbitrarily.
 type fqdnSelector struct {
-	selectorManager
 	selector   api.FQDNSelector
 	wantLabels labels.LabelArray // MUST be sorted
 }
 
-// lock must be held
-//
-// The caller is responsible for making sure the same identity is not
-// present in both 'added' and 'deleted'.
-func (f *fqdnSelector) notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup) {
-	for user := range f.users {
-		// pass 'f' to the user as '*fqdnSelector'
-		sc.queueUserNotification(user, f, added, deleted, wg)
-	}
-}
-
-// locks must be held for the dnsProxy and the SelectorCache
-func (f *fqdnSelector) removeUser(user CachedSelectionUser, dnsProxy identityNotifier) (last bool) {
-	delete(f.users, user)
-	if len(f.users) == 0 {
-		dnsProxy.UnregisterForIPUpdatesLocked(f.selector)
-		return true
-	}
-	return false
+func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
+	dnsProxy.UnregisterForIPUpdatesLocked(f.selector)
 }
 
 // setSelectorIPs updates the set of desired labels associated with this selector.
@@ -221,20 +205,8 @@ func (f *fqdnSelector) matches(identity scIdentity) bool {
 }
 
 type labelIdentitySelector struct {
-	selectorManager
 	selector   api.EndpointSelector
 	namespaces []string // allowed namespaces, or ""
-}
-
-// lock must be held
-//
-// The caller is responsible for making sure the same identity is not
-// present in both 'added' and 'deleted'.
-func (l *labelIdentitySelector) notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup) {
-	for user := range l.users {
-		// pass 'l' to the user as '*labelIdentitySelector'
-		sc.queueUserNotification(user, l, added, deleted, wg)
-	}
 }
 
 // xxxMatches returns true if the CachedSelector matches given labels.
@@ -263,18 +235,25 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
 }
 
-type selectorManager struct {
-	key              string
-	selections       atomic.Pointer[identity.NumericIdentitySlice]
-	users            map[CachedSelectionUser]struct{}
-	cachedSelections map[identity.NumericIdentity]struct{}
-	metadataLbls     labels.LabelArray
+func (l *labelIdentitySelector) remove(_ identityNotifier) {
+	// only useful for fqdn selectors
+}
+
+// lock must be held
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'added' and 'deleted'.
+func (i *identitySelector) notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup) {
+	for user := range i.users {
+		// pass 'f' to the user as '*fqdnSelector'
+		sc.queueUserNotification(user, i, added, deleted, wg)
+	}
 }
 
 // Equal is used by checker.Equals, and only considers the identity of the selector,
 // ignoring the internal state!
-func (s *selectorManager) Equal(b *selectorManager) bool {
-	return s.key == b.key
+func (i *identitySelector) Equal(b *identitySelector) bool {
+	return i.key == b.key
 }
 
 //
@@ -288,43 +267,43 @@ func (s *selectorManager) Equal(b *selectorManager) bool {
 // that case GetSelections() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (s *selectorManager) GetSelections() identity.NumericIdentitySlice {
-	selections := s.selections.Load()
+func (i *identitySelector) GetSelections() identity.NumericIdentitySlice {
+	selections := i.selections.Load()
 	if selections == nil {
 		return emptySelection
 	}
 	return *selections
 }
 
-func (s *selectorManager) GetMetadataLabels() labels.LabelArray {
-	return s.metadataLbls
+func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
+	return i.metadataLbls
 }
 
 // Selects return 'true' if the CachedSelector selects the given
 // numeric identity.
-func (s *selectorManager) Selects(nid identity.NumericIdentity) bool {
-	if s.IsWildcard() {
+func (i *identitySelector) Selects(nid identity.NumericIdentity) bool {
+	if i.IsWildcard() {
 		return true
 	}
-	nids := s.GetSelections()
+	nids := i.GetSelections()
 	idx := sort.Search(len(nids), func(i int) bool { return nids[i] >= nid })
 	return idx < len(nids) && nids[idx] == nid
 }
 
 // IsWildcard returns true if the endpoint selector selects all
 // endpoints.
-func (s *selectorManager) IsWildcard() bool {
-	return s.key == wildcardSelectorKey
+func (i *identitySelector) IsWildcard() bool {
+	return i.key == wildcardSelectorKey
 }
 
 // IsNone returns true if the endpoint selector never selects anything.
-func (s *selectorManager) IsNone() bool {
-	return s.key == noneSelectorKey
+func (i *identitySelector) IsNone() bool {
+	return i.key == noneSelectorKey
 }
 
 // String returns the map key for this selector
-func (s *selectorManager) String() string {
-	return s.key
+func (i *identitySelector) String() string {
+	return i.key
 }
 
 //
@@ -332,35 +311,35 @@ func (s *selectorManager) String() string {
 //
 
 // lock must be held
-func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
-	if _, exists := s.users[user]; exists {
+func (i *identitySelector) addUser(user CachedSelectionUser) (added bool) {
+	if _, exists := i.users[user]; exists {
 		return false
 	}
-	s.users[user] = struct{}{}
+	i.users[user] = struct{}{}
 	return true
 }
 
-// lock must be held
-func (s *selectorManager) removeUser(user CachedSelectionUser, dnsProxy identityNotifier) (last bool) {
-	delete(s.users, user)
-	return len(s.users) == 0
+// locks must be held for the dnsProxy and the SelectorCache (if the selector is a FQDN selector)
+func (i *identitySelector) removeUser(user CachedSelectionUser) (last bool) {
+	delete(i.users, user)
+	return len(i.users) == 0
 }
 
 // lock must be held
-func (s *selectorManager) numUsers() int {
-	return len(s.users)
+func (i *identitySelector) numUsers() int {
+	return len(i.users)
 }
 
 // updateSelections updates the immutable slice representation of the
 // cached selections after the cached selections have been changed.
 //
 // lock must be held
-func (s *selectorManager) updateSelections() {
-	selections := make(identity.NumericIdentitySlice, len(s.cachedSelections))
-	i := 0
-	for nid := range s.cachedSelections {
-		selections[i] = nid
-		i++
+func (i *identitySelector) updateSelections() {
+	selections := make(identity.NumericIdentitySlice, len(i.cachedSelections))
+	idx := 0
+	for nid := range i.cachedSelections {
+		selections[idx] = nid
+		idx++
 	}
 	// Sort the numeric identities so that the map iteration order
 	// does not matter. This makes testing easier, but may help
@@ -368,13 +347,13 @@ func (s *selectorManager) updateSelections() {
 	sort.Slice(selections, func(i, j int) bool {
 		return selections[i] < selections[j]
 	})
-	s.setSelections(&selections)
+	i.setSelections(&selections)
 }
 
-func (s *selectorManager) setSelections(selections *identity.NumericIdentitySlice) {
+func (i *identitySelector) setSelections(selections *identity.NumericIdentitySlice) {
 	if len(*selections) > 0 {
-		s.selections.Store(selections)
+		i.selections.Store(selections)
 	} else {
-		s.selections.Store(&emptySelection)
+		i.selections.Store(&emptySelection)
 	}
 }
