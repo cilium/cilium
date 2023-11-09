@@ -14,6 +14,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
@@ -236,7 +237,7 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) err
 
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
 	maybeRemoveXDPLinks()
-	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode)
+	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode, bpf.CiliumPath())
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}

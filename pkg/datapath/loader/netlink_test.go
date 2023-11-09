@@ -35,6 +35,9 @@ func mustTCProgram(t *testing.T) *ebpf.Program {
 	if err != nil {
 		t.Skipf("tc programs not supported: %s", err)
 	}
+	t.Cleanup(func() {
+		p.Close()
+	})
 	return p
 }
 
@@ -50,6 +53,9 @@ func mustXDPProgram(t *testing.T) *ebpf.Program {
 	if err != nil {
 		t.Skipf("xdp programs not supported: %s", err)
 	}
+	t.Cleanup(func() {
+		p.Close()
+	})
 	return p
 }
 
@@ -406,79 +412,10 @@ func TestAddHostDeviceAddr(t *testing.T) {
 	})
 }
 
-func TestAttachProgram(t *testing.T) {
+func TestAttachRemoveTCProgram(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	netnsName := "test-attach-program"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
-
-	t.Run("TC", func(t *testing.T) {
-		netns0.Do(func(_ ns.NetNS) error {
-			ifName := "dummy0"
-			dummy := &netlink.Dummy{
-				LinkAttrs: netlink.LinkAttrs{
-					Name: ifName,
-				},
-			}
-			err := netlink.LinkAdd(dummy)
-			require.NoError(t, err)
-
-			prog := mustTCProgram(t)
-
-			err = attachProgram(dummy, prog, "test", directionToParent(dirEgress), 0)
-			require.NoError(t, err)
-
-			filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))
-			require.NoError(t, err)
-			require.NotEmpty(t, filters)
-
-			err = netlink.LinkDel(dummy)
-			require.NoError(t, err)
-
-			return nil
-		})
-
-	})
-
-	t.Run("XDP", func(t *testing.T) {
-		netns0.Do(func(_ ns.NetNS) error {
-			veth := &netlink.Veth{
-				LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
-				PeerName:  "veth1",
-			}
-			err := netlink.LinkAdd(veth)
-			require.NoError(t, err)
-
-			prog := mustXDPProgram(t)
-
-			err = attachProgram(veth, prog, "test", 0, xdpModeToFlag(option.XDPModeLinkDriver))
-			require.NoError(t, err)
-
-			link, err := netlink.LinkByName("veth0")
-			require.NoError(t, err)
-			require.NotNil(t, link.Attrs().Xdp)
-			require.True(t, link.Attrs().Xdp.Attached)
-
-			err = netlink.LinkDel(veth)
-			require.NoError(t, err)
-
-			return nil
-		})
-
-	})
-
-}
-
-func TestRemoveTCPrograms(t *testing.T) {
-	testutils.PrivilegedTest(t)
-
-	netnsName := "test-remove-programs"
+	netnsName := "test-attach-remove-program"
 	netns0, err := netns.ReplaceNetNSWithName(netnsName)
 	require.NoError(t, err)
 	require.NotNil(t, netns0)
@@ -488,7 +425,7 @@ func TestRemoveTCPrograms(t *testing.T) {
 	})
 
 	netns0.Do(func(_ ns.NetNS) error {
-		ifName := "dummy"
+		ifName := "dummy0"
 		dummy := &netlink.Dummy{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: ifName,
@@ -499,13 +436,17 @@ func TestRemoveTCPrograms(t *testing.T) {
 
 		prog := mustTCProgram(t)
 
-		err = attachProgram(dummy, prog, "test", directionToParent(dirEgress), 0)
+		err = attachTCProgram(dummy, prog, "test", directionToParent(dirEgress))
 		require.NoError(t, err)
+
+		filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))
+		require.NoError(t, err)
+		require.NotEmpty(t, filters)
 
 		err = removeTCFilters(dummy.Attrs().Name, directionToParent(dirEgress))
 		require.NoError(t, err)
 
-		filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))
+		filters, err = netlink.FilterList(dummy, directionToParent(dirEgress))
 		require.NoError(t, err)
 		require.Empty(t, filters)
 

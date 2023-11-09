@@ -11,13 +11,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/netns"
@@ -574,12 +574,7 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 
 func removeXDPAttachments(links []netlink.Link) error {
 	for _, link := range links {
-		err := netlink.LinkSetXdpFdWithFlags(link, -1, int(nl.XDP_FLAGS_DRV_MODE))
-		if err != nil {
-			return err
-		}
-		err = netlink.LinkSetXdpFdWithFlags(link, -1, int(nl.XDP_FLAGS_SKB_MODE))
-		if err != nil {
+		if err := loader.DetachXDP(link, bpf.CiliumPath(), "cil_xdp_entry"); err != nil {
 			return err
 		}
 		fmt.Printf("removed cilium xdp of %s\n", link.Attrs().Name)

@@ -14,6 +14,9 @@ import (
 
 	"github.com/vishvananda/netlink"
 
+	"golang.org/x/sys/unix"
+
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -32,8 +35,12 @@ func xdpModeToFlag(xdpMode string) link.XDPAttachFlags {
 	return 0
 }
 
-// maybeUnloadObsoleteXDPPrograms removes bpf_xdp.o from previously used devices.
-func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
+// maybeUnloadObsoleteXDPPrograms removes bpf_xdp.o from previously used
+// devices.
+//
+// bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
+// during tests.
+func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		log.WithError(err).Warn("Failed to list links for XDP unload")
@@ -61,8 +68,9 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
 			}
 		}
 		if !used {
-			netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkGeneric)))
-			netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkDriver)))
+			if err := DetachXDP(link, bpffsBase, symbolFromHostNetdevXDP); err != nil {
+				log.WithError(err).Warn("Failed to detach obsolete XDP program")
+			}
 		}
 	}
 }
@@ -154,4 +162,117 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 	finalize()
 
 	return err
+}
+
+// attachXDPProgram attaches prog with the given progName to link.
+//
+// bpffsDir should exist and point to the links/ subdirectory in the per-device
+// bpffs directory.
+func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir string, flags link.XDPAttachFlags) error {
+	// Attempt to open and update an existing link.
+	pin := filepath.Join(bpffsDir, progName)
+	err := bpf.UpdateLink(pin, prog)
+	switch {
+	// Update successful, nothing left to do.
+	case err == nil:
+		log.Infof("Updated link %s for program %s", pin, progName)
+
+		return nil
+
+	// Link exists, but is defunct, and needs to be recreated. The program
+	// no longer gets triggered at this point and the link needs to be removed
+	// to proceed.
+	case errors.Is(err, unix.ENOLINK):
+		if err := os.Remove(pin); err != nil {
+			return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
+		}
+
+		log.Infof("Unpinned defunct link %s for program %s", pin, progName)
+
+	// No existing link found, continue trying to create one.
+	case errors.Is(err, os.ErrNotExist):
+		log.Infof("No existing link found at %s for program %s", pin, progName)
+
+	default:
+		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
+	}
+
+	// Create a new link. This will only succeed on nodes that support bpf_link
+	// and don't have any XDP programs attached through netlink.
+	l, err := link.AttachXDP(link.XDPOptions{
+		Program:   prog,
+		Interface: iface.Attrs().Index,
+		Flags:     flags,
+	})
+	if err == nil {
+		defer func() {
+			// The program was successfully attached using bpf_link. Closing a link
+			// does not detach the program if the link is pinned.
+			if err := l.Close(); err != nil {
+				log.Warnf("Failed to close bpf_link for program %s", progName)
+			}
+		}()
+
+		if err := l.Pin(pin); err != nil {
+			return fmt.Errorf("pinning link at %s for program %s : %w", pin, progName, err)
+		}
+
+		// Successfully created and pinned bpf_link.
+		log.Infof("Program %s attached using bpf_link", progName)
+
+		return nil
+	}
+
+	// Kernels before 5.7 don't support bpf_link. In that case link.AttachXDP
+	// returns ErrNotSupported.
+	//
+	// If the kernel supports bpf_link, but an older version of Cilium attached a
+	// XDP program, link.AttachXDP will return EBUSY.
+	if !errors.Is(err, unix.EBUSY) && !errors.Is(err, link.ErrNotSupported) {
+		// Unrecoverable error from AttachRawLink.
+		return fmt.Errorf("attaching program %s using bpf_link: %w", progName, err)
+	}
+
+	log.Debugf("Performing netlink attach for program %s", progName)
+
+	// Omitting XDP_FLAGS_UPDATE_IF_NOEXIST equals running 'ip' with -force,
+	// and will clobber any existing XDP attachment to the interface, including
+	// bpf_link attachments created by a different process.
+	if err := netlink.LinkSetXdpFdWithFlags(iface, prog.FD(), int(flags)); err != nil {
+		return fmt.Errorf("attaching XDP program %s to interface %s using netlink: %w", progName, iface.Attrs().Name, err)
+	}
+
+	// Nothing left to do, the netlink device now holds a reference to the prog
+	// the program stays active.
+	log.Infof("Program %s was attached using netlink", progName)
+
+	return nil
+}
+
+// DetachXDP removes an XDP program from a network interface.
+//
+// bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
+// during tests.
+func DetachXDP(iface netlink.Link, bpffsBase, progName string) error {
+	pin := filepath.Join(bpffsDeviceLinksDir(bpffsBase, iface), progName)
+	err := bpf.UnpinLink(pin)
+	if err == nil {
+		return nil
+	}
+
+	if !errors.Is(err, os.ErrNotExist) {
+		// The pinned link exists, something went wrong unpinning it.
+		return fmt.Errorf("unpinning XDP program using bpf_link: %w", err)
+	}
+
+	// Pin doesn't exist, fall through to detaching using netlink.
+	if err := netlink.LinkSetXdpFdWithFlags(iface, -1, int(link.XDPGenericMode)); err != nil {
+		return fmt.Errorf("detaching generic-mode XDP program using netlink: %w", err)
+	}
+
+	if err := netlink.LinkSetXdpFdWithFlags(iface, -1, int(link.XDPDriverMode)); err != nil {
+		return fmt.Errorf("detaching driver-mode XDP program using netlink: %w", err)
+	}
+
+	return nil
 }
