@@ -329,20 +329,28 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			break;
 
 		case ACTION_CLOSE:
-			/* If we got an RST and have not seen both SYNs,
-			 * terminate the connection. (For CT_SERVICE, we do not
-			 * see both directions, so flags of established
-			 * connections would not include both SYNs.)
-			 */
-			if (!ct_entry_seen_both_syns(entry) &&
-			    (seen_flags.value & TCP_FLAG_RST) &&
-			    dir != CT_SERVICE) {
+			switch (dir) {
+			case CT_SERVICE:
+				/* We only see the forward direction. Close both
+				 * directions to make the ct_entry_alive() check
+				 * below behave as expected.
+				 */
 				entry->rx_closing = 1;
 				entry->tx_closing = 1;
-			} else if (dir == CT_INGRESS) {
-				entry->rx_closing = 1;
-			} else {
-				entry->tx_closing = 1;
+				break;
+			default:
+				/* If we got an RST and have not seen both SYNs,
+				 * terminate the connection.
+				 */
+				if (!ct_entry_seen_both_syns(entry) &&
+				    (seen_flags.value & TCP_FLAG_RST)) {
+					entry->rx_closing = 1;
+					entry->tx_closing = 1;
+				} else if (dir == CT_INGRESS) {
+					entry->rx_closing = 1;
+				} else {
+					entry->tx_closing = 1;
+				}
 			}
 			if (ct_state)
 				ct_state->closing = 1;
