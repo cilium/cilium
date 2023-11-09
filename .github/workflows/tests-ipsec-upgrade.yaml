@@ -131,6 +131,7 @@ jobs:
         id: cilium-stable-config
         uses: ./.github/actions/cilium-config
         with:
+          image-tag: ${{ steps.vars.outputs.downgrade_version }}
           chart-dir: './cilium-${{ steps.vars.outputs.downgrade_version }}/install/kubernetes/cilium/'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
