@@ -681,7 +681,10 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	struct trace_ctx __maybe_unused trace;
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
+	__be16 __maybe_unused proto = 0;
 	__s8 ext_err = 0;
+
+	validate_ethertype(ctx, &proto);
 
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
@@ -690,7 +693,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	 * timestamp already here. The tunnel dev has noqueue qdisc, so as
 	 * tradeoff it's close enough.
 	 */
-	ret = edt_sched_departure(ctx);
+	ret = edt_sched_departure(ctx, proto);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
 	if (ret == CTX_ACT_DROP) {
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
@@ -712,7 +715,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	cluster_id = ctx_get_cluster_id_mark(ctx);
 #endif
-	ret = handle_nat_fwd(ctx, cluster_id, &trace, &ext_err);
+	ret = handle_nat_fwd(ctx, cluster_id, proto, &trace, &ext_err);
 out:
 #endif
 	if (IS_ERR(ret))

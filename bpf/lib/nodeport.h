@@ -3193,17 +3193,16 @@ health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 }
 
 static __always_inline int
-lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
+lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 {
 	void *data __maybe_unused, *data_end __maybe_unused;
 	__sock_cookie key __maybe_unused;
 	int ret __maybe_unused;
-	__u16 proto = 0;
 
 	if ((ctx->mark & MARK_MAGIC_HEALTH_IPIP_DONE) ==
 	    MARK_MAGIC_HEALTH_IPIP_DONE)
 		return CTX_ACT_OK;
-	validate_ethertype(ctx, &proto);
+
 	switch (proto) {
 #if defined(ENABLE_IPV4) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	case bpf_htons(ETH_P_IP): {
@@ -3242,17 +3241,14 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 #endif /* ENABLE_HEALTH_CHECK */
 
 static __always_inline int
-handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id,
+handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __be16 proto,
 	       struct trace_ctx *trace __maybe_unused,
 	       __s8 *ext_err __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
-	__u16 proto;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 
-	if (!validate_ethertype(ctx, &proto))
-		return CTX_ACT_OK;
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):

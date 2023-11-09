@@ -14,17 +14,16 @@
 #include "overloadable.h"
 
 static __always_inline int
-wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
+wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 {
 	struct remote_endpoint_info *dst;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data, *data_end;
-	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
 	bool from_tunnel __maybe_unused = false;
 
-	if (!validate_ethertype(ctx, &proto))
+	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
 
 	switch (proto) {
@@ -149,17 +148,13 @@ out:
 
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
 static __always_inline bool
-strict_allow(struct __ctx_buff *ctx) {
+strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
 	bool __maybe_unused in_strict_cidr = false;
 	void *data, *data_end;
 #ifdef ENABLE_IPV4
 	struct iphdr *ip4;
 #endif
-	__u16 proto = 0;
-
-	if (!validate_ethertype(ctx, &proto))
-		return true;
 
 	switch (proto) {
 #ifdef ENABLE_IPV4

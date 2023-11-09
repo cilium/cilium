@@ -12,8 +12,8 @@
 #include <linux/in.h>
 #include <linux/socket.h>
 
-#include "eth.h"
 #include "endian.h"
+#include "eth.h"
 #include "mono.h"
 #include "config.h"
 #include "tunnel.h"
@@ -173,10 +173,8 @@ static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 	eth = data + l2_off;
 
 	*proto = eth->h_proto;
-	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
-		return false; /* non-Ethernet II unsupported */
 
-	return true;
+	return eth_is_supported_ethertype(*proto);
 }
 
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,

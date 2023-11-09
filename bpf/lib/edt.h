@@ -33,14 +33,14 @@ static __always_inline __u32 edt_get_aggregate(struct __ctx_buff *ctx)
 	return aggregate;
 }
 
-static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
+static __always_inline int
+edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 {
 	__u64 delay, now, t, t_next;
 	struct edt_id aggregate;
 	struct edt_info *info;
-	__u16 proto;
 
-	if (!validate_ethertype(ctx, &proto))
+	if (!eth_is_supported_ethertype(proto))
 		return CTX_ACT_OK;
 	if (proto != bpf_htons(ETH_P_IP) &&
 	    proto != bpf_htons(ETH_P_IPV6))
