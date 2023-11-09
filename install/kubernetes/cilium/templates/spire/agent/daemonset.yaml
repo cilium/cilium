@@ -35,6 +35,10 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
+      {{- with .Values.authentication.mutual.spire.install.agent.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
         - name: init
           image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.initImage | quote }}
@@ -53,6 +57,10 @@ spec:
           imagePullPolicy: {{ .Values.authentication.mutual.spire.install.agent.image.pullPolicy }}
           {{- end }}
           args: ["-config", "/run/spire/config/agent.conf"]
+          {{- with .Values.authentication.mutual.spire.install.agent.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: spire-config
               mountPath: /run/spire/config
@@ -83,6 +91,14 @@ spec:
               port: 4251
             initialDelaySeconds: 5
             periodSeconds: 5
+      {{- with .Values.authentication.mutual.spire.install.agent.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.agent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.authentication.mutual.spire.install.agent.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
