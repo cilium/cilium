@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/loads"
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -53,6 +54,8 @@ type apiParams struct {
 
 	Spec *Spec
 
+	Middleware middleware.Builder `name:"cilium-health-api-middleware" optional:"true"`
+
 	GetHealthzHandler                 restapi.GetHealthzHandler
 	ConnectivityGetStatusHandler      connectivity.GetStatusHandler
 	ConnectivityPutStatusProbeHandler connectivity.PutStatusProbeHandler
@@ -66,6 +69,13 @@ func newAPI(p apiParams) *restapi.CiliumHealthAPIAPI {
 	api.GetHealthzHandler = p.GetHealthzHandler
 	api.ConnectivityGetStatusHandler = p.ConnectivityGetStatusHandler
 	api.ConnectivityPutStatusProbeHandler = p.ConnectivityPutStatusProbeHandler
+
+	// Inject custom middleware if provided by Hive
+	if p.Middleware != nil {
+		api.Middleware = func(builder middleware.Builder) http.Handler {
+			return p.Middleware(api.Context().APIHandler(builder))
+		}
+	}
 
 	return api
 }

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/go-openapi/loads"
+	"github.com/go-openapi/runtime/middleware"
   "github.com/go-openapi/swag"
   {{ if .UsePFlags }}flag "github.com/spf13/pflag"
   {{ end -}}
@@ -54,6 +55,8 @@ type apiParams struct {
 
 	Spec       *Spec
 
+	Middleware middleware.Builder `name:"{{ dasherize .Name }}-middleware" optional:"true"`
+
 	{{- $package := .Package }}
 	{{ range .Operations }}
 		{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler {{ .PackageAlias }}.{{ pascalize .Name }}Handler
@@ -69,6 +72,13 @@ func newAPI(p apiParams) *{{ .Package }}.{{pascalize .Name}}API {
 	{{ range .Operations }}
 	  api.{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler = p.{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler
 	{{- end }}
+
+        // Inject custom middleware if provided by Hive
+	if p.Middleware != nil {
+		api.Middleware = func(builder middleware.Builder) http.Handler {
+                      return p.Middleware(api.Context().APIHandler(builder))
+		}
+	}
 
 	return api
 }
