@@ -68,21 +68,6 @@ runs:
           --state ${{ inputs.kops_state }} \
           --yes
 
-    - name: Open Firewall rule for node-to-cp traffic
-      shell: bash
-      run: |
-        rule_name="node-to-master-${{ inputs.cluster_name }}"
-        rule_name="${rule_name//./-}"
-        gcloud compute firewall-rules update \
-          $rule_name \
-          --allow tcp,udp,icmp,esp,ah,sctp
-        # See https://github.com/kubernetes/perf-tests/issues/2319
-        # and https://docs.cilium.io/en/stable/operations/system_requirements/#firewall-rules.
-        # Rules could be added individually, but this is a bit simpler,
-        # matches the rules used by kops to manage cp-to-node and node-to-node
-        # traffic, and is an acceptable risk since the cluster is ephemeral and not
-        # running in prod.
-
     - name: Get kubeconfig
       shell: bash
       run: |

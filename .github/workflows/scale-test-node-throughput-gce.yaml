@@ -142,6 +142,11 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
       
+      - name: Setup firewall rules
+        uses: ./.github/actions/scale-tests/setup-firewall
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+      
       - name: Install Cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
