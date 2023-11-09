@@ -20,6 +20,6 @@ func (s *DaemonPrivilegedSuite) SetUpSuite(c *C) {
 }
 
 func (s *DaemonPrivilegedSuite) TestEnableIPForwarding(c *C) {
-	err := enableIPForwarding()
+	err := enableIPForwarding(false)
 	c.Assert(err, IsNil)
 }
