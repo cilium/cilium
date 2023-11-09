@@ -502,7 +502,7 @@ func TestRemoveTCPrograms(t *testing.T) {
 		err = attachProgram(dummy, prog, "test", directionToParent(dirEgress), 0)
 		require.NoError(t, err)
 
-		err = RemoveTCFilters(dummy.Attrs().Name, directionToParent(dirEgress))
+		err = removeTCFilters(dummy.Attrs().Name, directionToParent(dirEgress))
 		require.NoError(t, err)
 
 		filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))

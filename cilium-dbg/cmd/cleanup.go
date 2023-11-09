@@ -254,7 +254,7 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 		return removeNamedNetNSs(c.netNSs)
 	}
 	cleanupXDPs := func() error {
-		return removeXDPs(c.xdpLinks)
+		return removeXDPAttachments(c.xdpLinks)
 	}
 	cleanupTCFilters := func() error {
 		return removeTCFilters(c.tcFilters)
@@ -572,7 +572,7 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 	return nil
 }
 
-func removeXDPs(links []netlink.Link) error {
+func removeXDPAttachments(links []netlink.Link) error {
 	for _, link := range links {
 		err := netlink.LinkSetXdpFdWithFlags(link, -1, int(nl.XDP_FLAGS_DRV_MODE))
 		if err != nil {
