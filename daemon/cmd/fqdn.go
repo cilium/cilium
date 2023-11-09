@@ -7,10 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"net"
 	"net/netip"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -124,8 +122,6 @@ func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQ
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string, ipcache fqdn.IPCache) (err error) {
-	d.initDNSProxyContext(option.Config.DNSProxyLockCount)
-
 	cfg := fqdn.Config{
 		MinTTL:              option.Config.ToFQDNsMinTTL,
 		Cache:               fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
@@ -435,39 +431,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	record.Log()
 
 	return nil
-}
-
-// getMutexesForResponseIPs returns a slice of indices for accessing the
-// mutexes in dnsProxyContext. There's a many-to-one mapping from IP to mutex,
-// meaning multiple IPs may map to a single mutex. The many-to-one property is
-// obtained by hashing each IP inside responseIPs. In order to prevent the
-// caller from acquiring the mutexes in an undesirable order, this function
-// ensures that the slice returned in ascending order. This is the order in
-// which the mutexes should be taken and released. The slice is de-duplicated
-// to avoid acquiring and releasing the same mutex in order.
-func (dpc *dnsProxyContext) getMutexesForResponseIPs(responseIPs []net.IP) []int {
-	// cache stores all unique indices for mutexes. Prevents the same mutex
-	// index from being added to indices which prevents the caller from
-	// attempting to acquire the same mutex multiple times.
-	cache := make(map[int]struct{}, len(responseIPs))
-	indices := make([]int, 0, len(responseIPs))
-	for _, ip := range responseIPs {
-		h := ipToInt(ip)
-		m := h.Mod(h, dpc.modulus)
-		i := int(m.Int64())
-		if _, exists := cache[i]; !exists {
-			cache[i] = struct{}{}
-			indices = append(indices, i)
-		}
-	}
-	sort.Ints(indices)
-	return indices
-}
-
-func ipToInt(addr net.IP) *big.Int {
-	i := big.NewInt(0)
-	i.SetBytes(addr)
-	return i
 }
 
 func getFqdnCacheHandler(d *Daemon, params GetFqdnCacheParams) middleware.Responder {
