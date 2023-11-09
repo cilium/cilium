@@ -107,8 +107,8 @@ func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrati
 	return secretsync.SecretSyncRegistrationOut{
 		SecretSyncRegistration: &secretsync.SecretSyncRegistration{
 			RefObject:            &gatewayv1.Gateway{},
-			RefObjectEnqueueFunc: enqueueTLSSecrets(params.CtrlRuntimeManager.GetClient()),
-			RefObjectCheckFunc:   isReferencedByCiliumGateway,
+			RefObjectEnqueueFunc: EnqueueTLSSecrets(params.CtrlRuntimeManager.GetClient()),
+			RefObjectCheckFunc:   IsReferencedByCiliumGateway,
 			SecretsNamespace:     params.Config.GatewayAPISecretsNamespace,
 		},
 	}
