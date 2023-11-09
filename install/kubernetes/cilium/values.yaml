@@ -3135,6 +3135,19 @@ authentication:
           # -- SPIRE agent tolerations configuration
           # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
           tolerations: []
+          # -- SPIRE agent affinity configuration
+          affinity: {}
+          # -- SPIRE agent nodeSelector configuration
+          # ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+          nodeSelector: {}
+          # -- Security context to be added to spire agent pods.
+          # SecurityContext holds pod-level security attributes and common container settings.
+          # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+          podSecurityContext: {}
+          # -- Security context to be added to spire agent containers.
+          # SecurityContext holds pod-level security attributes and common container settings.
+          # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+          securityContext: {}
         server:
           # -- SPIRE server image
           image: ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f

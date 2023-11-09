@@ -30,6 +30,10 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
+      {{- with .Values.authentication.mutual.spire.install.agent.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
         - name: init
           image: docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
@@ -42,6 +46,10 @@ spec:
         - name: spire-agent
           image: {{ .Values.authentication.mutual.spire.install.agent.image }}
           args: ["-config", "/run/spire/config/agent.conf"]
+          {{- with .Values.authentication.mutual.spire.install.agent.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: spire-config
               mountPath: /run/spire/config
@@ -72,6 +80,14 @@ spec:
               port: 4251
             initialDelaySeconds: 5
             periodSeconds: 5
+      {{- with .Values.authentication.mutual.spire.install.agent.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.agent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.authentication.mutual.spire.install.agent.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
