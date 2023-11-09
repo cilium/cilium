@@ -215,4 +215,85 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 	test_finish();
 }
 
+CHECK("tc", "conntrack_svc")
+int svc_test(__maybe_unused struct __sk_buff *sctx)
+{
+	test_init();
+
+	TEST("ct_lookup_svc", {
+		struct __ctx_buff ctx = {};
+		int res;
+		struct ipv4_ct_tuple tuple = {};
+		struct ct_state ct_state = {};
+		union tcp_flags seen_flags = {0};
+		__u32 monitor;
+
+		tuple.nexthdr = IPPROTO_TCP;
+		tuple.flags = CT_SERVICE;
+
+		struct ct_entry ct_entry_new = {};
+
+		res = map_update_elem(get_ct_map4(&tuple), &tuple, &ct_entry_new, BPF_ANY);
+		if (IS_ERR(res))
+			test_fatal("map_update_elem: %lld", res);
+
+		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+
+		if (!entry)
+			test_fatal("ct entry lookup failed");
+
+		seen_flags.value |= TCP_FLAG_SYN;
+
+		/* First packet is monitored */
+		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				  ct_tcp_select_action(seen_flags), CT_SERVICE,
+				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(res == CT_ESTABLISHED);
+		assert(monitor == TRACE_PAYLOAD_LEN);
+		assert(timeout_in(entry, CT_SYN_TIMEOUT));
+
+		/* Second packet with the same flags is not monitored; it does reset
+		 * lifetime back to CT_SYN_TIMEOUT.
+		 */
+		advance_time();
+		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				  ct_tcp_select_action(seen_flags), CT_SERVICE,
+				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(res == CT_ESTABLISHED);
+		assert(monitor == 0);
+		assert(timeout_in(entry, CT_SYN_TIMEOUT));
+
+		/* Subsequent non-SYN packets result in a default SVC TCP lifetime */
+		advance_time();
+		seen_flags.value &= ~TCP_FLAG_SYN;
+		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				  ct_tcp_select_action(seen_flags), CT_SERVICE,
+				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(res == CT_ESTABLISHED);
+		assert(monitor == 0);
+		assert(timeout_in(entry, CT_SERVICE_LIFETIME_TCP));
+
+		/* Monitor & lower lifetime if the connection is closing on just one side */
+		advance_time();
+		seen_flags.value |= TCP_FLAG_FIN;
+		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				  ct_tcp_select_action(seen_flags), CT_SERVICE,
+				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(res == CT_ESTABLISHED);
+		assert(monitor == TRACE_PAYLOAD_LEN);
+		assert(timeout_in(entry, CT_CLOSE_TIMEOUT));
+
+		/* Label connection as new if the tuple wasn't previously tracked */
+		tuple.saddr = 456;
+		seen_flags.value = TCP_FLAG_SYN;
+		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				  ct_tcp_select_action(seen_flags), CT_SERVICE,
+				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(res == CT_NEW);
+		assert(monitor == TRACE_PAYLOAD_LEN);
+	});
+
+	test_finish();
+}
+
 BPF_LICENSE("Dual BSD/GPL");
