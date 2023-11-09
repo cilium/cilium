@@ -692,6 +692,55 @@ change:
     $ make generate-k8s-api
     $ git add go.mod go.sum vendor/
 
+Add/update a cilium/kindest-node image
+--------------------------------------
+
+Cilium might use its own fork of kindest-node so that it can use k8s versions
+that have not been released by Kind maintainers yet.
+
+One other reason for using a fork is that the base image used on kindest-node
+may not have been release yet. For example, as of this writing, Cilium requires
+Debian Bookworm (yet to be released), because the glibc version available on
+Cilium's base Docker image is the same as the one used in the Bookworm Docker
+image which is relevant for testing with Go's race detector.
+
+Currently, only maintainers can publish an image on ``quay.io/cilium/kindest-node``.
+However, anyone can build a kindest-node image and try it out
+
+To build a cilium/kindest-node image, first build the base Docker image:
+
+   .. code-block:: shell-session
+
+    git clone https://github.com/kubernetes-sigs/kind.git
+    cd kind
+    make -C images/base/ quick
+
+Take note of the resulting image tag for that command, it should be the last
+tag built for the ``gcr.io/k8s-staging-kind/base`` repository in ``docker ps -a``.
+
+Secondly, change into the directory with Kubernetes' source code which will be
+used for the kindest node image. On this example, we will build a kindest-base
+image with Kubernetes version ``v1.28.3`` using the recently-built base image
+``gcr.io/k8s-staging-kind/base:v20231108-a9fbf702``:
+
+   .. code-block:: shell-session
+
+    $ # Change to k8s' source code directory.
+    $ git clone https://github.com/kubernetes/kubernetes.git
+    $ cd kubernetes
+    $ tag=v1.28.3
+    $ git fetch origin --tags
+    $ git checkout tags/${tag}
+    $ kind build node-image \
+      --image=quay.io/cilium/kindest-node:${tag} \
+      --base-image=gcr.io/k8s-staging-kind/base:v20231108-a9fbf702
+
+Finally, publish the image to a public repository. If you are a maintainer and
+have permissions to publish on ``quay.io/cilium/kindest-node``, the Renovate bot
+will automatically pick the new version and create a new Pull Request with this
+update. If you are not a maintainer you will have to update the image manually
+in Cilium's repository.
+
 Add/update a new Kubernetes version
 -----------------------------------
 
