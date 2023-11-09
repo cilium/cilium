@@ -84,6 +84,10 @@
      - Enable SPIRE integration (beta)
      - bool
      - ``false``
+   * - :spelling:ignore:`authentication.mutual.spire.install.agent.affinity`
+     - SPIRE agent affinity configuration
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.annotations`
      - SPIRE agent annotations
      - object
@@ -94,6 +98,18 @@
      - ``{"digest":"sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.6.3","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.labels`
      - SPIRE agent labels
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.agent.nodeSelector`
+     - SPIRE agent nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.agent.podSecurityContext`
+     - Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.agent.securityContext`
+     - Security context to be added to spire agent containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
      - object
      - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.serviceAccount`
