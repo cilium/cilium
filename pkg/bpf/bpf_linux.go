@@ -116,7 +116,7 @@ func OpenOrCreateMap(spec *ebpf.MapSpec, pinDir string) (*ebpf.Map, error) {
 			return nil, errors.New("cannot load unnamed map from pin")
 		}
 
-		if err := os.MkdirAll(pinDir, 0755); err != nil {
+		if err := MkdirBPF(pinDir); err != nil {
 			return nil, fmt.Errorf("creating map base pinning directory: %w", err)
 		}
 
