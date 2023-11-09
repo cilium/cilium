@@ -301,7 +301,7 @@ func newIptablesManager(p params) *Manager {
 
 // Start initializes the iptables manager and checks for iptables kernel modules availability.
 func (m *Manager) Start(ctx hive.HookContext) error {
-	if err := enableIPForwarding(); err != nil {
+	if err := enableIPForwarding(m.sharedCfg.EnableIPv6); err != nil {
 		m.logger.WithError(err).Warning("enabling IP forwarding via sysctl failed")
 	}
 
