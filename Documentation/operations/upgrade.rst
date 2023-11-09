@@ -339,6 +339,9 @@ Annotations:
   is configured in native routing mode and :ref:`DSR mode with Geneve` is enabled.
   Explicitly configure ``--tunnel-protocol=geneve`` (or the equivalent
   ``tunnelProtocol=geneve`` helm value) when DSR with Geneve is enabled.
+* The ``CILIUM_PREPEND_IPTABLES_CHAIN`` environment variable has been renamed
+  to ``CILIUM_PREPEND_IPTABLES_CHAINS`` (note the trailing ``S``) to more accurately
+  match the name of the associated command line flag ``--prepend-iptables-chains``.
 
 .. _upgrade_cilium_cli_helm_mode:
 
