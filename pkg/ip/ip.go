@@ -852,6 +852,16 @@ func ListContainsIP(ipList []net.IP, ip net.IP) bool {
 	return false
 }
 
+// ListContainsAddr returns whether a list of IPs contains a given IP.
+func ListContainsAddr(ipList []netip.Addr, ip netip.Addr) bool {
+	for _, e := range ipList {
+		if e == ip {
+			return true
+		}
+	}
+	return false
+}
+
 // SortIPList sorts the provided net.IP slice in place.
 func SortIPList(ipList []net.IP) {
 	sort.Slice(ipList, func(i, j int) bool {
