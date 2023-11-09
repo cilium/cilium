@@ -45,6 +45,14 @@ type SecretSyncRegistration struct {
 	RefObjectCheckFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool
 	// SecretsNamespace defines the name of the namespace in which the referenced K8s Secrets are to be synchronized.
 	SecretsNamespace string
+	// AdditionalWatches definites additional watches beside watching the directly referencing Kubernetes Object.
+	AdditionalWatches []AdditionalWatch
+}
+
+type AdditionalWatch struct {
+	RefObject             client.Object
+	RefObjectEnqueueFunc  handler.EventHandler
+	RefObjectWatchOptions []builder.WatchesOption
 }
 
 func (r SecretSyncRegistration) String() string {
@@ -83,6 +91,10 @@ func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 	for _, r := range r.registrations {
 		// Watch main object referencing TLS secrets
 		builder = builder.Watches(r.RefObject, r.RefObjectEnqueueFunc)
+
+		for _, a := range r.AdditionalWatches {
+			builder = builder.Watches(a.RefObject, a.RefObjectEnqueueFunc, a.RefObjectWatchOptions...)
+		}
 	}
 
 	return builder.Complete(r)
