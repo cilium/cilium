@@ -1,24 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package gateway_api
+package secretsync_test
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	gateway_api "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 var secretsNamespace = "cilium-secrets-test"
@@ -150,15 +156,19 @@ var secretFixture = []client.Object{
 }
 
 func Test_SecretSync_Reconcile(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+
 	c := fake.NewClientBuilder().
 		WithScheme(testScheme()).
 		WithObjects(secretFixture...).
 		Build()
-	r := secretsync.NewSecretSyncReconciler(c, logrus.New(), []*secretsync.SecretSyncRegistration{
+
+	r := secretsync.NewSecretSyncReconciler(c, logger, []*secretsync.SecretSyncRegistration{
 		{
 			RefObject:            &gatewayv1.Gateway{},
-			RefObjectEnqueueFunc: enqueueTLSSecrets(c),
-			RefObjectCheckFunc:   isReferencedByCiliumGateway,
+			RefObjectEnqueueFunc: gateway_api.EnqueueTLSSecrets(c),
+			RefObjectCheckFunc:   gateway_api.IsReferencedByCiliumGateway,
 			SecretsNamespace:     secretsNamespace,
 		},
 	})
@@ -243,4 +253,14 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-with-ref-not-synced"}, secret)
 		require.NoError(t, err)
 	})
+}
+
+func testScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(ciliumv2.AddToScheme(scheme))
+	utilruntime.Must(gatewayv1.AddToScheme(scheme))
+
+	return scheme
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func enqueueTLSSecrets(c client.Client) handler.EventHandler {
+func EnqueueTLSSecrets(c client.Client) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
 			logfields.Controller: "secrets",
@@ -56,7 +56,7 @@ func enqueueTLSSecrets(c client.Client) handler.EventHandler {
 	})
 }
 
-func isReferencedByCiliumGateway(ctx context.Context, c client.Client, obj *corev1.Secret) bool {
+func IsReferencedByCiliumGateway(ctx context.Context, c client.Client, obj *corev1.Secret) bool {
 	gateways := getGatewaysForSecret(ctx, c, obj)
 	for _, gw := range gateways {
 		if hasMatchingController(ctx, c, controllerName)(gw) {
