@@ -78,7 +78,6 @@ type Controller struct {
 	endpointManager     *endpointManager
 	envoyConfigManager  *envoyConfigManager
 	ingressClassManager *ingressClassManager
-	secretManager       secretManager
 
 	queue      workqueue.RateLimitingInterface
 	maxRetries int
@@ -87,8 +86,6 @@ type Controller struct {
 	dedicatedTranslator translation.Translator
 
 	enforcedHTTPS           bool
-	enabledSecretsSync      bool
-	secretsNamespace        string
 	lbAnnotationPrefixes    []string
 	sharedLBServiceName     string
 	ciliumNamespace         string
@@ -118,8 +115,6 @@ func NewController(
 		queue:                   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		maxRetries:              opts.MaxRetries,
 		enforcedHTTPS:           opts.EnforcedHTTPS,
-		enabledSecretsSync:      opts.EnabledSecretsSync,
-		secretsNamespace:        opts.SecretsNamespace,
 		lbAnnotationPrefixes:    opts.LBAnnotationPrefixes,
 		sharedLBServiceName:     opts.SharedLBServiceName,
 		ciliumNamespace:         opts.CiliumNamespace,
@@ -167,10 +162,6 @@ func NewController(
 	ic.endpointManager = newEndpointManager(clientset, opts.MaxRetries)
 	ic.envoyConfigManager = newEnvoyConfigManager(clientset, opts.MaxRetries)
 
-	ic.secretManager = newNoOpsSecretManager()
-	if ic.enabledSecretsSync {
-		ic.secretManager = newSyncSecretsManager(clientset, opts.SecretsNamespace, opts.MaxRetries, ic.defaultSecretNamespace, ic.defaultSecretName)
-	}
 	ic.sharedLBStatus = ic.retrieveSharedLBServiceStatus()
 
 	return ic, nil
@@ -196,11 +187,6 @@ func (ic *Controller) Run(ctx context.Context) error {
 		return fmt.Errorf("unable to sync envoy configs")
 	}
 
-	go ic.secretManager.RunInformer(wait.NeverStop)
-	if !ic.secretManager.WaitForCacheSync() {
-		return fmt.Errorf("unable to sync secrets")
-	}
-
 	go ic.ingressClassManager.Run(ctx)
 	// This should only return an error if the context is canceled.
 	if err := ic.ingressClassManager.WaitForSync(ctx); err != nil {
@@ -213,7 +199,6 @@ func (ic *Controller) Run(ctx context.Context) error {
 	}
 
 	go ic.serviceManager.Run()
-	go ic.secretManager.Run()
 
 	for ic.processEvent() {
 	}
@@ -276,7 +261,6 @@ func (ic *Controller) handleIngressAddedEvent(event ingressAddedEvent) error {
 		return nil
 	}
 
-	ic.secretManager.Add(event)
 	return ic.ensureResources(event.ingress, false)
 }
 
@@ -290,8 +274,6 @@ func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error
 	if !oldIngressClassCilium && !newIngressClassCilium {
 		return nil
 	}
-
-	ic.secretManager.Add(event)
 
 	// Cleanup
 
@@ -322,7 +304,6 @@ func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error
 
 func (ic *Controller) handleIngressDeletedEvent(event ingressDeletedEvent) error {
 	log.WithField(logfields.Ingress, event.ingress.Name).WithField(logfields.K8sNamespace, event.ingress.Namespace).Debug("Deleting CiliumEnvoyConfig for ingress")
-	ic.secretManager.Add(event)
 
 	if ic.isEffectiveLoadbalancerModeDedicated(event.ingress) {
 		if err := ic.deleteResources(event.ingress); err != nil {

@@ -8,7 +8,6 @@ type Options struct {
 	MaxRetries              int
 	EnforcedHTTPS           bool
 	UseProxyProtocol        bool
-	EnabledSecretsSync      bool
 	SecretsNamespace        string
 	LBAnnotationPrefixes    []string
 	SharedLBServiceName     string
@@ -23,7 +22,6 @@ type Options struct {
 var DefaultIngressOptions = Options{
 	MaxRetries:              10,
 	EnforcedHTTPS:           true,
-	EnabledSecretsSync:      true,
 	LBAnnotationPrefixes:    []string{},
 	SharedLBServiceName:     "cilium-ingress",
 	CiliumNamespace:         "kube-system",
@@ -54,14 +52,6 @@ func WithProxyProtocol(proxyProtocol bool) Option {
 func WithHTTPSEnforced(enforcedHTTPS bool) Option {
 	return func(o *Options) error {
 		o.EnforcedHTTPS = enforcedHTTPS
-		return nil
-	}
-}
-
-// WithSecretsSyncEnabled specifies if secrets syncs process should be done or not
-func WithSecretsSyncEnabled(enabledSecretsSync bool) Option {
-	return func(o *Options) error {
-		o.EnabledSecretsSync = enabledSecretsSync
 		return nil
 	}
 }
