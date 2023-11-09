@@ -1700,7 +1700,7 @@ func (m *Manager) installRules(ifName string) error {
 			continue
 		}
 
-		if err := c.installFeeder(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6); err != nil {
+		if err := c.installFeeder(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6, m.cfg.PrependIptablesChains); err != nil {
 			return fmt.Errorf("cannot install feeder rule: %w", err)
 		}
 	}
