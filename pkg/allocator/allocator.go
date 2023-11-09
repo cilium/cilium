@@ -594,12 +594,15 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, false, fmt.Errorf("Found master key after proceeding with new allocation for %s", k)
 	}
 
-	key, err = a.backend.AllocateIDIfLocked(ctx, id, key, lock)
+	// Assigned to 'key' from 'key2' since in case of an error, we don't replace
+	// the original 'key' variable with 'nil'.
+	key2 := key
+	key, err = a.backend.AllocateIDIfLocked(ctx, id, key2, lock)
 	if err != nil {
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
 		releaseKeyAndID()
-		return 0, false, false, fmt.Errorf("unable to allocate ID %s for key %s: %s", strID, key, err)
+		return 0, false, false, fmt.Errorf("unable to allocate ID %s for key %s: %s", strID, key2, err)
 	}
 
 	// Notify pool that leased ID is now in-use.
