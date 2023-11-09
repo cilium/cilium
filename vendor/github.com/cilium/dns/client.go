@@ -210,34 +210,9 @@ func (c *Client) exchangeWithConnContext(ctx context.Context, m *Msg, conn *Conn
 }
 
 func (c *Client) exchangeContext(ctx context.Context, m *Msg, co *Conn) (r *Msg, rtt time.Duration, err error) {
-	opt := m.IsEdns0()
-	// If EDNS0 is used use that for size.
-	if opt != nil && opt.UDPSize() >= MinMsgSize {
-		co.UDPSize = opt.UDPSize()
-	}
-	// Otherwise use the client's configured UDP size.
-	if opt == nil && c.UDPSize >= MinMsgSize {
-		co.UDPSize = c.UDPSize
-	}
-
-	// write with the appropriate write timeout
-	t := time.Now()
-	writeDeadline := t.Add(c.getTimeoutForRequest(c.writeTimeout()))
-	readDeadline := t.Add(c.getTimeoutForRequest(c.readTimeout()))
-	if deadline, ok := ctx.Deadline(); ok {
-		if deadline.Before(writeDeadline) {
-			writeDeadline = deadline
-		}
-		if deadline.Before(readDeadline) {
-			readDeadline = deadline
-		}
-	}
-	co.SetWriteDeadline(writeDeadline)
-	co.SetReadDeadline(readDeadline)
-
-	co.TsigSecret, co.TsigProvider = c.TsigSecret, c.TsigProvider
-
-	if err = co.WriteMsg(m); err != nil {
+	start := time.Now()
+	err = c.SendContext(ctx, m, co, start)
+	if err != nil {
 		return nil, 0, err
 	}
 
@@ -256,8 +231,38 @@ func (c *Client) exchangeContext(ctx context.Context, m *Msg, co *Conn) (r *Msg,
 			err = ErrId
 		}
 	}
-	rtt = time.Since(t)
-	return r, rtt, err
+
+	return r, time.Since(start), err
+}
+
+func (c *Client) SendContext(ctx context.Context, m *Msg, co *Conn, t time.Time) error {
+	opt := m.IsEdns0()
+	// If EDNS0 is used use that for size.
+	if opt != nil && opt.UDPSize() >= MinMsgSize {
+		co.UDPSize = opt.UDPSize()
+	}
+	// Otherwise use the client's configured UDP size.
+	if opt == nil && c.UDPSize >= MinMsgSize {
+		co.UDPSize = c.UDPSize
+	}
+
+	// write with the appropriate write timeout
+	writeDeadline := t.Add(c.getTimeoutForRequest(c.writeTimeout()))
+	readDeadline := t.Add(c.getTimeoutForRequest(c.readTimeout()))
+	if deadline, ok := ctx.Deadline(); ok {
+		if deadline.Before(writeDeadline) {
+			writeDeadline = deadline
+		}
+		if deadline.Before(readDeadline) {
+			readDeadline = deadline
+		}
+	}
+	co.SetWriteDeadline(writeDeadline)
+	co.SetReadDeadline(readDeadline)
+
+	co.TsigSecret, co.TsigProvider = c.TsigSecret, c.TsigProvider
+
+	return co.WriteMsg(m)
 }
 
 // ReadMsg reads a message from the connection co.
