@@ -143,11 +143,8 @@ func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP ne
 		}).Debug("Updating tunnel map entry")
 
 		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, newCIDR.AddrCluster(), newIP); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"allocCIDR": newCIDR,
-			}).Error("bpf: Unable to update in tunnel endpoint map")
 			errs = errors.Join(errs,
-				fmt.Errorf("failed to update tunnel endpoint map (prefix: %s, nodeIP: %s): %w", newCIDR.AddrCluster(), newIP, err))
+				fmt.Errorf("bpf: failed to update tunnel endpoint map (allocCIDR: %s, nodeIP: %s): %w", newCIDR.AddrCluster(), newIP, err))
 		}
 	}
 
@@ -208,13 +205,12 @@ func deleteTunnelMapping(oldCIDR cmtypes.PrefixCluster, quietMode bool) error {
 
 	if !quietMode {
 		if err := tunnel.TunnelMap().DeleteTunnelEndpoint(addrCluster); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"allocPrefixCluster": oldCIDR.String(),
-			}).Error("Unable to delete in tunnel endpoint map")
-			return fmt.Errorf("failed to delete tunnel endpoint map: %w", err)
+			return fmt.Errorf("failed to delete tunnel endpoint map (allocPrefixCluster=%v): %w", oldCIDR, err)
 		}
 	} else {
-		return tunnel.TunnelMap().SilentDeleteTunnelEndpoint(addrCluster)
+		if err := tunnel.TunnelMap().SilentDeleteTunnelEndpoint(addrCluster); err != nil {
+			return fmt.Errorf("failed to silently delete tunnel endpoint map (allocPrefixCluster=%v): %w", oldCIDR, err)
+		}
 	}
 	return nil
 }
@@ -372,14 +368,12 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) err
 
 	routes, err := netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW)
 	if err != nil {
-		log.WithError(err).Error("Unable to list direct routes")
 		return fmt.Errorf("failed to list direct routes %s: %w", familyStr, err)
 	}
 
 	var errs error
 	for _, rt := range routes {
 		if err := netlink.RouteDel(&rt); err != nil {
-			log.WithError(err).Warningf("Unable to delete direct node route %s", rt.String())
 			errs = errors.Join(errs, fmt.Errorf("failed to delete direct route %q: %w", rt.String(), err))
 		}
 	}
@@ -469,8 +463,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 		return err
 	}
 	if err := route.Upsert(nodeRoute); err != nil {
-		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to update route")
-		return err
+		return fmt.Errorf("unable up upsert route %v: %w", nodeRoute, err)
 	}
 
 	return nil
@@ -483,11 +476,10 @@ func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR, isLocalNode bool) 
 
 	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating node route spec: %w", err)
 	}
 	if err := route.Delete(nodeRoute); err != nil {
-		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to delete route")
-		return err
+		return fmt.Errorf("deleting node route %v: %w", nodeRoute, err)
 	}
 
 	return nil
@@ -1024,9 +1016,13 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
 		// map is created and the old entry is removed.
-		errs = errors.Join(errs, updateTunnelMapping(oldPrefixCluster4, newPrefixCluster4, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey))
+		if err := updateTunnelMapping(oldPrefixCluster4, newPrefixCluster4, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to update tunnel mapping for ipv4: %w", err))
+		}
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		errs = errors.Join(errs, updateTunnelMapping(oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey))
+		if err := updateTunnelMapping(oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to update tunnel mapping for ipv6: %w", err))
+		}
 
 		if !n.nodeConfig.UseSingleClusterRoute {
 			if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {

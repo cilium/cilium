@@ -185,7 +185,6 @@ func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 	if err != nil {
 		return err
 	}
-	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
 	return m.Delete(key)
 }
 
@@ -196,7 +195,6 @@ func (m *Map) SilentDeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 	if err != nil {
 		return err
 	}
-	log.WithField(fieldPrefix, prefix).Debug("Silently deleting tunnel map entry")
 	_, err = m.SilentDelete(key)
 	return err
 }

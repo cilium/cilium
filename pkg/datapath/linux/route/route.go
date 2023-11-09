@@ -36,6 +36,10 @@ func (r *Route) LogFields() logrus.Fields {
 	}
 }
 
+func (r *Route) String() string {
+	return fmt.Sprintf("%v via %v dev %v", r.Prefix, r.Nexthop, r.Device)
+}
+
 // ByMask is used to sort an array of routes by mask, narrow first.
 type ByMask []Route
 
