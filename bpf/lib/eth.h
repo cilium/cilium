@@ -46,6 +46,12 @@ static __always_inline int eth_is_bcast(const union macaddr *a)
 		return 0;
 }
 
+static __always_inline bool eth_is_supported_ethertype(__be16 proto)
+{
+	/* non-Ethernet II unsupported */
+	return proto >= bpf_htons(ETH_P_802_3_MIN);
+}
+
 static __always_inline int eth_load_saddr(struct __ctx_buff *ctx, __u8 *mac,
 					  int off)
 {
