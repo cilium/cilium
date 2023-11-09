@@ -172,7 +172,7 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 
 	log.Info("Waiting until all Cilium CRDs are available")
 
-	ticker := time.NewTicker(50 * time.Millisecond)
+	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
