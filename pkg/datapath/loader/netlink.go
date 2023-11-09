@@ -227,9 +227,9 @@ func attachProgram(link netlink.Link, prog *ebpf.Program, progName string, qdisc
 	return nil
 }
 
-// RemoveTCFilters removes all tc filters from the given interface.
+// removeTCFilters removes all tc filters from the given interface.
 // Direction is passed as netlink.HANDLE_MIN_{INGRESS,EGRESS} via tcDir.
-func RemoveTCFilters(ifName string, tcDir uint32) error {
+func removeTCFilters(ifName string, tcDir uint32) error {
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return err
