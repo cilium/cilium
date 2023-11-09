@@ -731,9 +731,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.RouteMetric, 0, "Overwrite the metric used by cilium when adding routes to its 'cilium_host' device")
 	option.BindEnv(vp, option.RouteMetric)
 
-	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")
-	option.BindEnvWithLegacyEnvFallback(vp, option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
-
 	flags.String(option.IPv6NodeAddr, "auto", "IPv6 address of node")
 	option.BindEnv(vp, option.IPv6NodeAddr)
 

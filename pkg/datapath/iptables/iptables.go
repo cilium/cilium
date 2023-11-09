@@ -301,6 +301,11 @@ func newIptablesManager(p params) *Manager {
 
 // Start initializes the iptables manager and checks for iptables kernel modules availability.
 func (m *Manager) Start(ctx hive.HookContext) error {
+	if os.Getenv("CILIUM_PREPEND_IPTABLES_CHAIN") != "" {
+		m.logger.Warning("CILIUM_PREPEND_IPTABLES_CHAIN env var has been deprecated. Please use 'CILIUM_PREPEND_IPTABLES_CHAINS' " +
+			"env var or '--prepend-iptables-chains' command line flag instead")
+	}
+
 	if err := enableIPForwarding(m.sharedCfg.EnableIPv6); err != nil {
 		m.logger.WithError(err).Warning("enabling IP forwarding via sysctl failed")
 	}
@@ -1695,7 +1700,7 @@ func (m *Manager) installRules(ifName string) error {
 			continue
 		}
 
-		if err := c.installFeeder(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6); err != nil {
+		if err := c.installFeeder(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6, m.cfg.PrependIptablesChains); err != nil {
 			return fmt.Errorf("cannot install feeder rule: %w", err)
 		}
 	}

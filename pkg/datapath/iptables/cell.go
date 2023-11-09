@@ -55,16 +55,21 @@ type Config struct {
 	// IPTablesRandomFully defines the "--random-fully" iptables option when the
 	// iptables CLI is directly invoked from the Cilium agent.
 	IPTablesRandomFully bool
+
+	// PrependIptablesChains, when enabled, prepends custom iptables chains instead of appending.
+	PrependIptablesChains bool
 }
 
 var defaultConfig = Config{
-	IPTablesLockTimeout: 5 * time.Second,
+	IPTablesLockTimeout:   5 * time.Second,
+	PrependIptablesChains: true,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("iptables-lock-timeout", def.IPTablesLockTimeout, "Time to pass to each iptables invocation to wait for xtables lock acquisition")
 	flags.StringSlice("disable-iptables-feeder-rules", def.DisableIptablesFeederRules, "Chains to ignore when installing feeder rules.")
 	flags.Bool("iptables-random-fully", def.IPTablesRandomFully, "Set iptables flag random-fully on masquerading rules")
+	flags.Bool("prepend-iptables-chains", def.PrependIptablesChains, "Prepend custom iptables chains instead of appending")
 }
 
 type SharedConfig struct {

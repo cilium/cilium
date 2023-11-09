@@ -66,6 +66,7 @@ cilium-agent hive [flags]
       --pprof                                                     Enable serving pprof debugging API
       --pprof-address string                                      Address that pprof listens on (default "localhost")
       --pprof-port uint16                                         Port that pprof listens on (default 6060)
+      --prepend-iptables-chains                                   Prepend custom iptables chains instead of appending (default true)
       --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --read-cni-conf string                                      CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
