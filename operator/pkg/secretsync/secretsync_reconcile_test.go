@@ -11,6 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,6 +24,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	gateway_api "github.com/cilium/cilium/operator/pkg/gateway-api"
+	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -81,10 +84,6 @@ var secretFixture = []client.Object{
 		},
 	},
 	&gatewayv1.Gateway{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Gateway",
-			APIVersion: gatewayv1.GroupName,
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test",
 			Name:      "valid-gateway",
@@ -126,10 +125,6 @@ var secretFixture = []client.Object{
 		},
 	},
 	&gatewayv1.Gateway{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Gateway",
-			APIVersion: gatewayv1.GroupName,
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test",
 			Name:      "valid-gateway-non-cilium",
@@ -153,6 +148,51 @@ var secretFixture = []client.Object{
 			},
 		},
 	},
+	&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "secret-shared-not-synced",
+		},
+	},
+	&gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "valid-gateway-shared",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1.Listener{
+				{
+					Name:     "https",
+					Port:     443,
+					Hostname: model.AddressOf[gatewayv1.Hostname]("*.cilium.io"),
+					Protocol: "HTTPS",
+					TLS: &gatewayv1.GatewayTLSConfig{
+						CertificateRefs: []gatewayv1.SecretObjectReference{
+							{
+								Name: "secret-shared-not-synced",
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+	&networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "valid-ingress-cilium",
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: model.AddressOf("cilium"),
+			TLS: []networkingv1.IngressTLS{
+				{
+					Hosts:      []string{"*.cilium.io"},
+					SecretName: "secret-shared-not-synced",
+				},
+			},
+		},
+	},
 }
 
 func Test_SecretSync_Reconcile(t *testing.T) {
@@ -170,6 +210,12 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			RefObjectEnqueueFunc: gateway_api.EnqueueTLSSecrets(c, logger),
 			RefObjectCheckFunc:   gateway_api.IsReferencedByCiliumGateway,
 			SecretsNamespace:     secretsNamespace,
+		},
+		{
+			RefObject:            &networkingv1.Ingress{},
+			RefObjectEnqueueFunc: ingress.EnqueueReferencedTLSSecrets(c, logger),
+			RefObjectCheckFunc:   ingress.IsReferencedByCiliumIngress,
+			SecretsNamespace:     secretsNamespace + "-2",
 		},
 	})
 
@@ -252,6 +298,51 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 		secret := &corev1.Secret{}
 		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-with-ref-not-synced"}, secret)
 		require.NoError(t, err)
+	})
+
+	t.Run("create synced secret in multiple namespaces for source secret that is referenced by a Gateway and Ingress", func(t *testing.T) {
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "secret-shared-not-synced",
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
+		require.NoError(t, err)
+
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace + "-2", Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
+		require.NoError(t, err)
+	})
+
+	t.Run("delete synced secret in ingress namespace after deleting the Ingress resource", func(t *testing.T) {
+		ingress := networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test",
+				Name:      "valid-ingress-cilium",
+			},
+		}
+
+		var err error
+		err = c.Delete(context.Background(), &ingress)
+		require.NoError(t, err)
+
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "secret-shared-not-synced",
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
+		require.NoError(t, err)
+
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace + "-2", Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
+		require.True(t, k8sErrors.IsNotFound(err))
 	})
 }
 
