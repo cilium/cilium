@@ -608,11 +608,11 @@ func (ds *SelectorCacheTestSuite) TestSelectorManagerCanGetBeforeSet(c *C) {
 		c.Assert(r, Equals, nil)
 	}()
 
-	selectorManager := selectorManager{
+	idSel := identitySelector{
 		key:   "test",
 		users: make(map[CachedSelectionUser]struct{}),
 	}
-	selections := selectorManager.GetSelections()
+	selections := idSel.GetSelections()
 	c.Assert(selections, Not(Equals), nil)
 	c.Assert(len(selections), Equals, 0)
 }

@@ -1465,7 +1465,7 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 					for sel := range filter.PerSelectorPolicies {
 						cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
 						c.Logf("Testing %+v", cidrLabels)
-						if matches = sel.(*labelIdentitySelector).xxxMatches(cidrLabels); matches {
+						if matches = sel.(*identitySelector).source.(*labelIdentitySelector).xxxMatches(cidrLabels); matches {
 							break
 						}
 					}

@@ -102,7 +102,7 @@ type SelectorCache struct {
 	idCache scIdentityCache
 
 	// map key is the string representation of the selector being cached.
-	selectors map[string]identitySelector
+	selectors map[string]*identitySelector
 
 	localIdentityNotifier identityNotifier
 
@@ -196,7 +196,7 @@ func NewSelectorCache(allocator cache.IdentityAllocator, ids cache.IdentityCache
 	sc := &SelectorCache{
 		idAllocator: allocator,
 		idCache:     getIdentityCache(ids),
-		selectors:   make(map[string]identitySelector),
+		selectors:   make(map[string]*identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	return sc
@@ -300,19 +300,21 @@ func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, ips []ne
 }
 
 func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, ips []netip.Addr, wg *sync.WaitGroup) UpdateResult {
-	fqdnKey := fqdnSelec.String()
+	key := fqdnSelec.String()
 
-	var fqdnSel *fqdnSelector
-
-	selector, exists := sc.selectors[fqdnKey]
-	if !exists || selector == nil {
+	idSelector, exists := sc.selectors[key]
+	if !exists || idSelector == nil {
 		log.WithField(logfields.Selector, fqdnSelec.String()).Error("UpdateFQDNSelector of selector not registered in SelectorCache!")
-	} else {
-		fqdnSel = selector.(*fqdnSelector)
+	}
+
+	fqdnSelect, ok := idSelector.source.(*fqdnSelector)
+	if !ok {
+		log.Error("UpdateFQDNSelector for non-FQDN selector!")
+		return UpdateResultUnchanged
 	}
 
 	// update wantLabels, then determine set of added and removed identities
-	fqdnSel.setSelectorIPs(ips) // this updates wantLabels
+	fqdnSelect.setSelectorIPs(ips) // this updates wantLabels
 
 	// Note that 'added' and 'deleted' are guaranteed to be
 	// disjoint, as one of them is left as nil, or an identity
@@ -322,20 +324,20 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, ips []ne
 	var added, deleted []identity.NumericIdentity
 
 	// Delete any non-matching entries from cachedSelections
-	for nid := range fqdnSel.cachedSelections {
+	for nid := range idSelector.cachedSelections {
 		identity := sc.idCache[nid]
-		if !fqdnSel.matches(identity) {
+		if !idSelector.source.matches(identity) {
 			deleted = append(deleted, nid)
-			delete(fqdnSel.cachedSelections, nid)
+			delete(idSelector.cachedSelections, nid)
 		}
 	}
 
 	// Scan the cached set of IDs to determine any new matchers
 	for nid, identity := range sc.idCache {
-		if fqdnSel.matches(identity) {
-			if _, exists := fqdnSel.cachedSelections[nid]; !exists {
+		if idSelector.source.matches(identity) {
+			if _, exists := idSelector.cachedSelections[nid]; !exists {
 				added = append(added, nid)
-				fqdnSel.cachedSelections[nid] = struct{}{}
+				idSelector.cachedSelections[nid] = struct{}{}
 			}
 		}
 	}
@@ -349,18 +351,18 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, ips []ne
 	//
 	// This assumes we should have a 1:1 mapping from label to IPs, which is currently the case.
 	// If this changes, this conditional will be wrong.
-	if len(fqdnSel.cachedSelections) != len(fqdnSel.wantLabels) {
+	if len(idSelector.cachedSelections) != len(fqdnSelect.wantLabels) {
 		result |= UpdateResultIdentitiesNeeded
 	}
 
-	fqdnSel.updateSelections()
+	idSelector.updateSelections()
 
 	// If the set of selections has changed, then we need to push out an
 	// incremental update. This will add an incremental change to all users,
 	// and tell the caller that a call to UpdatePolicyMaps is required.
 	if len(added)+len(deleted) > 0 {
 		result |= UpdateResultUpdatePolicyMaps
-		fqdnSel.notifyUsers(sc, added, deleted, wg) // disjoint sets, see the comment above
+		idSelector.notifyUsers(sc, added, deleted, wg) // disjoint sets, see the comment above
 	}
 
 	return result
@@ -381,31 +383,36 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 	defer sc.mutex.Unlock()
 
 	// If the selector already exists, use it.
-	fqdnSel, exists := sc.selectors[key]
+	idSel, exists := sc.selectors[key]
 	if exists {
-		added := fqdnSel.addUser(user)
-		return fqdnSel, added
+		return idSel, idSel.addUser(user)
 	}
 
-	newFQDNSel := &fqdnSelector{
-		selectorManager: selectorManager{
-			key:          key,
-			users:        make(map[CachedSelectionUser]struct{}),
-			metadataLbls: lbls,
-		},
+	source := &fqdnSelector{
 		selector: fqdnSelec,
 	}
 
 	// Make the FQDN subsystem aware of this selector and fetch ips
 	// that the FQDN subsystem is aware of.
-	currentIPs := sc.localIdentityNotifier.RegisterForIPUpdatesLocked(newFQDNSel.selector)
-	newFQDNSel.setSelectorIPs(currentIPs)
-	newFQDNSel.cachedSelections = make(map[identity.NumericIdentity]struct{}, len(currentIPs))
+	currentIPs := sc.localIdentityNotifier.RegisterForIPUpdatesLocked(source.selector)
+	source.setSelectorIPs(currentIPs)
+
+	return sc.addSelector(user, key, source)
+}
+
+func (sc *SelectorCache) addSelector(user CachedSelectionUser, key string, source selectorSource) (CachedSelector, bool) {
+	idSel := &identitySelector{
+		key:              key,
+		users:            make(map[CachedSelectionUser]struct{}),
+		cachedSelections: make(map[identity.NumericIdentity]struct{}),
+		source:           source,
+	}
+	sc.selectors[key] = idSel
 
 	// Scan the cached set of IDs to determine any new matchers
 	for nid, identity := range sc.idCache {
-		if newFQDNSel.matches(identity) {
-			newFQDNSel.cachedSelections[nid] = struct{}{}
+		if idSel.source.matches(identity) {
+			idSel.cachedSelections[nid] = struct{}{}
 		}
 	}
 
@@ -415,12 +422,12 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 	// behavior is the same between the two cases here (selector
 	// is already cached, or is a new one).
 
-	sc.selectors[key] = newFQDNSel
+	// Create the immutable slice representation of the selected
+	// numeric identities
+	idSel.updateSelections()
 
-	newFQDNSel.updateSelections()
-	added = newFQDNSel.addUser(user)
+	return idSel, idSel.addUser(user)
 
-	return newFQDNSel, added
 }
 
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
@@ -452,42 +459,15 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, lbls labe
 
 	// Selectors are never modified once a rule is placed in the policy repository,
 	// so no need to deep copy.
-
-	newIDSel := &labelIdentitySelector{
-		selectorManager: selectorManager{
-			key:              key,
-			users:            make(map[CachedSelectionUser]struct{}),
-			cachedSelections: make(map[identity.NumericIdentity]struct{}),
-			metadataLbls:     lbls,
-		},
+	source := &labelIdentitySelector{
 		selector: selector,
 	}
 	// check is selector has a namespace match or requirement
 	if namespaces, ok := selector.GetMatch(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel); ok {
-		newIDSel.namespaces = namespaces
+		source.namespaces = namespaces
 	}
 
-	// Add the initial user
-	newIDSel.users[user] = struct{}{}
-
-	// Find all matching identities from the identity cache.
-	for numericID, identity := range sc.idCache {
-		if newIDSel.matches(identity) {
-			newIDSel.cachedSelections[numericID] = struct{}{}
-		}
-	}
-	// Create the immutable slice representation of the selected
-	// numeric identities
-	newIDSel.updateSelections()
-
-	// Note: No notifications are sent for the existing
-	// identities. Caller must use GetSelections() to get the
-	// current selections after adding a selector. This way the
-	// behavior is the same between the two cases here (selector
-	// is already cached, or is a new one).
-
-	sc.selectors[key] = newIDSel
-	return newIDSel, true
+	return sc.addSelector(user, key, source)
 }
 
 // lock must be held
@@ -495,7 +475,8 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
-		if sel.removeUser(user, sc.localIdentityNotifier) {
+		if sel.removeUser(user) {
+			sel.source.remove(sc.localIdentityNotifier)
 			delete(sc.selectors, key)
 		}
 	}
@@ -533,7 +514,7 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 		// as this causes FQDN unregistration (if applicable).
 		idSel.addUser(to)
 		// ignoring the return value as we have just added a user above
-		idSel.removeUser(from, sc.localIdentityNotifier)
+		idSel.removeUser(from)
 	}
 	sc.mutex.Unlock()
 }
@@ -606,47 +587,25 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 	if len(deleted)+len(added) > 0 {
 		// Iterate through all locally used identity selectors and
 		// update the cached numeric identities as required.
-		for _, sel := range sc.selectors {
+		for _, idSel := range sc.selectors {
 			var adds, dels []identity.NumericIdentity
-			switch idSel := sel.(type) {
-			case *labelIdentitySelector:
-				for numericID := range deleted {
-					if _, exists := idSel.cachedSelections[numericID]; exists {
-						dels = append(dels, numericID)
-						delete(idSel.cachedSelections, numericID)
+			for numericID := range deleted {
+				if _, exists := idSel.cachedSelections[numericID]; exists {
+					dels = append(dels, numericID)
+					delete(idSel.cachedSelections, numericID)
+				}
+			}
+			for numericID := range added {
+				if _, exists := idSel.cachedSelections[numericID]; !exists {
+					if idSel.source.matches(sc.idCache[numericID]) {
+						adds = append(adds, numericID)
+						idSel.cachedSelections[numericID] = struct{}{}
 					}
 				}
-				for numericID := range added {
-					if _, exists := idSel.cachedSelections[numericID]; !exists {
-						if idSel.matches(sc.idCache[numericID]) {
-							adds = append(adds, numericID)
-							idSel.cachedSelections[numericID] = struct{}{}
-						}
-					}
-				}
-				if len(dels)+len(adds) > 0 {
-					idSel.updateSelections()
-					idSel.notifyUsers(sc, adds, dels, wg)
-				}
-			case *fqdnSelector:
-				for numericID := range deleted {
-					if _, exists := idSel.cachedSelections[numericID]; exists {
-						dels = append(dels, numericID)
-						delete(idSel.cachedSelections, numericID)
-					}
-				}
-				for numericID := range added {
-					if _, exists := idSel.cachedSelections[numericID]; !exists {
-						if idSel.matches(sc.idCache[numericID]) {
-							adds = append(adds, numericID)
-							idSel.cachedSelections[numericID] = struct{}{}
-						}
-					}
-				}
-				if len(dels)+len(adds) > 0 {
-					idSel.updateSelections()
-					idSel.notifyUsers(sc, adds, dels, wg)
-				}
+			}
+			if len(dels)+len(adds) > 0 {
+				idSel.updateSelections()
+				idSel.notifyUsers(sc, adds, dels, wg)
 			}
 		}
 	}
