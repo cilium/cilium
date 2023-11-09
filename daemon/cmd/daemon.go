@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"net"
 	"net/netip"
 	"os"
@@ -133,10 +132,6 @@ type Daemon struct {
 	// apply to locally running endpoints.
 	dnsNameManager *fqdn.NameManager
 
-	// dnsProxyContext contains fields relevant to the DNS proxy. See each
-	// field's godoc for more details.
-	dnsProxyContext dnsProxyContext
-
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
@@ -224,28 +219,6 @@ type Daemon struct {
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
 	bwManager    bandwidth.Manager
-}
-
-func (d *Daemon) initDNSProxyContext(size int) {
-	d.dnsProxyContext = dnsProxyContext{
-		responseMutexes: make([]*lock.Mutex, size),
-		modulus:         big.NewInt(int64(size)),
-	}
-	for i := range d.dnsProxyContext.responseMutexes {
-		d.dnsProxyContext.responseMutexes[i] = new(lock.Mutex)
-	}
-}
-
-// dnsProxyContext is a meta struct containing fields relevant to the DNS proxy
-// of the daemon, for organizational purposes.
-type dnsProxyContext struct {
-	// responseMutexes is used to serialized the critical path of
-	// notifyOnDNSMsg() to ensure that identity allocation and ipcache
-	// insertion happen atomically between parallel DNS request handling.
-	responseMutexes []*lock.Mutex
-	// modulus is used when computing the hash of the DNS response IPs in order
-	// to map them to the mutexes inside responseMutexes.
-	modulus *big.Int
 }
 
 // GetPolicyRepository returns the policy repository of the daemon

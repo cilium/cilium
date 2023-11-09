@@ -1861,14 +1861,6 @@ type DaemonConfig struct {
 	// been reached.
 	DNSProxyConcurrencyProcessingGracePeriod time.Duration
 
-	// DNSProxyLockCount is the array size containing mutexes which protect
-	// against parallel handling of DNS response IPs.
-	DNSProxyLockCount int
-
-	// DNSProxyLockTimeout is timeout when acquiring the locks controlled by
-	// DNSProxyLockCount.
-	DNSProxyLockTimeout time.Duration
-
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
 	EnableXTSocketFallback bool
@@ -3321,8 +3313,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.FQDNProxyResponseMaxDelay = vp.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
 	c.DNSProxyConcurrencyProcessingGracePeriod = vp.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
-	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)
-	c.DNSProxyLockTimeout = vp.GetDuration(DNSProxyLockTimeout)
 	c.FQDNRejectResponse = vp.GetString(FQDNRejectResponseCode)
 
 	// Convert IP strings into net.IPNet types
