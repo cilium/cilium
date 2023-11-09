@@ -47,6 +47,8 @@ type SecretSyncRegistration struct {
 	SecretsNamespace string
 	// AdditionalWatches definites additional watches beside watching the directly referencing Kubernetes Object.
 	AdditionalWatches []AdditionalWatch
+	// DefaultSecret defines an optional reference to a TLS Secret that should be synced regardless of whether it's referenced or not.
+	DefaultSecret *DefaultSecret
 }
 
 type AdditionalWatch struct {
@@ -55,8 +57,17 @@ type AdditionalWatch struct {
 	RefObjectWatchOptions []builder.WatchesOption
 }
 
+type DefaultSecret struct {
+	Namespace string
+	Name      string
+}
+
 func (r SecretSyncRegistration) String() string {
 	return fmt.Sprintf("%T -> %q", r.RefObject, r.SecretsNamespace)
+}
+
+func (r SecretSyncRegistration) IsDefaultSecret(secret *corev1.Secret) bool {
+	return r.DefaultSecret != nil && r.DefaultSecret.Namespace == secret.Namespace && r.DefaultSecret.Name == secret.Name
 }
 
 func NewSecretSyncReconciler(c client.Client, logger logrus.FieldLogger, registrations []*SecretSyncRegistration) *secretSyncer {

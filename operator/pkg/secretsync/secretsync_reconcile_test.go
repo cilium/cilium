@@ -255,6 +255,52 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 	})
 }
 
+var secretFixtureDefaultSecret = []client.Object{
+	&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "unsynced-secret-no-reference",
+		},
+	},
+}
+
+func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme()).
+		WithObjects(secretFixtureDefaultSecret...).
+		Build()
+	r := secretsync.NewSecretSyncReconciler(c, logger, []*secretsync.SecretSyncRegistration{
+		{
+			RefObject:            &gatewayv1.Gateway{},
+			RefObjectEnqueueFunc: gateway_api.EnqueueTLSSecrets(c, logger),
+			RefObjectCheckFunc:   gateway_api.IsReferencedByCiliumGateway,
+			SecretsNamespace:     secretsNamespace,
+			DefaultSecret: &secretsync.DefaultSecret{
+				Namespace: "test",
+				Name:      "unsynced-secret-no-reference",
+			},
+		},
+	})
+
+	t.Run("create synced secret for source secret that is the default secret and therefore doesn't need to be referenced by any Cilium Gateway resource", func(t *testing.T) {
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "unsynced-secret-no-reference",
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		secret := &corev1.Secret{}
+		err = c.Get(context.Background(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-unsynced-secret-no-reference"}, secret)
+		require.NoError(t, err)
+	})
+}
+
 func testScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 
