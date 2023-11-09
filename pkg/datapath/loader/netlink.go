@@ -128,8 +128,12 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	// Load the CollectionSpec into the kernel, picking up any pinned maps from
 	// bpffs in the process.
 	finalize := func() {}
+	pinPath := bpf.TCGlobalsPath()
 	opts := ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		Maps: ebpf.MapOptions{PinPath: pinPath},
+	}
+	if err := bpf.MkdirBPF(pinPath); err != nil {
+		return nil, fmt.Errorf("creating bpffs pin path: %w", err)
 	}
 	l.Debug("Loading Collection into kernel")
 	coll, err := bpf.LoadCollection(spec, opts)
