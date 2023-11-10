@@ -20,7 +20,7 @@ metadata:
     {{- with $.Values.operator.dashboards.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- with .Values.operator.annotations }}
+    {{- with $.Values.operator.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
