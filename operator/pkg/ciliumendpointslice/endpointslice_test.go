@@ -86,8 +86,7 @@ func TestSyncCESsInLocalCache(t *testing.T) {
 		ciliumEndpointSlice: ciliumEndpointSlice,
 		reconciler:          r,
 		manager:             m,
-		writeQPSBurst:       2,
-		writeQPSLimit:       1,
+		rateLimit:           getRateLimitConfig(params{Cfg: Config{CESWriteQPSLimit: 2, CESWriteQPSBurst: 1}}),
 		enqueuedAt:          make(map[CESName]time.Time),
 	}
 	cesController.initializeQueue()

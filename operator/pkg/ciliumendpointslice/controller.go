@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/time/rate"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -31,6 +30,7 @@ type params struct {
 	Clientset           k8sClient.Clientset
 	CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
+	CiliumNodes         resource.Resource[*v2.CiliumNode]
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -47,6 +47,7 @@ type Controller struct {
 	clientset           k8sClient.Clientset
 	ciliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
+	ciliumNodes         resource.Resource[*v2.CiliumNode]
 
 	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
 	reconciler *reconciler
@@ -62,10 +63,8 @@ type Controller struct {
 	// CES requests going to api-server, ensures a single CES will not be proccessed
 	// multiple times concurrently, and if CES is added multiple times before it
 	// can be processed, this will only be processed only once.
-	queue            workqueue.RateLimitingInterface
-	queueRateLimiter *rate.Limiter
-	writeQPSLimit    float64
-	writeQPSBurst    int
+	queue     workqueue.RateLimitingInterface
+	rateLimit rateLimitConfig
 
 	enqueuedAt     map[CESName]time.Time
 	enqueuedAtLock lock.Mutex
@@ -86,10 +85,10 @@ func registerController(p params) {
 		clientset:           p.Clientset,
 		ciliumEndpoint:      p.CiliumEndpoint,
 		ciliumEndpointSlice: p.CiliumEndpointSlice,
+		ciliumNodes:         p.CiliumNodes,
 		slicingMode:         p.Cfg.CESSlicingMode,
 		maxCEPsInCES:        p.Cfg.CESMaxCEPsInCES,
-		writeQPSLimit:       p.Cfg.CESWriteQPSLimit,
-		writeQPSBurst:       p.Cfg.CESWriteQPSBurst,
+		rateLimit:           getRateLimitConfig(p),
 		enqueuedAt:          make(map[CESName]time.Time),
 		metrics:             p.Metrics,
 	}
