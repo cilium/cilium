@@ -168,3 +168,10 @@ func addEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoint]
 		Object: ep,
 	})
 }
+
+func deleteEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoint], ep *k8sTypes.CiliumEndpoint) {
+	endpoints.process(tb, resource.Event[*k8sTypes.CiliumEndpoint]{
+		Kind:   resource.Delete,
+		Object: ep,
+	})
+}
