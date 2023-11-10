@@ -335,6 +335,10 @@ Annotations:
   The existing Gateway API resources will continue to work as usual, however, it is
   better to migrate your resources from v1beta1 to v1 for GatewayClass, Gateway and
   HTTPRoute resources.
+* The tunnel protocol is no longer automatically set to ``geneve`` when Cilium
+  is configured in native routing mode and :ref:`DSR mode with Geneve` is enabled.
+  Explicitly configure ``--tunnel-protocol=geneve`` (or the equivalent
+  ``tunnelProtocol=geneve`` helm value) when DSR with Geneve is enabled.
 
 .. _upgrade_cilium_cli_helm_mode:
 
