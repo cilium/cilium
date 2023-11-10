@@ -191,7 +191,7 @@ func (p *Proxy) isPortAvailable(openLocalPorts map[uint16]struct{}, port uint16,
 // Called with mutex held!
 func (p *Proxy) allocatePort(port, min, max uint16) (uint16, error) {
 	// Get a snapshot of the TCP and UDP ports already open locally.
-	openLocalPorts := readOpenLocalPorts(append(procNetTCPFiles, procNetUDPFiles...))
+	openLocalPorts := readOpenLocalPorts([]string{procNetTCPFiles, procNetUDPFiles})
 
 	if p.isPortAvailable(openLocalPorts, port, false) {
 		return port, nil

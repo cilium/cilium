@@ -10,22 +10,19 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
-	// procNetTCPFiles is the constant list of /proc/net files to read to get
+	// procNetTCPFiles or procNetTCP6Files is the constant list of /proc/net files to read to get
 	// the same information about open TCP connections as output by netstat.
-	procNetTCPFiles = []string{
-		"/proc/net/tcp",
-		"/proc/net/tcp6",
-	}
+	procNetTCPFiles  = "/proc/net/tcp"
+	procNetTCP6Files = "/proc/net/tcp6"
 
-	// procNetUDPFiles is the constant list of /proc/net files to read to get
+	// procNetUDPFiles or procNetUDP6Files is the constant list of /proc/net files to read to get
 	// the same information about open UDP connections as output by netstat.
-	procNetUDPFiles = []string{
-		"/proc/net/udp",
-		"/proc/net/udp6",
-	}
+	procNetUDPFiles  = "/proc/net/udp"
+	procNetUDP6Files = "/proc/net/udp6"
 
 	// procNetFileRegexp matches the first two columns of /proc/net/{tcp,udp}*
 	// files and submatches on the local port number.
@@ -68,5 +65,16 @@ func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
 
 // OpenLocalPorts returns the set of L4 ports currently open locally.
 func OpenLocalPorts() map[uint16]struct{} {
-	return readOpenLocalPorts(append(procNetTCPFiles, procNetUDPFiles...))
+	//return readOpenLocalPorts(append(procNetTCPFiles, procNetUDPFiles...))
+
+	// check if both ipv4 and ipv6 are enabled
+	if option.Config.EnableIPv4 && option.Config.EnableIPv6 {
+		return readOpenLocalPorts([]string{procNetTCPFiles, procNetUDPFiles, procNetTCP6Files, procNetUDP6Files})
+	}
+
+	if option.Config.EnableIPv6 {
+		return readOpenLocalPorts([]string{procNetTCP6Files, procNetUDP6Files})
+	}
+
+	return readOpenLocalPorts([]string{procNetTCPFiles, procNetUDPFiles})
 }
