@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
@@ -36,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -257,8 +259,11 @@ func (m *Manager) removeCiliumRules(table string, prog iptablesInterface, match 
 type Manager struct {
 	logger     logrus.FieldLogger
 	modulesMgr *modules.Manager
-	cfg        Config
-	sharedCfg  SharedConfig
+	db         *statedb.DB
+	devices    statedb.Table[*tables.Device]
+
+	cfg       Config
+	sharedCfg SharedConfig
 
 	// This lock ensures there are no concurrent executions of the InstallRules() and
 	// InstallProxyRules() methods, as otherwise we may end up with errors (as rules may have
@@ -280,6 +285,8 @@ type params struct {
 	Lifecycle hive.Lifecycle
 
 	ModulesMgr *modules.Manager
+	DB         *statedb.DB
+	Devices    statedb.Table[*tables.Device]
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -289,6 +296,8 @@ func newIptablesManager(p params) *Manager {
 	iptMgr := &Manager{
 		logger:        p.Logger,
 		modulesMgr:    p.ModulesMgr,
+		db:            p.DB,
+		devices:       p.Devices,
 		sharedCfg:     p.SharedCfg,
 		haveIp6tables: true,
 	}
@@ -1249,9 +1258,10 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 	if m.sharedCfg.EnableMasqueradeRouteSource {
 		var defaultRoutes []netlink.Route
 
-		devices := m.sharedCfg.Devices
+		nativeDevices, _ := tables.SelectedDevices(m.devices, m.db.ReadTxn())
+		devicesNames := tables.DeviceNames(nativeDevices)
 		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
-			devices = m.sharedCfg.MasqueradeInterfaces
+			devicesNames = m.sharedCfg.MasqueradeInterfaces
 		}
 		family := netlink.FAMILY_V4
 		if prog == ip6tables {
@@ -1272,10 +1282,10 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 					// need to install the SNAT rules also for that interface
 					// via -o. If we cannot correlate to anything because no
 					// devices were specified, we need to bail out.
-					if len(devices) == 0 {
+					if len(devicesNames) == 0 {
 						return fmt.Errorf("cannot correlate source route device for generating masquerading rules")
 					}
-					for _, device := range devices {
+					for _, device := range devicesNames {
 						if device == link.Attrs().Name {
 							match = true
 							break
