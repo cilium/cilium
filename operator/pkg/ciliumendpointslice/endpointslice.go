@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/time/rate"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
@@ -48,28 +47,14 @@ const (
 )
 
 func (c *Controller) initializeQueue() {
-	if c.writeQPSLimit == 0 {
-		c.writeQPSLimit = CESControllerWorkQueueQPSLimit
-	} else if c.writeQPSLimit > CESWriteQPSLimitMax {
-		c.writeQPSLimit = CESWriteQPSLimitMax
-	}
-
-	if c.writeQPSBurst == 0 {
-		c.writeQPSBurst = CESControllerWorkQueueBurstLimit
-	} else if c.writeQPSBurst > CESWriteQPSBurstMax {
-		c.writeQPSBurst = CESWriteQPSBurstMax
-	}
-
 	c.logger.WithFields(logrus.Fields{
-		logfields.WorkQueueQPSLimit:    c.writeQPSLimit,
-		logfields.WorkQueueBurstLimit:  c.writeQPSBurst,
+		logfields.WorkQueueQPSLimit:    c.rateLimit.current.Limit,
+		logfields.WorkQueueBurstLimit:  c.rateLimit.current.Burst,
 		logfields.WorkQueueSyncBackOff: defaultSyncBackOff,
 	}).Info("CES controller workqueue configuration")
-
 	c.queue = workqueue.NewRateLimitingQueueWithConfig(
 		workqueue.NewItemExponentialFailureRateLimiter(defaultSyncBackOff, maxSyncBackOff),
 		workqueue.RateLimitingQueueConfig{Name: "cilium_endpoint_slice"})
-	c.queueRateLimiter = rate.NewLimiter(rate.Limit(c.writeQPSLimit), c.writeQPSBurst)
 }
 
 func (c *Controller) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {
@@ -143,9 +128,12 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	}
 
 	// Start the work pools processing CEP events only after syncing CES in local cache.
-	c.wp = workerpool.New(2)
+	c.wp = workerpool.New(3)
 	c.wp.Submit("cilium-endpoints-updater", c.runCiliumEndpointsUpdater)
 	c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
+	if c.rateLimit.hasDynamicRateLimiting() {
+		c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
+	}
 
 	c.logger.Info("Starting CES controller reconciler.")
 	go c.worker()
@@ -194,6 +182,25 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 	return nil
 }
 
+func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
+	ciliumNodesStore, err := c.ciliumNodes.Store(ctx)
+	if err != nil {
+		c.logger.WithError(err).Warn("Couldn't get CiliumNodes store")
+		return err
+	}
+	for event := range c.ciliumNodes.Events(ctx) {
+		event.Done(nil)
+		totalNodes := len(ciliumNodesStore.List())
+		if c.rateLimit.updateRateLimiterWithNodes(totalNodes) {
+			c.logger.WithFields(logrus.Fields{
+				logfields.WorkQueueQPSLimit:   c.rateLimit.current.Limit,
+				logfields.WorkQueueBurstLimit: c.rateLimit.current.Burst,
+			}).Info("Updated CES controller workqueue configuration")
+		}
+	}
+	return nil
+}
+
 // Sync all CESs from cesStore to manager cache.
 // Note: CESs are synced locally before CES controller running and this is required.
 func (c *Controller) syncCESsInLocalCache(ctx context.Context) error {
@@ -220,7 +227,7 @@ func (c *Controller) worker() {
 }
 
 func (c *Controller) rateLimitProcessing() {
-	delay := c.queueRateLimiter.Reserve().Delay()
+	delay := c.rateLimit.getDelay()
 	select {
 	case <-c.context.Done():
 	case <-time.After(delay):

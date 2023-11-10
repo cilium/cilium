@@ -12,10 +12,14 @@ cilium-operator hive [flags]
 
 ```
       --bgp-v2-api-enabled                                   Enables BGPv2 APIs in Cilium
+      --ces-dynamic-rate-limit-nodes strings                 List of nodes used for the dynamic rate limit steps
+      --ces-dynamic-rate-limit-qps-burst strings             List of qps burst used for the dynamic rate limit steps
+      --ces-dynamic-rate-limit-qps-limit strings             List of qps limits used for the dynamic rate limit steps
+      --ces-enable-dynamic-rate-limit                        Flag to enable dynamic rate limit specified in separate fields instead of the static one
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-slice-mode string                                Slicing mode define how ceps are grouped into a CES (default "cesSliceModeIdentity")
-      --ces-write-qps-burst int                              CES work queue burst rate (default 20)
-      --ces-write-qps-limit float                            CES work queue rate limit (default 10)
+      --ces-write-qps-burst int                              CES work queue burst rate. Ignored when ces-enable-dynamic-rate-limit is set (default 20)
+      --ces-write-qps-limit float                            CES work queue rate limit. Ignored when ces-enable-dynamic-rate-limit is set (default 10)
       --cluster-id uint32                                    Unique identifier of the cluster
       --cluster-name string                                  Name of the cluster (default "default")
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
