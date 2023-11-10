@@ -1080,12 +1080,25 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 				}
 			},
 		},
+		{
+			Name: "bandwidth-manager",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return d.getBandwidthManagerStatus(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if s, ok := status.Data.(*models.BandwidthManager); ok {
+					d.statusResponse.BandwidthManager = s
+				}
+			},
+		},
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
 	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
 	d.statusResponse.IPV4BigTCP = d.getIPV4BigTCPStatus()
-	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()
 	d.statusResponse.ClockSource = d.getClockSourceStatus()

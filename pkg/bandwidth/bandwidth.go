@@ -178,7 +178,11 @@ func InitBandwidthManager() {
 		log.WithError(err).Fatal("Failed to set sysctl needed by BPF bandwidth manager.")
 	}
 
-	for _, device := range option.Config.GetDevices() {
+	UpdateDevices(option.Config.GetDevices())
+}
+
+func UpdateDevices(devices []string) {
+	for _, device := range devices {
 		link, err := netlink.LinkByName(device)
 		if err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")

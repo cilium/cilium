@@ -1136,6 +1136,10 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 		}
 	}
 
+	if option.Config.EnableBandwidthManager {
+		bandwidth.UpdateDevices(devices)
+	}
+
 	// Reload the datapath.
 	wg, err := d.TriggerReloadWithoutCompile("devices changed")
 	if err != nil {
