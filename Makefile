@@ -127,7 +127,7 @@ generate-cov: ## Generate HTML coverage report at coverage-all.html.
 integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 	@$(ECHO_CHECK) running integration tests...
-	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | cat
+	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 

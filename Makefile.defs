@@ -85,14 +85,7 @@ GOTEST_COVER_OPTS =
 # By default, just print go test output immediately to the terminal. If tparse
 # is installed, use it to format the output. Use -progress instead of -follow,
 # as the latter is too verbose for most of the test suite.
-GOTEST_FORMATTER ?= cat
-ifneq ($(shell command -v tparse),)
-	GOTEST_COVER_OPTS += -json
-	GOTEST_FORMATTER = tparse
-ifneq ($(V),0)
-	GOTEST_FORMATTER += -progress
-endif
-endif
+GOTEST_FORMATTER := cat
 
 # renovate: datasource=docker depName=golangci/golangci-lint
 GOLANGCILINT_WANT_VERSION = v1.55.2
