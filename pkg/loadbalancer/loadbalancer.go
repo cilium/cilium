@@ -765,6 +765,15 @@ func (a *L3n4Addr) StringID() string {
 	return a.String()
 }
 
+// StringAddr returns the L3n4Addr in the "IPv4:Port" format for IPv4 and
+// "[IPv6]:Port" format for IPv6.
+func (a *L3n4Addr) StringAddr() string {
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d", a.AddrCluster.String(), a.Port)
+	}
+	return fmt.Sprintf("%s:%d", a.AddrCluster.String(), a.Port)
+}
+
 // Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.
 // Note: the resulting string is meant to be used as a key for maps and is not
 // readable by a human eye when printed out.
