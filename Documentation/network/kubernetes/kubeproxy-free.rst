@@ -822,7 +822,7 @@ enabled. In addition, the Linux kernel on the nodes must also have support for
 native XDP in the ``hv_netvsc`` driver, which is available in kernel >= 5.6 and was backported to
 the Azure Linux kernel in 5.4.0-1022.
 
-On AKS, make sure to use the AKS Ubuntu 18.04 node image with Kubernetes version v1.18 which will
+On AKS, make sure to use the AKS Ubuntu 22.04 node image with Kubernetes version v1.26 which will
 provide a Linux kernel with the necessary backports to the ``hv_netvsc`` driver. Please refer to the
 documentation on `how to configure an AKS cluster
 <https://docs.microsoft.com/en-us/azure/aks/cluster-configuration>`_ for more details.
@@ -870,7 +870,7 @@ will automatically configure your virtual network to route pod traffic correctly
      --set devices=eth0 \\
      --set kubeProxyReplacement=true \\
      --set loadBalancer.acceleration=native \\
-     --set loadBalancer.mode=hybrid \\
+     --set loadBalancer.mode=snat \\
      --set k8sServiceHost=${API_SERVER_IP} \\
      --set k8sServicePort=${API_SERVER_PORT}
 
