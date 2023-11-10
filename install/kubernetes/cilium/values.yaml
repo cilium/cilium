@@ -3288,7 +3288,7 @@ authentication:
         initImage:
           override: ~
           repository: "docker.io/library/busybox"
-          tag: "1.35.0"
+          tag: "1.36.1"
           digest: "sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b"
           useDigest: true
           pullPolicy: "Always"
@@ -3298,8 +3298,8 @@ authentication:
           image:
             override: ~
             repository: "ghcr.io/spiffe/spire-agent"
-            tag: "1.6.3"
-            digest: "sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823"
+            tag: "1.8.4"
+            digest: "sha256:d489bc8470d7a0f292e0e3576c3e7025253343dc798241bcfd9061828e2a6bef"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE agent service account
@@ -3320,8 +3320,8 @@ authentication:
           image:
             override: ~
             repository: "ghcr.io/spiffe/spire-server"
-            tag: "1.6.3"
-            digest: "sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f"
+            tag: "1.8.4"
+            digest: "sha256:bf79e0a921f8b8aa92602f7ea335616e72f7e91f939848e7ccc52d5bddfe96a1"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE server service account
