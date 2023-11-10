@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
+	"unicode"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -28,6 +30,60 @@ var (
 	labelSelectorWithColon = regexp.MustCompile(`([^,]\s*[a-z0-9-]+):([a-z0-9-]+)`)
 )
 
+func translateKey(ckey string) string {
+	if !strings.Contains(ckey, ":") {
+		return fmt.Sprintf("any.%s", ckey)
+	}
+	return strings.Replace(ckey, ":", ".", 1)
+}
+
+func translateSelector(selector string) string {
+	translated := strings.Builder{}
+
+	nesting := 0
+	preKey := true
+	parsingKey := false
+	key := strings.Builder{}
+	for _, r := range selector {
+		if preKey {
+			switch {
+			case unicode.IsSpace(r) || r == '!':
+				translated.WriteRune(r)
+			default:
+				preKey = false
+				parsingKey = true
+			}
+		}
+		if parsingKey {
+			switch {
+			default:
+				key.WriteRune(r)
+			case unicode.IsSpace(r) || r == '=' || r == '!' || r == ',':
+				translated.WriteString(translateKey(key.String()))
+				key = strings.Builder{}
+				parsingKey = false
+			}
+		}
+		if !parsingKey && !preKey {
+			switch {
+			case r == ',' && nesting == 0:
+				preKey = true
+			case r == '(':
+				nesting++
+			case r == ')':
+				nesting--
+			default:
+			}
+			translated.WriteRune(r)
+		}
+	}
+	if parsingKey {
+		translated.WriteString(translateKey(key.String()))
+	}
+
+	return translated.String()
+}
+
 func parseSelector(selector string) (k8sLabels.Selector, error) {
 	// ciliumLabels.LabelArray extends the k8sLabels.Selector logic with
 	// support for Cilium source prefixes such as "k8s:foo" or "any:bar".
@@ -40,7 +96,7 @@ func parseSelector(selector string) (k8sLabels.Selector, error) {
 	// replacing colon-based source prefixes in labels with dot-based prefixes,
 	// i.e. "k8s:foo in (bar, baz)" becomes "k8s.foo in (bar, baz)".
 
-	translated := labelSelectorWithColon.ReplaceAllString(selector, "${1}.${2}")
+	translated := translateSelector(selector)
 	return k8sLabels.Parse(translated)
 }
 
