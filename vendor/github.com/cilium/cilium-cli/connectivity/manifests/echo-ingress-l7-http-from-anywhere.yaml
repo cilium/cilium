@@ -1,0 +1,19 @@
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "echo-ingress-l7-http-from-anywhere"
+spec:
+  description: "Allow all to GET / on echo"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+          - method: "GET"
+            path: "/$"

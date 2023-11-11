@@ -14,8 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shirou/gopsutil/v3/internal/common"
 	"golang.org/x/sys/unix"
+
+	"github.com/shirou/gopsutil/v3/internal/common"
 )
 
 type VirtualMemoryExStat struct {
@@ -36,7 +37,7 @@ func VirtualMemory() (*VirtualMemoryStat, error) {
 }
 
 func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
-	vm, _, err := fillFromMeminfoWithContext()
+	vm, _, err := fillFromMeminfoWithContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -48,15 +49,15 @@ func VirtualMemoryEx() (*VirtualMemoryExStat, error) {
 }
 
 func VirtualMemoryExWithContext(ctx context.Context) (*VirtualMemoryExStat, error) {
-	_, vmEx, err := fillFromMeminfoWithContext()
+	_, vmEx, err := fillFromMeminfoWithContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return vmEx, nil
 }
 
-func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, error) {
-	filename := common.HostProc("meminfo")
+func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *VirtualMemoryExStat, error) {
+	filename := common.HostProcWithContext(ctx, "meminfo")
 	lines, _ := common.ReadLines(filename)
 
 	// flag if MemAvailable is in /proc/meminfo (kernel 3.14+)
@@ -153,13 +154,13 @@ func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, err
 				return ret, retEx, err
 			}
 			retEx.Unevictable = t * 1024
-		case "WriteBack":
+		case "Writeback":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
 			}
 			ret.WriteBack = t * 1024
-		case "WriteBackTmp":
+		case "WritebackTmp":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
@@ -310,6 +311,12 @@ func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, err
 				return ret, retEx, err
 			}
 			ret.HugePageSize = t * 1024
+		case "AnonHugePages":
+			t, err := strconv.ParseUint(value, 10, 64)
+			if err != nil {
+				return ret, retEx, err
+			}
+			ret.AnonHugePages = t * 1024
 		}
 	}
 
@@ -317,7 +324,7 @@ func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, err
 
 	if !memavail {
 		if activeFile && inactiveFile && sReclaimable {
-			ret.Available = calculateAvailVmem(ret, retEx)
+			ret.Available = calculateAvailVmem(ctx, ret, retEx)
 		} else {
 			ret.Available = ret.Cached + ret.Free
 		}
@@ -350,7 +357,7 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 	} else {
 		ret.UsedPercent = 0
 	}
-	filename := common.HostProc("vmstat")
+	filename := common.HostProcWithContext(ctx, "vmstat")
 	lines, _ := common.ReadLines(filename)
 	for _, l := range lines {
 		fields := strings.Fields(l)
@@ -370,25 +377,25 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 				continue
 			}
 			ret.Sout = value * 4 * 1024
-		case "pgpgIn":
+		case "pgpgin":
 			value, err := strconv.ParseUint(fields[1], 10, 64)
 			if err != nil {
 				continue
 			}
 			ret.PgIn = value * 4 * 1024
-		case "pgpgOut":
+		case "pgpgout":
 			value, err := strconv.ParseUint(fields[1], 10, 64)
 			if err != nil {
 				continue
 			}
 			ret.PgOut = value * 4 * 1024
-		case "pgFault":
+		case "pgfault":
 			value, err := strconv.ParseUint(fields[1], 10, 64)
 			if err != nil {
 				continue
 			}
 			ret.PgFault = value * 4 * 1024
-		case "pgMajFault":
+		case "pgmajfault":
 			value, err := strconv.ParseUint(fields[1], 10, 64)
 			if err != nil {
 				continue
@@ -402,10 +409,10 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 // calculateAvailVmem is a fallback under kernel 3.14 where /proc/meminfo does not provide
 // "MemAvailable:" column. It reimplements an algorithm from the link below
 // https://github.com/giampaolo/psutil/pull/890
-func calculateAvailVmem(ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint64 {
+func calculateAvailVmem(ctx context.Context, ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint64 {
 	var watermarkLow uint64
 
-	fn := common.HostProc("zoneinfo")
+	fn := common.HostProcWithContext(ctx, "zoneinfo")
 	lines, err := common.ReadLines(fn)
 	if err != nil {
 		return ret.Free + ret.Cached // fallback under kernel 2.6.13
@@ -457,18 +464,18 @@ func SwapDevices() ([]*SwapDevice, error) {
 }
 
 func SwapDevicesWithContext(ctx context.Context) ([]*SwapDevice, error) {
-	swapsFilePath := common.HostProc(swapsFilename)
+	swapsFilePath := common.HostProcWithContext(ctx, swapsFilename)
 	f, err := os.Open(swapsFilePath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	return parseSwapsFile(f)
+	return parseSwapsFile(ctx, f)
 }
 
-func parseSwapsFile(r io.Reader) ([]*SwapDevice, error) {
-	swapsFilePath := common.HostProc(swapsFilename)
+func parseSwapsFile(ctx context.Context, r io.Reader) ([]*SwapDevice, error) {
+	swapsFilePath := common.HostProcWithContext(ctx, swapsFilename)
 	scanner := bufio.NewScanner(r)
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {

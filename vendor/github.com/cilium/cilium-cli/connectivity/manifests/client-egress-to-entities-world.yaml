@@ -1,0 +1,37 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-entities-world
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+  - toEndpoints:
+    - matchExpressions:
+      - { key: 'k8s-app', operator: In, values: [ "kube-dns", "coredns", "node-local-dns", "nodelocaldns" ] }
+      - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "kube-system" ] }
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+  # When node-local-dns is deployed with local IP,
+  # Cilium labels its ip as world.
+  # This change prevents failing the connectivity
+  # test for such environments.
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+    toEntities:
+    - world

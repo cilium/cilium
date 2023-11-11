@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
@@ -50,7 +49,7 @@ func IOCounters(pernic bool) ([]IOCountersStat, error) {
 }
 
 func IOCountersWithContext(ctx context.Context, pernic bool) ([]IOCountersStat, error) {
-	filename := common.HostProc("net/dev")
+	filename := common.HostProcWithContext(ctx, "net/dev")
 	return IOCountersByFileWithContext(ctx, pernic, filename)
 }
 
@@ -157,7 +156,7 @@ var netProtocols = []string{
 	"udplite",
 }
 
-// NetProtoCounters returns network statistics for the entire system
+// ProtoCounters returns network statistics for the entire system
 // If protocols is empty then all protocols are returned, otherwise
 // just the protocols in the list are returned.
 // Available protocols:
@@ -177,7 +176,7 @@ func ProtoCountersWithContext(ctx context.Context, protocols []string) ([]ProtoC
 		protos[p] = true
 	}
 
-	filename := common.HostProc("net/snmp")
+	filename := common.HostProcWithContext(ctx, "net/snmp")
 	lines, err := common.ReadLines(filename)
 	if err != nil {
 		return nil, err
@@ -230,8 +229,8 @@ func FilterCounters() ([]FilterStat, error) {
 }
 
 func FilterCountersWithContext(ctx context.Context) ([]FilterStat, error) {
-	countfile := common.HostProc("sys/net/netfilter/nf_conntrack_count")
-	maxfile := common.HostProc("sys/net/netfilter/nf_conntrack_max")
+	countfile := common.HostProcWithContext(ctx, "sys/net/netfilter/nf_conntrack_count")
+	maxfile := common.HostProcWithContext(ctx, "sys/net/netfilter/nf_conntrack_max")
 
 	count, err := common.ReadInts(countfile)
 	if err != nil {
@@ -260,7 +259,7 @@ func ConntrackStats(percpu bool) ([]ConntrackStat, error) {
 
 // ConntrackStatsWithContext returns more detailed info about the conntrack table
 func ConntrackStatsWithContext(ctx context.Context, percpu bool) ([]ConntrackStat, error) {
-	return conntrackStatsFromFile(common.HostProc("net/stat/nf_conntrack"), percpu)
+	return conntrackStatsFromFile(common.HostProcWithContext(ctx, "net/stat/nf_conntrack"), percpu)
 }
 
 // conntrackStatsFromFile returns more detailed info about the conntrack table
@@ -459,7 +458,7 @@ func connectionsPidMaxWithoutUidsWithContext(ctx context.Context, kind string, p
 	if !ok {
 		return nil, fmt.Errorf("invalid kind, %s", kind)
 	}
-	root := common.HostProc()
+	root := common.HostProcWithContext(ctx)
 	var err error
 	var inodes map[string][]inodeMap
 	if pid == 0 {
@@ -531,7 +530,7 @@ func statsFromInodesWithContext(ctx context.Context, root string, pid int32, tma
 			if !skipUids {
 				// fetch process owner Real, effective, saved set, and filesystem UIDs
 				proc := process{Pid: conn.Pid}
-				conn.Uids, _ = proc.getUids()
+				conn.Uids, _ = proc.getUids(ctx)
 			}
 
 			ret = append(ret, conn)
@@ -599,7 +598,7 @@ func Pids() ([]int32, error) {
 func PidsWithContext(ctx context.Context) ([]int32, error) {
 	var ret []int32
 
-	d, err := os.Open(common.HostProc())
+	d, err := os.Open(common.HostProcWithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -631,8 +630,8 @@ type process struct {
 }
 
 // Uids returns user ids of the process as a slice of the int
-func (p *process) getUids() ([]int32, error) {
-	err := p.fillFromStatus()
+func (p *process) getUids(ctx context.Context) ([]int32, error) {
+	err := p.fillFromStatus(ctx)
 	if err != nil {
 		return []int32{}, err
 	}
@@ -640,10 +639,10 @@ func (p *process) getUids() ([]int32, error) {
 }
 
 // Get status from /proc/(pid)/status
-func (p *process) fillFromStatus() error {
+func (p *process) fillFromStatus(ctx context.Context) error {
 	pid := p.Pid
-	statPath := common.HostProc(strconv.Itoa(int(pid)), "status")
-	contents, err := ioutil.ReadFile(statPath)
+	statPath := common.HostProcWithContext(ctx, strconv.Itoa(int(pid)), "status")
+	contents, err := os.ReadFile(statPath)
 	if err != nil {
 		return err
 	}
@@ -784,7 +783,7 @@ func processInetWithContext(ctx context.Context, file string, kind netConnection
 	// This minimizes duplicates in the returned connections
 	// For more info:
 	// https://github.com/shirou/gopsutil/pull/361
-	contents, err := ioutil.ReadFile(file)
+	contents, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
@@ -845,7 +844,7 @@ func processUnix(file string, kind netConnectionKindType, inodes map[string][]in
 	// This minimizes duplicates in the returned connections
 	// For more info:
 	// https://github.com/shirou/gopsutil/pull/361
-	contents, err := ioutil.ReadFile(file)
+	contents, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

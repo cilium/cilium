@@ -1,3 +1,4 @@
+//go:build !aix
 // +build !aix
 
 // Copyright 2020 Power-Devops.com. All rights reserved.
