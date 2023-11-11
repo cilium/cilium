@@ -51,50 +51,7 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 		{
 			FilterChainMatch: &envoy_config_listener.FilterChainMatch{TransportProtocol: "raw_buffer"},
 			Filters: []*envoy_config_listener.Filter{
-				{
-					Name: "envoy.filters.network.http_connection_manager",
-					ConfigType: &envoy_config_listener.Filter_TypedConfig{
-						TypedConfig: toAny(&http_connection_manager_v3.HttpConnectionManager{
-							StatPrefix: "listener-insecure",
-							RouteSpecifier: &http_connection_manager_v3.HttpConnectionManager_Rds{
-								Rds: &http_connection_manager_v3.Rds{RouteConfigName: "listener-insecure"},
-							},
-							UpgradeConfigs: []*http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
-								{UpgradeType: "websocket"},
-							},
-							UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-							SkipXffAppend:    false,
-							HttpFilters: []*http_connection_manager_v3.HttpFilter{
-								{
-									Name: "envoy.filters.http.grpc_web",
-									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
-										TypedConfig: toAny(&grpc_web_v3.GrpcWeb{}),
-									},
-								},
-								{
-									Name: "envoy.filters.http.grpc_stats",
-									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
-										TypedConfig: toAny(&grpc_stats_v3.FilterConfig{
-											EmitFilterState:     true,
-											EnableUpstreamStats: true,
-										}),
-									},
-								},
-								{
-									Name: "envoy.filters.http.router",
-									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
-										TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
-									},
-								},
-							},
-							CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
-								MaxStreamDuration: &durationpb.Duration{
-									Seconds: 0,
-								},
-							},
-						}),
-					},
-				},
+				toListenerFilter("listener-insecure"),
 			},
 		},
 	},
@@ -106,44 +63,7 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 			},
 		},
 	},
-	SocketOptions: []*envoy_config_core_v3.SocketOption{
-		{
-			Description: "Enable TCP keep-alive (default to enabled)",
-			Level:       syscall.SOL_SOCKET,
-			Name:        syscall.SO_KEEPALIVE,
-			Value: &envoy_config_core_v3.SocketOption_IntValue{
-				IntValue: 1,
-			},
-			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
-		},
-		{
-			Description: "TCP keep-alive idle time (in seconds) (defaults to 10s)",
-			Level:       syscall.IPPROTO_TCP,
-			Name:        syscall.TCP_KEEPIDLE,
-			Value: &envoy_config_core_v3.SocketOption_IntValue{
-				IntValue: 10,
-			},
-			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
-		},
-		{
-			Description: "TCP keep-alive probe intervals (in seconds) (defaults to 5s)",
-			Level:       syscall.IPPROTO_TCP,
-			Name:        syscall.TCP_KEEPINTVL,
-			Value: &envoy_config_core_v3.SocketOption_IntValue{
-				IntValue: 5,
-			},
-			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
-		},
-		{
-			Description: "TCP keep-alive probe max failures.",
-			Level:       syscall.IPPROTO_TCP,
-			Name:        syscall.TCP_KEEPCNT,
-			Value: &envoy_config_core_v3.SocketOption_IntValue{
-				IntValue: 10,
-			},
-			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
-		},
-	},
+	SocketOptions: toSocketOptions(),
 })
 
 // basicHTTPListeners is the internal model representation of the simple HTTP listeners
@@ -328,44 +248,7 @@ var basicTLSListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 							},
 						},
 					},
-					SocketOptions: []*envoy_config_core_v3.SocketOption{
-						{
-							Description: "Enable TCP keep-alive (default to enabled)",
-							Level:       syscall.SOL_SOCKET,
-							Name:        syscall.SO_KEEPALIVE,
-							Value: &envoy_config_core_v3.SocketOption_IntValue{
-								IntValue: 1,
-							},
-							State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
-						},
-						{
-							Description: "TCP keep-alive idle time (in seconds) (defaults to 10s)",
-							Level:       syscall.IPPROTO_TCP,
-							Name:        syscall.TCP_KEEPIDLE,
-							Value: &envoy_config_core_v3.SocketOption_IntValue{
-								IntValue: 10,
-							},
-							State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
-						},
-						{
-							Description: "TCP keep-alive probe intervals (in seconds) (defaults to 5s)",
-							Level:       syscall.IPPROTO_TCP,
-							Name:        syscall.TCP_KEEPINTVL,
-							Value: &envoy_config_core_v3.SocketOption_IntValue{
-								IntValue: 5,
-							},
-							State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
-						},
-						{
-							Description: "TCP keep-alive probe max failures.",
-							Level:       syscall.IPPROTO_TCP,
-							Name:        syscall.TCP_KEEPCNT,
-							Value: &envoy_config_core_v3.SocketOption_IntValue{
-								IntValue: 10,
-							},
-							State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
-						},
-					},
+					SocketOptions: toSocketOptions(),
 				}),
 			},
 			{
@@ -3516,6 +3399,94 @@ func toRouteAction(namespace, name, port string) *envoy_config_route_v3.Route_Ro
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 				Cluster: fmt.Sprintf("%s:%s:%s", namespace, name, port),
 			},
+		},
+	}
+}
+
+func toListenerFilter(routeName string) *envoy_config_listener.Filter {
+	return &envoy_config_listener.Filter{
+		Name: "envoy.filters.network.http_connection_manager",
+		ConfigType: &envoy_config_listener.Filter_TypedConfig{
+			TypedConfig: toAny(&http_connection_manager_v3.HttpConnectionManager{
+				StatPrefix: routeName,
+				RouteSpecifier: &http_connection_manager_v3.HttpConnectionManager_Rds{
+					Rds: &http_connection_manager_v3.Rds{RouteConfigName: routeName},
+				},
+				UpgradeConfigs: []*http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
+					{UpgradeType: "websocket"},
+				},
+				UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+				SkipXffAppend:    false,
+				HttpFilters: []*http_connection_manager_v3.HttpFilter{
+					{
+						Name: "envoy.filters.http.grpc_web",
+						ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+							TypedConfig: toAny(&grpc_web_v3.GrpcWeb{}),
+						},
+					},
+					{
+						Name: "envoy.filters.http.grpc_stats",
+						ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+							TypedConfig: toAny(&grpc_stats_v3.FilterConfig{
+								EmitFilterState:     true,
+								EnableUpstreamStats: true,
+							}),
+						},
+					},
+					{
+						Name: "envoy.filters.http.router",
+						ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+							TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+						},
+					},
+				},
+				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+					MaxStreamDuration: &durationpb.Duration{
+						Seconds: 0,
+					},
+				},
+			}),
+		},
+	}
+}
+
+func toSocketOptions() []*envoy_config_core_v3.SocketOption {
+	return []*envoy_config_core_v3.SocketOption{
+		{
+			Description: "Enable TCP keep-alive (default to enabled)",
+			Level:       syscall.SOL_SOCKET,
+			Name:        syscall.SO_KEEPALIVE,
+			Value: &envoy_config_core_v3.SocketOption_IntValue{
+				IntValue: 1,
+			},
+			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+		},
+		{
+			Description: "TCP keep-alive idle time (in seconds) (defaults to 10s)",
+			Level:       syscall.IPPROTO_TCP,
+			Name:        syscall.TCP_KEEPIDLE,
+			Value: &envoy_config_core_v3.SocketOption_IntValue{
+				IntValue: 10,
+			},
+			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+		},
+		{
+			Description: "TCP keep-alive probe intervals (in seconds) (defaults to 5s)",
+			Level:       syscall.IPPROTO_TCP,
+			Name:        syscall.TCP_KEEPINTVL,
+			Value: &envoy_config_core_v3.SocketOption_IntValue{
+				IntValue: 5,
+			},
+			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+		},
+		{
+			Description: "TCP keep-alive probe max failures.",
+			Level:       syscall.IPPROTO_TCP,
+			Name:        syscall.TCP_KEEPCNT,
+			Value: &envoy_config_core_v3.SocketOption_IntValue{
+				IntValue: 10,
+			},
+			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
 		},
 	}
 }
