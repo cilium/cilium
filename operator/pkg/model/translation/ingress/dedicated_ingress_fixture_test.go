@@ -108,26 +108,6 @@ func toRouteAction(namespace, name, port string) *envoy_config_route_v3.Route_Ro
 	}
 }
 
-func toWeightedClusterRouteAction(names []string) *envoy_config_route_v3.Route_Route {
-	weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(names))
-	for _, name := range names {
-		weightedClusters = append(weightedClusters, &envoy_config_route_v3.WeightedCluster_ClusterWeight{
-			Name:   name,
-			Weight: &wrapperspb.UInt32Value{Value: 1},
-		})
-	}
-
-	return &envoy_config_route_v3.Route_Route{
-		Route: &envoy_config_route_v3.RouteAction{
-			ClusterSpecifier: &envoy_config_route_v3.RouteAction_WeightedClusters{
-				WeightedClusters: &envoy_config_route_v3.WeightedCluster{
-					Clusters: weightedClusters,
-				},
-			},
-		},
-	}
-}
-
 func toHTTPSRedirectAction() *envoy_config_route_v3.Route_Redirect {
 	return &envoy_config_route_v3.Route_Redirect{
 		Redirect: &envoy_config_route_v3.RedirectAction{
@@ -549,10 +529,7 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 											Prefix: "/",
 										},
 									},
-									Action: toWeightedClusterRouteAction([]string{
-										"random-namespace:foo-bar-com:http",
-										"random-namespace:foo-bar-com:http",
-									}),
+									Action: toRouteAction("random-namespace", "foo-bar-com", "http"),
 								},
 							},
 						},

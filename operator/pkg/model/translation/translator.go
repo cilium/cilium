@@ -194,7 +194,7 @@ func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 	var res []ciliumv2.XDSResource
 
 	portHostName := map[string][]string{}
-	hostNameRoutes := map[string][]model.HTTPRoute{}
+	hostNamePortRoutes := map[string]map[string][]model.HTTPRoute{}
 
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
@@ -205,12 +205,18 @@ func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 
 			if len(r.Hostnames) == 0 {
 				portHostName[port] = append(portHostName[port], l.Hostname)
-				hostNameRoutes[l.Hostname] = append(hostNameRoutes[l.Hostname], r)
+				if _, ok := hostNamePortRoutes[l.Hostname]; !ok {
+					hostNamePortRoutes[l.Hostname] = map[string][]model.HTTPRoute{}
+				}
+				hostNamePortRoutes[l.Hostname][port] = append(hostNamePortRoutes[l.Hostname][port], r)
 				continue
 			}
 			for _, h := range r.Hostnames {
 				portHostName[port] = append(portHostName[port], h)
-				hostNameRoutes[h] = append(hostNameRoutes[h], r)
+				if _, ok := hostNamePortRoutes[h]; !ok {
+					hostNamePortRoutes[h] = map[string][]model.HTTPRoute{}
+				}
+				hostNamePortRoutes[h][port] = append(hostNamePortRoutes[h][port], r)
 			}
 		}
 	}
@@ -226,7 +232,7 @@ func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 		// Add HTTPs redirect virtual host for secure host
 		if port == insecureHost && i.enforceHTTPs {
 			for _, h := range slices.Unique(portHostName[secureHost]) {
-				vhs, _ := NewVirtualHostWithDefaults(hostNameRoutes[h], VirtualHostParameter{
+				vhs, _ := NewVirtualHostWithDefaults(hostNamePortRoutes[h][secureHost], VirtualHostParameter{
 					HostNames:           []string{h},
 					HTTPSRedirect:       true,
 					HostNameSuffixMatch: i.hostNameSuffixMatch,
@@ -242,7 +248,7 @@ func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 					continue
 				}
 			}
-			routes, exists := hostNameRoutes[h]
+			routes, exists := hostNamePortRoutes[h][port]
 			if !exists {
 				continue
 			}
