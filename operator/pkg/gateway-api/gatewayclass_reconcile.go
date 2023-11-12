@@ -46,6 +46,29 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Hence, just set gateway class Accepted condition to true blindly.
 	setGatewayClassAccepted(gwc, true)
 
+	// List of features supported by Cilium.
+	// The same is used in GHA CI .github/workflows/conformance-gateway-api.yaml
+	gwc.Status.SupportedFeatures = []gatewayv1.SupportedFeature{
+		"Gateway",
+		//"GatewayPort8080",
+		//"GatewayStaticAddresses",
+		"HTTPRoute",
+		"HTTPRouteDestinationPortMatching",
+		"HTTPRouteHostRewrite",
+		"HTTPRouteMethodMatching",
+		"HTTPRoutePathRedirect",
+		"HTTPRoutePathRewrite",
+		"HTTPRoutePortRedirect",
+		"HTTPRouteQueryParamMatching",
+		"HTTPRouteRequestMirror",
+		"HTTPRouteRequestMultipleMirrors",
+		"HTTPRouteResponseHeaderModification",
+		"HTTPRouteSchemeRedirect",
+		//"Mesh",
+		"ReferenceGrant",
+		"TLSRoute",
+	}
+
 	if err := r.Client.Status().Update(ctx, gwc); err != nil {
 		scopedLog.WithError(err).Error("Failed to update GatewayClass status")
 		return fail(err)
