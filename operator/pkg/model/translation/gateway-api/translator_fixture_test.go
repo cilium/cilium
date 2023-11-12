@@ -3364,6 +3364,72 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
+var multipleListenerGatewayListeners = []model.HTTPListener{
+	{
+		Name: "http-example",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "my-gateway",
+				Namespace: "default",
+				Group:     "gateway.networking.k8s.io",
+				Version:   "v1",
+				Kind:      "Gateway",
+			},
+		},
+		Address:  "",
+		Port:     80,
+		Hostname: "example.com",
+		Routes: []model.HTTPRoute{
+			{
+				Hostnames: []string{"example.com"},
+				DirectResponse: &model.DirectResponse{
+					StatusCode: 500,
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Scheme:     model.AddressOf("https"),
+					StatusCode: model.AddressOf(301),
+				},
+				Backends: []model.Backend{},
+			},
+		},
+	},
+	{
+		Name: "https-example",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "my-gateway",
+				Namespace: "default",
+				Group:     "gateway.networking.k8s.io",
+				Version:   "v1",
+				Kind:      "Gateway",
+			},
+		},
+		Address:  "",
+		Port:     443,
+		Hostname: "example.com",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "example-cert",
+				Namespace: "default",
+			},
+		},
+		Routes: []model.HTTPRoute{
+			{
+				Hostnames: []string{"example.com"},
+				Backends: []model.Backend{
+					{
+						Name:      "my-service",
+						Namespace: "default",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
 		Name: fmt.Sprintf("%s:%s:%s", namespace, name, port),
