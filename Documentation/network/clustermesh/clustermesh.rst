@@ -86,6 +86,8 @@ same as you typically pass to ``kubectl --context``.
 Specify the Cluster Name and ID
 ===============================
 
+Cilium needs to be installed onto each cluster.
+
 Each cluster must be assigned a unique human-readable name as well as a numeric
 cluster ID (1-255). It is best to assign both these attributes at installation
 time of Cilium:
@@ -93,6 +95,15 @@ time of Cilium:
  * ConfigMap options ``cluster-name`` and ``cluster-id``
  * Helm options ``cluster.name`` and ``cluster.id``
  * Cilium CLI install options ``--set cluster.name`` and ``--set cluster.id``
+
+Review :ref:`k8s_install_quick` for more details and use cases.
+
+Example install using the Cilium CLI:
+
+.. code-block:: shell-session
+
+  cilium install --set cluster.name=$CLUSTER1 --set cluster.id=1 --context $CLUSTER1
+  cilium install --set cluster.name=$CLUSTER2 --set cluster.id=2 --context $CLUSTER2
 
 .. important::
 
