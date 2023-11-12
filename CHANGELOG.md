@@ -1,5 +1,52 @@
 # Changelog
 
+## v1.13.9
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Cilium DNS proxy now uses the original pod's address as the source address towards the DNS servers. (Backport PR #29089, Upstream PR #28928, @jrajahalme)
+* Cilium now properly deletes stale (deleted) nodes from the node_connectivity_status and node_connectivity_latency_seconds metrics, reducing metric cardinality. (Backport PR #28932, Upstream PR #28382, @derailed)
+* Display interfaces used for IPsec decryption in `cilium encrypt status`. (Backport PR #28761, Upstream PR #28640, @pchaigno)
+* ipsec: New Prometheus metrics for XFRM configs (Backport PR #28761, Upstream PR #28400, @pchaigno)
+* policy: Fixed a bug that incorrectly omitted port-protocol policy rules that omitted the "protocol" field. An omitted "protocol" field now, correctly, is the same as using the "ANY" protocol. (Backport PR #28761, Upstream PR #28703, @nathanjsweet)
+
+**Bugfixes:**
+* [v1.13] Remove remote-node labels from ipcache on node delete (#28972, @tklauser)
+* bpf: Add TC_ACT_REDIRECT check for nodeport (Backport PR #29034, Upstream PR #28927, @sayboras)
+* envoy: fix lb backend endpoint calculation (Backport PR #28877, Upstream PR #27923, @mhofstetter)
+* Fix CIDR labels computation (Backport PR #28877, Upstream PR #28788, @pippolo84)
+* Fix IPsec error logs to always have all information needed to identify the XFRM configuration on which the error happened. (Backport PR #29034, Upstream PR #28642, @pchaigno)
+* When the CT entry for a DSR connection is garbage-collected, the corresponding SNAT entry is now also removed. (Backport PR #28877, Upstream PR #28857, @julianwiedmann)
+
+**CI Changes:**
+* [v1.13] Use pull_request_target in Update Backport Label workflow (#29011, @pippolo84)
+* gh/workflows: Dump Cilium LB node logs in case of failure (Backport PR #29034, Upstream PR #28808, @brb)
+* Test both VXLAN and GENEVE tunneling as part of the Conformance Cluster Mesh workflow (Backport PR #28877, Upstream PR #28767, @giorio94)
+
+**Misc Changes:**
+* bpf: lb: fix missing drop reason in reverse_map_l4_port() (Backport PR #29034, Upstream PR #28884, @julianwiedmann)
+* bpf: lxc: remove stale ENABLE_IDENTITY_MARK ifdefs (Backport PR #28761, Upstream PR #28391, @julianwiedmann)
+* bugtool: Collect XFRM error counters twice (Backport PR #28877, Upstream PR #28790, @pchaigno)
+* chore(deps): update docker.io/library/golang docker tag to v1.20.11 (v1.13) (#29041, @renovate[bot])
+* datapath: Move `linuxNodeHandler` IPsec functions to their own file (Backport PR #29034, Upstream PR #28941, @pchaigno)
+* docs: Clarify BPF Map Pressure Metric (Backport PR #28761, Upstream PR #28682, @nathanjsweet)
+* docs: Update IPsec key rotation command (Backport PR #28761, Upstream PR #28141, @jschwinger233)
+* go.mod, vendor: use github.com/cilium/dns fork directly (Backport PR #29089, Upstream PR #27582, @tklauser)
+* ipsec: Improve `encrypt flush` command (Backport PR #29034, Upstream PR #28795, @pchaigno)
+* ipsec: Remove dead code for IPsec node encryption (Backport PR #29034, Upstream PR #28898, @pchaigno)
+* labels/cidr: Memoize labels for already seen prefixes (Backport PR #28877, Upstream PR #28465, @pippolo84)
+* labels/cidr: On the fly char replacement for IPv6 (Backport PR #28950, Upstream PR #28647, @pippolo84)
+* labels: Use slices.Sort instead of sort.Strings (Backport PR #28950, Upstream PR #28649, @pippolo84)
+
+**Other Changes:**
+* [v1.13] Always migrate cilium_calls_* during ELF load (#28829, @ti-mo)
+* [v1.13] backports 2023-10-25 (#28776, @sayboras)
+* [v1.13] envoy: Bump version to v1.26.6 (#28854, @sayboras)
+* [v1.13] envoy: Update envoy version to 1.25.x (#28331, @sayboras)
+* install: Update image digests for v1.13.8 (#28636, @jrajahalme)
+
 ## v1.13.8
 
 Summary of Changes
