@@ -35,4 +35,11 @@ spec:
   {{- if .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
   internalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
   {{- end }}
+  {{- with .Values.clustermesh.apiserver.service.clusterIP }}
+  clusterIP: {{ . }}
+  {{- end }}
+  {{- with .Values.clustermesh.apiserver.service.clusterIPs }}
+  clusterIPs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 {{- end }}
