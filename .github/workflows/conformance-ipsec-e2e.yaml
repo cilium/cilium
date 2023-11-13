@@ -286,7 +286,7 @@ jobs:
               --flush-ct
 
       - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@d42be92482e5568f5899626b95df369b39d03276
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@71908e7cd610e516461e92cf817e6cd9b3ada0f6
         with:
           job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
           operation-cmd: |
