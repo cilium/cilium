@@ -62,6 +62,15 @@ func newEtcdLeaseManager(cl *client.Client, ttl time.Duration, limit uint32, exp
 // GetLeaseID returns a lease ID, and associates it to the given key. It leverages
 // one of the already acquired leases if they are not already attached to too many
 // keys, otherwise a new one is acquired.
+//
+// There's a small possibility that the returned lease is already expired, or gets
+// expired immediately before use (due the time window between the lease expiration
+// on the etcd server and the subsequent client side detection and garbage collection).
+// As we cannot completely remove this uncertainty period, let's adopt the easiest
+// approach here, without explicitly checking if the lease is expired before returning
+// it (given that it would be a client-side check only). Instead, let's just rely on
+// the fact that the operation will fail (as the lease is no longer valid), triggering
+// a retry. At that point, a new (hopefully valid) lease will be retrieved again.
 func (elm *etcdLeaseManager) GetLeaseID(ctx context.Context, key string) (client.LeaseID, error) {
 	session, err := elm.GetSession(ctx, key)
 	if err != nil {
@@ -74,6 +83,15 @@ func (elm *etcdLeaseManager) GetLeaseID(ctx context.Context, key string) (client
 // GetSession returns a session, and associates it to the given key. It leverages
 // one of the already acquired leases if they are not already attached to too many
 // keys, otherwise a new one is acquired.
+//
+// There's a small possibility that the returned session is already expired, or gets
+// expired immediately before use (due the time window between the lease expiration
+// on the etcd server and the subsequent client side detection and garbage collection).
+// As we cannot completely remove this uncertainty period, let's adopt the easiest
+// approach here, without explicitly checking if the session is expired before returning
+// it (given that it would be a client-side check only). Instead, let's just rely on
+// the fact that the operation will fail (as the lease is no longer valid), triggering
+// a retry. At that point, a new (hopefully valid) session will be retrieved again.
 func (elm *etcdLeaseManager) GetSession(ctx context.Context, key string) (*concurrency.Session, error) {
 	elm.mu.Lock()
 
