@@ -34,11 +34,11 @@ var basicHTTP = Input{
 					Protocol: "HTTP",
 				},
 			},
-			Infrastructure: &gatewayv1beta1.GatewayInfrastructure{
-				Labels: map[gatewayv1beta1.AnnotationKey]gatewayv1beta1.AnnotationValue{
+			Infrastructure: &gatewayv1.GatewayInfrastructure{
+				Labels: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
 					"internal-loadbalancer-label": "true",
 				},
-				Annotations: map[gatewayv1beta1.AnnotationKey]gatewayv1beta1.AnnotationValue{
+				Annotations: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
 					"internal-loadbalancer-annotation": "true",
 				},
 			},
