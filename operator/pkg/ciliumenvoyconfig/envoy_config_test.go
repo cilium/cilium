@@ -11,15 +11,14 @@ import (
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_getClusterResources(t *testing.T) {
-	m := &Manager{}
-	res, err := m.getClusterResources(&slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
+	r := &ciliumEnvoyConfigReconciler{}
+	res, err := r.getClusterResources(&corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "dummy-service",
 			Namespace: "dummy-namespace",
 		},
@@ -40,9 +39,9 @@ func Test_getClusterResources(t *testing.T) {
 }
 
 func Test_getRouteConfigurationResource(t *testing.T) {
-	m := &Manager{}
-	res, err := m.getRouteConfigurationResource(&slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
+	r := &ciliumEnvoyConfigReconciler{}
+	res, err := r.getRouteConfigurationResource(&corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "dummy-service",
 			Namespace: "dummy-namespace",
 		},
@@ -60,9 +59,9 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 }
 
 func Test_getListenerResource(t *testing.T) {
-	m := &Manager{}
-	res, err := m.getListenerResource(&slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
+	r := &ciliumEnvoyConfigReconciler{}
+	res, err := r.getListenerResource(&corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "dummy-service",
 			Namespace: "dummy-namespace",
 		},
