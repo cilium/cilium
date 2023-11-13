@@ -72,10 +72,18 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 			Controller: model.AddressOf(true),
 		},
 	}
-	return cec, getService(source, ports), getEndpoints(*source), err
+
+	allLabels, allAnnotations := map[string]string{}, map[string]string{}
+	// Merge all the labels and annotations from the listeners.
+	// Normally, the labels and annotations are the same for all the listeners having same gateway.
+	for _, l := range listeners {
+		allAnnotations = mergeMap(allAnnotations, l.GetAnnotations())
+		allLabels = mergeMap(allLabels, l.GetLabels())
+	}
+	return cec, getService(source, ports, allLabels, allAnnotations), getEndpoints(*source), err
 }
 
-func getService(resource *model.FullyQualifiedResource, allPorts []uint32) *corev1.Service {
+func getService(resource *model.FullyQualifiedResource, allPorts []uint32, labels, annotations map[string]string) *corev1.Service {
 	uniquePorts := map[uint32]struct{}{}
 	for _, p := range allPorts {
 		uniquePorts[p] = struct{}{}
@@ -92,9 +100,10 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32) *core
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shorten(ciliumGatewayPrefix + resource.Name),
-			Namespace: resource.Namespace,
-			Labels:    map[string]string{owningGatewayLabel: resource.Name},
+			Name:        shorten(ciliumGatewayPrefix + resource.Name),
+			Namespace:   resource.Namespace,
+			Labels:      mergeMap(map[string]string{owningGatewayLabel: resource.Name}, labels),
+			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: gatewayv1beta1.GroupVersion.String(),
@@ -173,4 +182,14 @@ func encodeHash(hex string) string {
 // hash hashes `data` with sha256 and returns the hex string
 func hash(data string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(data)))
+}
+
+func mergeMap(left, right map[string]string) map[string]string {
+	if left == nil {
+		return right
+	}
+	for key, value := range right {
+		left[key] = value
+	}
+	return left
 }
