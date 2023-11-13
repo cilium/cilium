@@ -556,21 +556,21 @@ func LoadLineInfos(reader io.Reader, bo binary.ByteOrder, recordNum uint32, spec
 	return newLineInfos(lis, spec.strings)
 }
 
-func newLineInfo(li bpfLineInfo, strings *stringTable) (*lineInfo, error) {
+func newLineInfo(li bpfLineInfo, strings *stringTable) (lineInfo, error) {
 	line, err := strings.Lookup(li.LineOff)
 	if err != nil {
-		return nil, fmt.Errorf("lookup of line: %w", err)
+		return lineInfo{}, fmt.Errorf("lookup of line: %w", err)
 	}
 
 	fileName, err := strings.Lookup(li.FileNameOff)
 	if err != nil {
-		return nil, fmt.Errorf("lookup of filename: %w", err)
+		return lineInfo{}, fmt.Errorf("lookup of filename: %w", err)
 	}
 
 	lineNumber := li.LineCol >> bpfLineShift
 	lineColumn := li.LineCol & bpfColumnMax
 
-	return &lineInfo{
+	return lineInfo{
 		&Line{
 			fileName,
 			line,
@@ -590,7 +590,7 @@ func newLineInfos(blis []bpfLineInfo, strings *stringTable) (LineInfos, error) {
 		if err != nil {
 			return LineInfos{}, fmt.Errorf("offset %d: %w", bli.InsnOff, err)
 		}
-		lis.infos = append(lis.infos, *li)
+		lis.infos = append(lis.infos, li)
 	}
 	sort.Slice(lis.infos, func(i, j int) bool {
 		return lis.infos[i].offset <= lis.infos[j].offset
@@ -666,7 +666,6 @@ func parseLineInfos(r io.Reader, bo binary.ByteOrder, strings *stringTable) (map
 // These records appear after a btf_ext_info_sec header in the line_info
 // sub-section of .BTF.ext.
 func parseLineInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, recordNum uint32, offsetInBytes bool) ([]bpfLineInfo, error) {
-	var out []bpfLineInfo
 	var li bpfLineInfo
 
 	if exp, got := uint32(binary.Size(li)), recordSize; exp != got {
@@ -674,6 +673,7 @@ func parseLineInfoRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, r
 		return nil, fmt.Errorf("expected LineInfo record size %d, but BTF blob contains %d", exp, got)
 	}
 
+	out := make([]bpfLineInfo, 0, recordNum)
 	for i := uint32(0); i < recordNum; i++ {
 		if err := binary.Read(r, bo, &li); err != nil {
 			return nil, fmt.Errorf("can't read line info: %v", err)
