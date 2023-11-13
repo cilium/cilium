@@ -32,10 +32,8 @@ spec:
   hostIPC: false
   hostPID: false
   hostPorts:
-  {{- if .Values.hubble.peerService.enabled }}
     - min: {{ .Values.hubble.peerService.targetPort }}
       max: {{ .Values.hubble.peerService.targetPort }}
-  {{- end }}
   {{- if .Values.hubble.metrics.enabled }}
     - min: {{ .Values.hubble.metrics.port }}
       max: {{ .Values.hubble.metrics.port }}
