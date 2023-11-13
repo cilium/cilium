@@ -68,6 +68,9 @@ CONSUL_IMAGE=consul:1.7.2
 export CILIUM_CLI ?= cilium
 export KUBECTL ?= kubectl
 
+SWAGGER_VERSION := v0.30.3
+SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(ROOT_DIR):$(ROOT_DIR) -w $(ROOT_DIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
 # as non-immediate variables
