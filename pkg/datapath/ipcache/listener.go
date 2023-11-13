@@ -33,7 +33,7 @@ var (
 
 // monitorNotify is an interface to notify the monitor about ipcache changes.
 type monitorNotify interface {
-	SendNotification(msg monitorAPI.AgentNotifyMessage) error
+	SendEvent(typ int, event interface{}) error
 }
 
 // BPFListener implements the ipcache.IPIdentityMappingBPFListener
@@ -94,11 +94,11 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 	case ipcache.Upsert:
 		msg := monitorAPI.IPCacheUpsertedMessage(cidr.String(), newIdentity, oldIdentityPtr,
 			newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
-		l.monitorNotify.SendNotification(msg)
+		l.monitorNotify.SendEvent(monitorAPI.MessageTypeAgent, msg)
 	case ipcache.Delete:
 		msg := monitorAPI.IPCacheDeletedMessage(cidr.String(), newIdentity, oldIdentityPtr,
 			newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
-		l.monitorNotify.SendNotification(msg)
+		l.monitorNotify.SendEvent(monitorAPI.MessageTypeAgent, msg)
 	}
 }
 
