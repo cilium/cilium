@@ -277,12 +277,24 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 			Selector:   selector,
 			Identities: ids,
 			Users:      int64(idSel.numUsers()),
-			Labels:     idSel.GetMetadataLabels(),
+			Labels:     labelArrayToModel(idSel.GetMetadataLabels()),
 		}
 		selCacheMdl = append(selCacheMdl, selMdl)
 	}
 
 	return selCacheMdl
+}
+
+func labelArrayToModel(arr labels.LabelArray) models.LabelArray {
+	lbls := make(models.LabelArray, 0, len(arr))
+	for _, l := range arr {
+		lbls = append(lbls, &models.Label{
+			Key:    l.Key,
+			Value:  l.Value,
+			Source: l.Source,
+		})
+	}
+	return lbls
 }
 
 func (sc *SelectorCache) handleUserNotifications() {

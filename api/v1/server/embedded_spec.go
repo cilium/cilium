@@ -3844,6 +3844,29 @@ func init() {
         }
       }
     },
+    "Label": {
+      "description": "Label is the Cilium's representation of a container label",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "source": {
+          "description": "Source can be one of the above values (e.g. LabelSourceContainer)",
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "LabelArray": {
+      "description": "LabelArray is an array of labels forming a set",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Label"
+      }
+    },
     "LabelConfiguration": {
       "description": "Label configuration of an endpoint",
       "type": "object",
@@ -4680,7 +4703,7 @@ func init() {
         },
         "labels": {
           "description": "Labels are the metadata labels associated with the selector",
-          "type": "object"
+          "$ref": "#/definitions/LabelArray"
         },
         "selector": {
           "description": "string form of selector",
@@ -9866,6 +9889,29 @@ func init() {
         }
       }
     },
+    "Label": {
+      "description": "Label is the Cilium's representation of a container label",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "source": {
+          "description": "Source can be one of the above values (e.g. LabelSourceContainer)",
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "LabelArray": {
+      "description": "LabelArray is an array of labels forming a set",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Label"
+      }
+    },
     "LabelConfiguration": {
       "description": "Label configuration of an endpoint",
       "type": "object",
@@ -10716,7 +10762,7 @@ func init() {
         },
         "labels": {
           "description": "Labels are the metadata labels associated with the selector",
-          "type": "object"
+          "$ref": "#/definitions/LabelArray"
         },
         "selector": {
           "description": "string form of selector",

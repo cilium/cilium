@@ -2921,7 +2921,7 @@ definitions:
         type: string
       labels:
         description: Labels are the metadata labels associated with the selector
-        type: object
+        "$ref": "#/definitions/LabelArray"
       identities:
         description: identities mapping to this selector
         type: array
@@ -4061,3 +4061,19 @@ definitions:
       base64:
         description: Base64-encoded BGP path attribute in the BGP UPDATE message format
         type: string
+  Label:
+    description: Label is the Cilium's representation of a container label
+    type: object
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+      source:
+        description: Source can be one of the above values (e.g. LabelSourceContainer)
+        type: string
+  LabelArray:
+    description: LabelArray is an array of labels forming a set
+    type: array
+    items:
+      "$ref": "#/definitions/Label"

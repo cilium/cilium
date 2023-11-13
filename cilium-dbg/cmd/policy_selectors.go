@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -78,10 +79,14 @@ func getNameAndNamespaceFromLabels(lbls labels.LabelArray) string {
 	return ns + "/" + lbls.Get(labels.LabelSourceK8sKeyPrefix+k8sconst.PolicyLabelName)
 }
 
-func constructLabelsArrayFromAPIType(in interface{}) labels.LabelArray {
-	lbls, ok := in.(labels.LabelArray)
-	if !ok {
-		return nil
+func constructLabelsArrayFromAPIType(in models.LabelArray) labels.LabelArray {
+	lbls := make(labels.LabelArray, 0, len(in))
+	for _, l := range in {
+		lbls = append(lbls, labels.Label{
+			Key:    l.Key,
+			Value:  l.Value,
+			Source: l.Source,
+		})
 	}
 	return lbls
 }
