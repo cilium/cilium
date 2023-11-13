@@ -18,9 +18,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func EnqueueTLSSecrets(c client.Client) handler.EventHandler {
+func EnqueueTLSSecrets(c client.Client, logger logrus.FieldLogger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
+		scopedLog := logger.WithFields(logrus.Fields{
 			logfields.Controller: "secrets",
 			logfields.Resource:   obj.GetName(),
 		})
