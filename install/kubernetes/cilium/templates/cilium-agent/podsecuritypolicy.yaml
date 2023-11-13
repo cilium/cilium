@@ -43,8 +43,8 @@ spec:
   {{- if .Values.prometheus.enabled }}
     - min: {{ .Values.prometheus.port }}
       max: {{ .Values.prometheus.port }}
-    - min: {{ .Values.proxy.prometheus.port }}
-      max: {{ .Values.proxy.prometheus.port }}
+    - min: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
+      max: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
   {{- end }}
   runAsUser:
     rule: 'RunAsAny'
