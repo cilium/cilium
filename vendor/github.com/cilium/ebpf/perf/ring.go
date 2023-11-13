@@ -127,6 +127,7 @@ func createPerfEvent(cpu, watermark int, overwritable bool) (int, error) {
 type ringReader interface {
 	loadHead()
 	size() int
+	remaining() int
 	writeTail()
 	Read(p []byte) (int, error)
 }
@@ -155,6 +156,10 @@ func (rr *forwardReader) loadHead() {
 
 func (rr *forwardReader) size() int {
 	return len(rr.ring)
+}
+
+func (rr *forwardReader) remaining() int {
+	return int((rr.head - rr.tail) & rr.mask)
 }
 
 func (rr *forwardReader) writeTail() {
@@ -242,6 +247,12 @@ func (rr *reverseReader) loadHead() {
 
 func (rr *reverseReader) size() int {
 	return len(rr.ring)
+}
+
+func (rr *reverseReader) remaining() int {
+	// remaining data is inaccurate for overwritable buffers
+	// once an overwrite happens, so return -1 here.
+	return -1
 }
 
 func (rr *reverseReader) writeTail() {
