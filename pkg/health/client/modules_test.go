@@ -40,10 +40,10 @@ agent
 ├── a
 │   └── b
 │       └── c
-│           ├── fred                                        [OK] yo (20s, x1)
-│           │   └── blee                                    [OK] doh (20s, x1)
-│           └── dork                                        [DEGRADED] bozo -- BOOM! (20s, x1)
-└── m1                                                      [OK] status nominal (2s, x0)`,
+│           ├── fred                                            [OK] yo (20s, x1)
+│           │   └── blee                                        [OK] doh (20s, x1)
+│           └── dork                                            [DEGRADED] bozo -- BOOM! (20s, x1)
+└── m1                                                          [OK] status nominal (2s, x0)`,
 			v: true,
 		},
 	}
