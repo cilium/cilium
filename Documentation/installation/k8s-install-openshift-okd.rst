@@ -127,14 +127,14 @@ Next, generate OpenShift manifests:
 
    openshift-install create manifests --dir "${CLUSTER_NAME}"
 
-Next, obtain Cilium manifest from ``cilium/cilium-olm`` repository and copy to ``${CLUSTER_NAME}/manifests``:
+Next, obtain Cilium manifest from ``isovalent/olm-for-cilium`` repository and copy to ``${CLUSTER_NAME}/manifests``:
 
 .. parsed-literal::
 
    cilium_version="\ |release|\ "
    git_dir="/tmp/cilium-olm"
 
-   git clone https://github.com/cilium/cilium-olm.git ${git_dir}
+   git clone https://github.com/isovalent/olm-for-cilium ${git_dir}
    cp ${git_dir}/manifests/cilium.v${cilium_version}/* "${CLUSTER_NAME}/manifests"
 
    test -d ${git_dir} && rm -rf -- ${git_dir}
