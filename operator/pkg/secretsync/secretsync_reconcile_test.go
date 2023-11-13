@@ -167,7 +167,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 	r := secretsync.NewSecretSyncReconciler(c, logger, []*secretsync.SecretSyncRegistration{
 		{
 			RefObject:            &gatewayv1.Gateway{},
-			RefObjectEnqueueFunc: gateway_api.EnqueueTLSSecrets(c),
+			RefObjectEnqueueFunc: gateway_api.EnqueueTLSSecrets(c, logger),
 			RefObjectCheckFunc:   gateway_api.IsReferencedByCiliumGateway,
 			SecretsNamespace:     secretsNamespace,
 		},
