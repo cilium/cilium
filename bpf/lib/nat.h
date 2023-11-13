@@ -698,6 +698,71 @@ skip_egress_gateway:
 	return NAT_PUNT_TO_STACK;
 }
 
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
+static __always_inline int
+snat_v4_needs_masquerade_for_egress_gw(struct __ctx_buff *ctx,
+				       struct ipv4_ct_tuple *tuple,
+				       int l4_off,
+				       struct ipv4_nat_target *target)
+{
+	struct endpoint_info *local_ep __maybe_unused;
+	struct remote_endpoint_info *remote_ep __maybe_unused;
+	struct egress_gw_policy_entry *egress_gw_policy __maybe_unused;
+	bool is_reply __maybe_unused = false;
+
+	local_ep = __lookup_ip4_endpoint(tuple->saddr);
+	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
+
+	/* Check if this packet belongs to reply traffic coming from a
+	 * local endpoint.
+	 *
+	 * If local_ep is NULL, it means there's no endpoint running on the
+	 * node which matches the packet source IP, which means we can
+	 * skip the CT lookup since this cannot be reply traffic.
+	 */
+	if (local_ep) {
+		int err;
+
+		target->from_local_endpoint = true;
+
+		err = ct_extract_ports4(ctx, l4_off, CT_EGRESS, tuple, NULL);
+		if (err < 0)
+			return err;
+
+		is_reply = ct_is_reply4(get_ct_map4(tuple), tuple);
+
+		/* SNAT code has its own port extraction logic: */
+		tuple->dport = 0;
+		tuple->sport = 0;
+	}
+
+	/* If the packet is destined to an entity inside the cluster, either EP
+	 * or node, skip SNAT since only traffic leaving the cluster is supposed
+	 * to be masqueraded with an egress IP.
+	 */
+	if (remote_ep &&
+	    identity_is_cluster(remote_ep->sec_identity))
+		return NAT_PUNT_TO_STACK;
+
+	/* If the packet is a reply it means that outside has initiated the
+	 * connection, so no need to SNAT the reply.
+	 */
+	if (is_reply)
+		return NAT_PUNT_TO_STACK;
+
+	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr)) {
+		target->egress_gateway = true;
+		/* If the endpoint is local, then the connection is already tracked. */
+		if (!local_ep)
+			target->needs_ct = true;
+
+		return NAT_NEEDED;
+	}
+
+	return NAT_PUNT_TO_STACK;
+}
+#endif
+
 static __always_inline __maybe_unused int
 snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 				    bool has_l4_header)

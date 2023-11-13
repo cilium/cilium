@@ -32,6 +32,7 @@
 #include "lib/nodeport.h"
 #include "lib/clustermesh.h"
 #include "lib/wireguard.h"
+#include "lib/egress_gateway.h"
 
 #ifdef ENABLE_VTEP
 #include "lib/arp.h"
@@ -385,6 +386,47 @@ skip_vtep:
 	}
 	ctx->mark = 0;
 not_esp:
+#endif
+
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
+	{
+		struct ipv4_nat_target target = {
+			.min_port = NODEPORT_PORT_MIN_NAT,
+			.max_port = NODEPORT_PORT_MAX_NAT,
+			.addr = 0, /* set by snat_v4_prepare_state() */
+			.egress_gateway = 0,
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+			.cluster_id = cluster_id,
+#endif
+		};
+		struct ipv4_ct_tuple tuple = {};
+		int l4_off, ret;
+		struct trace_ctx trace = {
+			.reason = TRACE_REASON_UNKNOWN,
+			.monitor = 0,
+		};
+
+		snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
+		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+		ret = snat_v4_needs_masquerade_for_egress_gw(ctx, &tuple, l4_off, &target);
+		if (IS_ERR(ret))
+			goto out;
+
+		if (target.egress_gateway) {
+			ret = snat_v4_nat(ctx, &tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
+					  &target, &trace, ext_err);
+			if (IS_ERR(ret))
+				goto out;
+
+			ctx_snat_done_set(ctx);
+			return egress_gw_fib_lookup_and_redirect(ctx, target.addr,
+								 tuple.daddr, ext_err);
+		}
+	}
+out:
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
 #endif
 
 	/* Deliver to local (non-host) endpoint: */
