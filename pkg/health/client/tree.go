@@ -78,9 +78,11 @@ func (n *node) find(val string) *node {
 }
 
 func (n *node) asBytes() []byte {
-	w := new(bytes.Buffer)
-	level := 0
-	var levelsEnded []int
+	var (
+		w           = new(bytes.Buffer)
+		levelsEnded []int
+		max         = computeMaxLevel(0, n)
+	)
 	if n.parent == nil {
 		w.WriteString(n.val)
 		if n.meta != "" {
@@ -91,12 +93,12 @@ func (n *node) asBytes() []byte {
 		edge := mid
 		if len(n.nodes) == 0 {
 			edge = end
-			levelsEnded = append(levelsEnded, level)
+			levelsEnded = append(levelsEnded, 0)
 		}
-		dumpVals(w, 0, levelsEnded, edge, n)
+		dumpVals(w, 0, max, levelsEnded, edge, n)
 	}
 	if len(n.nodes) > 0 {
-		dumpNodes(w, level, levelsEnded, n.nodes)
+		dumpNodes(w, 0, max, levelsEnded, n.nodes)
 	}
 
 	return w.Bytes()
@@ -115,21 +117,36 @@ func (n *node) lastNode() *node {
 	return n.nodes[c-1]
 }
 
-func dumpNodes(w io.Writer, level int, levelsEnded []int, nodes []*node) {
+func computeMaxLevel(level int, n *node) int {
+	if n == nil || len(n.nodes) == 0 {
+		return level
+	}
+	var max int
+	for _, n := range n.nodes {
+		m := computeMaxLevel(level+1, n)
+		if m > max {
+			max = m
+		}
+	}
+
+	return max
+}
+
+func dumpNodes(w io.Writer, level, maxLevel int, levelsEnded []int, nodes []*node) {
 	for i, node := range nodes {
 		edge := mid
 		if i == len(nodes)-1 {
 			levelsEnded = append(levelsEnded, level)
 			edge = end
 		}
-		dumpVals(w, level, levelsEnded, edge, node)
+		dumpVals(w, level, maxLevel, levelsEnded, edge, node)
 		if len(node.nodes) > 0 {
-			dumpNodes(w, level+1, levelsEnded, node.nodes)
+			dumpNodes(w, level+1, maxLevel, levelsEnded, node.nodes)
 		}
 	}
 }
 
-func dumpVals(w io.Writer, level int, levelsEnded []int, edge decoration, node *node) {
+func dumpVals(w io.Writer, level, maxLevel int, levelsEnded []int, edge decoration, node *node) {
 	for i := 0; i < level; i++ {
 		if isEnded(levelsEnded, i) {
 			fmt.Fprint(w, strings.Repeat(" ", indentSize+1))
@@ -140,7 +157,10 @@ func dumpVals(w io.Writer, level int, levelsEnded []int, edge decoration, node *
 
 	val := dumpVal(level, node)
 	if node.meta != "" {
-		c := 4 - level
+		c := maxLevel - level
+		if c < 0 {
+			c = 0
+		}
 		fmt.Fprintf(w, "%s %-"+strconv.Itoa(leafMaxWidth+c*2)+"s%s%s\n", edge, val, strings.Repeat("  ", c), node.meta)
 		return
 	}

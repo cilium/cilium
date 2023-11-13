@@ -9,6 +9,49 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestComputeMaxLevel(t *testing.T) {
+	uu := map[string]struct {
+		n   *node
+		max int
+	}{
+		"empty": {},
+		"single": {
+			n: &node{val: "n1", meta: "m1"},
+		},
+		"flat": {
+			n: &node{val: "n1", meta: "m1", nodes: []*node{
+				{val: "n2", meta: "m2"},
+				{val: "n3", meta: "m3"},
+			}},
+			max: 1,
+		},
+		"multi": {
+			n: &node{val: "n1", meta: "m1", nodes: []*node{
+				{val: "n1_1", meta: "m1_1", nodes: []*node{
+					{val: "n1_1_1", meta: "m1_1_1", nodes: []*node{
+						{val: "n1_1_1_1", meta: "m1_1_1_1"},
+						{val: "n1_1_1_2", meta: "m1_1_1_2"},
+					}},
+				}},
+				{val: "n2", meta: "m2", nodes: []*node{
+					{val: "n2_1", meta: "m2_1", nodes: []*node{
+						{val: "n2_1_1", meta: "m2_1_1"},
+					}},
+				}},
+				{val: "n3", meta: "m3"},
+			}},
+			max: 3,
+		},
+	}
+
+	for k := range uu {
+		u := uu[k]
+		t.Run(k, func(t *testing.T) {
+			assert.Equal(t, u.max, computeMaxLevel(0, u.n))
+		})
+	}
+}
+
 func TestTreeAddNode(t *testing.T) {
 	r := newRoot("fred")
 	r.addNode("a")
@@ -17,7 +60,13 @@ func TestTreeAddNode(t *testing.T) {
 	r.addNode("c")
 	r.addNodeWithMeta("d", "blee")
 
-	assert.Equal(t, "fred\n├── a\n├── b\n│   └── b1\n├── c\n└── d                                                       blee\n", r.String())
+	assert.Equal(t, `fred
+├── a
+├── b
+│   └── b1
+├── c
+└── d                                               blee
+`, r.String())
 }
 
 func TestTreeAddBranch(t *testing.T) {
@@ -29,7 +78,14 @@ func TestTreeAddBranch(t *testing.T) {
 	r.addBranch("c")
 	r.addBranchWithMeta("d", "blee")
 
-	assert.Equal(t, "fred\n├── a\n├── b\n│   └── b1\n│       └── b1_1\n├── c\n└── d                                                       blee\n", r.String())
+	assert.Equal(t, `fred
+├── a
+├── b
+│   └── b1
+│       └── b1_1
+├── c
+└── d                                                   blee
+`, r.String())
 }
 
 func TestTreeFind(t *testing.T) {
