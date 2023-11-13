@@ -30,9 +30,6 @@ endif
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
 
-SWAGGER_VERSION := v0.30.3
-SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
-
 GOTEST_BASE := -timeout 600s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
 BENCH_EVAL := "."
