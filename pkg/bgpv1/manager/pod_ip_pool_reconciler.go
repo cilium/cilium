@@ -183,7 +183,7 @@ func (r *PodIPPoolReconciler) reconcilePodIPPool(ctx context.Context,
 			Path: types.NewPathForPrefix(desiredRoute),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to advertise service route %v: %w", desiredRoute, err)
+			return fmt.Errorf("failed to advertise podippool cidr route %v: %w", desiredRoute, err)
 		}
 		podIPPoolAnnouncements[poolKey] = append(podIPPoolAnnouncements[poolKey], advertPathResp.Path)
 	}
@@ -199,7 +199,7 @@ func (r *PodIPPoolReconciler) reconcilePodIPPool(ctx context.Context,
 		}
 
 		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Path: announcement}); err != nil {
-			return fmt.Errorf("failed to withdraw service route %s: %w", announcement.NLRI, err)
+			return fmt.Errorf("failed to withdraw podippool cidr route %s: %w", announcement.NLRI, err)
 		}
 
 		// Delete announcement from slice
