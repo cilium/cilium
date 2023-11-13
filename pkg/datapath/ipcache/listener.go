@@ -31,12 +31,6 @@ var (
 	ipcacheBPFGCControllerGroup = controller.NewGroup("ipcache-bpf-garbage-collection")
 )
 
-// datapath is an interface to the datapath implementation, used to apply
-// changes that are made within this module.
-type datapath interface {
-	TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error)
-}
-
 // monitorNotify is an interface to notify the monitor about ipcache changes.
 type monitorNotify interface {
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
@@ -53,27 +47,23 @@ type BPFListener struct {
 	// received from the IPCache.
 	bpfMap *ipcacheMap.Map
 
-	// datapath allows this listener to trigger BPF program regeneration.
-	datapath datapath
-
 	// monitorNotify is used to notify the monitor about ipcache updates
 	monitorNotify monitorNotify
 
 	ipcache *ipcache.IPCache
 }
 
-func newListener(m *ipcacheMap.Map, d datapath, mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
+func newListener(m *ipcacheMap.Map, mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
 	return &BPFListener{
 		bpfMap:        m,
-		datapath:      d,
 		monitorNotify: mn,
 		ipcache:       ipc,
 	}
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(d datapath, mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
-	return newListener(ipcacheMap.IPCacheMap(), d, mn, ipc)
+func NewListener(mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
+	return newListener(ipcacheMap.IPCacheMap(), mn, ipc)
 }
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
