@@ -34,6 +34,14 @@ var basicHTTP = Input{
 					Protocol: "HTTP",
 				},
 			},
+			Infrastructure: &gatewayv1beta1.GatewayInfrastructure{
+				Labels: map[gatewayv1beta1.AnnotationKey]gatewayv1beta1.AnnotationValue{
+					"internal-loadbalancer-label": "true",
+				},
+				Annotations: map[gatewayv1beta1.AnnotationKey]gatewayv1beta1.AnnotationValue{
+					"internal-loadbalancer-annotation": "true",
+				},
+			},
 		},
 	},
 	HTTPRoutes: []gatewayv1.HTTPRoute{
@@ -113,6 +121,14 @@ var basicHTTPListeners = []model.HTTPListener{
 						},
 					},
 				},
+			},
+		},
+		Infrastructure: &model.Infrastructure{
+			Labels: map[string]string{
+				"internal-loadbalancer-label": "true",
+			},
+			Annotations: map[string]string{
+				"internal-loadbalancer-annotation": "true",
 			},
 		},
 	},

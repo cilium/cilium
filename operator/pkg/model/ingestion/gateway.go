@@ -37,6 +37,20 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 	var resHTTP []model.HTTPListener
 	var resTLS []model.TLSListener
 
+	var labels, annotations map[string]string
+	if input.Gateway.Spec.Infrastructure != nil {
+		labels = toMapString(input.Gateway.Spec.Infrastructure.Labels)
+		annotations = toMapString(input.Gateway.Spec.Infrastructure.Annotations)
+	}
+
+	var infra *model.Infrastructure
+	if labels != nil || annotations != nil {
+		infra = &model.Infrastructure{
+			Labels:      labels,
+			Annotations: annotations,
+		}
+	}
+
 	for _, l := range input.Gateway.Spec.Listeners {
 		if l.Protocol != gatewayv1.HTTPProtocolType &&
 			l.Protocol != gatewayv1.HTTPSProtocolType &&
@@ -59,10 +73,11 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
-			Port:     uint32(l.Port),
-			Hostname: toHostname(l.Hostname),
-			TLS:      toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
-			Routes:   httpRoutes,
+			Port:           uint32(l.Port),
+			Hostname:       toHostname(l.Hostname),
+			TLS:            toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
+			Routes:         httpRoutes,
+			Infrastructure: infra,
 		})
 
 		resTLS = append(resTLS, model.TLSListener{
@@ -77,9 +92,10 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
-			Port:     uint32(l.Port),
-			Hostname: toHostname(l.Hostname),
-			Routes:   toTLSRoutes(l, input.TLSRoutes, input.Services, input.ReferenceGrants),
+			Port:           uint32(l.Port),
+			Hostname:       toHostname(l.Hostname),
+			Routes:         toTLSRoutes(l, input.TLSRoutes, input.Services, input.ReferenceGrants),
+			Infrastructure: infra,
 		})
 	}
 
@@ -639,6 +655,14 @@ func toHTTPHeaders(headers []gatewayv1.HTTPHeader) []model.Header {
 		})
 	}
 	return res
+}
+
+func toMapString(in map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue) map[string]string {
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[string(k)] = string(v)
+	}
+	return out
 }
 
 func toStringSlice(s []gatewayv1.Hostname) []string {

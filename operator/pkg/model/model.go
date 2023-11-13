@@ -34,6 +34,8 @@ func (m *Model) GetListeners() []Listener {
 type Listener interface {
 	GetSources() []FullyQualifiedResource
 	GetPort() uint32
+	GetAnnotations() map[string]string
+	GetLabels() map[string]string
 }
 
 // HTTPListener holds configuration for any listener that terminates and proxies HTTP
@@ -65,6 +67,8 @@ type HTTPListener struct {
 	Routes []HTTPRoute `json:"routes,omitempty"`
 	// Service configuration
 	Service *Service `json:"service,omitempty"`
+	// Infrastructure configuration
+	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
 }
 
 func (l *HTTPListener) GetSources() []FullyQualifiedResource {
@@ -73,6 +77,20 @@ func (l *HTTPListener) GetSources() []FullyQualifiedResource {
 
 func (l *HTTPListener) GetPort() uint32 {
 	return l.Port
+}
+
+func (l *HTTPListener) GetAnnotations() map[string]string {
+	if l.Infrastructure != nil {
+		return l.Infrastructure.Annotations
+	}
+	return nil
+}
+
+func (l *HTTPListener) GetLabels() map[string]string {
+	if l.Infrastructure != nil {
+		return l.Infrastructure.Labels
+	}
+	return nil
 }
 
 // TLSListener holds configuration for any listener that proxies TLS
@@ -101,6 +119,22 @@ type TLSListener struct {
 	Routes []TLSRoute `json:"routes,omitempty"`
 	// Service configuration
 	Service *Service `json:"service,omitempty"`
+	// Infrastructure configuration
+	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
+}
+
+func (l *TLSListener) GetAnnotations() map[string]string {
+	if l.Infrastructure != nil {
+		return l.Infrastructure.Annotations
+	}
+	return nil
+}
+
+func (l *TLSListener) GetLabels() map[string]string {
+	if l.Infrastructure != nil {
+		return l.Infrastructure.Labels
+	}
+	return nil
 }
 
 func (l *TLSListener) GetSources() []FullyQualifiedResource {
@@ -253,6 +287,16 @@ type HTTPRoute struct {
 
 	// Timeout holds the timeout configuration for a route.
 	Timeout Timeout `json:"timeout,omitempty"`
+}
+
+// Infrastructure holds the labels and annotations configuration,
+// which will be propagated to LB service.
+type Infrastructure struct {
+	// Labels is a map of labels to be propagated to LB service.
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations is a map of annotations to be propagated to LB service.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // GetMatchKey returns the key to be used for matching the backend.
