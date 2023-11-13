@@ -41,6 +41,12 @@ var (
 	//go:embed manifests/deny-all-entities.yaml
 	denyAllEntitiesPolicyYAML string
 
+	//go:embed manifests/deny-ingress-entity.yaml
+	denyIngressIdentityPolicyYAML string
+
+	//go:embed manifests/deny-ingress-backend.yaml
+	denyIngressBackendPolicyYAML string
+
 	//go:embed manifests/allow-cluster-entity.yaml
 	allowClusterEntityPolicyYAML string
 
@@ -1036,6 +1042,26 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	ct.NewTest("pod-to-ingress-service-deny-all").
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyAllIngressPolicyYAML).
+		WithScenarios(
+			tests.PodToIngress(),
+		).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	ct.NewTest("pod-to-ingress-service-deny-ingress-identity").
+		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
+		WithCiliumPolicy(denyIngressIdentityPolicyYAML).
+		WithScenarios(
+			tests.PodToIngress(),
+		).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	ct.NewTest("pod-to-ingress-service-deny-backend-service").
+		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
+		WithCiliumPolicy(denyIngressBackendPolicyYAML).
 		WithScenarios(
 			tests.PodToIngress(),
 		).
