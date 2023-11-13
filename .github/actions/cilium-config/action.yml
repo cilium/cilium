@@ -40,6 +40,9 @@ inputs:
   mutual-auth:
     description: 'Enable mTLS-based Mutual Authentication'
     default: true
+  ingress-controller:
+    description: 'Enable ingress controller, required kubeProxyReplacement'
+    default: false
   devices:
     description: 'List of native devices to attach datapath programs'
     default: ''
@@ -142,5 +145,12 @@ runs:
             HOST_FW="--helm-set=hostFirewall.enabled=true"
           fi
 
-          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
+          if [ "${{ inputs.kpr }}" == "true" ]; then
+            if [ "${{ inputs.ingress-controller }}" == "true" ]; then
+              INGRESS_CONTROLLER="--helm-set=ingressController.enabled=true"
+              INGRESS_CONTROLLER+=" --helm-set=ingressController.service.type=NodePort"
+            fi
+          fi
+        
+          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT
