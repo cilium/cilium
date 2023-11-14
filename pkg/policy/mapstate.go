@@ -229,9 +229,9 @@ func (keys MapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent K
 // RemoveDependent removes 'key' from the list of dependent keys.
 // This is called when a dependent entry is being deleted.
 // If 'old' is not nil, then old value is added there before any modifications.
-func (keys MapState) RemoveDependent(owner Key, dependent Key, old MapState) {
+func (keys MapState) RemoveDependent(owner Key, dependent Key, changes ChangeState) {
 	if e, exists := keys[owner]; exists {
-		old.insertIfNotExists(owner, e)
+		changes.insertOldIfNotExists(owner, e)
 		e.RemoveDependent(dependent)
 		keys[owner] = e
 	}
@@ -379,7 +379,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Cha
 
 		// Save old value before any changes, if desired
 		if changes.Old != nil {
-			changes.Old.insertIfNotExists(key, oldEntry)
+			changes.insertOldIfNotExists(key, oldEntry)
 		}
 
 		// Compare for datapath equalness before merging, as the old entry is updated in
@@ -411,7 +411,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Cha
 func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes ChangeState) {
 	if entry, exists := keys[key]; exists {
 		// Save old value before any changes, if desired
-		oldAdded := changes.Old.insertIfNotExists(key, entry)
+		oldAdded := changes.insertOldIfNotExists(key, entry)
 
 		if owner != nil {
 			// remove the contribution of the given selector only
@@ -419,7 +419,7 @@ func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes 
 				// Remove the contribution of this selector from the entry
 				delete(entry.owners, owner)
 				if ownerKey, ok := owner.(Key); ok {
-					keys.RemoveDependent(ownerKey, key, changes.Old)
+					keys.RemoveDependent(ownerKey, key, changes)
 				}
 				// key is not deleted if other owners still need it
 				if len(entry.owners) > 0 {
@@ -441,7 +441,7 @@ func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes 
 			for owner := range entry.owners {
 				if owner != nil {
 					if ownerKey, ok := owner.(Key); ok {
-						keys.RemoveDependent(ownerKey, key, changes.Old)
+						keys.RemoveDependent(ownerKey, key, changes)
 					}
 				}
 			}
@@ -874,15 +874,20 @@ var visibilityDerivedFrom = labels.LabelArrayList{visibilityDerivedFromLabels}
 
 // insertIfNotExists only inserts `key=value` if `key` does not exist in keys already
 // returns 'true' if 'key=entry' was added to 'keys'
-func (keys MapState) insertIfNotExists(key Key, entry MapStateEntry) bool {
-	if keys != nil {
-		if _, exists := keys[key]; !exists {
+func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) bool {
+	if changes == nil || changes.Old == nil {
+		return false
+	}
+	if _, exists := changes.Old[key]; !exists {
+		// Only insert the old entry if the entry was not first added on this round of
+		// changes.
+		if _, added := changes.Adds[key]; !added {
 			// new containers to keep this entry separate from the one that may remain in 'keys'
 			entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
 			entry.owners = maps.Clone(entry.owners)
 			entry.dependents = maps.Clone(entry.dependents)
 
-			keys[key] = entry
+			changes.Old[key] = entry
 			return true
 		}
 	}
