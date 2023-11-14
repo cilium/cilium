@@ -51,13 +51,14 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	struct endpoint_info *ep;
 	bool decrypted;
 	__u32 key_size;
+	bool __maybe_unused is_dsr = false;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, ip6, *identity, ext_err);
+		ret = nodeport_lb6(ctx, ip6, *identity, ext_err, &is_dsr);
 		/* nodeport_lb6() returns with TC_ACT_REDIRECT for
 		 * traffic to L7 LB. Policy enforcement needs to take
 		 * place after L7 LB has processed the packet, so we
@@ -101,9 +102,13 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 		/* Maybe overwrite the REMOTE_NODE_ID with
 		 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
-		 * this should be removed.
+		 * identity_is_remote_node() should be removed.
+		 *
+		 * A packet that has DSR info and comes from world may have specific identity when
+		 * a CNP that is using CIDR rules is applied.
 		 */
-		if (info && identity_is_remote_node(*identity))
+		if (info && (identity_is_remote_node(*identity) ||
+			     (is_dsr && (*identity == WORLD_ID))))
 			*identity = info->sec_identity;
 	}
 
@@ -301,6 +306,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	struct endpoint_info *ep;
 	struct bpf_tunnel_key key = {};
 	bool decrypted;
+	bool __maybe_unused is_dsr = false;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
@@ -317,7 +323,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, ext_err);
+		int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, ext_err, &is_dsr);
 		/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 		 * traffic to L7 LB. Policy enforcement needs to take
 		 * place after L7 LB has processed the packet, so we
@@ -395,7 +401,8 @@ skip_vtep:
 		}
 #endif
 		/* See comment at equivalent code in handle_ipv6() */
-		if (info && identity_is_remote_node(*identity))
+		if (info && (identity_is_remote_node(*identity) ||
+			     (is_dsr && (*identity == WORLD_ID))))
 			*identity = info->sec_identity;
 	}
 
