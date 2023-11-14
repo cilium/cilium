@@ -198,9 +198,7 @@ func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 				}
 			}
 			return true
-		}, ChangeState{
-			Old: newMapState(nil),
-		})
+		}, ChangeState{})
 	}
 }
 
