@@ -13,10 +13,10 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20231101091419-6a72c25e3c8e
+	github.com/cilium/charts v0.0.0-20231113210111-5a4126644d7d
 	github.com/cilium/cilium v1.15.0-pre.2
 	github.com/cilium/hubble v0.12.2
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20231109162825-b896eb52d57d
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20231113182204-78cd2af76968
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/distribution/reference v0.5.0
