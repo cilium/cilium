@@ -163,6 +163,11 @@ Users (Alphabetically)
       L: https://github.com/slzcc/crane
       Q: @slzcc
 
+    * N: Cybozu
+      D: Cybozu deploys Cilium to on-prem Kubernetes Cluster and uses it with Coil by CNI chaining.
+      U: CNI Chaining, L4 LoadBalancer, NetworkPolicy, Hubble
+      L: https://cybozu-global.com/
+
     * N: Daimler Truck AG
       D: The CSG RuntimeDepartment of DaimlerTruck is maintaining an AKS k8s cluster as a shared resource for DevOps crews and is using Cilium as the default CNI (BYOCNI).
       U: Networking, NetworkPolicy and Monitoring
