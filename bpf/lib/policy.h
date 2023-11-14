@@ -12,7 +12,7 @@
 #include "maps.h"
 
 static __always_inline int
-__account_and_check(struct __ctx_buff *ctx, struct policy_entry *policy,
+__account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *policy,
 		    __s8 *ext_err, __u16 *proxy_port)
 {
 #ifdef POLICY_ACCOUNTING
