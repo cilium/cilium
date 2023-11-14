@@ -61,7 +61,7 @@ type ModifyVerifiedAccessGroupInput struct {
 
 type ModifyVerifiedAccessGroupOutput struct {
 
-	// Details of Verified Access group.
+	// Details about the Verified Access group.
 	VerifiedAccessGroup *types.VerifiedAccessGroup
 
 	// Metadata pertaining to the operation's result.

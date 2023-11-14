@@ -56,7 +56,7 @@ type ModifyVerifiedAccessGroupPolicyInput struct {
 	// The status of the Verified Access policy.
 	PolicyEnabled *bool
 
-	// Options for server side encryption.
+	// The options for server side encryption.
 	SseSpecification *types.VerifiedAccessSseSpecificationRequest
 
 	noSmithyDocumentSerde
@@ -70,7 +70,7 @@ type ModifyVerifiedAccessGroupPolicyOutput struct {
 	// The status of the Verified Access policy.
 	PolicyEnabled *bool
 
-	// Describes the options in use for server side encryption.
+	// The options in use for server side encryption.
 	SseSpecification *types.VerifiedAccessSseSpecificationResponse
 
 	// Metadata pertaining to the operation's result.

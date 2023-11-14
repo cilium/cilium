@@ -73,7 +73,7 @@ type CreateVerifiedAccessTrustProviderInput struct {
 	// parameter is required when the provider type is user .
 	OidcOptions *types.CreateVerifiedAccessTrustProviderOidcOptions
 
-	// Options for server side encryption.
+	// The options for server side encryption.
 	SseSpecification *types.VerifiedAccessSseSpecificationRequest
 
 	// The tags to assign to the Verified Access trust provider.
@@ -88,7 +88,7 @@ type CreateVerifiedAccessTrustProviderInput struct {
 
 type CreateVerifiedAccessTrustProviderOutput struct {
 
-	// The ID of the Verified Access trust provider.
+	// Details about the Verified Access trust provider.
 	VerifiedAccessTrustProvider *types.VerifiedAccessTrustProvider
 
 	// Metadata pertaining to the operation's result.

@@ -25,7 +25,10 @@ type FormatFunc func(interface{}) interface{}
 // Option is options to give when construction a logrusr logger.
 type Option func(l *logrusr)
 
-// WithFormatter will set the FormatFunc to use.
+// WithFormatter will set the FormatFunc to use. If you only want to format a
+// specific type that is yours, prefer using the logr.Marshaler interface
+// instead. The `FormatFunc` is better suited for types that are not yours such
+// as external types, maps or slices.
 func WithFormatter(f FormatFunc) Option {
 	return func(l *logrusr) {
 		l.formatter = f
@@ -168,25 +171,33 @@ func listToLogrusFields(formatter FormatFunc, keysAndValues ...interface{}) logr
 	for i := 0; i < len(keysAndValues); i += 2 {
 		k, v := keysAndValues[i], keysAndValues[i+1]
 
-		if s, ok := k.(string); ok {
-			// Try to avoid marshaling known types.
-			switch vVal := v.(type) {
-			case int, int8, int16, int32, int64,
-				uint, uint8, uint16, uint32, uint64,
-				float32, float64, complex64, complex128,
-				string, bool:
-				f[s] = vVal
+		s, ok := k.(string)
+		if !ok {
+			continue
+		}
 
-			case []byte:
-				f[s] = string(vVal)
+		if v, ok := v.(logr.Marshaler); ok {
+			f[s] = v.MarshalLog()
+			continue
+		}
 
-			default:
-				if formatter != nil {
-					f[s] = formatter(v)
-				} else {
-					j, _ := json.Marshal(vVal)
-					f[s] = string(j)
-				}
+		// Try to avoid marshaling known types.
+		switch vVal := v.(type) {
+		case int, int8, int16, int32, int64,
+			uint, uint8, uint16, uint32, uint64,
+			float32, float64, complex64, complex128,
+			string, bool:
+			f[s] = vVal
+
+		case []byte:
+			f[s] = string(vVal)
+
+		default:
+			if formatter != nil {
+				f[s] = formatter(v)
+			} else {
+				j, _ := json.Marshal(vVal)
+				f[s] = string(j)
 			}
 		}
 	}
@@ -214,7 +225,7 @@ func (l *logrusr) copyLogger() *logrusr {
 // when reporting caller.
 func (l *logrusr) WithCallDepth(depth int) logr.LogSink {
 	newLogger := l.copyLogger()
-	newLogger.depth = depth
+	newLogger.depth += depth
 
 	return newLogger
 }

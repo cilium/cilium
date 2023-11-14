@@ -55,7 +55,7 @@ type DeleteVerifiedAccessGroupInput struct {
 
 type DeleteVerifiedAccessGroupOutput struct {
 
-	// The ID of the Verified Access group.
+	// Details about the Verified Access group.
 	VerifiedAccessGroup *types.VerifiedAccessGroup
 
 	// Metadata pertaining to the operation's result.

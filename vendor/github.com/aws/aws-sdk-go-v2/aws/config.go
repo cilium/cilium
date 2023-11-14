@@ -146,6 +146,10 @@ type Config struct {
 	// See https://docs.aws.amazon.com/sdkref/latest/guide/settings-reference.html for
 	// more information on environment variables and shared config settings.
 	AppID string
+
+	// BaseEndpoint is an intermediary transfer location to a service specific
+	// BaseEndpoint on a service's Options.
+	BaseEndpoint *string
 }
 
 // NewConfig returns a new Config pointer that can be chained with builder

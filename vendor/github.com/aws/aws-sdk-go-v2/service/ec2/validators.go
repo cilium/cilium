@@ -3890,6 +3890,26 @@ func (m *validateOpDescribeByoipCidrs) HandleInitialize(ctx context.Context, in 
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDescribeCapacityBlockOfferings struct {
+}
+
+func (*validateOpDescribeCapacityBlockOfferings) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDescribeCapacityBlockOfferings) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DescribeCapacityBlockOfferingsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDescribeCapacityBlockOfferingsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDescribeClientVpnAuthorizationRules struct {
 }
 
@@ -4985,6 +5005,26 @@ func (m *validateOpEnableIpamOrganizationAdminAccount) HandleInitialize(ctx cont
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpEnableIpamOrganizationAdminAccountInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpEnableSnapshotBlockPublicAccess struct {
+}
+
+func (*validateOpEnableSnapshotBlockPublicAccess) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpEnableSnapshotBlockPublicAccess) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*EnableSnapshotBlockPublicAccessInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpEnableSnapshotBlockPublicAccessInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -7390,6 +7430,26 @@ func (m *validateOpProvisionPublicIpv4PoolCidr) HandleInitialize(ctx context.Con
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpPurchaseCapacityBlock struct {
+}
+
+func (*validateOpPurchaseCapacityBlock) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpPurchaseCapacityBlock) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*PurchaseCapacityBlockInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpPurchaseCapacityBlockInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpPurchaseHostReservation struct {
 }
 
@@ -9266,6 +9326,10 @@ func addOpDescribeByoipCidrsValidationMiddleware(stack *middleware.Stack) error 
 	return stack.Initialize.Add(&validateOpDescribeByoipCidrs{}, middleware.After)
 }
 
+func addOpDescribeCapacityBlockOfferingsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDescribeCapacityBlockOfferings{}, middleware.After)
+}
+
 func addOpDescribeClientVpnAuthorizationRulesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDescribeClientVpnAuthorizationRules{}, middleware.After)
 }
@@ -9484,6 +9548,10 @@ func addOpEnableImageValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpEnableIpamOrganizationAdminAccountValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpEnableIpamOrganizationAdminAccount{}, middleware.After)
+}
+
+func addOpEnableSnapshotBlockPublicAccessValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpEnableSnapshotBlockPublicAccess{}, middleware.After)
 }
 
 func addOpEnableTransitGatewayRouteTablePropagationValidationMiddleware(stack *middleware.Stack) error {
@@ -9964,6 +10032,10 @@ func addOpProvisionIpamPoolCidrValidationMiddleware(stack *middleware.Stack) err
 
 func addOpProvisionPublicIpv4PoolCidrValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpProvisionPublicIpv4PoolCidr{}, middleware.After)
+}
+
+func addOpPurchaseCapacityBlockValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpPurchaseCapacityBlock{}, middleware.After)
 }
 
 func addOpPurchaseHostReservationValidationMiddleware(stack *middleware.Stack) error {
@@ -14322,6 +14394,27 @@ func validateOpDescribeByoipCidrsInput(v *DescribeByoipCidrsInput) error {
 	}
 }
 
+func validateOpDescribeCapacityBlockOfferingsInput(v *DescribeCapacityBlockOfferingsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DescribeCapacityBlockOfferingsInput"}
+	if v.InstanceType == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceType"))
+	}
+	if v.InstanceCount == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceCount"))
+	}
+	if v.CapacityDurationHours == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityDurationHours"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDescribeClientVpnAuthorizationRulesInput(v *DescribeClientVpnAuthorizationRulesInput) error {
 	if v == nil {
 		return nil
@@ -15226,6 +15319,21 @@ func validateOpEnableIpamOrganizationAdminAccountInput(v *EnableIpamOrganization
 	invalidParams := smithy.InvalidParamsError{Context: "EnableIpamOrganizationAdminAccountInput"}
 	if v.DelegatedAdminAccountId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("DelegatedAdminAccountId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpEnableSnapshotBlockPublicAccessInput(v *EnableSnapshotBlockPublicAccessInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "EnableSnapshotBlockPublicAccessInput"}
+	if len(v.State) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("State"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -17227,6 +17335,24 @@ func validateOpProvisionPublicIpv4PoolCidrInput(v *ProvisionPublicIpv4PoolCidrIn
 	}
 	if v.NetmaskLength == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("NetmaskLength"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpPurchaseCapacityBlockInput(v *PurchaseCapacityBlockInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "PurchaseCapacityBlockInput"}
+	if v.CapacityBlockOfferingId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityBlockOfferingId"))
+	}
+	if len(v.InstancePlatform) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("InstancePlatform"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

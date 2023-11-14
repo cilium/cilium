@@ -6,9 +6,9 @@ type AcceleratorManufacturer string
 
 // Enum values for AcceleratorManufacturer
 const (
-	AcceleratorManufacturerNvidia            AcceleratorManufacturer = "nvidia"
-	AcceleratorManufacturerAmd               AcceleratorManufacturer = "amd"
 	AcceleratorManufacturerAmazonWebServices AcceleratorManufacturer = "amazon-web-services"
+	AcceleratorManufacturerAmd               AcceleratorManufacturer = "amd"
+	AcceleratorManufacturerNvidia            AcceleratorManufacturer = "nvidia"
 	AcceleratorManufacturerXilinx            AcceleratorManufacturer = "xilinx"
 )
 
@@ -17,9 +17,9 @@ const (
 // ordering of this slice is not guaranteed to be stable across updates.
 func (AcceleratorManufacturer) Values() []AcceleratorManufacturer {
 	return []AcceleratorManufacturer{
-		"nvidia",
-		"amd",
 		"amazon-web-services",
+		"amd",
+		"nvidia",
 		"xilinx",
 	}
 }
@@ -29,14 +29,14 @@ type AcceleratorName string
 // Enum values for AcceleratorName
 const (
 	AcceleratorNameA100          AcceleratorName = "a100"
-	AcceleratorNameV100          AcceleratorName = "v100"
-	AcceleratorNameK80           AcceleratorName = "k80"
-	AcceleratorNameT4            AcceleratorName = "t4"
-	AcceleratorNameM60           AcceleratorName = "m60"
-	AcceleratorNameRadeonProV520 AcceleratorName = "radeon-pro-v520"
-	AcceleratorNameVu9p          AcceleratorName = "vu9p"
 	AcceleratorNameInferentia    AcceleratorName = "inferentia"
 	AcceleratorNameK520          AcceleratorName = "k520"
+	AcceleratorNameK80           AcceleratorName = "k80"
+	AcceleratorNameM60           AcceleratorName = "m60"
+	AcceleratorNameRadeonProV520 AcceleratorName = "radeon-pro-v520"
+	AcceleratorNameT4            AcceleratorName = "t4"
+	AcceleratorNameVu9p          AcceleratorName = "vu9p"
+	AcceleratorNameV100          AcceleratorName = "v100"
 )
 
 // Values returns all known values for AcceleratorName. Note that this can be
@@ -45,14 +45,14 @@ const (
 func (AcceleratorName) Values() []AcceleratorName {
 	return []AcceleratorName{
 		"a100",
-		"v100",
-		"k80",
-		"t4",
-		"m60",
-		"radeon-pro-v520",
-		"vu9p",
 		"inferentia",
 		"k520",
+		"k80",
+		"m60",
+		"radeon-pro-v520",
+		"t4",
+		"vu9p",
+		"v100",
 	}
 }
 
@@ -872,11 +872,14 @@ type CapacityReservationState string
 
 // Enum values for CapacityReservationState
 const (
-	CapacityReservationStateActive    CapacityReservationState = "active"
-	CapacityReservationStateExpired   CapacityReservationState = "expired"
-	CapacityReservationStateCancelled CapacityReservationState = "cancelled"
-	CapacityReservationStatePending   CapacityReservationState = "pending"
-	CapacityReservationStateFailed    CapacityReservationState = "failed"
+	CapacityReservationStateActive         CapacityReservationState = "active"
+	CapacityReservationStateExpired        CapacityReservationState = "expired"
+	CapacityReservationStateCancelled      CapacityReservationState = "cancelled"
+	CapacityReservationStatePending        CapacityReservationState = "pending"
+	CapacityReservationStateFailed         CapacityReservationState = "failed"
+	CapacityReservationStateScheduled      CapacityReservationState = "scheduled"
+	CapacityReservationStatePaymentPending CapacityReservationState = "payment-pending"
+	CapacityReservationStatePaymentFailed  CapacityReservationState = "payment-failed"
 )
 
 // Values returns all known values for CapacityReservationState. Note that this
@@ -889,6 +892,9 @@ func (CapacityReservationState) Values() []CapacityReservationState {
 		"cancelled",
 		"pending",
 		"failed",
+		"scheduled",
+		"payment-pending",
+		"payment-failed",
 	}
 }
 
@@ -907,6 +913,24 @@ func (CapacityReservationTenancy) Values() []CapacityReservationTenancy {
 	return []CapacityReservationTenancy{
 		"default",
 		"dedicated",
+	}
+}
+
+type CapacityReservationType string
+
+// Enum values for CapacityReservationType
+const (
+	CapacityReservationTypeDefault       CapacityReservationType = "default"
+	CapacityReservationTypeCapacityBlock CapacityReservationType = "capacity-block"
+)
+
+// Values returns all known values for CapacityReservationType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityReservationType) Values() []CapacityReservationType {
+	return []CapacityReservationType{
+		"default",
+		"capacity-block",
 	}
 }
 
@@ -1282,8 +1306,9 @@ type DefaultTargetCapacityType string
 
 // Enum values for DefaultTargetCapacityType
 const (
-	DefaultTargetCapacityTypeSpot     DefaultTargetCapacityType = "spot"
-	DefaultTargetCapacityTypeOnDemand DefaultTargetCapacityType = "on-demand"
+	DefaultTargetCapacityTypeSpot          DefaultTargetCapacityType = "spot"
+	DefaultTargetCapacityTypeOnDemand      DefaultTargetCapacityType = "on-demand"
+	DefaultTargetCapacityTypeCapacityBlock DefaultTargetCapacityType = "capacity-block"
 )
 
 // Values returns all known values for DefaultTargetCapacityType. Note that this
@@ -1293,6 +1318,7 @@ func (DefaultTargetCapacityType) Values() []DefaultTargetCapacityType {
 	return []DefaultTargetCapacityType{
 		"spot",
 		"on-demand",
+		"capacity-block",
 	}
 }
 
@@ -2670,8 +2696,9 @@ type InstanceLifecycleType string
 
 // Enum values for InstanceLifecycleType
 const (
-	InstanceLifecycleTypeSpot      InstanceLifecycleType = "spot"
-	InstanceLifecycleTypeScheduled InstanceLifecycleType = "scheduled"
+	InstanceLifecycleTypeSpot          InstanceLifecycleType = "spot"
+	InstanceLifecycleTypeScheduled     InstanceLifecycleType = "scheduled"
+	InstanceLifecycleTypeCapacityBlock InstanceLifecycleType = "capacity-block"
 )
 
 // Values returns all known values for InstanceLifecycleType. Note that this can
@@ -2681,6 +2708,7 @@ func (InstanceLifecycleType) Values() []InstanceLifecycleType {
 	return []InstanceLifecycleType{
 		"spot",
 		"scheduled",
+		"capacity-block",
 	}
 }
 
@@ -5292,7 +5320,8 @@ type MarketType string
 
 // Enum values for MarketType
 const (
-	MarketTypeSpot MarketType = "spot"
+	MarketTypeSpot          MarketType = "spot"
+	MarketTypeCapacityBlock MarketType = "capacity-block"
 )
 
 // Values returns all known values for MarketType. Note that this can be expanded
@@ -5301,6 +5330,7 @@ const (
 func (MarketType) Values() []MarketType {
 	return []MarketType{
 		"spot",
+		"capacity-block",
 	}
 }
 
@@ -6644,6 +6674,27 @@ func (SnapshotAttributeName) Values() []SnapshotAttributeName {
 	}
 }
 
+type SnapshotBlockPublicAccessState string
+
+// Enum values for SnapshotBlockPublicAccessState
+const (
+	SnapshotBlockPublicAccessStateBlockAllSharing SnapshotBlockPublicAccessState = "block-all-sharing"
+	SnapshotBlockPublicAccessStateBlockNewSharing SnapshotBlockPublicAccessState = "block-new-sharing"
+	SnapshotBlockPublicAccessStateUnblocked       SnapshotBlockPublicAccessState = "unblocked"
+)
+
+// Values returns all known values for SnapshotBlockPublicAccessState. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (SnapshotBlockPublicAccessState) Values() []SnapshotBlockPublicAccessState {
+	return []SnapshotBlockPublicAccessState{
+		"block-all-sharing",
+		"block-new-sharing",
+		"unblocked",
+	}
+}
+
 type SnapshotState string
 
 // Enum values for SnapshotState
@@ -7769,8 +7820,9 @@ type UsageClassType string
 
 // Enum values for UsageClassType
 const (
-	UsageClassTypeSpot     UsageClassType = "spot"
-	UsageClassTypeOnDemand UsageClassType = "on-demand"
+	UsageClassTypeSpot          UsageClassType = "spot"
+	UsageClassTypeOnDemand      UsageClassType = "on-demand"
+	UsageClassTypeCapacityBlock UsageClassType = "capacity-block"
 )
 
 // Values returns all known values for UsageClassType. Note that this can be
@@ -7780,6 +7832,7 @@ func (UsageClassType) Values() []UsageClassType {
 	return []UsageClassType{
 		"spot",
 		"on-demand",
+		"capacity-block",
 	}
 }
 

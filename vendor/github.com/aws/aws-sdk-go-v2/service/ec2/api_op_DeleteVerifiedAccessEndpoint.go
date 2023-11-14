@@ -55,7 +55,7 @@ type DeleteVerifiedAccessEndpointInput struct {
 
 type DeleteVerifiedAccessEndpointOutput struct {
 
-	// The ID of the Verified Access endpoint.
+	// Details about the Verified Access endpoint.
 	VerifiedAccessEndpoint *types.VerifiedAccessEndpoint
 
 	// Metadata pertaining to the operation's result.

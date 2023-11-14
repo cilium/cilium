@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	internalConfig "github.com/aws/aws-sdk-go-v2/internal/configsources"
 	"github.com/aws/aws-sdk-go-v2/internal/endpoints/awsrulesfn"
 	internalendpoints "github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints"
 	smithyendpoints "github.com/aws/smithy-go/endpoints"
@@ -16,6 +17,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -191,6 +193,24 @@ func finalizeClientEndpointResolverOptions(options *Options) {
 func resolveEndpointResolverV2(options *Options) {
 	if options.EndpointResolverV2 == nil {
 		options.EndpointResolverV2 = NewDefaultEndpointResolverV2()
+	}
+}
+
+func resolveBaseEndpoint(cfg aws.Config, o *Options) {
+	if cfg.BaseEndpoint != nil {
+		o.BaseEndpoint = cfg.BaseEndpoint
+	}
+
+	_, g := os.LookupEnv("AWS_ENDPOINT_URL")
+	_, s := os.LookupEnv("AWS_ENDPOINT_URL_EC2")
+
+	if g && !s {
+		return
+	}
+
+	value, found, err := internalConfig.ResolveServiceBaseEndpoint(context.Background(), "EC2", cfg.ConfigSources)
+	if found && err == nil {
+		o.BaseEndpoint = &value
 	}
 }
 

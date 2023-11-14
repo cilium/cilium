@@ -1013,10 +1013,26 @@ func (c *CapFQDN) DecodeFromBytes(data []byte) error {
 	if len(data) < 2 {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
 	}
+	rest := len(data)
+	if rest < 1 {
+		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
+	}
 	hostNameLen := uint8(data[0])
+	rest -= 1
 	c.HostNameLen = hostNameLen
+	if rest < int(hostNameLen) {
+		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
+	}
 	c.HostName = string(data[1 : c.HostNameLen+1])
+	rest -= int(hostNameLen)
+	if rest < 1 {
+		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
+	}
+	rest -= 1
 	domainNameLen := uint8(data[c.HostNameLen+1])
+	if rest < int(domainNameLen) {
+		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilityFQDN bytes allowed")
+	}
 	c.DomainNameLen = domainNameLen
 	c.DomainName = string(data[c.HostNameLen+2:])
 	return nil
@@ -10029,9 +10045,6 @@ func (p *PathAttribute) DecodeFromBytes(data []byte, options ...*MarshallingOpti
 	}
 	p.Flags = BGPAttrFlag(data[0])
 	p.Type = BGPAttrType(data[1])
-	if eMsg := validatePathAttributeFlags(p.Type, p.Flags); eMsg != "" {
-		return nil, NewMessageError(eCode, BGP_ERROR_SUB_ATTRIBUTE_FLAGS_ERROR, data, eMsg)
-	}
 
 	if p.Flags&BGP_ATTR_FLAG_EXTENDED_LENGTH != 0 {
 		if len(data) < 4 {
@@ -10048,6 +10061,10 @@ func (p *PathAttribute) DecodeFromBytes(data []byte, options ...*MarshallingOpti
 	}
 	if len(data) < int(p.Length) {
 		return nil, NewMessageError(eCode, eSubCode, data, "attribute value length is short")
+	}
+
+	if eMsg := validatePathAttributeFlags(p.Type, p.Flags); eMsg != "" {
+		return nil, NewMessageError(eCode, BGP_ERROR_SUB_ATTRIBUTE_FLAGS_ERROR, data, eMsg)
 	}
 
 	return data[:p.Length], nil

@@ -57,7 +57,8 @@ const (
 
 	awsEc2MetadataServiceEndpointEnvVar = "AWS_EC2_METADATA_SERVICE_ENDPOINT"
 
-	awsEc2MetadataDisabled = "AWS_EC2_METADATA_DISABLED"
+	awsEc2MetadataDisabled         = "AWS_EC2_METADATA_DISABLED"
+	awsEc2MetadataV1DisabledEnvVar = "AWS_EC2_METADATA_V1_DISABLED"
 
 	awsS3DisableMultiRegionAccessPointEnvVar = "AWS_S3_DISABLE_MULTIREGION_ACCESS_POINTS"
 
@@ -70,6 +71,9 @@ const (
 	awsRetryMaxAttempts = "AWS_MAX_ATTEMPTS"
 	awsRetryMode        = "AWS_RETRY_MODE"
 	awsSdkAppID         = "AWS_SDK_UA_APP_ID"
+
+	awsIgnoreConfiguredEndpoints = "AWS_IGNORE_CONFIGURED_ENDPOINT_URLS"
+	awsEndpointURL               = "AWS_ENDPOINT_URL"
 )
 
 var (
@@ -206,6 +210,11 @@ type EnvConfig struct {
 	// AWS_EC2_METADATA_DISABLED=true
 	EC2IMDSClientEnableState imds.ClientEnableState
 
+	// Specifies if EC2 IMDSv1 fallback is disabled.
+	//
+	// AWS_EC2_METADATA_V1_DISABLED=true
+	EC2IMDSv1Disabled *bool
+
 	// Specifies the EC2 Instance Metadata Service default endpoint selection mode (IPv4 or IPv6)
 	//
 	// AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6
@@ -252,6 +261,13 @@ type EnvConfig struct {
 
 	// aws sdk app ID that can be added to user agent header string
 	AppID string
+
+	// Flag used to disable configured endpoints.
+	IgnoreConfiguredEndpoints *bool
+
+	// Value to contain configured endpoints to be propagated to
+	// corresponding endpoint resolution field.
+	BaseEndpoint string
 }
 
 // loadEnvConfig reads configuration values from the OS's environment variables.
@@ -307,6 +323,9 @@ func NewEnvConfig() (EnvConfig, error) {
 		return cfg, err
 	}
 	cfg.EC2IMDSEndpoint = os.Getenv(awsEc2MetadataServiceEndpointEnvVar)
+	if err := setBoolPtrFromEnvVal(&cfg.EC2IMDSv1Disabled, []string{awsEc2MetadataV1DisabledEnvVar}); err != nil {
+		return cfg, err
+	}
 
 	if err := setBoolPtrFromEnvVal(&cfg.S3DisableMultiRegionAccessPoints, []string{awsS3DisableMultiRegionAccessPointEnvVar}); err != nil {
 		return cfg, err
@@ -328,6 +347,12 @@ func NewEnvConfig() (EnvConfig, error) {
 		return cfg, err
 	}
 	if err := setRetryModeFromEnvVal(&cfg.RetryMode, []string{awsRetryMode}); err != nil {
+		return cfg, err
+	}
+
+	setStringFromEnvVal(&cfg.BaseEndpoint, []string{awsEndpointURL})
+
+	if err := setBoolPtrFromEnvVal(&cfg.IgnoreConfiguredEndpoints, []string{awsIgnoreConfiguredEndpoints}); err != nil {
 		return cfg, err
 	}
 
@@ -480,6 +505,34 @@ func (c EnvConfig) getCustomCABundle(context.Context) (io.Reader, bool, error) {
 		return nil, false, err
 	}
 	return bytes.NewReader(b), true, nil
+}
+
+// GetIgnoreConfiguredEndpoints is used in knowing when to disable configured
+// endpoints feature.
+func (c EnvConfig) GetIgnoreConfiguredEndpoints(context.Context) (bool, bool, error) {
+	if c.IgnoreConfiguredEndpoints == nil {
+		return false, false, nil
+	}
+
+	return *c.IgnoreConfiguredEndpoints, true, nil
+}
+
+func (c EnvConfig) getBaseEndpoint(context.Context) (string, bool, error) {
+	return c.BaseEndpoint, len(c.BaseEndpoint) > 0, nil
+}
+
+// GetServiceBaseEndpoint is used to retrieve a normalized SDK ID for use
+// with configured endpoints.
+func (c EnvConfig) GetServiceBaseEndpoint(ctx context.Context, sdkID string) (string, bool, error) {
+	if endpt := os.Getenv(fmt.Sprintf("%s_%s", awsEndpointURL, normalizeEnv(sdkID))); endpt != "" {
+		return endpt, true, nil
+	}
+	return "", false, nil
+}
+
+func normalizeEnv(sdkID string) string {
+	upper := strings.ToUpper(sdkID)
+	return strings.ReplaceAll(upper, " ", "_")
 }
 
 // GetS3UseARNRegion returns whether to allow ARNs to direct the region
@@ -672,4 +725,14 @@ func (c EnvConfig) GetEC2IMDSEndpoint() (string, bool, error) {
 	}
 
 	return c.EC2IMDSEndpoint, true, nil
+}
+
+// GetEC2IMDSV1FallbackDisabled implements an EC2IMDSV1FallbackDisabled option
+// resolver interface.
+func (c EnvConfig) GetEC2IMDSV1FallbackDisabled() (bool, bool) {
+	if c.EC2IMDSv1Disabled == nil {
+		return false, false
+	}
+
+	return *c.EC2IMDSv1Disabled, true
 }

@@ -1,3 +1,29 @@
+# v1.7.0 (2023-11-13)
+
+* **Feature**: Replace the legacy config parser with a modern, less-strict implementation. Parsing failures within a section will now simply ignore the invalid line rather than silently drop the entire section.
+
+# v1.6.0 (2023-11-09.2)
+
+* **Feature**: BREAKFIX: In order to support subproperty parsing, invalid property definitions must not be ignored
+
+# v1.5.2 (2023-11-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.5.1 (2023-11-07)
+
+* **Bug Fix**: Fix subproperty performance regression
+
+# v1.5.0 (2023-11-01)
+
+* **Feature**: Adds support for configured endpoints via environment variables and the AWS shared configuration file.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.4.0 (2023-10-31)
+
+* **Feature**: **BREAKING CHANGE**: Bump minimum go version to 1.19 per the revised [go version support policy](https://aws.amazon.com/blogs/developer/aws-sdk-for-go-aligns-with-go-release-policy-on-supported-runtimes/).
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.3.45 (2023-10-12)
 
 * **Dependency Update**: Updated to the latest SDK module versions

@@ -62,7 +62,7 @@ type DescribeVerifiedAccessTrustProvidersOutput struct {
 	// there are no more results to return.
 	NextToken *string
 
-	// The IDs of the Verified Access trust providers.
+	// Details about the Verified Access trust providers.
 	VerifiedAccessTrustProviders []types.VerifiedAccessTrustProvider
 
 	// Metadata pertaining to the operation's result.

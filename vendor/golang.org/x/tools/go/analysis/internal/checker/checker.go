@@ -485,11 +485,11 @@ func diff3Conflict(path string, xlabel, ylabel string, xedits, yedits []diff.Edi
 	}
 	oldlabel, old := "base", string(contents)
 
-	xdiff, err := diff.ToUnified(oldlabel, xlabel, old, xedits)
+	xdiff, err := diff.ToUnified(oldlabel, xlabel, old, xedits, diff.DefaultContextLines)
 	if err != nil {
 		return err
 	}
-	ydiff, err := diff.ToUnified(oldlabel, ylabel, old, yedits)
+	ydiff, err := diff.ToUnified(oldlabel, ylabel, old, yedits, diff.DefaultContextLines)
 	if err != nil {
 		return err
 	}

@@ -55,7 +55,7 @@ type DeleteVerifiedAccessTrustProviderInput struct {
 
 type DeleteVerifiedAccessTrustProviderOutput struct {
 
-	// The ID of the Verified Access trust provider.
+	// Details about the Verified Access trust provider.
 	VerifiedAccessTrustProvider *types.VerifiedAccessTrustProvider
 
 	// Metadata pertaining to the operation's result.

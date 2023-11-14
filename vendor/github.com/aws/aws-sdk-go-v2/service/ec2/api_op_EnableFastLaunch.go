@@ -17,13 +17,14 @@ import (
 	"time"
 )
 
-// When you enable faster launching for a Windows AMI, images are pre-provisioned,
-// using snapshots to launch instances up to 65% faster. To create the optimized
-// Windows image, Amazon EC2 launches an instance and runs through Sysprep steps,
-// rebooting as required. Then it creates a set of reserved snapshots that are used
-// for subsequent launches. The reserved snapshots are automatically replenished as
-// they are used, depending on your settings for launch frequency. To change these
-// settings, you must own the AMI.
+// When you enable Windows fast launch for a Windows AMI, images are
+// pre-provisioned, using snapshots to launch instances up to 65% faster. To create
+// the optimized Windows image, Amazon EC2 launches an instance and runs through
+// Sysprep steps, rebooting as required. Then it creates a set of reserved
+// snapshots that are used for subsequent launches. The reserved snapshots are
+// automatically replenished as they are used, depending on your settings for
+// launch frequency. You can only change these settings for Windows AMIs that you
+// own or that have been shared with you.
 func (c *Client) EnableFastLaunch(ctx context.Context, params *EnableFastLaunchInput, optFns ...func(*Options)) (*EnableFastLaunchOutput, error) {
 	if params == nil {
 		params = &EnableFastLaunchInput{}
@@ -41,7 +42,7 @@ func (c *Client) EnableFastLaunch(ctx context.Context, params *EnableFastLaunchI
 
 type EnableFastLaunchInput struct {
 
-	// The ID of the image for which you’re enabling faster launching.
+	// Specify the ID of the image for which to enable Windows fast launch.
 	//
 	// This member is required.
 	ImageId *string
@@ -58,16 +59,16 @@ type EnableFastLaunchInput struct {
 	LaunchTemplate *types.FastLaunchLaunchTemplateSpecificationRequest
 
 	// The maximum number of instances that Amazon EC2 can launch at the same time to
-	// create pre-provisioned snapshots for Windows faster launching. Value must be 6
-	// or greater.
+	// create pre-provisioned snapshots for Windows fast launch. Value must be 6 or
+	// greater.
 	MaxParallelLaunches *int32
 
-	// The type of resource to use for pre-provisioning the Windows AMI for faster
-	// launching. Supported values include: snapshot , which is the default value.
+	// The type of resource to use for pre-provisioning the AMI for Windows fast
+	// launch. Supported values include: snapshot , which is the default value.
 	ResourceType *string
 
 	// Configuration settings for creating and managing the snapshots that are used
-	// for pre-provisioning the Windows AMI for faster launching. The associated
+	// for pre-provisioning the AMI for Windows fast launch. The associated
 	// ResourceType must be snapshot .
 	SnapshotConfiguration *types.FastLaunchSnapshotConfigurationRequest
 
@@ -76,8 +77,7 @@ type EnableFastLaunchInput struct {
 
 type EnableFastLaunchOutput struct {
 
-	// The image ID that identifies the Windows AMI for which faster launching was
-	// enabled.
+	// The image ID that identifies the AMI for which Windows fast launch was enabled.
 	ImageId *string
 
 	// The launch template that is used when launching Windows instances from
@@ -85,14 +85,14 @@ type EnableFastLaunchOutput struct {
 	LaunchTemplate *types.FastLaunchLaunchTemplateSpecificationResponse
 
 	// The maximum number of instances that Amazon EC2 can launch at the same time to
-	// create pre-provisioned snapshots for Windows faster launching.
+	// create pre-provisioned snapshots for Windows fast launch.
 	MaxParallelLaunches *int32
 
-	// The owner ID for the Windows AMI for which faster launching was enabled.
+	// The owner ID for the AMI for which Windows fast launch was enabled.
 	OwnerId *string
 
-	// The type of resource that was defined for pre-provisioning the Windows AMI for
-	// faster launching.
+	// The type of resource that was defined for pre-provisioning the AMI for Windows
+	// fast launch.
 	ResourceType types.FastLaunchResourceType
 
 	// Settings to create and manage the pre-provisioned snapshots that Amazon EC2
@@ -100,13 +100,13 @@ type EnableFastLaunchOutput struct {
 	// the associated resourceType is snapshot .
 	SnapshotConfiguration *types.FastLaunchSnapshotConfigurationResponse
 
-	// The current state of faster launching for the specified Windows AMI.
+	// The current state of Windows fast launch for the specified AMI.
 	State types.FastLaunchStateCode
 
-	// The reason that the state changed for faster launching for the Windows AMI.
+	// The reason that the state changed for Windows fast launch for the AMI.
 	StateTransitionReason *string
 
-	// The time that the state changed for faster launching for the Windows AMI.
+	// The time that the state changed for Windows fast launch for the AMI.
 	StateTransitionTime *time.Time
 
 	// Metadata pertaining to the operation's result.

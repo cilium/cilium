@@ -61,10 +61,10 @@ type AttachVerifiedAccessTrustProviderInput struct {
 
 type AttachVerifiedAccessTrustProviderOutput struct {
 
-	// The ID of the Verified Access instance.
+	// Details about the Verified Access instance.
 	VerifiedAccessInstance *types.VerifiedAccessInstance
 
-	// The ID of the Verified Access trust provider.
+	// Details about the Verified Access trust provider.
 	VerifiedAccessTrustProvider *types.VerifiedAccessTrustProvider
 
 	// Metadata pertaining to the operation's result.

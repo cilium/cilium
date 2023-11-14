@@ -68,7 +68,7 @@ type DescribeVerifiedAccessEndpointsOutput struct {
 	// there are no more results to return.
 	NextToken *string
 
-	// The ID of the Verified Access endpoint.
+	// Details about the Verified Access endpoints.
 	VerifiedAccessEndpoints []types.VerifiedAccessEndpoint
 
 	// Metadata pertaining to the operation's result.

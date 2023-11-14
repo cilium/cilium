@@ -21,6 +21,7 @@
         "deserializers.go",
         "doc.go",
         "endpoints.go",
+        "endpoints_config_test.go",
         "endpoints_test.go",
         "generated.json",
         "internal/endpoints/endpoints.go",
