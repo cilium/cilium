@@ -114,7 +114,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: learnitall/perf-tests
-          ref: d7a97a6b7b9efc29ccb496f3ff54f42588006e96 # tinker/learnitall/100-node-scale-test
+          ref: 67af7e2664b1a5433d098031db0253d5ed4d2a73 # tinker/learnitall/100-node-scale-test
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
