@@ -140,6 +140,11 @@ func (a *Action) CmdOutput() string {
 	return a.cmdOutput
 }
 
+// IPFamily returns the IPFamily used for this test action.
+func (a *Action) IPFamily() features.IPFamily {
+	return a.ipFam
+}
+
 // Run executes function f.
 //
 // This method is to be called from a Scenario implementation.
