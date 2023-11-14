@@ -4,7 +4,6 @@
 package ingress
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -14,12 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/k8s/client"
 )
 
 // Cell manages the Kubernetes Ingress related controllers.
@@ -37,7 +33,7 @@ var Cell = cell.Module(
 		IngressSharedLBServiceName:  "cilium-ingress",
 		IngressDefaultLBMode:        "dedicated",
 	}),
-	cell.Invoke(registerController),
+	cell.Invoke(registerReconciler),
 	cell.Provide(registerSecretSync),
 )
 
@@ -70,50 +66,34 @@ func (r ingressConfig) Flags(flags *pflag.FlagSet) {
 type ingressParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
-
-	Config             ingressConfig
-	K8sClient          client.Clientset
+	Logger             logrus.FieldLogger
 	CtrlRuntimeManager ctrlRuntime.Manager
-	Resources          operatorK8s.Resources
+	Config             ingressConfig
 }
 
-func registerController(params ingressParams) error {
+func registerReconciler(params ingressParams) error {
 	if !params.Config.EnableIngressController {
 		return nil
 	}
 
-	ingressController, err := NewController(
-		params.K8sClient,
-		params.Resources.IngressClasses,
-		WithCiliumNamespace(operatorOption.Config.CiliumK8sNamespace),
-		WithHTTPSEnforced(params.Config.EnforceIngressHTTPS),
-		WithProxyProtocol(params.Config.EnableIngressProxyProtocol),
-		WithSecretsNamespace(params.Config.IngressSecretsNamespace),
-		WithLBAnnotationPrefixes(params.Config.IngressLBAnnotationPrefixes),
-		WithSharedLBServiceName(params.Config.IngressSharedLBServiceName),
-		WithDefaultLoadbalancerMode(params.Config.IngressDefaultLBMode),
-		WithDefaultSecretNamespace(params.Config.IngressDefaultSecretNamespace),
-		WithDefaultSecretName(params.Config.IngressDefaultSecretName),
-		WithIdleTimeoutSeconds(operatorOption.Config.ProxyIdleTimeoutSeconds),
+	reconciler := newIngressReconciler(
+		params.Logger,
+		params.CtrlRuntimeManager.GetClient(),
+		operatorOption.Config.CiliumK8sNamespace,
+		params.Config.EnforceIngressHTTPS,
+		params.Config.EnableIngressProxyProtocol,
+		params.Config.IngressSecretsNamespace,
+		params.Config.IngressLBAnnotationPrefixes,
+		params.Config.IngressSharedLBServiceName,
+		params.Config.IngressDefaultLBMode,
+		params.Config.IngressDefaultSecretNamespace,
+		params.Config.IngressDefaultSecretName,
+		operatorOption.Config.ProxyIdleTimeoutSeconds,
 	)
-	if err != nil {
-		return fmt.Errorf("failed to create ingress controller: %w", err)
+
+	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+		return fmt.Errorf("failed to setup ingress reconciler: %w", err)
 	}
-
-	ctx, cancelCtx := context.WithCancel(context.Background())
-
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(_ hive.HookContext) error {
-			go ingressController.Run(ctx)
-			return nil
-		},
-		OnStop: func(hive.HookContext) error {
-			cancelCtx()
-			return nil
-		},
-	})
 
 	return nil
 }
