@@ -13,13 +13,15 @@ import (
 )
 
 type rangesStore struct {
-	ranges       []*LBRange
-	poolToRanges map[string][]*LBRange
+	ranges                     []*LBRange
+	poolToRanges               map[string][]*LBRange
+	sharingKeyToServiceViewIPs map[string][]*ServiceViewIP
 }
 
 func newRangesStore() rangesStore {
 	return rangesStore{
-		poolToRanges: make(map[string][]*LBRange),
+		poolToRanges:               make(map[string][]*LBRange),
+		sharingKeyToServiceViewIPs: make(map[string][]*ServiceViewIP),
 	}
 }
 
@@ -55,9 +57,48 @@ func (rs *rangesStore) GetRangesForPool(name string) ([]*LBRange, bool) {
 	return ranges, found
 }
 
+func (rs *rangesStore) GetServiceViewIPsForSharingKey(sk string) ([]*ServiceViewIP, bool) {
+	serviceViewIPs, found := rs.sharingKeyToServiceViewIPs[sk]
+	return serviceViewIPs, found
+}
+
+func (rs *rangesStore) AddServiceViewIPForSharingKey(sk string, svip *ServiceViewIP) {
+	serviceViewIPs, found := rs.sharingKeyToServiceViewIPs[sk]
+	if !found {
+		serviceViewIPs = make([]*ServiceViewIP, 0)
+		serviceViewIPs = append(serviceViewIPs, svip)
+	} else {
+		for _, serviceViewIP := range serviceViewIPs {
+			if *serviceViewIP == *svip {
+				return
+			}
+		}
+		serviceViewIPs = append(serviceViewIPs, svip)
+	}
+	rs.sharingKeyToServiceViewIPs[sk] = serviceViewIPs
+}
+
+func (rs *rangesStore) DeleteServiceViewIPForSharingKey(sk string, svip *ServiceViewIP) {
+	serviceViewIPs, found := rs.sharingKeyToServiceViewIPs[sk]
+	if !found {
+		return
+	}
+	for i, serviceViewIP := range serviceViewIPs {
+		if *serviceViewIP == *svip {
+			serviceViewIPs = slices.Delete(serviceViewIPs, i, i+1)
+			break
+		}
+	}
+	if len(serviceViewIPs) > 0 {
+		rs.sharingKeyToServiceViewIPs[sk] = serviceViewIPs
+	} else {
+		delete(rs.sharingKeyToServiceViewIPs, sk)
+	}
+}
+
 type LBRange struct {
-	// the actual data of which ips have been allocated or not
-	alloc ipalloc.Allocator[bool]
+	// the actual data of which ips have been allocated or not and to what services
+	alloc ipalloc.Allocator[[]*ServiceView]
 	// If true, the LB range has been disabled via the CRD and thus no IPs should be allocated from this range
 	externallyDisabled bool
 	// If true, the LB range has been disabled by us, because it conflicts with other ranges for example.
@@ -68,7 +109,7 @@ type LBRange struct {
 }
 
 func NewLBRange(from, to netip.Addr, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) (*LBRange, error) {
-	alloc, err := ipalloc.NewHashAllocator[bool](from, to, 0)
+	alloc, err := ipalloc.NewHashAllocator[[]*ServiceView](from, to, 0)
 	if err != nil {
 		return nil, fmt.Errorf("new cidr range: %w", err)
 	}
