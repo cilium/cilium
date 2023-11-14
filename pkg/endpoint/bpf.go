@@ -296,6 +296,11 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				direction = trafficdirection.Egress
 			}
 
+			// We need to hold the SelectorCache (read) lock here, as DenyPreferredInsertWithChanges
+			// will call the getNetsLocked function on the selector cache deeper down in the call
+			// stack. Similarly, ToMapState calls DenyPreferredInsertWithChanges, hence we take the
+			// lock at this point already.
+			selectorCache.RLock()
 			keysFromFilter := l4.ToMapState(e, direction, selectorCache)
 			for keyFromFilter, entry := range keysFromFilter {
 				if entry.IsRedirectEntry() {
@@ -303,6 +308,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				}
 				e.desiredPolicy.PolicyMapState.DenyPreferredInsertWithChanges(keyFromFilter, entry, adds, nil, old, selectorCache)
 			}
+			selectorCache.RUnlock()
 		}
 	}
 
