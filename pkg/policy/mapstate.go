@@ -8,6 +8,7 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"testing"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -65,6 +66,7 @@ type MapState interface {
 	AddVisibilityKeys(PolicyOwner, uint16, *VisibilityMetadata, ChangeState)
 	Len() int
 	Equals(MapState) bool
+	Diff(t *testing.T, expected MapState) string
 
 	allowAllIdentities(ingress, egress bool)
 	determineAllowLocalhostIngress()
@@ -348,6 +350,30 @@ func (msA *mapState) Equals(msB MapState) bool {
 
 		return true
 	})
+}
+
+// Diff returns the string of differences between 'obtained' and 'expected' prefixed with
+// '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
+// For use in debugging.
+func (obtained *mapState) Diff(_ *testing.T, expected MapState) (res string) {
+	expected.ForEach(func(kE Key, vE MapStateEntry) bool {
+		if vO, ok := obtained.Get(kE); ok {
+			if !(&vO).DatapathEqual(&vE) {
+				res += "- " + kE.String() + ": " + vE.String() + "\n"
+				res += "+ " + kE.String() + ": " + vO.String() + "\n"
+			}
+		} else {
+			res += "- " + kE.String() + ": " + vE.String() + "\n"
+		}
+		return true
+	})
+	obtained.ForEach(func(kE Key, vE MapStateEntry) bool {
+		if vO, ok := expected.Get(kE); !ok {
+			res += "+ " + kE.String() + ": " + vO.String() + "\n"
+		}
+		return true
+	})
+	return res
 }
 
 // AddDependent adds 'key' to the set of dependent keys.
