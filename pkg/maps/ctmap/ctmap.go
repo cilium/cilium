@@ -344,12 +344,28 @@ func newMap(mapName string, m mapType) *Map {
 	return result
 }
 
-func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
+func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	err := m.Delete(key)
-	if err == nil && natMap != nil {
-		natMap.DeleteMapping(key.GetTupleKey())
+	if err != nil || natMap == nil {
+		return err
 	}
-	return err
+
+	t := key.GetTupleKey()
+
+	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
+		if entry.isDsrEntry() {
+			// To delete NAT entries created by legacy DSR
+			nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
+		}
+	} else if t.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT &&
+		entry.isDsrEntry() {
+		// To delete NAT entries created by DSR
+		nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
+	} else {
+		nat.DeleteMapping6(natMap, t.(*tuple.TupleKey6Global))
+	}
+
+	return nil
 }
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
@@ -388,7 +404,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6Global, natMap)
+				err := purgeCtEntry6(m, currentKey6Global, entry, natMap)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6Global.String()).Error("Unable to delete CT entry")
 				} else {
@@ -408,7 +424,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6, natMap)
+				err := purgeCtEntry6(m, currentKey6, entry, natMap)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6.String()).Error("Unable to delete CT entry")
 				} else {
@@ -429,12 +445,28 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
+func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 	err := m.Delete(key)
-	if err == nil && natMap != nil {
-		natMap.DeleteMapping(key.GetTupleKey())
+	if err != nil || natMap == nil {
+		return err
 	}
-	return err
+
+	t := key.GetTupleKey()
+
+	if t.GetFlags()&tuple.TUPLE_F_IN != 0 {
+		if entry.isDsrEntry() {
+			// To delete NAT entries created by legacy DSR
+			nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
+		}
+	} else if t.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT &&
+		entry.isDsrEntry() {
+		// To delete NAT entries created by DSR
+		nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
+	} else {
+		nat.DeleteMapping4(natMap, t.(*tuple.TupleKey4Global))
+	}
+
+	return nil
 }
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
@@ -472,7 +504,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry4(m, currentKey4Global, natMap)
+				err := purgeCtEntry4(m, currentKey4Global, entry, natMap)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey4Global.String()).Error("Unable to delete CT entry")
 				} else {
@@ -492,7 +524,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry4(m, currentKey4, natMap)
+				err := purgeCtEntry4(m, currentKey4, entry, natMap)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey4.String()).Error("Unable to delete CT entry")
 				} else {
@@ -571,8 +603,10 @@ func GC(m *Map, filter *GCFilter) int {
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
 // orphan if it does not have a corresponding CT entry.
 //
-// This can happen when the CT entry is removed by the LRU eviction which
-// happens when the CT map becomes full.
+// Typically NAT entries should get removed along with their owning CT entry,
+// as part of purgeCtEntry*(). But stale NAT entries can get left behind if the
+// CT entry disappears for other reasons - for instance by LRU eviction, or
+// when the datapath re-purposes the CT entry.
 //
 // PurgeOrphanNATEntries() is triggered by the datapath via the GC signaling
 // mechanism. When the datapath SNAT fails to find free mapping after

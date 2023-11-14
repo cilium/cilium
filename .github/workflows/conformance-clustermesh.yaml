@@ -125,7 +125,7 @@ jobs:
             kube-proxy: 'none'
   
           - name: '7'
-            tunnel: 'vxlan'
+            tunnel: 'geneve'
             ipfamily: 'ipv4'
             encryption: 'wireguard'
             kube-proxy: 'iptables'

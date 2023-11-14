@@ -126,4 +126,8 @@ const (
 	// IPsecKeyDeleteDelay is the time to wait before removing old keys when
 	// the IPsec key is changing.
 	IPsecKeyDeleteDelay = 5 * time.Minute
+
+	// IPsecXFRMMarkSPIShift defines how many bits the SPI is shifted when
+	// encoded in a XfrmMark
+	IPsecXFRMMarkSPIShift = 12
 )

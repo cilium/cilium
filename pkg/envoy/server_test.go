@@ -67,59 +67,83 @@ var PortRuleHTTP3 = &api.PortRuleHTTP{
 	Method: "GET",
 }
 
-var googleRe2 = &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
-
 var ExpectedHeaders1 = []*envoy_config_route.HeaderMatcher{
 	{
 		Name: ":authority",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-				EngineType: googleRe2,
-				Regex:      "foo.cilium.io",
-			}},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "foo.cilium.io",
+					},
+				},
+			},
+		},
 	},
 	{
 		Name: ":method",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-				EngineType: googleRe2,
-				Regex:      "GET",
-			}},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "GET",
+					},
+				},
+			},
+		},
 	},
 	{
 		Name: ":path",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-				EngineType: googleRe2,
-				Regex:      "/foo",
-			}},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "/foo",
+					},
+				},
+			},
+		},
 	},
 	{
 		Name:                 "header1",
 		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
 	},
 	{
-		Name:                 "header2",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: "value"},
+		Name: "header2",
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+					Exact: "value",
+				},
+			},
+		},
 	},
 }
 
 var ExpectedHeaders2 = []*envoy_config_route.HeaderMatcher{
 	{
 		Name: ":method",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-				EngineType: googleRe2,
-				Regex:      "PUT",
-			}},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "PUT",
+					},
+				},
+			},
+		},
 	},
 	{
 		Name: ":path",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-				EngineType: googleRe2,
-				Regex:      "/bar",
-			}},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "/bar",
+					},
+				},
+			},
+		},
 	},
 }
 
@@ -134,19 +158,27 @@ var ExpectedHeaderMatches2 = []*cilium.HeaderMatch{
 var ExpectedHeaders3 = []*envoy_config_route.HeaderMatcher{
 	{
 		Name: ":method",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-				EngineType: googleRe2,
-				Regex:      "GET",
-			}},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "GET",
+					},
+				},
+			},
+		},
 	},
 	{
 		Name: ":path",
-		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-				EngineType: googleRe2,
-				Regex:      "/bar",
-			}},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+					SafeRegex: &envoy_type_matcher.RegexMatcher{
+						Regex: "/bar",
+					},
+				},
+			},
+		},
 	},
 }
 

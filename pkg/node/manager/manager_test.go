@@ -107,6 +107,9 @@ func (i *ipcacheMock) Delete(ip string, source source.Source) bool {
 func (i *ipcacheMock) UpsertLabels(netip.Prefix, labels.Labels, source.Source, ipcacheTypes.ResourceID) {
 }
 
+func (i *ipcacheMock) RemoveLabels(netip.Prefix, labels.Labels, ipcacheTypes.ResourceID) {
+}
+
 type signalNodeHandler struct {
 	EnableNodeAddEvent                    bool
 	NodeAddEvent                          chan nodeTypes.Node

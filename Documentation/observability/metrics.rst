@@ -293,11 +293,14 @@ Name                                          Labels                            
 IPSec
 ~~~~~
 
-============================================= ================================================== ========== ========================================================
+============================================= ================================================== ========== ===========================================================
 Name                                          Labels                                             Default    Description
-============================================= ================================================== ========== ========================================================
-``ipsec_xfrm_error``                          ``error``, ``type``                                Enabled    Total number of xfrm errors.
-============================================= ================================================== ========== ========================================================
+============================================= ================================================== ========== ===========================================================
+``ipsec_xfrm_error``                          ``error``, ``type``                                Enabled    Total number of xfrm errors
+``ipsec_keys``                                                                                   Enabled    Number of keys in use
+``ipsec_xfrm_states``                         ``direction``                                      Enabled    Number of XFRM states
+``ipsec_xfrm_policies``                       ``direction``                                      Enabled    Number of XFRM policies
+============================================= ================================================== ========== ===========================================================
 
 eBPF
 ~~~~
@@ -307,7 +310,7 @@ Name                                       Labels                               
 ========================================== ===================================================================== ========== ========================================================
 ``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                                            Disabled   Duration of eBPF system call performed
 ``bpf_map_ops_total``                      ``mapName`` (deprecated), ``map_name``, ``operation``, ``outcome``    Enabled    Number of eBPF map operations performed. ``mapName`` is deprecated and will be removed in 1.10. Use ``map_name`` instead.
-``bpf_map_pressure``                       ``map_name``                                                          Disabled   Map pressure defined as fill-up ratio of the map. Policy maps are exceptionally reported only when ratio is over 0.1.
+``bpf_map_pressure``                       ``map_name``                                                          Enabled    Map pressure is defined as a ratio of the required map size compared to its configured size. Values < 1.0 indicate the map's utilization, while values >= 1.0 indicate that the map is full. Policy map metrics are only reported when the ratio is over 0.1, ie 10% full.
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Enabled    Max memory used by eBPF maps installed in the system
 ``bpf_progs_virtual_memory_max_bytes``                                                                           Enabled    Max memory used by eBPF programs installed in the system
 ========================================== ===================================================================== ========== ========================================================

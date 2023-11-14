@@ -166,7 +166,7 @@ To replace cilium-ipsec-keys secret with a new key:
 
 .. code-block:: shell-session
 
-    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o yaml | awk '/^\s*keys:/ {print $2}' | base64 -d | awk '{print $1}')
+    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
     if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
     data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
@@ -205,6 +205,7 @@ Troubleshooting
 
        $ cilium encrypt status
        Encryption: IPsec
+       Decryption interface(s): eth0, eth1, eth2
        Keys in use: 1
        Max Seq. Number: 0x1e3/0xffffffff
        Errors: 0
@@ -212,7 +213,9 @@ Troubleshooting
    If the error counter is non-zero, additional information will be displayed
    with the specific errors the kernel encountered. If the sequence number
    reaches its maximum value, it will also result in errors. The number of
-   keys in use should be 2 during a key rotation and always 1 otherwise.
+   keys in use should be 2 during a key rotation and always 1 otherwise. The
+   list of decryption interfaces should have all native devices that may
+   receive pod traffic (for example, ENI interfaces).
 
  * All XFRM errors correspond to a packet drop in the kernel. Except for
    ``XfrmFwdHdrError`` and ``XfrmInError``, all XFRM errors indicate a bug in

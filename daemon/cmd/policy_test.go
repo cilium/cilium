@@ -103,7 +103,6 @@ var (
 			},
 		},
 	}
-	googleRe2 = &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
 
 	PNPAllowGETbar = cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
@@ -112,19 +111,27 @@ var (
 					Headers: []*envoy_config_route.HeaderMatcher{
 						{
 							Name: ":method",
-							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-									EngineType: googleRe2,
-									Regex:      "GET",
-								}},
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+								StringMatch: &envoy_type_matcher.StringMatcher{
+									MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+										SafeRegex: &envoy_type_matcher.RegexMatcher{
+											Regex: "GET",
+										},
+									},
+								},
+							},
 						},
 						{
 							Name: ":path",
-							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-									EngineType: googleRe2,
-									Regex:      "/bar",
-								}},
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+								StringMatch: &envoy_type_matcher.StringMatcher{
+									MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+										SafeRegex: &envoy_type_matcher.RegexMatcher{
+											Regex: "/bar",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -139,11 +146,15 @@ var (
 					Headers: []*envoy_config_route.HeaderMatcher{
 						{
 							Name: ":method",
-							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-									EngineType: googleRe2,
-									Regex:      "GET",
-								}},
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+								StringMatch: &envoy_type_matcher.StringMatcher{
+									MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+										SafeRegex: &envoy_type_matcher.RegexMatcher{
+											Regex: "GET",
+										},
+									},
+								},
+							},
 						},
 					},
 					HeaderMatches: []*cilium.HeaderMatch{

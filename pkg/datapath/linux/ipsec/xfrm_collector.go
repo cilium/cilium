@@ -6,7 +6,9 @@ package ipsec
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
+	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -34,39 +36,55 @@ const (
 	labelErrorAcquire          = "acquire"
 	labelErrorBundleGeneration = "bundle_generation"
 	labelErrorBundleCheck      = "bundle_check"
+
+	labelDir = "direction"
+
+	labelDirIn  = "in"
+	labelDirOut = "out"
+	labelDirFwd = "fwd"
 )
 
 type xfrmCollector struct {
-	xfrmStatFunc func() (procfs.XfrmStat, error)
-
-	// Inbound errors
-	xfrmErrorDesc *prometheus.Desc
+	xfrmErrorDesc    *prometheus.Desc
+	nbKeysDesc       *prometheus.Desc
+	nbXFRMStatesDesc *prometheus.Desc
+	nbXFRMPolsDesc   *prometheus.Desc
 }
 
-// NewXFRMCollector returns a new prometheus.Collector for /proc/net/xfrm_stat
-// https://www.kernel.org/doc/Documentation/networking/xfrm_proc.txt
 func NewXFRMCollector() prometheus.Collector {
-	return newXFRMCollector(procfs.NewXfrmStat)
-}
-
-func newXFRMCollector(statFn func() (procfs.XfrmStat, error)) prometheus.Collector {
 	return &xfrmCollector{
-		xfrmStatFunc: statFn,
-
 		xfrmErrorDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_error"),
 			"Total number of xfrm errors",
 			[]string{labelErrorType, metrics.LabelError}, nil,
+		),
+		nbKeysDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, subsystem, "keys"),
+			"Number of IPsec keys in use",
+			[]string{}, nil,
+		),
+		nbXFRMStatesDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_states"),
+			"Number of XFRM states",
+			[]string{labelDir}, nil,
+		),
+		nbXFRMPolsDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_policies"),
+			"Number of XFRM policies",
+			[]string{labelDir}, nil,
 		),
 	}
 }
 
 func (x *xfrmCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- x.xfrmErrorDesc
+	ch <- x.nbKeysDesc
+	ch <- x.nbXFRMStatesDesc
+	ch <- x.nbXFRMPolsDesc
 }
 
-func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
-	stats, err := x.xfrmStatFunc()
+func (x *xfrmCollector) collectErrors(ch chan<- prometheus.Metric) {
+	stats, err := procfs.NewXfrmStat()
 	if err != nil {
 		log.WithError(err).Error("Error while getting xfrm stats")
 		return
@@ -101,5 +119,33 @@ func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutPolDead), labelErrorTypeOutbound, labelErrorPolicyDead)
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutPolError), labelErrorTypeOutbound, labelErrorPolicy)
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutStateInvalid), labelErrorTypeOutbound, labelErrorStateInvalid)
+}
 
+func (x *xfrmCollector) collectConfigStats(ch chan<- prometheus.Metric) {
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve XFRM states to compute Prometheus metrics")
+		return
+	}
+	nbKeys := ipsec.CountUniqueIPsecKeys(states)
+	ch <- prometheus.MustNewConstMetric(x.nbKeysDesc, prometheus.GaugeValue, float64(nbKeys))
+
+	nbStatesIn, nbStatesOut := ipsec.CountXfrmStatesByDir(states)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMStatesDesc, prometheus.GaugeValue, float64(nbStatesIn), labelDirIn)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMStatesDesc, prometheus.GaugeValue, float64(nbStatesOut), labelDirOut)
+
+	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve XFRM policies to compute Prometheus metrics")
+		return
+	}
+	nbPolIn, nbPolOut, nbPolFwd := ipsec.CountXfrmPoliciesByDir(policies)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolIn), labelDirIn)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolOut), labelDirOut)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolFwd), labelDirFwd)
+}
+
+func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
+	x.collectErrors(ch)
+	x.collectConfigStats(ch)
 }

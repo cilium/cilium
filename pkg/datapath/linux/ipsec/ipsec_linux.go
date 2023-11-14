@@ -22,6 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -57,12 +58,16 @@ const (
 	offsetIP       = 5
 	maxOffset      = offsetIP
 
-	// ipSecXfrmMarkSPIShift defines how many bits the SPI is shifted when
-	// encoded in a XfrmMark
-	ipSecXfrmMarkSPIShift = 12
-
 	defaultDropPriority      = 100
 	oldXFRMOutPolicyPriority = 50
+)
+
+type dir string
+
+const (
+	dirUnspec  dir = "unspecified"
+	dirIngress dir = "ingress"
+	dirEgress  dir = "egress"
 )
 
 type ipSecKey struct {
@@ -190,9 +195,11 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 	}
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.SPI:           new.Spi,
-		logfields.SourceIP:      new.Src,
-		logfields.DestinationIP: new.Dst,
+		logfields.SPI:              new.Spi,
+		logfields.SourceIP:         new.Src,
+		logfields.DestinationIP:    new.Dst,
+		logfields.TrafficDirection: getDirFromXfrmMark(new.Mark),
+		logfields.NodeID:           getNodeIDAsHexFromXfrmMark(new.Mark),
 	})
 
 	// Check if the XFRM state already exists
@@ -279,9 +286,11 @@ func xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmSta
 			if err == nil {
 				deletedSomething = true
 				log.WithFields(logrus.Fields{
-					logfields.SPI:           s.Spi,
-					logfields.SourceIP:      s.Src,
-					logfields.DestinationIP: s.Dst,
+					logfields.SPI:              s.Spi,
+					logfields.SourceIP:         s.Src,
+					logfields.DestinationIP:    s.Dst,
+					logfields.TrafficDirection: getDirFromXfrmMark(s.Mark),
+					logfields.NodeID:           getNodeIDAsHexFromXfrmMark(s.Mark),
 				}).Info("Removed a conflicting XFRM state")
 			} else {
 				return deletedSomething, fmt.Errorf("Failed to remove a conflicting XFRM state: %w", err)
@@ -469,8 +478,10 @@ func deprioritizeOldOutPolicy(family int) {
 			p.Priority = oldXFRMOutPolicyPriority
 			if err := netlink.XfrmPolicyUpdate(&p); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
-					logfields.SourceCIDR:      p.Src,
-					logfields.DestinationCIDR: p.Dst,
+					logfields.SourceCIDR:       p.Src,
+					logfields.DestinationCIDR:  p.Dst,
+					logfields.TrafficDirection: getDirFromXfrmMark(p.Mark),
+					logfields.NodeID:           getNodeIDAsHexFromXfrmMark(p.Mark),
 				}).Error("Failed to deprioritize old XFRM policy")
 			}
 		}
@@ -480,27 +491,23 @@ func deprioritizeOldOutPolicy(family int) {
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
 // value with the SPI value encoded in it
 func ipSecXfrmMarkSetSPI(markValue uint32, spi uint8) uint32 {
-	return markValue | (uint32(spi) << ipSecXfrmMarkSPIShift)
+	return markValue | (uint32(spi) << linux_defaults.IPsecXFRMMarkSPIShift)
 }
 
-// ipSecXfrmMarkGetSPI extracts from a XfrmMark value the encoded SPI
-func ipSecXfrmMarkGetSPI(markValue uint32) uint8 {
-	return uint8(markValue >> ipSecXfrmMarkSPIShift & 0xF)
+func getNodeIDAsHexFromXfrmMark(mark *netlink.XfrmMark) string {
+	return fmt.Sprintf("0x%x", ipsec.GetNodeIDFromXfrmMark(mark))
 }
 
-func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
-	if policy.Mark == nil {
-		return 0
+func getDirFromXfrmMark(mark *netlink.XfrmMark) dir {
+	switch {
+	case mark == nil:
+		return dirUnspec
+	case mark.Value&linux_defaults.RouteMarkDecrypt != 0:
+		return dirIngress
+	case mark.Value&linux_defaults.RouteMarkEncrypt != 0:
+		return dirEgress
 	}
-
-	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
-}
-
-func getNodeIDFromXfrmMark(mark *netlink.XfrmMark) uint16 {
-	if mark == nil {
-		return 0
-	}
-	return uint16(mark.Value >> 16)
+	return dirUnspec
 }
 
 func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
@@ -551,7 +558,7 @@ func ipsecDeleteXfrmState(nodeID uint16) {
 		return
 	}
 	for _, s := range xfrmStateList {
-		if matchesOnNodeID(s.Mark) && getNodeIDFromXfrmMark(s.Mark) == nodeID {
+		if matchesOnNodeID(s.Mark) && ipsec.GetNodeIDFromXfrmMark(s.Mark) == nodeID {
 			if err := netlink.XfrmStateDel(&s); err != nil {
 				scopedLog.WithError(err).Warning("Failed to delete XFRM state")
 			}
@@ -570,7 +577,7 @@ func ipsecDeleteXfrmPolicy(nodeID uint16) {
 		return
 	}
 	for _, p := range xfrmPolicyList {
-		if matchesOnNodeID(p.Mark) && getNodeIDFromXfrmMark(p.Mark) == nodeID {
+		if matchesOnNodeID(p.Mark) && ipsec.GetNodeIDFromXfrmMark(p.Mark) == nodeID {
 			if err := netlink.XfrmPolicyDel(&p); err != nil {
 				scopedLog.WithError(err).Warning("Failed to delete XFRM policy")
 			}
@@ -1050,8 +1057,7 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 	}
 
 	for _, p := range xfrmPolicyList {
-		policySPI := getSPIFromXfrmPolicy(&p)
-
+		policySPI := ipsec.GetSPIFromXfrmPolicy(&p)
 		if !ipSecSPICanBeReclaimed(policySPI, reclaimTimestamp) {
 			continue
 		}
@@ -1065,8 +1071,13 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 			continue
 		}
 
-		scopedLog = log.WithField(logfields.OldSPI, policySPI)
-
+		scopedLog = scopedLog.WithFields(logrus.Fields{
+			logfields.OldSPI:           policySPI,
+			logfields.SourceIP:         p.Src,
+			logfields.DestinationIP:    p.Dst,
+			logfields.TrafficDirection: getDirFromXfrmMark(p.Mark),
+			logfields.NodeID:           getNodeIDAsHexFromXfrmMark(p.Mark),
+		})
 		scopedLog.Info("Deleting stale XFRM policy")
 		if err := netlink.XfrmPolicyDel(&p); err != nil {
 			scopedLog.WithError(err).Warning("Deleting stale XFRM policy failed")
