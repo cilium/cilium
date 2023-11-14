@@ -417,7 +417,8 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 		},
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
-		c.Fatal("desired policy map does not equal expected map")
+		c.Fatal("desired policy map does not equal expected map:\n",
+			ep.desiredPolicy.GetPolicyMap().Diff(c.T, expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -461,7 +462,8 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
 	// that port, as it is shadowed by the deny rule
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
-		c.Fatal("desired policy map does not equal expected map")
+		c.Fatal("desired policy map does not equal expected map:\n",
+			ep.desiredPolicy.GetPolicyMap().Diff(c.T, expected2))
 	}
 
 	// Keep only desired redirects
@@ -476,7 +478,8 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
-		c.Fatal("desired policy map does not equal expected map")
+		c.Fatal("desired policy map does not equal expected map:\n",
+			ep.desiredPolicy.GetPolicyMap().Diff(c.T, expected))
 	}
 	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
 	c.Assert(ep.desiredPolicy.GetPolicyMap().Len(), check.Equals, 2)
