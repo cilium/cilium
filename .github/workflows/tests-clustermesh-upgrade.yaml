@@ -57,7 +57,7 @@ env:
   k8s_version: v1.28.3
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.15.13
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: cdfbcd4c5a2c8e93a260ca78a7faa31802e925e4
 
   clusterName1: cluster1
   clusterName2: cluster2

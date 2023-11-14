@@ -56,7 +56,7 @@ env:
   vmStartupScript: .github/gcp-vm-startup.sh
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.15.13
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: cdfbcd4c5a2c8e93a260ca78a7faa31802e925e4
   CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
