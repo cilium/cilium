@@ -263,7 +263,7 @@ jobs:
             ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
 
       - name: Upgrade Cilium & Test (${{ matrix.name }})
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@ef8ca62751779562fff935d6a1d6af018416b5fd
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@93f26fd0af7f5bd5832e08b10785ec53d4252b1c
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
           # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
@@ -279,7 +279,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
       - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@ef8ca62751779562fff935d6a1d6af018416b5fd
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@93f26fd0af7f5bd5832e08b10785ec53d4252b1c
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
           # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
