@@ -116,14 +116,14 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 			devices, invalidated := tables.SelectedDevices(dm.params.DeviceTable, rxn)
 			newDevices := tables.DeviceNames(devices)
 
-			if slices.Equal(prevDevices, newDevices) {
-				continue
+			if !slices.Equal(prevDevices, newDevices) {
+				select {
+				case devs <- newDevices:
+				case <-ctx.Done():
+					return
+				}
 			}
-			select {
-			case devs <- newDevices:
-			case <-ctx.Done():
-				return
-			}
+
 			select {
 			case <-invalidated:
 			case <-ctx.Done():
