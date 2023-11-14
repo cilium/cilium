@@ -4,9 +4,7 @@ on:
   push:
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
-      - v[0-9]+.[0-9]+.[0-9]+-pre.[0-9]+
-      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
-      - v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+
+      - v[0-9]+.[0-9]+.[0-9]+-*
 
 permissions:
   # To be able to access the repository with `actions/checkout`
