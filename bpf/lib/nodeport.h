@@ -1036,7 +1036,8 @@ drop_err:
 static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					__u32 src_sec_identity,
-					__s8 *ext_err)
+					__s8 *ext_err,
+					bool __maybe_unused *dsr)
 {
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple = {};
@@ -1110,15 +1111,13 @@ skip_service_lookup:
 		if (nodeport_uses_dsr6(&tuple)) {
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
 	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
-			bool dsr = false;
-
 			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
 						      &key.address,
-						      &key.dport, &dsr);
+						      &key.dport, dsr);
 			if (IS_ERR(ret))
 				return ret;
 
-			if (dsr)
+			if (*dsr)
 				return nodeport_dsr_ingress_ipv6(ctx, &tuple, l4_off,
 								 &key.address, key.dport,
 								 ext_err);
@@ -2407,7 +2406,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					struct iphdr *ip4,
 					int l3_off,
 					__u32 src_sec_identity,
-					__s8 *ext_err)
+					__s8 *ext_err,
+					bool __maybe_unused *dsr)
 {
 	bool backend_local, has_l4_header;
 	struct ipv4_ct_tuple tuple = {};
@@ -2493,18 +2493,16 @@ skip_service_lookup:
 		if (nodeport_uses_dsr4(&tuple)) {
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
 	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
-			bool dsr = false;
-
 			/* Check if packet has embedded DSR info, or belongs to
 			 * an established DSR connection:
 			 */
 			ret = nodeport_extract_dsr_v4(ctx, ip4, &tuple,
 						      l4_off, &key.address,
-						      &key.dport, &dsr);
+						      &key.dport, dsr);
 			if (IS_ERR(ret))
 				return ret;
 
-			if (dsr)
+			if (*dsr)
 				/* Packet continues on its way to local backend: */
 				return nodeport_dsr_ingress_ipv4(ctx, &tuple,
 								 has_l4_header, l4_off,
