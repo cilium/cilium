@@ -40,8 +40,10 @@ agent
 ├── a
 │   └── b
 │       └── c
-│           ├── fred                                        [OK] yo (20s, x1)
-│           │   └── blee                                    [OK] doh (20s, x1)
+│           ├── fred
+│           │   ├── blee                                    [OK] doh (20s, x1)
+│           │   └── qux
+│           │       └── bar                                     [STOPPED] bye! (20s, x1)
 │           └── dork                                        [DEGRADED] bozo -- BOOM! (20s, x1)
 └── m1                                                      [OK] status nominal (2s, x0)`,
 			v: true,
@@ -136,6 +138,25 @@ func makeComplexMsg(t time.Time) string {
 						Message:         "yo",
 						UpdateTimestamp: t,
 						Count:           1,
+						SubStatuses: []*cell.StatusNode{
+							{
+								Name:            "qux",
+								LastLevel:       cell.StatusOK,
+								Message:         "hi!",
+								UpdateTimestamp: t,
+								Count:           1,
+								SubStatuses: []*cell.StatusNode{
+									{
+										Name:            "bar",
+										LastLevel:       cell.StatusStopped,
+										Message:         "bye!",
+										UpdateTimestamp: t,
+										Count:           1,
+										SubStatuses:     nil,
+									},
+								},
+							},
+						},
 					},
 				},
 			},

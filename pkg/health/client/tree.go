@@ -140,7 +140,7 @@ func dumpVals(w io.Writer, level int, levelsEnded []int, edge decoration, node *
 
 	val := dumpVal(level, node)
 	if node.meta != "" {
-		c := 4 - level
+		c := max(4-level, 0)
 		fmt.Fprintf(w, "%s %-"+strconv.Itoa(leafMaxWidth+c*2)+"s%s%s\n", edge, val, strings.Repeat("  ", c), node.meta)
 		return
 	}
