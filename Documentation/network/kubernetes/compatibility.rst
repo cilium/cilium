@@ -14,16 +14,32 @@ Cilium is compatible with multiple Kubernetes API Groups. Some are deprecated
 or beta, and may only be available in specific versions of Kubernetes.
 
 All Kubernetes versions listed are e2e tested and guaranteed to be compatible
-with Cilium. Older Kubernetes versions not listed in this table do not have
-Cilium support. Newer Kubernetes versions, while not listed, will depend on the
-backward compatibility offered by Kubernetes.
+with Cilium. Older and newer Kubernetes versions, while not listed, will depend
+on the forward / backward compatibility offered by Kubernetes.
 
-+------------------------------------------------------------+---------------------------+----------------------------------+
-| k8s Version                                                | k8s NetworkPolicy API     | CiliumNetworkPolicy              |
-+------------------------------------------------------------+---------------------------+----------------------------------+
-|                                                            |                           | ``cilium.io/v2`` has a           |
-| 1.19, 1.20, 1.21, 1.22, 1.23, 1.24, 1.25, 1.26, 1.27, 1.28 | * `networking.k8s.io/v1`_ | :term:`CustomResourceDefinition` |
-+------------------------------------------------------------+---------------------------+----------------------------------+
++------------------+---------------------------+----------------------------------+
+| k8s Version      | k8s NetworkPolicy API     | CiliumNetworkPolicy              |
++------------------+---------------------------+----------------------------------+
+|                  |                           | ``cilium.io/v2`` has a           |
+| 1.26, 1.27, 1.28 | * `networking.k8s.io/v1`_ | :term:`CustomResourceDefinition` |
++------------------+---------------------------+----------------------------------+
+
+As a general rule, Cilium aims to run e2e tests using the latest build from the
+development branch against currently supported Kubernetes versions defined in
+`Kubernetes Patch Releases <https://kubernetes.io/releases/patch-releases/>`_
+page.
+
+Once a release branch gets created from the development branch, Cilium typically
+does not change the Kubernetes versions it uses to run e2e tests for the entire
+maintenance period of that particular release.
+
+Additionally, Cilium runs e2e tests against various cloud providers' managed
+Kubernetes offerings using multiple Kubernetes versions. See the following links
+for the current test matrix for each cloud provider:
+
+- :git-tree:`AKS <.github/actions/azure/k8s-versions.yaml>`
+- :git-tree:`EKS <.github/actions/aws/k8s-versions.yaml>`
+- :git-tree:`GKE <.github/actions/gke/k8s-versions.yaml>`
 
 Cilium CRD schema validation
 ============================
