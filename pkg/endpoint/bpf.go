@@ -1406,6 +1406,7 @@ func (e *Endpoint) startSyncPolicyMapController() {
 			Group:          syncPolicymapControllerGroup,
 			HealthReporter: e.GetReporter("policymap-sync"),
 			DoFunc: func(ctx context.Context) error {
+				// Failure to lock is not an error, it means
 				// that the endpoint was disconnected and we
 				// should exit gracefully.
 				if err := e.lockAlive(); err != nil {
