@@ -1691,7 +1691,7 @@ out:
 	 */
 	ctx_snat_done_set(ctx);
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway)
 		return egress_gw_fib_lookup_and_redirect(ctx, target.addr, tuple.daddr, ext_err);
 #endif
