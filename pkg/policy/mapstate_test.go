@@ -1846,9 +1846,11 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 		},
 	}
 	for _, tt := range tests {
-		old := make(map[Key]MapStateEntry)
+		old := ChangeState{
+			Old: make(map[Key]MapStateEntry),
+		}
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
-			insertIfNotExists(old, k, v)
+			old.insertOldIfNotExists(k, v)
 			return true
 		})
 		changes := ChangeState{
@@ -1863,13 +1865,13 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 		wantAdds := make(Keys)
 		wantOld := make(map[Key]MapStateEntry)
 
-		for k, v := range old {
+		for k, v := range old.Old {
 			if _, ok := tt.ms.Get(k); !ok {
 				wantOld[k] = v
 			}
 		}
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
-			if v2, ok := old[k]; ok {
+			if v2, ok := old.Old[k]; ok {
 				if equals, _ := checker.DeepEqual(v2, v); !equals {
 					wantOld[k] = v2
 				}
@@ -2138,10 +2140,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			DNSUDPEgressKey(42): {},
 			DNSTCPEgressKey(42): {},
 		},
-		deletes: Keys{
-			// AddVisibilityKeys() returns overwritten entries in 'deletes'
-			DNSUDPEgressKey(42): {},
-		},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-3b - egress HTTP proxy (incremental update)",
