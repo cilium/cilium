@@ -94,9 +94,10 @@ type CreateVerifiedAccessEndpointInput struct {
 	PolicyDocument *string
 
 	// The IDs of the security groups to associate with the Verified Access endpoint.
+	// Required if AttachmentType is set to vpc .
 	SecurityGroupIds []string
 
-	// Options for server side encryption.
+	// The options for server side encryption.
 	SseSpecification *types.VerifiedAccessSseSpecificationRequest
 
 	// The tags to assign to the Verified Access endpoint.
@@ -107,7 +108,7 @@ type CreateVerifiedAccessEndpointInput struct {
 
 type CreateVerifiedAccessEndpointOutput struct {
 
-	// The ID of the Verified Access endpoint.
+	// Details about the Verified Access endpoint.
 	VerifiedAccessEndpoint *types.VerifiedAccessEndpoint
 
 	// Metadata pertaining to the operation's result.

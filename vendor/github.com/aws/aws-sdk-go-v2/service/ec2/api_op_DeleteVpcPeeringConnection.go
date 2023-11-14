@@ -19,7 +19,7 @@ import (
 // owner of the accepter VPC can delete the VPC peering connection if it's in the
 // active state. The owner of the requester VPC can delete a VPC peering connection
 // in the pending-acceptance state. You cannot delete a VPC peering connection
-// that's in the failed state.
+// that's in the failed or rejected state.
 func (c *Client) DeleteVpcPeeringConnection(ctx context.Context, params *DeleteVpcPeeringConnectionInput, optFns ...func(*Options)) (*DeleteVpcPeeringConnectionOutput, error) {
 	if params == nil {
 		params = &DeleteVpcPeeringConnectionInput{}

@@ -119,6 +119,7 @@ func NewFromConfig(cfg aws.Config, optFns ...func(*Options)) *Client {
 	resolveClientEnableState(cfg, &opts)
 	resolveEndpointConfig(cfg, &opts)
 	resolveEndpointModeConfig(cfg, &opts)
+	resolveEnableFallback(cfg, &opts)
 
 	return New(opts, optFns...)
 }
@@ -327,4 +328,21 @@ func resolveEndpointConfig(cfg aws.Config, options *Options) error {
 	}
 	options.Endpoint = value
 	return nil
+}
+
+func resolveEnableFallback(cfg aws.Config, options *Options) {
+	if options.EnableFallback != aws.UnknownTernary {
+		return
+	}
+
+	disabled, ok := internalconfig.ResolveV1FallbackDisabled(cfg.ConfigSources)
+	if !ok {
+		return
+	}
+
+	if disabled {
+		options.EnableFallback = aws.FalseTernary
+	} else {
+		options.EnableFallback = aws.TrueTernary
+	}
 }

@@ -65,7 +65,7 @@ type DescribeVerifiedAccessGroupsOutput struct {
 	// there are no more results to return.
 	NextToken *string
 
-	// The ID of the Verified Access group.
+	// Details about the Verified Access groups.
 	VerifiedAccessGroups []types.VerifiedAccessGroup
 
 	// Metadata pertaining to the operation's result.

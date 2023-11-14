@@ -17,11 +17,12 @@ import (
 	"time"
 )
 
-// Discontinue faster launching for a Windows AMI, and clean up existing
-// pre-provisioned snapshots. When you disable faster launching, the AMI uses the
-// standard launch process for each instance. All pre-provisioned snapshots must be
-// removed before you can enable faster launching again. To change these settings,
-// you must own the AMI.
+// Discontinue Windows fast launch for a Windows AMI, and clean up existing
+// pre-provisioned snapshots. After you disable Windows fast launch, the AMI uses
+// the standard launch process for each new instance. Amazon EC2 must remove all
+// pre-provisioned snapshots before you can enable Windows fast launch again. You
+// can only change these settings for Windows AMIs that you own or that have been
+// shared with you.
 func (c *Client) DisableFastLaunch(ctx context.Context, params *DisableFastLaunchInput, optFns ...func(*Options)) (*DisableFastLaunchOutput, error) {
 	if params == nil {
 		params = &DisableFastLaunchInput{}
@@ -39,8 +40,7 @@ func (c *Client) DisableFastLaunch(ctx context.Context, params *DisableFastLaunc
 
 type DisableFastLaunchInput struct {
 
-	// The ID of the image for which you’re turning off faster launching, and removing
-	// pre-provisioned snapshots.
+	// Specify the ID of the image for which to disable Windows fast launch.
 	//
 	// This member is required.
 	ImageId *string
@@ -51,7 +51,7 @@ type DisableFastLaunchInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Forces the image settings to turn off faster launching for your Windows AMI.
+	// Forces the image settings to turn off Windows fast launch for your Windows AMI.
 	// This parameter overrides any errors that are encountered while cleaning up
 	// resources in your account.
 	Force *bool
@@ -61,7 +61,7 @@ type DisableFastLaunchInput struct {
 
 type DisableFastLaunchOutput struct {
 
-	// The ID of the image for which faster-launching has been turned off.
+	// The ID of the image for which Windows fast launch was disabled.
 	ImageId *string
 
 	// The launch template that was used to launch Windows instances from
@@ -69,27 +69,27 @@ type DisableFastLaunchOutput struct {
 	LaunchTemplate *types.FastLaunchLaunchTemplateSpecificationResponse
 
 	// The maximum number of instances that Amazon EC2 can launch at the same time to
-	// create pre-provisioned snapshots for Windows faster launching.
+	// create pre-provisioned snapshots for Windows fast launch.
 	MaxParallelLaunches *int32
 
-	// The owner of the Windows AMI for which faster launching was turned off.
+	// The owner of the Windows AMI for which Windows fast launch was disabled.
 	OwnerId *string
 
 	// The pre-provisioning resource type that must be cleaned after turning off
-	// faster launching for the Windows AMI. Supported values include: snapshot .
+	// Windows fast launch for the Windows AMI. Supported values include: snapshot .
 	ResourceType types.FastLaunchResourceType
 
-	// Parameters that were used for faster launching for the Windows AMI before
-	// faster launching was turned off. This informs the clean-up process.
+	// Parameters that were used for Windows fast launch for the Windows AMI before
+	// Windows fast launch was disabled. This informs the clean-up process.
 	SnapshotConfiguration *types.FastLaunchSnapshotConfigurationResponse
 
-	// The current state of faster launching for the specified Windows AMI.
+	// The current state of Windows fast launch for the specified Windows AMI.
 	State types.FastLaunchStateCode
 
-	// The reason that the state changed for faster launching for the Windows AMI.
+	// The reason that the state changed for Windows fast launch for the Windows AMI.
 	StateTransitionReason *string
 
-	// The time that the state changed for faster launching for the Windows AMI.
+	// The time that the state changed for Windows fast launch for the Windows AMI.
 	StateTransitionTime *time.Time
 
 	// Metadata pertaining to the operation's result.

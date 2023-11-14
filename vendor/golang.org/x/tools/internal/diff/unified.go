@@ -10,12 +10,16 @@ import (
 	"strings"
 )
 
+// DefaultContextLines is the number of unchanged lines of surrounding
+// context displayed by Unified. Use ToUnified to specify a different value.
+const DefaultContextLines = 3
+
 // Unified returns a unified diff of the old and new strings.
 // The old and new labels are the names of the old and new files.
 // If the strings are equal, it returns the empty string.
 func Unified(oldLabel, newLabel, old, new string) string {
 	edits := Strings(old, new)
-	unified, err := ToUnified(oldLabel, newLabel, old, edits)
+	unified, err := ToUnified(oldLabel, newLabel, old, edits, DefaultContextLines)
 	if err != nil {
 		// Can't happen: edits are consistent.
 		log.Fatalf("internal error in diff.Unified: %v", err)
@@ -23,11 +27,12 @@ func Unified(oldLabel, newLabel, old, new string) string {
 	return unified
 }
 
-// ToUnified applies the edits to content and returns a unified diff.
+// ToUnified applies the edits to content and returns a unified diff,
+// with contextLines lines of (unchanged) context around each diff hunk.
 // The old and new labels are the names of the content and result files.
 // It returns an error if the edits are inconsistent; see ApplyEdits.
-func ToUnified(oldLabel, newLabel, content string, edits []Edit) (string, error) {
-	u, err := toUnified(oldLabel, newLabel, content, edits)
+func ToUnified(oldLabel, newLabel, content string, edits []Edit, contextLines int) (string, error) {
+	u, err := toUnified(oldLabel, newLabel, content, edits, contextLines)
 	if err != nil {
 		return "", err
 	}
@@ -93,14 +98,10 @@ func (k opKind) String() string {
 	}
 }
 
-const (
-	edge = 3
-	gap  = edge * 2
-)
-
 // toUnified takes a file contents and a sequence of edits, and calculates
 // a unified diff that represents those edits.
-func toUnified(fromName, toName string, content string, edits []Edit) (unified, error) {
+func toUnified(fromName, toName string, content string, edits []Edit, contextLines int) (unified, error) {
+	gap := contextLines * 2
 	u := unified{
 		from: fromName,
 		to:   toName,
@@ -136,7 +137,7 @@ func toUnified(fromName, toName string, content string, edits []Edit) (unified, 
 			//need to start a new hunk
 			if h != nil {
 				// add the edge to the previous hunk
-				addEqualLines(h, lines, last, last+edge)
+				addEqualLines(h, lines, last, last+contextLines)
 				u.hunks = append(u.hunks, h)
 			}
 			toLine += start - last
@@ -145,7 +146,7 @@ func toUnified(fromName, toName string, content string, edits []Edit) (unified, 
 				toLine:   toLine + 1,
 			}
 			// add the edge to the new hunk
-			delta := addEqualLines(h, lines, start-edge, start)
+			delta := addEqualLines(h, lines, start-contextLines, start)
 			h.fromLine -= delta
 			h.toLine -= delta
 		}
@@ -163,7 +164,7 @@ func toUnified(fromName, toName string, content string, edits []Edit) (unified, 
 	}
 	if h != nil {
 		// add the edge to the final hunk
-		addEqualLines(h, lines, last, last+edge)
+		addEqualLines(h, lines, last, last+contextLines)
 		u.hunks = append(u.hunks, h)
 	}
 	return u, nil

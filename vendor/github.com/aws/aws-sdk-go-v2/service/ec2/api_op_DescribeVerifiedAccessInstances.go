@@ -62,7 +62,7 @@ type DescribeVerifiedAccessInstancesOutput struct {
 	// there are no more results to return.
 	NextToken *string
 
-	// The IDs of the Verified Access instances.
+	// Details about the Verified Access instances.
 	VerifiedAccessInstances []types.VerifiedAccessInstance
 
 	// Metadata pertaining to the operation's result.

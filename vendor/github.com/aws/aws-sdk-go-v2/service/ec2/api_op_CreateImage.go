@@ -53,9 +53,17 @@ type CreateImageInput struct {
 	// This member is required.
 	Name *string
 
-	// The block device mappings. This parameter cannot be used to modify the
-	// encryption status of existing volumes or snapshots. To create an AMI with
-	// encrypted snapshots, use the CopyImage action.
+	// The block device mappings. When using the CreateImage action:
+	//   - You can't change the volume size using the VolumeSize parameter. If you
+	//   want a different volume size, you must first change the volume size of the
+	//   source instance.
+	//   - You can't modify the encryption status of existing volumes or snapshots. To
+	//   create an AMI with volumes or snapshots that have a different encryption status
+	//   (for example, where the source volume and snapshots are unencrypted, and you
+	//   want to create an AMI with encrypted volumes or snapshots), use the CopyImage
+	//   action.
+	//   - The only option that can be changed for existing mappings or snapshots is
+	//   DeleteOnTermination .
 	BlockDeviceMappings []types.BlockDeviceMapping
 
 	// A description for the new image.

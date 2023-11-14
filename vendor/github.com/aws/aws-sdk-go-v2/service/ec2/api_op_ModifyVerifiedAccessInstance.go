@@ -59,7 +59,7 @@ type ModifyVerifiedAccessInstanceInput struct {
 
 type ModifyVerifiedAccessInstanceOutput struct {
 
-	// The ID of the Verified Access instance.
+	// Details about the Verified Access instance.
 	VerifiedAccessInstance *types.VerifiedAccessInstance
 
 	// Metadata pertaining to the operation's result.

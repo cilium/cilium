@@ -111,8 +111,8 @@ type DescribeInstancesInput struct {
 	//   instance. Specified as an name.
 	//   - image-id - The ID of the image used to launch the instance.
 	//   - instance-id - The ID of the instance.
-	//   - instance-lifecycle - Indicates whether this is a Spot Instance or a
-	//   Scheduled Instance ( spot | scheduled ).
+	//   - instance-lifecycle - Indicates whether this is a Spot Instance, a Scheduled
+	//   Instance, or a Capacity Block ( spot | scheduled | capacity-block ).
 	//   - instance-state-code - The state of the instance, as a 16-bit unsigned
 	//   integer. The high byte is used for internal purposes and should be ignored. The
 	//   low byte is set based on the state represented. The valid values are: 0

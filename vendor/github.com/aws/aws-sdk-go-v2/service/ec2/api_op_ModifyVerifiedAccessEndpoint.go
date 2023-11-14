@@ -69,7 +69,7 @@ type ModifyVerifiedAccessEndpointInput struct {
 
 type ModifyVerifiedAccessEndpointOutput struct {
 
-	// The Verified Access endpoint details.
+	// Details about the Verified Access endpoint.
 	VerifiedAccessEndpoint *types.VerifiedAccessEndpoint
 
 	// Metadata pertaining to the operation's result.

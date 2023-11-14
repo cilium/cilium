@@ -265,6 +265,8 @@ message ListPathRequest {
   // enable_only_binary == true means that only nlri_binary and pattrs_binary
   // will be used instead of nlri and pattrs for each Path in ListPathResponse.
   bool enable_only_binary = 9;
+  // max ammount of paths to be allocated, unlimited by default
+  uint64 batch_size = 10;
 }
 
 message ListPathResponse { Destination destination = 1; }

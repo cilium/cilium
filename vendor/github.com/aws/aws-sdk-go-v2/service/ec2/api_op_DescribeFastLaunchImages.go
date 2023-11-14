@@ -16,7 +16,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describe details for Windows AMIs that are configured for faster launching.
+// Describe details for Windows AMIs that are configured for Windows fast launch.
 func (c *Client) DescribeFastLaunchImages(ctx context.Context, params *DescribeFastLaunchImagesInput, optFns ...func(*Options)) (*DescribeFastLaunchImagesOutput, error) {
 	if params == nil {
 		params = &DescribeFastLaunchImagesInput{}
@@ -42,13 +42,11 @@ type DescribeFastLaunchImagesInput struct {
 
 	// Use the following filters to streamline results.
 	//   - resource-type - The resource type for pre-provisioning.
-	//   - launch-template - The launch template that is associated with the
-	//   pre-provisioned Windows AMI.
 	//   - owner-id - The owner ID for the pre-provisioning resource.
 	//   - state - The current state of fast launching for the Windows AMI.
 	Filters []types.Filter
 
-	// Details for one or more Windows AMI image IDs.
+	// Specify one or more Windows AMI image IDs for the request.
 	ImageIds []string
 
 	// The maximum number of items to return for this request. To get the next page of

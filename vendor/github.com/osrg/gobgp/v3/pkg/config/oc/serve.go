@@ -1,6 +1,7 @@
 package oc
 
 import (
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 
 	"github.com/osrg/gobgp/v3/pkg/log"
@@ -40,6 +41,18 @@ func ReadConfigfile(path, format string) (*BgpConfigSet, error) {
 		return nil, err
 	}
 	return config, nil
+}
+
+func WatchConfigFile(path, format string, callBack func()) {
+	v := viper.New()
+	v.SetConfigFile(path)
+	v.SetConfigType(format)
+
+	v.OnConfigChange(func(e fsnotify.Event) {
+		callBack()
+	})
+
+	v.WatchConfig()
 }
 
 func ConfigSetToRoutingPolicy(c *BgpConfigSet) *RoutingPolicy {

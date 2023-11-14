@@ -58,7 +58,7 @@ type DescribeVerifiedAccessInstanceLoggingConfigurationsInput struct {
 
 type DescribeVerifiedAccessInstanceLoggingConfigurationsOutput struct {
 
-	// The current logging configuration for the Verified Access instances.
+	// The logging configuration for the Verified Access instances.
 	LoggingConfigurations []types.VerifiedAccessInstanceLoggingConfiguration
 
 	// The token to use to retrieve the next page of results. This value is null when

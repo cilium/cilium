@@ -9,10 +9,10 @@ import (
 	"strconv"
 
 	"github.com/osrg/gobgp/v3/internal/pkg/version"
-	"github.com/osrg/gobgp/v3/internal/pkg/zebra"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/packet/bmp"
 	"github.com/osrg/gobgp/v3/pkg/packet/rtr"
+	"github.com/osrg/gobgp/v3/pkg/zebra"
 	"github.com/spf13/viper"
 )
 

@@ -59,7 +59,8 @@ type ModifyVpnTunnelOptionsInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Choose whether or not to trigger immediate tunnel replacement. Valid values:
+	// Choose whether or not to trigger immediate tunnel replacement. This is only
+	// applicable when turning on or off EnableTunnelLifecycleControl . Valid values:
 	// True | False
 	SkipTunnelReplacement *bool
 

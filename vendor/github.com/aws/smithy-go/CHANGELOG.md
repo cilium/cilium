@@ -1,3 +1,9 @@
+# Release (2023-10-31)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.16.0
+  * **Feature**: **LANG**: Bump minimum go version to 1.19.
+
 # Release (2023-10-06)
 
 ## Module Highlights
