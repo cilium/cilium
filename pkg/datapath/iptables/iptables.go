@@ -289,6 +289,7 @@ func newIptablesManager(p params) *Manager {
 	iptMgr := &Manager{
 		logger:        p.Logger,
 		modulesMgr:    p.ModulesMgr,
+		cfg:           p.Cfg,
 		sharedCfg:     p.SharedCfg,
 		haveIp6tables: true,
 	}
