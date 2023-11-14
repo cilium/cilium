@@ -207,7 +207,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 	changes := policy.ChangeState{
 		Adds: make(policy.Keys),
-		Old:  policy.NewMapState(nil),
+		Old:  make(map[policy.Key]policy.MapStateEntry),
 	}
 
 	e.desiredPolicy.UpdateRedirects(ingress,
@@ -302,7 +302,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		revertStack  revert.RevertStack
 		changes      = policy.ChangeState{
 			Adds: make(policy.Keys),
-			Old:  policy.NewMapState(nil),
+			Old:  make(map[policy.Key]policy.MapStateEntry),
 		}
 	)
 
