@@ -55,25 +55,17 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 					if oldCN := k8s.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldCN != nil {
 						if ciliumNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](newObj); ciliumNode != nil {
 							valid = true
-							isLocal := k8s.IsLocalCiliumNode(ciliumNode)
 							// Comparing Annotations here since wg-pub-key annotation is used to exchange rotated WireGuard keys.
 							if oldCN.DeepEqual(ciliumNode) &&
 								comparator.MapStringEquals(oldCN.ObjectMeta.Labels, ciliumNode.ObjectMeta.Labels) &&
 								comparator.MapStringEquals(oldCN.ObjectMeta.Annotations, ciliumNode.ObjectMeta.Annotations) {
 								equal = true
-								if !isLocal {
-									// For remote nodes, we return early here to avoid unnecessary update events if
-									// nothing in the spec or status has changed. But for local nodes, we want to
-									// propagate the new resource version (not compared in DeepEqual) such that any
-									// CiliumNodeChain subscribers are able to perform updates to the local CiliumNode
-									// object using the most recent resource version.
-									return
-								}
-							}
-							n := nodeTypes.ParseCiliumNode(ciliumNode)
-							if isLocal {
 								return
 							}
+							if k8s.IsLocalCiliumNode(ciliumNode) {
+								return
+							}
+							n := nodeTypes.ParseCiliumNode(ciliumNode)
 							k.nodeDiscoverManager.NodeUpdated(n)
 							k.K8sEventProcessed(metricCiliumNode, resources.MetricUpdate, true)
 						}
