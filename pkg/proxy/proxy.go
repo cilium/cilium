@@ -6,11 +6,14 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -415,29 +418,75 @@ func (p *Proxy) SetProxyPort(name string, proxyType types.ProxyType, port uint16
 }
 
 // ReinstallRoutingRules ensures the presence of routing rules and tables needed
-// to route packets to the L7 proxy.
+// to route packets to and from the L7 proxy.
 func (p *Proxy) ReinstallRoutingRules() error {
 	if option.Config.EnableIPv4 {
-		if err := installRoutesIPv4(); err != nil {
+		if err := installToProxyRoutesIPv4(); err != nil {
 			return err
 		}
+
+		if !option.Config.EnableIPSec {
+			if err := removeFromProxyRoutesIPv4(); err != nil {
+				return err
+			}
+		} else {
+			if err := installFromProxyRoutesIPv4(node.GetInternalIPv4Router(), defaults.HostDevice); err != nil {
+				return err
+			}
+		}
 	} else {
-		if err := removeRoutesIPv4(); err != nil {
+		if err := removeToProxyRoutesIPv4(); err != nil {
+			return err
+		}
+		if err := removeFromProxyRoutesIPv4(); err != nil {
 			return err
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		if err := installRoutesIPv6(); err != nil {
+		if err := installToProxyRoutesIPv6(); err != nil {
 			return err
 		}
+
+		if !option.Config.EnableIPSec {
+			if err := removeFromProxyRoutesIPv6(); err != nil {
+				return err
+			}
+		} else {
+			ipv6, err := getCiliumNetIPv6()
+			if err != nil {
+				return err
+			}
+			if err := installFromProxyRoutesIPv6(ipv6, defaults.HostDevice); err != nil {
+				return err
+			}
+		}
 	} else {
-		if err := removeRoutesIPv6(); err != nil {
+		if err := removeToProxyRoutesIPv6(); err != nil {
+			return err
+		}
+		if err := removeFromProxyRoutesIPv6(); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// getCiliumNetIPv6 retrieves the first IPv6 address from the cilium_net device.
+func getCiliumNetIPv6() (net.IP, error) {
+	link, err := netlink.LinkByName(defaults.SecondHostDevice)
+	if err != nil {
+		return nil, fmt.Errorf("cannot find link '%s': %w", defaults.SecondHostDevice, err)
+	}
+
+	addrList, err := netlink.AddrList(link, netlink.FAMILY_V6)
+	if err == nil && len(addrList) > 0 {
+		return addrList[0].IP, nil
+	}
+
+	return nil, fmt.Errorf("failed to find valid IPv6 address for cilium_net")
+
 }
 
 // ReinstallIPTablesRules is called by daemon reconfiguration to reinstall
