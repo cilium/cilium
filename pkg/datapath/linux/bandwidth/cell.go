@@ -41,7 +41,11 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 func newBandwidthManager(lc hive.Lifecycle, p bandwidthManagerParams) (Manager, defines.NodeFnOut) {
 	m := &manager{params: p}
-	lc.Append(m)
+
+	if !option.Config.DryMode {
+		lc.Append(m)
+	}
+
 	return m, defines.NewNodeFnOut(m.defines)
 }
 
