@@ -20,9 +20,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
 
@@ -61,10 +59,8 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 type gatewayAPIParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
-
-	K8sClient          client.Clientset
+	Logger             logrus.FieldLogger
+	K8sClient          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
 
