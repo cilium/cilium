@@ -4,11 +4,19 @@
 package ingress
 
 import (
+	"context"
+
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ingressTranslation "github.com/cilium/cilium/operator/pkg/model/translation/ingress"
@@ -86,5 +94,67 @@ func (r *ingressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Endpoints{}).
 		// CiliumEnvoyConfig resource with OwnerReference to the Ingress with dedicated loadbalancing mode
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
+		// Watching shared loadbalancer Service and reconcile all shared Cilium Ingresses
+		Watches(&corev1.Service{}, r.enqueueSharedCiliumIngresses(), r.forSharedLoadbalancerService()).
 		Complete(r)
+}
+
+func (r *ingressReconciler) enqueueSharedCiliumIngresses() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, _ client.Object) []reconcile.Request {
+		ingressList := networkingv1.IngressList{}
+		if err := r.client.List(ctx, &ingressList); err != nil {
+			r.logger.WithError(err).Warn("Failed to list Ingresses")
+			return nil
+		}
+
+		result := []reconcile.Request{}
+
+		for _, i := range ingressList.Items {
+			// Skip Ingresses that aren't managed by Cilium
+			if !isCiliumManagedIngress(ctx, r.client, r.logger, i) {
+				continue
+			}
+
+			// Skip Ingresses with dedicated loadbalancer mode
+			if r.isEffectiveLoadbalancerModeDedicated(&i) {
+				continue
+			}
+
+			result = append(result, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: i.Namespace,
+					Name:      i.Name,
+				},
+			})
+		}
+
+		return result
+	})
+}
+
+func (r *ingressReconciler) forSharedLoadbalancerService() builder.WatchesOption {
+	return builder.WithPredicates(&isSharedLoadbalancerServicePredicate{namespace: r.ciliumNamespace, name: r.sharedLBServiceName})
+}
+
+var _ predicate.Predicate = &isSharedLoadbalancerServicePredicate{}
+
+type isSharedLoadbalancerServicePredicate struct {
+	namespace string
+	name      string
+}
+
+func (r *isSharedLoadbalancerServicePredicate) Create(event event.CreateEvent) bool {
+	return event.Object.GetNamespace() == r.namespace && event.Object.GetName() == r.name
+}
+
+func (r *isSharedLoadbalancerServicePredicate) Update(event event.UpdateEvent) bool {
+	return event.ObjectNew.GetNamespace() == r.namespace && event.ObjectNew.GetName() == r.name
+}
+
+func (r *isSharedLoadbalancerServicePredicate) Delete(event event.DeleteEvent) bool {
+	return event.Object.GetNamespace() == r.namespace && event.Object.GetName() == r.name
+}
+
+func (r *isSharedLoadbalancerServicePredicate) Generic(event event.GenericEvent) bool {
+	return event.Object.GetNamespace() == r.namespace && event.Object.GetName() == r.name
 }
