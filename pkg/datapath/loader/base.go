@@ -59,6 +59,7 @@ const (
 	initArgEndpointRoutes
 	initArgProxyRule
 	initTCFilterPriority
+	initIPsecEncryption
 	initArgMax
 )
 
@@ -413,6 +414,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	args[initTCFilterPriority] = strconv.Itoa(int(option.Config.TCFilterPriority))
+
+	if option.Config.EnableIPSec {
+		args[initIPsecEncryption] = "true"
+	} else {
+		args[initIPsecEncryption] = "false"
+	}
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
