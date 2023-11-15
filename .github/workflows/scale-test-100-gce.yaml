@@ -2,7 +2,7 @@ name: 100 Nodes Scale Test
 
 on:
   schedule:
-    - cron: '39 0 * * 2,5'
+    - cron: '39 0 * * 1-5'
 
 permissions:
   # To be able to access the repository with actions/checkout
