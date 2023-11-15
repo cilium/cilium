@@ -179,13 +179,6 @@ func (ipc *IPCache) RUnlock() {
 	ipc.mutex.RUnlock()
 }
 
-// SetListeners sets the listeners for this IPCache.
-func (ipc *IPCache) SetListeners(listeners []IPIdentityMappingListener) {
-	ipc.mutex.Lock()
-	ipc.listeners = listeners
-	ipc.mutex.Unlock()
-}
-
 // AddListener adds a listener for this IPCache.
 func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	// We need to acquire the semaphored mutex as we Write Lock as we are

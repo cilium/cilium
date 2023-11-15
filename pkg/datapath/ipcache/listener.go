@@ -44,16 +44,12 @@ type BPFListener struct {
 	monitorNotify monitorNotify
 }
 
-func newListener(m Map, mn monitorNotify) *BPFListener {
+// NewListener returns a new listener to push IPCache entries into BPF maps.
+func NewListener(m Map, mn monitorNotify) *BPFListener {
 	return &BPFListener{
 		bpfMap:        m,
 		monitorNotify: mn,
 	}
-}
-
-// NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(mn monitorNotify) *BPFListener {
-	return newListener(ipcacheMap.IPCacheMap(), mn)
 }
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
