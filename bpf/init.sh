@@ -30,6 +30,7 @@ PROXY_RULE=${23}
 FILTER_PRIO=${24}
 DEFAULT_RTPROTO=${25}
 LOCAL_RULE_PRIO=${26}
+IPSEC_ENCRYPTION=${27}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -105,8 +106,12 @@ function move_local_rules()
 
 function setup_proxy_rules()
 {
-	# TODO(brb): remove $PROXY_RT_TABLE -related code in v1.15
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE proto $DEFAULT_RTPROTO"
+	use_from_ingress_proxy_rules=0
+
+	if [ "$IPSEC_ENCRYPTION" = "true" ] && [ "$ENDPOINT_ROUTES" != "true" ]; then
+		use_from_ingress_proxy_rules=1
+	fi
 
 	# Any packet to an ingress or egress proxy uses a separate routing table
 	# that routes the packet to the loopback device regardless of the destination
@@ -120,15 +125,28 @@ function setup_proxy_rules()
 				ip -4 rule add $to_proxy_rulespec
 			fi
 
-			ip -4 rule delete $from_ingress_rulespec || true
+			if [ $use_from_ingress_proxy_rules -eq 1 ]; then
+				if [ -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
+					ip -4 rule add $from_ingress_rulespec
+				fi
+			else
+				if [ ! -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
+					ip -4 rule delete $from_ingress_rulespec 2> /dev/null || true
+				fi
+			fi
 		fi
 
 		# Traffic to the host proxy is local
 		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo proto $DEFAULT_RTPROTO
 
-		# The $PROXY_RT_TABLE is no longer in use, so delete it
-		ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 2>/dev/null || true
-		ip route delete table $PROXY_RT_TABLE default via $IP4_HOST 2>/dev/null || true
+		# Traffic from ingress proxy goes to Cilium address space via the cilium host device
+		if [ $use_from_ingress_proxy_rules -eq 1 ]; then
+			ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 proto $DEFAULT_RTPROTO
+			ip route replace table $PROXY_RT_TABLE default via $IP4_HOST proto $DEFAULT_RTPROTO
+		else
+			ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 proto $DEFAULT_RTPROTO 2>/dev/null || true
+			ip route delete table $PROXY_RT_TABLE default via $IP4_HOST proto $DEFAULT_RTPROTO 2>/dev/null || true
+		fi
 	else
 		ip -4 rule del $to_proxy_rulespec 2> /dev/null || true
 		ip -4 rule del $from_ingress_rulespec 2> /dev/null || true
@@ -140,16 +158,30 @@ function setup_proxy_rules()
 				ip -6 rule add $to_proxy_rulespec
 			fi
 
-			ip -6 rule delete $from_ingress_rulespec || true
+			if [ $use_from_ingress_proxy_rules -eq 1 ]; then
+				if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
+					ip -6 rule add $from_ingress_rulespec
+				fi
+			else
+				if [ ! -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
+					ip -6 rule delete $from_ingress_rulespec 2> /dev/null || true
+				fi
+			fi
 		fi
 
 		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 		if [ -n "$IP6_LLADDR" ]; then
 			# Traffic to the host proxy is local
 			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo proto $DEFAULT_RTPROTO
-			# The $PROXY_RT_TABLE is no longer in use, so delete it
-			ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
-			ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
+
+			# Traffic from ingress proxy goes to Cilium address space via the cilium host device
+			if [ $use_from_ingress_proxy_rules -eq 1 ]; then
+				ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 proto $DEFAULT_RTPROTO
+				ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 proto $DEFAULT_RTPROTO
+			else
+				ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 proto $DEFAULT_RTPROTO 2>/dev/null || true
+				ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 proto $DEFAULT_RTPROTO 2>/dev/null || true
+			fi
 		fi
 	else
 		ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
