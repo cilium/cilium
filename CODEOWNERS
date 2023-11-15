@@ -230,6 +230,7 @@
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*ipsec*.yaml @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/tophat
 /.golangci.yaml @cilium/ci-structure
 /.mailmap @cilium/tophat
@@ -412,7 +413,7 @@ Makefile* @cilium/build
 /pkg/datapath/linux/config/ @cilium/loader
 /pkg/datapath/linux/ipsec/ @cilium/ipsec
 /pkg/datapath/linux/ipsec/xfrm_collector* @cilium/ipsec @cilium/metrics
-/pkg/datapath/linux/ipsec.go @cilium/ipsec 
+/pkg/datapath/linux/ipsec.go @cilium/ipsec
 /pkg/datapath/linux/node.go @cilium/sig-datapath
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
