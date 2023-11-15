@@ -4,6 +4,9 @@
 package ipsec
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -17,13 +20,23 @@ const (
 
 func CountUniqueIPsecKeys(states []netlink.XfrmState) int {
 	keys := make(map[string]bool)
+	invalidStateFound := false
 	for _, s := range states {
-		if s.Aead == nil {
+		if s.Aead != nil && s.Auth == nil && s.Crypt == nil {
+			keys[string(s.Aead.Key)] = true
 			continue
 		}
-		keys[string(s.Aead.Key)] = true
+		if s.Aead == nil && s.Auth != nil && s.Crypt != nil {
+			// we want to count the number of unique (Auth, Crypt) tuples
+			key := fmt.Sprintf("%s:%s", string(s.Auth.Key), string(s.Crypt.Key))
+			keys[key] = true
+			continue
+		}
+		invalidStateFound = true
 	}
-
+	if invalidStateFound {
+		fmt.Fprintf(os.Stderr, "an unsupported XfrmStateAlgo combination has been found\n")
+	}
 	return len(keys)
 }
 
