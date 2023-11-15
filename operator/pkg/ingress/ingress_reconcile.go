@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -135,11 +136,43 @@ func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context, i
 	return nil
 }
 
-func (r *ingressReconciler) tryCleanupDedicatedResources(ctx context.Context, namespacedName types.NamespacedName) error {
+func (r *ingressReconciler) tryCleanupDedicatedResources(ctx context.Context, ingressNamespacedName types.NamespacedName) error {
+	resources := map[client.Object]types.NamespacedName{
+		&corev1.Service{}:             {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
+		&corev1.Endpoints{}:           {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
+		&ciliumv2.CiliumEnvoyConfig{}: {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, ingressNamespacedName.Namespace, ingressNamespacedName.Name)},
+	}
+
+	for k, v := range resources {
+		if err := r.tryDeletingResource(ctx, k, v); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (r *ingressReconciler) tryCleanupSharedResources(ctx context.Context, namespacedName types.NamespacedName) error {
+func (r *ingressReconciler) tryCleanupSharedResources(ctx context.Context, ingressNamespacedName types.NamespacedName) error {
+	// Ingress isn't used when using enforced shared mode.
+	// Its only purpose is to get the namespace and name.
+	ingress := networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ingressNamespacedName.Namespace,
+			Name:      ingressNamespacedName.Name,
+		},
+	}
+
+	// In shared loadbalancing mode, only the CiliumEnvoyConfig is managed by the Operator.
+	// Service and Endpoints are created by the Helm Chart.
+	desiredCiliumEnvoyConfig, _, _, err := r.regenerate(ctx, &ingress, true)
+	if err != nil {
+		return fmt.Errorf("failed to generate Ingress model: %w", err)
+	}
+
+	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -174,7 +207,7 @@ func (r *ingressReconciler) regenerate(ctx context.Context, ing *networkingv1.In
 		}
 
 		for _, item := range ingressList.Items {
-			if !isCiliumManagedIngress(ctx, r.client, item) || r.isEffectiveLoadbalancerModeDedicated(&item) || ing.GetDeletionTimestamp() != nil {
+			if !isCiliumManagedIngress(ctx, r.client, item) || r.isEffectiveLoadbalancerModeDedicated(&item) || item.GetDeletionTimestamp() != nil {
 				continue
 			}
 			if annotations.GetAnnotationTLSPassthroughEnabled(&item) {
@@ -297,6 +330,21 @@ func mergeMap(dst, src map[string]string) map[string]string {
 
 	maps.Copy(dst, src)
 	return dst
+}
+
+func (r *ingressReconciler) tryDeletingResource(ctx context.Context, object client.Object, namespacedName types.NamespacedName) error {
+	if err := r.client.Get(ctx, namespacedName, object); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get existing %T: %w", object, err)
+		}
+		return nil
+	}
+
+	if err := r.client.Delete(ctx, object); err != nil {
+		return fmt.Errorf("failed to delete existing %T: %w", object, err)
+	}
+
+	return nil
 }
 
 func (r *ingressReconciler) isEffectiveLoadbalancerModeDedicated(ing *networkingv1.Ingress) bool {
