@@ -67,6 +67,13 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return controllerruntime.Fail(err)
 		}
 
+		if err := r.tryCleanupIngressStatus(ctx, ingress); err != nil {
+			// One attempt to cleanup the status of the Ingress.
+			// Don't fail (and retry) on an error, as this might result in
+			// interferences with the new responsible Ingress controller.
+			scopedLog.WithError(err).Warn("Failed to cleanup Ingress status")
+		}
+
 		scopedLog.Info("Successfully cleaned Ingress resources")
 		return controllerruntime.Success()
 	}
@@ -92,8 +99,8 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Update status
-	if err := r.client.Status().Update(ctx, ingress); err != nil {
-		return controllerruntime.Fail(fmt.Errorf("failed to update Ingress status: %w", err))
+	if err := r.updateIngressLoadbalancerStatus(ctx, ingress); err != nil {
+		return controllerruntime.Fail(fmt.Errorf("failed to update Ingress loadbalancer status: %w", err))
 	}
 
 	scopedLog.Info("Successfully reconciled Ingress")
@@ -345,6 +352,71 @@ func (r *ingressReconciler) tryDeletingResource(ctx context.Context, object clie
 	}
 
 	return nil
+}
+
+func (r *ingressReconciler) updateIngressLoadbalancerStatus(ctx context.Context, ingress *networkingv1.Ingress) error {
+	serviceNamespacedName := types.NamespacedName{}
+	if r.isEffectiveLoadbalancerModeDedicated(ingress) {
+		serviceNamespacedName.Namespace = ingress.Namespace
+		serviceNamespacedName.Name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingress.Name)
+	} else {
+		serviceNamespacedName.Namespace = r.ciliumNamespace
+		serviceNamespacedName.Name = r.sharedLBServiceName
+	}
+
+	loadbalancerService := corev1.Service{}
+	if err := r.client.Get(ctx, serviceNamespacedName, &loadbalancerService); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get loadbalancer Service: %w", err)
+		}
+
+		// Reconcile will be triggered if the loadbalancer Service is updated
+		return nil
+	}
+
+	ingress.Status.LoadBalancer.Ingress = convertToNetworkV1IngressLoadBalancerIngress(loadbalancerService.Status.LoadBalancer.Ingress)
+
+	if err := r.client.Status().Update(ctx, ingress); err != nil {
+		return fmt.Errorf("failed to write Ingress status: %w", err)
+	}
+
+	return nil
+}
+
+func (r *ingressReconciler) tryCleanupIngressStatus(ctx context.Context, ingress *networkingv1.Ingress) error {
+	ingress.Status.LoadBalancer.Ingress = []networkingv1.IngressLoadBalancerIngress{}
+
+	if err := r.client.Status().Update(ctx, ingress); err != nil {
+		return fmt.Errorf("failed to update Ingress status: %w", err)
+	}
+
+	return nil
+}
+
+func convertToNetworkV1IngressLoadBalancerIngress(lbIngresses []corev1.LoadBalancerIngress) []networkingv1.IngressLoadBalancerIngress {
+	if lbIngresses == nil {
+		return nil
+	}
+
+	ingLBIngs := make([]networkingv1.IngressLoadBalancerIngress, 0, len(lbIngresses))
+	for _, lbIng := range lbIngresses {
+		ports := make([]networkingv1.IngressPortStatus, 0, len(lbIng.Ports))
+		for _, port := range lbIng.Ports {
+			ports = append(ports, networkingv1.IngressPortStatus{
+				Port:     port.Port,
+				Protocol: corev1.Protocol(port.Protocol),
+				Error:    port.Error,
+			})
+		}
+		ingLBIngs = append(ingLBIngs,
+			networkingv1.IngressLoadBalancerIngress{
+				IP:       lbIng.IP,
+				Hostname: lbIng.Hostname,
+				Ports:    ports,
+			})
+	}
+
+	return ingLBIngs
 }
 
 func (r *ingressReconciler) isEffectiveLoadbalancerModeDedicated(ing *networkingv1.Ingress) bool {
