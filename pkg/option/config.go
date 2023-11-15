@@ -2430,6 +2430,9 @@ type DaemonConfig struct {
 	// identity in a numeric identity. Values > 255 will decrease the number of
 	// allocatable identities.
 	MaxConnectedClusters uint32
+
+	// ForceDeviceRequired enforces the attachment of BPF programs on native device.
+	ForceDeviceRequired bool
 }
 
 var (
@@ -2590,7 +2593,7 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
 	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
-		c.EnableHighScaleIPcache || c.EnableL2Announcements
+		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
