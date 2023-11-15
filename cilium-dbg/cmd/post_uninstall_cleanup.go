@@ -25,9 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/socketlb"
 )
 
-// cleanupCmd represents the cleanup command
-var cleanupCmd = &cobra.Command{
-	Use:   "cleanup",
+// postUninstallCleanupCmd represents the post-uninstall-cleanup command
+var postUninstallCleanupCmd = &cobra.Command{
+	Use:   "post-uninstall-cleanup",
 	Short: "Remove system state installed by Cilium at runtime",
 	Long: `Clean up CNI configurations, CNI binaries, attached BPF programs,
 bpffs, tc filters, routes, links and named network namespaces.
@@ -35,8 +35,8 @@ bpffs, tc filters, routes, links and named network namespaces.
 Running this command might be necessary to get the worker node back into
 working condition after uninstalling the Cilium agent.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.RequireRootPrivilege("cleanup")
-		runCleanup()
+		common.RequireRootPrivilege("post-uninstall-cleanup")
+		runPostUninstallCleanup()
 	},
 }
 
@@ -74,11 +74,11 @@ const (
 )
 
 func init() {
-	RootCmd.AddCommand(cleanupCmd)
+	RootCmd.AddCommand(postUninstallCleanupCmd)
 
-	cleanupCmd.Flags().BoolVarP(&cleanAll, allFlagName, "", false, "Remove all cilium state")
-	cleanupCmd.Flags().BoolVarP(&cleanBPF, bpfFlagName, "", false, "Remove BPF state")
-	cleanupCmd.Flags().BoolVarP(&force, forceFlagName, "f", false, "Skip confirmation")
+	postUninstallCleanupCmd.Flags().BoolVarP(&cleanAll, allFlagName, "", false, "Remove all cilium state")
+	postUninstallCleanupCmd.Flags().BoolVarP(&cleanBPF, bpfFlagName, "", false, "Remove BPF state")
+	postUninstallCleanupCmd.Flags().BoolVarP(&force, forceFlagName, "f", false, "Skip confirmation")
 
 	option.BindEnv(vp, allFlagName)
 	option.BindEnv(vp, bpfFlagName)
@@ -87,7 +87,7 @@ func init() {
 	bindEnv(cleanBpfEnvVar, cleanBpfEnvVar)
 	bindEnv(writeCNIConfWhenReadyEnvVar, writeCNIConfWhenReadyEnvVar)
 
-	if err := vp.BindPFlags(cleanupCmd.Flags()); err != nil {
+	if err := vp.BindPFlags(postUninstallCleanupCmd.Flags()); err != nil {
 		Fatalf("viper failed to bind to flags: %v\n", err)
 	}
 }
@@ -276,7 +276,7 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 	return funcs
 }
 
-func runCleanup() {
+func runPostUninstallCleanup() {
 	// Abort if the agent is running, err == nil is handled correctly by Stat.
 	if _, err := os.Stat(defaults.PidFilePath); !os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Agent should not be running when cleaning up\n"+
