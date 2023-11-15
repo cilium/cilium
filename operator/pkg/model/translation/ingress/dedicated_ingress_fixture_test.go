@@ -285,13 +285,6 @@ var defaultBackendListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-ingress-random-namespace-load-balancing",
 		Namespace: "random-namespace",
-		OwnerReferences: []metav1.OwnerReference{
-			{
-				APIVersion: "networking.k8s.io/v1",
-				Kind:       "Ingress",
-				Name:       "load-balancing",
-			},
-		},
 	},
 	Spec: ciliumv2.CiliumEnvoyConfigSpec{
 		Services: []*ciliumv2.ServiceListener{
@@ -436,13 +429,6 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-ingress-random-namespace-host-rules",
 		Namespace: "random-namespace",
-		OwnerReferences: []metav1.OwnerReference{
-			{
-				APIVersion: "networking.k8s.io/v1",
-				Kind:       "Ingress",
-				Name:       "host-rules",
-			},
-		},
 	},
 	Spec: ciliumv2.CiliumEnvoyConfigSpec{
 		Services: []*ciliumv2.ServiceListener{
@@ -722,13 +708,6 @@ var pathRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-ingress-random-namespace-path-rules",
 		Namespace: "random-namespace",
-		OwnerReferences: []metav1.OwnerReference{
-			{
-				APIVersion: "networking.k8s.io/v1",
-				Kind:       "Ingress",
-				Name:       "path-rules",
-			},
-		},
 	},
 	Spec: ciliumv2.CiliumEnvoyConfigSpec{
 		Services: []*ciliumv2.ServiceListener{
@@ -909,13 +888,6 @@ var proxyProtoListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-ingress-random-namespace-load-balancing",
 		Namespace: "random-namespace",
-		OwnerReferences: []metav1.OwnerReference{
-			{
-				APIVersion: "networking.k8s.io/v1",
-				Kind:       "Ingress",
-				Name:       "load-balancing",
-			},
-		},
 	},
 	Spec: ciliumv2.CiliumEnvoyConfigSpec{
 		Services: []*ciliumv2.ServiceListener{
