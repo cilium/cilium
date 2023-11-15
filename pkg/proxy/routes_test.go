@@ -4,6 +4,7 @@
 package proxy
 
 import (
+	"net"
 	"testing"
 
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -20,88 +21,201 @@ func TestRoutes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	t.Run("IPv4", func(t *testing.T) {
-		nn := "proxy-routing-ipv4"
-		tns, err := netns.ReplaceNetNSWithName(nn)
-		assert.NoError(t, err)
-		t.Cleanup(func() {
-			tns.Close()
-			netns.RemoveNetNSWithName(nn)
+		t.Run("toProxy", func(t *testing.T) {
+			nn := "to-proxy-routing-ipv4"
+			tns, err := netns.ReplaceNetNSWithName(nn)
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				tns.Close()
+				netns.RemoveNetNSWithName(nn)
+			})
+
+			tns.Do(func(_ ns.NetNS) error {
+				// Install routes and rules the first time.
+				assert.NoError(t, installToProxyRoutesIPv4())
+
+				rules, err := route.ListRules(netlink.FAMILY_V4, &toProxyRule)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, rules)
+
+				// List the proxy routing table, expect a single entry.
+				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
+					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 1)
+
+				// Ensure idempotence.
+				assert.NoError(t, installToProxyRoutesIPv4())
+
+				// Remove routes installed before.
+				assert.NoError(t, removeToProxyRoutesIPv4())
+
+				rules, err = route.ListRules(netlink.FAMILY_V4, &toProxyRule)
+				assert.NoError(t, err)
+				assert.Empty(t, rules)
+
+				// List the proxy routing table, expect it to be empty.
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
+					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 0)
+
+				return nil
+			})
 		})
 
-		tns.Do(func(_ ns.NetNS) error {
-			// Install routes and rules the first time.
-			assert.NoError(t, installRoutesIPv4())
-
-			rules, err := route.ListRules(netlink.FAMILY_V4, &tproxyRule)
+		t.Run("fromProxy", func(t *testing.T) {
+			nn := "from-proxy-routing-ipv4"
+			testIPv4 := net.ParseIP("1.2.3.4")
+			tns, err := netns.ReplaceNetNSWithName(nn)
 			assert.NoError(t, err)
-			assert.NotEmpty(t, rules)
+			t.Cleanup(func() {
+				tns.Close()
+				netns.RemoveNetNSWithName(nn)
+			})
 
-			// List the proxy routing table, expect a single entry.
-			rt, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
-				&netlink.Route{Table: linux_defaults.RouteTableProxy}, netlink.RT_FILTER_TABLE)
-			assert.NoError(t, err)
-			assert.Len(t, rt, 1)
+			tns.Do(func(_ ns.NetNS) error {
+				// create test device
+				ifName := "dummy"
+				dummy := &netlink.Dummy{
+					LinkAttrs: netlink.LinkAttrs{
+						Name: ifName,
+					},
+				}
+				err := netlink.LinkAdd(dummy)
+				assert.NoError(t, err)
 
-			// Ensure idempotence.
-			assert.NoError(t, installRoutesIPv4())
+				// Install routes and rules the first time.
+				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName))
 
-			// Remove routes installed before.
-			assert.NoError(t, removeRoutesIPv4())
+				rules, err := route.ListRules(netlink.FAMILY_V4, &fromProxyRule)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, rules)
 
-			rules, err = route.ListRules(netlink.FAMILY_V4, &tproxyRule)
-			assert.NoError(t, err)
-			assert.Empty(t, rules)
+				// List the from proxy (2005) routing table, expect a single entry.
+				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
+					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 2)
 
-			// List the proxy routing table, expect it to be empty.
-			rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
-				&netlink.Route{Table: linux_defaults.RouteTableProxy}, netlink.RT_FILTER_TABLE)
-			assert.NoError(t, err)
-			assert.Len(t, rt, 0)
+				// Ensure idempotence.
+				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName))
 
-			return nil
+				// Remove routes installed before.
+				assert.NoError(t, removeFromProxyRoutesIPv4())
+
+				rules, err = route.ListRules(netlink.FAMILY_V4, &fromProxyRule)
+				assert.NoError(t, err)
+				assert.Empty(t, rules)
+
+				// List the proxy routing table, expect it to be empty.
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
+					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 0)
+
+				return nil
+			})
 		})
 	})
 
 	t.Run("IPv6", func(t *testing.T) {
-		nn := "proxy-routing-ipv6"
-		tns, err := netns.ReplaceNetNSWithName(nn)
-		assert.NoError(t, err)
-		t.Cleanup(func() {
-			tns.Close()
-			netns.RemoveNetNSWithName(nn)
+		t.Run("toProxy", func(t *testing.T) {
+			nn := "to-proxy-routing-ipv6"
+			tns, err := netns.ReplaceNetNSWithName(nn)
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				tns.Close()
+				netns.RemoveNetNSWithName(nn)
+			})
+
+			tns.Do(func(_ ns.NetNS) error {
+				// Install routes and rules the first time.
+				assert.NoError(t, installToProxyRoutesIPv6())
+
+				rules, err := route.ListRules(netlink.FAMILY_V6, &toProxyRule)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, rules)
+
+				// List the proxy routing table, expect a single entry.
+				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V6,
+					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 1)
+
+				// Ensure idempotence.
+				assert.NoError(t, installToProxyRoutesIPv6())
+
+				// Remove routes installed before.
+				assert.NoError(t, removeToProxyRoutesIPv6())
+
+				rules, err = route.ListRules(netlink.FAMILY_V6, &toProxyRule)
+				assert.NoError(t, err)
+				assert.Empty(t, rules)
+
+				// List the proxy routing table, expect it to be empty.
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
+					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 0)
+
+				return nil
+			})
 		})
 
-		tns.Do(func(_ ns.NetNS) error {
-			// Install routes and rules the first time.
-			assert.NoError(t, installRoutesIPv6())
-
-			rules, err := route.ListRules(netlink.FAMILY_V6, &tproxyRule)
+		t.Run("fromProxy", func(t *testing.T) {
+			nn := "from-proxy-routing-ipv6"
+			testIPv6 := net.ParseIP("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
+			tns, err := netns.ReplaceNetNSWithName(nn)
 			assert.NoError(t, err)
-			assert.NotEmpty(t, rules)
+			t.Cleanup(func() {
+				tns.Close()
+				netns.RemoveNetNSWithName(nn)
+			})
 
-			// List the proxy routing table, expect a single entry.
-			rt, err := netlink.RouteListFiltered(netlink.FAMILY_V6,
-				&netlink.Route{Table: linux_defaults.RouteTableProxy}, netlink.RT_FILTER_TABLE)
-			assert.NoError(t, err)
-			assert.Len(t, rt, 1)
+			tns.Do(func(_ ns.NetNS) error {
+				// create test device
+				ifName := "dummy"
+				dummy := &netlink.Dummy{
+					LinkAttrs: netlink.LinkAttrs{
+						Name: ifName,
+					},
+				}
+				err := netlink.LinkAdd(dummy)
+				assert.NoError(t, err)
 
-			// Ensure idempotence.
-			assert.NoError(t, installRoutesIPv6())
+				// Install routes and rules the first time.
+				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName))
 
-			// Remove routes installed before.
-			assert.NoError(t, removeRoutesIPv6())
+				rules, err := route.ListRules(netlink.FAMILY_V6, &fromProxyRule)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, rules)
 
-			rules, err = route.ListRules(netlink.FAMILY_V6, &tproxyRule)
-			assert.NoError(t, err)
-			assert.Empty(t, rules)
+				// List the proxy routing table, expect a single entry.
+				rt, err := netlink.RouteListFiltered(netlink.FAMILY_V6,
+					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 2)
 
-			// List the proxy routing table, expect it to be empty.
-			rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
-				&netlink.Route{Table: linux_defaults.RouteTableProxy}, netlink.RT_FILTER_TABLE)
-			assert.NoError(t, err)
-			assert.Len(t, rt, 0)
+				// Ensure idempotence.
+				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName))
 
-			return nil
+				// Remove routes installed before.
+				assert.NoError(t, removeFromProxyRoutesIPv6())
+
+				rules, err = route.ListRules(netlink.FAMILY_V6, &fromProxyRule)
+				assert.NoError(t, err)
+				assert.Empty(t, rules)
+
+				// List the proxy routing table, expect it to be empty.
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
+					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 0)
+
+				return nil
+			})
 		})
 	})
+
 }
