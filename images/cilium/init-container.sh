@@ -6,10 +6,10 @@
 
 if [ "${CILIUM_BPF_STATE}" = "true" ] \
    || [ "${CLEAN_CILIUM_BPF_STATE}" = "true" ]; then
-	cilium-dbg cleanup -f --bpf-state
+	cilium-dbg post-uninstall-cleanup -f --bpf-state
 fi
 
 if [ "${CILIUM_ALL_STATE}" = "true" ] \
     || [ "${CLEAN_CILIUM_STATE}" = "true" ]; then
-	cilium-dbg cleanup -f --all-state
+	cilium-dbg post-uninstall-cleanup -f --all-state
 fi
