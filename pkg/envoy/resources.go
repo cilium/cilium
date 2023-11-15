@@ -90,11 +90,6 @@ func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion
 	})
 }
 
-// OnIPIdentityCacheGC is required to implement IPIdentityMappingListener.
-func (cache *NPHDSCache) OnIPIdentityCacheGC() {
-	// We don't have anything to synchronize in this case.
-}
-
 // OnIPIdentityCacheChange pushes modifications to the IP<->Identity mapping
 // into the Network Policy Host Discovery Service (NPHDS).
 //

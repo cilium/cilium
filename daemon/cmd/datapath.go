@@ -419,7 +419,7 @@ func (d *Daemon) initMaps() error {
 	// used by syncEndpointsAndHostIPs()
 	// xDS cache will be added later by calling AddListener(), but only if necessary.
 	d.ipcache.SetListeners([]ipcache.IPIdentityMappingListener{
-		datapathIpcache.NewListener(d.monitorAgent, d.ipcache),
+		datapathIpcache.NewListener(d.monitorAgent),
 	})
 
 	if option.Config.EnableIPMasqAgent {

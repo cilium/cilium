@@ -32,8 +32,4 @@ type IPIdentityMappingListener interface {
 	// and may be nil.
 	OnIPIdentityCacheChange(modType CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
 		oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *K8sMetadata)
-
-	// OnIPIdentityCacheGC will be called to sync other components which are
-	// reliant upon the IPIdentityCache with the IPIdentityCache.
-	OnIPIdentityCacheGC()
 }

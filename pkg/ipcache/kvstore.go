@@ -172,7 +172,6 @@ type IPIdentityWatcher struct {
 
 type IPCacher interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (bool, error)
-	ForEachListener(f func(listener IPIdentityMappingListener))
 	Delete(IP string, source source.Source) (namedPortsChanged bool)
 }
 
@@ -374,9 +373,6 @@ func (iw *IPIdentityWatcher) OnDelete(k storepkg.NamedKey) {
 }
 
 func (iw *IPIdentityWatcher) onSync(context.Context) {
-	iw.ipcache.ForEachListener(func(listener IPIdentityMappingListener) {
-		listener.OnIPIdentityCacheGC()
-	})
 	close(iw.synced)
 }
 
