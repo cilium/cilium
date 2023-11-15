@@ -165,6 +165,7 @@ func newDatapath(params datapathParams) types.Datapath {
 		WGAgent:        params.WgAgent,
 		NodeMap:        params.NodeMap,
 		NodeAddressing: params.NodeAddressing,
+		BWManager:      params.BandwidthManager,
 	}, datapathConfig)
 
 	params.LC.Append(hive.Hook{
@@ -195,6 +196,8 @@ type datapathParams struct {
 	// This is required until option.Config.GetDevices() has been removed and
 	// uses of it converted to Table[Device].
 	DeviceManager *linuxdatapath.DeviceManager
+
+	BandwidthManager bandwidth.Manager
 
 	ModulesManager *modules.Manager
 
