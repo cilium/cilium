@@ -243,19 +243,12 @@ jobs:
             # TODO: After Cilium 1.15 release, update to cilium-dbg
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
+      - name: Start conn-disrupt-test
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
           cmd: |
             cd /host/
-
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-              --flush-ct \
-              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests upgrade 1 (${{ join(matrix.*, ', ') }})"
 
             # Create pods which establish long lived connections. It will be used by
             # subsequent connectivity tests with --include-conn-disrupt-test to catch any
