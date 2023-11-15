@@ -6,6 +6,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -14,6 +15,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
@@ -97,10 +100,38 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *ingressReconciler) createOrUpdateDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress) error {
+	desiredCiliumEnvoyConfig, desiredService, desiredEndpoints, err := r.regenerate(ctx, ingress, false)
+	if err != nil {
+		return fmt.Errorf("failed to generate Ingress model: %w", err)
+	}
+
+	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
+		return err
+	}
+
+	if err := r.createOrUpdateService(ctx, desiredService); err != nil {
+		return err
+	}
+
+	if err := r.createOrUpdateEndpoints(ctx, desiredEndpoints); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context, ingress *networkingv1.Ingress) error {
+	// In shared loadbalancing mode, only the CiliumEnvoyConfig is managed by the Operator.
+	// Service and Endpoints are created by the Helm Chart.
+	desiredCiliumEnvoyConfig, _, _, err := r.regenerate(ctx, ingress, false)
+	if err != nil {
+		return fmt.Errorf("failed to generate Ingress model: %w", err)
+	}
+
+	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -192,6 +223,80 @@ func (r *ingressReconciler) regenerate(ctx context.Context, ing *networkingv1.In
 		"loadbalancer":      loadbalancerMode,
 	}).Debugf("Translated resources for ingress")
 	return cec, svc, ep, err
+}
+
+func (r *ingressReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context, desiredCEC *ciliumv2.CiliumEnvoyConfig) error {
+	cec := desiredCEC.DeepCopy()
+
+	result, err := controllerutil.CreateOrUpdate(ctx, r.client, cec, func() error {
+		cec.Spec = desiredCEC.Spec
+		cec.OwnerReferences = desiredCEC.OwnerReferences
+		cec.Annotations = mergeMap(cec.Annotations, desiredCEC.Annotations)
+		cec.Labels = mergeMap(cec.Annotations, desiredCEC.Annotations)
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create or update CiliumEnvoyConfig: %w", err)
+	}
+
+	r.logger.Debugf("CiliumEnvoyConfig %s has been %s", client.ObjectKeyFromObject(cec), result)
+
+	return nil
+}
+
+func (r *ingressReconciler) createOrUpdateService(ctx context.Context, desiredService *corev1.Service) error {
+	svc := desiredService.DeepCopy()
+
+	result, err := controllerutil.CreateOrUpdate(ctx, r.client, svc, func() error {
+		// Save and restore loadBalancerClass
+		// e.g. if a mutating webhook writes this field
+		lbClass := svc.Spec.LoadBalancerClass
+		svc.Spec = desiredService.Spec
+		svc.Spec.LoadBalancerClass = lbClass
+
+		svc.OwnerReferences = desiredService.OwnerReferences
+		svc.Annotations = mergeMap(svc.Annotations, desiredService.Annotations)
+		svc.Labels = mergeMap(svc.Annotations, desiredService.Annotations)
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create or update Service: %w", err)
+	}
+
+	r.logger.Debugf("Service %s has been %s", client.ObjectKeyFromObject(svc), result)
+
+	return nil
+}
+
+func (r *ingressReconciler) createOrUpdateEndpoints(ctx context.Context, desiredEndpoints *corev1.Endpoints) error {
+	ep := desiredEndpoints.DeepCopy()
+
+	result, err := controllerutil.CreateOrUpdate(ctx, r.client, ep, func() error {
+		ep.Subsets = desiredEndpoints.Subsets
+		ep.OwnerReferences = desiredEndpoints.OwnerReferences
+		ep.Annotations = mergeMap(ep.Annotations, desiredEndpoints.Annotations)
+		ep.Labels = mergeMap(ep.Labels, desiredEndpoints.Labels)
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create or update Endpoints: %w", err)
+	}
+
+	r.logger.Debugf("Endpoints %s has been %s", client.ObjectKeyFromObject(ep), result)
+
+	return nil
+}
+
+func mergeMap(dst, src map[string]string) map[string]string {
+	if dst == nil {
+		return src
+	}
+
+	maps.Copy(dst, src)
+	return dst
 }
 
 func (r *ingressReconciler) isEffectiveLoadbalancerModeDedicated(ing *networkingv1.Ingress) bool {
