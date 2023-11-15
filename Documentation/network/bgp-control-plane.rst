@@ -421,12 +421,14 @@ Each ``AdvertisedPathAttributes`` configuration item consists of two parts:
  - ``SelectorType`` with ``Selector`` define which BGP advertisements will be extended with additional Path Attributes.
  - ``Communities`` and / or ``LocalPreference`` define the additional Path Attributes applied on the selected routes.
 
-There are two possible values of the ``SelectorType`` which define the object type on which the ``Selector`` applies:
+There are three possible values of the ``SelectorType`` which define the object type on which the ``Selector`` applies:
 
  - ``PodCIDR``: matches ``CiliumNode`` custom resources
    (Path Attributes apply to routes announced for PodCIDRs of selected ``CiliumNode`` objects).
  - ``CiliumLoadBalancerIPPool``: matches ``CiliumLoadBalancerIPPool`` custom resources
    (Path Attributes apply to routes announced for selected ``CiliumLoadBalancerIPPool`` objects).
+ - ``CiliumPodIPPool``: matches ``CiliumPodIPPool`` custom resources
+   (Path Attributes apply to routes announced for allocated prefixes of selected ``CiliumPodIPPool`` objects).
 
 There are two types of additional Path Attributes that can be advertised with the routes: ``Communities`` and ``LocalPreference``.
 
