@@ -108,6 +108,9 @@ func (r *ingressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// - Deletion of shared Cilium Ingresses during downtime of the Cilium Operator
 		//   -> pseudo Cilium Ingress reconciliation will enforce an update of the shared CEC after the restart
 		Watches(&ciliumv2.CiliumEnvoyConfig{}, r.enqueuePseudoIngress(), r.forSharedCiliumEnvoyConfig()).
+		// Watching Cilium IngressClass for changes being the default Ingress controller
+		// (changed annotation `ingressclass.kubernetes.io/is-default-class`)
+		Watches(&networkingv1.IngressClass{}, r.enqueueIngressesWithoutExplicitClass(), r.forCiliumIngressClass(), withDefaultIngressClassAnnotation()).
 		Complete(r)
 }
 
@@ -144,6 +147,32 @@ func (r *ingressReconciler) enqueueSharedCiliumIngresses() handler.EventHandler 
 	})
 }
 
+func (r *ingressReconciler) enqueueIngressesWithoutExplicitClass() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, _ client.Object) []reconcile.Request {
+		ingressList := networkingv1.IngressList{}
+		if err := r.client.List(ctx, &ingressList); err != nil {
+			r.logger.WithError(err).Warn("Failed to list Ingresses")
+			return nil
+		}
+
+		result := []reconcile.Request{}
+
+		for _, i := range ingressList.Items {
+			if i.Spec.IngressClassName != nil {
+				continue
+			}
+			result = append(result, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: i.Namespace,
+					Name:      i.Name,
+				},
+			})
+		}
+
+		return result
+	})
+}
+
 func (r *ingressReconciler) enqueuePseudoIngress() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, _ client.Object) []reconcile.Request {
 		return []reconcile.Request{
@@ -163,6 +192,14 @@ func (r *ingressReconciler) forSharedLoadbalancerService() builder.WatchesOption
 
 func (r *ingressReconciler) forSharedCiliumEnvoyConfig() builder.WatchesOption {
 	return builder.WithPredicates(&matchesInstancePredicate{namespace: r.ciliumNamespace, name: r.sharedLBServiceName})
+}
+
+func (r *ingressReconciler) forCiliumIngressClass() builder.WatchesOption {
+	return builder.WithPredicates(&matchesInstancePredicate{namespace: "", name: ciliumIngressClassName})
+}
+
+func withDefaultIngressClassAnnotation() builder.WatchesOption {
+	return builder.WithPredicates(&defaultIngressClassPredicate{})
 }
 
 var _ predicate.Predicate = &matchesInstancePredicate{}
@@ -186,4 +223,43 @@ func (r *matchesInstancePredicate) Delete(event event.DeleteEvent) bool {
 
 func (r *matchesInstancePredicate) Generic(event event.GenericEvent) bool {
 	return event.Object.GetNamespace() == r.namespace && event.Object.GetName() == r.name
+}
+
+var _ predicate.Predicate = &defaultIngressClassPredicate{}
+
+type defaultIngressClassPredicate struct{}
+
+func (r *defaultIngressClassPredicate) Create(event event.CreateEvent) bool {
+	return r.isIngressClassMarkedAsDefault(event.Object)
+}
+
+func (r *defaultIngressClassPredicate) Update(event event.UpdateEvent) bool {
+	oldIngressClassDefault := r.isIngressClassMarkedAsDefault(event.ObjectOld)
+	newIngressClassDefault := r.isIngressClassMarkedAsDefault(event.ObjectNew)
+
+	return (oldIngressClassDefault || newIngressClassDefault) &&
+		// Only in case of a change
+		oldIngressClassDefault != newIngressClassDefault
+}
+
+func (r *defaultIngressClassPredicate) Delete(event event.DeleteEvent) bool {
+	return r.isIngressClassMarkedAsDefault(event.Object)
+}
+
+func (r *defaultIngressClassPredicate) Generic(event event.GenericEvent) bool {
+	return r.isIngressClassMarkedAsDefault(event.Object)
+}
+
+func (r *defaultIngressClassPredicate) isIngressClassMarkedAsDefault(o client.Object) bool {
+	ingressClass, ok := o.(*networkingv1.IngressClass)
+	if !ok {
+		return false
+	}
+
+	isDefault, err := isIngressClassMarkedAsDefault(*ingressClass)
+	if err != nil {
+		return false
+	}
+
+	return isDefault
 }
