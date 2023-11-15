@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	ciliumIngressPrefix       = "cilium-ingress-"
-	ciliumIngressLabelKey     = "cilium.io/ingress"
-	ciliumIngressClassName    = "cilium"
+	ciliumIngressPrefix    = "cilium-ingress"
+	ciliumIngressLabelKey  = "cilium.io/ingress"
+	ciliumIngressClassName = "cilium"
+
 	dedicatedLoadbalancerMode = "dedicated"
 	sharedLoadbalancerMode    = "shared"
 )
