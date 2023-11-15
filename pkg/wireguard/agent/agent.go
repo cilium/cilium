@@ -581,11 +581,6 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	}
 }
 
-// OnIPIdentityCacheGC implements ipcache.IPIdentityMappingListener
-func (a *Agent) OnIPIdentityCacheGC() {
-	// ignored
-}
-
 // Status returns the state of the WireGuard tunnel managed by this instance.
 // If withPeers is true, then the details about each connected peer are
 // are populated as well.

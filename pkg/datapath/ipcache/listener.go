@@ -46,7 +46,7 @@ func newListener(m *ipcacheMap.Map, mn monitorNotify) *BPFListener {
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
+func NewListener(mn monitorNotify) *BPFListener {
 	return newListener(ipcacheMap.IPCacheMap(), mn)
 }
 
@@ -160,5 +160,3 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 		scopedLog.Warning("cache modification type not supported")
 	}
 }
-
-func (l *BPFListener) OnIPIdentityCacheGC() {}

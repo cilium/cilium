@@ -602,8 +602,6 @@ func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
 	}
 }
 
-func (dl *dummyListener) OnIPIdentityCacheGC() {}
-
 func (dl *dummyListener) ExpectMapping(c *C, targetIP string, targetIdentity identityPkg.NumericIdentity) {
 	// Identity lookup directly shows the expected mapping
 	identity, exists := dl.ipc.LookupByPrefix(targetIP)

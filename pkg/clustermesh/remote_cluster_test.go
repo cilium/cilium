@@ -49,8 +49,7 @@ func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix strin
 
 type fakeIPCache struct{ updates atomic.Int32 }
 
-func (f *fakeIPCache) ForEachListener(func(listener ipcache.IPIdentityMappingListener)) {}
-func (f *fakeIPCache) Delete(string, source.Source) bool                                { return false }
+func (f *fakeIPCache) Delete(string, source.Source) bool { return false }
 func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcache.Identity) (bool, error) {
 	f.updates.Add(1)
 	return false, nil

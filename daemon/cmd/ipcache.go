@@ -93,11 +93,6 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 	ipc.entries = append(ipc.entries, entry)
 }
 
-// OnIPIdentityCacheGC is required to implement IPIdentityMappingListener.
-func (ipc *ipCacheDumpListener) OnIPIdentityCacheGC() {
-	// Nothing to do.
-}
-
 // containsSubnet returns true if 'outer' contains 'inner'
 func containsSubnet(outer, inner net.IPNet) bool {
 	outerOnes, outerBits := outer.Mask.Size()
