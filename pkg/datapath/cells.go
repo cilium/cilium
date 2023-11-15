@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
 	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/l2responder"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -105,6 +106,9 @@ var Cell = cell.Module(
 		// device-related configuration options.
 		return linuxdatapath.DevicesConfig{Devices: cfg.GetDevices()}
 	}),
+
+	// Synchronizes the userspace ipcache with the corresponding BPF map.
+	ipcache.Cell,
 )
 
 func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *wg.Agent {
