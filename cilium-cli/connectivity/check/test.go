@@ -260,7 +260,7 @@ func (t *Test) finalize() {
 }
 
 // Run executes all Scenarios registered to the Test.
-func (t *Test) Run(ctx context.Context) error {
+func (t *Test) Run(ctx context.Context, index int) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -274,12 +274,12 @@ func (t *Test) Run(ctx context.Context) error {
 	}()
 
 	if len(t.scenarios) == 0 {
-		t.Fail("Test has no Scenarios")
+		t.Failf("Test has no Scenarios [%d/%d]", index, len(t.ctx.tests))
 	}
 
 	// Skip the Test if all of its Scenarios are skipped.
 	if run, reason := t.willRun(); !run {
-		t.Context().skip(t, reason)
+		t.Context().skip(t, index, reason)
 		return nil
 	}
 
@@ -290,7 +290,7 @@ func (t *Test) Run(ctx context.Context) error {
 		t.completionTime = time.Now()
 	}()
 
-	t.ctx.Logf("[=] Test [%s]", t.Name())
+	t.ctx.Logf("[=] Test [%s] [%d/%d]", t.Name(), index, len(t.ctx.tests))
 
 	if err := t.setup(ctx); err != nil {
 		return fmt.Errorf("setting up test: %w", err)
