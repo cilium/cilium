@@ -7,15 +7,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-var exactPathType = slim_networkingv1.PathTypeExact
+var exactPathType = networkingv1.PathTypeExact
 
-var prefixPathType = slim_networkingv1.PathTypePrefix
+var prefixPathType = networkingv1.PathTypePrefix
 
 var testAnnotations = map[string]string{
 	"service.beta.kubernetes.io/dummy-load-balancer-backend-protocol":    "http",
@@ -24,6 +24,7 @@ var testAnnotations = map[string]string{
 }
 
 var defaultSecretNamespace = "default-secret-namespace"
+
 var defaultSecretName = "default-secret-name"
 
 // Add the ingress objects in
@@ -31,17 +32,17 @@ var defaultSecretName = "default-secret-name"
 // as test fixtures
 
 // Just a default backend should produce one simple listener.
-var defaultBackend = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var defaultBackend = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "load-balancing",
 		Namespace: "random-namespace",
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		DefaultBackend: &slim_networkingv1.IngressBackend{
-			Service: &slim_networkingv1.IngressServiceBackend{
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
 				Name: "default-backend",
-				Port: slim_networkingv1.ServiceBackendPort{
+				Port: networkingv1.ServiceBackendPort{
 					Number: 8080,
 				},
 			},
@@ -49,17 +50,17 @@ var defaultBackend = slim_networkingv1.Ingress{
 	},
 }
 
-var defaultBackendLegacy = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var defaultBackendLegacy = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:        "load-balancing",
 		Namespace:   "random-namespace",
 		Annotations: map[string]string{"kubernetes.io/ingress.class": "cilium"},
 	},
-	Spec: slim_networkingv1.IngressSpec{
-		DefaultBackend: &slim_networkingv1.IngressBackend{
-			Service: &slim_networkingv1.IngressServiceBackend{
+	Spec: networkingv1.IngressSpec{
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
 				Name: "default-backend",
-				Port: slim_networkingv1.ServiceBackendPort{
+				Port: networkingv1.ServiceBackendPort{
 					Number: 8080,
 				},
 			},
@@ -67,18 +68,18 @@ var defaultBackendLegacy = slim_networkingv1.Ingress{
 	},
 }
 
-var defaultBackendLegacyOverride = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var defaultBackendLegacyOverride = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:        "load-balancing",
 		Namespace:   "random-namespace",
 		Annotations: map[string]string{"kubernetes.io/ingress.class": "cilium"},
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("contour"),
-		DefaultBackend: &slim_networkingv1.IngressBackend{
-			Service: &slim_networkingv1.IngressServiceBackend{
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
 				Name: "default-backend",
-				Port: slim_networkingv1.ServiceBackendPort{
+				Port: networkingv1.ServiceBackendPort{
 					Number: 8080,
 				},
 			},
@@ -119,30 +120,30 @@ var defaultBackendListeners = []model.HTTPListener{
 // The hostRules resource from the ingress conformance test should produce
 // three listeners, one for host with no TLS config, then one insecure and one
 // secure for the host with TLS config.
-var hostRules = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var hostRules = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "host-rules",
 		Namespace: "random-namespace",
 	},
-	Spec: slim_networkingv1.IngressSpec{
-		TLS: []slim_networkingv1.IngressTLS{
+	Spec: networkingv1.IngressSpec{
+		TLS: []networkingv1.IngressTLS{
 			{
 				Hosts:      []string{"foo.bar.com"},
 				SecretName: "conformance-tls",
 			},
 		},
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
 				Host: "*.foo.com",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "wildcard-foo-com",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -155,15 +156,15 @@ var hostRules = slim_networkingv1.Ingress{
 			},
 			{
 				Host: "foo.bar.com",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "foo-bar-com",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Name: "http",
 										},
 									},
@@ -277,24 +278,24 @@ var hostRulesListeners = []model.HTTPListener{
 // The pathRules resource should produce four listeners, one for each host
 // used in the Ingress.
 
-var pathRules = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var pathRules = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "path-rules",
 		Namespace: "random-namespace",
 	},
-	Spec: slim_networkingv1.IngressSpec{
-		Rules: []slim_networkingv1.IngressRule{
+	Spec: networkingv1.IngressSpec{
+		Rules: []networkingv1.IngressRule{
 			{
 				Host: "exact-path-rules",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/foo",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "foo-exact",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -307,15 +308,15 @@ var pathRules = slim_networkingv1.Ingress{
 			},
 			{
 				Host: "prefix-path-rules",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/foo",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "foo-prefix",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -324,10 +325,10 @@ var pathRules = slim_networkingv1.Ingress{
 							},
 							{
 								Path: "/aaa/bbb",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "aaa-slash-bbb-prefix",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -336,10 +337,10 @@ var pathRules = slim_networkingv1.Ingress{
 							},
 							{
 								Path: "/aaa",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "aaa-prefix",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -352,15 +353,15 @@ var pathRules = slim_networkingv1.Ingress{
 			},
 			{
 				Host: "mixed-path-rules",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/foo",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "foo-prefix",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -369,10 +370,10 @@ var pathRules = slim_networkingv1.Ingress{
 							},
 							{
 								Path: "/foo",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "foo-exact",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -385,15 +386,15 @@ var pathRules = slim_networkingv1.Ingress{
 			},
 			{
 				Host: "trailing-slash-path-rules",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/aaa/bbb/",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "aaa-slash-bbb-slash-prefix",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -402,10 +403,10 @@ var pathRules = slim_networkingv1.Ingress{
 							},
 							{
 								Path: "/foo/",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "foo-slash-exact",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -598,25 +599,25 @@ var pathRulesListeners = []model.HTTPListener{
 // The complexIngress resource from the operator/pkg/ingress testsuite should
 // produce three Listeners with identical routes, for the default host `*`,
 // and then the two TLS hostnames.
-var complexIngress = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var complexIngress = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:        "dummy-ingress",
 		Namespace:   "dummy-namespace",
 		Annotations: testAnnotations,
 		Labels:      testAnnotations,
 		UID:         "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		DefaultBackend: &slim_networkingv1.IngressBackend{
-			Service: &slim_networkingv1.IngressServiceBackend{
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
 				Name: "default-backend",
-				Port: slim_networkingv1.ServiceBackendPort{
+				Port: networkingv1.ServiceBackendPort{
 					Number: 8080,
 				},
 			},
 		},
-		TLS: []slim_networkingv1.IngressTLS{
+		TLS: []networkingv1.IngressTLS{
 			{
 				Hosts:      []string{"very-secure.server.com"},
 				SecretName: "tls-very-secure-server-com",
@@ -629,17 +630,17 @@ var complexIngress = slim_networkingv1.Ingress{
 				SecretName: "tls-another-very-secure-server-com",
 			},
 		},
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/dummy-path",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -648,10 +649,10 @@ var complexIngress = slim_networkingv1.Ingress{
 							},
 							{
 								Path: "/another-dummy-path",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "another-dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8081,
 										},
 									},
@@ -904,8 +905,8 @@ var complexIngressListeners = []model.HTTPListener{
 }
 
 // complexNodePortIngress is same as complexIngress but with NodePort service
-var complexNodePortIngress = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var complexNodePortIngress = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "dummy-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
@@ -915,17 +916,17 @@ var complexNodePortIngress = slim_networkingv1.Ingress{
 		},
 		UID: "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		DefaultBackend: &slim_networkingv1.IngressBackend{
-			Service: &slim_networkingv1.IngressServiceBackend{
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
 				Name: "default-backend",
-				Port: slim_networkingv1.ServiceBackendPort{
+				Port: networkingv1.ServiceBackendPort{
 					Number: 8080,
 				},
 			},
 		},
-		TLS: []slim_networkingv1.IngressTLS{
+		TLS: []networkingv1.IngressTLS{
 			{
 				Hosts:      []string{"very-secure.server.com"},
 				SecretName: "tls-very-secure-server-com",
@@ -938,17 +939,17 @@ var complexNodePortIngress = slim_networkingv1.Ingress{
 				SecretName: "tls-another-very-secure-server-com",
 			},
 		},
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/dummy-path",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -957,10 +958,10 @@ var complexNodePortIngress = slim_networkingv1.Ingress{
 							},
 							{
 								Path: "/another-dummy-path",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "another-dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8081,
 										},
 									},
@@ -1240,8 +1241,8 @@ func uint32p(in uint32) *uint32 {
 	return &in
 }
 
-func removeIngressTLSsecretName(ing slim_networkingv1.Ingress) slim_networkingv1.Ingress {
-	ret := slim_networkingv1.Ingress{}
+func removeIngressTLSsecretName(ing networkingv1.Ingress) networkingv1.Ingress {
+	ret := networkingv1.Ingress{}
 	ing.DeepCopyInto(&ret)
 	for i := range ret.Spec.TLS {
 		ret.Spec.TLS[i].SecretName = ""
@@ -1271,15 +1272,15 @@ func useDefaultListenersTLSsecret(listeners []model.HTTPListener) []model.HTTPLi
 	return ret
 }
 
-func removeIngressHTTPRuleValues(ing slim_networkingv1.Ingress) slim_networkingv1.Ingress {
-	var rules []slim_networkingv1.IngressRule
+func removeIngressHTTPRuleValues(ing networkingv1.Ingress) networkingv1.Ingress {
+	var rules []networkingv1.IngressRule
 
 	for _, r := range ing.Spec.Rules {
 		r.HTTP = nil
 		rules = append(rules, r)
 	}
 
-	ret := slim_networkingv1.Ingress{}
+	ret := networkingv1.Ingress{}
 	ing.DeepCopyInto(&ret)
 	ret.Spec.Rules = rules
 
@@ -1287,7 +1288,7 @@ func removeIngressHTTPRuleValues(ing slim_networkingv1.Ingress) slim_networkingv
 }
 
 type testcase struct {
-	ingress       slim_networkingv1.Ingress
+	ingress       networkingv1.Ingress
 	defaultSecret bool
 	want          []model.HTTPListener
 }
@@ -1391,7 +1392,6 @@ func TestIngress(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-
 		t.Run(name, func(t *testing.T) {
 			var listeners []model.HTTPListener
 			if tc.defaultSecret {
@@ -1420,28 +1420,28 @@ var sslPassthruSources = []model.FullyQualifiedResource{
 var emptyTLSListeners = []model.TLSListener{}
 
 // sslPassthru tests basic SSL Passthrough
-var sslPassthru = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var sslPassthru = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
 			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
 				Host: "sslpassthru.example.com",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -1479,27 +1479,27 @@ var sslPassthruTLSListeners = []model.TLSListener{
 }
 
 // sslPassthruNoHost tests when there's no host set
-var sslPassthruNoHost = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var sslPassthruNoHost = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
 			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -1515,48 +1515,48 @@ var sslPassthruNoHost = slim_networkingv1.Ingress{
 }
 
 // sslPassthruNoRule tests when there's a hostname but no rule at all
-var sslPassthruNoRule = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var sslPassthruNoRule = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
 			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
 				Host:             "sslpassthru.example.com",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{},
+				IngressRuleValue: networkingv1.IngressRuleValue{},
 			},
 		},
 	},
 }
 
 // sslPassthruExtraPath tests when a hostname and a rule but the path isn't '/'
-var sslPassthruExtraPath = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var sslPassthruExtraPath = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
 			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
 				Host: "sslpassthru.example.com",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/prefix",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -1572,8 +1572,8 @@ var sslPassthruExtraPath = slim_networkingv1.Ingress{
 }
 
 // sslPassthruNodePort tests when the Ingress has a NodePort Service set.
-var sslPassthruNodePort = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var sslPassthruNodePort = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
@@ -1583,20 +1583,20 @@ var sslPassthruNodePort = slim_networkingv1.Ingress{
 			"ingress.cilium.io/tls-passthrough":    "true",
 		},
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
 				Host: "sslpassthru.example.com",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -1639,28 +1639,28 @@ var sslPassthruTLSListenersNodePort = []model.TLSListener{
 }
 
 // sslPassthruMultiplePaths tests when there are multiple paths, with one being '/'
-var sslPassthruMultiplePaths = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var sslPassthruMultiplePaths = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
 			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		Rules: []slim_networkingv1.IngressRule{
+		Rules: []networkingv1.IngressRule{
 			{
 				Host: "sslpassthru.example.com",
-				IngressRuleValue: slim_networkingv1.IngressRuleValue{
-					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
-						Paths: []slim_networkingv1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								Path: "/prefix",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -1669,10 +1669,10 @@ var sslPassthruMultiplePaths = slim_networkingv1.Ingress{
 							},
 							{
 								Path: "/",
-								Backend: slim_networkingv1.IngressBackend{
-									Service: &slim_networkingv1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: "dummy-backend",
-										Port: slim_networkingv1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 8080,
 										},
 									},
@@ -1710,30 +1710,30 @@ var sslPassthruMultiplePathsTLSListeners = []model.TLSListener{
 }
 
 // sslPassthruDefaultBackend tests when there's a default backend supplied
-var sslPassthruDefaultBackend = slim_networkingv1.Ingress{
-	ObjectMeta: slim_metav1.ObjectMeta{
+var sslPassthruDefaultBackend = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "sslpassthru-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
 			"ingress.cilium.io/tls-passthrough": "true",
 		},
 	},
-	Spec: slim_networkingv1.IngressSpec{
+	Spec: networkingv1.IngressSpec{
 		IngressClassName: stringp("cilium"),
-		DefaultBackend: &slim_networkingv1.IngressBackend{
-			Service: &slim_networkingv1.IngressServiceBackend{
+		DefaultBackend: &networkingv1.IngressBackend{
+			Service: &networkingv1.IngressServiceBackend{
 				Name: "default-backend",
-				Port: slim_networkingv1.ServiceBackendPort{
+				Port: networkingv1.ServiceBackendPort{
 					Number: 8080,
 				},
 			},
 		},
-		Rules: []slim_networkingv1.IngressRule{},
+		Rules: []networkingv1.IngressRule{},
 	},
 }
 
 type passthruTestcase struct {
-	ingress       slim_networkingv1.Ingress
+	ingress       networkingv1.Ingress
 	defaultSecret bool
 	want          []model.TLSListener
 }
@@ -1771,7 +1771,6 @@ func TestIngressPassthrough(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-
 		t.Run(name, func(t *testing.T) {
 			var listeners []model.TLSListener
 			if tc.defaultSecret {

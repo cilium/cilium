@@ -6,18 +6,18 @@ package ingestion
 import (
 	"sort"
 
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+
 	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
 	"github.com/cilium/cilium/operator/pkg/model"
-	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Ingress translates an Ingress resource to a HTTPListener.
 // This function does not check IngressClass (via field or annotation).
 // It's expected that only relevant Ingresses will have this function called on them.
-func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string) []model.HTTPListener {
-
+func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string) []model.HTTPListener {
 	// First, we make a map of HTTPListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
@@ -63,7 +63,8 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 					Backends: []model.Backend{
 						backend,
 					},
-				}},
+				},
+			},
 			Port:    80,
 			Service: getService(ing),
 		}
@@ -101,11 +102,11 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 			route := model.HTTPRoute{}
 
 			switch *path.PathType {
-			case slim_networkingv1.PathTypeExact:
+			case networkingv1.PathTypeExact:
 				route.PathMatch.Exact = path.Path
-			case slim_networkingv1.PathTypePrefix:
+			case networkingv1.PathTypePrefix:
 				route.PathMatch.Prefix = path.Path
-			case slim_networkingv1.PathTypeImplementationSpecific:
+			case networkingv1.PathTypeImplementationSpecific:
 				route.PathMatch.Regex = path.Path
 			}
 
@@ -134,7 +135,6 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 
 	// First, we check for TLS config, and set them up with Listeners to return.
 	for _, tlsConfig := range ing.Spec.TLS {
-
 		for _, host := range tlsConfig.Hosts {
 
 			l, ok := secureListenerMap[host]
@@ -196,7 +196,6 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 
 			}
 		}
-
 	}
 
 	listenerSlice := make([]model.HTTPListener, 0, len(insecureListenerMap)+len(secureListenerMap))
@@ -204,7 +203,6 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 	listenerSlice = appendValuesInKeyOrder(secureListenerMap, listenerSlice)
 
 	return listenerSlice
-
 }
 
 // IngressPassthrough translates an Ingress resource with the tls-passthrough annotation to a TLSListener.
@@ -216,8 +214,7 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 // * must have a host set
 // * rules with paths other than '/' are ignored
 // * default backends are ignored
-func IngressPassthrough(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string) []model.TLSListener {
-
+func IngressPassthrough(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string) []model.TLSListener {
 	// First, we make a map of TLSListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
@@ -313,10 +310,9 @@ func IngressPassthrough(ing slim_networkingv1.Ingress, defaultSecretNamespace, d
 	listenerSlice = appendValuesInKeyOrder(tlsListenerMap, listenerSlice)
 
 	return listenerSlice
-
 }
 
-func getService(ing slim_networkingv1.Ingress) *model.Service {
+func getService(ing networkingv1.Ingress) *model.Service {
 	if annotations.GetAnnotationServiceType(&ing) != string(corev1.ServiceTypeNodePort) {
 		return nil
 	}
@@ -345,7 +341,6 @@ func getService(ing slim_networkingv1.Ingress) *model.Service {
 // appendValuesInKeyOrder ensures that the slice of listeners is stably sorted by
 // appending the values of the map in order of the keys to the appendSlice.
 func appendValuesInKeyOrder[T model.HTTPListener | model.TLSListener](listenerMap map[string]T, appendSlice []T) []T {
-
 	var keys []string
 
 	for key := range listenerMap {
