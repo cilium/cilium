@@ -113,6 +113,11 @@ func (r *ingressReconciler) createOrUpdateDedicatedResources(ctx context.Context
 		return fmt.Errorf("failed to generate Ingress model: %w", err)
 	}
 
+	// Explicitly set the controlling OwnerReference on the CiliumEnvoyConfig
+	if err := controllerutil.SetControllerReference(ingress, desiredCiliumEnvoyConfig, r.client.Scheme()); err != nil {
+		return fmt.Errorf("failed to set controller reference on CiliumEnvoyConfig: %w", err)
+	}
+
 	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
 		return err
 	}

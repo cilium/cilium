@@ -11,7 +11,6 @@ import (
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -73,22 +72,6 @@ func (i *defaultTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoy
 	cec.Spec.Services = i.getServices(model)
 	cec.Spec.Resources = i.getResources(model)
 
-	ownerReferences := make([]metav1.OwnerReference, 0, len(model.HTTP))
-	uniqueMap := map[string]struct{}{}
-	for _, h := range model.HTTP {
-		key := fmt.Sprintf("%s/%s/%s", h.Sources[0].Version, h.Sources[0].Kind, h.Sources[0].Name)
-		if _, exists := uniqueMap[key]; exists {
-			continue
-		}
-		uniqueMap[key] = struct{}{}
-		ownerReferences = append(ownerReferences, metav1.OwnerReference{
-			APIVersion: h.Sources[0].Version,
-			Kind:       h.Sources[0].Kind,
-			Name:       h.Sources[0].Name,
-			UID:        types.UID(h.Sources[0].UID),
-		})
-	}
-	cec.OwnerReferences = ownerReferences
 	return cec, nil, nil, nil
 }
 
