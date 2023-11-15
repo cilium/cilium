@@ -788,7 +788,7 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	nodes := make(map[nodeTypes.Identity]nodeTypes.Node)
+	nodes := make(map[nodeTypes.Identity]nodeTypes.Node, len(m.nodes))
 	for nodeIdentity, entry := range m.nodes {
 		entry.mutex.Lock()
 		nodes[nodeIdentity] = entry.node

@@ -4197,6 +4197,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/NodeAddressingElement"
           }
+        },
+        "source": {
+          "description": "Source of the node configuration",
+          "type": "string"
         }
       }
     },
@@ -10256,6 +10260,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/NodeAddressingElement"
           }
+        },
+        "source": {
+          "description": "Source of the node configuration",
+          "type": "string"
         }
       }
     },

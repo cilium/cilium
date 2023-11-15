@@ -2836,6 +2836,9 @@ definitions:
       ingress-address:
         description: Source address for Ingress listener
         "$ref": "#/definitions/NodeAddressing"
+      source:
+        description: Source of the node configuration
+        type: string
   NodeAddressing:
     description: |-
       Addressing information of a node for all address families
