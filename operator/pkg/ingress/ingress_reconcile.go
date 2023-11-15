@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
@@ -32,19 +33,83 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	scopedLog.Info("Reconciling Ingress")
 	ingress := &networkingv1.Ingress{}
 	if err := r.client.Get(ctx, req.NamespacedName, ingress); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return controllerruntime.Success()
+		if !k8serrors.IsNotFound(err) {
+			return controllerruntime.Fail(fmt.Errorf("failed to get Ingress: %w", err))
 		}
-		return controllerruntime.Fail(err)
+		// Ingress deleted -> try to cleanup shared CiliumEnvoyConfig
+		// Resources from LB mode dedicated are deleted via K8s Garbage Collection (OwnerReferences)
+		if err := r.tryCleanupSharedResources(ctx, req.NamespacedName); err != nil {
+			return controllerruntime.Fail(err)
+		}
+
+		return controllerruntime.Success()
 	}
 
+	// Ingress gets deleted via foreground deletion (DeletionTimestamp set)
+	// -> abort and wait for the actual deletion to trigger a reconcile
+	if ingress.GetDeletionTimestamp() != nil {
+		scopedLog.Debug("Ingress is marked for deletion - waiting for actual deletion")
+		return controllerruntime.Success()
+	}
+
+	// Ingress is no longer managed by Cilium.
+	// Trying to cleanup resources.
+	if !isCiliumManagedIngress(ctx, r.client, *ingress) {
+		if err := r.tryCleanupSharedResources(ctx, req.NamespacedName); err != nil {
+			return controllerruntime.Fail(err)
+		}
+
+		if err := r.tryCleanupDedicatedResources(ctx, req.NamespacedName); err != nil {
+			return controllerruntime.Fail(err)
+		}
+
+		scopedLog.Info("Successfully cleaned Ingress resources")
+		return controllerruntime.Success()
+	}
+
+	if r.isEffectiveLoadbalancerModeDedicated(ingress) {
+		if err := r.createOrUpdateDedicatedResources(ctx, ingress); err != nil {
+			return controllerruntime.Fail(err)
+		}
+
+		// Trying to cleanup shared resources (potential change of LB mode)
+		if err := r.tryCleanupSharedResources(ctx, req.NamespacedName); err != nil {
+			return controllerruntime.Fail(err)
+		}
+	} else {
+		if err := r.createOrUpdateSharedResources(ctx, ingress); err != nil {
+			return controllerruntime.Fail(err)
+		}
+
+		// Trying to cleanup dedicated resources (potential change of LB mode)
+		if err := r.tryCleanupDedicatedResources(ctx, req.NamespacedName); err != nil {
+			return controllerruntime.Fail(err)
+		}
+	}
+
+	// Update status
 	if err := r.client.Status().Update(ctx, ingress); err != nil {
-		scopedLog.WithError(err).Error("Failed to update Ingress status")
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to update Ingress status: %w", err))
 	}
 
 	scopedLog.Info("Successfully reconciled Ingress")
 	return controllerruntime.Success()
+}
+
+func (r *ingressReconciler) createOrUpdateDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress) error {
+	return nil
+}
+
+func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context, ingress *networkingv1.Ingress) error {
+	return nil
+}
+
+func (r *ingressReconciler) tryCleanupDedicatedResources(ctx context.Context, namespacedName types.NamespacedName) error {
+	return nil
+}
+
+func (r *ingressReconciler) tryCleanupSharedResources(ctx context.Context, namespacedName types.NamespacedName) error {
+	return nil
 }
 
 // regenerate regenerates the desired stage for all related resources.
