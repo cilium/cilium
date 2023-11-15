@@ -403,10 +403,10 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 	}
 
 	// Newline denoting start of test output.
-	ct.Log("🏃 Running tests...")
+	ct.Logf("🏃 Running %d tests ...", len(ct.tests))
 
 	// Execute all tests in the order they were registered by the test suite.
-	for _, t := range ct.tests {
+	for i, t := range ct.tests {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -416,7 +416,7 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 		go func() {
 			defer func() { done <- true }()
 
-			if err := t.Run(ctx); err != nil {
+			if err := t.Run(ctx, i+1); err != nil {
 				// We know for sure we're inside a separate goroutine, so Fatal()
 				// is safe and will properly record failure statistics.
 				t.Fatalf("Running test %s: %s", t.Name(), err)
@@ -478,8 +478,8 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 }
 
 // skip marks the Test as skipped.
-func (ct *ConnectivityTest) skip(t *Test, reason string) {
-	ct.Logf("[=] Skipping Test [%s] (%s)", t.Name(), reason)
+func (ct *ConnectivityTest) skip(t *Test, index int, reason string) {
+	ct.Logf("[=] Skipping Test [%s] [%d/%d] (%s)", t.Name(), index, len(t.ctx.tests), reason)
 	t.skipped = true
 }
 
