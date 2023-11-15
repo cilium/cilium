@@ -16,6 +16,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+// UseOriginalSourceAddressLabel is the k8s label that can be added to a
+// `CiliumEnvoyConfig`. This way the Cilium BPF Metadata listener filter is configured
+// to use the original source address when extracting the metadata for a request.
+const UseOriginalSourceAddressLabel = "cilium.io/use-original-source-address"
+
 const (
 	// AnnotationIstioSidecarStatus is the annotation added by Istio into a pod
 	// when it is injected with a sidecar proxy.
@@ -36,12 +41,10 @@ const (
 	DefaultSidecarIstioProxyImageRegexp = "cilium/istio_proxy"
 )
 
-var (
-	// SidecarIstioProxyImageRegexp is the regular expression matching
-	// compatible Istio sidecar istio-proxy container image names.
-	// This is set by the "sidecar-istio-proxy-image" configuration flag.
-	SidecarIstioProxyImageRegexp = regexp.MustCompile(DefaultSidecarIstioProxyImageRegexp)
-)
+// SidecarIstioProxyImageRegexp is the regular expression matching
+// compatible Istio sidecar istio-proxy container image names.
+// This is set by the "sidecar-istio-proxy-image" configuration flag.
+var SidecarIstioProxyImageRegexp = regexp.MustCompile(DefaultSidecarIstioProxyImageRegexp)
 
 // isInjectedWithIstioSidecarProxy returns whether the given pod has been
 // injected by Istio with a sidecar proxy that is compatible with Cilium.

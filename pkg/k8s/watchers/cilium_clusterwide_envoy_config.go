@@ -6,6 +6,10 @@ package watchers
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -16,10 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 )
 
 func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ctx context.Context, clientset client.Clientset) {
@@ -94,7 +94,7 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		true,
 		k.envoyConfigManager,
 		len(ccec.Spec.Services) > 0,
-		!isCiliumIngress(&ccec.ObjectMeta),
+		useOriginalSourceAddress(&ccec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config")
@@ -140,7 +140,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		false,
 		k.envoyConfigManager,
 		len(oldCCEC.Spec.Services) > 0,
-		!isCiliumIngress(&oldCCEC.ObjectMeta),
+		useOriginalSourceAddress(&oldCCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed old Envoy config")
@@ -153,7 +153,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		true,
 		k.envoyConfigManager,
 		len(newCCEC.Spec.Services) > 0,
-		!isCiliumIngress(&newCCEC.ObjectMeta),
+		useOriginalSourceAddress(&newCCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config")
@@ -199,7 +199,7 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 		false,
 		k.envoyConfigManager,
 		len(ccec.Spec.Services) > 0,
-		!isCiliumIngress(&ccec.ObjectMeta),
+		useOriginalSourceAddress(&ccec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyConfig: parsing rersource names failed")
