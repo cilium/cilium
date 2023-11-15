@@ -55,7 +55,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 
 	for _, reg := range r.registrations {
-		if reg.RefObjectCheckFunc(ctx, r.client, original) || reg.IsDefaultSecret(original) {
+		if reg.RefObjectCheckFunc(ctx, r.client, r.logger, original) || reg.IsDefaultSecret(original) {
 			desiredSync := desiredSyncSecret(reg.SecretsNamespace, original)
 
 			if err := r.ensureSyncedSecret(ctx, desiredSync); err != nil {

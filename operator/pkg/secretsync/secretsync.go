@@ -42,7 +42,7 @@ type SecretSyncRegistration struct {
 	// RefObjectCheckFunc defines a function that is called to check whether the given K8s Secret
 	// is still referenced by a reference object.
 	// Synced Secrets that origin from K8s Secrets that are no longer referenced by any registration are deleted.
-	RefObjectCheckFunc func(ctx context.Context, c client.Client, obj *corev1.Secret) bool
+	RefObjectCheckFunc func(ctx context.Context, c client.Client, logger logrus.FieldLogger, obj *corev1.Secret) bool
 	// SecretsNamespace defines the name of the namespace in which the referenced K8s Secrets are to be synchronized.
 	SecretsNamespace string
 	// AdditionalWatches definites additional watches beside watching the directly referencing Kubernetes Object.

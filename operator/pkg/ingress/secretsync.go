@@ -30,7 +30,7 @@ func EnqueueReferencedTLSSecrets(c client.Client, logger logrus.FieldLogger) han
 		}
 
 		// Check whether Ingress is managed by Cilium
-		if !isCiliumManagedIngress(ctx, c, *ing) {
+		if !isCiliumManagedIngress(ctx, c, logger, *ing) {
 			return nil
 		}
 
@@ -72,14 +72,14 @@ func enqueueAllSecrets(c client.Client) handler.EventHandler {
 	})
 }
 
-func IsReferencedByCiliumIngress(ctx context.Context, c client.Client, obj *corev1.Secret) bool {
+func IsReferencedByCiliumIngress(ctx context.Context, c client.Client, logger logrus.FieldLogger, obj *corev1.Secret) bool {
 	ingresses := networkingv1.IngressList{}
 	if err := c.List(ctx, &ingresses, client.InNamespace(obj.GetNamespace())); err != nil {
 		return false
 	}
 
 	for _, i := range ingresses.Items {
-		if isCiliumManagedIngress(ctx, c, i) {
+		if isCiliumManagedIngress(ctx, c, logger, i) {
 			for _, t := range i.Spec.TLS {
 				if t.SecretName == obj.GetName() {
 					return true
