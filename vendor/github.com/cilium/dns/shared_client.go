@@ -155,6 +155,7 @@ func handler(wg *sync.WaitGroup, client *Client, conn *Conn, requests chan reque
 				if errors.Is(err, net.ErrClosed) {
 					return
 				}
+				fmt.Printf("aanm err type is %T: %s\n", err, err)
 				responses <- sharedClientResponse{nil, 0, err}
 			} else {
 				responses <- sharedClientResponse{r, 0, nil}
