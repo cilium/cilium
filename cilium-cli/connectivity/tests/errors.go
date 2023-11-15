@@ -34,7 +34,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 		RunInitFailed:       nil,
 		sizeMismatch:        {"globals/cilium_policy"},
 		emptyBPFInitArg:     nil,
-		RemovingMapMsg:      nil,
+		RemovingMapMsg:      {"globals/cilium_policy"},
 		logBufferMessage:    nil,
 		ClangErrorsMsg:      nil,
 		ClangErrorMsg:       nil,
