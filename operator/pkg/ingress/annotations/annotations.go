@@ -47,6 +47,11 @@ const (
 	defaultWebsocketEnabled          = 0 // 1 - Enabled, 0 - Disabled
 )
 
+const (
+	LoadbalancerModeDedicated = "dedicated"
+	LoadbalancerModeShared    = "shared"
+)
+
 // GetAnnotationIngressLoadbalancerMode returns the loadbalancer mode for the ingress if possible.
 func GetAnnotationIngressLoadbalancerMode(ingress *networkingv1.Ingress) string {
 	value, _ := annotation.Get(ingress, LBModeAnnotation, LBModeAnnotationAlias)

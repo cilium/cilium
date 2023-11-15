@@ -427,11 +427,11 @@ func convertToNetworkV1IngressLoadBalancerIngress(lbIngresses []corev1.LoadBalan
 func (r *ingressReconciler) isEffectiveLoadbalancerModeDedicated(ing *networkingv1.Ingress) bool {
 	value := annotations.GetAnnotationIngressLoadbalancerMode(ing)
 	switch value {
-	case dedicatedLoadbalancerMode:
+	case annotations.LoadbalancerModeDedicated:
 		return true
-	case sharedLoadbalancerMode:
+	case annotations.LoadbalancerModeShared:
 		return false
 	default:
-		return r.defaultLoadbalancerMode == dedicatedLoadbalancerMode
+		return r.defaultLoadbalancerMode == annotations.LoadbalancerModeDedicated
 	}
 }
