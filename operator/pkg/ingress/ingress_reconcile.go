@@ -29,7 +29,7 @@ import (
 )
 
 func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
+	scopedLog := r.logger.WithFields(logrus.Fields{
 		logfields.Controller: "ingress",
 		logfields.Resource:   req.NamespacedName,
 	})
@@ -58,7 +58,7 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Ingress is no longer managed by Cilium.
 	// Trying to cleanup resources.
-	if !isCiliumManagedIngress(ctx, r.client, *ingress) {
+	if !isCiliumManagedIngress(ctx, r.client, r.logger, *ingress) {
 		if err := r.tryCleanupSharedResources(ctx, req.NamespacedName); err != nil {
 			return controllerruntime.Fail(err)
 		}
@@ -192,7 +192,7 @@ func (r *ingressReconciler) tryCleanupSharedResources(ctx context.Context, ingre
 // This internally leverage different Ingress translators (e.g. shared vs dedicated).
 // If forceShared is true, only the shared translator will be used.
 func (r *ingressReconciler) regenerate(ctx context.Context, ing *networkingv1.Ingress, forceShared bool) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
-	scopedLog := log.WithFields(logrus.Fields{
+	scopedLog := r.logger.WithFields(logrus.Fields{
 		logfields.K8sNamespace: ing.GetNamespace(),
 		logfields.Ingress:      ing.GetName(),
 	})
@@ -219,7 +219,7 @@ func (r *ingressReconciler) regenerate(ctx context.Context, ing *networkingv1.In
 		}
 
 		for _, item := range ingressList.Items {
-			if !isCiliumManagedIngress(ctx, r.client, item) || r.isEffectiveLoadbalancerModeDedicated(&item) || item.GetDeletionTimestamp() != nil {
+			if !isCiliumManagedIngress(ctx, r.client, r.logger, item) || r.isEffectiveLoadbalancerModeDedicated(&item) || item.GetDeletionTimestamp() != nil {
 				continue
 			}
 			if annotations.GetAnnotationTLSPassthroughEnabled(&item) {
