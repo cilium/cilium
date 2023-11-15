@@ -94,8 +94,20 @@ func (r *ingressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Endpoints{}).
 		// CiliumEnvoyConfig resource with OwnerReference to the Ingress with dedicated loadbalancing mode
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
-		// Watching shared loadbalancer Service and reconcile all shared Cilium Ingresses
+		// Watching shared loadbalancer Service and reconcile all shared Cilium Ingresses.
+		// It's necessary to reconcile all shared Cilium Ingresses as they all have to potentially update their LoadBalancer status.
 		Watches(&corev1.Service{}, r.enqueueSharedCiliumIngresses(), r.forSharedLoadbalancerService()).
+		// Watching shared CiliumEnvoyConfig and reconcile a non-existing pseudo Cilium Ingress.
+		// Its not necessary to reconcile all shared Cilium Ingresses as they all will update the
+		// shared CEC with the complete model that includes all shared Cilium Ingresses.
+		// This will cover the following cases
+		// - Manual deletion of shared CEC
+		//   -> Pseudo Cilium Ingress reconciliation will re-create it
+		// - Manual update of shared CEC
+		//   -> Pseudo Cilium Ingress reconciliation will enforce an update of the shared CEC
+		// - Deletion of shared Cilium Ingresses during downtime of the Cilium Operator
+		//   -> pseudo Cilium Ingress reconciliation will enforce an update of the shared CEC after the restart
+		Watches(&ciliumv2.CiliumEnvoyConfig{}, r.enqueuePseudoIngress(), r.forSharedCiliumEnvoyConfig()).
 		Complete(r)
 }
 
@@ -132,29 +144,46 @@ func (r *ingressReconciler) enqueueSharedCiliumIngresses() handler.EventHandler 
 	})
 }
 
-func (r *ingressReconciler) forSharedLoadbalancerService() builder.WatchesOption {
-	return builder.WithPredicates(&isSharedLoadbalancerServicePredicate{namespace: r.ciliumNamespace, name: r.sharedLBServiceName})
+func (r *ingressReconciler) enqueuePseudoIngress() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, _ client.Object) []reconcile.Request {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Namespace: r.ciliumNamespace,
+					Name:      "pseudo-ingress",
+				},
+			},
+		}
+	})
 }
 
-var _ predicate.Predicate = &isSharedLoadbalancerServicePredicate{}
+func (r *ingressReconciler) forSharedLoadbalancerService() builder.WatchesOption {
+	return builder.WithPredicates(&matchesInstancePredicate{namespace: r.ciliumNamespace, name: r.sharedLBServiceName})
+}
 
-type isSharedLoadbalancerServicePredicate struct {
+func (r *ingressReconciler) forSharedCiliumEnvoyConfig() builder.WatchesOption {
+	return builder.WithPredicates(&matchesInstancePredicate{namespace: r.ciliumNamespace, name: r.sharedLBServiceName})
+}
+
+var _ predicate.Predicate = &matchesInstancePredicate{}
+
+type matchesInstancePredicate struct {
 	namespace string
 	name      string
 }
 
-func (r *isSharedLoadbalancerServicePredicate) Create(event event.CreateEvent) bool {
+func (r *matchesInstancePredicate) Create(event event.CreateEvent) bool {
 	return event.Object.GetNamespace() == r.namespace && event.Object.GetName() == r.name
 }
 
-func (r *isSharedLoadbalancerServicePredicate) Update(event event.UpdateEvent) bool {
+func (r *matchesInstancePredicate) Update(event event.UpdateEvent) bool {
 	return event.ObjectNew.GetNamespace() == r.namespace && event.ObjectNew.GetName() == r.name
 }
 
-func (r *isSharedLoadbalancerServicePredicate) Delete(event event.DeleteEvent) bool {
+func (r *matchesInstancePredicate) Delete(event event.DeleteEvent) bool {
 	return event.Object.GetNamespace() == r.namespace && event.Object.GetName() == r.name
 }
 
-func (r *isSharedLoadbalancerServicePredicate) Generic(event event.GenericEvent) bool {
+func (r *matchesInstancePredicate) Generic(event event.GenericEvent) bool {
 	return event.Object.GetNamespace() == r.namespace && event.Object.GetName() == r.name
 }
