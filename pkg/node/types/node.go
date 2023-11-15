@@ -572,6 +572,7 @@ func (n *Node) GetModel() *models.NodeElement {
 		SecondaryAddresses:    n.getSecondaryAddresses(),
 		HealthEndpointAddress: n.getHealthAddresses(),
 		IngressAddress:        n.getIngressAddresses(),
+		Source:                string(n.Source),
 	}
 }
 

@@ -52,7 +52,7 @@ func init() {
 }
 
 func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
-	nodesOutputHeader := "Name\tIPv4 Address\tEndpoint CIDR\tIPv6 Address\tEndpoint CIDR\n"
+	nodesOutputHeader := "Name\tIPv4 Address\tEndpoint CIDR\tIPv6 Address\tEndpoint CIDR\tSource\n"
 	nodesOutput := make([]string, len(nodes))
 
 	for _, node := range nodes {
@@ -68,8 +68,8 @@ func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
 			}
 		}
 
-		nodesOutput = append(nodesOutput, fmt.Sprintf("%s\t%s\t%s\t%s\t%s\n",
-			node.Name, ipv4, ipv4Range, ipv6, ipv6Range))
+		nodesOutput = append(nodesOutput, fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\n",
+			node.Name, ipv4, ipv4Range, ipv6, ipv6Range, node.Source))
 	}
 
 	if len(nodesOutput) > 1 {
