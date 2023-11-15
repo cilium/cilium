@@ -6,6 +6,14 @@ package watchers
 import (
 	"context"
 	"fmt"
+	"strconv"
+
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -17,13 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 )
 
 func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient client.Clientset) {
@@ -85,14 +86,24 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2)
 }
 
-// isCiliumIngress returns true if the given object metadata indicates that the owner needs the Envoy listener to assume the identity of Cilium Ingress. Currently this is the case when any of the OwnerReferences is Kind "Ingress" or "Gateway".
-func isCiliumIngress(meta *meta_v1.ObjectMeta) bool {
+// useOriginalSourceAddress returns true if the given object metadata indicates that the owner needs the Envoy listener to assume the identity of Cilium Ingress.
+// This can be an explicit label or the presence of an OwnerReference of Kind "Ingress" or "Gateway".
+func useOriginalSourceAddress(meta *meta_v1.ObjectMeta) bool {
 	for _, owner := range meta.OwnerReferences {
 		if owner.Kind == "Ingress" || owner.Kind == "Gateway" {
-			return true
+			return false
 		}
 	}
-	return false
+
+	if meta.GetLabels() != nil {
+		if v, ok := meta.GetLabels()[k8s.UseOriginalSourceAddressLabel]; ok {
+			if boolValue, err := strconv.ParseBool(v); err == nil {
+				return boolValue
+			}
+		}
+	}
+
+	return true
 }
 
 func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) error {
@@ -110,7 +121,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 		true,
 		k.envoyConfigManager,
 		len(cec.Spec.Services) > 0,
-		!isCiliumIngress(&cec.ObjectMeta),
+		useOriginalSourceAddress(&cec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig: malformed Envoy config")
@@ -219,7 +230,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		false,
 		k.envoyConfigManager,
 		len(oldCEC.Spec.Services) > 0,
-		!isCiliumIngress(&oldCEC.ObjectMeta),
+		useOriginalSourceAddress(&oldCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed old Envoy config")
@@ -232,7 +243,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		true,
 		k.envoyConfigManager,
 		len(newCEC.Spec.Services) > 0,
-		!isCiliumIngress(&newCEC.ObjectMeta),
+		useOriginalSourceAddress(&newCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed new Envoy config")
@@ -338,7 +349,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 		false,
 		k.envoyConfigManager,
 		len(cec.Spec.Services) > 0,
-		!isCiliumIngress(&cec.ObjectMeta),
+		useOriginalSourceAddress(&cec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyConfig: parsing rersource names failed")

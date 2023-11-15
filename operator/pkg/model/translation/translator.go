@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/slices"
 )
@@ -65,6 +66,9 @@ func (i *defaultTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoy
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      i.name,
 			Namespace: i.namespace,
+			Labels: map[string]string{
+				k8s.UseOriginalSourceAddressLabel: "false",
+			},
 		},
 	}
 
