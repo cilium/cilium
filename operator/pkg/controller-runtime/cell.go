@@ -10,6 +10,8 @@ import (
 
 	"github.com/bombsimon/logrusr/v4"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
@@ -63,6 +65,12 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 	if !params.K8sClient.IsEnabled() {
 		return nil, nil
 	}
+
+	// Register special comparison function for proto resource to support
+	// internal comparison of types depending on type (e.g. CiliumEnvoyConfig).
+	equality.Semantic.AddFunc(func(xdsResource1, xdsResource2 ciliumv2.XDSResource) bool {
+		return proto.Equal(xdsResource1.Any, xdsResource2.Any)
+	})
 
 	ctrlRuntime.SetLogger(logrusr.New(params.Logger))
 
