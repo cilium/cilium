@@ -129,26 +129,20 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 // from kube-apiserver.
 func (k *K8sWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
 	var (
-		err                      error
-		nodeInterface            interface{}
-		exists, getFromAPIServer bool
+		err           error
+		nodeInterface interface{}
+		exists        bool
 	)
 	k.ciliumNodeStoreMU.RLock()
 	// k.ciliumNodeStore might not be set in all invocations of GetCiliumNode,
-	// for example, during Cilium initialization GetCiliumNode is called from
-	// WaitForNodeInformation, which happens before ciliumNodeStore,
-	// so we will fallback to perform an API request to kube-apiserver.
+	// for example, when the key-value store is connected and the local store might
+	// have stale versions of the CiliumNode resource.
 	if k.ciliumNodeStore == nil {
-		getFromAPIServer = true
+		return k.clientset.CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
 	} else {
 		nodeInterface, exists, err = k.ciliumNodeStore.GetByKey(nodeName)
 	}
 	k.ciliumNodeStoreMU.RUnlock()
-
-	if !exists || getFromAPIServer {
-		// fallback to using the kube-apiserver
-		return k.clientset.CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
-	}
 
 	if err != nil {
 		return nil, err
