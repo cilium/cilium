@@ -174,22 +174,22 @@ func newMetricsMapCollector() prometheus.Collector {
 		droppedMetricsMap:   make(map[dropLabels]metricValues),
 		forwardedMetricsMap: make(map[forwardLabels]metricValues),
 		droppedByteDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metrics.SubsystemDatapath, "drop_bytes_total"),
+			prometheus.BuildFQName(metrics.Namespace, "", "drop_bytes_total"),
 			"Total dropped bytes, tagged by drop reason and ingress/egress direction",
 			[]string{metrics.LabelDropReason, metrics.LabelDirection}, nil,
 		),
 		droppedCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metrics.SubsystemDatapath, "drop_count_total"),
+			prometheus.BuildFQName(metrics.Namespace, "", "drop_count_total"),
 			"Total dropped packets, tagged by drop reason and ingress/egress direction",
 			[]string{metrics.LabelDropReason, metrics.LabelDirection}, nil,
 		),
 		forwardCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metrics.SubsystemDatapath, "forward_count_total"),
+			prometheus.BuildFQName(metrics.Namespace, "", "forward_count_total"),
 			"Total forwarded packets, tagged by ingress/egress direction",
 			[]string{metrics.LabelDirection}, nil,
 		),
 		forwardByteDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metrics.SubsystemDatapath, "forward_bytes_total"),
+			prometheus.BuildFQName(metrics.Namespace, "", "forward_bytes_total"),
 			"Total forwarded bytes, tagged by ingress/egress direction",
 			[]string{metrics.LabelDirection}, nil,
 		),
