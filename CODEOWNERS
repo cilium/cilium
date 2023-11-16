@@ -426,6 +426,7 @@ Makefile* @cilium/build
 /pkg/elf @cilium/sig-datapath
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
+/pkg/endpointstate/ @cilium/endpoint
 /pkg/envoy/ @cilium/proxy
 /pkg/flowdebug/ @cilium/proxy
 /pkg/fqdn/ @cilium/sig-agent @cilium/proxy
