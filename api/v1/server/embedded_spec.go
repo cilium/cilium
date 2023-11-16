@@ -3839,6 +3839,14 @@ func init() {
                     "Maglev"
                   ]
                 },
+                "dsrMode": {
+                  "type": "string",
+                  "enum": [
+                    "IP Option/Extension",
+                    "IPIP",
+                    "Geneve"
+                  ]
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -9682,6 +9690,14 @@ func init() {
                     "Maglev"
                   ]
                 },
+                "dsrMode": {
+                  "type": "string",
+                  "enum": [
+                    "IP Option/Extension",
+                    "IPIP",
+                    "Geneve"
+                  ]
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -9865,6 +9881,14 @@ func init() {
                 "Maglev"
               ]
             },
+            "dsrMode": {
+              "type": "string",
+              "enum": [
+                "IP Option/Extension",
+                "IPIP",
+                "Geneve"
+              ]
+            },
             "enabled": {
               "type": "boolean"
             },
@@ -10033,6 +10057,14 @@ func init() {
           "enum": [
             "Random",
             "Maglev"
+          ]
+        },
+        "dsrMode": {
+          "type": "string",
+          "enum": [
+            "IP Option/Extension",
+            "IPIP",
+            "Geneve"
           ]
         },
         "enabled": {

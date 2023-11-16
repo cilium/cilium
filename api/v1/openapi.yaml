@@ -2400,6 +2400,12 @@ definitions:
                 - SNAT
                 - DSR
                 - Hybrid
+              dsrMode:
+                type: string
+                enum:
+                  - IP Option/Extension
+                  - IPIP
+                  - Geneve
               algorithm:
                 type: string
                 enum:
