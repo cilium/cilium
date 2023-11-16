@@ -17,6 +17,7 @@ triggers:
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
     - tests-l4lb.yaml
+    - tests-ipsec-upgrade.yaml
   /ci-aks:
     workflows:
     - conformance-aks.yaml
