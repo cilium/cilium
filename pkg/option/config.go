@@ -1186,10 +1186,6 @@ const (
 	// and the max size and TTL of events in the buffers should be.
 	BPFMapEventBuffers = "bpf-map-event-buffers"
 
-	// EnableStaleCiliumEndpointCleanup sets whether Cilium should perform cleanup of
-	// stale CiliumEndpoints during init.
-	EnableStaleCiliumEndpointCleanup = "enable-stale-cilium-endpoint-cleanup"
-
 	// IPAMCiliumnodeUpdateRate is the maximum rate at which the CiliumNode custom
 	// resource is updated.
 	IPAMCiliumNodeUpdateRate = "ipam-cilium-node-update-rate"
@@ -2395,11 +2391,6 @@ type DaemonConfig struct {
 	BPFMapEventBuffersValidator func(val string) (string, error) `json:"-"`
 	bpfMapEventConfigs          BPFEventBufferConfigs
 
-	// EnableStaleCiliumEndpointCleanup enables cleanup routine during Cilium init.
-	// This will attempt to remove local CiliumEndpoints that are not managed by Cilium
-	// following Endpoint restoration.
-	EnableStaleCiliumEndpointCleanup bool
-
 	// IPAMCiliumNodeUpdateRate is the maximum rate at which the CiliumNode custom
 	// resource is updated.
 	IPAMCiliumNodeUpdateRate time.Duration
@@ -3515,7 +3506,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.UseCiliumInternalIPForIPsec = vp.GetBool(UseCiliumInternalIPForIPsec)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = vp.GetBool(EnableK8sTerminatingEndpoint)
-	c.EnableStaleCiliumEndpointCleanup = vp.GetBool(EnableStaleCiliumEndpointCleanup)
 
 	// Disable Envoy version check if L7 proxy is disabled.
 	c.DisableEnvoyVersionCheck = vp.GetBool(DisableEnvoyVersionCheck)
