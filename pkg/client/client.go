@@ -620,7 +620,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	}
 
 	if sd.KubeProxyReplacementDetails && sr.Kubernetes != nil && sr.KubeProxyReplacement != nil {
-		var selection, mode, xdp string
+		var selection, mode, dsrMode, xdp string
 
 		lb := "Disabled"
 		cIP := "Enabled"
@@ -632,6 +632,10 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			}
 			xdp = np.Acceleration
 			mode = np.Mode
+			if mode == models.KubeProxyReplacementFeaturesNodePortModeDSR ||
+				mode == models.KubeProxyReplacementFeaturesNodePortModeHybrid {
+				dsrMode = np.DsrMode
+			}
 			nPort = fmt.Sprintf("Enabled (Range: %d-%d)", np.PortMin, np.PortMax)
 			lb = "Enabled"
 		}
@@ -697,6 +701,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 		if mode != "" {
 			fmt.Fprintf(tab, "  Mode:\t%s\n", mode)
+		}
+		if dsrMode != "" {
+			fmt.Fprintf(tab, "    DSR Dispatch Mode:\t%s\n", dsrMode)
 		}
 		if selection != "" {
 			fmt.Fprintf(tab, "  Backend Selection:\t%s\n", selection)
