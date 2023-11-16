@@ -164,6 +164,8 @@ type Daemon struct {
 
 	endpointManager endpointmanager.EndpointManager
 
+	endpointRestoreComplete chan struct{}
+
 	identityAllocator CachingIdentityAllocator
 
 	ipcache *ipcache.IPCache

@@ -31,6 +31,17 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+func (d *Daemon) WaitForEndpointRestore(ctx context.Context) {
+	if !option.Config.RestoreState {
+		return
+	}
+
+	select {
+	case <-ctx.Done():
+	case <-d.endpointRestoreComplete:
+	}
+}
+
 type endpointRestoreState struct {
 	possible map[uint16]*endpoint.Endpoint
 	restored []*endpoint.Endpoint
@@ -267,8 +278,8 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 	return nil
 }
 
-func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) (restoreComplete chan struct{}) {
-	restoreComplete = make(chan struct{}, 0)
+func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
+	d.endpointRestoreComplete = make(chan struct{})
 
 	log.WithField("numRestored", len(state.restored)).Info("Regenerating restored endpoints")
 
@@ -391,10 +402,8 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 			"regenerated": regenerated,
 			"total":       total,
 		}).Info("Finished regenerating restored endpoints")
-		close(restoreComplete)
+		close(d.endpointRestoreComplete)
 	}()
-
-	return
 }
 
 func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
@@ -444,17 +453,13 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 	return nil
 }
 
-func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) chan struct{} {
+func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
 	bootstrapStats.restore.Start()
-	var restoreComplete chan struct{}
 	if option.Config.RestoreState {
 		// When we regenerate restored endpoints, it is guaranteed that we have
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
-		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints, endpointsRegenerator)
-		go func() {
-			<-restoreComplete
-		}()
+		d.regenerateRestoredEndpoints(restoredEndpoints, endpointsRegenerator)
 
 		go func() {
 			if d.clientset.IsEnabled() {
@@ -518,6 +523,4 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 		log.Info("State restore is disabled. Existing endpoints on node are ignored")
 	}
 	bootstrapStats.restore.End(true)
-
-	return restoreComplete
 }

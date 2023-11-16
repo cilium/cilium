@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
@@ -1628,6 +1629,7 @@ var daemonCell = cell.Module(
 	"Legacy Daemon",
 
 	cell.Provide(newDaemonPromise),
+	cell.Provide(newRestorerPromise),
 	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
@@ -1740,7 +1742,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		<-params.CacheStatus
 	}
 	bootstrapStats.k8sInit.End(true)
-	restoreComplete := d.initRestore(restoredEndpoints, params.EndpointRegenerator)
+	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
 
 	if params.WGAgent != nil {
 		go func() {
@@ -1790,8 +1792,8 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	}
 
 	go func() {
-		if restoreComplete != nil {
-			<-restoreComplete
+		if d.endpointRestoreComplete != nil {
+			<-d.endpointRestoreComplete
 		}
 
 		// Only attempt CEP cleanup if cilium endpoint CRD is not disabled, otherwise the cep/ces
@@ -1809,8 +1811,8 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}()
 	go func() {
-		if restoreComplete != nil {
-			<-restoreComplete
+		if d.endpointRestoreComplete != nil {
+			<-d.endpointRestoreComplete
 		}
 		d.dnsNameManager.CompleteBootstrap()
 
@@ -2091,6 +2093,22 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 	api.DisableAPIs(swaggerSpec.DeniedAPIs, restAPI.AddMiddlewareFor)
 
 	return restAPI
+}
+
+func newRestorerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon]) promise.Promise[endpointstate.Restorer] {
+	resolver, promise := promise.New[endpointstate.Restorer]()
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
+			daemon, err := daemonPromise.Await(context.Background())
+			if err != nil {
+				resolver.Reject(err)
+				return err
+			}
+			resolver.Resolve(daemon)
+			return nil
+		},
+	})
+	return promise
 }
 
 func initClockSourceOption() {
