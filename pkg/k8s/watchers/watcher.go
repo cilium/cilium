@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -32,10 +33,12 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -252,8 +255,7 @@ type K8sWatcher struct {
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
 
-	ciliumNodeStoreMU lock.RWMutex
-	ciliumNodeStore   cache.Store
+	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 
 	datapath datapath.Datapath
 
@@ -568,7 +570,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			asyncControllers.Add(1)
-			go k.ciliumNodeInit(k.clientset, asyncControllers)
+			go k.ciliumNodeInit(ctx, asyncControllers)
 		// Kubernetes built-in resources
 		case k8sAPIGroupNetworkingV1Core:
 			k.NetworkPoliciesInit()
