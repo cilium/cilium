@@ -304,7 +304,6 @@ cilium-agent [flags]
       --route-metric int                                          Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
       --routing-mode string                                       Routing mode ("native" or "tunnel") (default "tunnel")
       --sidecar-istio-proxy-image string                          Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
-      --single-cluster-route                                      Use a single cluster route instead of per node routes
       --socket-path string                                        Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                                          Directory path to store runtime state (default "/var/run/cilium")
       --tofqdns-dns-reject-response-code string                   DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")

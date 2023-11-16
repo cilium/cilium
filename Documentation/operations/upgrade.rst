@@ -373,6 +373,8 @@ Removed Options
   ``tunnel=disabled``). To configure the tunneling protocol, set
   ``tunnel-protocol=vxlan|geneve`` (previously ``tunnel=vxlan|geneve``).
 
+* The long defunct and undocumented ``single-cluster-route`` flag has been removed.
+
 Helm Options
 ~~~~~~~~~~~~
 

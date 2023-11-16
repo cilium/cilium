@@ -747,10 +747,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
 	option.BindEnv(vp, option.SidecarIstioProxyImage)
 
-	flags.Bool(option.SingleClusterRouteName, false,
-		"Use a single cluster route instead of per node routes")
-	option.BindEnv(vp, option.SingleClusterRouteName)
-
 	flags.String(option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	option.BindEnv(vp, option.SocketPath)
 
