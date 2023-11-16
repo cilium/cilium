@@ -104,6 +104,7 @@ type Resources struct {
 	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
 	CIDRGroups                       resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
+	CiliumNode                       resource.Resource[*cilium_api_v2.CiliumNode]
 }
 
 // LocalNodeResources is a convenience struct to group CiliumNode and Node resources as cell contructor parameters.

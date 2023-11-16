@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -263,8 +264,10 @@ type K8sWatcher struct {
 	// nodesInitOnce is used to guarantee that only one function call of NodesInit is executed.
 	nodesInitOnce sync.Once
 
-	ciliumNodeStoreMU lock.RWMutex
-	ciliumNodeStore   cache.Store
+	// forceCiliumNodeFromApiServer is true when we need to perform an API request to kube-apiserver
+	// to get CiliumNode status. This happens when the key-value store is connected and the resource[T]
+	// local cache is not available or contains stale updates.
+	forceCiliumNodeFromApiServer atomic.Bool
 
 	ciliumEndpointIndexerMU lock.RWMutex
 	ciliumEndpointIndexer   cache.Indexer
@@ -305,7 +308,7 @@ func NewK8sWatcher(
 	serviceCache *k8s.ServiceCache,
 	bandwidthManager bandwidth.Manager,
 ) *K8sWatcher {
-	return &K8sWatcher{
+	watcher := &K8sWatcher{
 		clientset:               clientset,
 		K8sSvcCache:             serviceCache,
 		endpointManager:         endpointManager,
@@ -328,6 +331,8 @@ func NewK8sWatcher(
 		cfg:                     cfg,
 		resources:               resources,
 	}
+	watcher.forceCiliumNodeFromApiServer.Store(true)
+	return watcher
 }
 
 // requestLatencyAdapter implements the LatencyMetric interface from k8s client-go package
@@ -592,7 +597,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			asyncControllers.Add(1)
-			go k.ciliumNodeInit(k.clientset, asyncControllers)
+			go k.ciliumNodeInit(ctx, asyncControllers)
 		// Kubernetes built-in resources
 		case k8sAPIGroupNetworkingV1Core:
 			k.NetworkPoliciesInit()
