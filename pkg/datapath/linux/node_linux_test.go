@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -383,6 +384,14 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
+	s.commonNodeUpdateEncapsulation(c, true, nil)
+}
+
+func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulationWithOverride(c *check.C) {
+	s.commonNodeUpdateEncapsulation(c, false, func(*types.Node) bool { return true })
+}
+
+func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(c *check.C, encap bool, override func(*types.Node) bool) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
@@ -393,11 +402,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap())
+	linuxNodeHandler.OverrideEnableEncapsulation(override)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4:          s.enableIPv4,
 		EnableIPv6:          s.enableIPv6,
-		EnableEncapsulation: true,
+		EnableEncapsulation: encap,
 	}
 
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
