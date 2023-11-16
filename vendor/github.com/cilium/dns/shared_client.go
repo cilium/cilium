@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -208,6 +209,11 @@ func handler(wg *sync.WaitGroup, client *Client, conn *Conn, requests chan reque
 					close(waiter.ch)
 				}
 				waitingResponses = make(map[uint16]waiter)
+				// If we've exceeded the read deadline, stop handling. The conn will be closed, and
+				// the receive gorutine cleaned up.
+				if errors.Is(resp.err, os.ErrDeadlineExceeded) {
+					return
+				}
 			} else if resp.msg != nil {
 				if waiter, ok := waitingResponses[resp.msg.Id]; ok {
 					delete(waitingResponses, resp.msg.Id)
