@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointgc"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
@@ -137,6 +138,10 @@ var (
 
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,
+
+		// EndpointGC runs once at startup to remove stale CiliumEndpoints referencing pods no longer
+		// managed by Cilium.
+		endpointgc.Cell,
 
 		// NodeManager maintains a collection of other nodes in the cluster.
 		nodeManager.Cell,
