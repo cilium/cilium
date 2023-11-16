@@ -87,7 +87,10 @@ func newIngressReconciler(
 // SetupWithManager sets up the controller with the Manager.
 func (r *ingressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&networkingv1.Ingress{}).
+		// Watch for changed Ingresses that are managed by the Cilium Ingress controller
+		// It's important that this includes cases where the IngressClassName gets changed from `cilium`
+		// to something else. In these cases the controller has to cleanup the resources.
+		For(&networkingv1.Ingress{}, r.forCiliumManagedIngress()).
 		// (LoadBalancer) Service resource with OwnerReference to the Ingress with dedicated loadbalancing mode
 		Owns(&corev1.Service{}).
 		// Endpoints resource with OwnerReference to the Ingress with dedicated loadbalancing mode
@@ -202,6 +205,10 @@ func withDefaultIngressClassAnnotation() builder.WatchesOption {
 	return builder.WithPredicates(&defaultIngressClassPredicate{})
 }
 
+func (r *ingressReconciler) forCiliumManagedIngress() builder.ForOption {
+	return builder.WithPredicates(&matchesCiliumRelevantIngressPredicate{client: r.client, logger: r.logger})
+}
+
 var _ predicate.Predicate = &matchesInstancePredicate{}
 
 type matchesInstancePredicate struct {
@@ -262,4 +269,36 @@ func (r *defaultIngressClassPredicate) isIngressClassMarkedAsDefault(o client.Ob
 	}
 
 	return isDefault
+}
+
+var _ predicate.Predicate = &matchesCiliumRelevantIngressPredicate{}
+
+type matchesCiliumRelevantIngressPredicate struct {
+	client client.Client
+	logger logrus.FieldLogger
+}
+
+func (r *matchesCiliumRelevantIngressPredicate) Create(event event.CreateEvent) bool {
+	return r.isCiliumManagedIngress(event.Object)
+}
+
+func (r *matchesCiliumRelevantIngressPredicate) Update(event event.UpdateEvent) bool {
+	return r.isCiliumManagedIngress(event.ObjectOld) || r.isCiliumManagedIngress(event.ObjectNew)
+}
+
+func (r *matchesCiliumRelevantIngressPredicate) Delete(event event.DeleteEvent) bool {
+	return r.isCiliumManagedIngress(event.Object)
+}
+
+func (r *matchesCiliumRelevantIngressPredicate) Generic(event event.GenericEvent) bool {
+	return r.isCiliumManagedIngress(event.Object)
+}
+
+func (r *matchesCiliumRelevantIngressPredicate) isCiliumManagedIngress(o client.Object) bool {
+	ingress, ok := o.(*networkingv1.Ingress)
+	if !ok {
+		return false
+	}
+
+	return isCiliumManagedIngress(context.Background(), r.client, r.logger, *ingress)
 }
