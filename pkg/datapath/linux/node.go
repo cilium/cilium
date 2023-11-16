@@ -82,6 +82,7 @@ type linuxNodeHandler struct {
 	ipsecMetricOnce      sync.Once
 
 	prefixClusterMutatorFn func(node *types.Node) []cmtypes.PrefixClusterOpts
+	enableEncapsulation    func(node *types.Node) bool
 }
 
 var (
@@ -1010,7 +1011,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		return errs
 	}
 
-	if n.nodeConfig.EnableAutoDirectRouting {
+	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(newNode) {
 		if err := n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv4: %w", err))
 		}
@@ -1020,7 +1021,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		return errs
 	}
 
-	if n.nodeConfig.EnableEncapsulation {
+	if n.enableEncapsulation(newNode) {
 		// An uninitialized PrefixCluster has empty netip.Prefix and 0 ClusterID.
 		// We use this empty PrefixCluster instead of nil here.
 		var (
@@ -1103,7 +1104,7 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	oldIP6 := oldNode.GetNodeIP(true)
 
 	var errs error
-	if n.nodeConfig.EnableAutoDirectRouting {
+	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(oldNode) {
 		if err := n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes %w", err))
 		}
@@ -1112,7 +1113,7 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		}
 	}
 
-	if n.nodeConfig.EnableEncapsulation {
+	if n.enableEncapsulation(oldNode) {
 		oldPrefix4 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv4AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
 		oldPrefix6 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv6AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
 		if err := deleteTunnelMapping(oldPrefix4, false); err != nil {
@@ -1207,6 +1208,10 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 
 	prevConfig := n.nodeConfig
 	n.nodeConfig = newConfig
+
+	if n.enableEncapsulation == nil {
+		n.enableEncapsulation = func(*nodeTypes.Node) bool { return n.nodeConfig.EnableEncapsulation }
+	}
 
 	if n.nodeConfig.EnableIPv4 || n.nodeConfig.EnableIPv6 {
 		var ifaceNames []string
@@ -1682,4 +1687,8 @@ func deleteDefaultLocalRule(family int) error {
 
 func (n *linuxNodeHandler) SetPrefixClusterMutatorFn(mutator func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts) {
 	n.prefixClusterMutatorFn = mutator
+}
+
+func (n *linuxNodeHandler) OverrideEnableEncapsulation(fn func(*nodeTypes.Node) bool) {
+	n.enableEncapsulation = fn
 }
