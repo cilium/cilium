@@ -51,11 +51,16 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 	srcIP, dstIP := client.Address(ipFam), server.Address(ipFam)
 	ipRouteGetCmd := fmt.Sprintf("ip -o route get %s from %s", dstIP, srcIP)
 	if srcIP != clientHost.Address(ipFam) {
-		// The "iif lo" part is required when the source address is not one
-		// of the addresses of the host. If an interface is not specified
+		// The "iif cilium_host" part is required when the source address is not
+		// one of the addresses of the host. If an interface is not specified
 		// "ip route" returns "RTNETLINK answers: Network is unreachable" in
 		// case the "from" address is not assigned to any local interface.
-		ipRouteGetCmd = fmt.Sprintf("%s iif lo", ipRouteGetCmd)
+		// Any existing interface name works, as long as the corresponding
+		// rp_filter value is different from 1, i.e., strict (otherwise it
+		// returns "RTNETLINK answers: Invalid cross-device link"). For this
+		// reason, let's use one of the interfaces managed by Cilium, as we
+		// explicitly set rp_filter=0 for them.
+		ipRouteGetCmd = fmt.Sprintf("%s iif cilium_host", ipRouteGetCmd)
 	}
 
 	if enc, ok := t.Context().Feature(features.EncryptionPod); wgEncap && ok && enc.Enabled && enc.Mode == "wireguard" {
