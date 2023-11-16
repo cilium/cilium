@@ -2415,10 +2415,10 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			return ret;
 	}
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY) && !defined(TUNNEL_MODE)
-	/* If we are not using TUNNEL_MODE, the gateway node needs to manually steer
-	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
-	 * potentially dropping the packets).
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY)
+	/* The gateway node needs to manually steer any reply traffic
+	 * for a remote pod into the tunnel (to avoid iptables potentially
+	 * dropping or accidentally SNATing the packets).
 	 */
 	if (egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
 		trace->reason = TRACE_REASON_CT_REPLY;
@@ -2572,7 +2572,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY) && !defined(TUNNEL_MODE))
+    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
