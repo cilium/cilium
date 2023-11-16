@@ -250,70 +250,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 	}
 }
 
-func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
-	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil)
-	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
-
-	// enable as per test definition
-	err := linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		UseSingleClusterRoute: true,
-		EnableIPv4:            s.enableIPv4,
-		EnableIPv6:            s.enableIPv6,
-	})
-	c.Assert(err, check.IsNil)
-
-	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
-		c.Assert(err, check.IsNil)
-		c.Assert(foundRoute, check.Not(check.IsNil))
-	}
-
-	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
-		c.Assert(err, check.IsNil)
-		c.Assert(foundRoute, check.Not(check.IsNil))
-	}
-
-	// disable ipv4, enable ipv6. addressing may not be available for IPv6
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		UseSingleClusterRoute: true,
-		EnableIPv6:            true,
-	})
-	c.Assert(err, check.IsNil)
-
-	foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
-
-	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
-		c.Assert(err, check.IsNil)
-		c.Assert(foundRoute, check.Not(check.IsNil))
-	}
-
-	// enable ipv4, enable ipv6, addressing may not be available
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		UseSingleClusterRoute: true,
-		EnableIPv6:            true,
-		EnableIPv4:            true,
-	})
-	c.Assert(err, check.IsNil)
-
-	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
-		c.Assert(err, check.IsNil)
-		c.Assert(foundRoute, check.Not(check.IsNil))
-	}
-
-	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
-		c.Assert(err, check.IsNil)
-		c.Assert(foundRoute, check.Not(check.IsNil))
-	}
-}
-
 func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	net1 := cidr.MustParseCIDR("30.30.0.0/24")
 	net2 := cidr.MustParseCIDR("cafe:f00d::/112")
@@ -3903,15 +3839,6 @@ func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeUpdateEncap(c *check.C) {
 	})
 }
 
-func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeUpdateEncapSingleClusterRoute(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv4:            s.enableIPv4,
-		EnableIPv6:            s.enableIPv6,
-		EnableEncapsulation:   true,
-		UseSingleClusterRoute: true,
-	})
-}
-
 func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeUpdateDirectRoute(c *check.C) {
 	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
 		EnableIPv4:              s.enableIPv4,
@@ -4047,15 +3974,6 @@ func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementationEncap(
 		EnableIPv4:          s.enableIPv4,
 		EnableIPv6:          s.enableIPv6,
 		EnableEncapsulation: true,
-	})
-}
-
-func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementationEncapSingleCluster(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv4:            s.enableIPv4,
-		EnableIPv6:            s.enableIPv6,
-		EnableEncapsulation:   true,
-		UseSingleClusterRoute: true,
 	})
 }
 

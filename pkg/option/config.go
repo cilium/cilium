@@ -504,14 +504,6 @@ const (
 	// RoutingMode is the name of the option to choose between native routing and tunneling mode
 	RoutingMode = "routing-mode"
 
-	// SingleClusterRouteName is the name of the SingleClusterRoute option
-	//
-	// SingleClusterRoute enables use of a single route covering the entire
-	// cluster CIDR to point to the cilium_host interface instead of using
-	// a separate route for each cluster node CIDR. This option is not
-	// compatible with --routing-mode=native
-	SingleClusterRouteName = "single-cluster-route"
-
 	// MaxInternalTimerDelay sets a maximum on all periodic timers in
 	// the agent in order to flush out timer-related bugs in the agent.
 	MaxInternalTimerDelay = "max-internal-timer-delay"
@@ -1575,10 +1567,6 @@ type DaemonConfig struct {
 	// MaxControllerInterval is the maximum value for a controller's
 	// RunInterval. Zero means unlimited.
 	MaxControllerInterval int
-
-	// UseSingleClusterRoute specifies whether to use a single cluster route
-	// instead of per-node routes.
-	UseSingleClusterRoute bool
 
 	// HTTPNormalizePath switches on Envoy HTTP path normalization options, which currently
 	// includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and
@@ -2847,11 +2835,6 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 			c.RoutingMode, RoutingModeTunnel, RoutingModeNative)
 	}
 
-	if c.RoutingMode == RoutingModeNative && c.UseSingleClusterRoute {
-		return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
-			SingleClusterRouteName, RoutingMode, RoutingModeNative)
-	}
-
 	cinfo := clustermeshTypes.ClusterInfo{
 		ID:                   c.ClusterID,
 		Name:                 c.ClusterName,
@@ -3148,7 +3131,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.RunDir = vp.GetString(StateDir)
 	c.ExternalEnvoyProxy = vp.GetBool(ExternalEnvoyProxy)
 	c.SidecarIstioProxyImage = vp.GetString(SidecarIstioProxyImage)
-	c.UseSingleClusterRoute = vp.GetBool(SingleClusterRouteName)
 	c.SocketPath = vp.GetString(SocketPath)
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
 	c.Version = vp.GetString(Version)
