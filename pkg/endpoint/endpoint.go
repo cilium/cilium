@@ -1093,28 +1093,32 @@ func (e *Endpoint) hasLabelsRLocked(l labels.Labels) bool {
 	return true
 }
 
-// replaceInformationLabels replaces the information labels of the endpoint.
+// replaceInformationLabels replaces the information labels of the endpoint that
+// match the respective 'sourceFilter', if 'sourceFilter' is 'LabelSourceAny'
+// then all labels are replaced.
 // Passing a nil set of labels will not perform any action.
 // Must be called with e.mutex.Lock().
-func (e *Endpoint) replaceInformationLabels(l labels.Labels) {
+func (e *Endpoint) replaceInformationLabels(sourceFilter string, l labels.Labels) {
 	if l == nil {
 		return
 	}
-	e.OpLabels.ReplaceInformationLabels(l, e.getLogger())
+	e.OpLabels.ReplaceInformationLabels(sourceFilter, l, e.getLogger())
 }
 
-// replaceIdentityLabels replaces the identity labels of the endpoint. If a net
-// changed occurred, the identityRevision is bumped and returned, otherwise 0 is
-// returned.
+// replaceIdentityLabels replaces the identity labels of the endpoint for the
+// given 'sourceFilter', if 'sourceFilter' is 'LabelSourceAny' then all labels
+// are replaced.
+// If a net changed occurred, the identityRevision is bumped and returned,
+// otherwise 0 is returned.
 // Passing a nil set of labels will not perform any action and will return the
 // current endpoint's identityRevision.
 // Must be called with e.mutex.Lock().
-func (e *Endpoint) replaceIdentityLabels(l labels.Labels) int {
+func (e *Endpoint) replaceIdentityLabels(sourceFilter string, l labels.Labels) int {
 	if l == nil {
 		return e.identityRevision
 	}
 
-	changed := e.OpLabels.ReplaceIdentityLabels(l, e.getLogger())
+	changed := e.OpLabels.ReplaceIdentityLabels(sourceFilter, l, e.getLogger())
 	rev := 0
 	if changed {
 		e.identityRevision++
@@ -1633,7 +1637,7 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 					}
 					return annotations[bandwidth.EgressBandwidth], nil
 				})
-				e.UpdateLabels(ctx, identityLabels, info, true)
+				e.UpdateLabels(ctx, labels.LabelSourceAny, identityLabels, info, true)
 				close(done)
 				return nil
 			},
@@ -1646,12 +1650,12 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels labels.Labels) error {
+func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labels.Labels) error {
 	if err := e.lockAlive(); err != nil {
 		return err
 	}
 
-	changed, err := e.OpLabels.ModifyIdentityLabels(addLabels, delLabels)
+	changed, err := e.OpLabels.ModifyIdentityLabels(source, addLabels, delLabels)
 	if err != nil {
 		e.unlock()
 		return err
@@ -1666,7 +1670,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels labels.Labels) erro
 	if len(addLabels) == 0 && len(delLabels) == 0 && e.IsInit() {
 		idLabls := e.OpLabels.IdentityLabels()
 		delete(idLabls, labels.IDNameInit)
-		rev = e.replaceIdentityLabels(idLabls)
+		rev = e.replaceIdentityLabels(labels.LabelSourceAny, idLabls)
 		changed = true
 	}
 	if changed {
@@ -1706,7 +1710,7 @@ func (e *Endpoint) InitWithIngressLabels(ctx context.Context, launchTime time.Du
 	// Give the endpoint a security identity
 	newCtx, cancel := context.WithTimeout(ctx, launchTime)
 	defer cancel()
-	e.UpdateLabels(newCtx, epLabels, epLabels, true)
+	e.UpdateLabels(newCtx, labels.LabelSourceAny, epLabels, epLabels, true)
 	if errors.Is(newCtx.Err(), context.DeadlineExceeded) {
 		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
 	}
@@ -1730,25 +1734,39 @@ func (e *Endpoint) InitWithNodeLabels(ctx context.Context, launchTime time.Durat
 	// Give the endpoint a security identity
 	newCtx, cancel := context.WithTimeout(ctx, launchTime)
 	defer cancel()
-	e.UpdateLabels(newCtx, epLabels, epLabels, true)
+	e.UpdateLabels(newCtx, labels.LabelSourceAny, epLabels, epLabels, true)
 	if errors.Is(newCtx.Err(), context.DeadlineExceeded) {
 		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
 	}
 }
 
-// UpdateLabels is called to update the labels of an endpoint. Calls to this
-// function do not necessarily mean that the labels actually changed. The
-// container runtime layer will periodically synchronize labels.
+// UpdateLabels is called to update the labels of an endpoint for the given
+// 'sourceFilter', if 'source' is 'LabelSourceAny' then all labels are replaced.
+// Calls to this function do not necessarily mean that the labels actually
+// changed. The container runtime layer will periodically synchronize labels.
+//
+// The specified 'sourceFilter' will only remove the labels with that same
+// source.
+// For example:
+// If the endpoint contains `k8s:foo=bar` and
+// if 'sourceFilter' is 'cni' with labels `cni:bar=bar`, the result is:
+//
+//	`k8s:foo=bar` + `cni:bar=bar` - The "foo=bar" label is kept.
+//
+// if 'sourceFilter' is 'any' with labels `cni:bar=bar`, the result is:
+//
+//	`cni:bar=bar` - The "foo=bar" gets removed.
 //
 // If a net label changed was performed, the endpoint will receive a new
 // security identity and will be regenerated. Both of these operations will
 // run first synchronously if 'blocking' is true, and then in the background.
 //
 // Returns 'true' if endpoint regeneration was triggered.
-func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels labels.Labels, blocking bool) (regenTriggered bool) {
+func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identityLabels, infoLabels labels.Labels, blocking bool) (regenTriggered bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
+		logfields.SourceFilter:   sourceFilter,
 		logfields.IdentityLabels: identityLabels.String(),
 		logfields.InfoLabels:     infoLabels.String(),
 	}).Debug("Refreshing labels of endpoint")
@@ -1758,9 +1776,9 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 		return false
 	}
 
-	e.replaceInformationLabels(infoLabels)
+	e.replaceInformationLabels(sourceFilter, infoLabels)
 	// replace identity labels and update the identity if labels have changed
-	rev := e.replaceIdentityLabels(identityLabels)
+	rev := e.replaceIdentityLabels(sourceFilter, identityLabels)
 	e.unlock()
 	if rev != 0 {
 		return e.runIdentityResolver(ctx, rev, blocking)
@@ -1777,7 +1795,7 @@ func (e *Endpoint) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source s
 	oldLabels := labels.Map2Labels(oldLbls, source)
 	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
 
-	err := e.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
+	err := e.ModifyIdentityLabels(source, newIdtyLabels, oldIdtyLabels)
 	if err != nil {
 		log.WithError(err).Debugf("Error while updating endpoint with new labels")
 		return err
