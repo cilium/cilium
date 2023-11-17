@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -190,13 +191,19 @@ func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []strin
 // RegenerateAfterRestore performs the following operations on the specified
 // Endpoint:
 // * allocates an identity for the Endpoint
+// * fetches the latest labels from the pod.
 // * regenerates the endpoint
 // Returns an error if any operation fails while trying to perform the above
 // operations.
-func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator) error {
+func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm bandwidth.Manager, resolveMetadata MetadataResolverCB) error {
 	if err := e.restoreIdentity(regenerator); err != nil {
 		return err
 	}
+
+	// Now that we have restored the endpoints' identity, run the metadata
+	// resolver so that we can fetch the latest labels from the pod for this
+	// endpoint.
+	e.RunRestoredMetadataResolver(bwm, resolveMetadata)
 
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 

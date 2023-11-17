@@ -1634,6 +1634,100 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 	return nil
 }
 
+// metadataResolver will resolve the endpoint's metadata from a metadata
+// resolver.
+//
+//   - restoredEndpoint - should be set to 'true' if the endpoint is being
+//     restored.
+//
+//   - blocking - will block this function until the endpoint receives a new
+//     security identity, and it is regenerated. If 'false', this
+//     operation will be done in the background and 'regenTriggered'
+//     will always be 'false'.
+//
+//   - bwm - the bandwidth manager used to update the bandwidth policy for this
+//     endpoint.
+//
+//   - resolveMetadata - the metadata resolver that will be used to retrieve this
+//     endpoint's metadata.
+func (e *Endpoint) metadataResolver(ctx context.Context,
+	restoredEndpoint, blocking bool,
+	baseLabels labels.Labels,
+	bwm bandwidth.Manager,
+	resolveMetadata MetadataResolverCB) (regenTriggered bool, err error) {
+	if !e.K8sNamespaceAndPodNameIsSet() {
+		e.Logger(resolveLabels).Debug("Namespace and Pod are not set")
+		return false, nil
+	}
+
+	// copy the base labels into this local variable
+	// so that we don't override 'baseLabels'.
+	controllerBaseLabels := labels.NewFrom(baseLabels)
+
+	ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
+
+	pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
+	if err != nil {
+		e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
+		// If we were unable to fetch the k8s endpoints then
+		// we will mark the endpoint with the init identity.
+		if !restoredEndpoint {
+			// Only mark the endpoint with the 'init' identity if we are not
+			// restoring the endpoint from a restart.
+			identityLabels := labels.Labels{
+				labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
+			}
+			regenTriggered := e.UpdateLabels(ctx, labels.LabelSourceAny, identityLabels, nil, true)
+			if blocking {
+				return regenTriggered, err
+			}
+		}
+		return false, err
+	}
+
+	// Merge the labels retrieved from the 'resolveMetadata' into the base
+	// labels.
+	controllerBaseLabels.MergeLabels(identityLabels)
+
+	e.SetPod(pod)
+	e.SetK8sMetadata(cp)
+	e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
+		po, _, _, _, _, err := resolveMetadata(ns, podName)
+		if err != nil {
+			return "", err
+		}
+		value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
+		return value, nil
+	})
+	e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
+		po, _, _, _, _, err := resolveMetadata(ns, podName)
+		if err != nil {
+			return "", err
+		}
+		value, _ := annotation.Get(po, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
+		return value, nil
+	})
+	e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, err error) {
+		_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+		if err != nil {
+			return "", err
+		}
+		return annotations[bandwidth.EgressBandwidth], nil
+	})
+
+	// If 'baseLabels' are not set then 'controllerBaseLabels' only contains
+	// labels from k8s. Thus, we should only replace the labels that have their
+	// source as 'k8s' otherwise we will risk on replacing other labels that
+	// were added from other sources.
+	source := labels.LabelSourceK8s
+	if len(baseLabels) != 0 {
+		source = labels.LabelSourceAny
+	}
+	regenTriggered = e.UpdateLabels(ctx, source, controllerBaseLabels, info, blocking)
+
+	return regenTriggered, nil
+}
+
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
 type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim_corev1.ContainerPort, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
@@ -1644,10 +1738,30 @@ type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim
 // either the first successful metadata resolution or when the endpoint is
 // removed.
 //
+// baseLabels contains the list of labels use as "base" for the endpoint.
+// The labels retrieved from 'MetadataResolverCB' will be merged into the
+// baseLabels and put into the endpoint.
+// If this list is empty, the labels set on the endpoint will be
+// replaced by the labels returned 'MetadataResolverCB' as long their source
+// matches the source of the labels already present on the endpoint.
+//
+// restoredEndpoint should be set to 'true' if the endpoint is being restored.
+// If this is set to false and the resolver is unable to retrieve the endpoint
+// labels from k8s, the endpoint will be set with the 'init' identity.
+//
+// blocking - will block this function until the endpoint receives a new
+// security identity, and it is regenerated. If 'false', this
+// operation will be done in the background and 'regenTriggered'
+// will always be 'false'.
+//
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
-func (e *Endpoint) RunMetadataResolver(bwm bandwidth.Manager, resolveMetadata MetadataResolverCB) {
-	done := make(chan struct{})
+func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, bwm bandwidth.Manager, resolveMetadata MetadataResolverCB) (regenTriggered bool) {
+	var regenTriggeredCh chan bool
+	if blocking {
+		regenTriggeredCh = make(chan bool)
+	}
+	done := make(chan bool)
 	controllerName := resolveLabels + "-" + e.GetK8sNamespaceAndPodName()
 	go func() {
 		select {
@@ -1662,49 +1776,50 @@ func (e *Endpoint) RunMetadataResolver(bwm bandwidth.Manager, resolveMetadata Me
 		controller.ControllerParams{
 			Group: resolveLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				if e.K8sNamespaceAndPodNameIsSet() {
-					e.Logger(resolveLabels).Debug("Namespace and Pod are not set")
-					return nil
+				regenTriggered, err := e.metadataResolver(ctx, restoredEndpoint, blocking, baseLabels, bwm, resolveMetadata)
+				if blocking {
+					select {
+					// Check if the channel was closed.
+					case <-regenTriggeredCh:
+					case <-e.aliveCtx.Done():
+					case regenTriggeredCh <- regenTriggered:
+						close(regenTriggeredCh)
+					}
 				}
-				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
-
-				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
-					e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
-				e.SetPod(pod)
-				e.SetK8sMetadata(cp)
-				e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
-					po, _, _, _, _, err := resolveMetadata(ns, podName)
-					if err != nil {
-						return "", err
-					}
-					value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
-					return value, nil
-				})
-				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					po, _, _, _, _, err := resolveMetadata(ns, podName)
-					if err != nil {
-						return "", err
-					}
-					value, _ := annotation.Get(po, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
-					return value, nil
-				})
-				e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, err error) {
-					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
-					if err != nil {
-						return "", err
-					}
-					return annotations[bandwidth.EgressBandwidth], nil
-				})
-				e.UpdateLabels(ctx, labels.LabelSourceAny, identityLabels, info, true)
 				close(done)
 				return nil
 			},
 			Context: e.aliveCtx,
 		},
 	)
+
+	// If the caller wants this function to be blocking while resolving
+	// identities / regenerating then we will wait for the first result of
+	// `e.metadataResolver` before returning.
+	if blocking {
+		select {
+		case regenTriggered, ok := <-regenTriggeredCh:
+			return regenTriggered && ok
+		case <-e.aliveCtx.Done():
+			return false
+		}
+	}
+	return false
+}
+
+// RunRestoredMetadataResolver starts a controller associated with the received
+// endpoint which will periodically attempt to resolve the metadata for the
+// endpoint and update the endpoint with the related. It stops resolving after
+// either the first successful metadata resolution or when the endpoint is
+// removed.
+//
+// This assumes that after the initial successful resolution, other mechanisms
+// will handle updates (such as pkg/k8s/watchers informers).
+func (e *Endpoint) RunRestoredMetadataResolver(bwm bandwidth.Manager, resolveMetadata MetadataResolverCB) {
+	e.RunMetadataResolver(true, false, nil, bwm, resolveMetadata)
 }
 
 // ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.
