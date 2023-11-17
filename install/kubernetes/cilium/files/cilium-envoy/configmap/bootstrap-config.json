@@ -36,7 +36,7 @@
                               "prefix": "/metrics"
                             },
                             "route": {
-                              "cluster": "envoy-admin",
+                              "cluster": "/envoy-admin",
                               "prefix_rewrite": "/stats/prometheus"
                             }
                           }
@@ -102,7 +102,7 @@
                               "prefix": "/healthz"
                             },
                             "route": {
-                              "cluster": "envoy-admin",
+                              "cluster": "/envoy-admin",
                               "prefix_rewrite": "/ready"
                             }
                           }
@@ -245,11 +245,11 @@
         }
       },
       {
-        "name": "envoy-admin",
+        "name": "/envoy-admin",
         "type": "STATIC",
         "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
         "loadAssignment": {
-          "clusterName": "envoy-admin",
+          "clusterName": "/envoy-admin",
           "endpoints": [
             {
               "lbEndpoints": [

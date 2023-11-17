@@ -26,7 +26,7 @@ spec:
               - match:
                   prefix: "/"
                 route:
-                  cluster: "envoy-admin"
+                  cluster: "/envoy-admin"
           use_remote_address: true
           skip_xff_append: true
           http_filters:
