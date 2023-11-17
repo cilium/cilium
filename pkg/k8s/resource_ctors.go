@@ -350,6 +350,7 @@ func CiliumEndpointSliceResource(lc hive.Lifecycle, cs client.Clientset, _ *node
 	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](lc, lw,
 		resource.WithMetric("CiliumEndpointSlice"),
 		resource.WithIndexers(indexers),
+		resource.WithStoppableInformer(),
 	), nil
 }
 
