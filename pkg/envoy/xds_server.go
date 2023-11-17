@@ -67,7 +67,7 @@ var (
 const (
 	CiliumXDSClusterName = "xds-grpc-cilium"
 
-	adminClusterName      = "envoy-admin"
+	adminClusterName      = "/envoy-admin"
 	egressClusterName     = "egress-cluster"
 	egressTLSClusterName  = "egress-cluster-tls"
 	ingressClusterName    = "ingress-cluster"

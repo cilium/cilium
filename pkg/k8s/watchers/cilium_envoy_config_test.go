@@ -18,7 +18,7 @@ import (
 
 var (
 	envoySpec = []byte(`apiVersion: cilium.io/v2
-kind: CiliumEnvoyConfig
+kind: CiliumClusterwideEnvoyConfig
 metadata:
   name: envoy-prometheus-metrics-listener
 spec:
@@ -44,7 +44,7 @@ spec:
               - match:
                   path: "/metrics"
                 route:
-                  cluster: "envoy-admin"
+                  cluster: "/envoy-admin"
                   prefix_rewrite: "/stats/prometheus"
           use_remote_address: true
           skip_xff_append: true
@@ -63,12 +63,12 @@ func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 	c.Assert(isCiliumIngress(&cec.ObjectMeta), Equals, false)
 
-	resources, err := envoy.ParseResources("namespace", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0, !isCiliumIngress(&cec.ObjectMeta))
+	resources, err := envoy.ParseResources("", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0, !isCiliumIngress(&cec.ObjectMeta))
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
-	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
+	c.Assert(resources.Listeners[0].Name, Equals, "/name/envoy-prometheus-metrics-listener")
 	chain := resources.Listeners[0].FilterChains[0]
 	c.Assert(chain.Filters, HasLen, 1)
 	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
@@ -82,10 +82,10 @@ func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	c.Assert(rc, Not(IsNil))
 	vh := rc.VirtualHosts
 	c.Assert(vh, HasLen, 1)
-	c.Assert(vh[0].Name, Equals, "prometheus_metrics_route")
+	c.Assert(vh[0].Name, Equals, "/name/prometheus_metrics_route")
 	c.Assert(vh[0].Routes, HasLen, 1)
 	c.Assert(vh[0].Routes[0].Match.GetPath(), Equals, "/metrics")
-	c.Assert(vh[0].Routes[0].GetRoute().GetCluster(), Equals, "envoy-admin")
+	c.Assert(vh[0].Routes[0].GetRoute().GetCluster(), Equals, "/envoy-admin")
 	c.Assert(vh[0].Routes[0].GetRoute().GetPrefixRewrite(), Equals, "/stats/prometheus")
 	c.Assert(hcm.HttpFilters, HasLen, 1)
 	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")

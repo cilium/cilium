@@ -167,7 +167,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceNam
 		svcListener := ""
 		if svc.Listener != "" {
 			// Listener names are qualified after parsing, so qualify the listener reference as well for it to match
-			svcListener = api.ResourceQualifiedName(resourceName.Namespace, resourceName.Name, svc.Listener, api.ForceNamespace)
+			svcListener, _ = api.ResourceQualifiedName(resourceName.Namespace, resourceName.Name, svc.Listener, api.ForceNamespace)
 		}
 		// Find the listener the service is to be redirected to
 		var proxyPort uint16
