@@ -36,7 +36,7 @@ var (
             - match:
                 path: "/metrics"
               route:
-                cluster: "envoy-admin"
+                cluster: "/envoy-admin"
                 prefix_rewrite: "/stats/prometheus"
         use_remote_address: true
         skip_xff_append: true

@@ -114,7 +114,7 @@ resources:
             - match:
                 path: "/metrics"
               route:
-                cluster: "envoy-admin"
+                cluster: "/envoy-admin"
                 prefix_rewrite: "/stats/prometheus"
         use_remote_address: true
         skip_xff_append: true
@@ -132,6 +132,12 @@ func (s *JSONSuite) TestCiliumEnvoyConfigSpec(c *C) {
 
 	c.Assert(spec.Resources, HasLen, 1)
 	c.Assert(spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	message, err := spec.Resources[0].UnmarshalNew()
+	c.Assert(err, IsNil)
+
+	listener, ok := message.(*envoy_config_listener.Listener)
+	c.Assert(ok, Equals, true)
+	c.Assert(listener.Name, Equals, "listener_0")
 }
 
 var ciliumEnvoyConfig = `apiVersion: cilium.io/v2
@@ -340,9 +346,17 @@ spec:
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
           stat_prefix: ingress_http
+          route_config:
+            name: ingress_route
+            virtual_hosts:
+            - name: ingress_route
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: "/"
+                route:
+                  cluster: "envoy-ingress"
           codec_type: AUTO
-          rds:
-            route_config_name: local_route
           use_remote_address: true
           skip_xff_append: true
           http_filters:
@@ -382,10 +396,15 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	//
 	// Check that missing RDS config source is automatically filled in
 	//
-	rds := hcm.GetRds()
-	c.Assert(rds, Not(IsNil))
-	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
-	checkCiliumXDS(c, rds.GetConfigSource())
+	rc := hcm.GetRouteConfig()
+	c.Assert(rc, Not(IsNil))
+	vh := rc.GetVirtualHosts()
+	c.Assert(len(vh), Equals, 1)
+	routes := vh[0].GetRoutes()
+	c.Assert(len(routes), Equals, 1)
+	route := routes[0].GetRoute()
+	c.Assert(route, Not(IsNil))
+	c.Assert(route.GetCluster(), Equals, "namespace/name/envoy-ingress")
 
 	//
 	// Check that HTTP filters are parsed
@@ -670,6 +689,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	//
 	// Check TCP config
 	//
+	c.Assert(tcp.GetCluster(), Equals, "namespace/name/cluster_0")
 	tc := tcp.GetTunnelingConfig()
 	c.Assert(tc, Not(IsNil))
 	c.Assert(tc.Hostname, Equals, "host.com:443")
