@@ -1,6 +1,9 @@
 name: 'install-cilium-cli'
 description: 'Install Cilium CLI'
 inputs:
+  repository:
+    description: 'Repository from which the release is downloaded'
+    default: 'cilium/cilium-cli'
   release-version:
     description: 'Cilium CLI release version'
   ci-version:
@@ -59,7 +62,7 @@ runs:
       if: ${{ steps.build-cli.outputs.path == '' && inputs.release-version != '' && inputs.ci-version == '' }}
       shell: bash
       run: |
-        curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ inputs.release-version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+        curl -sSL --remote-name-all https://github.com/${{ inputs.repository }}/releases/download/${{ inputs.release-version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
         sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
         tar xzvfC cilium-linux-amd64.tar.gz /tmp
         sudo mv /tmp/cilium ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
