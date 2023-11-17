@@ -96,7 +96,7 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 	for _, ep := range eps {
 		epNS := ep.GetK8sNamespace()
 		if newNS.Name == epNS {
-			err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
+			err := ep.ModifyIdentityLabels(labels.LabelSourceK8s, newIdtyLabels, oldIdtyLabels)
 			if err != nil {
 				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
 					Warning("unable to update endpoint with new identity labels from namespace labels")

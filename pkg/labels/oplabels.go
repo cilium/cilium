@@ -116,22 +116,22 @@ func (o *OpLabels) AllLabels() Labels {
 	return all
 }
 
-func (o *OpLabels) ReplaceInformationLabels(l Labels, logger *logrus.Entry) bool {
+func (o *OpLabels) ReplaceInformationLabels(sourceFilter string, l Labels, logger *logrus.Entry) bool {
 	changed := false
 	keepers := make(keepMarks)
 	for _, v := range l {
 		keepers.set(v.Key)
-		if o.OrchestrationInfo.upsertLabel(v) {
+		if o.OrchestrationInfo.upsertLabel(sourceFilter, v) {
 			changed = true
 			logger.WithField(logfields.Object, logfields.Repr(v)).Debug("Assigning information label")
 		}
 	}
-	o.OrchestrationInfo.deleteUnMarked(keepers)
+	o.OrchestrationInfo.deleteUnMarked(sourceFilter, keepers)
 
 	return changed
 }
 
-func (o *OpLabels) ReplaceIdentityLabels(l Labels, logger *logrus.Entry) bool {
+func (o *OpLabels) ReplaceIdentityLabels(sourceFilter string, l Labels, logger *logrus.Entry) bool {
 	changed := false
 
 	keepers := make(keepMarks)
@@ -141,13 +141,13 @@ func (o *OpLabels) ReplaceIdentityLabels(l Labels, logger *logrus.Entry) bool {
 		// A disabled identity label stays disabled without value updates
 		if _, found := o.Disabled[k]; found {
 			disabledKeepers.set(k)
-		} else if keepers.set(v.Key); o.OrchestrationIdentity.upsertLabel(v) {
+		} else if keepers.set(v.Key); o.OrchestrationIdentity.upsertLabel(sourceFilter, v) {
 			logger.WithField(logfields.Object, logfields.Repr(v)).Debug("Assigning security relevant label")
 			changed = true
 		}
 	}
 
-	if o.OrchestrationIdentity.deleteUnMarked(keepers) || o.Disabled.deleteUnMarked(disabledKeepers) {
+	if o.OrchestrationIdentity.deleteUnMarked(sourceFilter, keepers) || o.Disabled.deleteUnMarked(sourceFilter, disabledKeepers) {
 		changed = true
 	}
 
@@ -201,9 +201,15 @@ func (o *OpLabels) ModifyIdentityLabels(addLabels, delLabels Labels) (changed bo
 // upsertLabel updates or inserts 'label' in 'l', but only if exactly the same label
 // was not already in 'l'. Returns 'true' if a label was added, or an old label was
 // updated, 'false' otherwise.
-func (l Labels) upsertLabel(label Label) bool {
+// The label is only updated if its source matches the provided 'sourceFilter'
+// or in case the provided sourceFilter is 'LabelSourceAny'.
+func (l Labels) upsertLabel(sourceFilter string, label Label) bool {
 	oldLabel, found := l[label.Key]
 	if found {
+		if sourceFilter != LabelSourceAny {
+			return false
+		}
+
 		// Key is the same, check if Value and Source are also the same
 		if label.Value == oldLabel.Value && label.Source == oldLabel.Source {
 			return false // No change
@@ -215,11 +221,13 @@ func (l Labels) upsertLabel(label Label) bool {
 }
 
 // deleteUnMarked deletes the labels which have not been marked for keeping.
+// The labels are only deleted if their source matches the provided sourceFilter
+// or in case the provided sourceFilter is 'LabelSourceAny'.
 // Returns true if any of them were deleted.
-func (l Labels) deleteUnMarked(marks keepMarks) bool {
+func (l Labels) deleteUnMarked(sourceFilter string, marks keepMarks) bool {
 	deleted := false
-	for k := range l {
-		if _, keep := marks[k]; !keep {
+	for k, v := range l {
+		if _, keep := marks[k]; !keep && (sourceFilter == LabelSourceAny || sourceFilter == v.Source) {
 			delete(l, k)
 			deleted = true
 		}
