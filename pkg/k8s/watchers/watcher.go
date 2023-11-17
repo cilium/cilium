@@ -1036,14 +1036,6 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 		k.podStoreMU.RLock()
 		defer k.podStoreMU.RUnlock()
 		return k.podStore
-	case "ciliumendpoint":
-		k.ciliumEndpointIndexerMU.RLock()
-		defer k.ciliumEndpointIndexerMU.RUnlock()
-		return k.ciliumEndpointIndexer
-	case "ciliumendpointslice":
-		k.ciliumEndpointSliceIndexerMU.RLock()
-		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
-		return k.ciliumEndpointSliceIndexer
 	default:
 		panic("no such store: " + name)
 	}
