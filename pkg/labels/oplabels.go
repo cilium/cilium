@@ -202,11 +202,12 @@ func (o *OpLabels) ModifyIdentityLabels(addLabels, delLabels Labels) (changed bo
 // was not already in 'l'. Returns 'true' if a label was added, or an old label was
 // updated, 'false' otherwise.
 // The label is only updated if its source matches the provided 'sourceFilter'
-// or in case the provided sourceFilter is 'LabelSourceAny'.
+// or in case the provided sourceFilter is 'LabelSourceAny'. The new label must
+// also match the old label 'source' in order for it to be replaced.
 func (l Labels) upsertLabel(sourceFilter string, label Label) bool {
 	oldLabel, found := l[label.Key]
 	if found {
-		if sourceFilter != LabelSourceAny {
+		if sourceFilter != LabelSourceAny && sourceFilter != oldLabel.Source {
 			return false
 		}
 
@@ -214,7 +215,13 @@ func (l Labels) upsertLabel(sourceFilter string, label Label) bool {
 		if label.Value == oldLabel.Value && label.Source == oldLabel.Source {
 			return false // No change
 		}
+
+		// If the label is not from the same source, then don't replace it.
+		if oldLabel.Source != label.Source {
+			return false
+		}
 	}
+
 	// Insert or replace old label
 	l[label.Key] = label
 	return true
