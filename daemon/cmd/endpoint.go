@@ -485,7 +485,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		// and update the endpoint with these labels.
 		ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
 	} else {
-		regenTriggered = ep.UpdateLabels(ctx, addLabels, infoLabels, true)
+		regenTriggered = ep.UpdateLabels(ctx, labels.LabelSourceAny, addLabels, infoLabels, true)
 	}
 
 	select {
@@ -1003,7 +1003,7 @@ func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.
 		return PatchEndpointIDInvalidCode, err
 	}
 
-	if err := ep.ModifyIdentityLabels(addLabels, delLabels); err != nil {
+	if err := ep.ModifyIdentityLabels(labels.LabelSourceAny, addLabels, delLabels); err != nil {
 		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 
