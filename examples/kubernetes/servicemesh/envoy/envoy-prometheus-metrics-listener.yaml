@@ -34,5 +34,5 @@ spec:
       - match:
           path: "/metrics"
         route:
-          cluster: "envoy-admin"
+          cluster: "/envoy-admin"
           prefix_rewrite: "/stats/prometheus"
