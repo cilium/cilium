@@ -15,8 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.19
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
@@ -155,7 +153,7 @@ jobs:
 
       - name: Install Cilium CLI
         run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.CILIUM_CLI_VERSION }}/cilium-linux-amd64.tar.gz{,.sha256sum}
           sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
           rm cilium-linux-amd64.tar.gz{,.sha256sum}

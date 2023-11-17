@@ -24,8 +24,6 @@ env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   kind_version: v0.20.0
   cluster_name: cilium-testing
-  # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.19
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=docker depName=kindest/node
@@ -159,7 +157,7 @@ jobs:
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@32109b32259a487c803648a3c9463cdcafa4c0c3 # v0.15.19
         with:
-          release-version: ${{ env.cilium_cli_version }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Checkout code
