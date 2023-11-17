@@ -308,6 +308,7 @@ func CiliumSlimEndpointResource(lc hive.Lifecycle, cs client.Clientset, _ *node.
 		}, TransformToCiliumEndpoint),
 		resource.WithMetric("CiliumEndpoint"),
 		resource.WithIndexers(indexers),
+		resource.WithStoppableInformer(),
 	), nil
 }
 
