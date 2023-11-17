@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -104,6 +105,7 @@ type Resources struct {
 	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
 	CiliumCIDRGroups                 resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
+	CiliumSlimEndpoint               resource.Resource[*types.CiliumEndpoint]
 }
 
 // LocalNodeResources is a convenience struct to group CiliumNode and Node resources as cell constructor parameters.
