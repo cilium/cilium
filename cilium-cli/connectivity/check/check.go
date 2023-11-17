@@ -46,6 +46,7 @@ type Parameters struct {
 	PerfCRR               bool
 	PerfHostNet           bool
 	PerfSamples           int
+	PerfLatency           bool
 	CurlImage             string
 	PerformanceImage      string
 	JSONMockImage         string
