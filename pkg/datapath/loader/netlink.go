@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/inctimer"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/time"
@@ -93,6 +94,14 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		return nil, fmt.Errorf("loading eBPF ELF: %w", err)
 	}
 
+	revert := func() {
+		// Program replacement unsuccessful, revert bpffs migration.
+		l.Debug("Reverting bpffs map migration")
+		if err := bpf.FinalizeBPFFSMigration(bpf.TCGlobalsPath(), spec, true); err != nil {
+			l.WithError(err).Error("Failed to revert bpffs map migration")
+		}
+	}
+
 	for _, prog := range progs {
 		if spec.Programs[prog.progName] == nil {
 			return nil, fmt.Errorf("no program %s found in eBPF ELF", prog.progName)
@@ -124,6 +133,20 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 
 		// Only one cilium_calls_* per collection, we can stop here.
 		break
+	}
+
+	// Inserting a program into these maps will immediately cause other BPF
+	// programs to call into it, even if other maps like cilium_calls haven't been
+	// fully populated for the current ELF. Save their contents and avoid sending
+	// them to the ELF loader.
+	var policyProgs, egressPolicyProgs []ebpf.MapKV
+	if pm, ok := spec.Maps[policymap.PolicyCallMapName]; ok {
+		policyProgs = append(policyProgs, pm.Contents...)
+		pm.Contents = nil
+	}
+	if pm, ok := spec.Maps[policymap.PolicyEgressCallMapName]; ok {
+		egressPolicyProgs = append(egressPolicyProgs, pm.Contents...)
+		pm.Contents = nil
 	}
 
 	// Load the CollectionSpec into the kernel, picking up any pinned maps from
@@ -189,18 +212,59 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		}
 
 		if err != nil {
-			// Program replacement unsuccessful, revert bpffs migration.
-			l.Debug("Reverting bpffs map migration")
-			if err := bpf.FinalizeBPFFSMigration(bpf.TCGlobalsPath(), spec, true); err != nil {
-				l.WithError(err).Error("Failed to revert bpffs map migration")
-			}
-
+			revert()
 			return nil, fmt.Errorf("program %s: %w", prog.progName, err)
 		}
 		scopedLog.Debug("Successfully attached program to interface")
 	}
 
+	// If an ELF contains one of the policy call maps, resolve and insert the
+	// programs it refers to into the map.
+
+	if len(policyProgs) != 0 {
+		if err := resolveAndInsertCalls(coll, policymap.PolicyCallMapName, policyProgs); err != nil {
+			revert()
+			return nil, fmt.Errorf("inserting policy programs: %w", err)
+		}
+	}
+
+	if len(egressPolicyProgs) != 0 {
+		if err := resolveAndInsertCalls(coll, policymap.PolicyEgressCallMapName, egressPolicyProgs); err != nil {
+			revert()
+			return nil, fmt.Errorf("inserting egress policy programs: %w", err)
+		}
+	}
+
 	return finalize, nil
+}
+
+// resolveAndInsertCalls resolves a given slice of ebpf.MapKV containing u32 keys
+// and string values (typical for a prog array) to the Programs they point to in
+// the Collection. The Programs are then inserted into the Map with the given
+// mapName contained within the Collection.
+func resolveAndInsertCalls(coll *ebpf.Collection, mapName string, calls []ebpf.MapKV) error {
+	m, ok := coll.Maps[mapName]
+	if !ok {
+		return fmt.Errorf("call map %s not found in Collection", mapName)
+	}
+
+	for _, v := range calls {
+		name := v.Value.(string)
+		slot := v.Key.(uint32)
+
+		p, ok := coll.Programs[name]
+		if !ok {
+			return fmt.Errorf("program %s not found in Collection", name)
+		}
+
+		if err := m.Update(slot, p, ebpf.UpdateAny); err != nil {
+			return fmt.Errorf("inserting program %s into slot %d", name, slot)
+		}
+
+		log.Debugf("Inserted program %s into %s slot %d", name, mapName, slot)
+	}
+
+	return nil
 }
 
 // attachTCProgram attaches the TC program 'prog' to link.
