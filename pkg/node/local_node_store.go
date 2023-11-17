@@ -5,6 +5,7 @@ package node
 
 import (
 	"context"
+	"sync"
 
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
@@ -27,9 +28,11 @@ type LocalNode struct {
 	ProviderID string
 }
 
-// LocalNodeInitializer specifies how to build the initial local node object.
-type LocalNodeInitializer interface {
+// LocalNodeSynchronizer specifies how to build, and keep synchronized the local
+// node object.
+type LocalNodeSynchronizer interface {
 	InitLocalNode(context.Context, *LocalNode) error
+	SyncLocalNode(context.Context, *LocalNodeStore)
 }
 
 // LocalNodeStoreCell provides the LocalNodeStore instance.
@@ -47,7 +50,7 @@ type LocalNodeStoreParams struct {
 	cell.In
 
 	Lifecycle hive.Lifecycle
-	Init      LocalNodeInitializer `optional:"true"`
+	Sync      LocalNodeSynchronizer `optional:"true"`
 }
 
 // LocalNodeStore is the canonical owner for the local node object and provides
@@ -78,16 +81,32 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 
 	s := &LocalNodeStore{
 		Observable: src,
+		value: LocalNode{Node: types.Node{
+			// Explicitly initialize the labels and annotations maps, so that
+			// we don't need to always check for nil values.
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+		}},
 	}
+
+	bctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
 			s.mu.Lock()
 			defer s.mu.Unlock()
-			if params.Init != nil {
-				if err := params.Init.InitLocalNode(ctx, &s.value); err != nil {
+			if params.Sync != nil {
+				if err := params.Sync.InitLocalNode(ctx, &s.value); err != nil {
 					return err
 				}
+
+				// Start the synchronization process in background
+				wg.Add(1)
+				go func() {
+					params.Sync.SyncLocalNode(bctx, s)
+					wg.Done()
+				}()
 			}
 
 			// Set the global variable still used by getters
@@ -101,6 +120,10 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 			return nil
 		},
 		OnStop: func(hive.HookContext) error {
+			// Stop the synchronization process (no-op if it had not been started)
+			cancel()
+			wg.Wait()
+
 			s.mu.Lock()
 			s.complete(nil)
 			s.complete = nil

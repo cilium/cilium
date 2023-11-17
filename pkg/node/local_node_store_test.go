@@ -15,11 +15,17 @@ import (
 	. "github.com/cilium/cilium/pkg/node"
 )
 
-type testInitializer struct{}
+type testSynchronizer struct{ identity chan uint32 }
 
-func (testInitializer) InitLocalNode(ctx context.Context, n *LocalNode) error {
+func (testSynchronizer) InitLocalNode(ctx context.Context, n *LocalNode) error {
 	n.NodeIdentity = 1
 	return nil
+}
+
+func (ts testSynchronizer) SyncLocalNode(ctx context.Context, lns *LocalNodeStore) {
+	id := <-ts.identity
+	lns.Update(func(n *LocalNode) { n.NodeIdentity = id })
+	<-ctx.Done()
 }
 
 func TestLocalNodeStore(t *testing.T) {
@@ -29,12 +35,15 @@ func TestLocalNodeStore(t *testing.T) {
 
 	waitObserve.Add(1)
 
+	ts := testSynchronizer{identity: make(chan uint32, 1)}
+
 	// observe observes changes to the LocalNodeStore and completes
 	// waitObserve after the last change has been observed.
 	observe := func(store *LocalNodeStore) {
 		store.Observe(context.TODO(),
 			func(n LocalNode) {
 				observed = append(observed, n.NodeIdentity)
+
 				if n.NodeIdentity == expected[len(expected)-1] {
 					waitObserve.Done()
 				}
@@ -50,6 +59,11 @@ func TestLocalNodeStore(t *testing.T) {
 			OnStart: func(hive.HookContext) error {
 				// emit 2, 3, 4, 5
 				for _, i := range expected[1:] {
+					if i == 5 {
+						ts.identity <- i
+						continue
+					}
+
 					store.Update(func(n *LocalNode) {
 						n.NodeIdentity = i
 					})
@@ -62,7 +76,7 @@ func TestLocalNodeStore(t *testing.T) {
 	hive := hive.New(
 		cell.Provide(NewLocalNodeStore),
 
-		cell.Provide(func() LocalNodeInitializer { return testInitializer{} }),
+		cell.Provide(func() LocalNodeSynchronizer { return ts }),
 		cell.Invoke(observe),
 		cell.Invoke(update),
 	)
