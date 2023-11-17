@@ -51,8 +51,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.14
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -220,7 +218,7 @@ jobs:
       - name: Install Cilium CLI-cli
         uses: cilium/cilium-cli@446392499db483906bcc3ade85f023912a79e5ee # v0.15.14
         with:
-          release-version: ${{ env.cilium_cli_version }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
           binary-name: cilium-cli
           binary-dir: ./

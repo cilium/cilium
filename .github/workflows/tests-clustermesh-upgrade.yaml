@@ -55,8 +55,6 @@ env:
   kind_version: v0.20.0
   # renovate: datasource=docker depName=quay.io/cilium/kindest-node
   k8s_version: v1.28.3
-  # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.14
   cilium_cli_ci_version:
 
   clusterName1: cluster1
@@ -185,7 +183,7 @@ jobs:
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@446392499db483906bcc3ade85f023912a79e5ee # v0.15.14
         with:
-          release-version: ${{ env.cilium_cli_version }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Generate Kind configuration files
