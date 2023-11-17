@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/inctimer"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 )
@@ -130,6 +131,19 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		break
 	}
 
+	// Clear contents of cilium_call_policy. Inserting an entry into this map will
+	// immediately cause bpf_host and bpf_overlay to call into it, even if other
+	// maps haven't been fully populated yet.
+	var policyKey uint32
+	var policyProg string
+	if pm, ok := spec.Maps[policymap.PolicyCallMapName]; ok {
+		if len(pm.Contents) > 0 {
+			policyKey = pm.Contents[0].Key.(uint32)
+			policyProg = pm.Contents[0].Value.(string)
+			pm.Contents = nil
+		}
+	}
+
 	// Load the CollectionSpec into the kernel, picking up any pinned maps from
 	// bpffs in the process.
 	finalize := func() {}
@@ -186,6 +200,17 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 			return nil, fmt.Errorf("program %s: %w", prog.progName, err)
 		}
 		scopedLog.Debug("Successfully attached program to interface")
+	}
+
+	if m, ok := coll.Maps[policymap.PolicyCallMapName]; ok && policyKey != 0 {
+		l.Debug("Found cilium_call_policy in ELF")
+
+		if p, ok := coll.Programs[policyProg]; ok {
+			l.Debugf("Found endpoint policy program in ELF, insert into cilium_call_policy slot %d", policyKey)
+			if err := m.Update(policyKey, p, ebpf.UpdateAny); err != nil {
+				l.WithError(err).Errorf("Updating cilium_call_policy slot %d", policyKey)
+			}
+		}
 	}
 
 	return finalize, nil
