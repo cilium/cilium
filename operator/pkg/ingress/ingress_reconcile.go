@@ -6,7 +6,6 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"maps"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -23,7 +22,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
-	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -42,7 +40,8 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		// Ingress deleted -> try to cleanup shared CiliumEnvoyConfig
 		// Resources from LB mode dedicated are deleted via K8s Garbage Collection (OwnerReferences)
-		if err := r.tryCleanupSharedResources(ctx, req.NamespacedName); err != nil {
+		scopedLog.Debug("Trying to cleanup potentially existing resources of deleted Ingress")
+		if err := r.tryCleanupSharedResources(ctx); err != nil {
 			return controllerruntime.Fail(err)
 		}
 
@@ -59,7 +58,8 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Ingress is no longer managed by Cilium.
 	// Trying to cleanup resources.
 	if !isCiliumManagedIngress(ctx, r.client, r.logger, *ingress) {
-		if err := r.tryCleanupSharedResources(ctx, req.NamespacedName); err != nil {
+		scopedLog.Debug("Trying to cleanup potentially existing resources of unmanaged Ingress")
+		if err := r.tryCleanupSharedResources(ctx); err != nil {
 			return controllerruntime.Fail(err)
 		}
 
@@ -67,6 +67,7 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return controllerruntime.Fail(err)
 		}
 
+		scopedLog.Debug("Trying to cleanup Ingress status of unmanaged Ingress")
 		if err := r.tryCleanupIngressStatus(ctx, ingress); err != nil {
 			// One attempt to cleanup the status of the Ingress.
 			// Don't fail (and retry) on an error, as this might result in
@@ -78,27 +79,34 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Success()
 	}
 
+	// Creation / Update of Ingress resources depending on the loadbalancer mode
+	// Trying to cleanup the resources of the "other" mode (potential change of mode)
 	if r.isEffectiveLoadbalancerModeDedicated(ingress) {
+		scopedLog.Debug("Updating dedicated resources")
 		if err := r.createOrUpdateDedicatedResources(ctx, ingress); err != nil {
 			return controllerruntime.Fail(err)
 		}
 
 		// Trying to cleanup shared resources (potential change of LB mode)
-		if err := r.tryCleanupSharedResources(ctx, req.NamespacedName); err != nil {
+		scopedLog.Debug("Trying to cleanup potentially existing shared resources")
+		if err := r.tryCleanupSharedResources(ctx); err != nil {
 			return controllerruntime.Fail(err)
 		}
 	} else {
-		if err := r.createOrUpdateSharedResources(ctx, ingress); err != nil {
+		scopedLog.Debug("Updating shared resources")
+		if err := r.createOrUpdateSharedResources(ctx); err != nil {
 			return controllerruntime.Fail(err)
 		}
 
 		// Trying to cleanup dedicated resources (potential change of LB mode)
+		scopedLog.Debug("Trying to cleanup potentially existing dedicated resources")
 		if err := r.tryCleanupDedicatedResources(ctx, req.NamespacedName); err != nil {
 			return controllerruntime.Fail(err)
 		}
 	}
 
 	// Update status
+	scopedLog.Debug("Updating Ingress status")
 	if err := r.updateIngressLoadbalancerStatus(ctx, ingress); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update Ingress loadbalancer status: %w", err))
 	}
@@ -108,14 +116,9 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *ingressReconciler) createOrUpdateDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress) error {
-	desiredCiliumEnvoyConfig, desiredService, desiredEndpoints, err := r.regenerate(ctx, ingress, false)
+	desiredCiliumEnvoyConfig, desiredService, desiredEndpoints, err := r.buildDedicatedResources(ctx, ingress)
 	if err != nil {
-		return fmt.Errorf("failed to generate Ingress model: %w", err)
-	}
-
-	// Explicitly set the controlling OwnerReference on the CiliumEnvoyConfig
-	if err := controllerutil.SetControllerReference(ingress, desiredCiliumEnvoyConfig, r.client.Scheme()); err != nil {
-		return fmt.Errorf("failed to set controller reference on CiliumEnvoyConfig: %w", err)
+		return fmt.Errorf("failed to build dedicated resources: %w", err)
 	}
 
 	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
@@ -133,12 +136,23 @@ func (r *ingressReconciler) createOrUpdateDedicatedResources(ctx context.Context
 	return nil
 }
 
-func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context, ingress *networkingv1.Ingress) error {
+// propagateIngressAnnotationsAndLabels propagates Ingress annotation and label if required.
+// This is applicable only for dedicated LB mode.
+// For shared LB mode, the service annotation and label are defined in other higher level (e.g. helm).
+func (r *ingressReconciler) propagateIngressAnnotationsAndLabels(ingress *networkingv1.Ingress, objectMeta *metav1.ObjectMeta) {
+	// Same lbAnnotationPrefixes config option is used for annotation and label propagation
+	if len(r.lbAnnotationPrefixes) > 0 {
+		objectMeta.Annotations = mergeMap(objectMeta.Annotations, ingress.Annotations, r.lbAnnotationPrefixes...)
+		objectMeta.Labels = mergeMap(objectMeta.Labels, ingress.Labels, r.lbAnnotationPrefixes...)
+	}
+}
+
+func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context) error {
 	// In shared loadbalancing mode, only the CiliumEnvoyConfig is managed by the Operator.
 	// Service and Endpoints are created by the Helm Chart.
-	desiredCiliumEnvoyConfig, _, _, err := r.regenerate(ctx, ingress, false)
+	desiredCiliumEnvoyConfig, err := r.buildSharedResources(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to generate Ingress model: %w", err)
+		return fmt.Errorf("failed to build shared resources: %w", err)
 	}
 
 	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
@@ -164,21 +178,12 @@ func (r *ingressReconciler) tryCleanupDedicatedResources(ctx context.Context, in
 	return nil
 }
 
-func (r *ingressReconciler) tryCleanupSharedResources(ctx context.Context, ingressNamespacedName types.NamespacedName) error {
-	// Ingress isn't used when using enforced shared mode.
-	// Its only purpose is to get the namespace and name.
-	ingress := networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ingressNamespacedName.Namespace,
-			Name:      ingressNamespacedName.Name,
-		},
-	}
-
+func (r *ingressReconciler) tryCleanupSharedResources(ctx context.Context) error {
 	// In shared loadbalancing mode, only the CiliumEnvoyConfig is managed by the Operator.
 	// Service and Endpoints are created by the Helm Chart.
-	desiredCiliumEnvoyConfig, _, _, err := r.regenerate(ctx, &ingress, true)
+	desiredCiliumEnvoyConfig, err := r.buildSharedResources(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to generate Ingress model: %w", err)
+		return fmt.Errorf("failed to build shared resources: %w", err)
 	}
 
 	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
@@ -188,85 +193,50 @@ func (r *ingressReconciler) tryCleanupSharedResources(ctx context.Context, ingre
 	return nil
 }
 
-// regenerate regenerates the desired stage for all related resources.
-// This internally leverage different Ingress translators (e.g. shared vs dedicated).
-// If forceShared is true, only the shared translator will be used.
-func (r *ingressReconciler) regenerate(ctx context.Context, ing *networkingv1.Ingress, forceShared bool) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
-	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.K8sNamespace: ing.GetNamespace(),
-		logfields.Ingress:      ing.GetName(),
-	})
+func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2.CiliumEnvoyConfig, error) {
+	ingressList := networkingv1.IngressList{}
+	if err := r.client.List(ctx, &ingressList); err != nil {
+		return nil, fmt.Errorf("failed to list Ingresses: %w", err)
+	}
 
-	// Used for logging the effective LB mode for this Ingress.
-	loadbalancerMode := "shared"
-
-	var translator translation.Translator
 	m := &model.Model{}
-	if !forceShared && r.isEffectiveLoadbalancerModeDedicated(ing) {
-		loadbalancerMode = "dedicated"
-		translator = r.dedicatedTranslator
-		if annotations.GetAnnotationTLSPassthroughEnabled(ing) {
-			m.TLS = append(m.TLS, ingestion.IngressPassthrough(*ing, r.defaultSecretNamespace, r.defaultSecretName)...)
+	for _, item := range ingressList.Items {
+		if !isCiliumManagedIngress(ctx, r.client, r.logger, item) || r.isEffectiveLoadbalancerModeDedicated(&item) || item.GetDeletionTimestamp() != nil {
+			continue
+		}
+		if annotations.GetAnnotationTLSPassthroughEnabled(&item) {
+			m.TLS = append(m.TLS, ingestion.IngressPassthrough(item, r.defaultSecretNamespace, r.defaultSecretName)...)
 		} else {
-			m.HTTP = append(m.HTTP, ingestion.Ingress(*ing, r.defaultSecretNamespace, r.defaultSecretName)...)
+			m.HTTP = append(m.HTTP, ingestion.Ingress(item, r.defaultSecretNamespace, r.defaultSecretName)...)
 		}
+	}
 
+	cec, _, _, err := r.sharedTranslator.Translate(m)
+
+	return cec, err
+}
+
+func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+	m := &model.Model{}
+
+	if annotations.GetAnnotationTLSPassthroughEnabled(ingress) {
+		m.TLS = append(m.TLS, ingestion.IngressPassthrough(*ingress, r.defaultSecretNamespace, r.defaultSecretName)...)
 	} else {
-		translator = r.sharedTranslator
-		ingressList := networkingv1.IngressList{}
-		if err := r.client.List(ctx, &ingressList); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to list Ingresses: %w", err)
-		}
-
-		for _, item := range ingressList.Items {
-			if !isCiliumManagedIngress(ctx, r.client, r.logger, item) || r.isEffectiveLoadbalancerModeDedicated(&item) || item.GetDeletionTimestamp() != nil {
-				continue
-			}
-			if annotations.GetAnnotationTLSPassthroughEnabled(&item) {
-				m.TLS = append(m.TLS, ingestion.IngressPassthrough(item, r.defaultSecretNamespace, r.defaultSecretName)...)
-			} else {
-				m.HTTP = append(m.HTTP, ingestion.Ingress(item, r.defaultSecretNamespace, r.defaultSecretName)...)
-			}
-		}
+		m.HTTP = append(m.HTTP, ingestion.Ingress(*ingress, r.defaultSecretNamespace, r.defaultSecretName)...)
 	}
 
-	scopedLog.WithFields(logrus.Fields{
-		"forcedShared": forceShared,
-		"model":        m,
-		"loadbalancer": loadbalancerMode,
-	}).Debug("Generated model for ingress")
-	cec, svc, ep, err := translator.Translate(m)
-	// Propagate Ingress annotation and label if required. This is applicable only for dedicated LB mode.
-	// For shared LB mode, the service annotation and label are defined in other higher level (e.g. helm).
-	if svc != nil {
-		for key, value := range ing.GetAnnotations() {
-			for _, prefix := range r.lbAnnotationPrefixes {
-				if strings.HasPrefix(key, prefix) {
-					if svc.Annotations == nil {
-						svc.Annotations = make(map[string]string)
-					}
-					svc.Annotations[key] = value
-				}
-			}
-		}
-		// Same lbAnnotationPrefixes config option is used for label propagation
-		for key, value := range ing.GetLabels() {
-			for _, prefix := range r.lbAnnotationPrefixes {
-				if strings.HasPrefix(key, prefix) {
-					if svc.Labels == nil {
-						svc.Labels = make(map[string]string)
-					}
-					svc.Labels[key] = value
-				}
-			}
-		}
+	cec, svc, ep, err := r.dedicatedTranslator.Translate(m)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to translate model into resources: %w", err)
 	}
-	scopedLog.WithFields(logrus.Fields{
-		"ciliumEnvoyConfig": cec,
-		"service":           svc,
-		logfields.Endpoint:  ep,
-		"loadbalancer":      loadbalancerMode,
-	}).Debugf("Translated resources for ingress")
+
+	r.propagateIngressAnnotationsAndLabels(ingress, &svc.ObjectMeta)
+
+	// Explicitly set the controlling OwnerReference on the CiliumEnvoyConfig
+	if err := controllerutil.SetControllerReference(ingress, cec, r.client.Scheme()); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to set controller reference on CiliumEnvoyConfig: %w", err)
+	}
+
 	return cec, svc, ep, err
 }
 
@@ -277,7 +247,7 @@ func (r *ingressReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context,
 		cec.Spec = desiredCEC.Spec
 		cec.OwnerReferences = desiredCEC.OwnerReferences
 		cec.Annotations = mergeMap(cec.Annotations, desiredCEC.Annotations)
-		cec.Labels = mergeMap(cec.Annotations, desiredCEC.Annotations)
+		cec.Labels = mergeMap(cec.Labels, desiredCEC.Labels)
 
 		return nil
 	})
@@ -302,7 +272,7 @@ func (r *ingressReconciler) createOrUpdateService(ctx context.Context, desiredSe
 
 		svc.OwnerReferences = desiredService.OwnerReferences
 		svc.Annotations = mergeMap(svc.Annotations, desiredService.Annotations)
-		svc.Labels = mergeMap(svc.Annotations, desiredService.Annotations)
+		svc.Labels = mergeMap(svc.Labels, desiredService.Labels)
 
 		return nil
 	})
@@ -335,13 +305,34 @@ func (r *ingressReconciler) createOrUpdateEndpoints(ctx context.Context, desired
 	return nil
 }
 
-func mergeMap(dst, src map[string]string) map[string]string {
-	if dst == nil {
-		return src
+// mergeMap merges the content from src into dst. Existing entries are overwritten.
+// If keyPrefixes are provided, only keys matching one of the prefixes are merged.
+func mergeMap(dst, src map[string]string, keyPrefixes ...string) map[string]string {
+	if src == nil {
+		return dst
 	}
 
-	maps.Copy(dst, src)
+	if dst == nil {
+		dst = map[string]string{}
+	}
+
+	for key, value := range src {
+		if len(keyPrefixes) == 0 || atLeastOnePrefixMatches(key, keyPrefixes) {
+			dst[key] = value
+		}
+	}
+
 	return dst
+}
+
+func atLeastOnePrefixMatches(s string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (r *ingressReconciler) tryDeletingResource(ctx context.Context, object client.Object, namespacedName types.NamespacedName) error {
@@ -424,8 +415,8 @@ func convertToNetworkV1IngressLoadBalancerIngress(lbIngresses []corev1.LoadBalan
 	return ingLBIngs
 }
 
-func (r *ingressReconciler) isEffectiveLoadbalancerModeDedicated(ing *networkingv1.Ingress) bool {
-	value := annotations.GetAnnotationIngressLoadbalancerMode(ing)
+func (r *ingressReconciler) isEffectiveLoadbalancerModeDedicated(ingress *networkingv1.Ingress) bool {
+	value := annotations.GetAnnotationIngressLoadbalancerMode(ingress)
 	switch value {
 	case annotations.LoadbalancerModeDedicated:
 		return true
