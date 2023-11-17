@@ -238,7 +238,11 @@ static __always_inline void cilium_dbg_capture(struct __ctx_buff *ctx, __u8 type
 }
 #else
 # define printk(fmt, ...)					\
-		do { } while (0)
+		({						\
+			const char ____fmt[] = fmt;		\
+			trace_printk(____fmt, sizeof(____fmt),	\
+				     ##__VA_ARGS__);		\
+		})
 
 static __always_inline
 void cilium_dbg(struct __ctx_buff *ctx __maybe_unused, __u8 type __maybe_unused,

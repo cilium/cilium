@@ -452,7 +452,7 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
 kind: ## Create a kind cluster for Cilium development.
-	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh
+	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh --secondary-network
 
 kind-egressgw: ## Create a kind cluster for egress gateway Cilium development.
 	$(QUIET)SED=$(SED) WORKERS=3 ./contrib/scripts/kind.sh
