@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"net"
 
+	"golang.org/x/exp/maps"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -25,22 +25,23 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-type localNodeInitializerParams struct {
+type localNodeSynchronizerParams struct {
 	cell.In
 
-	Config    *option.DaemonConfig
-	Clientset client.Clientset
-	LocalNode agentK8s.LocalNodeResource
+	Config       *option.DaemonConfig
+	K8sLocalNode agentK8s.LocalNodeResource
 }
 
-// localNodeInitializer performs the bootstrapping of the LocalNodeStore,
+// localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
 // which contains information about the local Cilium node populated from
-// configuration and Kubernetes.
-type localNodeInitializer struct {
-	localNodeInitializerParams
+// configuration and Kubernetes. Additionally, it also takes care of keeping
+// the selected fields of the LocalNodeStore synchronized with Kubernetes.
+type localNodeSynchronizer struct {
+	localNodeSynchronizerParams
+	old node.LocalNode
 }
 
-func (ini *localNodeInitializer) InitLocalNode(ctx context.Context, n *node.LocalNode) error {
+func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.LocalNode) error {
 	n.Source = source.Local
 	n.NodeIdentity = uint32(identity.ReservedIdentityHost)
 
@@ -54,11 +55,30 @@ func (ini *localNodeInitializer) InitLocalNode(ctx context.Context, n *node.Loca
 	return nil
 }
 
-func newLocalNodeInitializer(p localNodeInitializerParams) node.LocalNodeInitializer {
-	return &localNodeInitializer{p}
+func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node.LocalNodeStore) {
+	if ini.K8sLocalNode == nil {
+		return
+	}
+
+	for ev := range ini.K8sLocalNode.Events(ctx) {
+		if ev.Kind == resource.Upsert {
+			new := parseNode(ev.Object)
+			if !ini.mutableFieldsEqual(new) {
+				store.Update(func(ln *node.LocalNode) {
+					ini.syncFromK8s(ln, new)
+				})
+			}
+		}
+
+		ev.Done(nil)
+	}
 }
 
-func (ini *localNodeInitializer) initFromConfig(ctx context.Context, n *node.LocalNode) error {
+func newLocalNodeSynchronizer(p localNodeSynchronizerParams) node.LocalNodeSynchronizer {
+	return &localNodeSynchronizer{localNodeSynchronizerParams: p}
+}
+
+func (ini *localNodeSynchronizer) initFromConfig(ctx context.Context, n *node.LocalNode) error {
 	n.Cluster = ini.Config.ClusterName
 	n.ClusterID = ini.Config.ClusterID
 	n.Name = nodeTypes.GetName()
@@ -88,10 +108,10 @@ func (ini *localNodeInitializer) initFromConfig(ctx context.Context, n *node.Loc
 	return nil
 }
 
-func (ini *localNodeInitializer) getK8sLocalNode(ctx context.Context) (*slim_corev1.Node, error) {
+func (ini *localNodeSynchronizer) getK8sLocalNode(ctx context.Context) (*slim_corev1.Node, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	for ev := range ini.LocalNode.Events(ctx) {
+	for ev := range ini.K8sLocalNode.Events(ctx) {
 		ev.Done(nil)
 		if ev.Kind == resource.Upsert {
 			return ev.Object, nil
@@ -100,8 +120,8 @@ func (ini *localNodeInitializer) getK8sLocalNode(ctx context.Context) (*slim_cor
 	return nil, ctx.Err()
 }
 
-func (ini *localNodeInitializer) initFromK8s(ctx context.Context, node *node.LocalNode) error {
-	if ini.LocalNode == nil {
+func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.LocalNode) error {
+	if ini.K8sLocalNode == nil {
 		return nil
 	}
 
@@ -109,7 +129,7 @@ func (ini *localNodeInitializer) initFromK8s(ctx context.Context, node *node.Loc
 	if err != nil {
 		return err
 	}
-	parsedNode := k8s.ParseNode(k8sNode, source.Kubernetes)
+	parsedNode := parseNode(k8sNode)
 
 	// Initialize the fields in local node where the source of truth is in Kubernetes.
 	// Later stages will deal with updating rest of the fields depending on configuration.
@@ -122,8 +142,6 @@ func (ini *localNodeInitializer) initFromK8s(ctx context.Context, node *node.Loc
 	//   - IPsec key (set by IPsec)
 	//   - alloc CIDRs (depends on IPAM mode; restored from Node or CiliumNode)
 	node.Name = parsedNode.Name
-	node.Labels = parsedNode.Labels
-	node.Annotations = parsedNode.Annotations
 	for _, addr := range parsedNode.IPAddresses {
 		if addr.Type == addressing.NodeInternalIP {
 			node.SetNodeInternalIP(addr.IP)
@@ -131,6 +149,8 @@ func (ini *localNodeInitializer) initFromK8s(ctx context.Context, node *node.Loc
 			node.SetNodeExternalIP(addr.IP)
 		}
 	}
+
+	ini.syncFromK8s(node, parsedNode)
 
 	if ini.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(node.Labels)) {
 		log.WithField(logfields.Selector, ini.Config.NodeEncryptionOptOutLabels).
@@ -140,4 +160,44 @@ func (ini *localNodeInitializer) initFromK8s(ctx context.Context, node *node.Loc
 	}
 
 	return nil
+}
+
+func (ini *localNodeSynchronizer) mutableFieldsEqual(new *node.LocalNode) bool {
+	return maps.Equal(ini.old.Labels, new.Labels) &&
+		maps.Equal(ini.old.Annotations, new.Annotations) &&
+		ini.old.UID == new.UID && ini.old.ProviderID == new.ProviderID
+}
+
+// syncFromK8s synchronizes the fields that can be mutated at runtime
+func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
+	filter := func(old, new map[string]string, key string) bool {
+		_, oldExists := old[key]
+		_, newExists := new[key]
+		return oldExists && !newExists
+	}
+
+	// Create a clone, so that we don't mutate the current labels/annotations,
+	// as LocalNodeStore.Update emits a shallow copy of the whole object.
+	ln.Labels = maps.Clone(ln.Labels)
+	maps.DeleteFunc(ln.Labels, func(key, _ string) bool { return filter(ini.old.Labels, new.Labels, key) })
+	maps.Copy(ln.Labels, new.Labels)
+	ini.old.Labels = new.Labels
+
+	ln.Annotations = maps.Clone(ln.Annotations)
+	maps.DeleteFunc(ln.Annotations, func(key, _ string) bool { return filter(ini.old.Annotations, new.Annotations, key) })
+	maps.Copy(ln.Annotations, new.Annotations)
+	ini.old.Annotations = new.Annotations
+
+	ini.old.UID = new.UID
+	ini.old.ProviderID = new.ProviderID
+	ln.UID = new.UID
+	ln.ProviderID = new.ProviderID
+}
+
+func parseNode(k8sNode *slim_corev1.Node) *node.LocalNode {
+	return &node.LocalNode{
+		Node:       *k8s.ParseNode(k8sNode, source.Kubernetes),
+		UID:        k8sNode.GetUID(),
+		ProviderID: k8sNode.Spec.ProviderID,
+	}
 }

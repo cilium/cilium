@@ -121,9 +121,11 @@ var (
 		// observing changes to it.
 		node.LocalNodeStoreCell,
 
-		// Provide a LocalNodeInitializer that is invoked when LocalNodeStore is started.
+		// Provide a newLocalNodeSynchronizer that is invoked when LocalNodeStore is started.
 		// This fills in the initial state before it is accessed by other sub-systems.
-		cell.Provide(newLocalNodeInitializer),
+		// Then, it takes care of keeping selected fields (e.g., labels, annotations)
+		// synchronized with the corresponding kubernetes object.
+		cell.Provide(newLocalNodeSynchronizer),
 
 		// Controller provides flags and configuration related
 		// to Controller management, concurrent control loops
