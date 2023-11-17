@@ -9,7 +9,7 @@ cilium install \
   --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
   --set bpf.monitorAggregation=none \
-  --set routingMode=tunnel \
+  --datapath-mode=tunnel \
   --set kubeProxyReplacement=strict \
   --set loadBalancer.l7.backend=envoy \
   --set tls.secretsBackend=k8s \
