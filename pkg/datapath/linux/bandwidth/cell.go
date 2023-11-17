@@ -13,9 +13,12 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 var Cell = cell.Module(
@@ -40,8 +43,12 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 }
 
 func newBandwidthManager(lc hive.Lifecycle, p bandwidthManagerParams) (Manager, defines.NodeFnOut) {
-	m := &manager{params: p}
+	g := p.JobRegistry.NewGroup(p.Scope, job.WithLogger(p.Log))
+	m := &manager{params: p, jobGroup: g}
+
 	lc.Append(m)
+	lc.Append(g)
+
 	return m, defines.NewNodeFnOut(m.defines)
 }
 
@@ -53,7 +60,9 @@ func (m *manager) Start(hive.HookContext) error {
 		return nil
 	}
 
-	return m.init()
+	m.jobGroup.Add(job.OneShot("run", m.run))
+
+	return nil
 }
 
 func (*manager) Stop(hive.HookContext) error {
@@ -66,4 +75,8 @@ type bandwidthManagerParams struct {
 	Log          logrus.FieldLogger
 	Config       Config
 	DaemonConfig *option.DaemonConfig
+	DB           *statedb.DB
+	Devices      statedb.Table[*tables.Device]
+	JobRegistry  job.Registry
+	Scope        cell.Scope
 }

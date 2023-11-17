@@ -9,6 +9,8 @@
 package bandwidth
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cilium/ebpf"
@@ -19,9 +21,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/sysctl"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -36,7 +42,8 @@ const (
 type manager struct {
 	resetQueues, enabled bool
 
-	params bandwidthManagerParams
+	params   bandwidthManagerParams
+	jobGroup job.Group
 }
 
 func (m *manager) Enabled() bool {
@@ -123,16 +130,7 @@ func (m *manager) probe() error {
 	return nil
 }
 
-func (m *manager) init() error {
-	// TODO make the bwmanager reactive by using the (currently ignored) watch channel, which is
-	// closed when there's new or changed devices.
-	devs := m.params.DaemonConfig.GetDevices()
-	if len(devs) == 0 {
-		m.params.Log.Warn("BPF bandwidth manager could not detect host devices. Disabling the feature.")
-		m.enabled = false
-		return nil
-	}
-
+func (m *manager) run(ctx context.Context, health cell.HealthReporter) error {
 	m.params.Log.Info("Setting up BPF bandwidth manager")
 
 	if err := bwmap.ThrottleMap().OpenOrCreate(); err != nil {
@@ -143,53 +141,154 @@ func (m *manager) init() error {
 		return fmt.Errorf("failed to set sysctl needed by BPF bandwidth manager: %w", err)
 	}
 
-	for _, device := range devs {
-		link, err := netlink.LinkByName(device)
+	txn := m.params.DB.WriteTxn(m.params.Devices)
+	defer txn.Abort()
+
+	tracker, err := m.params.Devices.DeleteTracker(txn, "bandwidth-manager")
+	if err != nil {
+		return fmt.Errorf("failed to create device tracker: %w", err)
+	}
+	txn.Commit()
+	defer tracker.Close()
+
+	// Map of devices that failed to reconcile.
+	badDevices := make(map[int]error)
+	retryTicker := time.NewTicker(1 * time.Minute)
+	defer retryTicker.Stop()
+
+	minRev := uint64(0)
+	var invalid <-chan struct{}
+	for {
+		// Process all changes since minRev. On startup we process all entries in the table, afterwards changes.
+		rxn := m.params.DB.ReadTxn()
+		minRev, invalid, err = tracker.Process(rxn, minRev, func(device *tables.Device, deleted bool, rev uint64) error {
+			// Ignore non-selected device changes and deleted devices.
+			if !device.Selected || deleted {
+				delete(badDevices, device.Index)
+				return nil
+			}
+
+			if err := m.reconcileQdiscsForDevice(device); err != nil {
+				m.params.Log.WithError(err).WithField("device", device).Warn("Failed to reconcile qdiscs for device")
+				badDevices[device.Index] = err
+			} else {
+				badDevices[device.Index] = nil
+			}
+
+			return nil
+		})
 		if err != nil {
-			m.params.Log.WithError(err).WithField("device", device).Warn("Link does not exist")
+			health.Degraded("Failed to process device updates", err)
 			continue
 		}
-		// We strictly want to avoid a down/up cycle on the device at
-		// runtime, so given we've changed the default qdisc to FQ, we
-		// need to reset the root qdisc, and then set up MQ which will
-		// automatically get FQ leaf qdiscs (given it's been default).
-		qdisc := &netlink.GenericQdisc{
-			QdiscAttrs: netlink.QdiscAttrs{
-				LinkIndex: link.Attrs().Index,
-				Parent:    netlink.HANDLE_ROOT,
-			},
-			QdiscType: "noqueue",
-		}
-		if err := netlink.QdiscReplace(qdisc); err != nil {
-			return fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", qdisc.QdiscType, device, err)
-		}
-		qdisc = &netlink.GenericQdisc{
-			QdiscAttrs: netlink.QdiscAttrs{
-				LinkIndex: link.Attrs().Index,
-				Parent:    netlink.HANDLE_ROOT,
-			},
-			QdiscType: "mq",
-		}
-		which := "mq with fq leaves"
-		if err := netlink.QdiscReplace(qdisc); err != nil {
-			// No MQ support, so just replace to FQ directly.
-			fq := &netlink.Fq{
-				QdiscAttrs: netlink.QdiscAttrs{
-					LinkIndex: link.Attrs().Index,
-					Parent:    netlink.HANDLE_ROOT,
-				},
-				Pacing: 1,
+
+		updateHealthStatus(badDevices, health)
+
+		select {
+		case <-ctx.Done():
+			return nil
+
+		case <-invalid:
+			continue
+
+		case <-retryTicker.C:
+			for idx, err := range badDevices {
+				if err == nil {
+					continue
+				}
+
+				device, _, found := m.params.Devices.First(rxn, tables.DeviceIDIndex.Query(idx))
+				if !found {
+					delete(badDevices, idx)
+					continue
+				}
+
+				if err := m.reconcileQdiscsForDevice(device); err != nil {
+					m.params.Log.WithError(err).WithField("device", device).Warn("Failed to reconcile qdiscs for device")
+					badDevices[device.Index] = err
+				} else {
+					badDevices[device.Index] = nil
+				}
 			}
-			// At this point there is nothing we can do about
-			// it if we fail here, so hard bail out.
-			if err = netlink.QdiscReplace(fq); err != nil {
-				return fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", fq.Type(), device, err)
-			}
-			which = "fq"
 		}
-		m.params.Log.WithField("device", device).Infof("Setting qdisc to %s", which)
+	}
+}
+
+func updateHealthStatus(badDevices map[int]error, health cell.HealthReporter) {
+	ok := 0
+	var errs error
+	for _, v := range badDevices {
+		if v == nil {
+			ok++
+		} else {
+			errs = errors.Join(errs, v)
+		}
+	}
+	if ok == len(badDevices) {
+		health.OK(fmt.Sprintf("OK (%d/%d)", ok, len(badDevices)))
+	} else {
+		health.Degraded(fmt.Sprintf("Degraded (%d/%d)", ok, len(badDevices)), errs)
+	}
+}
+
+func (m *manager) reconcileQdiscsForDevice(device *tables.Device) error {
+	link, err := netlink.LinkByIndex(device.Index)
+	if err != nil {
+		return fmt.Errorf("Link for device idx '%d' does not exist", device.Index)
 	}
 
+	// Get the current qdiscs on the device.
+	curQdiscs, err := netlink.QdiscList(link)
+	if err != nil {
+		return fmt.Errorf("cannot list qdiscs on device %s: %w", device.Name, err)
+	}
+	for _, qdisc := range curQdiscs {
+		if qdisc.Attrs().Parent == netlink.HANDLE_ROOT && qdisc.Type() == "mq" {
+			return nil
+		}
+	}
+
+	// We strictly want to avoid a down/up cycle on the device at
+	// runtime, so given we've changed the default qdisc to FQ, we
+	// need to reset the root qdisc, and then set up MQ which will
+	// automatically get FQ leaf qdiscs (given it's been default).
+	qdisc := &netlink.GenericQdisc{
+		QdiscAttrs: netlink.QdiscAttrs{
+			LinkIndex: link.Attrs().Index,
+			Parent:    netlink.HANDLE_ROOT,
+		},
+		QdiscType: "noqueue",
+	}
+	if err := netlink.QdiscReplace(qdisc); err != nil {
+		return fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", qdisc.QdiscType, device.Name, err)
+	}
+
+	qdisc = &netlink.GenericQdisc{
+		QdiscAttrs: netlink.QdiscAttrs{
+			LinkIndex: link.Attrs().Index,
+			Parent:    netlink.HANDLE_ROOT,
+		},
+		QdiscType: "mq",
+	}
+	which := "mq with fq leaves"
+	if err := netlink.QdiscReplace(qdisc); err != nil {
+		// No MQ support, so just replace to FQ directly.
+		fq := &netlink.Fq{
+			QdiscAttrs: netlink.QdiscAttrs{
+				LinkIndex: link.Attrs().Index,
+				Parent:    netlink.HANDLE_ROOT,
+			},
+			Pacing: 1,
+		}
+		// At this point there is nothing we can do about
+		// it if we fail here, so hard bail out.
+		if err = netlink.QdiscReplace(fq); err != nil {
+			return fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", fq.Type(), device.Name, err)
+		}
+		which = "fq"
+	}
+
+	m.params.Log.WithField("device", device).Infof("Setting qdisc to %s", which)
 	return nil
 }
 
