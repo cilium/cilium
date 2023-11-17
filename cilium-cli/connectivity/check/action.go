@@ -958,8 +958,6 @@ func (a *Action) ValidateFlows(ctx context.Context, peer TestPeer, reqs []filter
 	} else {
 		a.Failf("Flow validation failed for peer %s: %d failures (first: %d, last: %d, matched: %d)", peer.Name(), res.Failures, res.FirstMatch, res.LastMatch, len(res.Matched))
 	}
-
-	a.Log()
 }
 
 func (a *Action) validateFlowsForPeer(ctx context.Context, reqs []filters.FlowSetRequirement) FlowRequirementResults {
