@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 // Config defines the configuration options for k8s resources.
@@ -293,11 +294,34 @@ func CiliumSlimEndpointResource(lc hive.Lifecycle, cs client.Clientset, opts ...
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](cs.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)),
 		opts...,
 	)
+	indexers := cache.Indexers{
+		"localNode": ciliumEndpointLocalPodIndexFunc,
+	}
 	return resource.New[*types.CiliumEndpoint](lc, lw,
 		resource.WithLazyTransform(func() runtime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
 		}, TransformToCiliumEndpoint),
+		resource.WithIndexers(indexers),
 	), nil
+}
+
+// ciliumEndpointLocalPodIndexFunc is an IndexFunc that indexes only local
+// CiliumEndpoints, by their local Node IP.
+func ciliumEndpointLocalPodIndexFunc(obj interface{}) ([]string, error) {
+	cep, ok := obj.(*types.CiliumEndpoint)
+	if !ok {
+		return nil, fmt.Errorf("unexpected object type: %T", obj)
+	}
+	indices := []string{}
+	if cep.Networking == nil {
+		log.WithField("ciliumendpoint", cep.GetNamespace()+"/"+cep.GetName()).
+			Debug("cannot index CiliumEndpoint by node without network status")
+		return nil, nil
+	}
+	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {
+		indices = append(indices, cep.Networking.NodeIP)
+	}
+	return indices, nil
 }
 
 func CiliumExternalWorkloads(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumExternalWorkload], error) {
