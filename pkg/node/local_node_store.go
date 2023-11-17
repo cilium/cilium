@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/stream"
 )
 
+// +k8s:deepcopy-gen=true
 type LocalNode struct {
 	types.Node
 	// OptOutNodeEncryption will make the local node opt-out of node-to-node
@@ -78,6 +79,9 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if params.Init != nil {
+				// Create a deep-copy, to avoid mutating the current instance
+				// in case some fields got initialized somewhere else.
+				s.value = *s.value.DeepCopy()
 				if err := params.Init.InitLocalNode(ctx, &s.value); err != nil {
 					return err
 				}
@@ -122,6 +126,8 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Create a deep-copy, to avoid mutating the current instance.
+	s.value = *s.value.DeepCopy()
 	update(&s.value)
 
 	if s.emit != nil {
