@@ -49,7 +49,7 @@ struct drop_notify {
  *
  */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
+static __always_inline
 int __send_drop_notify(struct __ctx_buff *ctx)
 {
 	/* Mask needed to calm verifier. */
@@ -99,6 +99,10 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 		  __u32 src, __u32 dst, __u32 dst_id,
 		  __u32 reason, __u32 exitcode, enum metric_dir direction)
 {
+	if ((__u8)reason == 140) {
+		printk("_send_drop_notify at %d:%d, reason %d", file, line, reason);
+	}
+
 	/* These fields should be constants and fit (together) in 32 bits */
 	if (!__builtin_constant_p(exitcode) || exitcode > 0xff ||
 	    !__builtin_constant_p(file) || file > 0xff ||
@@ -124,9 +128,7 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	ctx_store_meta(ctx, 4, exitcode | file << 8 | line << 16);
 
 	update_metrics(ctx_full_len(ctx), direction, (__u8)reason);
-	ep_tail_call(ctx, CILIUM_CALL_DROP_NOTIFY);
-
-	return exitcode;
+	return __send_drop_notify(ctx);
 }
 #else
 static __always_inline
@@ -135,6 +137,9 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 		      __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
 		      __u32 reason, __u32 exitcode, enum metric_dir direction)
 {
+	if ((__u8)reason == 140) {
+		printk("_send_drop_notify without DROP_NOTIFY at %d:%d, reason %d", file, line, reason);
+	}
 	update_metrics(ctx_full_len(ctx), direction, (__u8)reason);
 	return exitcode;
 }

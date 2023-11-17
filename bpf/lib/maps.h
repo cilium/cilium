@@ -7,6 +7,7 @@
 #include "common.h"
 #include "ipv6.h"
 #include "ids.h"
+#include "dbg.h"
 
 #include "bpf/compiler.h"
 
@@ -315,7 +316,11 @@ struct {
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
 #ifndef SKIP_CALLS_MAP
-static __always_inline void ep_tail_call(struct __ctx_buff *ctx __maybe_unused,
+#define ep_tail_call(ctx, index) \
+	_ep_tail_call(ctx, index); \
+	printk("missed tail call at %s:%d, slot %d", __FILE_NAME__, __LINE__, index)
+
+static __always_inline void _ep_tail_call(struct __ctx_buff *ctx __maybe_unused,
 					 const __u32 index __maybe_unused)
 {
 	tail_call_static(ctx, &CALLS_MAP, index);

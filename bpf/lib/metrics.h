@@ -21,11 +21,18 @@
  *		is the drop error code.
  * Update the metrics map.
  */
-static __always_inline void update_metrics(__u64 bytes, __u8 direction,
-					   __u8 reason)
+#define update_metrics(bytes, direction, reason) \
+		_update_metrics(bytes, direction, reason, __FILE_NAME__, __LINE__)
+
+static __always_inline void _update_metrics(__u64 bytes, __u8 direction,
+					   __u8 reason, char* file __maybe_unused, int line __maybe_unused)
 {
 	struct metrics_value *entry, new_entry = {};
 	struct metrics_key key = {};
+
+	if (reason == 140) {
+		printk("_update_metrics at %s:%d, reason %d", file, line, reason);
+	}
 
 	key.reason = reason;
 	key.dir    = direction;
