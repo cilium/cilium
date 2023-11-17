@@ -1606,7 +1606,12 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 	e.controllers.UpdateController(controllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
+				if e.K8sNamespaceAndPodNameIsSet() {
+					e.Logger(controllerPrefix).Debug("Namespace and Pod are not set")
+					return nil
+				}
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
+
 				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
 					e.Logger(controllerPrefix).WithError(err).Warning("Unable to fetch kubernetes labels")
