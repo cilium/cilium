@@ -1662,7 +1662,12 @@ func (e *Endpoint) RunMetadataResolver(bwm bandwidth.Manager, resolveMetadata Me
 		controller.ControllerParams{
 			Group: resolveLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
+				if e.K8sNamespaceAndPodNameIsSet() {
+					e.Logger(resolveLabels).Debug("Namespace and Pod are not set")
+					return nil
+				}
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
+
 				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
 					e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
