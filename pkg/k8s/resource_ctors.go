@@ -324,6 +324,40 @@ func ciliumEndpointLocalPodIndexFunc(obj interface{}) ([]string, error) {
 	return indices, nil
 }
 
+func CiliumEndpointSliceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumEndpointSliceList](cs.CiliumV2alpha1().CiliumEndpointSlices()),
+		opts...,
+	)
+	indexers := cache.Indexers{
+		"localNode": ciliumEndpointSliceLocalPodIndexFunc,
+	}
+	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](lc, lw,
+		resource.WithMetric("CiliumEndpointSlice"),
+		resource.WithIndexers(indexers),
+	), nil
+}
+
+// ciliumEndpointSliceLocalPodIndexFunc is an IndexFunc that indexes CiliumEndpointSlices
+// by their corresponding Pod, which are running locally on this Node.
+func ciliumEndpointSliceLocalPodIndexFunc(obj interface{}) ([]string, error) {
+	ces, ok := obj.(*cilium_api_v2alpha1.CiliumEndpointSlice)
+	if !ok {
+		return nil, fmt.Errorf("unexpected object type: %T", obj)
+	}
+	indices := []string{}
+	for _, ep := range ces.Endpoints {
+		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {
+			indices = append(indices, ep.Networking.NodeIP)
+			break
+		}
+	}
+	return indices, nil
+}
+
 func CiliumExternalWorkloads(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumExternalWorkload], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
