@@ -399,16 +399,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return invalidDataError(ep, err)
 	}
 
-	addLabels := labels.NewLabelsFromModel(epTemplate.Labels)
+	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
 	infoLabels := labels.NewLabelsFromModel([]string{})
 
-	if len(addLabels) > 0 {
-		if lbls := addLabels.FindReserved(); lbls != nil {
+	if len(apiLabels) > 0 {
+		if lbls := apiLabels.FindReserved(); lbls != nil {
 			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
 		}
 
-		addLabels, _ = labelsfilter.Filter(addLabels)
-		if len(addLabels) == 0 {
+		apiLabels, _ = labelsfilter.Filter(apiLabels)
+		if len(apiLabels) == 0 {
 			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
 		}
 	}
@@ -418,15 +418,20 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	d.endpointCreations.NewCreateRequest(ep, cancel)
 	defer d.endpointCreations.EndCreateRequest(ep)
 
+	identityLbls := labels.Labels{}
+	for k, v := range apiLabels {
+		identityLbls[k] = v
+	}
+
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
-		pod, cp, identityLabels, info, annotations, err := d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
+		pod, cp, k8sIdentityLbls, infoLbls, annotations, err := d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			ep.SetPod(pod)
 			ep.SetK8sMetadata(cp)
-			addLabels.MergeLabels(identityLabels)
-			infoLabels.MergeLabels(info)
+			identityLbls.MergeLabels(k8sIdentityLbls)
+			infoLabels.MergeLabels(infoLbls)
 			if _, ok := annotations[bandwidth.IngressBandwidth]; ok {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
@@ -446,11 +451,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 
 	// The following docs describe the cases where the init identity is used:
 	// http://docs.cilium.io/en/latest/policy/lifecycle/#init-identity
-	if len(addLabels) == 0 {
+	if len(identityLbls) == 0 {
 		// If the endpoint has no labels, give the endpoint a special identity with
 		// label reserved:init so we can generate a custom policy for it until we
 		// get its actual identity.
-		addLabels = labels.Labels{
+		identityLbls = labels.Labels{
 			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 		}
 	}
@@ -462,8 +467,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		// If there are labels, but no pod namespace, then it's
 		// likely that there are no k8s labels at all. Resolve.
-		if _, k8sLabelsConfigured := addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
-			ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
+		if _, k8sLabelsConfigured := identityLbls[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
+			ep.RunMetadataResolver(false, false, apiLabels, d.fetchK8sMetadataForEndpoint)
 		}
 	}
 
@@ -483,9 +488,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		// since the pod event handler would not find the endpoint for that pod
 		// in the endpoint manager. Thus, we will fetch the labels again
 		// and update the endpoint with these labels.
-		ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
+		// Wait for the regeneration to be triggered before continuing.
+		regenTriggered = ep.RunMetadataResolver(false, true, apiLabels, d.fetchK8sMetadataForEndpoint)
 	} else {
-		regenTriggered = ep.UpdateLabels(ctx, labels.LabelSourceAny, addLabels, infoLabels, true)
+		regenTriggered = ep.UpdateLabels(ctx, labels.LabelSourceAny, identityLbls, infoLabels, true)
 	}
 
 	select {
