@@ -273,26 +273,31 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 	c.Assert(rev, Equals, 0)
 	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Remove one label, change the source and value of the other.
-	rev = e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
+	rev = e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "zop"}, "cilium"))
 	c.Assert(rev, Not(Equals), 0)
-	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "nginx:foo=zop;")
+	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=zop;")
 
 	// Test that inserting information labels works
 	e.replaceInformationLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
-	// Remove one label, change the source and value of the other.
-	e.replaceInformationLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
-	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;")
+
+	// Test that inserting a new nginx will also keep the previous cilium label
+	e.replaceInformationLabels("nginx", labels.Map2Labels(map[string]string{"foo2": "zop2", "zip": "zop2"}, "nginx"))
+	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "cilium:foo=bar;nginx:foo2=zop2;cilium:zip=zop;")
 
 	// Test that we will keep the 'nginx' label because we only want to add
 	// Cilium labels.
 	e.replaceInformationLabels("cilium", labels.Map2Labels(map[string]string{"foo2": "bar2", "zip2": "zop2"}, "cilium"))
-	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;cilium:foo2=bar2;cilium:zip2=zop2;")
+	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo2=zop2;cilium:zip2=zop2;")
 
 	// Test that we will keep the 'nginx' label because we only want to update
 	// Cilium labels.
-	e.replaceInformationLabels("cilium", labels.Map2Labels(map[string]string{"foo2": "bar3"}, "cilium"))
-	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;cilium:foo2=bar3;")
+	e.replaceInformationLabels("cilium", labels.Map2Labels(map[string]string{"foo3": "bar3"}, "cilium"))
+	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo2=zop2;cilium:foo3=bar3;")
+
+	// Test that we will not replace labels from other sources if the key is the same.
+	e.replaceInformationLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo2": "bar2"}, "cilium"))
+	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo2=zop2;")
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
