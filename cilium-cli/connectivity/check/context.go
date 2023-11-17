@@ -99,6 +99,7 @@ type PerfResult struct {
 	Samples  int
 	Values   []float64
 	Avg      float64
+	Latency  map[string][]float64
 }
 
 func netIPToCIDRs(netIPs []netip.Addr) (netCIDRs []netip.Prefix) {
@@ -592,16 +593,35 @@ func (ct *ConnectivityTest) report() error {
 	}
 
 	if ct.params.Perf {
-		// Report Performance results
-		ct.Headerf("🔥 Performance Test Summary: ")
-		ct.Logf("%s", strings.Repeat("-", 145))
-		ct.Logf("📋 %-15s | %-50s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Pod", "Test", "Num Samples", "Duration", "Avg value")
-		ct.Logf("%s", strings.Repeat("-", 145))
-		for p, d := range ct.PerfResults {
-			ct.Logf("📋 %-15s | %-50s | %-15s | %-15d | %-15s | %.2f (%s)", d.Scenario, p.Pod, p.Test, d.Samples, d.Duration, d.Avg, d.Metric)
-			ct.Debugf("Individual Values from run : %s", d.Values)
+		if ct.params.PerfLatency {
+			// Report Performance results for latency
+			ct.Header("🔥 Latency Test Summary:")
+			ct.Logf("%s", strings.Repeat("-", 233))
+			ct.Logf("📋 %-15s | %-50s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Pod", "Test", "Num Samples", "Duration", "Min", "Mean", "Max", "P50", "P90", "P99")
+			ct.Logf("%s", strings.Repeat("-", 233))
+			for p, d := range ct.PerfResults {
+				ct.Logf("📋 %-15s | %-50s | %-15s | %-15d | %-15s | %-12.2f %s | %-12.2f %s | %-12.2f %s | %-12.2f %s | %-12.2f %s | %-12.2f %s",
+					d.Scenario, p.Pod, p.Test, d.Samples, d.Duration,
+					d.Latency["min"][0], d.Metric,
+					d.Latency["mean"][0], d.Metric,
+					d.Latency["max"][0], d.Metric,
+					d.Latency["p50"][0], d.Metric,
+					d.Latency["p90"][0], d.Metric,
+					d.Latency["p99"][0], d.Metric)
+			}
+			ct.Logf("%s", strings.Repeat("-", 233))
+		} else {
+			// Report Performance results for throughput
+			ct.Header("🔥 Performance Test Summary:")
+			ct.Logf("%s", strings.Repeat("-", 145))
+			ct.Logf("📋 %-15s | %-50s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Pod", "Test", "Num Samples", "Duration", "Avg value")
+			ct.Logf("%s", strings.Repeat("-", 145))
+			for p, d := range ct.PerfResults {
+				ct.Logf("📋 %-15s | %-50s | %-15s | %-15d | %-15s | %.2f (%s)", d.Scenario, p.Pod, p.Test, d.Samples, d.Duration, d.Avg, d.Metric)
+				ct.Debugf("Individual Values from run : %s", d.Values)
+			}
+			ct.Logf("%s", strings.Repeat("-", 145))
 		}
-		ct.Logf("%s", strings.Repeat("-", 145))
 	}
 
 	ct.Headerf("✅ All %d tests (%d actions) successful, %d tests skipped, %d scenarios skipped.", nt-nst, na, nst, nss)
