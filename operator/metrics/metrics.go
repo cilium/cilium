@@ -6,6 +6,7 @@ package metrics
 import (
 	"errors"
 	"net/http"
+	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -18,6 +19,9 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
+
+// goCustomCollectorsRX tracks enabled go runtime metrics.
+var goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
 
 type params struct {
 	cell.In
@@ -87,6 +91,10 @@ func registerMetricsManager(p params) {
 		Registry = controllerRuntimeMetrics.Registry
 	} else {
 		Registry = prometheus.NewPedanticRegistry()
+		Registry.MustRegister(collectors.NewGoCollector(
+			collectors.WithGoCollectorRuntimeMetrics(
+				collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
+			)))
 	}
 
 	Registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: metrics.CiliumOperatorNamespace}))
