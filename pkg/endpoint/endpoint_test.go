@@ -265,24 +265,34 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 	e := NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	// Test that inserting identity labels works
-	rev := e.replaceIdentityLabels(labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
+	rev := e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	c.Assert(rev, Not(Equals), 0)
 	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Test that nothing changes
-	rev = e.replaceIdentityLabels(labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
+	rev = e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	c.Assert(rev, Equals, 0)
 	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Remove one label, change the source and value of the other.
-	rev = e.replaceIdentityLabels(labels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
+	rev = e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
 	c.Assert(rev, Not(Equals), 0)
 	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "nginx:foo=zop;")
 
 	// Test that inserting information labels works
-	e.replaceInformationLabels(labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
+	e.replaceInformationLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Remove one label, change the source and value of the other.
-	e.replaceInformationLabels(labels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
+	e.replaceInformationLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
 	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;")
+
+	// Test that we will keep the 'nginx' label because we only want to add
+	// Cilium labels.
+	e.replaceInformationLabels("cilium", labels.Map2Labels(map[string]string{"foo2": "bar2", "zip2": "zop2"}, "cilium"))
+	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;cilium:foo2=bar2;cilium:zip2=zop2;")
+
+	// Test that we will keep the 'nginx' label because we only want to update
+	// Cilium labels.
+	e.replaceInformationLabels("cilium", labels.Map2Labels(map[string]string{"foo2": "bar3"}, "cilium"))
+	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;cilium:foo2=bar3;")
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
