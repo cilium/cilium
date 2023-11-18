@@ -13,18 +13,15 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 var (
-	podCIDRPrefix = netip.MustParsePrefix("10.0.0.0/24")
-	podCIDR       = cidr.MustParseCIDR(podCIDRPrefix.String())
+	podCIDR       = "10.0.0.0/24"
+	podCIDRPrefix = netip.MustParsePrefix(podCIDR)
 
 	lbPool = &v2alpha1api.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
@@ -166,7 +163,7 @@ var (
 )
 
 type routePolicyTestInputs struct {
-	podCIDRs         []*cidr.CIDR
+	podCIDRs         []string
 	LBPools          []*v2alpha1api.CiliumLoadBalancerIPPool
 	NodePools        []ipamTypes.IPAMPoolAllocation
 	PodPools         []*v2alpha1api.CiliumPodIPPool
@@ -184,7 +181,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 		{
 			name: "add complex policy (pod CIDR + LB pool + Pod pool)",
 			initial: &routePolicyTestInputs{
-				podCIDRs: []*cidr.CIDR{
+				podCIDRs: []string{
 					podCIDR,
 				},
 				LBPools: []*v2alpha1api.CiliumLoadBalancerIPPool{
@@ -509,7 +506,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 		{
 			name: "delete policy - non-matching selector",
 			initial: &routePolicyTestInputs{
-				podCIDRs: []*cidr.CIDR{
+				podCIDRs: []string{
 					podCIDR,
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
@@ -546,7 +543,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 			},
 			updated: &routePolicyTestInputs{
-				podCIDRs: []*cidr.CIDR{
+				podCIDRs: []string{
 					podCIDR,
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
@@ -564,7 +561,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 		{
 			name: "error - invalid selector",
 			initial: &routePolicyTestInputs{
-				podCIDRs: []*cidr.CIDR{
+				podCIDRs: []string{
 					podCIDR,
 				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
@@ -613,14 +610,10 @@ func TestRoutePolicyReconciler(t *testing.T) {
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: testSC.Config,
-				Node: &node.LocalNode{
-					Node: nodeTypes.Node{
-						IPv4SecondaryAllocCIDRs: tt.initial.podCIDRs,
-					},
-				},
 				CiliumNode: &v2.CiliumNode{
 					Spec: v2.NodeSpec{
 						IPAM: ipamTypes.IPAMSpec{
+							PodCIDRs: tt.initial.podCIDRs,
 							Pools: ipamTypes.IPAMPoolSpec{
 								Allocated: tt.initial.NodePools,
 							},
@@ -646,8 +639,8 @@ func TestRoutePolicyReconciler(t *testing.T) {
 
 			// follow-up reconcile - update:
 			params.DesiredConfig.Neighbors = tt.updated.neighbors
-			params.Node.Node.IPv4SecondaryAllocCIDRs = tt.updated.podCIDRs
 			params.CiliumNode.Spec.IPAM.Pools.Allocated = tt.updated.NodePools
+			params.CiliumNode.Spec.IPAM.PodCIDRs = tt.updated.podCIDRs
 			for _, obj := range tt.updated.LBPools {
 				lbStore.Upsert(obj)
 			}

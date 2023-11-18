@@ -7,24 +7,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/addressing"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -149,8 +147,9 @@ func TestPreflightReconciler(t *testing.T) {
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
-				Node: &node.LocalNode{
-					Node: nodeTypes.Node{
+				CiliumNode: &v2api.CiliumNode{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "Test Node",
 						Annotations: map[string]string{
 							"cilium.io/bgp-virtual-router.64125": fmt.Sprintf("router-id=%s,local-port=%d", tt.newRouterID, tt.newLocalPort),
 						},
@@ -434,7 +433,6 @@ func TestNeighborReconciler(t *testing.T) {
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
-				Node:          &node.LocalNode{},
 			}
 
 			err = neighborReconciler.Reconcile(context.Background(), params)
@@ -509,10 +507,8 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 		// into Golang structs for the convenience of passing directly to the
 		// ServerWithConfig.AdvertisePath() method.
 		advertised []netip.Prefix
-		// the updated PodCIDR blocks to reconcile, these are string encoded
-		// for the convenience of attaching directly to the NodeSpec.PodCIDRs
-		// field.
-		updated []*cidr.CIDR
+		// the updated PodCIDR blocks to reconcile.
+		updated []string
 		// error nil or not
 		err error
 	}{
@@ -528,7 +524,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			name:         "enable",
 			enabled:      false,
 			shouldEnable: true,
-			updated:      []*cidr.CIDR{cidr.MustParseCIDR("192.168.0.0/24")},
+			updated:      []string{"192.168.0.0/24"},
 		},
 		{
 			name:         "no change",
@@ -537,7 +533,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			advertised: []netip.Prefix{
 				netip.MustParsePrefix("192.168.0.0/24"),
 			},
-			updated: []*cidr.CIDR{cidr.MustParseCIDR("192.168.0.0/24")},
+			updated: []string{"192.168.0.0/24"},
 		},
 		{
 			name:         "additional network",
@@ -546,7 +542,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			advertised: []netip.Prefix{
 				netip.MustParsePrefix("192.168.0.0/24"),
 			},
-			updated: []*cidr.CIDR{cidr.MustParseCIDR("192.168.0.0/24"), cidr.MustParseCIDR("192.168.1.0/24")},
+			updated: []string{"192.168.0.0/24", "192.168.1.0/24"},
 		},
 		{
 			name:         "removal of both networks",
@@ -556,7 +552,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				netip.MustParsePrefix("192.168.0.0/24"),
 				netip.MustParsePrefix("192.168.1.0/24"),
 			},
-			updated: []*cidr.CIDR{},
+			updated: []string{},
 		},
 	}
 
@@ -604,13 +600,19 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
-				Node: &node.LocalNode{
-					Node: nodeTypes.Node{
-						IPv4SecondaryAllocCIDRs: tt.updated,
+				CiliumNode: &v2api.CiliumNode{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "Test Node",
+					},
+					Spec: v2api.NodeSpec{
+						IPAM: ipamtypes.IPAMSpec{
+							PodCIDRs: tt.updated,
+						},
 					},
 				},
 			}
 
+			// run the reconciler
 			err = exportPodCIDRReconciler.Reconcile(context.Background(), params)
 			if err != nil {
 				t.Fatalf("failed to reconcile new pod cidr advertisements: %v", err)
@@ -629,7 +631,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 
 			// ensure we see tt.updated in testSC.PodCIDRAnnoucements
 			for _, cidr := range tt.updated {
-				prefix := netip.MustParsePrefix(cidr.String())
+				prefix := netip.MustParsePrefix(cidr)
 				var seen bool
 				for _, advrt := range podCIDRAnnouncements {
 					if advrt.NLRI.String() == prefix.String() {
@@ -646,7 +648,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			for _, advrt := range podCIDRAnnouncements {
 				var seen bool
 				for _, cidr := range tt.updated {
-					if advrt.NLRI.String() == cidr.String() {
+					if advrt.NLRI.String() == cidr {
 						seen = true
 					}
 				}
@@ -1272,15 +1274,9 @@ func TestLBServiceReconciler(t *testing.T) {
 			err = reconciler.Reconcile(context.Background(), ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
-				Node: &node.LocalNode{
-					Node: nodeTypes.Node{
+				CiliumNode: &v2api.CiliumNode{
+					ObjectMeta: meta_v1.ObjectMeta{
 						Name: "node1",
-						IPAddresses: []nodeTypes.Address{
-							{
-								Type: addressing.NodeExternalIP,
-								IP:   net.ParseIP("127.0.0.1"),
-							},
-						},
 					},
 				},
 			})
@@ -1398,8 +1394,9 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	params := ReconcileParams{
 		CurrentServer: testSC,
 		DesiredConfig: newc,
-		Node: &node.LocalNode{
-			Node: nodeTypes.Node{
+		CiliumNode: &v2api.CiliumNode{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: "Test Node",
 				Annotations: map[string]string{
 					"cilium.io/bgp-virtual-router.64125": fmt.Sprintf("router-id=%s,local-port=%d", routerID, localPort),
 				},
@@ -1418,7 +1415,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	// update server config, this is done outside of reconcilers
 	testSC.Config = newc
 
-	params.Node.Node.Annotations = map[string]string{
+	params.CiliumNode.Annotations = map[string]string{
 		"cilium.io/bgp-virtual-router.64125": fmt.Sprintf("router-id=%s,local-port=%d", newRouterID, localPort),
 	}
 
