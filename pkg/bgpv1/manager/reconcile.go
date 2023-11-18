@@ -19,7 +19,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 
@@ -35,7 +34,6 @@ const (
 type ReconcileParams struct {
 	CurrentServer *ServerWithConfig
 	DesiredConfig *v2alpha1api.CiliumBGPVirtualRouter
-	Node          *node.LocalNode
 	CiliumNode    *v2api.CiliumNode
 }
 
@@ -120,9 +118,9 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	}
 
 	// parse Node annotations into helper Annotation map
-	annoMap, err := agent.NewAnnotationMap(p.Node.Annotations)
+	annoMap, err := agent.NewAnnotationMap(p.CiliumNode.Annotations)
 	if err != nil {
-		return fmt.Errorf("failed to parse Node annotations for virtual router with ASN %v: %w", p.DesiredConfig.LocalASN, err)
+		return fmt.Errorf("failed to parse CiliumNode annotations for virtual router with ASN %v: %w", p.DesiredConfig.LocalASN, err)
 	}
 
 	// resolve local port from kubernetes annotations
@@ -136,11 +134,11 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 
 	routerID, err := annoMap.ResolveRouterID(p.DesiredConfig.LocalASN)
 	if err != nil {
-		nodeIP := p.Node.GetNodeIP(false)
-		if nodeIP.IsUnspecified() {
-			return fmt.Errorf("failed to resolve router id")
+		if nodeIP := p.CiliumNode.GetIP(false); nodeIP == nil {
+			return fmt.Errorf("failed to get ciliumnode IP %v: %w", nodeIP, err)
+		} else {
+			routerID = nodeIP.String()
 		}
-		routerID = nodeIP.String()
 	}
 
 	var shouldRecreate bool
@@ -398,12 +396,12 @@ func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, p ReconcilePara
 	if p.CurrentServer == nil {
 		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil ServerWithConfig")
 	}
-	if p.Node == nil {
-		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil LocalNode")
+	if p.CiliumNode == nil {
+		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil local CiliumNode")
 	}
 
 	var toAdvertise []*types.Path
-	for _, cidr := range p.Node.ToCiliumNode().Spec.IPAM.PodCIDRs {
+	for _, cidr := range p.CiliumNode.Spec.IPAM.PodCIDRs {
 		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
 			return fmt.Errorf("failed to parse prefix %s: %w", cidr, err)
@@ -483,8 +481,8 @@ func (r *LBServiceReconciler) Priority() int {
 }
 
 func (r *LBServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
-	if p.Node == nil {
-		return fmt.Errorf("nil LocalNode")
+	if p.CiliumNode == nil {
+		return fmt.Errorf("attempted load balancer service reconciliation with nil local CiliumNode")
 	}
 
 	var existingSelector *slim_metav1.LabelSelector
@@ -492,7 +490,7 @@ func (r *LBServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 		existingSelector = p.CurrentServer.Config.ServiceSelector
 	}
 
-	ls := r.populateLocalServices(p.Node.Name)
+	ls := r.populateLocalServices(p.CiliumNode.Name)
 
 	// If the existing selector was updated, went from nil to something or something to nil, we need to perform full
 	// reconciliation and check if every existing announcement's service still matches the selector.

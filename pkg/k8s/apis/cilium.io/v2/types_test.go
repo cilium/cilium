@@ -6,6 +6,7 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"reflect"
 	"testing"
 
@@ -19,6 +20,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -639,4 +641,65 @@ func BenchmarkSpecEquals(b *testing.B) {
 			r.DeepEqual(o)
 		}
 	})
+}
+
+func (s *CiliumV2Suite) TestGetIP(c *C) {
+	n := CiliumNode{
+		Spec: NodeSpec{
+			Addresses: []NodeAddress{
+				{
+					Type: addressing.NodeExternalIP,
+					IP:   "192.0.2.3",
+				},
+			},
+		},
+	}
+	ip := n.GetIP(false)
+	// Return the only IP present
+	c.Assert(ip, NotNil)
+	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
+
+	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "w.x.y.z", Type: addressing.NodeExternalIP})
+	ip = n.GetIP(false)
+	// Invalid external IPv4 address should return the existing external IPv4 address
+	c.Assert(ip, NotNil)
+	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
+
+	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "198.51.100.2", Type: addressing.NodeInternalIP})
+	ip = n.GetIP(false)
+	// The next priority should be NodeInternalIP
+	c.Assert(ip, NotNil)
+	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
+
+	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "2001:DB8::1", Type: addressing.NodeExternalIP})
+	ip = n.GetIP(true)
+	// The next priority should be NodeExternalIP and IPv6
+	c.Assert(ip, NotNil)
+	c.Assert(ip.Equal(net.ParseIP("2001:DB8::1")), Equals, true)
+
+	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "w.x.y.z", Type: addressing.NodeExternalIP})
+	ip = n.GetIP(true)
+	// Invalid external IPv6 address should return the existing external IPv6 address
+	c.Assert(ip, NotNil)
+	c.Assert(ip.Equal(net.ParseIP("2001:DB8::1")), Equals, true)
+
+	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "2001:DB8::2", Type: addressing.NodeInternalIP})
+	ip = n.GetIP(true)
+	// The next priority should be NodeInternalIP and IPv6
+	c.Assert(ip, NotNil)
+	c.Assert(ip.Equal(net.ParseIP("2001:DB8::2")), Equals, true)
+
+	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "198.51.100.2", Type: addressing.NodeInternalIP})
+	ip = n.GetIP(false)
+	// Should still return NodeInternalIP and IPv4
+	c.Assert(ip, NotNil)
+	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
+
+	n.Spec.Addresses = []NodeAddress{{IP: "w.x.y.z", Type: addressing.NodeExternalIP}}
+	ip = n.GetIP(false)
+	// Return a nil IP when no valid IPv4 addresses exist
+	c.Assert(ip, IsNil)
+	ip = n.GetIP(true)
+	// Return a nil IP when no valid IPv6 addresses exist
+	c.Assert(ip, IsNil)
 }

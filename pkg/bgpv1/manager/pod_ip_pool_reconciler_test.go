@@ -5,7 +5,6 @@ package manager
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"testing"
 
@@ -17,9 +16,6 @@ import (
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/addressing"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 func TestPodIPPoolReconciler(t *testing.T) {
@@ -234,33 +230,20 @@ func TestPodIPPoolReconciler(t *testing.T) {
 			}
 			reconciler := NewPodIPPoolReconciler(store).Reconciler.(*PodIPPoolReconciler)
 
-			node := &node.LocalNode{
-				Node: nodeTypes.Node{
-					Name: "node1",
-					IPAddresses: []nodeTypes.Address{
-						{
-							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("127.0.0.1"),
-						},
-					},
-				},
-			}
-
-			ciliumNode := &v2api.CiliumNode{
+			node := &v2api.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Name:      node.Name,
+					Name:      "node1",
 					Namespace: "default",
 				},
 			}
 
 			if tt.nodeAllocs != nil {
-				ciliumNode.Spec.IPAM.Pools.Allocated = append(ciliumNode.Spec.IPAM.Pools.Allocated, tt.nodeAllocs...)
+				node.Spec.IPAM.Pools.Allocated = append(node.Spec.IPAM.Pools.Allocated, tt.nodeAllocs...)
 			}
 			err = reconciler.Reconcile(context.Background(), ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: testSC.Config,
-				Node:          node,
-				CiliumNode:    ciliumNode,
+				CiliumNode:    node,
 			})
 			if err != nil {
 				t.Fatalf("failed to reconcile pool cidr advertisements: %v", err)

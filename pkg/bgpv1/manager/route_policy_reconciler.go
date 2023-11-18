@@ -72,8 +72,8 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 	if params.CurrentServer == nil {
 		return fmt.Errorf("attempted routing policy reconciliation with nil ServerWithConfig")
 	}
-	if params.Node == nil {
-		return fmt.Errorf("attempted routing policy reconciliation with nil LocalNode")
+	if params.CiliumNode == nil {
+		return fmt.Errorf("attempted routing policy reconciliation with nil local CiliumNode")
 	}
 
 	// take currently configured policies from cache
@@ -232,10 +232,10 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 			}
 		}
 	case v2alpha1api.PodCIDRSelectorName:
-		if attrs.Selector != nil && !labelSelector.Matches(labels.Set(params.Node.Labels)) {
+		if attrs.Selector != nil && !labelSelector.Matches(labels.Set(params.CiliumNode.Labels)) {
 			break
 		}
-		for _, podCIDR := range params.Node.ToCiliumNode().Spec.IPAM.PodCIDRs {
+		for _, podCIDR := range params.CiliumNode.Spec.IPAM.PodCIDRs {
 			cidr, err := netip.ParsePrefix(podCIDR)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse PodCIDR %s: %w", podCIDR, err)

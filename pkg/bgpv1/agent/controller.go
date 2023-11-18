@@ -22,7 +22,6 @@ import (
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -51,7 +50,6 @@ func (plf policyListerFunc) List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error
 // Controller listens for events and drives BGP related sub-systems
 // to maintain a desired state.
 type Controller struct {
-	LocalNodeStore *node.LocalNodeStore
 	// CiliumNodeResource provides a stream of events for changes to the local CiliumNode resource.
 	CiliumNodeResource daemon_k8s.LocalCiliumNodeResource
 	// LocalCiliumNode is the CiliumNode object for the local node.
@@ -88,7 +86,6 @@ type ControllerParams struct {
 	PolicyResource          resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
 	DaemonConfig            *option.DaemonConfig
 	LocalCiliumNodeResource daemon_k8s.LocalCiliumNodeResource
-	LocalNodeStore          *node.LocalNodeStore
 }
 
 // NewController constructs a new BGP Control Plane Controller.
@@ -110,7 +107,6 @@ func NewController(params ControllerParams) (*Controller, error) {
 		Sig:                params.Sig,
 		BGPMgr:             params.RouteMgr,
 		PolicyResource:     params.PolicyResource,
-		LocalNodeStore:     params.LocalNodeStore,
 		CiliumNodeResource: params.LocalCiliumNodeResource,
 	}
 
@@ -195,12 +191,6 @@ func (c *Controller) Run(ctx context.Context) {
 			"component": "Controller.Run",
 		})
 	)
-	l.Info("Starting LocalNodeStore Observer")
-
-	// setup a reconciliation trigger on LocalNodeStore changes
-	c.LocalNodeStore.Observe(ctx, func(node node.LocalNode) { c.Sig.Event(struct{}{}) }, func(err error) {
-		l.WithError(err).Info("LocalNodeStore observe has yielded. Reconciliation will no longer be triggered for LocalNode changes")
-	})
 
 	// add an initial signal to kick things off
 	c.Sig.Event(struct{}{})
@@ -298,9 +288,8 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		})
 	)
 
-	localNode, err := c.LocalNodeStore.Get(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve local node: %w", err)
+	if c.LocalCiliumNode == nil {
+		return fmt.Errorf("attempted reconciliation with nil local CiliumNode")
 	}
 
 	// retrieve all CiliumBGPPeeringPolicies
@@ -311,7 +300,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	l.WithField("count", len(policies)).Debug("Successfully listed CiliumBGPPeeringPolicies")
 
 	// perform policy selection based on node.
-	labels := localNode.Labels
+	labels := c.LocalCiliumNode.Labels
 	policy, err := PolicySelection(ctx, labels, policies)
 	if err != nil {
 		l.WithError(err).Error("Policy selection failed")
@@ -337,7 +326,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 
 	// call bgp sub-systems required to apply this policy's BGP topology.
 	l.Debug("Asking configured BGPRouterManager to configure peering")
-	if err := c.BGPMgr.ConfigurePeers(ctx, policy, &localNode, c.LocalCiliumNode); err != nil {
+	if err := c.BGPMgr.ConfigurePeers(ctx, policy, c.LocalCiliumNode); err != nil {
 		return fmt.Errorf("failed to configure BGP peers, cannot apply BGP peering policy: %w", err)
 	}
 
@@ -347,7 +336,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 // FullWithdrawal will instruct the configured BGPRouterManager to withdraw all
 // BGP servers and peers.
 func (c *Controller) FullWithdrawal(ctx context.Context) {
-	_ = c.BGPMgr.ConfigurePeers(ctx, nil, nil, nil) // cannot fail, no need for error handling
+	_ = c.BGPMgr.ConfigurePeers(ctx, nil, nil) // cannot fail, no need for error handling
 }
 
 // validatePolicy validates the CiliumBGPPeeringPolicy.

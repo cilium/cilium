@@ -148,13 +148,15 @@ func newIPPoolObj(conf ipPoolConfig) *v2alpha1.CiliumPodIPPool {
 
 // ciliumNodeConfig data used to create a CiliumNode resource.
 type ciliumNodeConfig struct {
-	name   string
-	allocs map[string][]string
+	name        string
+	labels      map[string]string
+	annotations map[string]string
+	ipamAllocs  map[string][]string
 }
 
 // newCiliumNode creates a CiliumNode resource based on the provided conf.
-func newCiliumNode(conf *ciliumNodeConfig) *v2.CiliumNode {
-	obj := &v2.CiliumNode{
+func newCiliumNode(conf ciliumNodeConfig) v2.CiliumNode {
+	obj := v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              conf.name,
 			UID:               uid,
@@ -162,9 +164,17 @@ func newCiliumNode(conf *ciliumNodeConfig) *v2.CiliumNode {
 		},
 	}
 
-	if conf.allocs != nil {
+	if conf.labels != nil {
+		obj.Labels = conf.labels
+	}
+
+	if conf.annotations != nil {
+		obj.Annotations = conf.annotations
+	}
+
+	if conf.ipamAllocs != nil {
 		var allocs []ipam_types.IPAMPoolAllocation
-		for pool, cidrs := range conf.allocs {
+		for pool, cidrs := range conf.ipamAllocs {
 			poolCIDRs := []ipam_types.IPAMPodCIDR{}
 			for _, c := range cidrs {
 				poolCIDRs = append(poolCIDRs, ipam_types.IPAMPodCIDR(c))

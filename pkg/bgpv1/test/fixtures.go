@@ -30,8 +30,6 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	clientset_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -65,6 +63,12 @@ var (
 		"rack": "rack0",
 	}
 
+	baseNode = ciliumNodeConfig{
+		name:        "test",
+		labels:      labels,
+		annotations: map[string]string{nodeAnnotationKey: nodeAnnotationValues},
+	}
+
 	baseBGPPolicy = policyConfig{
 		nodeSelector: labels,
 		virtualRouters: []cilium_api_v2alpha1.CiliumBGPVirtualRouter{
@@ -83,11 +87,11 @@ type fixture struct {
 	secretClient  clientset_core_v1.SecretInterface
 	hive          *hive.Hive
 	bgp           *agent.Controller
-	nodeStore     *node.LocalNodeStore
 	ciliumNode    daemon_k8s.LocalCiliumNodeResource
 }
 
 type fixtureConfig struct {
+	node      cilium_api_v2.CiliumNode
 	policy    cilium_api_v2alpha1.CiliumBGPPeeringPolicy
 	secret    slim_core_v1.Secret
 	ipam      string
@@ -111,6 +115,7 @@ func newFixtureConf() fixtureConfig {
 		policyCfg.virtualRouters = append(policyCfg.virtualRouters, *vr.DeepCopy())
 	}
 	return fixtureConfig{
+		node:      newCiliumNode(baseNode),
 		policy:    newPolicyObj(policyCfg),
 		ipam:      ipamOption.IPAMKubernetes,
 		secret:    secret,
@@ -126,6 +131,9 @@ func newFixture(conf fixtureConfig) *fixture {
 	f.fakeClientSet, _ = k8sClient.NewFakeClientset()
 	f.policyClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies()
 	f.secretClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Secrets("bgp-secrets")
+
+	// create initial cilium node
+	f.fakeClientSet.CiliumFakeClientset.Tracker().Add(&conf.node)
 
 	// create initial bgp policy
 	f.fakeClientSet.CiliumFakeClientset.Tracker().Add(&conf.policy)
@@ -167,20 +175,6 @@ func newFixture(conf fixtureConfig) *fixture {
 				BGPSecretsNamespace:   "bgp-secrets",
 				IPAM:                  conf.ipam,
 			}
-		}),
-
-		// LocalNodeStore
-		cell.Provide(func() *node.LocalNodeStore {
-			store := node.NewTestLocalNodeStore(node.LocalNode{
-				Node: types.Node{
-					Annotations: map[string]string{
-						nodeAnnotationKey: nodeAnnotationValues,
-					},
-					Labels: labels,
-				},
-			})
-			f.nodeStore = store
-			return store
 		}),
 
 		// local bgp state for inspection

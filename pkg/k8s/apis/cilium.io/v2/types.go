@@ -4,6 +4,7 @@
 package v2
 
 import (
+	"net"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -464,4 +465,23 @@ func (n *CiliumNode) InstanceID() (instanceID string) {
 		}
 	}
 	return
+}
+
+func (n NodeAddress) ToString() string {
+	return n.IP
+}
+
+func (n NodeAddress) AddrType() addressing.AddressType {
+	return n.Type
+}
+
+// GetIP returns one of the CiliumNode's IP addresses available with the
+// following priority:
+// - NodeInternalIP
+// - NodeExternalIP
+// - other IP address type
+// An error is returned if GetIP fails to extract an IP from the CiliumNode
+// based on the provided address family.
+func (n *CiliumNode) GetIP(ipv6 bool) net.IP {
+	return addressing.ExtractNodeIP[NodeAddress](n.Spec.Addresses, ipv6)
 }
