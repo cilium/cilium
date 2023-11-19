@@ -134,7 +134,7 @@ Next, obtain Cilium manifest from ``cilium/cilium-olm`` repository and copy to `
    cilium_version="\ |release|\ "
    git_dir="/tmp/cilium-olm"
 
-   git clone https://github.com/cilium/cilium-olm.git ${git_dir}
+   git clone https://github.com/isovalent/olm-for-cilium.git ${git_dir}
    cp ${git_dir}/manifests/cilium.v${cilium_version}/* "${CLUSTER_NAME}/manifests"
 
    test -d ${git_dir} && rm -rf -- ${git_dir}
