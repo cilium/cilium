@@ -28,7 +28,7 @@ var (
 			k8s.EndpointsResource,
 			k8s.CiliumNodeResource,
 			k8s.CiliumIdentityResource,
-			CiliumSlimEndpointResource,
+			k8s.CiliumSlimEndpointResource,
 			k8s.CiliumExternalWorkloads,
 		),
 	)

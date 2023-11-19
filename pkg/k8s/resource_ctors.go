@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -286,42 +287,30 @@ func transformEndpoint(obj any) (any, error) {
 	}
 }
 
-func CiliumSlimEndpointResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
-	if !cs.IsEnabled() {
+type ciliumSlimEndpointResourceParams struct {
+	cell.In
+
+	Lifecycle hive.Lifecycle
+	Clientset client.Clientset
+	Indexers  cache.Indexers              `optional:"true"`
+	Opts      []func(*metav1.ListOptions) `optional:"true"`
+}
+
+func CiliumSlimEndpointResource(params ciliumSlimEndpointResourceParams) (resource.Resource[*types.CiliumEndpoint], error) {
+	if !params.Clientset.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](cs.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)),
-		opts...,
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](params.Clientset.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)),
+		params.Opts...,
 	)
-	indexers := cache.Indexers{
-		"localNode": ciliumEndpointLocalPodIndexFunc,
-	}
-	return resource.New[*types.CiliumEndpoint](lc, lw,
+	return resource.New[*types.CiliumEndpoint](
+		params.Lifecycle, lw,
 		resource.WithLazyTransform(func() runtime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
 		}, TransformToCiliumEndpoint),
-		resource.WithIndexers(indexers),
+		resource.WithIndexers(params.Indexers),
 	), nil
-}
-
-// ciliumEndpointLocalPodIndexFunc is an IndexFunc that indexes only local
-// CiliumEndpoints, by their local Node IP.
-func ciliumEndpointLocalPodIndexFunc(obj interface{}) ([]string, error) {
-	cep, ok := obj.(*types.CiliumEndpoint)
-	if !ok {
-		return nil, fmt.Errorf("unexpected object type: %T", obj)
-	}
-	indices := []string{}
-	if cep.Networking == nil {
-		log.WithField("ciliumendpoint", cep.GetNamespace()+"/"+cep.GetName()).
-			Debug("cannot index CiliumEndpoint by node without network status")
-		return nil, nil
-	}
-	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {
-		indices = append(indices, cep.Networking.NodeIP)
-	}
-	return indices, nil
 }
 
 func CiliumEndpointSliceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {

@@ -4,8 +4,12 @@
 package k8s
 
 import (
+	"fmt"
+
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -16,6 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -40,8 +46,14 @@ var (
 			k8s.CiliumClusterwideNetworkPolicyResource,
 			k8s.CiliumCIDRGroupResource,
 			k8s.CiliumNodeResource,
-			k8s.CiliumSlimEndpointResource,
 			k8s.CiliumEndpointSliceResource,
+		),
+
+		cell.Module(
+			"cilium-endpoint-resource",
+			"CiliumEndpoint resource with a store indexed on local node IP",
+			cell.Provide(k8s.CiliumSlimEndpointResource),
+			cell.ProvidePrivate(ciliumEndpointLocalPodIndexFunc),
 		),
 	)
 
@@ -112,4 +124,26 @@ type LocalNodeResources struct {
 
 	LocalNode       LocalNodeResource
 	LocalCiliumNode LocalCiliumNodeResource
+}
+
+func ciliumEndpointLocalPodIndexFunc(log logrus.FieldLogger, localNodeStore *node.LocalNodeStore) cache.Indexers {
+	return cache.Indexers{
+		"localNode": func(obj any) ([]string, error) {
+			cep, ok := obj.(*types.CiliumEndpoint)
+			if !ok {
+				return nil, fmt.Errorf("unexpected object type: %T", obj)
+			}
+			indices := []string{}
+			if cep.Networking == nil {
+				log.WithField("ciliumendpoint", cep.GetNamespace()+"/"+cep.GetName()).
+					Debug("cannot index CiliumEndpoint by node without network status")
+				return nil, nil
+			}
+
+			if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() {
+				indices = append(indices, cep.Networking.NodeIP)
+			}
+			return indices, nil
+		},
+	}
 }
