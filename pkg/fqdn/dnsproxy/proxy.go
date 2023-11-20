@@ -1010,8 +1010,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	var key string
 	// Do not use original source address if the source is known to be in the host networking
-	// namespace
-	if !ep.IsHost() && !epAddr.IsLoopback() {
+	// namespace, or the destination is known to be outside of the cluster, or is the local host
+	if !ep.IsHost() && !epAddr.IsLoopback() && ep.ID != uint16(identity.ReservedIdentityHost) && targetServerID.IsCluster() && targetServerID != identity.ReservedIdentityHost {
 		dialer.LocalAddr = w.RemoteAddr()
 		key = protocol + "-" + epIPPort + "-" + targetServerAddrStr
 	}
