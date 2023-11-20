@@ -1459,7 +1459,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 * for IPv6, and so it's not possible yet for masqueraded traffic to get
 	 * redirected to another interface
 	 */
-	send_trace_notify6(ctx, obs_point, 0, 0, &saddr, 0, 0,
+	send_trace_notify6(ctx, obs_point, 0, 0, &saddr, 0, NATIVE_DEV_IFINDEX,
 			   trace.reason, trace.monitor);
 
 	return ret;
@@ -1522,8 +1522,8 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
-				  trace.monitor);
+		send_trace_notify(ctx, obs_point, 0, 0, 0, NATIVE_DEV_IFINDEX,
+				  trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -2910,7 +2910,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
+		send_trace_notify(ctx, obs_point, 0, 0, 0, NATIVE_DEV_IFINDEX, trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -2983,8 +2983,8 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
-				  trace.monitor);
+		send_trace_notify(ctx, obs_point, 0, 0, 0, NATIVE_DEV_IFINDEX,
+				  trace.reason, trace.monitor);
 
 	return ret;
 }
