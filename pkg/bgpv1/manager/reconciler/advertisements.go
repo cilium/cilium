@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -19,7 +20,7 @@ type advertisementsReconcilerParams struct {
 	component string
 	enabled   bool
 
-	sc   *ServerWithConfig
+	sc   *instance.ServerWithConfig
 	newc *v2alpha1api.CiliumBGPVirtualRouter
 
 	currentAdvertisements []*types.Path

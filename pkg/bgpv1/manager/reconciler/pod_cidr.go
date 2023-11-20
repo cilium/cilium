@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
 	"fmt"
 	"net/netip"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -62,7 +63,7 @@ func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, p ReconcilePara
 	advertisements, err := exportAdvertisementsReconciler(&advertisementsReconcilerParams{
 		ctx:       ctx,
 		name:      "pod CIDR",
-		component: "manager.exportPodCIDRReconciler",
+		component: "exportPodCIDRReconciler",
 		enabled:   *p.DesiredConfig.ExportPodCIDR,
 
 		sc:   p.CurrentServer,
@@ -82,13 +83,13 @@ func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, p ReconcilePara
 	return nil
 }
 
-func (r *ExportPodCIDRReconciler) getMetadata(sc *ServerWithConfig) ExportPodCIDRReconcilerMetadata {
+func (r *ExportPodCIDRReconciler) getMetadata(sc *instance.ServerWithConfig) ExportPodCIDRReconcilerMetadata {
 	if _, found := sc.ReconcilerMetadata[r.Name()]; !found {
 		sc.ReconcilerMetadata[r.Name()] = make(ExportPodCIDRReconcilerMetadata, 0)
 	}
 	return sc.ReconcilerMetadata[r.Name()].(ExportPodCIDRReconcilerMetadata)
 }
 
-func (r *ExportPodCIDRReconciler) storeMetadata(sc *ServerWithConfig, meta ExportPodCIDRReconcilerMetadata) {
+func (r *ExportPodCIDRReconciler) storeMetadata(sc *instance.ServerWithConfig, meta ExportPodCIDRReconcilerMetadata) {
 	sc.ReconcilerMetadata[r.Name()] = meta
 }

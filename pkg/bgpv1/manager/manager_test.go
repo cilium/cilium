@@ -13,6 +13,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -159,7 +160,7 @@ func TestGetRoutes(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 			require.NoError(t, err)
 
 			testSC.Config = &v2alpha1api.CiliumBGPVirtualRouter{
@@ -167,7 +168,7 @@ func TestGetRoutes(t *testing.T) {
 				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			brm := &BGPRouterManager{
-				Servers: map[int64]*ServerWithConfig{
+				Servers: map[int64]*instance.ServerWithConfig{
 					int64(testRouterASN): testSC,
 				},
 			}

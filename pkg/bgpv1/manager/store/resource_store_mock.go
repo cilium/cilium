@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package store
 
 import (
 	"golang.org/x/exp/maps"
@@ -19,7 +19,7 @@ type mockBGPCPResourceStore[T runtime.Object] struct {
 	objects map[resource.Key]T
 }
 
-func newMockBGPCPResourceStore[T runtime.Object]() *mockBGPCPResourceStore[T] {
+func NewMockBGPCPResourceStore[T runtime.Object]() *mockBGPCPResourceStore[T] {
 	return &mockBGPCPResourceStore[T]{
 		objects: make(map[resource.Key]T),
 	}

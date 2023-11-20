@@ -12,6 +12,8 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/api"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -36,12 +38,12 @@ var (
 
 // LocalASNMap maps local ASNs to their associated BgpServers and server
 // configuration info.
-type LocalASNMap map[int64]*ServerWithConfig
+type LocalASNMap map[int64]*instance.ServerWithConfig
 
 type bgpRouterManagerParams struct {
 	cell.In
 
-	Reconcilers []ConfigReconciler `group:"bgp-config-reconciler"`
+	Reconcilers []reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 // BGPRouterManager implements the pkg.bgpv1.agent.BGPRouterManager interface.
@@ -76,14 +78,14 @@ type bgpRouterManagerParams struct {
 type BGPRouterManager struct {
 	lock.RWMutex
 	Servers     LocalASNMap
-	Reconcilers []ConfigReconciler
+	Reconcilers []reconciler.ConfigReconciler
 }
 
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
 //
 // See BGPRouterManager for details.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
-	reconcilers := make(map[string]ConfigReconciler)
+	reconcilers := make(map[string]reconciler.ConfigReconciler)
 	for _, r := range params.Reconcilers {
 		if r == nil {
 			continue // reconciler not initialized
@@ -104,7 +106,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 		reconcilers[r.Name()] = r
 	}
 
-	var activeReconcilers []ConfigReconciler
+	var activeReconcilers []reconciler.ConfigReconciler
 	for _, r := range reconcilers {
 		log.Debugf("Adding BGP reconciler: %v (priority %d)", r.Name(), r.Priority())
 		activeReconcilers = append(activeReconcilers, r)
@@ -218,7 +220,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 	// registration occurs. for this to work the below err variable must be
 	// overwritten for the length of this method.
 	var err error
-	var s *ServerWithConfig
+	var s *instance.ServerWithConfig
 	defer func() {
 		if err != nil {
 			if s != nil {
@@ -262,7 +264,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 		},
 	}
 
-	if s, err = NewServerWithConfig(ctx, globalConfig); err != nil {
+	if s, err = instance.NewServerWithConfig(ctx, log, globalConfig); err != nil {
 		return fmt.Errorf("failed to start BGP server for config with local ASN %v: %w", c.LocalASN, err)
 	}
 
@@ -287,7 +289,7 @@ func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) erro
 	)
 	for _, asn := range rd.withdraw {
 		var (
-			s  *ServerWithConfig
+			s  *instance.ServerWithConfig
 			ok bool
 		)
 		if s, ok = m.Servers[asn]; !ok {
@@ -363,7 +365,7 @@ func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) err
 // On success the provided `newc` will be written to `sc.Config`. The caller
 // should then store `sc` until next reconciliation.
 func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
-	sc *ServerWithConfig,
+	sc *instance.ServerWithConfig,
 	newc *v2alpha1api.CiliumBGPVirtualRouter,
 	ciliumNode *v2api.CiliumNode) error {
 	if sc.Config != nil {
@@ -372,7 +374,7 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 		}
 	}
 	for _, r := range m.Reconcilers {
-		if err := r.Reconcile(ctx, ReconcileParams{
+		if err := r.Reconcile(ctx, reconciler.ReconcileParams{
 			CurrentServer: sc,
 			DesiredConfig: newc,
 			CiliumNode:    ciliumNode,

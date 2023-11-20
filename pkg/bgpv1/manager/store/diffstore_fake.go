@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package store
 
 import (
 	"golang.org/x/exp/maps"
@@ -22,7 +22,7 @@ type fakeDiffStore[T runtime.Object] struct {
 	changed   map[resource.Key]bool
 }
 
-func newFakeDiffStore[T runtime.Object]() *fakeDiffStore[T] {
+func NewFakeDiffStore[T runtime.Object]() *fakeDiffStore[T] {
 	return &fakeDiffStore[T]{
 		objects: make(map[resource.Key]T),
 		changed: make(map[resource.Key]bool),

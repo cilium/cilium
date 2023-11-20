@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -29,8 +31,8 @@ type LBServiceReconcilerOut struct {
 }
 
 type LBServiceReconciler struct {
-	diffStore   DiffStore[*slim_corev1.Service]
-	epDiffStore DiffStore[*k8s.Endpoints]
+	diffStore   store.DiffStore[*slim_corev1.Service]
+	epDiffStore store.DiffStore[*k8s.Endpoints]
 }
 
 // LBServiceReconcilerMetadata keeps a map of services to the respective advertised Paths
@@ -38,7 +40,7 @@ type LBServiceReconcilerMetadata map[resource.Key][]*types.Path
 
 type localServices map[k8s.ServiceID]struct{}
 
-func NewLBServiceReconciler(diffStore DiffStore[*slim_corev1.Service], epDiffStore DiffStore[*k8s.Endpoints]) LBServiceReconcilerOut {
+func NewLBServiceReconciler(diffStore store.DiffStore[*slim_corev1.Service], epDiffStore store.DiffStore[*k8s.Endpoints]) LBServiceReconcilerOut {
 	if diffStore == nil {
 		return LBServiceReconcilerOut{}
 	}
@@ -72,7 +74,7 @@ func (r *LBServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	return r.svcDiffReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls)
 }
 
-func (r *LBServiceReconciler) getMetadata(sc *ServerWithConfig) LBServiceReconcilerMetadata {
+func (r *LBServiceReconciler) getMetadata(sc *instance.ServerWithConfig) LBServiceReconcilerMetadata {
 	if _, found := sc.ReconcilerMetadata[r.Name()]; !found {
 		sc.ReconcilerMetadata[r.Name()] = make(LBServiceReconcilerMetadata)
 	}
@@ -146,7 +148,7 @@ func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
 
 // fullReconciliation reconciles all services, this is a heavy operation due to the potential amount of services and
 // thus should be avoided if partial reconciliation is an option.
-func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
+func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
 	toReconcile, toWithdraw, err := r.fullReconciliationServiceList(sc)
 	if err != nil {
 		return err
@@ -166,7 +168,7 @@ func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *Server
 
 // svcDiffReconciliation performs reconciliation, only on services which have been created, updated or deleted since
 // the last diff reconciliation.
-func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
+func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
 	toReconcile, toWithdraw, err := r.diffReconciliationServiceList()
 	if err != nil {
 		return err
@@ -187,7 +189,7 @@ func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *Ser
 
 // fullReconciliationServiceList return a list of services to reconcile and to withdraw when performing
 // full service reconciliation.
-func (r *LBServiceReconciler) fullReconciliationServiceList(sc *ServerWithConfig) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
+func (r *LBServiceReconciler) fullReconciliationServiceList(sc *instance.ServerWithConfig) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
 	// Loop over all existing announcements, find announcements for services which no longer exist
 	serviceAnnouncements := r.getMetadata(sc)
 	for svcKey := range serviceAnnouncements {
@@ -328,7 +330,7 @@ func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtua
 }
 
 // reconcileService gets the desired routes of a given service and makes sure that is what is being announced.
-func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) error {
+func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) error {
 
 	desiredRoutes, err := r.svcDesiredRoutes(newc, svc, ls)
 	if err != nil {
@@ -339,7 +341,7 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 
 // reconcileServiceRoutes ensures that desired routes of a given service are announced,
 // adding missing announcements or withdrawing unwanted ones.
-func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *ServerWithConfig, svc *slim_corev1.Service, desiredRoutes []netip.Prefix) error {
+func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *instance.ServerWithConfig, svc *slim_corev1.Service, desiredRoutes []netip.Prefix) error {
 	serviceAnnouncements := r.getMetadata(sc)
 	svcKey := resource.NewKey(svc)
 
@@ -382,7 +384,7 @@ func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *Se
 }
 
 // withdrawService removes all announcements for the given service
-func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWithConfig, key resource.Key) error {
+func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *instance.ServerWithConfig, key resource.Key) error {
 	serviceAnnouncements := r.getMetadata(sc)
 	advertisements := serviceAnnouncements[key]
 	// Loop in reverse order so we can delete without effect to the iteration.

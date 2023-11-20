@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -94,7 +95,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				ExportPodCIDR: pointer.Bool(tt.enabled),
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}

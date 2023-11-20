@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -32,16 +34,16 @@ type RoutePolicyReconcilerOut struct {
 }
 
 type RoutePolicyReconciler struct {
-	lbPoolStore  BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]
-	podPoolStore BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]
+	lbPoolStore  store.BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]
+	podPoolStore store.BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]
 }
 
 // RoutePolicyReconcilerMetadata holds routing policies configured by the policy reconciler keyed by policy name.
 type RoutePolicyReconcilerMetadata map[string]*types.RoutePolicy
 
 func NewRoutePolicyReconciler(
-	lbStore BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool],
-	podStore BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool],
+	lbStore store.BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool],
+	podStore store.BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool],
 ) RoutePolicyReconcilerOut {
 	return RoutePolicyReconcilerOut{
 		Reconciler: &RoutePolicyReconciler{
@@ -63,7 +65,7 @@ func (r *RoutePolicyReconciler) Priority() int {
 }
 
 func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
-	l := log.WithFields(logrus.Fields{"component": "manager.policyReconciler"})
+	l := log.WithFields(logrus.Fields{"component": "RoutePolicyReconciler"})
 	l.Infof("Begin reconciling routing policies for virtual router with local ASN %v", params.DesiredConfig.LocalASN)
 
 	if params.DesiredConfig == nil {
@@ -167,14 +169,14 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 	return nil
 }
 
-func (r *RoutePolicyReconciler) getMetadata(sc *ServerWithConfig) RoutePolicyReconcilerMetadata {
+func (r *RoutePolicyReconciler) getMetadata(sc *instance.ServerWithConfig) RoutePolicyReconcilerMetadata {
 	if _, found := sc.ReconcilerMetadata[r.Name()]; !found {
 		sc.ReconcilerMetadata[r.Name()] = make(RoutePolicyReconcilerMetadata)
 	}
 	return sc.ReconcilerMetadata[r.Name()].(RoutePolicyReconcilerMetadata)
 }
 
-func (r *RoutePolicyReconciler) storeMetadata(sc *ServerWithConfig, meta RoutePolicyReconcilerMetadata) {
+func (r *RoutePolicyReconciler) storeMetadata(sc *instance.ServerWithConfig, meta RoutePolicyReconcilerMetadata) {
 	sc.ReconcilerMetadata[r.Name()] = meta
 }
 
@@ -284,7 +286,7 @@ func (r *RoutePolicyReconciler) populateLocalPools(localNode *v2api.CiliumNode) 
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "manager.routePolicyReconciler",
+				"component": "RoutePolicyReconciler",
 			},
 		)
 	)

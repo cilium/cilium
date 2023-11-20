@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -51,7 +52,7 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "manager.preflightReconciler",
+				"component": "PreflightReconciler",
 			},
 		)
 	)
@@ -126,7 +127,7 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	p.CurrentServer.Server.Stop()
 
 	// create a new one via ServerWithConfig constructor
-	s, err := NewServerWithConfig(ctx, globalConfig)
+	s, err := instance.NewServerWithConfig(ctx, log, globalConfig)
 	if err != nil {
 		l.WithError(err).Errorf("Failed to start BGP server for virtual router with local ASN %v", p.DesiredConfig.LocalASN)
 		return fmt.Errorf("failed to start BGP server for virtual router with local ASN %v: %w", p.DesiredConfig.LocalASN, err)

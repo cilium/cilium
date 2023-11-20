@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/pointer"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -21,7 +23,7 @@ import (
 )
 
 func FakeSecretStore(secrets map[string][]byte) resource.Store[*slim_corev1.Secret] {
-	store := newMockBGPCPResourceStore[*slim_corev1.Secret]()
+	store := store.NewMockBGPCPResourceStore[*slim_corev1.Secret]()
 	for k, v := range secrets {
 		store.Upsert(&slim_corev1.Secret{
 			ObjectMeta: slim_metav1.ObjectMeta{
@@ -243,7 +245,7 @@ func TestNeighborReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}

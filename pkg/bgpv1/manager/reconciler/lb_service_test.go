@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -589,13 +591,13 @@ func TestLBServiceReconciler(t *testing.T) {
 				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 				ServiceSelector: tt.oldServiceSelector,
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
 			testSC.Config = oldc
 
-			diffstore := newFakeDiffStore[*slim_corev1.Service]()
+			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
@@ -603,7 +605,7 @@ func TestLBServiceReconciler(t *testing.T) {
 				diffstore.Delete(key)
 			}
 
-			epDiffStore := newFakeDiffStore[*k8s.Endpoints]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
 			}

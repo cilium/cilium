@@ -25,7 +25,7 @@ var testServerParameters = types.ServerParameters{
 func TestAddRemoveRoutePolicy(t *testing.T) {
 	for _, tt := range types.TestCommonRoutePolicies {
 		t.Run(tt.Name, func(t *testing.T) {
-			router, err := NewGoBGPServerWithConfig(context.Background(), log, testServerParameters)
+			router, err := NewGoBGPServer(context.Background(), log, testServerParameters)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
