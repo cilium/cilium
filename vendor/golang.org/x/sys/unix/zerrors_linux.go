@@ -1801,6 +1801,7 @@ const (
 	LOCK_SH                                     = 0x1
 	LOCK_UN                                     = 0x8
 	LOOP_CLR_FD                                 = 0x4c01
+	LOOP_CONFIGURE                              = 0x4c0a
 	LOOP_CTL_ADD                                = 0x4c80
 	LOOP_CTL_GET_FREE                           = 0x4c82
 	LOOP_CTL_REMOVE                             = 0x4c81

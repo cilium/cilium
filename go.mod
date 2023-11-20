@@ -100,7 +100,7 @@ require (
 	golang.org/x/mod v0.14.0
 	golang.org/x/net v0.18.0
 	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.14.1-0.20231108175955-e4099bfacb8c
+	golang.org/x/sys v0.14.1-0.20231118010836-13b15b780d90
 	golang.org/x/term v0.14.0
 	golang.org/x/time v0.4.0
 	golang.org/x/tools v0.15.0
