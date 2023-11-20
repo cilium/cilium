@@ -3,7 +3,11 @@
 
 package annotation
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	"regexp"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 const (
 	// Prefix is the common prefix for all annotations
@@ -134,6 +138,11 @@ const (
 	// IPAMIPv6PoolKey is the annotation name used to store the IPAM IPv6 pool name from
 	// which workloads should allocate their IP from
 	IPAMIPv6PoolKey = IPAMPrefix + "/ipv6-pool"
+)
+
+var (
+	// CiliumPrefixRegex is a regex matching Cilium specific annotations.
+	CiliumPrefixRegex = regexp.MustCompile(`^([A-Za-z0-9]+\.)*cilium.io/`)
 )
 
 // Get returns the annotation value associated with the given key, or any of

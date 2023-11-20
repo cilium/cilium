@@ -33,7 +33,7 @@ var (
 				"foo": "bar",
 			},
 			Annotations: map[string]string{
-				"baz": "quux",
+				"cilium.io/baz": "quux",
 			},
 		},
 		Spec: corev1.NodeSpec{
@@ -77,7 +77,7 @@ func validateLocalNodeInit(lns *node.LocalNodeStore) error {
 	assert.Equal(errs, "10.0.0.1", node.GetNodeIP(false).String())
 	assert.Equal(errs, "20.0.0.2", node.GetExternalIP(false).String())
 	assert.Contains(errs, node.Labels, "foo")
-	assert.Contains(errs, node.Annotations, "baz")
+	assert.Contains(errs, node.Annotations, "cilium.io/baz")
 
 	if errs.err != nil {
 		return fmt.Errorf("validateLocalNodeInit: %w", errs.err)

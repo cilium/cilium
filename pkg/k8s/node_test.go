@@ -33,6 +33,10 @@ func (s *K8sSuite) TestParseNode(c *C) {
 				annotation.V6CIDRName:     "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
 				annotation.CiliumHostIP:   "10.254.9.9",
 				annotation.CiliumHostIPv6: "fd00:10:244:1::8ace",
+				"cilium.io/foo":           "value",
+				"qux.cilium.io/foo":       "value",
+				"fr3d.qux.cilium.io/foo":  "value",
+				"other.whatever.io/foo":   "value",
 			},
 			Labels: map[string]string{
 				"type": "m5.xlarge",
@@ -55,6 +59,11 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	c.Assert(n.IPAddresses[0].Type, Equals, nodeAddressing.NodeCiliumInternalIP)
 	c.Assert(n.IPAddresses[1].IP.String(), Equals, "fd00:10:244:1::8ace")
 	c.Assert(n.IPAddresses[1].Type, Equals, nodeAddressing.NodeCiliumInternalIP)
+
+	for _, key := range []string{"cilium.io/foo", "qux.cilium.io/foo", "fr3d.qux.cilium.io/foo"} {
+		c.Assert(n.Annotations[key], Equals, "value")
+	}
+	c.Assert(n.Annotations, Not(checker.HasKey), "other.whatever.io/foo")
 
 	// No IPv6 annotation
 	k8sNode = &slim_corev1.Node{
@@ -193,8 +202,12 @@ func (s *K8sSuite) TestParseNodeWithoutAnnotations(c *C) {
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
-				annotation.V4CIDRName: "10.254.0.0/16",
-				annotation.V6CIDRName: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
+				annotation.V4CIDRName:    "10.254.0.0/16",
+				annotation.V6CIDRName:    "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
+				"cilium.io/foo":          "value",
+				"qux.cilium.io/foo":      "value",
+				"fr3d.qux.cilium.io/foo": "value",
+				"other.whatever.io/foo":  "value",
 			},
 			Labels: map[string]string{
 				"type": "m5.xlarge",
@@ -211,6 +224,11 @@ func (s *K8sSuite) TestParseNodeWithoutAnnotations(c *C) {
 	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
 	c.Assert(n.IPv6AllocCIDR, IsNil)
 	c.Assert(n.Labels["type"], Equals, "m5.xlarge")
+
+	for _, key := range []string{"cilium.io/foo", "qux.cilium.io/foo", "fr3d.qux.cilium.io/foo"} {
+		c.Assert(n.Annotations[key], Equals, "value")
+	}
+	c.Assert(n.Annotations, Not(checker.HasKey), "other.whatever.io/foo")
 
 	// No IPv6 annotation but PodCIDR with v6
 	k8sNode = &slim_corev1.Node{
