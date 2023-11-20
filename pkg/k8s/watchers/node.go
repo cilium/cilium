@@ -16,7 +16,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 // RegisterNodeSubscriber allows registration of subscriber.Node implementations.
@@ -108,43 +107,4 @@ func (k *K8sWatcher) GetK8sNode(ctx context.Context, nodeName string) (*slim_cor
 		}, nodeName)
 	}
 	return node.DeepCopy(), nil
-}
-
-// ciliumNodeUpdater implements the subscriber.Node interface and is used
-// to keep CiliumNode objects in sync with the node ones.
-type ciliumNodeUpdater struct {
-	kvStoreNodeUpdater NodeUpdate
-}
-
-func NewCiliumNodeUpdater(kvStoreNodeUpdater NodeUpdate) *ciliumNodeUpdater {
-	return &ciliumNodeUpdater{
-		kvStoreNodeUpdater: kvStoreNodeUpdater,
-	}
-}
-
-func (u *ciliumNodeUpdater) OnAddNode(newNode *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
-	u.updateCiliumNode(newNode)
-
-	return nil
-}
-
-func (u *ciliumNodeUpdater) OnUpdateNode(oldNode, newNode *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
-	u.updateCiliumNode(newNode)
-
-	return nil
-}
-
-func (u *ciliumNodeUpdater) OnDeleteNode(*slim_corev1.Node, *lock.StoppableWaitGroup) error {
-	return nil
-}
-
-func (u *ciliumNodeUpdater) updateCiliumNode(node *slim_corev1.Node) {
-	if node.Name != nodeTypes.GetName() {
-		// The cilium node updater should only update the information relevant
-		// to itself. It should not update any of the other nodes.
-		log.Errorf("BUG: trying to update node %q while we should only update for %q", node.Name, nodeTypes.GetName())
-		return
-	}
-
-	u.kvStoreNodeUpdater.UpdateLocalNode()
 }

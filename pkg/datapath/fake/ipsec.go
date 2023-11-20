@@ -20,7 +20,7 @@ func (*ipsecKeyCustodian) SPI() uint8 {
 }
 
 // StartBackgroundJobs implements types.IPsecKeyCustodian.
-func (*ipsecKeyCustodian) StartBackgroundJobs(types.NodeUpdater, types.NodeHandler) error {
+func (*ipsecKeyCustodian) StartBackgroundJobs(types.NodeHandler) error {
 	return nil
 }
 
