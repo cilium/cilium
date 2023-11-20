@@ -148,7 +148,7 @@ func (b *basicCommonValidator) SetPath(path string) {
 	b.Path = path
 }
 
-func (b *basicCommonValidator) Applies(source interface{}, kind reflect.Kind) bool {
+func (b *basicCommonValidator) Applies(source interface{}, _ reflect.Kind) bool {
 	switch source.(type) {
 	case *spec.Parameter, *spec.Schema, *spec.Header:
 		return true

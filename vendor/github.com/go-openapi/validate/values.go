@@ -120,7 +120,7 @@ func UniqueItems(path, in string, data interface{}) *errors.Validation {
 
 // MinLength validates a string for minimum length
 func MinLength(path, in, data string, minLength int64) *errors.Validation {
-	strLen := int64(utf8.RuneCount([]byte(data)))
+	strLen := int64(utf8.RuneCountInString(data))
 	if strLen < minLength {
 		return errors.TooShort(path, in, minLength, data)
 	}
@@ -129,7 +129,7 @@ func MinLength(path, in, data string, minLength int64) *errors.Validation {
 
 // MaxLength validates a string for maximum length
 func MaxLength(path, in, data string, maxLength int64) *errors.Validation {
-	strLen := int64(utf8.RuneCount([]byte(data)))
+	strLen := int64(utf8.RuneCountInString(data))
 	if strLen > maxLength {
 		return errors.TooLong(path, in, maxLength, data)
 	}
@@ -161,10 +161,22 @@ func ReadOnly(ctx context.Context, path, in string, data interface{}) *errors.Va
 func Required(path, in string, data interface{}) *errors.Validation {
 	val := reflect.ValueOf(data)
 	if val.IsValid() {
-		if reflect.DeepEqual(reflect.Zero(val.Type()).Interface(), val.Interface()) {
-			return errors.Required(path, in, data)
+		typ := reflect.TypeOf(data)
+		switch typ.Kind() {
+		case reflect.Pointer:
+			if val.IsNil() {
+				return errors.Required(path, in, data)
+			}
+			if reflect.DeepEqual(reflect.Zero(val.Elem().Type()).Interface(), val.Elem().Interface()) {
+				return errors.Required(path, in, data)
+			}
+			return nil
+		default:
+			if reflect.DeepEqual(reflect.Zero(val.Type()).Interface(), val.Interface()) {
+				return errors.Required(path, in, data)
+			}
+			return nil
 		}
-		return nil
 	}
 	return errors.Required(path, in, data)
 }
