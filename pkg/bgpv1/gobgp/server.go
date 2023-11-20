@@ -68,8 +68,8 @@ type GoBGPServer struct {
 	server *server.BgpServer
 }
 
-// NewGoBGPServerWithConfig returns instance of go bgp router wrapper.
-func NewGoBGPServerWithConfig(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (types.Router, error) {
+// NewGoBGPServer returns instance of go bgp router wrapper.
+func NewGoBGPServer(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (types.Router, error) {
 	logger := NewServerLogger(log.Logger, LogParams{
 		AS:        params.Global.ASN,
 		Component: "gobgp.BgpServerInstance",

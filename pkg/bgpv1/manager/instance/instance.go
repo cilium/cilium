@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package instance
 
 import (
 	"context"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -42,12 +44,11 @@ type ServerWithConfig struct {
 //
 // Canceling the provided context will kill the BgpServer along with calling the
 // underlying BgpServer's Stop() method.
-func NewServerWithConfig(ctx context.Context, params types.ServerParameters) (*ServerWithConfig, error) {
-	s, err := gobgp.NewGoBGPServerWithConfig(ctx, log, params)
+func NewServerWithConfig(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (*ServerWithConfig, error) {
+	s, err := gobgp.NewGoBGPServer(ctx, log, params)
 	if err != nil {
 		return nil, err
 	}
-
 	return &ServerWithConfig{
 		Server:             s,
 		Config:             nil,

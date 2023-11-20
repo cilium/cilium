@@ -256,7 +256,7 @@ func TestGetPeerState(t *testing.T) {
 			},
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			testSC, err := NewGoBGPServerWithConfig(context.Background(), log, srvParams)
+			testSC, err := NewGoBGPServer(context.Background(), log, srvParams)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
@@ -370,7 +370,7 @@ func findMatchingPeer(t *testing.T, peers []*models.BgpPeer, n *v2alpha1api.Cili
 }
 
 func TestGetRoutes(t *testing.T) {
-	testSC, err := NewGoBGPServerWithConfig(context.Background(), log, types.ServerParameters{
+	testSC, err := NewGoBGPServer(context.Background(), log, types.ServerParameters{
 		Global: types.BGPGlobal{
 			ASN:        65000,
 			RouterID:   "127.0.0.1",

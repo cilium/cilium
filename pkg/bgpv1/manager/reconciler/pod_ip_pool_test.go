@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -212,7 +214,7 @@ func TestPodIPPoolReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -224,7 +226,7 @@ func TestPodIPPoolReconciler(t *testing.T) {
 
 			// Setup the pool reconciler, local node, CiliumNode, and assign test
 			// pools to CiliumNode.
-			store := newMockBGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]()
+			store := store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]()
 			for _, obj := range tt.upsertedPools {
 				store.Upsert(obj)
 			}

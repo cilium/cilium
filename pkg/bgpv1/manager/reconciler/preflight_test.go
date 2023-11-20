@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -104,7 +106,7 @@ func TestPreflightReconciler(t *testing.T) {
 					ListenPort: tt.localPort,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -167,8 +169,8 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		localPort       = int32(localListenPort)
 		localASN        = int64(64125)
 		newRouterID     = "192.168.0.2"
-		diffstore       = newFakeDiffStore[*slim_corev1.Service]()
-		epDiffStore     = newFakeDiffStore[*k8s.Endpoints]()
+		diffstore       = store.NewFakeDiffStore[*slim_corev1.Service]()
+		epDiffStore     = store.NewFakeDiffStore[*k8s.Endpoints]()
 		serviceSelector = &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
 		obj             = &slim_corev1.Service{
 			ObjectMeta: slim_metav1.ObjectMeta{
@@ -202,7 +204,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		},
 	}
 
-	testSC, err := NewServerWithConfig(context.Background(), srvParams)
+	testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 	require.NoError(t, err)
 
 	originalServer := testSC.Server

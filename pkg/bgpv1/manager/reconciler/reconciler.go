@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type ReconcileParams struct {
-	CurrentServer *ServerWithConfig
+	CurrentServer *instance.ServerWithConfig
 	DesiredConfig *v2alpha1api.CiliumBGPVirtualRouter
 	CiliumNode    *v2api.CiliumNode
 }
@@ -30,6 +33,7 @@ type ConfigReconciler interface {
 	Reconcile(ctx context.Context, params ReconcileParams) error
 }
 
+// ConfigReconcilers contains all reconcilers used by the route manager to manage the BGP config.
 var ConfigReconcilers = cell.Provide(
 	NewPreflightReconciler,
 	NewNeighborReconciler,
@@ -38,3 +42,6 @@ var ConfigReconcilers = cell.Provide(
 	NewLBServiceReconciler,
 	NewRoutePolicyReconciler,
 )
+
+// log is the logger used by the reconcilers
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -26,11 +28,11 @@ type NeighborReconcilerOut struct {
 // NeighborReconciler is a ConfigReconciler which reconciles the peers of the
 // provided BGP server with the provided CiliumBGPVirtualRouter.
 type NeighborReconciler struct {
-	SecretStore  BGPCPResourceStore[*slim_corev1.Secret]
+	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	DaemonConfig *option.DaemonConfig
 }
 
-func NewNeighborReconciler(SecretStore BGPCPResourceStore[*slim_corev1.Secret], DaemonConfig *option.DaemonConfig) NeighborReconcilerOut {
+func NewNeighborReconciler(SecretStore store.BGPCPResourceStore[*slim_corev1.Secret], DaemonConfig *option.DaemonConfig) NeighborReconcilerOut {
 	return NeighborReconcilerOut{
 		Reconciler: &NeighborReconciler{
 			SecretStore:  SecretStore,
@@ -61,7 +63,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "manager.neighborReconciler",
+				"component": "NeighborReconciler",
 			},
 		)
 		toCreate []*v2alpha1api.CiliumBGPNeighbor
@@ -193,19 +195,19 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 // secrets. Key is PeerAddress+PeerASN.
 type NeighborReconcilerMetadata map[string]string
 
-func (r *NeighborReconciler) getMetadata(sc *ServerWithConfig) NeighborReconcilerMetadata {
+func (r *NeighborReconciler) getMetadata(sc *instance.ServerWithConfig) NeighborReconcilerMetadata {
 	if _, found := sc.ReconcilerMetadata[r.Name()]; !found {
 		sc.ReconcilerMetadata[r.Name()] = make(NeighborReconcilerMetadata)
 	}
 	return sc.ReconcilerMetadata[r.Name()].(NeighborReconcilerMetadata)
 }
 
-func (r *NeighborReconciler) fetchPeerPassword(sc *ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor) (string, error) {
+func (r *NeighborReconciler) fetchPeerPassword(sc *instance.ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor) (string, error) {
 	peerPasswords := r.getMetadata(sc)
 
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "manager.fetchPeerPassword",
+			"component": "NeighborReconciler.fetchPeerPassword",
 		},
 	)
 	if n.AuthSecretRef != nil {
@@ -249,7 +251,7 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 	return result, true, nil
 }
 
-func (r *NeighborReconciler) changedPeerPassword(sc *ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor, tcpPassword string) bool {
+func (r *NeighborReconciler) changedPeerPassword(sc *instance.ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor, tcpPassword string) bool {
 	peerPasswords := r.getMetadata(sc)
 
 	key := fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
@@ -257,7 +259,7 @@ func (r *NeighborReconciler) changedPeerPassword(sc *ServerWithConfig, n *v2alph
 	return old != tcpPassword
 }
 
-func (r *NeighborReconciler) updatePeerPassword(sc *ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor, tcpPassword string) {
+func (r *NeighborReconciler) updatePeerPassword(sc *instance.ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor, tcpPassword string) {
 	peerPasswords := r.getMetadata(sc)
 
 	key := fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)

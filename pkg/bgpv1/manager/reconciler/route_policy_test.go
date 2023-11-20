@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package reconciler
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -587,7 +589,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
 			require.NoError(t, err)
 
 			testSC.Config = &v2alpha1api.CiliumBGPVirtualRouter{
@@ -596,12 +598,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				Neighbors:     tt.initial.neighbors,
 			}
 
-			lbStore := newMockBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]()
+			lbStore := store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]()
 			for _, obj := range tt.initial.LBPools {
 				lbStore.Upsert(obj)
 			}
 
-			podStore := newMockBGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]()
+			podStore := store.NewMockBGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]()
 			for _, obj := range tt.initial.PodPools {
 				podStore.Upsert(obj)
 			}
