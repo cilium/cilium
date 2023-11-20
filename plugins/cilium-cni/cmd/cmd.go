@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package main
+package cmd
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"runtime"
 	"sort"
 
 	cniInvoke "github.com/containernetworking/cni/pkg/invoke"
@@ -39,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/sysctl"
-	"github.com/cilium/cilium/pkg/version"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/azure"
@@ -59,24 +57,12 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-cni")
 )
 
-func init() {
-	runtime.LockOSThread()
-}
-
 type CmdState struct {
 	IP6       netip.Addr
 	IP6routes []route.Route
 	IP4       netip.Addr
 	IP4routes []route.Route
 	HostAddr  *models.NodeAddressing
-}
-
-func main() {
-	skel.PluginMain(cmdAdd,
-		cmdCheck,
-		cmdDel,
-		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0"),
-		"Cilium CNI plugin "+version.Version)
 }
 
 func ipv6IsEnabled(ipam *models.IPAMResponse) bool {
@@ -361,7 +347,7 @@ func setupLogging(n *types.NetConf) error {
 	return nil
 }
 
-func cmdAdd(args *skel.CmdArgs) (err error) {
+func Add(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return fmt.Errorf("unable to parse CNI configuration %q: %w", string(args.StdinData), err)
@@ -601,11 +587,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	return cniTypes.PrintResult(res, n.CNIVersion)
 }
 
-// cmdDel is invoked on CNI DEL
+// Del is invoked on CNI DEL
 //
 // Note: ENI specific attributes do not need to be released as the ENIs and ENI
 // IPs can be reused and are not released until the node terminates.
-func cmdDel(args *skel.CmdArgs) error {
+func Del(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
 	// are guaranteed to be recoverable.
@@ -702,13 +688,13 @@ func cmdDel(args *skel.CmdArgs) error {
 	return nil
 }
 
-// cmdCheck implements the cni CHECK verb.
+// Check implements the cni CHECK verb.
 // It ensures that the interface is configured correctly
 //
 // Currently, it verifies that
 // - endpoint exists in the agent and is healthy
 // - the interface in the container is sane
-func cmdCheck(args *skel.CmdArgs) error {
+func Check(args *skel.CmdArgs) error {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidNetworkConfig",
