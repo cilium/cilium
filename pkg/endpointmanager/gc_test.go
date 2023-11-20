@@ -25,7 +25,7 @@ func fakeCheck(ep *endpoint.Endpoint) error {
 
 func (s *EndpointManagerSuite) TestmarkAndSweep(c *C) {
 	// Open-code WithPeriodicGC() to avoid running the controller
-	mgr := New(&dummyEpSyncher{}, nil)
+	mgr := New(&dummyEpSyncher{}, nil, nil)
 	mgr.checkHealth = fakeCheck
 	mgr.deleteEndpoint = endpointDeleteFunc(mgr.waitEndpointRemoved)
 
