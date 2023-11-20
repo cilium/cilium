@@ -1,11 +1,21 @@
 package ini
 
-import "strings"
+import (
+	"strings"
+)
 
-func trimComment(v string) string {
-	rest, _, _ := strings.Cut(v, "#")
-	rest, _, _ = strings.Cut(rest, ";")
-	return rest
+func trimProfileComment(s string) string {
+	r, _, _ := strings.Cut(s, "#")
+	r, _, _ = strings.Cut(r, ";")
+	return r
+}
+
+func trimPropertyComment(s string) string {
+	r, _, _ := strings.Cut(s, " #")
+	r, _, _ = strings.Cut(r, " ;")
+	r, _, _ = strings.Cut(r, "\t#")
+	r, _, _ = strings.Cut(r, "\t;")
+	return r
 }
 
 // assumes no surrounding comment

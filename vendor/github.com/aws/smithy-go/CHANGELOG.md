@@ -1,3 +1,9 @@
+# Release (2023-11-15)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.17.0
+  * **Feature**: Support identity/auth components of client reference architecture.
+
 # Release (2023-10-31)
 
 ## Module Highlights

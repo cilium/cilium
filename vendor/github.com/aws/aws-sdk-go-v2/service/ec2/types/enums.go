@@ -376,6 +376,58 @@ func (ArchitectureValues) Values() []ArchitectureValues {
 	}
 }
 
+type AsnAssociationState string
+
+// Enum values for AsnAssociationState
+const (
+	AsnAssociationStateDisassociated         AsnAssociationState = "disassociated"
+	AsnAssociationStateFailedDisassociation  AsnAssociationState = "failed-disassociation"
+	AsnAssociationStateFailedAssociation     AsnAssociationState = "failed-association"
+	AsnAssociationStatePendingDisassociation AsnAssociationState = "pending-disassociation"
+	AsnAssociationStatePendingAssociation    AsnAssociationState = "pending-association"
+	AsnAssociationStateAssociated            AsnAssociationState = "associated"
+)
+
+// Values returns all known values for AsnAssociationState. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (AsnAssociationState) Values() []AsnAssociationState {
+	return []AsnAssociationState{
+		"disassociated",
+		"failed-disassociation",
+		"failed-association",
+		"pending-disassociation",
+		"pending-association",
+		"associated",
+	}
+}
+
+type AsnState string
+
+// Enum values for AsnState
+const (
+	AsnStateDeprovisioned      AsnState = "deprovisioned"
+	AsnStateFailedDeprovision  AsnState = "failed-deprovision"
+	AsnStateFailedProvision    AsnState = "failed-provision"
+	AsnStatePendingDeprovision AsnState = "pending-deprovision"
+	AsnStatePendingProvision   AsnState = "pending-provision"
+	AsnStateProvisioned        AsnState = "provisioned"
+)
+
+// Values returns all known values for AsnState. Note that this can be expanded in
+// the future, and so it is only as up to date as the client. The ordering of this
+// slice is not guaranteed to be stable across updates.
+func (AsnState) Values() []AsnState {
+	return []AsnState{
+		"deprovisioned",
+		"failed-deprovision",
+		"failed-provision",
+		"pending-deprovision",
+		"pending-provision",
+		"provisioned",
+	}
+}
+
 type AssociatedNetworkType string
 
 // Enum values for AssociatedNetworkType
@@ -1389,6 +1441,7 @@ type DeviceTrustProviderType string
 const (
 	DeviceTrustProviderTypeJamf        DeviceTrustProviderType = "jamf"
 	DeviceTrustProviderTypeCrowdstrike DeviceTrustProviderType = "crowdstrike"
+	DeviceTrustProviderTypeJumpcloud   DeviceTrustProviderType = "jumpcloud"
 )
 
 // Values returns all known values for DeviceTrustProviderType. Note that this can
@@ -1398,6 +1451,7 @@ func (DeviceTrustProviderType) Values() []DeviceTrustProviderType {
 	return []DeviceTrustProviderType{
 		"jamf",
 		"crowdstrike",
+		"jumpcloud",
 	}
 }
 
@@ -3625,6 +3679,7 @@ const (
 	InstanceTypeR7i16xlarge     InstanceType = "r7i.16xlarge"
 	InstanceTypeR7i24xlarge     InstanceType = "r7i.24xlarge"
 	InstanceTypeR7i48xlarge     InstanceType = "r7i.48xlarge"
+	InstanceTypeDl2q24xlarge    InstanceType = "dl2q.24xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4403,6 +4458,7 @@ func (InstanceType) Values() []InstanceType {
 		"r7i.16xlarge",
 		"r7i.24xlarge",
 		"r7i.48xlarge",
+		"dl2q.24xlarge",
 	}
 }
 
@@ -4614,6 +4670,7 @@ const (
 	IpamPoolAllocationResourceTypeVpc               IpamPoolAllocationResourceType = "vpc"
 	IpamPoolAllocationResourceTypeEc2PublicIpv4Pool IpamPoolAllocationResourceType = "ec2-public-ipv4-pool"
 	IpamPoolAllocationResourceTypeCustom            IpamPoolAllocationResourceType = "custom"
+	IpamPoolAllocationResourceTypeSubnet            IpamPoolAllocationResourceType = "subnet"
 )
 
 // Values returns all known values for IpamPoolAllocationResourceType. Note that
@@ -4626,6 +4683,7 @@ func (IpamPoolAllocationResourceType) Values() []IpamPoolAllocationResourceType 
 		"vpc",
 		"ec2-public-ipv4-pool",
 		"custom",
+		"subnet",
 	}
 }
 
@@ -4711,6 +4769,22 @@ func (IpamPoolPublicIpSource) Values() []IpamPoolPublicIpSource {
 	}
 }
 
+type IpamPoolSourceResourceType string
+
+// Enum values for IpamPoolSourceResourceType
+const (
+	IpamPoolSourceResourceTypeVpc IpamPoolSourceResourceType = "vpc"
+)
+
+// Values returns all known values for IpamPoolSourceResourceType. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamPoolSourceResourceType) Values() []IpamPoolSourceResourceType {
+	return []IpamPoolSourceResourceType{
+		"vpc",
+	}
+}
+
 type IpamPoolState string
 
 // Enum values for IpamPoolState
@@ -4746,6 +4820,81 @@ func (IpamPoolState) Values() []IpamPoolState {
 		"isolate-in-progress",
 		"isolate-complete",
 		"restore-in-progress",
+	}
+}
+
+type IpamPublicAddressAssociationStatus string
+
+// Enum values for IpamPublicAddressAssociationStatus
+const (
+	IpamPublicAddressAssociationStatusAssociated    IpamPublicAddressAssociationStatus = "associated"
+	IpamPublicAddressAssociationStatusDisassociated IpamPublicAddressAssociationStatus = "disassociated"
+)
+
+// Values returns all known values for IpamPublicAddressAssociationStatus. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (IpamPublicAddressAssociationStatus) Values() []IpamPublicAddressAssociationStatus {
+	return []IpamPublicAddressAssociationStatus{
+		"associated",
+		"disassociated",
+	}
+}
+
+type IpamPublicAddressAwsService string
+
+// Enum values for IpamPublicAddressAwsService
+const (
+	IpamPublicAddressAwsServiceNatGateway IpamPublicAddressAwsService = "nat-gateway"
+	IpamPublicAddressAwsServiceDms        IpamPublicAddressAwsService = "database-migration-service"
+	IpamPublicAddressAwsServiceRedshift   IpamPublicAddressAwsService = "redshift"
+	IpamPublicAddressAwsServiceEcs        IpamPublicAddressAwsService = "elastic-container-service"
+	IpamPublicAddressAwsServiceRds        IpamPublicAddressAwsService = "relational-database-service"
+	IpamPublicAddressAwsServiceS2sVpn     IpamPublicAddressAwsService = "site-to-site-vpn"
+	IpamPublicAddressAwsServiceEc2Lb      IpamPublicAddressAwsService = "load-balancer"
+	IpamPublicAddressAwsServiceAga        IpamPublicAddressAwsService = "global-accelerator"
+	IpamPublicAddressAwsServiceOther      IpamPublicAddressAwsService = "other"
+)
+
+// Values returns all known values for IpamPublicAddressAwsService. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamPublicAddressAwsService) Values() []IpamPublicAddressAwsService {
+	return []IpamPublicAddressAwsService{
+		"nat-gateway",
+		"database-migration-service",
+		"redshift",
+		"elastic-container-service",
+		"relational-database-service",
+		"site-to-site-vpn",
+		"load-balancer",
+		"global-accelerator",
+		"other",
+	}
+}
+
+type IpamPublicAddressType string
+
+// Enum values for IpamPublicAddressType
+const (
+	IpamPublicAddressTypeServiceManagedIp    IpamPublicAddressType = "service-managed-ip"
+	IpamPublicAddressTypeServiceManagedByoip IpamPublicAddressType = "service-managed-byoip"
+	IpamPublicAddressTypeAmazonOwnedEip      IpamPublicAddressType = "amazon-owned-eip"
+	IpamPublicAddressTypeByoip               IpamPublicAddressType = "byoip"
+	IpamPublicAddressTypeEc2PublicIp         IpamPublicAddressType = "ec2-public-ip"
+)
+
+// Values returns all known values for IpamPublicAddressType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (IpamPublicAddressType) Values() []IpamPublicAddressType {
+	return []IpamPublicAddressType{
+		"service-managed-ip",
+		"service-managed-byoip",
+		"amazon-owned-eip",
+		"byoip",
+		"ec2-public-ip",
 	}
 }
 
@@ -4829,6 +4978,7 @@ const (
 	IpamResourceTypeEip            IpamResourceType = "eip"
 	IpamResourceTypePublicIpv4Pool IpamResourceType = "public-ipv4-pool"
 	IpamResourceTypeIpv6Pool       IpamResourceType = "ipv6-pool"
+	IpamResourceTypeEni            IpamResourceType = "eni"
 )
 
 // Values returns all known values for IpamResourceType. Note that this can be
@@ -4841,6 +4991,7 @@ func (IpamResourceType) Values() []IpamResourceType {
 		"eip",
 		"public-ipv4-pool",
 		"ipv6-pool",
+		"eni",
 	}
 }
 
@@ -4935,6 +5086,24 @@ func (IpamState) Values() []IpamState {
 		"isolate-in-progress",
 		"isolate-complete",
 		"restore-in-progress",
+	}
+}
+
+type IpamTier string
+
+// Enum values for IpamTier
+const (
+	IpamTierFree     IpamTier = "free"
+	IpamTierAdvanced IpamTier = "advanced"
+)
+
+// Values returns all known values for IpamTier. Note that this can be expanded in
+// the future, and so it is only as up to date as the client. The ordering of this
+// slice is not guaranteed to be stable across updates.
+func (IpamTier) Values() []IpamTier {
+	return []IpamTier{
+		"free",
+		"advanced",
 	}
 }
 
@@ -5293,6 +5462,46 @@ func (LocationType) Values() []LocationType {
 		"availability-zone",
 		"availability-zone-id",
 		"outpost",
+	}
+}
+
+type LockMode string
+
+// Enum values for LockMode
+const (
+	LockModeCompliance LockMode = "compliance"
+	LockModeGovernance LockMode = "governance"
+)
+
+// Values returns all known values for LockMode. Note that this can be expanded in
+// the future, and so it is only as up to date as the client. The ordering of this
+// slice is not guaranteed to be stable across updates.
+func (LockMode) Values() []LockMode {
+	return []LockMode{
+		"compliance",
+		"governance",
+	}
+}
+
+type LockState string
+
+// Enum values for LockState
+const (
+	LockStateCompliance        LockState = "compliance"
+	LockStateGovernance        LockState = "governance"
+	LockStateComplianceCooloff LockState = "compliance-cooloff"
+	LockStateExpired           LockState = "expired"
+)
+
+// Values returns all known values for LockState. Note that this can be expanded
+// in the future, and so it is only as up to date as the client. The ordering of
+// this slice is not guaranteed to be stable across updates.
+func (LockState) Values() []LockState {
+	return []LockState{
+		"compliance",
+		"governance",
+		"compliance-cooloff",
+		"expired",
 	}
 }
 

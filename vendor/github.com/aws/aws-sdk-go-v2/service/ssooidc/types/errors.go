@@ -247,6 +247,38 @@ func (e *InvalidRequestException) ErrorCode() string {
 }
 func (e *InvalidRequestException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
+// Indicates that a token provided as input to the request was issued by and is
+// only usable by calling IAM Identity Center endpoints in another region.
+type InvalidRequestRegionException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	Error_            *string
+	Error_description *string
+	Endpoint          *string
+	Region            *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *InvalidRequestRegionException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *InvalidRequestRegionException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *InvalidRequestRegionException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "InvalidRequestRegionException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *InvalidRequestRegionException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 // Indicates that the scope provided in the request is invalid.
 type InvalidScopeException struct {
 	Message *string

@@ -65,6 +65,9 @@ func GetServiceID(ctx context.Context) (v string) {
 //
 // Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
 // to clear all stack values.
+//
+// Deprecated: This value is unstable. The resolved signing name is available
+// in the signer properties object passed to the signer.
 func GetSigningName(ctx context.Context) (v string) {
 	v, _ = middleware.GetStackValue(ctx, signingNameKey{}).(string)
 	return v
@@ -74,6 +77,9 @@ func GetSigningName(ctx context.Context) (v string) {
 //
 // Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
 // to clear all stack values.
+//
+// Deprecated: This value is unstable. The resolved signing region is available
+// in the signer properties object passed to the signer.
 func GetSigningRegion(ctx context.Context) (v string) {
 	v, _ = middleware.GetStackValue(ctx, signingRegionKey{}).(string)
 	return v
@@ -125,10 +131,13 @@ func SetRequiresLegacyEndpoints(ctx context.Context, value bool) context.Context
 	return middleware.WithStackValue(ctx, requiresLegacyEndpointsKey{}, value)
 }
 
-// SetSigningName set or modifies the signing name on the context.
+// SetSigningName set or modifies the sigv4 or sigv4a signing name on the context.
 //
 // Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
 // to clear all stack values.
+//
+// Deprecated: This value is unstable. Use WithSigV4SigningName client option
+// funcs instead.
 func SetSigningName(ctx context.Context, value string) context.Context {
 	return middleware.WithStackValue(ctx, signingNameKey{}, value)
 }
@@ -137,6 +146,9 @@ func SetSigningName(ctx context.Context, value string) context.Context {
 //
 // Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
 // to clear all stack values.
+//
+// Deprecated: This value is unstable. Use WithSigV4SigningRegion client option
+// funcs instead.
 func SetSigningRegion(ctx context.Context, value string) context.Context {
 	return middleware.WithStackValue(ctx, signingRegionKey{}, value)
 }

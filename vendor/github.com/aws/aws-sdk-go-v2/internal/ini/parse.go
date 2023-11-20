@@ -82,7 +82,7 @@ func (p *parser) handleSubProperty(tok *lineTokenSubProperty) {
 		// "promote" this to a normal property.
 		p.handleProperty(&lineTokenProperty{
 			Key:   tok.Key,
-			Value: strings.TrimSpace(trimComment(tok.Value)),
+			Value: strings.TrimSpace(trimPropertyComment(tok.Value)),
 		})
 		return
 	}
