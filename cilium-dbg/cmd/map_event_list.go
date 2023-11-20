@@ -41,7 +41,7 @@ var mapEventListCmd = &cobra.Command{
 
 		var c *clientPkg.Client
 		var rt *runtime_client.Runtime
-		if r, err := clientPkg.NewRuntime(vp.GetString("host"), ""); err != nil {
+		if r, err := clientPkg.NewRuntime(clientPkg.WithHost(vp.GetString("host"))); err != nil {
 			Fatalf("Error while creating client: %s\n", err)
 		} else {
 			rt = r
