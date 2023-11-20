@@ -282,12 +282,14 @@ func (s *LabelsSuite) TestLabelsK8sStringMap(c *C) {
 	laKa1 := NewLabel("a", "1", LabelSourceK8s)
 	laUa1 := NewLabel("a", "1", LabelSourceUnspec)
 	laCa2 := NewLabel("a", "2", LabelSourceContainer)
+	laNa3 := NewLabel("a", "3", LabelSourceCNI)
 	lbAb2 := NewLabel("b", "2", LabelSourceAny)
 	lbRb2 := NewLabel("b", "2", LabelSourceReserved)
 
 	lblsKa1 := Labels{laKa1.Key: laKa1}
 	lblsUa1 := Labels{laUa1.Key: laUa1}
 	lblsCa2 := Labels{laCa2.Key: laCa2}
+	lblsNa3 := Labels{laNa3.Key: laNa3}
 	lblsAb2 := Labels{lbAb2.Key: lbAb2}
 	lblsRb2 := Labels{lbRb2.Key: lbRb2}
 	lblsOverlap := Labels{laKa1.Key: laKa1, laUa1.Key: laUa1}
@@ -297,6 +299,7 @@ func (s *LabelsSuite) TestLabelsK8sStringMap(c *C) {
 	c.Assert(lblsKa1.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
 	c.Assert(lblsUa1.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
 	c.Assert(lblsCa2.K8sStringMap(), checker.Equals, map[string]string{"container.a": "2"})
+	c.Assert(lblsNa3.K8sStringMap(), checker.Equals, map[string]string{"cni.a": "3"})
 	c.Assert(lblsAb2.K8sStringMap(), checker.Equals, map[string]string{"b": "2"})
 	c.Assert(lblsRb2.K8sStringMap(), checker.Equals, map[string]string{"reserved.b": "2"})
 	c.Assert(lblsOverlap.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
