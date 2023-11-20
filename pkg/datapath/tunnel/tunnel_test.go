@@ -4,7 +4,6 @@
 package tunnel
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,6 +47,15 @@ func TestConfig(t *testing.T) {
 			proto:    Disabled,
 		},
 		{
+			name:           "tunnel enabled, auto",
+			ucfg:           userCfg{},
+			enablers:       []any{enabler(true), enabler(false)},
+			proto:          VXLAN,
+			port:           defaults.TunnelPortVXLAN,
+			deviceName:     defaults.VxlanDevice,
+			shouldAdaptMTU: true,
+		},
+		{
 			name:           "tunnel enabled, vxlan",
 			ucfg:           userCfg{TunnelProtocol: string(VXLAN)},
 			enablers:       []any{enabler(true), enabler(false)},
@@ -84,14 +92,27 @@ func TestConfig(t *testing.T) {
 			shouldAdaptMTU: true,
 		},
 		{
-			name: "tunnel enabled, validation function",
-			ucfg: userCfg{TunnelProtocol: string(Geneve)},
-			enablers: []any{enabler(true, WithValidator(func(proto Protocol) error {
-				if proto == Geneve {
-					return errors.New("invalid protocol")
-				}
-				return nil
-			}))},
+			name:           "tunnel enabled, auto, request geneve",
+			ucfg:           userCfg{},
+			enablers:       []any{enabler(true, WithProtocol("foo", Geneve))},
+			proto:          Geneve,
+			port:           defaults.TunnelPortGeneve,
+			deviceName:     defaults.GeneveDevice,
+			shouldAdaptMTU: true,
+		},
+		{
+			name:      "tunnel enabled, vxlan, request geneve",
+			ucfg:      userCfg{TunnelProtocol: string(VXLAN)},
+			enablers:  []any{enabler(true, WithProtocol("foo", Geneve))},
+			shallFail: true,
+		},
+		{
+			name: "tunnel enabled, auto, request vxlan, request geneve",
+			ucfg: userCfg{},
+			enablers: []any{
+				enabler(true, WithProtocol("foo", VXLAN)),
+				enabler(true, WithProtocol("bar", Geneve)),
+			},
 			shallFail: true,
 		},
 		{

@@ -2264,7 +2264,8 @@ tls:
 #   - ""
 #   - vxlan
 #   - geneve
-# @default -- `"vxlan"`
+# When not explicitly specified, Cilium can default the protocol to either
+# vxlan or geneve depending on the additional features that are enabled.
 tunnelProtocol: ""
 
 # -- Enable native-routing mode or tunneling mode.

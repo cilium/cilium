@@ -4,6 +4,8 @@
 package tunnel
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
@@ -37,6 +39,7 @@ var Cell = cell.Module(
 					dcfg.KubeProxyReplacement == option.KubeProxyReplacementTrue) &&
 					dcfg.LoadBalancerUsesDSR() &&
 					dcfg.LoadBalancerDSRDispatch == option.DSRDispatchGeneve,
+				WithProtocol(fmt.Sprintf("Node Port %q mode", option.DSRDispatchGeneve), Geneve),
 				// The datapath logic takes care of the MTU overhead. So no need to
 				// take it into account here.
 				// See encap_geneve_dsr_opt[4,6] in nodeport.h

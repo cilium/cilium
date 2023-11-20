@@ -2909,9 +2909,9 @@
      - int
      - Port 8472 for VXLAN, Port 6081 for Geneve
    * - :spelling:ignore:`tunnelProtocol`
-     - Tunneling protocol to use in tunneling mode and for ad-hoc tunnels. Possible values:   - ""   - vxlan   - geneve
+     - Tunneling protocol to use in tunneling mode and for ad-hoc tunnels. Possible values:   - ""   - vxlan   - geneve When not explicitly specified, Cilium can default the protocol to either vxlan or geneve depending on the additional features that are enabled.
      - string
-     - ``"vxlan"``
+     - ``""``
    * - :spelling:ignore:`updateStrategy`
      - Cilium agent update strategy
      - object
