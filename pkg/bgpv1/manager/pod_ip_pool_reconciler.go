@@ -9,14 +9,21 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
+
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+)
 
-	"github.com/sirupsen/logrus"
+const (
+	podIPPoolNameLabel      = "io.cilium.podippool.name"
+	podIPPoolNamespaceLabel = "io.cilium.podippool.namespace"
 )
 
 type PodIPPoolReconcilerOut struct {
@@ -236,4 +243,14 @@ func (r *PodIPPoolReconciler) poolDesiredRoutes(
 	}
 
 	return desiredRoutes, nil
+}
+
+func podIPPoolLabelSet(pool *v2alpha1api.CiliumPodIPPool) labels.Labels {
+	poolLabels := maps.Clone(pool.Labels)
+	if poolLabels == nil {
+		poolLabels = make(map[string]string)
+	}
+	poolLabels[podIPPoolNameLabel] = pool.Name
+	poolLabels[podIPPoolNamespaceLabel] = pool.Namespace
+	return labels.Set(poolLabels)
 }
