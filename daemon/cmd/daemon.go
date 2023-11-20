@@ -414,7 +414,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, params.MTU, params.CNIConfigManager.GetCustomNetConf())
+	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, params.LocalNodeStore, params.MTU, params.CNIConfigManager.GetCustomNetConf())
 
 	d := Daemon{
 		ctx:               ctx,
@@ -527,9 +527,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			d.bgpSpeaker.SubscribeToLocalCiliumNodeResource(ctx, params.Resources.LocalCiliumNode)
 		}
 	}
-
-	// watchers.NewCiliumNodeUpdater needs to be registered *after* d.endpointManager
-	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))
 
 	d.redirectPolicyManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	if option.Config.BGPAnnounceLBIP {
@@ -1054,7 +1051,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
-	if err := params.IPsecKeyCustodian.StartBackgroundJobs(nd, d.Datapath().Node()); err != nil {
+	if err := params.IPsecKeyCustodian.StartBackgroundJobs(d.Datapath().Node()); err != nil {
 		log.WithError(err).Error("Unable to start IPsec key watcher")
 	}
 

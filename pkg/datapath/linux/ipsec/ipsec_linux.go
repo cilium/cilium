@@ -962,7 +962,7 @@ func DeleteIPsecEncryptRoute() {
 	}
 }
 
-func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodediscovery datapath.NodeUpdater, nodeHandler datapath.NodeHandler, health cell.HealthReporter) error {
+func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler datapath.NodeHandler, health cell.HealthReporter) error {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -979,7 +979,8 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 
 			// Update the IPSec key identity in the local node.
 			// This will set addrs.ipsecKeyIdentity in the node
-			// package
+			// package, and eventually trigger an update to
+			// publish the updated information to k8s/kvstore.
 			node.SetIPsecKeyIdentity(spi)
 
 			// AllNodeValidateImplementation will eventually call
@@ -987,9 +988,6 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 			// IPSec policies and states for all the different EPs
 			// with ipsec.UpsertIPsecEndpoint()
 			nodeHandler.AllNodeValidateImplementation()
-
-			// Publish the updated node information to k8s/KVStore
-			nodediscovery.UpdateLocalNode()
 
 			// Push SPI update into BPF datapath now that XFRM state
 			// is configured.
@@ -1011,7 +1009,7 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 	}
 }
 
-func StartKeyfileWatcher(group job.Group, keyfilePath string, nodeDiscovery datapath.NodeUpdater, nodeHandler datapath.NodeHandler) error {
+func StartKeyfileWatcher(group job.Group, keyfilePath string, nodeHandler datapath.NodeHandler) error {
 	if !option.Config.EnableIPsecKeyWatcher {
 		return nil
 	}
@@ -1022,7 +1020,7 @@ func StartKeyfileWatcher(group job.Group, keyfilePath string, nodeDiscovery data
 	}
 
 	group.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.HealthReporter) error {
-		return keyfileWatcher(ctx, watcher, keyfilePath, nodeDiscovery, nodeHandler, health)
+		return keyfileWatcher(ctx, watcher, keyfilePath, nodeHandler, health)
 	}))
 
 	return nil
