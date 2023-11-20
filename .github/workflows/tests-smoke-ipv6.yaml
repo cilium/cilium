@@ -7,6 +7,8 @@ on:
     branches:
       - main
       - ft/main/**
+  merge_group:
+    types: [checks_requested]
 
 permissions: read-all
 
@@ -52,7 +54,7 @@ jobs:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-22.04
-    name: Installation and Conformance Test
+    name: Installation and Conformance Test (ipv6)
     steps:
       - name: Checkout main branch to access local actions
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1

@@ -7,6 +7,8 @@ on:
     branches:
       - main
       - ft/main/**
+  merge_group:
+    types: [checks_requested]
 
 permissions: read-all
 
