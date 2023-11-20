@@ -12,6 +12,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -40,6 +42,7 @@ type localNodeInitializer struct {
 
 func (ini *localNodeInitializer) InitLocalNode(ctx context.Context, n *node.LocalNode) error {
 	n.Source = source.Local
+	n.NodeIdentity = uint32(identity.ReservedIdentityHost)
 
 	if err := ini.initFromConfig(ctx, n); err != nil {
 		return err
@@ -56,6 +59,10 @@ func newLocalNodeInitializer(p localNodeInitializerParams) node.LocalNodeInitial
 }
 
 func (ini *localNodeInitializer) initFromConfig(ctx context.Context, n *node.LocalNode) error {
+	n.Cluster = ini.Config.ClusterName
+	n.ClusterID = ini.Config.ClusterID
+	n.Name = nodeTypes.GetName()
+
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
 	node.SetDefaultPrefix(ini.Config, ini.Config.DirectRoutingDevice, n)
@@ -114,12 +121,9 @@ func (ini *localNodeInitializer) initFromK8s(ctx context.Context, node *node.Loc
 	//   - WireGuard key (set by WireGuard agent)
 	//   - IPsec key (set by IPsec)
 	//   - alloc CIDRs (depends on IPAM mode; restored from Node or CiliumNode)
-	//   - ClusterID (set by NodeDiscovery)
-	//   - NodeIdentity (always unset)
 	node.Name = parsedNode.Name
 	node.Labels = parsedNode.Labels
 	node.Annotations = parsedNode.Annotations
-	node.Cluster = parsedNode.Cluster
 	for _, addr := range parsedNode.IPAddresses {
 		if addr.Type == addressing.NodeInternalIP {
 			node.SetNodeInternalIP(addr.IP)
