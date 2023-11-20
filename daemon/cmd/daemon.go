@@ -519,7 +519,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
 
-	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		switch option.Config.IPAMMode() {
 		case ipamOption.IPAMKubernetes:

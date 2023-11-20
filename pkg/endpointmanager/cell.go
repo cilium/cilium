@@ -15,8 +15,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
@@ -127,7 +127,6 @@ type EndpointsModify interface {
 type EndpointManager interface {
 	EndpointsLookup
 	EndpointsModify
-	subscriber.Node
 	EndpointResourceSynchronizer
 
 	// Subscribe to endpoint events.
@@ -197,6 +196,7 @@ type endpointManagerParams struct {
 	MetricsRegistry *metrics.Registry
 	Scope           cell.Scope
 	EPSynchronizer  EndpointResourceSynchronizer
+	LocalNodeStore  *node.LocalNodeStore
 }
 
 type endpointManagerOut struct {
@@ -210,7 +210,7 @@ type endpointManagerOut struct {
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
 
-	mgr := New(p.EPSynchronizer, p.Scope)
+	mgr := New(p.EPSynchronizer, p.LocalNodeStore, p.Scope)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(hive.Hook{

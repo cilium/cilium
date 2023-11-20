@@ -1770,7 +1770,7 @@ func (e *Endpoint) InitWithIngressLabels(ctx context.Context, launchTime time.Du
 
 // InitWithNodeLabels initializes the endpoint with the known node labels as
 // well as reserved:host. It should only be used for the host endpoint.
-func (e *Endpoint) InitWithNodeLabels(ctx context.Context, launchTime time.Duration) {
+func (e *Endpoint) InitWithNodeLabels(ctx context.Context, nodeLabels map[string]string, launchTime time.Duration) {
 	if !e.IsHost() {
 		return
 	}
@@ -1779,7 +1779,7 @@ func (e *Endpoint) InitWithNodeLabels(ctx context.Context, launchTime time.Durat
 	epLabels.MergeLabels(labels.LabelHost)
 
 	// Initialize with known node labels.
-	newLabels := labels.Map2Labels(node.GetLabels(), labels.LabelSourceK8s)
+	newLabels := labels.Map2Labels(nodeLabels, labels.LabelSourceK8s)
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 	epLabels.MergeLabels(newIdtyLabels)
 
