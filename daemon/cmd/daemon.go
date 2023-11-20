@@ -527,9 +527,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			d.bgpSpeaker.SubscribeToLocalCiliumNodeResource(ctx, params.Resources.LocalCiliumNode)
 		}
 	}
-	if option.Config.EnableServiceTopology {
-		d.k8sWatcher.RegisterNodeSubscriber(d.k8sWatcher.K8sSvcCache)
-	}
 
 	// watchers.NewCiliumNodeUpdater needs to be registered *after* d.endpointManager
 	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))

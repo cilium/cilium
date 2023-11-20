@@ -4,24 +4,50 @@
 package k8s
 
 import (
+	"context"
 	"net"
 	"slices"
+	"sync"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
+
+// ServiceCacheCell initializes the service cache holds the list of known services
+// correlated with the matching endpoints
+var ServiceCacheCell = cell.Module(
+	"service-cache",
+	"Service Cache",
+
+	cell.Config(ServiceCacheConfig{}),
+	cell.Provide(newServiceCache),
+)
+
+// ServiceCacheConfig defines the configuration options for the service cache.
+type ServiceCacheConfig struct {
+	EnableServiceTopology bool
+}
+
+// Flags implements the cell.Flagger interface.
+func (def ServiceCacheConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("enable-service-topology", def.EnableServiceTopology, "Enable support for service topology aware hints")
+}
 
 // CacheAction is the type of action that was performed on the cache
 type CacheAction int
@@ -75,6 +101,8 @@ type ServiceEvent struct {
 // ServiceCache is a list of services correlated with the matching endpoints.
 // The Events member will receive events as services.
 type ServiceCache struct {
+	config ServiceCacheConfig
+
 	Events chan ServiceEvent
 
 	// mutex protects the maps below including the concurrent access of each
@@ -105,6 +133,40 @@ func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
 		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
 		nodeAddressing:    nodeAddressing,
 	}
+}
+
+func newServiceCache(lc hive.Lifecycle, nodeAddressing types.NodeAddressing, cfg ServiceCacheConfig, lns *node.LocalNodeStore) *ServiceCache {
+	sc := NewServiceCache(nodeAddressing)
+	sc.config = cfg
+
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	lc.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			if !cfg.EnableServiceTopology {
+				return nil
+			}
+
+			// Explicitly get the labels in addition to registering the observer,
+			// as otherwise we wouldn't block until the first event is observed.
+			ln, err := lns.Get(hc)
+			sc.updateSelfNodeLabels(ln.Labels)
+
+			wg.Add(1)
+			lns.Observe(ctx, func(ln node.LocalNode) {
+				sc.updateSelfNodeLabels(ln.Labels)
+			}, func(error) { wg.Done() })
+
+			return err
+		},
+		OnStop: func(hc hive.HookContext) error {
+			cancel()
+			wg.Wait()
+			return nil
+		},
+	})
+
+	return sc
 }
 
 // GetServiceIP returns a random L3n4Addr that is backing the given Service ID.
@@ -430,7 +492,7 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 // filterEndpoints filters local endpoints by using k8s service heuristics.
 // For now it only implements the topology aware hints.
 func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) *Endpoints {
-	if !option.Config.EnableServiceTopology || svc == nil || !svc.TopologyAware {
+	if !s.config.EnableServiceTopology || svc == nil || !svc.TopologyAware {
 		return localEndpoints
 	}
 
@@ -746,35 +808,7 @@ func (s *ServiceCache) DebugStatus() string {
 	return str
 }
 
-// Implementation of subscriber.Node
-
-func (s *ServiceCache) OnAddNode(node *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
-	s.updateSelfNodeLabels(node.GetLabels(), swg)
-
-	return nil
-}
-
-func (s *ServiceCache) OnUpdateNode(oldNode, newNode *slim_corev1.Node,
-	swg *lock.StoppableWaitGroup) error {
-
-	s.updateSelfNodeLabels(newNode.GetLabels(), swg)
-
-	return nil
-}
-
-func (s *ServiceCache) OnDeleteNode(node *slim_corev1.Node,
-	swg *lock.StoppableWaitGroup) error {
-
-	return nil
-}
-
-func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string,
-	swg *lock.StoppableWaitGroup) {
-
-	if !option.Config.EnableServiceTopology {
-		return
-	}
-
+func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -792,6 +826,7 @@ func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string,
 		}
 
 		if endpoints, ready := s.correlateEndpoints(id); ready {
+			swg := lock.NewStoppableWaitGroup()
 			swg.Add()
 			s.Events <- ServiceEvent{
 				Action:       UpdateService,

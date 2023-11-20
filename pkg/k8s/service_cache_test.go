@@ -14,11 +14,14 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -1392,23 +1395,14 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 			},
 		},
 	})
-	k8sNode := &slim_corev1.Node{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:   "node1",
-			Labels: map[string]string{v1.LabelTopologyZone: "test-zone-2"},
-		},
-	}
 
-	oldOptionEnableServiceTopology := option.Config.EnableServiceTopology
-	defer func() { option.Config.EnableServiceTopology = oldOptionEnableServiceTopology }()
-	option.Config.EnableServiceTopology = true
-
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	store := node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{
+		Labels: map[string]string{v1.LabelTopologyZone: "test-zone-2"},
+	}})
+	svcCache := newServiceCache(hivetest.Lifecycle(c), fakeDatapath.NewNodeAddressing(),
+		ServiceCacheConfig{EnableServiceTopology: true}, store)
 
 	swg := lock.NewStoppableWaitGroup()
-
-	// Send self node update to set the node's zone label
-	svcCache.OnAddNode(k8sNode, swg)
 
 	// Now update service and endpointslice. This should result in the service
 	// update with 2.2.2.2 endpoint due to the zone filtering.
@@ -1428,8 +1422,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 
 	// Send self node update to remove the node's zone label. This should
 	// generate the service update with both endpoints selected
-	k8sNode.ObjectMeta.Labels = nil
-	svcCache.OnUpdateNode(k8sNode, k8sNode, swg)
+	store.Update(func(ln *node.LocalNode) { ln.Labels = nil })
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, UpdateService)
@@ -1439,10 +1432,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 
 	// Set the node's zone to test-zone-1 to select the first endpoint
-	k8sNode.ObjectMeta.Labels = map[string]string{
-		v1.LabelTopologyZone: "test-zone-1",
-	}
-	svcCache.OnUpdateNode(k8sNode, k8sNode, swg)
+	store.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{v1.LabelTopologyZone: "test-zone-1"} })
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, UpdateService)
