@@ -15,12 +15,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func isCiliumManagedIngress(ctx context.Context, c client.Client, logger logrus.FieldLogger, ing networkingv1.Ingress) bool {
+	ingressClassName := ingressClassName(ing)
+
+	if ingressClassName != nil && *ingressClassName == ciliumIngressClassName {
+		return true
+	}
+
+	// Check for default Ingress class
+	return (ingressClassName == nil || *ingressClassName == "") && isCiliumDefaultIngressController(ctx, c, logger)
+}
+
 func isCiliumDefaultIngressController(ctx context.Context, c client.Client, logger logrus.FieldLogger) bool {
 	ciliumIngressClass := &networkingv1.IngressClass{}
 	if err := c.Get(ctx, types.NamespacedName{Name: ciliumIngressClassName}, ciliumIngressClass); err != nil {
 		if !errors.IsNotFound(err) {
 			logger.WithError(err).Warn("Failed to load Cilium IngressClass")
-			return false
 		}
 
 		return false
@@ -33,17 +43,6 @@ func isCiliumDefaultIngressController(ctx context.Context, c client.Client, logg
 	}
 
 	return isDefault
-}
-
-func isCiliumManagedIngress(ctx context.Context, c client.Client, logger logrus.FieldLogger, ing networkingv1.Ingress) bool {
-	ingressClassName := ingressClassName(ing)
-
-	if ingressClassName != nil && *ingressClassName == ciliumIngressClassName {
-		return true
-	}
-
-	// Check for default Ingress class
-	return (ingressClassName == nil || *ingressClassName == "") && isCiliumDefaultIngressController(ctx, c, logger)
 }
 
 func ingressClassName(ingress networkingv1.Ingress) *string {
