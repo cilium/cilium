@@ -556,3 +556,13 @@ func iterateReservedIdentityLabels(f func(_ NumericIdentity, _ labels.Labels)) {
 func (id NumericIdentity) HasLocalScope() bool {
 	return (id & LocalIdentityFlag) != 0
 }
+
+// IsCluster returns true if the identity is a cluster identity by excluding all
+// identities that are known to be non-cluster identities.
+// NOTE: keep this and bpf identity_is_cluster() in sync!
+func (id NumericIdentity) IsCluster() bool {
+	if id == ReservedIdentityWorld || id.HasLocalScope() {
+		return false
+	}
+	return true
+}
