@@ -11,7 +11,7 @@ all: $(TARGET)
 
 $(TARGET):
 	@$(ECHO_GO)
-	$(QUIET)$(GO_BUILD) -o $@
+	$(QUIET)$(GO_BUILD) -o $@ ./cmd
 
 clean:
 	@$(ECHO_CLEAN)
