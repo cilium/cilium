@@ -536,6 +536,44 @@ type AnalysisSecurityGroupRule struct {
 	noSmithyDocumentSerde
 }
 
+// An Autonomous System Number (ASN) and BYOIP CIDR association.
+type AsnAssociation struct {
+
+	// The association's ASN.
+	Asn *string
+
+	// The association's CIDR.
+	Cidr *string
+
+	// The association's state.
+	State AsnAssociationState
+
+	// The association's status message.
+	StatusMessage *string
+
+	noSmithyDocumentSerde
+}
+
+// Provides authorization for Amazon to bring an Autonomous System Number (ASN) to
+// a specific Amazon Web Services account using bring your own ASN (BYOASN). For
+// details on the format of the message and signature, see Tutorial: Bring your
+// ASN to IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoasn.html)
+// in the Amazon VPC IPAM guide.
+type AsnAuthorizationContext struct {
+
+	// The authorization context's message.
+	//
+	// This member is required.
+	Message *string
+
+	// The authorization context's signature.
+	//
+	// This member is required.
+	Signature *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes the private IP addresses assigned to a network interface.
 type AssignedPrivateIpAddress struct {
 
@@ -877,9 +915,30 @@ type BundleTaskError struct {
 	noSmithyDocumentSerde
 }
 
+// The Autonomous System Number (ASN) and BYOIP CIDR association.
+type Byoasn struct {
+
+	// A public 2-byte or 4-byte ASN.
+	Asn *string
+
+	// An IPAM ID.
+	IpamId *string
+
+	// The provisioning state of the BYOASN.
+	State AsnState
+
+	// The status message.
+	StatusMessage *string
+
+	noSmithyDocumentSerde
+}
+
 // Information about an address range that is provisioned for use with your Amazon
 // Web Services resources through bring your own IP addresses (BYOIP).
 type ByoipCidr struct {
+
+	// The BYOIP CIDR associations with ASNs.
+	AsnAssociations []AsnAssociation
 
 	// The address range, in CIDR notation.
 	Cidr *string
@@ -2005,6 +2064,102 @@ type ConnectionNotification struct {
 	noSmithyDocumentSerde
 }
 
+// A security group connection tracking configuration that enables you to set the
+// idle timeout for connection tracking on an Elastic network interface. For more
+// information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+// in the Amazon Elastic Compute Cloud User Guide.
+type ConnectionTrackingConfiguration struct {
+
+	// Timeout (in seconds) for idle TCP connections in an established state. Min: 60
+	// seconds. Max: 432000 seconds (5 days). Default: 432000 seconds. Recommended:
+	// Less than 432000 seconds.
+	TcpEstablishedTimeout *int32
+
+	// Timeout (in seconds) for idle UDP flows classified as streams which have seen
+	// more than one request-response transaction. Min: 60 seconds. Max: 180 seconds (3
+	// minutes). Default: 180 seconds.
+	UdpStreamTimeout *int32
+
+	// Timeout (in seconds) for idle UDP flows that have seen traffic only in a single
+	// direction or a single request-response transaction. Min: 30 seconds. Max: 60
+	// seconds. Default: 30 seconds.
+	UdpTimeout *int32
+
+	noSmithyDocumentSerde
+}
+
+// A security group connection tracking specification that enables you to set the
+// idle timeout for connection tracking on an Elastic network interface. For more
+// information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+// in the Amazon Elastic Compute Cloud User Guide.
+type ConnectionTrackingSpecification struct {
+
+	// Timeout (in seconds) for idle TCP connections in an established state. Min: 60
+	// seconds. Max: 432000 seconds (5 days). Default: 432000 seconds. Recommended:
+	// Less than 432000 seconds.
+	TcpEstablishedTimeout *int32
+
+	// Timeout (in seconds) for idle UDP flows classified as streams which have seen
+	// more than one request-response transaction. Min: 60 seconds. Max: 180 seconds (3
+	// minutes). Default: 180 seconds.
+	UdpStreamTimeout *int32
+
+	// Timeout (in seconds) for idle UDP flows that have seen traffic only in a single
+	// direction or a single request-response transaction. Min: 30 seconds. Max: 60
+	// seconds. Default: 30 seconds.
+	UdpTimeout *int32
+
+	noSmithyDocumentSerde
+}
+
+// A security group connection tracking specification request that enables you to
+// set the idle timeout for connection tracking on an Elastic network interface.
+// For more information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+// in the Amazon Elastic Compute Cloud User Guide.
+type ConnectionTrackingSpecificationRequest struct {
+
+	// Timeout (in seconds) for idle TCP connections in an established state. Min: 60
+	// seconds. Max: 432000 seconds (5 days). Default: 432000 seconds. Recommended:
+	// Less than 432000 seconds.
+	TcpEstablishedTimeout *int32
+
+	// Timeout (in seconds) for idle UDP flows classified as streams which have seen
+	// more than one request-response transaction. Min: 60 seconds. Max: 180 seconds (3
+	// minutes). Default: 180 seconds.
+	UdpStreamTimeout *int32
+
+	// Timeout (in seconds) for idle UDP flows that have seen traffic only in a single
+	// direction or a single request-response transaction. Min: 30 seconds. Max: 60
+	// seconds. Default: 30 seconds.
+	UdpTimeout *int32
+
+	noSmithyDocumentSerde
+}
+
+// A security group connection tracking specification response that enables you to
+// set the idle timeout for connection tracking on an Elastic network interface.
+// For more information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+// in the Amazon Elastic Compute Cloud User Guide.
+type ConnectionTrackingSpecificationResponse struct {
+
+	// Timeout (in seconds) for idle TCP connections in an established state. Min: 60
+	// seconds. Max: 432000 seconds (5 days). Default: 432000 seconds. Recommended:
+	// Less than 432000 seconds.
+	TcpEstablishedTimeout *int32
+
+	// Timeout (in seconds) for idle UDP flows classified as streams which have seen
+	// more than one request-response transaction. Min: 60 seconds. Max: 180 seconds (3
+	// minutes). Default: 180 seconds.
+	UdpStreamTimeout *int32
+
+	// Timeout (in seconds) for idle UDP flows that have seen traffic only in a single
+	// direction or a single request-response transaction. Min: 30 seconds. Max: 60
+	// seconds. Default: 30 seconds.
+	UdpTimeout *int32
+
+	noSmithyDocumentSerde
+}
+
 // Describes a conversion task.
 type ConversionTask struct {
 
@@ -2214,6 +2369,10 @@ type CreateVerifiedAccessEndpointLoadBalancerOptions struct {
 // Describes the options when creating an Amazon Web Services Verified Access
 // trust provider using the device type.
 type CreateVerifiedAccessTrustProviderDeviceOptions struct {
+
+	// The URL Amazon Web Services Verified Access will use to verify the authenticity
+	// of the device tokens.
+	PublicSigningKeyUrl *string
 
 	// The ID of the tenant application with the device-identity provider.
 	TenantId *string
@@ -2661,6 +2820,10 @@ type DestinationOptionsResponse struct {
 // Describes the options for an Amazon Web Services Verified Access
 // device-identity based trust provider.
 type DeviceOptions struct {
+
+	// The URL Amazon Web Services Verified Access will use to verify the authenticity
+	// of the device tokens.
+	PublicSigningKeyUrl *string
 
 	// The ID of the tenant application with the device-identity provider.
 	TenantId *string
@@ -5592,7 +5755,8 @@ type Instance struct {
 	// The location where the instance launched, if applicable.
 	Placement *Placement
 
-	// The value is Windows for Windows instances; otherwise blank.
+	// The platform. This value is windows for Windows instances; otherwise, it is
+	// empty.
 	Platform PlatformValues
 
 	// The platform details value for the instance. For more information, see AMI
@@ -6153,6 +6317,12 @@ type InstanceNetworkInterface struct {
 	// The network interface attachment.
 	Attachment *InstanceNetworkInterfaceAttachment
 
+	// A security group connection tracking configuration that enables you to set the
+	// timeout for connection tracking on an Elastic network interface. For more
+	// information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	ConnectionTrackingConfiguration *ConnectionTrackingSpecificationResponse
+
 	// The description.
 	Description *string
 
@@ -6270,6 +6440,12 @@ type InstanceNetworkInterfaceSpecification struct {
 	// You cannot specify more than one network interface in the request. If launching
 	// into a default subnet, the default value is true .
 	AssociatePublicIpAddress *bool
+
+	// A security group connection tracking specification that enables you to set the
+	// timeout for connection tracking on an Elastic network interface. For more
+	// information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	ConnectionTrackingSpecification *ConnectionTrackingSpecificationRequest
 
 	// If set to true , the interface is deleted when the instance is terminated. You
 	// can specify true only if creating a new network interface when launching an
@@ -7254,11 +7430,19 @@ type Ipam struct {
 	// The state of the IPAM.
 	State IpamState
 
+	// The state message.
+	StateMessage *string
+
 	// The key/value combination of a tag assigned to the resource. Use the tag key in
 	// the filter name and the tag value as the filter value. For example, to find all
 	// resources that have a tag with the key Owner and the value TeamA , specify
 	// tag:Owner for the filter name and TeamA for the filter value.
 	Tags []Tag
+
+	// IPAM is offered in a Free Tier and an Advanced Tier. For more information about
+	// the features available in each tier and the costs associated with the tiers, see
+	// Amazon VPC pricing > IPAM tab (http://aws.amazon.com/vpc/pricing/) .
+	Tier IpamTier
 
 	noSmithyDocumentSerde
 }
@@ -7348,6 +7532,71 @@ type IpamDiscoveredAccount struct {
 
 	// The last successful resource discovery time.
 	LastSuccessfulDiscoveryTime *time.Time
+
+	noSmithyDocumentSerde
+}
+
+// A public IP Address discovered by IPAM.
+type IpamDiscoveredPublicAddress struct {
+
+	// The IP address.
+	Address *string
+
+	// The allocation ID of the resource the IP address is assigned to.
+	AddressAllocationId *string
+
+	// The ID of the owner of the resource the IP address is assigned to.
+	AddressOwnerId *string
+
+	// The Region of the resource the IP address is assigned to.
+	AddressRegion *string
+
+	// The IP address type.
+	AddressType IpamPublicAddressType
+
+	// The association status.
+	AssociationStatus IpamPublicAddressAssociationStatus
+
+	// The instance ID of the instance the assigned IP address is assigned to.
+	InstanceId *string
+
+	// The resource discovery ID.
+	IpamResourceDiscoveryId *string
+
+	// The network border group that the resource that the IP address is assigned to
+	// is in.
+	NetworkBorderGroup *string
+
+	// The description of the network interface that IP address is assigned to.
+	NetworkInterfaceDescription *string
+
+	// The network interface ID of the resource with the assigned IP address.
+	NetworkInterfaceId *string
+
+	// The ID of the public IPv4 pool that the resource with the assigned IP address
+	// is from.
+	PublicIpv4PoolId *string
+
+	// The last successful resource discovery time.
+	SampleTime *time.Time
+
+	// Security groups associated with the resource that the IP address is assigned to.
+	SecurityGroups []IpamPublicAddressSecurityGroup
+
+	// The Amazon Web Services service associated with the IP address.
+	Service IpamPublicAddressAwsService
+
+	// The resource ARN or ID.
+	ServiceResource *string
+
+	// The ID of the subnet that the resource with the assigned IP address is in.
+	SubnetId *string
+
+	// Tags associated with the IP address.
+	Tags *IpamPublicAddressTags
+
+	// The ID of the VPC that the resource with the assigned IP address is in.
+	VpcId *string
 
 	noSmithyDocumentSerde
 }
@@ -7548,10 +7797,13 @@ type IpamPool struct {
 	// within an existing source pool.
 	SourceIpamPoolId *string
 
+	// The resource used to provision CIDRs to a resource planning pool.
+	SourceResource *IpamPoolSourceResource
+
 	// The state of the IPAM pool.
 	State IpamPoolState
 
-	// A message related to the failed creation of an IPAM pool.
+	// The state message.
 	StateMessage *string
 
 	// The key/value combination of a tag assigned to the resource. Use the tag key in
@@ -7628,6 +7880,75 @@ type IpamPoolCidrFailureReason struct {
 
 	// A message related to why an IPAM pool CIDR failed to be provisioned.
 	Message *string
+
+	noSmithyDocumentSerde
+}
+
+// The resource used to provision CIDRs to a resource planning pool.
+type IpamPoolSourceResource struct {
+
+	// The source resource ID.
+	ResourceId *string
+
+	// The source resource owner.
+	ResourceOwner *string
+
+	// The source resource Region.
+	ResourceRegion *string
+
+	// The source resource type.
+	ResourceType IpamPoolSourceResourceType
+
+	noSmithyDocumentSerde
+}
+
+// The resource used to provision CIDRs to a resource planning pool.
+type IpamPoolSourceResourceRequest struct {
+
+	// The source resource ID.
+	ResourceId *string
+
+	// The source resource owner.
+	ResourceOwner *string
+
+	// The source resource Region.
+	ResourceRegion *string
+
+	// The source resource type.
+	ResourceType IpamPoolSourceResourceType
+
+	noSmithyDocumentSerde
+}
+
+// The security group that the resource with the public IP address is in.
+type IpamPublicAddressSecurityGroup struct {
+
+	// The security group's ID.
+	GroupId *string
+
+	// The security group's name.
+	GroupName *string
+
+	noSmithyDocumentSerde
+}
+
+// A tag for a public IP address discovered by IPAM.
+type IpamPublicAddressTag struct {
+
+	// The tag's key.
+	Key *string
+
+	// The tag's value.
+	Value *string
+
+	noSmithyDocumentSerde
+}
+
+// Tags for a public IP address discovered by IPAM.
+type IpamPublicAddressTags struct {
+
+	// Tags for an Elastic IP address.
+	EipTags []IpamPublicAddressTag
 
 	noSmithyDocumentSerde
 }
@@ -8729,6 +9050,12 @@ type LaunchTemplateInstanceNetworkInterfaceSpecification struct {
 	// network interface.
 	AssociatePublicIpAddress *bool
 
+	// A security group connection tracking specification that enables you to set the
+	// timeout for connection tracking on an Elastic network interface. For more
+	// information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	ConnectionTrackingSpecification *ConnectionTrackingSpecification
+
 	// Indicates whether the network interface is deleted when the instance is
 	// terminated.
 	DeleteOnTermination *bool
@@ -8809,6 +9136,12 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 
 	// Associates a public IPv4 address with eth0 for a new network interface.
 	AssociatePublicIpAddress *bool
+
+	// A security group connection tracking specification that enables you to set the
+	// timeout for connection tracking on an Elastic network interface. For more
+	// information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	ConnectionTrackingSpecification *ConnectionTrackingSpecificationRequest
 
 	// Indicates whether the network interface is deleted when the instance is
 	// terminated.
@@ -9508,6 +9841,57 @@ type LocalGatewayVirtualInterfaceGroup struct {
 	noSmithyDocumentSerde
 }
 
+// Information about a locked snapshot.
+type LockedSnapshotsInfo struct {
+
+	// The compliance mode cooling-off period, in hours.
+	CoolOffPeriod *int32
+
+	// The date and time at which the compliance mode cooling-off period expires, in
+	// the UTC time zone ( YYYY-MM-DDThh:mm:ss.sssZ ).
+	CoolOffPeriodExpiresOn *time.Time
+
+	// The date and time at which the snapshot was locked, in the UTC time zone (
+	// YYYY-MM-DDThh:mm:ss.sssZ ).
+	LockCreatedOn *time.Time
+
+	// The period of time for which the snapshot is locked, in days.
+	LockDuration *int32
+
+	// The date and time at which the lock duration started, in the UTC time zone (
+	// YYYY-MM-DDThh:mm:ss.sssZ ). If you lock a snapshot that is in the pending
+	// state, the lock duration starts only once the snapshot enters the completed
+	// state.
+	LockDurationStartTime *time.Time
+
+	// The date and time at which the lock will expire, in the UTC time zone (
+	// YYYY-MM-DDThh:mm:ss.sssZ ).
+	LockExpiresOn *time.Time
+
+	// The state of the snapshot lock. Valid states include:
+	//   - compliance-cooloff - The snapshot has been locked in compliance mode but it
+	//   is still within the cooling-off period. The snapshot can't be deleted, but it
+	//   can be unlocked and the lock settings can be modified by users with appropriate
+	//   permissions.
+	//   - governance - The snapshot is locked in governance mode. The snapshot can't
+	//   be deleted, but it can be unlocked and the lock settings can be modified by
+	//   users with appropriate permissions.
+	//   - compliance - The snapshot is locked in compliance mode and the cooling-off
+	//   period has expired. The snapshot can't be unlocked or deleted. The lock duration
+	//   can only be increased by users with appropriate permissions.
+	//   - expired - The snapshot was locked in compliance or governance mode but the
+	//   lock duration has expired. The snapshot is not locked and can be deleted.
+	LockState LockState
+
+	// The account ID of the Amazon Web Services account that owns the snapshot.
+	OwnerId *string
+
+	// The ID of the snapshot.
+	SnapshotId *string
+
+	noSmithyDocumentSerde
+}
+
 // Details for Site-to-Site VPN tunnel endpoint maintenance events.
 type MaintenanceDetails struct {
 
@@ -9733,6 +10117,17 @@ type ModifyVerifiedAccessEndpointLoadBalancerOptions struct {
 
 	// The IDs of the subnets.
 	SubnetIds []string
+
+	noSmithyDocumentSerde
+}
+
+// Modifies the configuration of the specified device-based Amazon Web Services
+// Verified Access trust provider.
+type ModifyVerifiedAccessTrustProviderDeviceOptions struct {
+
+	// The URL Amazon Web Services Verified Access will use to verify the authenticity
+	// of the device tokens.
+	PublicSigningKeyUrl *string
 
 	noSmithyDocumentSerde
 }
@@ -10380,6 +10775,12 @@ type NetworkInterface struct {
 
 	// The Availability Zone.
 	AvailabilityZone *string
+
+	// A security group connection tracking configuration that enables you to set the
+	// timeout for connection tracking on an Elastic network interface. For more
+	// information, see Connection tracking timeouts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	ConnectionTrackingConfiguration *ConnectionTrackingConfiguration
 
 	// Indicates whether a network interface with an IPv6 address is unreachable from
 	// the public internet. If the value is true , inbound traffic from the internet is
@@ -16373,9 +16774,8 @@ type TransitGatewayVpcAttachmentOptions struct {
 	noSmithyDocumentSerde
 }
 
-// Currently available in limited preview only. If you are interested in using
-// this feature, contact your account manager. Information about an association
-// between a branch network interface with a trunk network interface.
+// Information about an association between a branch network interface with a
+// trunk network interface.
 type TrunkInterfaceAssociation struct {
 
 	// The ID of the association.

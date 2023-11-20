@@ -1,3 +1,15 @@
+# v1.16.2 (2023-11-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.16.1 (2023-11-15)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.16.0 (2023-11-14)
+
+* **Feature**: Add support for dynamic auth token from file and EKS container host in absolute/relative URIs in the HTTP credential provider.
+
 # v1.15.2 (2023-11-09)
 
 * **Dependency Update**: Updated to the latest SDK module versions

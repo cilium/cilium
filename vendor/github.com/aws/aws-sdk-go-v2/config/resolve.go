@@ -27,7 +27,6 @@ func resolveDefaultAWSConfig(ctx context.Context, cfg *aws.Config, cfgs configs)
 	}
 
 	*cfg = aws.Config{
-		Credentials:   aws.AnonymousCredentials{},
 		Logger:        logging.NewStandardLogger(os.Stderr),
 		ConfigSources: sources,
 	}

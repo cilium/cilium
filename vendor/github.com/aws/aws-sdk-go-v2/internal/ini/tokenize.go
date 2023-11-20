@@ -30,7 +30,7 @@ func isLineComment(line string) bool {
 }
 
 func asProfile(line string) *lineTokenProfile { // " [ type name ] ; comment"
-	trimmed := strings.TrimSpace(trimComment(line)) // "[ type name ]"
+	trimmed := strings.TrimSpace(trimProfileComment(line)) // "[ type name ]"
 	if !isBracketed(trimmed) {
 		return nil
 	}
@@ -48,7 +48,8 @@ func asProperty(line string) *lineTokenProperty {
 		return nil
 	}
 
-	trimmed := strings.TrimRight(trimComment(line), " \t")
+	trimmed := trimPropertyComment(line)
+	trimmed = strings.TrimRight(trimmed, " \t")
 	k, v, ok := splitProperty(trimmed)
 	if !ok {
 		return nil

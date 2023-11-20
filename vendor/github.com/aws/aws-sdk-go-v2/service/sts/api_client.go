@@ -12,7 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	internalauth "github.com/aws/aws-sdk-go-v2/internal/auth"
+	internalauthsmithy "github.com/aws/aws-sdk-go-v2/internal/auth/smithy"
 	internalConfig "github.com/aws/aws-sdk-go-v2/internal/configsources"
+	acceptencodingcust "github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding"
 	presignedurlcust "github.com/aws/aws-sdk-go-v2/service/internal/presigned-url"
 	smithy "github.com/aws/smithy-go"
 	smithydocument "github.com/aws/smithy-go/document"
@@ -49,9 +52,17 @@ func New(options Options, optFns ...func(*Options)) *Client {
 
 	resolveHTTPSignerV4(&options)
 
+	resolveEndpointResolverV2(&options)
+
+	resolveAuthSchemeResolver(&options)
+
 	for _, fn := range optFns {
 		fn(&options)
 	}
+
+	ignoreAnonymousAuth(&options)
+
+	resolveAuthSchemes(&options)
 
 	client := &Client{
 		options: options,
@@ -60,140 +71,10 @@ func New(options Options, optFns ...func(*Options)) *Client {
 	return client
 }
 
-type Options struct {
-	// Set of options to modify how an operation is invoked. These apply to all
-	// operations invoked for this client. Use functional options on operation call to
-	// modify this list for per operation behavior.
-	APIOptions []func(*middleware.Stack) error
-
-	// The optional application specific identifier appended to the User-Agent header.
-	AppID string
-
-	// This endpoint will be given as input to an EndpointResolverV2. It is used for
-	// providing a custom base endpoint that is subject to modifications by the
-	// processing EndpointResolverV2.
-	BaseEndpoint *string
-
-	// Configures the events that will be sent to the configured logger.
-	ClientLogMode aws.ClientLogMode
-
-	// The credentials object to use when signing requests.
-	Credentials aws.CredentialsProvider
-
-	// The configuration DefaultsMode that the SDK should use when constructing the
-	// clients initial default settings.
-	DefaultsMode aws.DefaultsMode
-
-	// The endpoint options to be used when attempting to resolve an endpoint.
-	EndpointOptions EndpointResolverOptions
-
-	// The service endpoint resolver.
-	//
-	// Deprecated: Deprecated: EndpointResolver and WithEndpointResolver. Providing a
-	// value for this field will likely prevent you from using any endpoint-related
-	// service features released after the introduction of EndpointResolverV2 and
-	// BaseEndpoint. To migrate an EndpointResolver implementation that uses a custom
-	// endpoint, set the client option BaseEndpoint instead.
-	EndpointResolver EndpointResolver
-
-	// Resolves the endpoint used for a particular service. This should be used over
-	// the deprecated EndpointResolver
-	EndpointResolverV2 EndpointResolverV2
-
-	// Signature Version 4 (SigV4) Signer
-	HTTPSignerV4 HTTPSignerV4
-
-	// The logger writer interface to write logging messages to.
-	Logger logging.Logger
-
-	// The region to send requests to. (Required)
-	Region string
-
-	// RetryMaxAttempts specifies the maximum number attempts an API client will call
-	// an operation that fails with a retryable error. A value of 0 is ignored, and
-	// will not be used to configure the API client created default retryer, or modify
-	// per operation call's retry max attempts. When creating a new API Clients this
-	// member will only be used if the Retryer Options member is nil. This value will
-	// be ignored if Retryer is not nil. If specified in an operation call's functional
-	// options with a value that is different than the constructed client's Options,
-	// the Client's Retryer will be wrapped to use the operation's specific
-	// RetryMaxAttempts value.
-	RetryMaxAttempts int
-
-	// RetryMode specifies the retry mode the API client will be created with, if
-	// Retryer option is not also specified. When creating a new API Clients this
-	// member will only be used if the Retryer Options member is nil. This value will
-	// be ignored if Retryer is not nil. Currently does not support per operation call
-	// overrides, may in the future.
-	RetryMode aws.RetryMode
-
-	// Retryer guides how HTTP requests should be retried in case of recoverable
-	// failures. When nil the API client will use a default retryer. The kind of
-	// default retry created by the API client can be changed with the RetryMode
-	// option.
-	Retryer aws.Retryer
-
-	// The RuntimeEnvironment configuration, only populated if the DefaultsMode is set
-	// to DefaultsModeAuto and is initialized using config.LoadDefaultConfig . You
-	// should not populate this structure programmatically, or rely on the values here
-	// within your applications.
-	RuntimeEnvironment aws.RuntimeEnvironment
-
-	// The initial DefaultsMode used when the client options were constructed. If the
-	// DefaultsMode was set to aws.DefaultsModeAuto this will store what the resolved
-	// value was at that point in time. Currently does not support per operation call
-	// overrides, may in the future.
-	resolvedDefaultsMode aws.DefaultsMode
-
-	// The HTTP client to invoke API calls with. Defaults to client's default HTTP
-	// implementation if nil.
-	HTTPClient HTTPClient
-}
-
-// WithAPIOptions returns a functional option for setting the Client's APIOptions
-// option.
-func WithAPIOptions(optFns ...func(*middleware.Stack) error) func(*Options) {
-	return func(o *Options) {
-		o.APIOptions = append(o.APIOptions, optFns...)
-	}
-}
-
-// Deprecated: EndpointResolver and WithEndpointResolver. Providing a value for
-// this field will likely prevent you from using any endpoint-related service
-// features released after the introduction of EndpointResolverV2 and BaseEndpoint.
-// To migrate an EndpointResolver implementation that uses a custom endpoint, set
-// the client option BaseEndpoint instead.
-func WithEndpointResolver(v EndpointResolver) func(*Options) {
-	return func(o *Options) {
-		o.EndpointResolver = v
-	}
-}
-
-// WithEndpointResolverV2 returns a functional option for setting the Client's
-// EndpointResolverV2 option.
-func WithEndpointResolverV2(v EndpointResolverV2) func(*Options) {
-	return func(o *Options) {
-		o.EndpointResolverV2 = v
-	}
-}
-
-type HTTPClient interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-// Copy creates a clone where the APIOptions list is deep copied.
-func (o Options) Copy() Options {
-	to := o
-	to.APIOptions = make([]func(*middleware.Stack) error, len(o.APIOptions))
-	copy(to.APIOptions, o.APIOptions)
-
-	return to
-}
 func (c *Client) invokeOperation(ctx context.Context, opID string, params interface{}, optFns []func(*Options), stackFns ...func(*middleware.Stack, Options) error) (result interface{}, metadata middleware.Metadata, err error) {
 	ctx = middleware.ClearStackValues(ctx)
 	stack := middleware.NewStack(opID, smithyhttp.NewStackRequest)
 	options := c.options.Copy()
-	resolveEndpointResolverV2(&options)
 
 	for _, fn := range optFns {
 		fn(&options)
@@ -225,6 +106,63 @@ func (c *Client) invokeOperation(ctx context.Context, opID string, params interf
 		}
 	}
 	return result, metadata, err
+}
+
+type operationInputKey struct{}
+
+func setOperationInput(ctx context.Context, input interface{}) context.Context {
+	return middleware.WithStackValue(ctx, operationInputKey{}, input)
+}
+
+func getOperationInput(ctx context.Context) interface{} {
+	return middleware.GetStackValue(ctx, operationInputKey{})
+}
+
+type setOperationInputMiddleware struct {
+}
+
+func (*setOperationInputMiddleware) ID() string {
+	return "setOperationInput"
+}
+
+func (m *setOperationInputMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	ctx = setOperationInput(ctx, in.Parameters)
+	return next.HandleSerialize(ctx, in)
+}
+
+func addProtocolFinalizerMiddlewares(stack *middleware.Stack, options Options, operation string) error {
+	if err := stack.Finalize.Add(&resolveAuthSchemeMiddleware{operation: operation, options: options}, middleware.Before); err != nil {
+		return fmt.Errorf("add ResolveAuthScheme: %v", err)
+	}
+	if err := stack.Finalize.Insert(&getIdentityMiddleware{options: options}, "ResolveAuthScheme", middleware.After); err != nil {
+		return fmt.Errorf("add GetIdentity: %v", err)
+	}
+	if err := stack.Finalize.Insert(&resolveEndpointV2Middleware{options: options}, "GetIdentity", middleware.After); err != nil {
+		return fmt.Errorf("add ResolveEndpointV2: %v", err)
+	}
+	if err := stack.Finalize.Insert(&signRequestMiddleware{}, "ResolveEndpointV2", middleware.After); err != nil {
+		return fmt.Errorf("add Signing: %v", err)
+	}
+	return nil
+}
+func resolveAuthSchemeResolver(options *Options) {
+	if options.AuthSchemeResolver == nil {
+		options.AuthSchemeResolver = &defaultAuthSchemeResolver{}
+	}
+}
+
+func resolveAuthSchemes(options *Options) {
+	if options.AuthSchemes == nil {
+		options.AuthSchemes = []smithyhttp.AuthScheme{
+			internalauth.NewHTTPAuthScheme("aws.auth#sigv4", &internalauthsmithy.V4SignerAdapter{
+				Signer:     options.HTTPSignerV4,
+				Logger:     options.Logger,
+				LogSigning: options.ClientLogMode.IsSigning(),
+			}),
+		}
+	}
 }
 
 type noSmithyDocumentSerde = smithydocument.NoSerde
@@ -417,15 +355,6 @@ func addClientUserAgent(stack *middleware.Stack, options Options) error {
 	return nil
 }
 
-func addHTTPSignerV4Middleware(stack *middleware.Stack, o Options) error {
-	mw := v4.NewSignHTTPRequestMiddleware(v4.SignHTTPRequestMiddlewareOptions{
-		CredentialsProvider: o.Credentials,
-		Signer:              o.HTTPSignerV4,
-		LogSigning:          o.ClientLogMode.IsSigning(),
-	})
-	return stack.Finalize.Add(mw, middleware.After)
-}
-
 type HTTPSignerV4 interface {
 	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time, optFns ...func(*v4.SignerOptions)) error
 }
@@ -560,20 +489,61 @@ func withNopHTTPClientAPIOption(o *Options) {
 	o.HTTPClient = smithyhttp.NopClient{}
 }
 
+type presignContextPolyfillMiddleware struct {
+}
+
+func (*presignContextPolyfillMiddleware) ID() string {
+	return "presignContextPolyfill"
+}
+
+func (m *presignContextPolyfillMiddleware) HandleFinalize(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (
+	out middleware.FinalizeOutput, metadata middleware.Metadata, err error,
+) {
+	rscheme := getResolvedAuthScheme(ctx)
+	if rscheme == nil {
+		return out, metadata, fmt.Errorf("no resolved auth scheme")
+	}
+
+	schemeID := rscheme.Scheme.SchemeID()
+
+	if schemeID == "aws.auth#sigv4" {
+		if sn, ok := smithyhttp.GetSigV4SigningName(&rscheme.SignerProperties); ok {
+			ctx = awsmiddleware.SetSigningName(ctx, sn)
+		}
+		if sr, ok := smithyhttp.GetSigV4SigningRegion(&rscheme.SignerProperties); ok {
+			ctx = awsmiddleware.SetSigningRegion(ctx, sr)
+		}
+	} else if schemeID == "aws.auth#sigv4a" {
+		if sn, ok := smithyhttp.GetSigV4ASigningName(&rscheme.SignerProperties); ok {
+			ctx = awsmiddleware.SetSigningName(ctx, sn)
+		}
+		if sr, ok := smithyhttp.GetSigV4ASigningRegions(&rscheme.SignerProperties); ok {
+			ctx = awsmiddleware.SetSigningRegion(ctx, sr[0])
+		}
+	}
+
+	return next.HandleFinalize(ctx, in)
+}
+
 type presignConverter PresignOptions
 
 func (c presignConverter) convertToPresignMiddleware(stack *middleware.Stack, options Options) (err error) {
-	stack.Finalize.Clear()
+	if _, ok := stack.Finalize.Get((*acceptencodingcust.DisableGzip)(nil).ID()); ok {
+		stack.Finalize.Remove((*acceptencodingcust.DisableGzip)(nil).ID())
+	}
 	stack.Deserialize.Clear()
 	stack.Build.Remove((*awsmiddleware.ClientRequestID)(nil).ID())
 	stack.Build.Remove("UserAgent")
+	if err := stack.Finalize.Insert(&presignContextPolyfillMiddleware{}, "Signing", middleware.Before); err != nil {
+		return err
+	}
+
 	pmw := v4.NewPresignHTTPRequestMiddleware(v4.PresignHTTPRequestMiddlewareOptions{
 		CredentialsProvider: options.Credentials,
 		Presigner:           c.Presigner,
 		LogSigning:          options.ClientLogMode.IsSigning(),
 	})
-	err = stack.Finalize.Add(pmw, middleware.After)
-	if err != nil {
+	if _, err := stack.Finalize.Swap("Signing", pmw); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddNoPayloadDefaultContentTypeRemover(stack); err != nil {
@@ -600,31 +570,31 @@ func addRequestResponseLogging(stack *middleware.Stack, o Options) error {
 	}, middleware.After)
 }
 
-type endpointDisableHTTPSMiddleware struct {
-	EndpointDisableHTTPS bool
+type disableHTTPSMiddleware struct {
+	DisableHTTPS bool
 }
 
-func (*endpointDisableHTTPSMiddleware) ID() string {
-	return "endpointDisableHTTPSMiddleware"
+func (*disableHTTPSMiddleware) ID() string {
+	return "disableHTTPS"
 }
 
-func (m *endpointDisableHTTPSMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
-	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+func (m *disableHTTPSMiddleware) HandleFinalize(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (
+	out middleware.FinalizeOutput, metadata middleware.Metadata, err error,
 ) {
 	req, ok := in.Request.(*smithyhttp.Request)
 	if !ok {
 		return out, metadata, fmt.Errorf("unknown transport type %T", in.Request)
 	}
 
-	if m.EndpointDisableHTTPS && !smithyhttp.GetHostnameImmutable(ctx) {
+	if m.DisableHTTPS && !smithyhttp.GetHostnameImmutable(ctx) {
 		req.URL.Scheme = "http"
 	}
 
-	return next.HandleSerialize(ctx, in)
-
+	return next.HandleFinalize(ctx, in)
 }
-func addendpointDisableHTTPSMiddleware(stack *middleware.Stack, o Options) error {
-	return stack.Serialize.Insert(&endpointDisableHTTPSMiddleware{
-		EndpointDisableHTTPS: o.EndpointOptions.DisableHTTPS,
-	}, "OperationSerializer", middleware.Before)
+
+func addDisableHTTPSMiddleware(stack *middleware.Stack, o Options) error {
+	return stack.Finalize.Insert(&disableHTTPSMiddleware{
+		DisableHTTPS: o.EndpointOptions.DisableHTTPS,
+	}, "ResolveEndpointV2", middleware.After)
 }

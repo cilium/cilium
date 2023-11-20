@@ -1,3 +1,7 @@
+# v1.7.1 (2023-11-16)
+
+* **Bug Fix**: Fix recognition of trailing comments in shared config properties. # or ; separators that aren't preceded by whitespace at the end of a property value should be considered part of it.
+
 # v1.7.0 (2023-11-13)
 
 * **Feature**: Replace the legacy config parser with a modern, less-strict implementation. Parsing failures within a section will now simply ignore the invalid line rather than silently drop the entire section.
