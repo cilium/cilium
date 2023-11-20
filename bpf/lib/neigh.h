@@ -25,6 +25,9 @@ static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
+	if (neigh_resolver_available())
+		return 0;
+
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
@@ -67,6 +70,9 @@ static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
 	union macaddr smac = {}, *mac;
 	void *data, *data_end;
 	struct iphdr *ip4;
+
+	if (neigh_resolver_available())
+		return 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
