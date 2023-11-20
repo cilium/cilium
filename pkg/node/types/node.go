@@ -8,7 +8,6 @@ import (
 	"net"
 	"path"
 	"slices"
-	"strings"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -102,23 +101,6 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 	return
 }
 
-// GetCiliumAnnotations returns the node annotations that should be set on the CiliumNode
-func (n *Node) GetCiliumAnnotations() map[string]string {
-	annotations := map[string]string{}
-	if n.WireguardPubKey != "" {
-		annotations[annotation.WireguardPubKey] = n.WireguardPubKey
-	}
-
-	// if we use a cilium node instead of a node, we also need the BGP Control Plane annotations in the cilium node instead of the main node
-	for k, a := range n.Annotations {
-		if strings.HasPrefix(k, annotation.BGPVRouterAnnoPrefix) {
-			annotations[k] = a
-		}
-	}
-
-	return annotations
-}
-
 // ToCiliumNode converts the node to a CiliumNode
 func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 	var (
@@ -164,7 +146,7 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 		ObjectMeta: v1.ObjectMeta{
 			Name:        n.Name,
 			Labels:      n.Labels,
-			Annotations: n.GetCiliumAnnotations(),
+			Annotations: n.Annotations,
 		},
 		Spec: ciliumv2.NodeSpec{
 			Addresses: ipAddrs,

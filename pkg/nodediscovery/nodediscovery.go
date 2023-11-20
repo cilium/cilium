@@ -480,7 +480,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 	// This is for syncing relevant node annotations from the k8s node to the
 	// CiliumNode object
-	nodeResource.ObjectMeta.Annotations = k8sNodeParsed.GetCiliumAnnotations()
+	nodeResource.ObjectMeta.Annotations = k8sNodeParsed.Annotations
 
 	for _, k8sAddress := range k8sNodeAddresses {
 		// Do not add CiliumNodeInternalIP from the k8sNodeAddress. The source

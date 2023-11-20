@@ -210,7 +210,6 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 			Name:      "foo",
 			Namespace: "",
 			Annotations: map[string]string{
-				annotation.WireguardPubKey:                "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
 				annotation.BGPVRouterAnnoPrefix + "64512": "router-id=172.0.0.3",
 			},
 		},
