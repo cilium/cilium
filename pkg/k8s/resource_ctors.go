@@ -306,6 +306,7 @@ func CiliumSlimEndpointResource(lc hive.Lifecycle, cs client.Clientset, _ *node.
 		resource.WithLazyTransform(func() runtime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
 		}, TransformToCiliumEndpoint),
+		resource.WithMetric("CiliumEndpoint"),
 		resource.WithIndexers(indexers),
 	), nil
 }
