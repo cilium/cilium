@@ -620,14 +620,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
  * always want to SNAT a packet if it's matched by an egress NAT policy.
  */
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
-	/* If the packet is destined to an entity inside the cluster, either EP
-	 * or node, skip SNAT since only traffic leaving the cluster is supposed
-	 * to be masqueraded with an egress IP.
-	 */
-	if (remote_ep &&
-	    identity_is_cluster(remote_ep->sec_identity))
-		goto skip_egress_gateway;
-
 	/* If the packet is a reply it means that outside has initiated the
 	 * connection, so no need to SNAT the reply.
 	 */

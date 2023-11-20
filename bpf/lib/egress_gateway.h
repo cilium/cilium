@@ -168,6 +168,17 @@ bool egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 static __always_inline
 bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr)
 {
+	struct remote_endpoint_info *remote_ep;
+
+	remote_ep = lookup_ip4_remote_endpoint(daddr, 0);
+	/* If the packet is destined to an entity inside the cluster, either EP
+	 * or node, skip SNAT since only traffic leaving the cluster is supposed
+	 * to be masqueraded with an egress IP.
+	 */
+	if (remote_ep &&
+	    identity_is_cluster(remote_ep->sec_identity))
+		return false;
+
 	return egress_gw_snat_needed(saddr, daddr, snat_addr);
 }
 

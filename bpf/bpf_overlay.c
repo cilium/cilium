@@ -392,16 +392,6 @@ not_esp:
 	{
 		__be32 snat_addr, daddr;
 		int ret;
-		struct remote_endpoint_info *remote_ep;
-
-		remote_ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		/* If the packet is destined to an entity inside the cluster, either EP
-		 * or node, skip SNAT since only traffic leaving the cluster is supposed
-		 * to be masqueraded with an egress IP.
-		 */
-		if (remote_ep &&
-		    identity_is_cluster(remote_ep->sec_identity))
-			goto skip_egress_gateway;
 
 		daddr = ip4->daddr;
 		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr)) {
@@ -414,7 +404,6 @@ not_esp:
 								 daddr, ext_err);
 		}
 	}
-skip_egress_gateway:
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
 	/* Deliver to local (non-host) endpoint: */
