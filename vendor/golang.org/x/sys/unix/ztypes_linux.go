@@ -3005,6 +3005,12 @@ type LoopInfo64 struct {
 	Encrypt_key      [32]uint8
 	Init             [2]uint64
 }
+type LoopConfig struct {
+	Fd   uint32
+	Size uint32
+	Info LoopInfo64
+	_    [8]uint64
+}
 
 type TIPCSocketAddr struct {
 	Ref  uint32
