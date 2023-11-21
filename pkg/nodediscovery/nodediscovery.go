@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -32,12 +31,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/time"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -361,11 +358,8 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 
 func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln *node.LocalNode) error {
 	var (
-		providerID       string
-		k8sNodeAddresses []nodeTypes.Address
+		providerID string
 	)
-
-	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
 
 	// If we are unable to fetch the K8s Node resource and the CiliumNode does
 	// not have an OwnerReference set, then somehow we are running in an
@@ -402,42 +396,16 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 	}}
 	providerID = slimNode.Spec.ProviderID
 
-	// Get the addresses from k8s node and add them as part of Cilium Node.
-	// Cilium Node should contain all addresses from k8s.
-	k8sNodeParsed := k8s.ParseNode(slimNode, source.Unspec)
-	k8sNodeAddresses = k8sNodeParsed.IPAddresses
-
 	nodeResource.ObjectMeta.Labels = ln.Labels
 	nodeResource.ObjectMeta.Annotations = ln.Annotations
 
-	for _, k8sAddress := range k8sNodeAddresses {
-		// Do not add CiliumNodeInternalIP from the k8sNodeAddress. The source
-		// of truth is always the local node. The CiliumInternalIP address is
-		// added from n.localNode.IPAddress in the next for-loop.
-		if k8sAddress.Type != addressing.NodeCiliumInternalIP {
-			k8sAddressStr := k8sAddress.IP.String()
-			nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
-				Type: k8sAddress.Type,
-				IP:   k8sAddressStr,
-			})
-		}
-	}
-
+	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
 	for _, address := range ln.IPAddresses {
-		ciliumNodeAddress := address.IP.String()
-		var found bool
-		for _, nodeResourceAddress := range nodeResource.Spec.Addresses {
-			if nodeResourceAddress.IP == ciliumNodeAddress {
-				found = true
-				break
-			}
-		}
-		if !found {
-			nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
-				Type: address.Type,
-				IP:   ciliumNodeAddress,
-			})
-		}
+		ip := address.IP.String()
+		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
+			Type: address.Type,
+			IP:   ip,
+		})
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMKubernetes {
