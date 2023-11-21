@@ -428,6 +428,7 @@ Events external to Cilium
 Name                                     Labels                                             Default    Description
 ======================================== ================================================== ========== ========================================================
 ``event_ts``                             ``source``                                         Enabled    Last timestamp when Cilium received an event from a control plane source, per resource and per action
+``k8s_event_lag_seconds``                ``source``                                         Disabled   Lag for Kubernetes events - computed value between receiving a CNI ADD event from kubelet and a Pod event received from kube-api-server
 ======================================== ================================================== ========== ========================================================
 
 Controllers
