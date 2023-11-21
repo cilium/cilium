@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	policyMetrics "github.com/cilium/cilium/pkg/policy/metrics"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
@@ -177,6 +178,10 @@ var (
 
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
+
+		// Provides newer policy metrics to related cells, most policy metrics are still in
+		// legacy metrics package.
+		cell.Metric(policyMetrics.NewMetrics),
 
 		// IPCache, policy.Repository and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),

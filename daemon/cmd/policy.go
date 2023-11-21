@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
+	policyMetrics "github.com/cilium/cilium/pkg/policy/metrics"
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/stream"
@@ -72,6 +73,7 @@ type policyParams struct {
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
 	CacheStatus     k8s.CacheStatus
+	Metrics         *policyMetrics.Metrics
 }
 
 type policyOut struct {
@@ -103,6 +105,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		idAlloc.GetIdentityCache(),
 		params.CertManager,
 		params.SecretManager,
+		params.Metrics,
 	)
 	iao.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
