@@ -689,13 +689,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			}
 		}
 
-		// Launch the K8s node watcher so we can start receiving node events.
-		// Launching the k8s node watcher at this stage will prevent all agents
-		// from performing Gets directly into kube-apiserver to get the most up
-		// to date version of the k8s node. This allows for better scalability
-		// in large clusters.
-		d.k8sWatcher.NodesInit(d.clientset)
-
 		if option.Config.IPAM == ipamOption.IPAMClusterPool ||
 			option.Config.IPAM == ipamOption.IPAMMultiPool {
 			// Create the CiliumNode custom resource. This call will block until
