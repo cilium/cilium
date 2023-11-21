@@ -181,8 +181,8 @@ github.com/cilium/customvet/analysis/timeafter
 ## explicit; go 1.14
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
-# github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
-## explicit; go 1.14
+# github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
+## explicit; go 1.18
 github.com/cilium/dns
 # github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2
 ## explicit; go 1.18
