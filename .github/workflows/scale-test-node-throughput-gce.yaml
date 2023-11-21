@@ -1,4 +1,4 @@
-name: Node throughput test
+name: Node Throughput Test
 
 on:
   schedule:
