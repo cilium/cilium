@@ -85,7 +85,8 @@ func installRoutesIPv6() error {
 
 // removeRoutesIPv6 ensures routes and rules for proxy traffic are removed.
 func removeRoutesIPv6() error {
-	if err := route.DeleteRule(netlink.FAMILY_V6, tproxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
+	if err := route.DeleteRule(netlink.FAMILY_V6, tproxyRule); err != nil &&
+		!errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
 		return fmt.Errorf("removing ipv6 proxy routing rule: %w", err)
 	}
 	if err := route.DeleteRouteTable(linux_defaults.RouteTableProxy, netlink.FAMILY_V6); err != nil {
