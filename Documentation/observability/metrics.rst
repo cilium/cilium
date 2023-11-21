@@ -427,7 +427,7 @@ Events external to Cilium
 ======================================== ================================================== ========== ========================================================
 Name                                     Labels                                             Default    Description
 ======================================== ================================================== ========== ========================================================
-``event_ts``                             ``source``                                         Enabled    Last timestamp when we received an event
+``event_ts``                             ``source``                                         Enabled    Last timestamp when Cilium received an event from a control plane source, per resource and per action
 ======================================== ================================================== ========== ========================================================
 
 Controllers

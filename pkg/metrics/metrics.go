@@ -355,11 +355,9 @@ var (
 
 	// Events
 
-	// EventTS*is the time in seconds since epoch that we last received an
-	// event that we will handle
-	// source is one of k8s, docker or apia
-
-	// EventTS is the timestamp of k8s resource events.
+	// EventTS is the time in seconds since epoch that we last received an
+	// event that was handled by Cilium. This metric tracks the source of the
+	// event which can be one of K8s or Cilium's API.
 	EventTS = NoOpGaugeVec
 
 	// EventLagK8s is the lag calculation for k8s Pod events.
@@ -861,7 +859,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			ConfigName: Namespace + "_event_ts",
 			Namespace:  Namespace,
 			Name:       "event_ts",
-			Help:       "Last timestamp when we received an event",
+			Help:       "Last timestamp when Cilium received an event from a control plane source, per resource and per action",
 		}, []string{LabelEventSource, LabelScope, LabelAction}),
 
 		EventLagK8s: metric.NewGauge(metric.GaugeOpts{
