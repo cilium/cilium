@@ -346,15 +346,9 @@ func (m *IptablesManager) Init() {
 			log.WithError(err).Warning("xt_socket kernel module could not be loaded")
 
 			if option.Config.EnableXTSocketFallback {
-				v4disabled := true
-				v6disabled := true
-				if option.Config.EnableIPv4 {
-					v4disabled = sysctl.Disable("net.ipv4.ip_early_demux") == nil
-				}
-				if option.Config.EnableIPv6 {
-					v6disabled = sysctl.Disable("net.ipv6.ip_early_demux") == nil
-				}
-				if v4disabled && v6disabled {
+				disabled := sysctl.Disable("net.ipv4.ip_early_demux") == nil
+
+				if disabled {
 					m.ipEarlyDemuxDisabled = true
 					log.Warning("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
 				} else {
