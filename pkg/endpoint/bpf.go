@@ -171,6 +171,25 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	return f.CloseAtomicallyReplace()
 }
 
+// proxyPolicy implements policy.ProxyPolicy interface, and passes most of the calls
+// to policy.L4Filter, but re-implements GetPort() to return the resolved named port,
+// instead of returning a 0 port number.
+type proxyPolicy struct {
+	*policy.L4Filter
+	port uint16
+}
+
+// newProxyPolicy returns a new instance of proxyPolicy by value
+func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, port uint16) proxyPolicy {
+	return proxyPolicy{L4Filter: l4, port: port}
+}
+
+// GetPort returns the destination port number on which the proxy policy applies
+// This version properly returns the port resolved from a named port, if any.
+func (p *proxyPolicy) GetPort() uint16 {
+	return p.port
+}
+
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
@@ -202,7 +221,9 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
 
-				proxyID := e.proxyID(l4)
+				// proxyID() returns also the destination port for the policy,
+				// which may be resolved from a named port
+				proxyID, dstPort := e.proxyID(l4)
 				if proxyID == "" {
 					// Skip redirects for which a proxyID cannot be created.
 					// This may happen due to the named port mapping not
@@ -213,8 +234,9 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					return 0, false
 				}
 
+				pp := e.newProxyPolicy(l4, dstPort)
 				var err error
-				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, l4, proxyID, e, proxyWaitGroup)
+				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
 				if err != nil {
 					// Skip redirects that can not be created or updated.  This
 					// can happen when a listener is missing, for example when
