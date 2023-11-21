@@ -142,6 +142,31 @@ func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
 	return retSettings, nil
 }
 
+func cleanIngressQdisc() error {
+	for _, iface := range option.Config.GetDevices() {
+		link, err := netlink.LinkByName(iface)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
+		}
+		qdiscs, err := netlink.QdiscList(link)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve qdisc list of link %s: %q", iface, err)
+		}
+		for _, q := range qdiscs {
+			if q.Type() != "ingress" {
+				continue
+			}
+			err = netlink.QdiscDel(q)
+			if err != nil {
+				return fmt.Errorf("failed to delete ingress qdisc of link %s: %q", iface, err)
+			} else {
+				log.WithField(logfields.Device, iface).Info("Removed prior present ingress qdisc from device so that Cilium's datapath can be loaded")
+			}
+		}
+	}
+	return nil
+}
+
 // reinitializeIPSec is used to recompile and load encryption network programs.
 func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	if !option.Config.EnableIPSec {
@@ -325,6 +350,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	// add internal ipv4 and ipv6 addresses to cilium_host
 	if err := addHostDeviceAddr(hostDev1, nodeIPv4, nodeIPv6); err != nil {
 		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
+	}
+
+	if err := cleanIngressQdisc(); err != nil {
+		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
+		return err
 	}
 
 	if err := l.writeNodeConfigHeader(o); err != nil {
