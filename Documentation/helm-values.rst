@@ -271,7 +271,7 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"secretsNamespace":{"create":false,"name":"kube-system"}}``
+     - ``{"enabled":false,"secretsNamespace":{"create":false,"name":"kube-system"},"v2Enabled":false}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
      - bool
@@ -288,6 +288,10 @@
      - The name of the secret namespace to which Cilium agents are given read access
      - string
      - ``"kube-system"``
+   * - :spelling:ignore:`bgpControlPlane.v2Enabled`
+     - Enable the BGPv2 APIs.
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.authMapMax`
      - Configure the maximum number of entries in auth map.
      - int
