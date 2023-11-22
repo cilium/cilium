@@ -145,11 +145,19 @@ func getIPSecKeys(ip net.IP) *ipSecKey {
 	return key
 }
 
-func ipSecNewState() *netlink.XfrmState {
+func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 	state := netlink.XfrmState{
 		Mode:  netlink.XFRM_MODE_TUNNEL,
 		Proto: netlink.XFRM_PROTO_ESP,
 		ESN:   false,
+		Spi:   int(keys.Spi),
+		Reqid: keys.ReqID,
+	}
+	if keys.Aead != nil {
+		state.Aead = keys.Aead
+	} else {
+		state.Crypt = keys.Crypt
+		state.Auth = keys.Auth
 	}
 	return &state
 }
@@ -174,17 +182,6 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, d
 	}
 
 	policy.Tmpls = append(policy.Tmpls, tmpl)
-}
-
-func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
-	if keys.Aead != nil {
-		state.Aead = keys.Aead
-	} else {
-		state.Crypt = keys.Crypt
-		state.Auth = keys.Auth
-	}
-	state.Spi = int(keys.Spi)
-	state.Reqid = keys.ReqID
 }
 
 // xfrmStateReplace attempts to add a new XFRM state only if one doesn't
@@ -336,8 +333,7 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
-	state := ipSecNewState()
-	ipSecJoinState(state, key)
+	state := ipSecNewState(key)
 	state.Src = remoteIP
 	state.Dst = localIP
 	state.Mark = &netlink.XfrmMark{
@@ -364,8 +360,7 @@ func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
-	state := ipSecNewState()
-	ipSecJoinState(state, key)
+	state := ipSecNewState(key)
 	state.Src = localIP
 	state.Dst = remoteIP
 	state.Mark = generateEncryptMark(key.Spi, nodeID)
