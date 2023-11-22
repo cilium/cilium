@@ -564,7 +564,7 @@ github.com/fatih/color
 # github.com/fsnotify/fsnotify v1.6.0
 ## explicit; go 1.16
 github.com/fsnotify/fsnotify
-# github.com/go-jose/go-jose/v3 v3.0.0
+# github.com/go-jose/go-jose/v3 v3.0.1
 ## explicit; go 1.12
 github.com/go-jose/go-jose/v3
 github.com/go-jose/go-jose/v3/cipher
