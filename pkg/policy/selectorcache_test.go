@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"fmt"
 	"sync"
 
 	. "github.com/cilium/checkmate"
@@ -66,12 +67,22 @@ func haveNid(nid identity.NumericIdentity, selections []identity.NumericIdentity
 	return false
 }
 
-func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) CachedSelector {
+func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector, lbls labels.LabelArray) CachedSelector {
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
-	cached, added := csu.sc.AddIdentitySelector(csu, nil, sel)
+	//lbls := createPolicyLabels("default", "CiliumNetworkPolicy", "test")
+
+	cached, added := csu.sc.AddIdentitySelector(csu, lbls, sel)
 	csu.c.Assert(cached, Not(Equals), nil)
+
+	// assertMetric := func(val int) {
+	// 	mv := csu.sc.selectorMetrics.policyMetricsActions.(*mockPolicyMetrics).
+	// 		ms["default/CiliumNetworkPolicy/test"]
+	// 	assert.Equal(csu.c, val, mv)
+	// }
+	//assertMetric(1)
+	//csu.c.Assert(csu.sc.selectorMetrics.policyMetricsActions.(*mockPolicyMetrics).ms["default/CiliumNetworkPolicy/test"], Equals, 1)
 
 	_, exists := csu.selections[cached]
 	// Not added if already exists for this user
@@ -84,11 +95,11 @@ func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) Ca
 	return cached
 }
 
-func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSelector {
+func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector, lbls labels.LabelArray) CachedSelector {
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
-	cached, added := csu.sc.AddFQDNSelector(csu, nil, sel)
+	cached, added := csu.sc.AddFQDNSelector(csu, lbls, sel)
 	csu.c.Assert(cached, Not(Equals), nil)
 
 	_, exists := csu.selections[cached]
@@ -159,6 +170,10 @@ type testCachedSelector struct {
 	wildcard   bool
 	selections []identity.NumericIdentity
 }
+
+func (s *testCachedSelector) selectorType() identitySelectorType { return "" }
+
+func (s *testCachedSelector) updateSelections() int { panic("not implemented") }
 
 func newTestCachedSelector(name string, wildcard bool, selections ...int) *testCachedSelector {
 	cs := &testCachedSelector{
@@ -241,6 +256,8 @@ func (ds *SelectorCacheTestSuite) TearDownTest(c *C) {
 func (ds *SelectorCacheTestSuite) TestAddRemoveSelector(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
+	metrics := sc.selectorMetrics.policyMetricsActions.(*mockPolicyMetrics).pm
+
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
 	sc.UpdateIdentities(cache.IdentityCache{
@@ -254,35 +271,53 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveSelector(c *C) {
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddIdentitySelector(testSelector)
+
+	lbls := createPolicyLabels("default", "CiliumNetworkPolicy", "test")
+
+	cached := user1.AddIdentitySelector(testSelector, lbls)
+	selections := cached.GetSelections()
+
+	// Newly inserted selector should increment the metric
+	//ns, name, type :=policySourceTuple()
+	c.Assert(metrics["default/CiliumNetworkPolicy/test"], Equals, 1)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections := cached.GetSelections()
 	c.Assert(len(selections), Equals, 1)
 	c.Assert(selections[0], Equals, identity.NumericIdentity(1234))
 
 	// Try add the same selector from the same user the second time
 	testSelector = api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
-	cached2 := user1.AddIdentitySelector(testSelector)
+	cached2 := user1.AddIdentitySelector(testSelector, nil)
 	c.Assert(cached2, Equals, cached)
 
 	// Add the same selector from a different user
 	testSelector = api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
 	user2 := newUser(c, "user2", sc)
-	cached3 := user2.AddIdentitySelector(testSelector)
+	cached3 := user2.AddIdentitySelector(testSelector, nil)
 
 	// Same old CachedSelector is returned, nothing new is cached
 	c.Assert(cached3, Equals, cached)
 
 	// Removing the first user does not remove the cached selector
 	user1.RemoveSelector(cached)
+	// Metric should not be decremented.
+	c.Assert(metrics["default/CiliumNetworkPolicy/test"], Equals, len(selections))
+
 	// Remove is idempotent
 	user1.RemoveSelector(cached)
 
+	c.Assert(metrics["default/CiliumNetworkPolicy/test"], Equals, len(selections))
+
 	// Removing the last user removes the cached selector
 	user2.RemoveSelector(cached3)
+
+	c.Assert(metrics["default/CiliumNetworkPolicy/test"], Equals, 0)
+	_, exists := metrics["default/CiliumNetworkPolicy/test"]
+	c.Assert(exists, Equals, false)
+	c.Assert(len(metrics), Equals, 0)
+
 	// Remove is idempotent
 	user2.RemoveSelector(cached3)
 
@@ -305,7 +340,7 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddIdentitySelector(testSelector)
+	cached := user1.AddIdentitySelector(testSelector, nil)
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections()
@@ -313,7 +348,7 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 	c.Assert(selections[0], Equals, identity.NumericIdentity(1234))
 
 	// Add another selector from the same user
-	cached2 := user1.AddIdentitySelector(test2Selector)
+	cached2 := user1.AddIdentitySelector(test2Selector, nil)
 	c.Assert(cached2, Not(Equals), cached)
 
 	// Current selections contain the numeric identities of existing identities that match
@@ -343,7 +378,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddIdentitySelector(testSelector)
+	cached := user1.AddIdentitySelector(testSelector, nil)
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections()
@@ -351,7 +386,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	c.Assert(selections[0], Equals, identity.NumericIdentity(1234))
 
 	// Add another selector from the same user
-	cached2 := user1.AddIdentitySelector(test2Selector)
+	cached2 := user1.AddIdentitySelector(test2Selector, nil)
 	c.Assert(cached2, Not(Equals), cached)
 
 	// Current selections contain the numeric identities of existing identities that match
@@ -402,6 +437,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 }
 
 func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
+	// Note: Both selectors share the same policy.
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache
@@ -410,6 +446,10 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 
 	googleIdentities := []identity.NumericIdentity{321, 456, 987}
 	ciliumIdentities := []identity.NumericIdentity{123, 456, 789}
+
+	s := sc.selectorMetrics.policyMetricsActions.(*mockPolicyMetrics).pm
+	c.Assert(s, HasLen, 0)
+	//c.Assert(sc.selectorMetrics.policyMetricsActions.(*mockPolicyMetrics).ms["default/CiliumNetworkPolicy/test"], Equals, 3)
 
 	wg := &sync.WaitGroup{}
 	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities, wg)
@@ -420,7 +460,7 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	c.Assert(exists, Equals, true)
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddFQDNSelector(ciliumSel)
+	cached := user1.AddFQDNSelector(ciliumSel, nil)
 
 	selections := cached.GetSelections()
 	c.Assert(len(selections), Equals, 3)
@@ -429,7 +469,7 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	}
 
 	// Add another selector from the same user
-	cached2 := user1.AddFQDNSelector(googleSel)
+	cached2 := user1.AddFQDNSelector(googleSel, nil)
 	c.Assert(cached2, Not(Equals), cached)
 
 	// Current selections contain the numeric identities of existing identities that match
@@ -482,6 +522,7 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 }
 
 func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
+	lbls := createPolicyLabels("default", "CiliumNetworkPolicy", "test2")
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache
@@ -500,7 +541,7 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 	c.Assert(exists, Equals, true)
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddFQDNSelector(ciliumSel)
+	cached := user1.AddFQDNSelector(ciliumSel, lbls)
 
 	selections := cached.GetSelections()
 	c.Assert(len(selections), Equals, 3)
@@ -509,7 +550,7 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 	}
 
 	// Add another selector from the same user
-	cached2 := user1.AddFQDNSelector(googleSel)
+	cached2 := user1.AddFQDNSelector(googleSel, lbls)
 	c.Assert(cached2, Not(Equals), cached)
 
 	// Current selections contain the numeric identities of existing identities that match
@@ -547,11 +588,11 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddIdentitySelector(testSelector)
+	cached := user1.AddIdentitySelector(testSelector, nil)
 
 	// Add same selector from a different user
 	user2 := newUser(c, "user2", sc)
-	cached2 := user2.AddIdentitySelector(testSelector)
+	cached2 := user2.AddIdentitySelector(testSelector, nil)
 	c.Assert(cached2, Equals, cached)
 
 	user1.Reset()
@@ -629,7 +670,31 @@ func (ds *SelectorCacheTestSuite) TestSelectorManagerCanGetBeforeSet(c *C) {
 }
 
 func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
-	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids)
+	metrics := &mockPolicyMetrics{pm: make(map[string]int)}
+	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids, metrics)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
+}
+
+type mockPolicyMetrics struct {
+	pm map[string]int
+	ss map[string]int
+}
+
+func (m *mockPolicyMetrics) SetPolicySelections(namespace, policyType, policyName string, selections int) {
+	if m.pm == nil {
+		m.pm = make(map[string]int)
+	}
+	m.pm[fmt.Sprintf("%s/%s/%s", namespace, policyType, policyName)] = selections
+}
+
+func (m *mockPolicyMetrics) DeletePolicySelections(namespace, policyType, policyName string) {
+	delete(m.pm, fmt.Sprintf("%s/%s/%s", namespace, policyType, policyName))
+}
+
+func (m *mockPolicyMetrics) SetSelections(selectorType, policyType string, selections int) {
+	if m.ss == nil {
+		m.ss = make(map[string]int)
+	}
+	m.ss[fmt.Sprintf("%s/%s", selectorType, policyType)] = selections
 }
