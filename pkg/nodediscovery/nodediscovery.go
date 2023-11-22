@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -163,13 +164,18 @@ func (n *NodeDiscovery) JoinCluster(nodeName string) error {
 		return fmt.Errorf("remote ClusterName (%s) does not match the locally configured one (%s)", resp.Cluster, option.Config.ClusterName)
 	}
 
-	node.SetLabels(resp.Labels)
-	if resp.IPv4AllocCIDR != nil {
-		node.SetIPv4AllocRange(resp.IPv4AllocCIDR)
-	}
-	if resp.IPv6AllocCIDR != nil {
-		node.SetIPv6NodeRange(resp.IPv6AllocCIDR)
-	}
+	n.localNodeStore.Update(func(ln *node.LocalNode) {
+		ln.Labels = maps.Clone(ln.Labels)
+		maps.Copy(ln.Labels, resp.Labels)
+
+		if resp.IPv4AllocCIDR != nil {
+			ln.IPv4AllocCIDR = resp.IPv4AllocCIDR
+		}
+		if resp.IPv6AllocCIDR != nil {
+			ln.IPv6AllocCIDR = resp.IPv6AllocCIDR
+		}
+	})
+
 	identity.SetLocalNodeID(resp.NodeIdentity)
 
 	return nil
