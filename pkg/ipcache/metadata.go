@@ -522,6 +522,10 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		if !option.Config.PolicyCIDRMatchesNodes() {
 			n = n.Remove(labels.GetCIDRLabels(prefix))
 		}
+		if !option.Config.PerNodeLabelsEnabled() {
+			nodeLabels := n.GetFromSource(labels.LabelSourceNode)
+			n = n.Remove(nodeLabels)
+		}
 		lbls = n
 	}
 

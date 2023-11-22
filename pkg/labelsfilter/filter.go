@@ -18,9 +18,10 @@ import (
 )
 
 var (
-	log                  = logging.DefaultLogger.WithField(logfields.LogSubsys, "labels-filter")
-	validLabelPrefixesMU lock.RWMutex
-	validLabelPrefixes   *labelPrefixCfg // Label prefixes used to filter from all labels
+	log                    = logging.DefaultLogger.WithField(logfields.LogSubsys, "labels-filter")
+	validLabelPrefixesMU   lock.RWMutex
+	validLabelPrefixes     *labelPrefixCfg // Label prefixes used to filter from all labels
+	validNodeLabelPrefixes *labelPrefixCfg
 )
 
 const (
@@ -108,8 +109,8 @@ func parseLabelPrefix(label string) (*LabelPrefix, error) {
 // ParseLabelPrefixCfg parses valid label prefixes from a file and from a slice
 // of valid prefixes. Both are optional. If both are provided, both list are
 // appended together.
-func ParseLabelPrefixCfg(prefixes []string, file string) error {
-	var cfg *labelPrefixCfg
+func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
+	var cfg, nodeCfg *labelPrefixCfg
 	var err error
 	var fromCustomFile bool
 
@@ -125,6 +126,24 @@ func ParseLabelPrefixCfg(prefixes []string, file string) error {
 		}
 
 		fromCustomFile = true
+	}
+
+	nodeCfg = &labelPrefixCfg{}
+	log.Infof("Parsing node label prefixes from user inputs: %v", nodePrefixes)
+	for _, label := range nodePrefixes {
+		if len(label) == 0 {
+			continue
+		}
+		p, err := parseLabelPrefix(label)
+		if err != nil {
+			return err
+		}
+
+		if !p.Ignore {
+			nodeCfg.whitelist = true
+		}
+
+		nodeCfg.LabelPrefixes = append(nodeCfg.LabelPrefixes, p)
 	}
 
 	log.Infof("Parsing additional label prefixes from user inputs: %v", prefixes)
@@ -160,9 +179,15 @@ func ParseLabelPrefixCfg(prefixes []string, file string) error {
 	}
 
 	validLabelPrefixes = cfg
+	validNodeLabelPrefixes = nodeCfg
 
 	log.Info("Final label prefixes to be used for identity evaluation:")
 	for _, l := range validLabelPrefixes.LabelPrefixes {
+		log.Infof(" - %s", l)
+	}
+
+	log.Info("Final node label prefixes to be used for identity evaluation:")
+	for _, l := range validNodeLabelPrefixes.LabelPrefixes {
 		log.Infof(" - %s", l)
 	}
 
@@ -308,4 +333,8 @@ func (cfg *labelPrefixCfg) filterLabels(lbls labels.Labels) (identityLabels, inf
 // the aforementioned filtering criteria.
 func Filter(lbls labels.Labels) (identityLabels, informationLabels labels.Labels) {
 	return validLabelPrefixes.filterLabels(lbls)
+}
+
+func FilterNodeLabels(lbls labels.Labels) (identityLabels, informationLabels labels.Labels) {
+	return validNodeLabelPrefixes.filterLabels(lbls)
 }

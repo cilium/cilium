@@ -31,7 +31,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"foo2.lizards.k8s":            labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s),
 	}
 
-	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, "")
+	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, []string{}, "")
 	c.Assert(err, IsNil)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
@@ -87,7 +87,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"ioXkubernetes":               labels.NewLabel("ioXkubernetes", "foo", labels.LabelSourceContainer),
 	}
 
-	err := ParseLabelPrefixCfg([]string{}, "")
+	err := ParseLabelPrefixCfg([]string{}, []string{}, "")
 	c.Assert(err, IsNil)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
@@ -134,7 +134,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabelsDocExample(c *C) {
 		"io.kubernetes.pod.namespace":    labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceAny),
 	}
 
-	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name"}, "")
+	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name"}, []string{}, "")
 	c.Assert(err, IsNil)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{

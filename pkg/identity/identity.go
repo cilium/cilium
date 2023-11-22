@@ -193,7 +193,8 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 	scope := IdentityScopeGlobal
 
 	// If this is a remote node, return the remote node scope.
-	// Note that this is not reachable when policy-cidr-selects-nodes is false, since
+	// Note that this is not reachable when policy-cidr-selects-nodes is false or
+	// when enable-node-selector-labels is false, since
 	// callers will already have gotten a value from LookupReservedIdentityByLabels.
 	if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) {
 		return IdentityScopeRemoteNode
@@ -266,6 +267,12 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 		// If selecting remote-nodes via CIDR policies is allowed, then
 		// they no longer have a reserved identity.
 		if option.Config.PolicyCIDRMatchesNodes() {
+			return nil
+		}
+		// If selecting remote-nodes via node labels is allowed, then
+		// they no longer have a reserved identity and are using
+		// IdentityScopeRemoteNode.
+		if option.Config.PerNodeLabelsEnabled() {
 			return nil
 		}
 		nid = ReservedIdentityRemoteNode

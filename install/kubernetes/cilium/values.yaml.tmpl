@@ -1943,6 +1943,10 @@ envoy:
 # -- Enable use of the remote node identity.
 # ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity
 remoteNodeIdentity: true
+
+# -- Enable/Disable use of node label based identity
+nodeSelectorLabels: false
+
 # -- Enable resource quotas for priority classes used in the cluster.
 resourceQuotas:
   enabled: false

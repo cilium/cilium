@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -444,6 +445,10 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 			// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
 			nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
 			hasOverride = true
+		} else if !n.IsLocal() && option.Config.PerNodeLabelsEnabled() {
+			lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
+			filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
+			nodeLabels.MergeLabels(filteredLbls)
 		}
 	} else {
 		nodeLabels = labels.NewFrom(labels.LabelHost)

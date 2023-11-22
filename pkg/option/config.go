@@ -1184,6 +1184,13 @@ const (
 
 	// PolicyCIDRMatchMode defines the entities that CIDR selectors can reach
 	PolicyCIDRMatchMode = "policy-cidr-match-mode"
+
+	// EnableNodeSelectorLabels enables use of the node label based identity
+	EnableNodeSelectorLabels = "enable-node-selector-labels"
+
+	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
+	// EnableNodeSelectorLabels)
+	NodeLabels = "node-labels"
 )
 
 // Default string arguments
@@ -2418,6 +2425,13 @@ type DaemonConfig struct {
 
 	// ServiceNoBackendResponse determines how we handle traffic to a service with no backends.
 	ServiceNoBackendResponse string
+
+	// EnableNodeSelectorLabels enables use of the node label based identity
+	EnableNodeSelectorLabels bool
+
+	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
+	// EnableNodeSelectorLabels)
+	NodeLabels []string
 }
 
 var (
@@ -2711,6 +2725,12 @@ func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
 		}
 	}
 	return false
+}
+
+// PerNodeLabelsEnabled returns true if per-node labels feature
+// is enabled
+func (c *DaemonConfig) PerNodeLabelsEnabled() bool {
+	return c.EnableNodeSelectorLabels
 }
 
 func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
@@ -3526,6 +3546,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
+	c.EnableNodeSelectorLabels = vp.GetBool(EnableNodeSelectorLabels)
+	c.NodeLabels = vp.GetStringSlice(NodeLabels)
 }
 
 func (c *DaemonConfig) populateDevices(vp *viper.Viper) {
