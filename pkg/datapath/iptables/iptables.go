@@ -1300,12 +1300,24 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 					"-t", "nat",
 					"-A", ciliumPostNatChain,
 					"-s", allocRange,
-					"-d", r.Dst.String(),
+				}
+				if cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) {
+					progArgs = append(
+						progArgs,
+						"!", "-d", snatDstExclusionCIDR)
+				} else {
+					progArgs = append(
+						progArgs,
+						"-d", r.Dst.String())
 				}
 				if link != nil {
 					progArgs = append(
 						progArgs,
 						"-o", link.Attrs().Name)
+				} else {
+					progArgs = append(
+						progArgs,
+						"!", "-o", "cilium_+")
 				}
 				progArgs = append(
 					progArgs,
