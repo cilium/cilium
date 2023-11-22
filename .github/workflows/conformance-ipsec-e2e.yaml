@@ -243,7 +243,7 @@ jobs:
         with:
           job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
           operation-cmd: |
-            KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
+            KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
             if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
 
             if [[ "${{ matrix.key-two }}" == "gcm(aes)" ]]; then
@@ -253,14 +253,14 @@ jobs:
             else
               echo "Invalid key type"; exit 1
             fi
-            data="{\"stringData\":{\"keys\":\"$((($KEYID+1))) ${key}\"}}"
+            data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))+ ${key}\"}}"
             kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
 
             # Wait until key rotation starts
-            # We expect twice the amount of keys in use during rotation.
+            # We expect the amount of keys in use to grow during rotation.
             while true; do
               keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use == 16 ]]; then
+              if [[ $keys_in_use > 8 ]]; then
                 break
               fi
               echo "Waiting until key rotation starts (seeing $keys_in_use keys)"
