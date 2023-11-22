@@ -26,6 +26,15 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+// identitySelectorType enumerates the different types of identity selectors.
+// This is used for the selector source metrics.
+type identitySelectorType string
+
+const (
+	fqdnSelectorType  identitySelectorType = "fqdn"
+	labelSelectorType identitySelectorType = "endpoint"
+)
+
 // CachedSelector represents an identity selector owned by the selector cache
 type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
@@ -52,6 +61,10 @@ type CachedSelector interface {
 	// String returns the string representation of this selector.
 	// Used as a map key.
 	String() string
+
+	selectorType() identitySelectorType
+
+	updateSelections() int
 }
 
 // CachedSelectorSlice is a slice of CachedSelectors that can be sorted.
@@ -462,9 +475,13 @@ func (s *selectorManager) numUsers() int {
 
 // updateSelections updates the immutable slice representation of the
 // cached selections after the cached selections have been changed.
+// Returns a integer delta value of the number of identities added or
+// removed.
 //
 // lock must be held
-func (s *selectorManager) updateSelections() {
+func (s *selectorManager) updateSelections() int {
+	prev := len(s.GetSelections())
+
 	selections := make(identity.NumericIdentitySlice, len(s.cachedSelections))
 	i := 0
 	for nid := range s.cachedSelections {
@@ -478,6 +495,7 @@ func (s *selectorManager) updateSelections() {
 		return selections[i] < selections[j]
 	})
 	s.setSelections(&selections)
+	return len(s.GetSelections()) - prev
 }
 
 func (s *selectorManager) setSelections(selections *identity.NumericIdentitySlice) {
@@ -491,6 +509,10 @@ func (s *selectorManager) setSelections(selections *identity.NumericIdentitySlic
 type fqdnSelector struct {
 	selectorManager
 	selector api.FQDNSelector
+}
+
+func (s *fqdnSelector) selectorType() identitySelectorType {
+	return fqdnSelectorType
 }
 
 // lock must be held
@@ -657,6 +679,10 @@ type labelIdentitySelector struct {
 	selectorManager
 	selector   api.EndpointSelector
 	namespaces []string // allowed namespaces, or ""
+}
+
+func (s *labelIdentitySelector) selectorType() identitySelectorType {
+	return labelSelectorType
 }
 
 // lock must be held
