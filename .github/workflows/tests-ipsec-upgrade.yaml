@@ -271,8 +271,6 @@ jobs:
         uses: cilium/cilium/.github/actions/conn-disrupt-test@93f26fd0af7f5bd5832e08b10785ec53d4252b1c
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
-          # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
-          extra-connectivity-test-flags: --test '!no-missed-tail-calls'
           operation-cmd: |
             cd /host/
 
