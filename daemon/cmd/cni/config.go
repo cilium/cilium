@@ -59,6 +59,12 @@ func (c *cniConfigManager) GetChainingMode() string {
 	return c.config.CNIChainingMode
 }
 
+// ExternalRoutingEnabled returns true if the chained plugin implements routing
+// for Endpoints (Pods).
+func (c *cniConfigManager) ExternalRoutingEnabled() bool {
+	return c.config.CNIExternalRouting
+}
+
 // GetCustomNetConf returns the parsed custom CNI configuration, if provided
 // (In other words, the value to --read-cni-conf).
 // Otherwise, returns nil.

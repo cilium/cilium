@@ -18,6 +18,10 @@ func (f *FakeCNIConfigManager) GetChainingMode() string {
 	return "none"
 }
 
+func (c *FakeCNIConfigManager) ExternalRoutingEnabled() bool {
+	return false
+}
+
 func (f *FakeCNIConfigManager) GetCustomNetConf() *cnitypes.NetConf {
 	return nil
 }
