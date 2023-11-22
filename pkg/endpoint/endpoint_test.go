@@ -63,7 +63,7 @@ func (s *EndpointSuite) SetUpSuite(c *C) {
 
 	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
 	// GetConfig the default labels prefix filter
-	err := labelsfilter.ParseLabelPrefixCfg(nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
 	}
