@@ -48,14 +48,6 @@ func (info *RoutingInfo) GetIPv4CIDRs() []net.IPNet {
 	return info.IPv4CIDRs
 }
 
-func (info *RoutingInfo) GetMac() mac.MAC {
-	return info.MasterIfMAC
-}
-
-func (info *RoutingInfo) GetInterfaceNumber() int {
-	return info.InterfaceNumber
-}
-
 // NewRoutingInfo creates a new RoutingInfo struct, from data that will be
 // parsed and validated. Note, this code assumes IPv4 values because IPv4
 // (on either ENI or Azure interface) is the only supported path currently.
