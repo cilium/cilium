@@ -204,7 +204,7 @@ var (
 		},
 	}
 	identityAllocator = testidentity.NewMockIdentityAllocator(IdentityCache)
-	testSelectorCache = policy.NewSelectorCache(identityAllocator, IdentityCache)
+	testSelectorCache = policy.NewSelectorCache(identityAllocator, IdentityCache, nil)
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
 

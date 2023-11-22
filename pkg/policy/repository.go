@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyMetrics "github.com/cilium/cilium/pkg/policy/metrics"
 )
 
 // PolicyContext is an interface policy resolution functions use to access the Repository.
@@ -169,13 +170,16 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 }
 
 // NewPolicyRepository creates a new policy repository.
+//
+// Note: NewPolicyRepository is (currently) only used for constructing policy repo
+// for testing. So metrics are not passed in and are always disabled.
 func NewPolicyRepository(
 	idAllocator cache.IdentityAllocator,
 	idCache cache.IdentityCache,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 ) *Repository {
-	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager)
+	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager, nil)
 	repo.Start()
 	return repo
 }
@@ -190,8 +194,9 @@ func NewStoppedPolicyRepository(
 	idCache cache.IdentityCache,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
+	metrics *policyMetrics.Metrics,
 ) *Repository {
-	selectorCache := NewSelectorCache(idAllocator, idCache)
+	selectorCache := NewSelectorCache(idAllocator, idCache, newSelectorMetrics(metrics))
 	repo := &Repository{
 		rulesIndexByK8sUID: map[string]*rule{},
 		selectorCache:      selectorCache,

@@ -271,6 +271,8 @@ type SelectorCache struct {
 
 	// used to lazily start the handler for user notifications.
 	startNotificationsHandlerOnce sync.Once
+
+	selectorMetrics *selectorSourceMetrics
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -347,11 +349,14 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
-func NewSelectorCache(allocator cache.IdentityAllocator, ids cache.IdentityCache) *SelectorCache {
+func NewSelectorCache(allocator cache.IdentityAllocator, ids cache.IdentityCache, metrics policyMetricsActions) *SelectorCache {
 	sc := &SelectorCache{
 		idAllocator: allocator,
 		idCache:     getIdentityCache(ids),
 		selectors:   make(map[string]identitySelector),
+	}
+	if metrics != nil {
+		sc.selectorMetrics = newSelectorMetrics(metrics)
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	return sc
