@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net"
 	"path"
+	"slices"
 	"strings"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -423,6 +424,10 @@ func (n *Node) setAddress(typ addressing.AddressType, newIP net.IP) {
 		n.RemoveAddresses(typ)
 		return
 	}
+
+	// Create a copy of the slice, so that we don't modify the
+	// current one, which may be captured by any of the observers.
+	n.IPAddresses = slices.Clone(n.IPAddresses)
 
 	ipv6 := newIP.To4() == nil
 	// Try first to replace an existing address with same type
