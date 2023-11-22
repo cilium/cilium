@@ -275,6 +275,17 @@ type SelectorCache struct {
 	selectorMetrics *selectorSourceMetrics
 }
 
+// updateSelections performs selection updates on behalf of a selector manager type.
+// As well, if metrics are enabled it performs the correct accounting for the
+// selector source metrics.
+func (sm *SelectorCache) updateSelections(key string, sc CachedSelector) {
+	delta := sc.updateSelections()
+	if sm.selectorMetrics != nil {
+		_, exists := sm.selectors[key]
+		sm.selectorMetrics.updateSelector(sc, delta, !exists)
+	}
+}
+
 // GetModel returns the API model of the SelectorCache.
 func (sc *SelectorCache) GetModel() models.SelectorCache {
 	sc.mutex.RLock()
@@ -860,7 +871,7 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 	// identities match" this selector. This has to be updated via whatever is
 	// getting the CIDR identities which correspond to this FQDNSelector. This
 	// is the primary difference here between FQDNSelector and IdentitySelector.
-	fqdnSel.updateSelections()
+	sc.updateSelections(fqdnKey, fqdnSel)
 	fqdnSel.notifyUsers(sc, added, deleted, wg) // disjoint sets, see the comment above
 
 	return identitiesToRelease
@@ -937,7 +948,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 		sc.selectors[key] = newFQDNSel
 	}
 	identitiesToRelease := newFQDNSel.transferIdentityReferencesToSelector(currentlyAllocatedIdentities)
-	newFQDNSel.updateSelections()
+	sc.updateSelections(key, newFQDNSel)
 	added = newFQDNSel.addUser(user)
 	sc.mutex.Unlock()
 
@@ -1001,7 +1012,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, lbls labe
 	}
 	// Create the immutable slice representation of the selected
 	// numeric identities
-	newIDSel.updateSelections()
+	sc.updateSelections(key, newIDSel)
 
 	// Note: No notifications are sent for the existing
 	// identities. Caller must use GetSelections() to get the
@@ -1020,6 +1031,7 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	if exists {
 		if sel.removeUser(user, sc.localIdentityNotifier) {
 			delete(sc.selectors, key)
+			sc.selectorMetrics.deleteSelector(selector, len(selector.GetSelections()))
 			identitiesToRelease = sel.fetchIdentityMappings()
 		}
 	}
@@ -1137,7 +1149,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 	if len(deleted)+len(added) > 0 {
 		// Iterate through all locally used identity selectors and
 		// update the cached numeric identities as required.
-		for _, sel := range sc.selectors {
+		for selKey, sel := range sc.selectors {
 			var adds, dels []identity.NumericIdentity
 			switch idSel := sel.(type) {
 			case *labelIdentitySelector:
@@ -1156,7 +1168,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 					}
 				}
 				if len(dels)+len(adds) > 0 {
-					idSel.updateSelections()
+					sc.updateSelections(selKey, idSel)
 					idSel.notifyUsers(sc, adds, dels, wg)
 				}
 			case *fqdnSelector:
