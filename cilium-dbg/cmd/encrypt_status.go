@@ -169,6 +169,7 @@ func dumpIPsecStatus() {
 	interfaces := getDecryptionInterfaces()
 	fmt.Printf("Decryption interface(s): %s\n", strings.Join(interfaces, ", "))
 	fmt.Printf("Keys in use: %-26d\n", keys)
+	fmt.Printf("  %s\n", strings.Join(ipsec.UniqueIPsecKeys(xfrmStates), "\n  "))
 	fmt.Printf("Max Seq. Number: %s\n", oseq)
 	errCount, errMap := getXfrmStats("")
 	fmt.Printf("Errors: %-26d\n", errCount)

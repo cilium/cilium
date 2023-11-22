@@ -4,6 +4,8 @@
 package ipsec
 
 import (
+	"fmt"
+
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -16,17 +18,22 @@ const (
 )
 
 func CountUniqueIPsecKeys(states []netlink.XfrmState) int {
-	keys := make(map[string]bool)
+	return len(UniqueIPsecKeys(states))
+}
+
+func UniqueIPsecKeys(states []netlink.XfrmState) (keys []string) {
+	uniqueKeys := make(map[string]bool)
 	for _, s := range states {
 		if s.Aead == nil {
 			continue
 		}
-		keys[string(s.Aead.Key)] = true
+		if _, exist := uniqueKeys[string(s.Aead.Key)]; !exist {
+			keys = append(keys, fmt.Sprintf("%s 0x%x %d", s.Aead.Name, s.Aead.Key, s.Aead.ICVLen))
+			uniqueKeys[string(s.Aead.Key)] = true
+		}
 	}
-
-	return len(keys)
+	return keys
 }
-
 func CountXfrmStatesByDir(states []netlink.XfrmState) (int, int) {
 	nbXfrmIn := 0
 	nbXfrmOut := 0
