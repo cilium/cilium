@@ -264,6 +264,23 @@ func (in *EgressCommonRule) DeepEqual(other *EgressCommonRule) bool {
 		}
 	}
 
+	if ((in.ToNodes != nil) && (other.ToNodes != nil)) || ((in.ToNodes == nil) != (other.ToNodes == nil)) {
+		in, other := &in.ToNodes, &other.ToNodes
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.aggregatedSelectors != nil) && (other.aggregatedSelectors != nil)) || ((in.aggregatedSelectors == nil) != (other.aggregatedSelectors == nil)) {
 		in, other := &in.aggregatedSelectors, &other.aggregatedSelectors
 		if other == nil || !in.DeepEqual(other) {
@@ -620,6 +637,23 @@ func (in *IngressCommonRule) DeepEqual(other *IngressCommonRule) bool {
 		in, other := &in.FromEntities, &other.FromEntities
 		if other == nil || !in.DeepEqual(other) {
 			return false
+		}
+	}
+
+	if ((in.FromNodes != nil) && (other.FromNodes != nil)) || ((in.FromNodes == nil) != (other.FromNodes == nil)) {
+		in, other := &in.FromNodes, &other.FromNodes
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
 		}
 	}
 
