@@ -82,20 +82,25 @@ func (p *IPSecSuitePrivileged) TestParseSPI(c *C) {
 		input    string
 		expSPI   uint8
 		expOff   int
+		expESN   bool
 		expError bool
 	}{
-		{"254", 0, 0, true},
-		{"15", 15, 0, false},
-		{"abc", 1, -1, false},
-		{"0", 0, 0, true},
+		{"254", 0, 0, false, true},
+		{"15", 15, 0, false, false},
+		{"3+", 3, 0, true, false},
+		{"abc", 1, -1, false, false},
+		{"0", 0, 0, false, true},
 	}
 	for _, tc := range testCases {
-		spi, off, err := parseSPI(tc.input)
+		spi, off, esn, err := parseSPI(tc.input)
 		if spi != tc.expSPI {
 			c.Fatalf("For input %q, expected SPI %d, but got %d", tc.input, tc.expSPI, spi)
 		}
 		if off != tc.expOff {
 			c.Fatalf("For input %q, expected base offset %d, but got %d", tc.input, tc.expOff, off)
+		}
+		if esn != tc.expESN {
+			c.Fatalf("For input %q, expected ESN %t, but got %t", tc.input, tc.expESN, esn)
 		}
 		if tc.expError {
 			c.Assert(err, NotNil)
