@@ -1271,6 +1271,9 @@ const (
 	// CNIExclusive tells the agent to remove other CNI configuration files
 	CNIExclusive = "cni-exclusive"
 
+	// CNIExternalRouting delegates endpoint routing to the chained CNI plugin.
+	CNIExternalRouting = "cni-external-routing"
+
 	// CNILogFile is the path to a log file (on the host) for the CNI plugin
 	// binary to use for logging.
 	CNILogFile = "cni-log-file"

@@ -339,6 +339,18 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		// via cilium_host interface
 		epTemplate.DatapathConfiguration.InstallEndpointRoute = true
 
+		// EndpointRoutes mode enables two features:
+		// - Install one route per endpoint into the route table
+		// - Configure BPF programs at receive to the endpoint rather
+		//   than implementing the receive policy at the transmit point
+		//   for another device.
+		// If an external agent configures the routing table, then we
+		// don't need to configure routes for this endpoint. However,
+		// we *do* need to configure the BPF programs at receive.
+		if d.cniConfigManager.ExternalRoutingEnabled() {
+			epTemplate.DatapathConfiguration.InstallEndpointRoute = false
+		}
+
 		// Since routing occurs via endpoint interface directly, BPF
 		// program is needed on that device at egress as BPF program on
 		// cilium_host interface is bypassed

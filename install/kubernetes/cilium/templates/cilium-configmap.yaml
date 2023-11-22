@@ -811,6 +811,9 @@ data:
 {{- if (not (kindIs "invalid" .Values.cni.chainingTarget)) }}
   cni-chaining-target: {{ .Values.cni.chainingTarget | quote }}
 {{- end}}
+{{- if (not (kindIs "invalid" .Values.cni.externalRouting)) }}
+  cni-external-routing: {{ .Values.cni.externalRouting | quote }}
+{{- end}}
 {{- if .Values.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
 {{- end }}
