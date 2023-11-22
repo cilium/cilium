@@ -14,6 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -284,10 +285,25 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 		return
 	}
 
-	// Skip obviously uninteresting devices.
-	// We include the HostDevice as its IP addresses are consider node addresses
-	// and added to e.g. ipcache as HOST_IDs.
-	if dev.Name != defaults.HostDevice {
+	if dev.Name == defaults.HostDevice {
+		// If AddressScopeMax is a scope more broad (numerically less than) than SCOPE_LINK then
+		// include all addresses at SCOPE_LINK which are assigned to the Cilium host device.
+		if n.AddressScopeMax < unix.RT_SCOPE_LINK {
+			for _, addr := range sortedAddresses(dev.Addrs) {
+				if addr.Scope == unix.RT_SCOPE_LINK {
+					addrs.Insert(NodeAddress{
+						Addr:       addr.Addr,
+						NodePort:   false,
+						Primary:    false,
+						DeviceName: dev.Name,
+					})
+				}
+
+			}
+		}
+	} else {
+		// Skip obviously uninteresting devices. We include the HostDevice as its IP addresses are
+		// considered node addresses and added to e.g. ipcache as HOST_IDs.
 		for _, prefix := range defaults.ExcludedDevicePrefixes {
 			if strings.HasPrefix(dev.Name, prefix) {
 				return

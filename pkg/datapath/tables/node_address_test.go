@@ -57,6 +57,7 @@ func TestNodeAddressConfig(t *testing.T) {
 }
 
 var ciliumHostIP = net.ParseIP("9.9.9.9")
+var ciliumHostIPLinkScoped = net.ParseIP("9.9.9.8")
 
 var nodeAddressTests = []struct {
 	name         string
@@ -74,6 +75,7 @@ var nodeAddressTests = []struct {
 		},
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("10.0.0.1"),
 		},
 		wantNodePort: []net.IP{
@@ -90,6 +92,7 @@ var nodeAddressTests = []struct {
 		},
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("2001:db8::1"),
 		},
 		wantNodePort: []net.IP{
@@ -111,6 +114,7 @@ var nodeAddressTests = []struct {
 
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("2001:db8::1"),
 			net.ParseIP("10.0.0.1"),
 		},
@@ -139,9 +143,10 @@ var nodeAddressTests = []struct {
 		},
 
 		// The default AddressMaxScope is set to LINK-1, so addresses with
-		// scope LINK or above are ignored
+		// scope LINK or above are ignored (except for cilium_host addresses)
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("10.0.1.1"),
 		},
 
@@ -166,6 +171,7 @@ var nodeAddressTests = []struct {
 
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("10.0.0.1"),
 			net.ParseIP("10.0.0.2"),
 		},
@@ -189,6 +195,7 @@ var nodeAddressTests = []struct {
 
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("2001:db8::1"),
 			net.ParseIP("2600:beef::2"),
 		},
@@ -246,6 +253,7 @@ func TestNodeAddress(t *testing.T) {
 				Flags: net.FlagUp,
 				Addrs: []tables.DeviceAddress{
 					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: unix.RT_SCOPE_UNIVERSE},
+					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: unix.RT_SCOPE_LINK},
 				},
 				Selected: false,
 			})
@@ -302,6 +310,7 @@ var nodeAddressWhitelistTests = []struct {
 		},
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("10.0.0.1"),
 			net.ParseIP("11.0.0.1"),
 		},
@@ -324,6 +333,7 @@ var nodeAddressWhitelistTests = []struct {
 		},
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("2001:db8::1"),
 			net.ParseIP("2600:beef::2"),
 		},
@@ -355,6 +365,7 @@ var nodeAddressWhitelistTests = []struct {
 
 		wantLocal: []net.IP{
 			ciliumHostIP,
+			ciliumHostIPLinkScoped,
 			net.ParseIP("10.0.0.1"),
 			net.ParseIP("11.0.0.1"),
 			net.ParseIP("2001:db8::1"),
@@ -416,6 +427,7 @@ func TestNodeAddressWhitelist(t *testing.T) {
 				Flags: net.FlagUp,
 				Addrs: []tables.DeviceAddress{
 					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: unix.RT_SCOPE_UNIVERSE},
+					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: unix.RT_SCOPE_LINK},
 				},
 				Selected: false,
 			})
