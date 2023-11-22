@@ -87,6 +87,7 @@ func (i *IngressRule) sanitize() error {
 		"FromCIDR":      len(i.FromCIDR),
 		"FromCIDRSet":   len(i.FromCIDRSet),
 		"FromEntities":  len(i.FromEntities),
+		"FromNodes":     len(i.FromNodes),
 	}
 	l7Members := countL7Rules(i.ToPorts)
 	l7IngressSupport := map[string]bool{
@@ -120,6 +121,10 @@ func (i *IngressRule) sanitize() error {
 		return fmt.Errorf("The ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts.")
 	}
 
+	if len(i.FromNodes) > 0 && !option.Config.EnableNodeSelectorLabels {
+		return fmt.Errorf("FromNodes rules can only be applied when the %q flag is set", option.EnableNodeSelectorLabels)
+	}
+
 	for _, es := range i.FromEndpoints {
 		if err := es.sanitize(); err != nil {
 			return err
@@ -140,6 +145,12 @@ func (i *IngressRule) sanitize() error {
 
 	for n := range i.ICMPs {
 		if err := i.ICMPs[n].verify(); err != nil {
+			return err
+		}
+	}
+
+	for _, ns := range i.FromNodes {
+		if err := ns.sanitize(); err != nil {
 			return err
 		}
 	}
@@ -177,6 +188,7 @@ func (e *EgressRule) sanitize() error {
 		"ToServices":  len(e.ToServices),
 		"ToFQDNs":     len(e.ToFQDNs),
 		"ToGroups":    len(e.ToGroups),
+		"ToNodes":     len(e.ToNodes),
 	}
 	l3DependentL4Support := map[interface{}]bool{
 		"ToCIDR":      true,
@@ -186,6 +198,7 @@ func (e *EgressRule) sanitize() error {
 		"ToServices":  false, // see https://github.com/cilium/cilium/issues/20067
 		"ToFQDNs":     true,
 		"ToGroups":    true,
+		"ToNodes":     true,
 	}
 	l7Members := countL7Rules(e.ToPorts)
 	l7EgressSupport := map[string]bool{
@@ -224,6 +237,10 @@ func (e *EgressRule) sanitize() error {
 		return fmt.Errorf("The ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts.")
 	}
 
+	if len(e.ToNodes) > 0 && !option.Config.EnableNodeSelectorLabels {
+		return fmt.Errorf("ToNodes rules can only be applied when the %q flag is set", option.EnableNodeSelectorLabels)
+	}
+
 	for _, es := range e.ToEndpoints {
 		if err := es.sanitize(); err != nil {
 			return err
@@ -244,6 +261,12 @@ func (e *EgressRule) sanitize() error {
 
 	for n := range e.ICMPs {
 		if err := e.ICMPs[n].verify(); err != nil {
+			return err
+		}
+	}
+
+	for _, ns := range e.ToNodes {
+		if err := ns.sanitize(); err != nil {
 			return err
 		}
 	}

@@ -174,6 +174,13 @@ func (in *EgressCommonRule) DeepCopyInto(out *EgressCommonRule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ToNodes != nil {
+		in, out := &in.ToNodes, &out.ToNodes
+		*out = make([]EndpointSelector, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.aggregatedSelectors != nil {
 		in, out := &in.aggregatedSelectors, &out.aggregatedSelectors
 		*out = make(EndpointSelectorSlice, len(*in))
@@ -505,6 +512,13 @@ func (in *IngressCommonRule) DeepCopyInto(out *IngressCommonRule) {
 		in, out := &in.FromEntities, &out.FromEntities
 		*out = make(EntitySlice, len(*in))
 		copy(*out, *in)
+	}
+	if in.FromNodes != nil {
+		in, out := &in.FromNodes, &out.FromNodes
+		*out = make([]EndpointSelector, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.aggregatedSelectors != nil {
 		in, out := &in.aggregatedSelectors, &out.aggregatedSelectors
