@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -205,7 +206,7 @@ func (n *nodeAddressController) register() {
 				// Do an immediate update to populate the table before it is read from.
 				devices, _ := n.Devices.All(txn)
 				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
-					n.update(txn, nil, n.getAddressesFromDevice(dev), nil)
+					n.update(txn, nil, n.getAddressesFromDevice(dev), nil, dev.Name)
 				}
 				txn.Commit()
 
@@ -226,13 +227,15 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 	for {
 		txn := n.DB.WriteTxn(n.NodeAddresses)
 		process := func(dev *Device, deleted bool, rev statedb.Revision) error {
+			// Note: prefix match! existing may contain node addresses from devices with names
+			// prefixed by dev. See https://github.com/cilium/cilium/issues/29324.
 			addrIter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(dev.Name))
 			existing := statedb.CollectSet[NodeAddress](addrIter)
 			var new sets.Set[NodeAddress]
 			if !deleted {
 				new = n.getAddressesFromDevice(dev)
 			}
-			n.update(txn, existing, new, reporter)
+			n.update(txn, existing, new, reporter, dev.Name)
 			return nil
 		}
 		var watch <-chan struct{}
@@ -250,8 +253,10 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 	}
 }
 
-func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.Set[NodeAddress], reporter cell.HealthReporter) {
+// updates the node addresses of a single device.
+func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.Set[NodeAddress], reporter cell.HealthReporter, device string) {
 	updated := false
+	prefixLen := len(device)
 
 	// Insert new addresses that did not exist.
 	for addr := range new {
@@ -263,6 +268,12 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.
 
 	// Remove addresses that were not part of the new set.
 	for addr := range existing {
+		// Ensure full device name match. 'device' may be a prefix of DeviceName, and we don't want
+		// to delete node addresses of `cilium_host` because they are not on `cilium`.
+		if prefixLen != len(addr.DeviceName) {
+			continue
+		}
+
 		if !new.Has(addr) {
 			updated = true
 			n.NodeAddresses.Delete(txn, addr)
@@ -271,7 +282,7 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.
 
 	if updated {
 		addrs := showAddresses(new)
-		n.Log.WithField("node-addresses", addrs).Info("Node addresses updated")
+		n.Log.WithFields(logrus.Fields{"node-addresses": addrs, logfields.Device: device}).Info("Node addresses updated")
 		if reporter != nil {
 			reporter.OK(addrs)
 		}
@@ -291,14 +302,14 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 		if n.AddressScopeMax < unix.RT_SCOPE_LINK {
 			for _, addr := range sortedAddresses(dev.Addrs) {
 				if addr.Scope == unix.RT_SCOPE_LINK {
+					n.Log.Infof("HII2 - adding addr: %v prim: %v np: %v dev: %v", addr.Addr, !addr.Secondary, false, dev.Name)
 					addrs.Insert(NodeAddress{
 						Addr:       addr.Addr,
 						NodePort:   false,
-						Primary:    false,
+						Primary:    !addr.Secondary,
 						DeviceName: dev.Name,
 					})
 				}
-
 			}
 		}
 	} else {
@@ -350,6 +361,8 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 				ipv6Found = true
 			}
 		}
+
+		n.Log.Infof("HII - adding addr: %v prim: %v np: %v dev: %v", addr.Addr, primary, nodePort, dev.Name)
 
 		addrs.Insert(NodeAddress{
 			Addr:       addr.Addr,
