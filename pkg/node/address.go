@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -67,8 +66,6 @@ type addresses struct {
 
 type RouterInfo interface {
 	GetIPv4CIDRs() []net.IPNet
-	GetMac() mac.MAC
-	GetInterfaceNumber() int
 }
 
 func makeIPv6HostIP() net.IP {
