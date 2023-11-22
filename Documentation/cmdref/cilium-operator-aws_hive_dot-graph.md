@@ -17,6 +17,7 @@ cilium-operator-aws hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --bgp-v2-api-enabled                                   Enables BGPv2 APIs in Cilium
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-slice-mode string                                Slicing mode define how ceps are grouped into a CES (default "cesSliceModeIdentity")
       --ces-write-qps-burst int                              CES work queue burst rate (default 20)

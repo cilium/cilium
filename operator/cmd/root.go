@@ -32,6 +32,7 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
@@ -179,6 +180,7 @@ var (
 			apis.RegisterCRDsCell,
 			operatorK8s.ResourcesCell,
 
+			bgpv2.Cell,
 			lbipam.Cell,
 			auth.Cell,
 			store.Cell,
