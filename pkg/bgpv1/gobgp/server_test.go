@@ -187,7 +187,7 @@ func TestGetPeerConfig(t *testing.T) {
 		time:    ptr.To[int32](90),
 	}
 
-	var table = []struct {
+	table := []struct {
 		name     string
 		neighbor *v2alpha1.CiliumBGPNeighbor
 		expected *gobgp.Peer
@@ -244,7 +244,7 @@ func TestGetPeerConfig(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			svr, err := NewGoBGPServerWithConfig(context.Background(), log, testServerParameters)
+			svr, err := NewGoBGPServer(context.Background(), log, testServerParameters)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
