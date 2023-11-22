@@ -291,6 +291,15 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info %w", err)
 		}
+		if err = routingInfo.Configure(
+			result.IP,
+			d.mtuConfig.GetDeviceMTU(),
+			option.Config.EgressMultiHomeIPRuleCompat,
+			true,
+		); err != nil {
+			return nil, fmt.Errorf("failed to configure router IP rules and routes %w", err)
+		}
+
 		node.SetRouterInfo(routingInfo)
 	}
 
