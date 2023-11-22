@@ -445,6 +445,11 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2.CCECName):                 {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
 	synced.CRDResourceName(v2.CECName):                  {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
 	synced.CRDResourceName(v2alpha1.BGPPName):           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPCCName):          {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPAName):           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPPCName):          {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPNCName):          {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPNCOName):         {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.LBIPPoolName):       {skip, ""}, // Handled in LB IPAM
 	synced.CRDResourceName(v2alpha1.CNCName):            {skip, ""}, // Handled by init directly
 	synced.CRDResourceName(v2alpha1.CCGName):            {start, k8sAPIGroupCiliumCIDRGroupV2Alpha1},

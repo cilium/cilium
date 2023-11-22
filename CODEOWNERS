@@ -388,6 +388,7 @@ Makefile* @cilium/build
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
+/operator/pkg/bgpv2 @cilium/sig-bgp
 /operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
 /operator/pkg/controller-runtime @cilium/sig-servicemesh
 /operator/pkg/gateway-api @cilium/sig-servicemesh
