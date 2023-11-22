@@ -23,20 +23,21 @@ const (
 )
 
 func initDummyXfrmState() *netlink.XfrmState {
-	state := ipSecNewState()
-
 	k, _ := hex.DecodeString(aeadKey)
-	state.Aead = &netlink.XfrmStateAlgo{
-		Name:   aeadAlgo,
-		Key:    k,
-		ICVLen: 128,
+	return &netlink.XfrmState{
+		Mode:  netlink.XFRM_MODE_TUNNEL,
+		Proto: netlink.XFRM_PROTO_ESP,
+		ESN:   false,
+		Spi:   stateId,
+		Reqid: stateId,
+		Aead: &netlink.XfrmStateAlgo{
+			Name:   aeadAlgo,
+			Key:    k,
+			ICVLen: 128,
+		},
+		Src: net.ParseIP(dummyIP),
+		Dst: net.ParseIP(dummyIP),
 	}
-	state.Spi = stateId
-	state.Reqid = stateId
-
-	state.Src = net.ParseIP(dummyIP)
-	state.Dst = net.ParseIP(dummyIP)
-	return state
 }
 
 func createDummyXfrmState(state *netlink.XfrmState) error {
