@@ -23,6 +23,7 @@ cilium-operator [flags]
       --azure-user-assigned-identity-id string               ID of the user assigned identity used to auth with the Azure API
       --bgp-announce-lb-ip                                   Announces service IPs of type LoadBalancer via BGP
       --bgp-config-path string                               Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
+      --bgp-v2-api-enabled                                   Enables BGPv2 APIs in Cilium
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-slice-mode string                                Slicing mode define how ceps are grouped into a CES (default "cesSliceModeIdentity")
       --ces-write-qps-burst int                              CES work queue burst rate (default 20)

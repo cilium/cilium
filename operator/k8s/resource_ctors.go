@@ -70,3 +70,27 @@ func CiliumNodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*me
 		resource.WithMetric("CiliumNode"),
 	), nil
 }
+
+func CiliumBGPClusterConfigResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPClusterConfigList](cs.CiliumV2alpha1().CiliumBGPClusterConfigs()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumBGPClusterConfig](lc, lw, resource.WithMetric("CiliumBGPClusterConfig")), nil
+}
+
+func CiliumBGPNodeConfigOverrideResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverrideList](cs.CiliumV2alpha1().CiliumBGPNodeConfigOverrides()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride](lc, lw, resource.WithMetric("CiliumBGPNodeConfigOverride")), nil
+}
