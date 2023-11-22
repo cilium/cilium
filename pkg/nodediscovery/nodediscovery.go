@@ -80,6 +80,7 @@ type NodeDiscovery struct {
 	localNode             nodeTypes.Node
 	clientset             client.Clientset
 	nodeAddressSources    []GetNodeAddresses
+	ctrlmgr               *controller.Manager
 }
 
 func enableLocalNodeRoute() bool {
@@ -133,6 +134,7 @@ func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientse
 		localStateInitialized: make(chan struct{}),
 		NetConf:               netConf,
 		clientset:             clientset,
+		ctrlmgr:               controller.NewManager(),
 	}
 }
 
@@ -314,24 +316,28 @@ func (n *NodeDiscovery) fillLocalNode() {
 
 func (n *NodeDiscovery) updateLocalNode() {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
-		go func() {
-			<-n.Registered
-			controller.NewManager().UpdateController(
-				"propagating local node change to kv-store",
-				controller.ControllerParams{
-					Group: localNodeToKVStoreControllerGroup,
-					DoFunc: func(ctx context.Context) error {
-						n.localNodeLock.Lock()
-						localNode := n.localNode.DeepCopy()
-						n.localNodeLock.Unlock()
-						err := n.Registrar.UpdateLocalKeySync(localNode)
-						if err != nil {
-							log.WithError(err).Error("Unable to propagate local node change to kvstore")
-						}
-						return err
-					},
-				})
-		}()
+		n.ctrlmgr.UpdateController(
+			"propagating local node change to kv-store",
+			controller.ControllerParams{
+				Group:                localNodeToKVStoreControllerGroup,
+				CancelDoFuncOnUpdate: true,
+				DoFunc: func(ctx context.Context) error {
+					select {
+					case <-n.Registered:
+					case <-ctx.Done():
+						return nil
+					}
+
+					n.localNodeLock.Lock()
+					localNode := n.localNode.DeepCopy()
+					n.localNodeLock.Unlock()
+					err := n.Registrar.UpdateLocalKeySync(localNode)
+					if err != nil {
+						log.WithError(err).Error("Unable to propagate local node change to kvstore")
+					}
+					return err
+				},
+			})
 	}
 
 	if n.clientset.IsEnabled() {
