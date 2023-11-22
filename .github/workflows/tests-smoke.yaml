@@ -78,7 +78,7 @@ jobs:
 
   conformance-test:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.tested == 'true' }}
+    if: ${{ needs.check_changes.outputs.tested == 'true' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-latest
     name: Installation and Conformance Test
     steps:
