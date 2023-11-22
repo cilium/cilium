@@ -74,6 +74,7 @@ const (
 
 type ipSecKey struct {
 	Spi   uint8
+	ESN   bool
 	ReqID int
 	Auth  *netlink.XfrmStateAlgo
 	Crypt *netlink.XfrmStateAlgo
@@ -815,6 +816,7 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 			oldSpi     uint8
 			aeadKey    []byte
 			authKey    []byte
+			esn        bool
 			err        error
 			offsetBase int
 		)
@@ -833,7 +835,7 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spi, offsetBase, err = parseSPI(s[offsetSPI])
+		spi, offsetBase, esn, err = parseSPI(s[offsetSPI])
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
@@ -892,6 +894,7 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 		}
 
 		ipSecKey.Spi = spi
+		ipSecKey.ESN = esn
 
 		if len(s) == offsetBase+offsetIP+1 {
 			// The IPsec secret has the optional IP address field at the end.
@@ -913,21 +916,26 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 	return keyLen, spi, nil
 }
 
-func parseSPI(spiStr string) (uint8, int, error) {
+func parseSPI(spiStr string) (uint8, int, bool, error) {
+	esn := false
+	if spiStr[len(spiStr)-1] == '+' {
+		esn = true
+		spiStr = spiStr[:len(spiStr)-1]
+	}
 	spi, err := strconv.Atoi(spiStr)
 	if err != nil {
 		// If no version info is provided assume using key format without
 		// versioning and assign SPI.
 		log.Warning("IPsec secrets without an SPI as the first argument are deprecated and will be unsupported in v1.13.")
-		return 1, -1, nil
+		return 1, -1, esn, nil
 	}
 	if spi > linux_defaults.IPsecMaxKeyVersion {
-		return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+		return 0, 0, false, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
 	if spi == 0 {
-		return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+		return 0, 0, false, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
-	return uint8(spi), 0, nil
+	return uint8(spi), 0, esn, nil
 }
 
 func SetIPSecSPI(spi uint8) error {
