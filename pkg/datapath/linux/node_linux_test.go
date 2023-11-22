@@ -138,6 +138,7 @@ func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
 }
 
 func tearDownTest(c *check.C) {
+	ipsec.DeleteXfrm()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
 	err := tunnel.TunnelMap().Unpin()
