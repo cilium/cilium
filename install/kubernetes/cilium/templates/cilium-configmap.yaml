@@ -1091,6 +1091,7 @@ data:
 {{- if .Values.bgpControlPlane.enabled }}
   enable-bgp-control-plane: "true"
   bgp-secrets-namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
+  bgp-v2-api-enabled: {{ .Values.bgpControlPlane.v2Enabled | quote }}
 {{- else }}
   enable-bgp-control-plane: "false"
 {{- end }}
