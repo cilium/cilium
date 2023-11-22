@@ -1117,6 +1117,12 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.MaxInternalTimerDelay)
 	option.BindEnv(vp, option.MaxInternalTimerDelay)
 
+	flags.Bool(option.EnableNodeSelectorLabels, defaults.EnableNodeSelectorLabels, "Enable use of node label based identity")
+	option.BindEnv(vp, option.EnableNodeSelectorLabels)
+
+	flags.StringSlice(option.NodeLabels, []string{}, "List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)")
+	option.BindEnv(vp, option.NodeLabels)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
@@ -1327,7 +1333,7 @@ func initEnv(vp *viper.Viper) {
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {
 		log.Fatal("Either IPv4 or IPv6 addressing must be enabled")
 	}
-	if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.LabelPrefixFile); err != nil {
+	if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
 

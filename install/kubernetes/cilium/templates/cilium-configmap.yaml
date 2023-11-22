@@ -841,6 +841,7 @@ data:
   enable-well-known-identities: "false"
 {{- end }}
   enable-remote-node-identity: {{ .Values.remoteNodeIdentity | quote }}
+  enable-node-selector-labels: {{ .Values.nodeSelectorLabels | quote }}
 
 {{- if hasKey .Values "synchronizeK8sNodes" }}
   synchronize-k8s-nodes: {{ .Values.synchronizeK8sNodes | quote }}

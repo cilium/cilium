@@ -124,6 +124,9 @@ const (
 	// LabelSourceCIDR is the label source for generated CIDRs.
 	LabelSourceCIDR = "cidr"
 
+	// LabelSourceNode is the label source for remote-nodes.
+	LabelSourceNode = "node"
+
 	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
 	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
 

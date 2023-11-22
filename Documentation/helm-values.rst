@@ -2364,6 +2364,10 @@
      - Node selector for cilium-agent.
      - object
      - ``{"kubernetes.io/os":"linux"}``
+   * - :spelling:ignore:`nodeSelectorLabels`
+     - Enable/Disable use of node label based identity
+     - bool
+     - ``false``
    * - :spelling:ignore:`nodeinit.affinity`
      - Affinity for cilium-nodeinit
      - object
