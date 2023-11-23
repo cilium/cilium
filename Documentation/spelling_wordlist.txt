@@ -39,6 +39,8 @@ Fastabend
 Fosdem
 Freescale
 Fsnotify
+GCP
+GKE
 Gartrell
 Gbit
 GiB

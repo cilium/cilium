@@ -20,3 +20,4 @@ Multi-cluster Networking
    policy
    affinity
    aks-clustermesh-prep
+   gke-clustermesh-prep
