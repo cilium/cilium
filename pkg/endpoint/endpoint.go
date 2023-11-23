@@ -1761,20 +1761,13 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 	if blocking {
 		regenTriggeredCh = make(chan bool)
 	}
-	done := make(chan bool)
 	controllerName := resolveLabels + "-" + e.GetK8sNamespaceAndPodName()
-	go func() {
-		select {
-		case <-done:
-		case <-e.aliveCtx.Done():
-			return
-		}
-		e.controllers.RemoveController(controllerName)
-	}()
 
 	e.controllers.UpdateController(controllerName,
 		controller.ControllerParams{
-			Group: resolveLabelsControllerGroup,
+			// Do not run this controller again after returning.
+			RunInterval: 0,
+			Group:       resolveLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				regenTriggered, err := e.metadataResolver(ctx, restoredEndpoint, blocking, baseLabels, bwm, resolveMetadata)
 				if blocking {
@@ -1789,7 +1782,6 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 				if err != nil {
 					return err
 				}
-				close(done)
 				return nil
 			},
 			Context: e.aliveCtx,
