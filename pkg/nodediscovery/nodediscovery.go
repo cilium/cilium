@@ -26,7 +26,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -55,7 +54,6 @@ var (
 )
 
 type k8sGetters interface {
-	GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error)
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
@@ -357,44 +355,12 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 }
 
 func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln *node.LocalNode) error {
-	var (
-		providerID string
-	)
-
-	// If we are unable to fetch the K8s Node resource and the CiliumNode does
-	// not have an OwnerReference set, then somehow we are running in an
-	// environment where only the CiliumNode exists. Do not proceed as this is
-	// unexpected.
-	//
-	// Note that we can rely on the OwnerReference to be set on the CiliumNode
-	// as this was added in sufficiently earlier versions of Cilium (v1.6).
-	// Source:
-	// https://github.com/cilium/cilium/commit/5c365f2c6d7930dcda0b8f0d5e6b826a64022a4f
-	slimNode, err := n.k8sGetters.GetK8sNode(
-		context.TODO(),
-		nodeTypes.GetName(),
-	)
-	switch {
-	case err != nil && k8serrors.IsNotFound(err) && len(nodeResource.ObjectMeta.OwnerReferences) == 0:
-		log.WithError(err).WithField(
-			logfields.NodeName, nodeTypes.GetName(),
-		).Fatal(
-			"Kubernetes Node resource does not exist, setting OwnerReference on " +
-				"CiliumNode is impossible. This is unexpected. Please investigate " +
-				"why Cilium is running on a Node that supposedly does not exist " +
-				"according to Kubernetes.",
-		)
-	case err != nil && !k8serrors.IsNotFound(err):
-		return fmt.Errorf("failed to fetch Kubernetes Node resource: %w", err)
-	}
-
 	nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion: "v1",
 		Kind:       "Node",
-		Name:       nodeTypes.GetName(),
-		UID:        slimNode.UID,
+		Name:       ln.Name,
+		UID:        ln.UID,
 	}}
-	providerID = slimNode.Spec.ProviderID
 
 	nodeResource.ObjectMeta.Labels = ln.Labels
 	nodeResource.ObjectMeta.Annotations = ln.Annotations
@@ -533,10 +499,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 		nodeResource.Spec.ENI.NodeSubnetID = subnetID
 
 	case ipamOption.IPAMAzure:
-		if providerID == "" {
+		if ln.ProviderID == "" {
 			log.Fatal("Spec.ProviderID in k8s node resource must be set for Azure IPAM")
 		}
-		if !strings.HasPrefix(providerID, azureTypes.ProviderPrefix) {
+		if !strings.HasPrefix(ln.ProviderID, azureTypes.ProviderPrefix) {
 			log.Fatalf("Spec.ProviderID in k8s node resource must have prefix %s", azureTypes.ProviderPrefix)
 		}
 		// The Azure controller in Kubernetes creates a mix of upper
@@ -544,7 +510,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 		// therefore not providing the exact representation of what is
 		// returned by the Azure API. Convert it to lower case for
 		// consistent results.
-		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(providerID, azureTypes.ProviderPrefix))
+		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(ln.ProviderID, azureTypes.ProviderPrefix))
 
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
