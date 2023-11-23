@@ -72,16 +72,6 @@ type IPCache interface {
 	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
 }
 
-// Configuration is the set of configuration options the node manager depends
-// on
-type Configuration interface {
-	TunnelingEnabled() bool
-	RemoteNodeIdentitiesEnabled() bool
-	NodeEncryptionEnabled() bool
-	IsLocalRouterIP(string) bool
-	NodeIpsetNeeded() bool
-}
-
 var _ Notifier = (*manager)(nil)
 
 // manager is the entity that manages a collection of nodes
@@ -122,7 +112,7 @@ type manager struct {
 
 	// conf is the configuration of the caller passed in via NewManager.
 	// This field is immutable after NewManager()
-	conf Configuration
+	conf *option.DaemonConfig
 
 	// ipcache is the set operations performed against the ipcache
 	ipcache IPCache
@@ -243,7 +233,7 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c Configuration, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
@@ -394,7 +384,7 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 	// encapsulation. In encryption case we also want to use vxlan device
 	// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
 	return address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
-		option.Config.EnableHostFirewall || option.Config.JoinCluster
+		m.conf.EnableHostFirewall || m.conf.JoinCluster
 }
 
 func (m *manager) nodeAddressHasEncryptKey(address nodeTypes.Address) bool {
@@ -418,13 +408,13 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 	if m.conf.RemoteNodeIdentitiesEnabled() {
 		if n.IsLocal() {
 			nodeLabels = labels.NewFrom(labels.LabelHost)
-			if option.Config.PolicyCIDRMatchesNodes() {
+			if m.conf.PolicyCIDRMatchesNodes() {
 				for _, address := range n.IPAddresses {
 					addr, ok := ip.AddrFromIP(address.IP)
 					if ok {
 						bitLen := addr.BitLen()
-						if option.Config.EnableIPv4 && bitLen == net.IPv4len*8 ||
-							option.Config.EnableIPv6 && bitLen == net.IPv6len*8 {
+						if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
+							m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
 							prefix, err := addr.Prefix(bitLen)
 							if err == nil {
 								cidrLabels := labels.GetCIDRLabels(prefix)
@@ -520,7 +510,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 		lbls := nodeLabels
 		// Add the CIDR labels for this node, if we allow selecting nodes by CIDR
-		if option.Config.PolicyCIDRMatchesNodes() {
+		if m.conf.PolicyCIDRMatchesNodes() {
 			lbls = labels.NewFrom(nodeLabels)
 			lbls.MergeLabels(labels.GetCIDRLabels(prefix))
 		}
@@ -847,14 +837,14 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 						// To avoid flooding network with arping requests
 						// at the same time, spread them over the
 						// [0; ARPPingRefreshPeriod/2) period.
-						n := randGen.Int63n(int64(option.Config.ARPPingRefreshPeriod / 2))
+						n := randGen.Int63n(int64(m.conf.ARPPingRefreshPeriod / 2))
 						time.Sleep(time.Duration(n))
 						nh.NodeNeighborRefresh(c, e)
 					}(ctx, entryNode)
 				}
 				return nil
 			},
-			RunInterval: option.Config.ARPPingRefreshPeriod,
+			RunInterval: m.conf.ARPPingRefreshPeriod,
 		},
 	)
 }

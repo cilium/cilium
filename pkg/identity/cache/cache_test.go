@@ -12,7 +12,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -58,7 +57,7 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, worldID)
 
-	identity.InitWellKnownIdentities(&fakeConfig.Config{}, cmtypes.ClusterInfo{Name: "default", ID: 5})
+	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 
 	id = mgr.LookupIdentity(context.TODO(), kvstoreLabels)
 	c.Assert(id, Not(IsNil))

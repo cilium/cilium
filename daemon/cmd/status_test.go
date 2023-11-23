@@ -18,7 +18,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
-	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -28,8 +27,14 @@ type GetNodesSuite struct {
 var _ = Suite(&GetNodesSuite{})
 
 var (
-	nm        manager.NodeManager
-	mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 0, nil)
+	nm         manager.NodeManager
+	mtuConfig  = mtu.NewConfiguration(0, false, false, false, false, 0, nil)
+	fakeConfig = &option.DaemonConfig{
+		RoutingMode:              option.RoutingModeTunnel,
+		EnableRemoteNodeIdentity: true,
+		EnableIPSec:              true,
+		EncryptNode:              true,
+	}
 )
 
 func (g *GetNodesSuite) SetUpTest(c *C) {
@@ -39,7 +44,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.New(&fakeConfig.Config{}, nil, nil, manager.NewNodeMetrics(), cell.TestScope())
+	nm, err = manager.New(fakeConfig, nil, nil, manager.NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, IsNil)
 }
 
