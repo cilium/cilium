@@ -38,7 +38,9 @@ var (
 // ip: The endpoint IP address to direct traffic out / from interface.
 // info: The interface routing info used to create rules and routes.
 // mtu: The interface MTU.
-func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
+// compat: Whether to use the compat egress priority or not.
+// host: Whether the IP is a host IP and needs to be routed via the 'local' table
+func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) error {
 	if ip.To4() == nil {
 		log.WithFields(logrus.Fields{
 			"endpointIP": ip,
@@ -56,15 +58,20 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 		Mask: net.CIDRMask(32, 32),
 	}
 
-	// On ingress, route all traffic to the endpoint IP via the main routing
-	// table. Egress rules are created in a per-ENI routing table.
-	if err := route.ReplaceRule(route.Rule{
-		Priority: linux_defaults.RulePriorityIngress,
-		To:       &ipWithMask,
-		Table:    route.MainTable,
-		Protocol: linux_defaults.RTProto,
-	}); err != nil {
-		return fmt.Errorf("unable to install ip rule: %s", err)
+	// Ingress rule. This rule is not installed for the cilium_host IP, because
+	// the cilium_host IP is a local IP and therefore must be routed via the
+	// 'local' table instead of 'main'.
+	if !host {
+		// On ingress, route all traffic to the endpoint IP via the main routing
+		// table. Egress rules are created in a per-ENI routing table.
+		if err := route.ReplaceRule(route.Rule{
+			Priority: linux_defaults.RulePriorityIngress,
+			To:       &ipWithMask,
+			Table:    route.MainTable,
+			Protocol: linux_defaults.RTProto,
+		}); err != nil {
+			return fmt.Errorf("unable to install ip rule: %s", err)
+		}
 	}
 
 	var egressPriority, tableID int
