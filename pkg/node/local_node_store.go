@@ -6,6 +6,8 @@ package node
 import (
 	"context"
 
+	k8stypes "k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
@@ -18,6 +20,11 @@ type LocalNode struct {
 	// OptOutNodeEncryption will make the local node opt-out of node-to-node
 	// encryption
 	OptOutNodeEncryption bool
+	// Unique identifier of the Kubernetes node, used to construct the
+	// corresponding owner reference.
+	UID k8stypes.UID
+	// ID of the node assigned by the cloud provider.
+	ProviderID string
 }
 
 // LocalNodeInitializer specifies how to build the initial local node object.
