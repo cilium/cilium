@@ -82,6 +82,9 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
           - kernel: '5.15-20231124.100406'
             ci-kernel: '510'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          - kernel: '6.1-20231124.100406'
+            ci-kernel: '510'
             # We don't want to update bpf-next after branching
           - kernel: 'bpf-next-20230420.212204'
             ci-kernel: 'netnext'
