@@ -53,7 +53,6 @@ func TestLabelsnamesToValues(t *testing.T) {
 		"3": {},
 		"4": {},
 	}, ntov["bar"])
-
 	assert.NoError(t, ls.checkLabels(map[string]string{
 		"foo": "0",
 		"bar": "2",
