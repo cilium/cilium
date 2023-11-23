@@ -38,14 +38,9 @@ Cluster Addressing Requirements
 
 .. note::
   
-  If you intend to connect two AKS (Azure Kubernetes Service) clusters together
-  you can follow the :ref:`gs_clustermesh_aks_prep` guide for instruction on
-  how to meet the above requirements.
-
-.. note::
-  
-  If you intend to connect two Google Kubernetes Engine (GKE) clusters together
-  you can follow the :ref:`gs_clustermesh_gke_prep` guide for instruction on
+  For cloud-specific deployments, you can check out the :ref:`gs_clustermesh_aks_prep`
+  guide for Azure Kubernetes Service (AKS) or the :ref:`gs_clustermesh_gke_prep` 
+  guide for Google Kubernetes Engine (GKE) clusters for instructions on
   how to meet the above requirements.
 
 Additional Requirements for Native-routed Datapath Modes
