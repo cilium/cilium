@@ -17,6 +17,8 @@ var exactPathType = networkingv1.PathTypeExact
 
 var prefixPathType = networkingv1.PathTypePrefix
 
+var implementationSpecificPathType = networkingv1.PathTypeImplementationSpecific
+
 var testAnnotations = map[string]string{
 	"service.beta.kubernetes.io/dummy-load-balancer-backend-protocol":    "http",
 	"service.beta.kubernetes.io/dummy-load-balancer-access-log-enabled":  "true",
@@ -1233,6 +1235,129 @@ var complexNodePortIngressListeners = []model.HTTPListener{
 	},
 }
 
+// multiplePathTypes checks what happens when we have multiple path types in
+// the one Ingress object.
+//
+// Note that there's no sorting done at this point, the sorting is performed
+// in the translation step, not this ingestion step.
+var multiplePathTypes = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "dummy-ingress",
+		Namespace: "dummy-namespace",
+		UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+	},
+	Spec: networkingv1.IngressSpec{
+		IngressClassName: stringp("cilium"),
+		Rules: []networkingv1.IngressRule{
+			{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
+							{
+								Path: "/impl",
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "dummy-backend",
+										Port: networkingv1.ServiceBackendPort{
+											Number: 8080,
+										},
+									},
+								},
+								PathType: &implementationSpecificPathType,
+							},
+							{
+								Path: "/",
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "another-dummy-backend",
+										Port: networkingv1.ServiceBackendPort{
+											Number: 8081,
+										},
+									},
+								},
+								PathType: &prefixPathType,
+							},
+							{
+								Path: "/exact",
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "another-dummy-backend",
+										Port: networkingv1.ServiceBackendPort{
+											Number: 8081,
+										},
+									},
+								},
+								PathType: &exactPathType,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var multiplePathTypesListeners = []model.HTTPListener{
+	{
+		Name: "ing-dummy-ingress-dummy-namespace-*",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "dummy-ingress",
+				Namespace: "dummy-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+				UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Regex: "/impl",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "another-dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8081,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Exact: "/exact",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "another-dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8081,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func stringp(in string) *string {
 	return &in
 }
@@ -1388,6 +1513,10 @@ func TestIngress(t *testing.T) {
 			ingress:       removeIngressTLSsecretName(complexNodePortIngress),
 			defaultSecret: true,
 			want:          useDefaultListenersTLSsecret(complexNodePortIngressListeners),
+		},
+		"cilium multiple path types": {
+			ingress: multiplePathTypes,
+			want:    multiplePathTypesListeners,
 		},
 	}
 
