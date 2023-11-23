@@ -62,8 +62,8 @@ Install cluster one
 3.  We now have a virtual network and a subnet with the same CIDR. We can 
     create an AKS cluster without CNI and request to use our custom VNet and subnet.
 
-    During creation we also request to use ``"10.10.0.0/16`` as the pod CIDR and
-    ``"10.11.0.0/16`` as the services CIDR. These can be changed to any range
+    During creation we also request to use ``"10.10.0.0/16"`` as the pod CIDR and
+    ``"10.11.0.0/16"`` as the services CIDR. These can be changed to any range
     except for Azure reserved ranges and ranges used by other clusters we intend to
     add to the clustermesh.
 
@@ -151,8 +151,8 @@ arguments.
 3.  Create an AKS cluster without CNI and request to use our custom VNet and 
     subnet.
 
-    During creation we also request to use ``"10.20.0.0/16`` as the pod CIDR and
-    ``"10.21.0.0/16`` as the services CIDR. These can be changed to any range
+    During creation we also request to use ``"10.20.0.0/16"`` as the pod CIDR and
+    ``"10.21.0.0/16"`` as the services CIDR. These can be changed to any range
     except for Azure reserved ranges and ranges used by other clusters we intend to
     add to the clustermesh.
 
