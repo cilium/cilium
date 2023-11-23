@@ -218,7 +218,13 @@ func TestDebounce(t *testing.T) {
 			t.Fatalf("expected %d, got %d", i+2, x)
 		}
 	}
+
+	// Wait until the debounce period expired before canceling it, to make
+	// sure we don't emit any spurious events at that point (the test would
+	// block, as the out channel is unbuffered, and no one is receiving).
+	time.Sleep(10 * time.Millisecond)
 	cancel()
+
 	err := <-errs
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected Canceled error, got %s", err)
