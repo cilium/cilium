@@ -340,6 +340,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			healthIP,
 			mtuConfig.GetDeviceMTU(),
 			option.Config.EgressMultiHomeIPRuleCompat,
+			false,
 		); err != nil {
 
 			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %s", err)
@@ -371,5 +372,5 @@ type policyRepoGetter interface {
 }
 
 type routingConfigurer interface {
-	Configure(ip net.IP, mtu int, compat bool) error
+	Configure(ip net.IP, mtu int, compat bool, host bool) error
 }

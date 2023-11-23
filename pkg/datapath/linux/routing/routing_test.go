@@ -51,7 +51,7 @@ func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 	_, ri := getFakes(c)
 	ipv6 := net.ParseIP("fd00::2").To16()
 	c.Assert(ipv6, NotNil)
-	err := ri.Configure(ipv6, 1500, false)
+	err := ri.Configure(ipv6, 1500, false, false)
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
@@ -174,7 +174,7 @@ func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int) {
 }
 
 func runConfigure(c *C, ri RoutingInfo, ip net.IP, mtu int) {
-	err := ri.Configure(ip, mtu, false)
+	err := ri.Configure(ip, mtu, false, false)
 	c.Assert(err, IsNil)
 }
 
