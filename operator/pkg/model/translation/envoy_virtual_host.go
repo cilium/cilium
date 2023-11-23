@@ -37,9 +37,13 @@ type VirtualHostMutator func(*envoy_config_route_v3.VirtualHost) *envoy_config_r
 // SortableRoute is a slice of envoy Route, which can be sorted based on
 // matching order as per Ingress requirement.
 //
-//   - Exact Match must have the highest priority
-//   - If multiple prefix matches are satisfied, the longest path is having
-//     higher priority
+// The sorting order is as follows, continuing on ties, and also noting that
+// when Exact, Regex, or Prefix matches are unset, their length is zero:
+//   - Exact Match length
+//   - Regex Match length
+//   - Prefix match length
+//   - Number of header matches
+//   - Number of query parameter matches
 //
 // As Envoy route matching logic is done sequentially, we need to enforce
 // such sorting order.
@@ -51,48 +55,38 @@ func (s SortableRoute) Len() int {
 
 func (s SortableRoute) Less(i, j int) bool {
 	// Make sure Exact Match always comes first
-	isExactMatch1 := len(s[i].Match.GetPath()) != 0
-	isExactMatch2 := len(s[j].Match.GetPath()) != 0
-	if isExactMatch1 && isExactMatch2 {
-		return len(s[i].Match.GetPath()) > len(s[j].Match.GetPath())
-	}
-	if isExactMatch1 {
-		return true
-	}
-	if isExactMatch2 {
-		return false
+	exactMatch1 := len(s[i].Match.GetPath())
+	exactMatch2 := len(s[j].Match.GetPath())
+	if exactMatch1 != exactMatch2 {
+		return exactMatch1 > exactMatch2
 	}
 
-	// Make sure longest Prefix match always comes first
+	// Make sure longest Regex match always after Exact
+	regexMatch1 := len(s[i].Match.GetSafeRegex().GetRegex())
+	regexMatch2 := len(s[j].Match.GetSafeRegex().GetRegex())
+	if regexMatch1 != regexMatch2 {
+		return regexMatch1 > regexMatch2
+	}
+
+	// There are two types of prefix match, so get whichever one is bigger
 	prefixMatch1 := math.IntMax(len(s[i].Match.GetPathSeparatedPrefix()), len(s[i].Match.GetPrefix()))
 	prefixMatch2 := math.IntMax(len(s[j].Match.GetPathSeparatedPrefix()), len(s[j].Match.GetPrefix()))
-	if prefixMatch1 > prefixMatch2 {
-		return true
-	} else if prefixMatch1 < prefixMatch2 {
-		return false
-	}
-
-	// Make sure longest Regex match always comes first
-	regexMatch1 := len(s[i].Match.GetSafeRegex().String())
-	regexMatch2 := len(s[j].Match.GetSafeRegex().String())
-	if regexMatch1 > regexMatch2 {
-		return true
-	} else if regexMatch1 < regexMatch2 {
-		return false
-	}
-
-	// Make sure the longest header match always comes first
 	headerMatch1 := len(s[i].Match.GetHeaders())
 	headerMatch2 := len(s[j].Match.GetHeaders())
-	if headerMatch1 > headerMatch2 {
-		return true
-	} else if headerMatch1 < headerMatch2 {
-		return false
-	}
-
-	// Make sure the longest query match always comes first
 	queryMatch1 := len(s[i].Match.GetQueryParameters())
 	queryMatch2 := len(s[j].Match.GetQueryParameters())
+
+	// Next up, sort by prefix match length
+	if prefixMatch1 != prefixMatch2 {
+		return prefixMatch1 > prefixMatch2
+	}
+
+	// If that's the same, then sort by header length
+	if headerMatch1 != headerMatch2 {
+		return headerMatch1 > headerMatch2
+	}
+
+	// lastly, sort by query match length
 	return queryMatch1 > queryMatch2
 }
 

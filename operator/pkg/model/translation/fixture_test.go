@@ -488,3 +488,70 @@ var complexIngressModel = &model.Model{
 		},
 	},
 }
+
+// multiplePathTypesModel is used to test that sorting of different path
+// types works correctly.
+//
+// It's based off of the output of the multiplePathTypes Ingress check in
+// operator/pkg/model/ingestion/ingress_test.go.
+var multiplePathTypesModel = &model.Model{
+	HTTP: []model.HTTPListener{
+		{
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "dummy-ingress",
+					Namespace: "dummy-namespace",
+					Version:   "v1",
+					Kind:      "Ingress",
+					UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+				},
+			},
+			Port:     80,
+			Hostname: "*",
+			Routes: []model.HTTPRoute{
+				{
+					PathMatch: model.StringMatch{
+						Regex: "/impl",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+				{
+					PathMatch: model.StringMatch{
+						Prefix: "/",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "another-dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8081,
+							},
+						},
+					},
+				},
+				{
+					PathMatch: model.StringMatch{
+						Exact: "/exact",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "another-dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8081,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
