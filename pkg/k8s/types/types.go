@@ -30,10 +30,6 @@ type CiliumEndpoint struct {
 	NamedPorts models.NamedPorts
 }
 
-type Configuration interface {
-	K8sAPIDiscoveryEnabled() bool
-}
-
 func (in *CiliumEndpoint) DeepEqual(other *CiliumEndpoint) bool {
 	if other == nil {
 		return false
