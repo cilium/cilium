@@ -402,6 +402,7 @@ func (d *Daemon) allocateIngressIPs() error {
 						result.IP,
 						d.mtuConfig.GetDeviceMTU(),
 						option.Config.EgressMultiHomeIPRuleCompat,
+						false,
 					); err != nil {
 						log.WithError(err).Warn("Error while configuring ingress IP rules and routes.")
 					}
