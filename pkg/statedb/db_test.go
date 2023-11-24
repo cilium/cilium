@@ -410,7 +410,7 @@ func TestDB_Revision(t *testing.T) {
 	require.Equal(t, writeRevision, readRevision, "committed transaction changed revision")
 }
 
-func TestDB_FirstLast(t *testing.T) {
+func TestDB_GetFirstLast(t *testing.T) {
 	t.Parallel()
 
 	db, table, _ := newTestDB(t, tagsIndex)
@@ -439,6 +439,21 @@ func TestDB_FirstLast(t *testing.T) {
 	}
 
 	txn := db.ReadTxn()
+
+	// Test Get against the ID index.
+	iter, _ := table.Get(txn, idIndex.Query(0))
+	items := Collect(iter)
+	require.Len(t, items, 0, "expected Get(0) to not return results")
+
+	iter, _ = table.Get(txn, idIndex.Query(1))
+	items = Collect(iter)
+	require.Len(t, items, 1, "expected Get(1) to return result")
+	require.EqualValues(t, items[0].ID, 1, "expected items[0].ID to equal 1")
+
+	iter, getWatch := table.Get(txn, idIndex.Query(2))
+	items = Collect(iter)
+	require.Len(t, items, 1, "expected Get(2) to return result")
+	require.EqualValues(t, items[0].ID, 2, "expected items[0].ID to equal 2")
 
 	// Test First/FirstWatch and Last/LastWatch against the ID index.
 	_, _, ok := table.First(txn, idIndex.Query(0))
@@ -472,6 +487,8 @@ func TestDB_FirstLast(t *testing.T) {
 		t.Fatalf("FirstWatch channel closed before changes")
 	case <-lastWatch:
 		t.Fatalf("LastWatch channel closed before changes")
+	case <-getWatch:
+		t.Fatalf("Get channel closed before changes")
 	default:
 	}
 
@@ -492,6 +509,11 @@ func TestDB_FirstLast(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatalf("LastWatch channel not closed after change")
 	}
+	select {
+	case <-getWatch:
+	case <-time.After(time.Second):
+		t.Fatalf("Get channel not closed after change")
+	}
 
 	// Since we modified the database, grab a fresh read transaction.
 	txn = db.ReadTxn()
@@ -509,6 +531,13 @@ func TestDB_FirstLast(t *testing.T) {
 	require.NotZero(t, rev, "expected non-zero revision")
 	require.ElementsMatch(t, obj.Tags, []string{"odd"})
 	require.EqualValues(t, 9, obj.ID)
+
+	iter, _ = table.Get(txn, tagsIndex.Query("odd"))
+	items = Collect(iter)
+	require.Len(t, items, 5, "expected Get(odd) to return 5 items")
+	for i, item := range items {
+		require.EqualValues(t, item.ID, i*2+1, "expected items[%d].ID to equal %d", i, i*2+1)
+	}
 }
 
 func TestDB_CommitAbort(t *testing.T) {
