@@ -239,6 +239,16 @@ func TestGC(t *testing.T) {
 				t.Fatalf("failed to start: %s", err)
 			}
 
+			// Some of the test cases verify that the GC does not collect anything.
+			// If we go ahead and immediately perform the check below, it is possible
+			// that the GC has not started yet. For example, this can happen if the
+			// and the GC is waiting to take a reference to the resource store.
+			// In this case, even if the GC ends up unexpectedly collect some objects,
+			// we won't have a chance to catch the bug, because the check will see the
+			// (still untouched) initial setup.
+			// To avoid that, a small fixed delay is added here.
+			time.Sleep(50 * time.Millisecond)
+
 			if err := testutils.WaitUntil(func() bool {
 				mu.Lock()
 				defer mu.Unlock()

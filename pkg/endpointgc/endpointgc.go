@@ -85,12 +85,32 @@ func registerGC(p params) {
 	)
 
 	jobGroup.Add(
+		job.OneShot("endpoint-gc-events", func(ctx context.Context, health cell.HealthReporter) error {
+			return gc.runSubscriber(ctx)
+		}),
 		job.OneShot("endpoint-gc", func(ctx context.Context, health cell.HealthReporter) error {
 			return gc.runGC(ctx)
 		}),
 	)
 
 	p.Lifecycle.Append(jobGroup)
+}
+
+func (gc *gc) runSubscriber(ctx context.Context) error {
+	// Start a bogus subscriber to keep the resource store updated.
+	// When the GC ends, the subscriber will be shut down, so that
+	// the underlying resource can be stopped in case of a key-value store
+	// connection.
+	if gc.ciliumEndpointSliceEnabled {
+		for event := range gc.ciliumEndpointSlice.Events(ctx) {
+			event.Done(nil)
+		}
+	} else {
+		for event := range gc.ciliumEndpoint.Events(ctx) {
+			event.Done(nil)
+		}
+	}
+	return nil
 }
 
 func (gc *gc) runGC(ctx context.Context) error {
@@ -139,11 +159,24 @@ func (gc *gc) runGC(ctx context.Context) error {
 }
 
 func (gc *gc) cleanStaleCEPs(ctx context.Context) error {
-	var errs error
-	store, err := gc.ciliumEndpoint.Store(ctx)
-	if err != nil {
+	var (
+		store resource.Store[*types.CiliumEndpoint]
+		errs  error
+	)
+
+	for {
+		var err error
+		store, err = gc.ciliumEndpoint.Store(ctx)
+		if err == nil {
+			break
+		}
+		// retry until the subscriber started the resource informer
+		if errors.Is(err, resource.ErrInformerStopped) {
+			continue
+		}
 		return fmt.Errorf("failed to get CiliumEndpoint store: %w", err)
 	}
+
 	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
 	if err != nil {
 		return fmt.Errorf("failed to get indexed CiliumEndpointSlice from store: %w", err)
@@ -159,11 +192,24 @@ func (gc *gc) cleanStaleCEPs(ctx context.Context) error {
 }
 
 func (gc *gc) cleanStaleCESs(ctx context.Context) error {
-	var errs error
-	store, err := gc.ciliumEndpointSlice.Store(ctx)
-	if err != nil {
+	var (
+		store resource.Store[*cilium_v2a1.CiliumEndpointSlice]
+		errs  error
+	)
+
+	for {
+		var err error
+		store, err = gc.ciliumEndpointSlice.Store(ctx)
+		if err == nil {
+			break
+		}
+		// retry until the subscriber started the resource informer
+		if errors.Is(err, resource.ErrInformerStopped) {
+			continue
+		}
 		return fmt.Errorf("failed to get CiliumEndpointSlice store: %w", err)
 	}
+
 	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
 	if err != nil {
 		return fmt.Errorf("failed to get indexed CiliumEndpointSlice from store: %w", err)
