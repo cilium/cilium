@@ -76,9 +76,9 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		// set acceptance to okay, this wil be overwritten in checks if needed
 		i.SetParentCondition(parent, metav1.Condition{
-			Type:    conditionStatusAccepted,
+			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionTrue,
-			Reason:  conditionReasonAccepted,
+			Reason:  string(gatewayv1.RouteReasonAccepted),
 			Message: "Accepted TLSRoute",
 		})
 
