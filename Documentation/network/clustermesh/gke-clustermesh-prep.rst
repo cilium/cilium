@@ -21,7 +21,7 @@ Create VPC
 ##########
 
 1.  Create a VPC network in your GCP project. Environment variables are recommended as their
-    values will be references in later steps.
+    values will be referenced in later steps.
 
     .. code-block:: bash
 
@@ -58,9 +58,10 @@ Deploy clusters
 
     .. note::
 
-        During creation we also request to use ``"10.0.0.0/18"`` as the cluster (pod) CIDR
-        and ``"10.1.0.0/20"`` as the services CIDR. You may select change the CIDRs provided
-        they do not overlap with the pod and services CIDRs in your other cluster(s).
+        You can use different pod and services CIDRs than in the example, but make sure 
+        they meet the IP address range `rules <https://cloud.google.com/kubernetes-engine/docs/concepts/alias-ips#cluster_sizing>`__. But most
+        importantly, make sure they do not overlap with the pods and services CIDRs in
+        your other cluster(s).
 
     .. code-block:: bash
 
