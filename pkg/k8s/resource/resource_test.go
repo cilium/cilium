@@ -916,6 +916,139 @@ func TestResource_Observe(t *testing.T) {
 	completeWg.Wait()
 }
 
+func TestResource_Stoppable(t *testing.T) {
+	var (
+		nodeName = "some-node"
+		node     = &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            nodeName,
+				ResourceVersion: "0",
+			},
+			Status: corev1.NodeStatus{
+				Phase: "init",
+			},
+		}
+		nodeResource   resource.Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
+	)
+
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node.DeepCopy(), "")
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		cell.Provide(
+			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
+				return resource.New[*corev1.Node](
+					lc, lw,
+					resource.WithStoppableInformer(),
+				)
+			},
+		),
+
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodeResource = r
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	assert.NoError(t, hive.Start(ctx))
+
+	var (
+		store resource.Store[*corev1.Node]
+		err   error
+	)
+
+	// should not be able to get the store if the resource informer has not yet been started
+	_, err = nodeResource.Store(ctx)
+	assert.ErrorIs(t, err, resource.ErrInformerStopped)
+
+	subCtx, subCancel := context.WithCancel(ctx)
+	defer subCancel()
+
+	var wg sync.WaitGroup
+
+	// subscribe to the resource event stream and start the underlying informer
+	subscribed := subscribe(subCtx, &wg, nodeResource)
+
+	// wait for subscription
+	<-subscribed
+
+	// getting the store should succeed now
+	store, err = nodeResource.Store(ctx)
+	assert.NoError(t, err)
+
+	// store should be synced
+	testStore(t, node, store)
+
+	// cancel subscription from event stream
+	subCancel()
+	wg.Wait()
+
+	// should not be able to get a reference to the store if the resource informer has been stopped
+	_, err = nodeResource.Store(ctx)
+	assert.ErrorIs(t, err, resource.ErrInformerStopped)
+
+	// the old store reference is still valid
+	testStore(t, node, store)
+
+	// but might contain stale data, since there is no active informer to sync it
+	anotherNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "another-node",
+			ResourceVersion: "0",
+		},
+	}
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		anotherNode.DeepCopy(), "")
+	assert.Len(t, store.List(), 1)
+
+	// restart another subscriber
+	subCtx, subCancel = context.WithCancel(ctx)
+	defer subCancel()
+
+	// subscribe to the resource event stream and start the underlying informer
+	subscribed = subscribe(subCtx, &wg, nodeResource)
+
+	// wait for subscription
+	<-subscribed
+
+	// get an updated reference to the store
+	store, err = nodeResource.Store(ctx)
+	assert.NoError(t, err)
+
+	// store should be synced and see the second node object too
+	assert.Len(t, store.List(), 2)
+
+	assert.NoError(t, hive.Stop(ctx))
+
+	// wait for the alive subscriber to stop after resource has been stopped by the hive
+	wg.Wait()
+}
+
+func subscribe(ctx context.Context, wg *sync.WaitGroup, nodes resource.Resource[*corev1.Node]) <-chan struct{} {
+	subscribed := make(chan struct{})
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		events := nodes.Events(ctx)
+		close(subscribed)
+
+		for ev := range events {
+			ev.Done(nil)
+		}
+	}()
+
+	return subscribed
+}
+
 //
 // Benchmarks
 //

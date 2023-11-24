@@ -5,6 +5,7 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -28,6 +29,11 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/stream"
 )
+
+// ErrInformerStopped is the error returned when trying to get a reference to
+// the store of a resource marked as stoppable (see WithStoppableInformer) and
+// no underlying informer is currently running.
+var ErrInformerStopped = errors.New("resource informer not running")
 
 // Resource provides access to a Kubernetes resource through either
 // a stream of events or a read-only store.
@@ -90,8 +96,12 @@ type Resource[T k8sRuntime.Object] interface {
 
 	// Store retrieves the read-only store for the resource. Blocks until
 	// the store has been synchronized or the context cancelled.
-	// Returns a non-nil error if context is cancelled or the resource
-	// has been stopped before store has synchronized.
+	// Returns a non-nil error if:
+	//
+	// - context is cancelled
+	// - the resource has been stopped before store has synchronized.
+	// - the resource has been marked has stoppable (see WithStoppableInformer)
+	//   and there are no subscribers to the events stream yet.
 	Store(context.Context) (Store[T], error)
 }
 
@@ -160,6 +170,7 @@ type options struct {
 	indexers    cache.Indexers           // map of the optional custom indexers to be added to the underlying resource informer
 	metricScope string                   // the scope label used when recording metrics for the resource
 	name        string                   // the name label used for the workqueue metrics
+	stoppable   bool                     // if true, the underlying informer will be stopped when the last subscriber cancels its subscription
 }
 
 type ResourceOption func(o *options)
@@ -213,6 +224,27 @@ func WithName(name string) ResourceOption {
 	}
 }
 
+// WithStoppableInformer marks the resource as stoppable. A stoppable resource stops
+// the underlying informer if the last subscriber (that is, a consumer listening to the
+// channel returned by Events) cancels its subscription. In this case the resource is
+// stopped and prepared again for a subsequent call to Events().
+// When a resource has been stopped, calling Store() returns ErrInformerStopped.
+// The caller is responsible for keeping a subscription alive with Events() in order
+// to get a reference to the store and have it updated by the informer.
+// If a reference to the store is kept after the last subscription is cancelled (and
+// the underlying informer is stopped), the reference can be used but it might contain
+// stale data.
+// This option is meant to be used for very specific cases of resources with a high rate
+// of updates that can potentially hinder scalability in very large clusters, like
+// CiliumNode and CiliumEndpoint.
+// For this cases, stopping the informer is required before switching to other data sources
+// that scale better.
+func WithStoppableInformer() ResourceOption {
+	return func(o *options) {
+		o.stoppable = true
+	}
+}
+
 type resource[T k8sRuntime.Object] struct {
 	mu     lock.RWMutex
 	ctx    context.Context
@@ -235,7 +267,16 @@ type resource[T k8sRuntime.Object] struct {
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
 
 func (r *resource[T]) Store(ctx context.Context) (Store[T], error) {
-	r.markNeeded()
+	if r.opts.stoppable {
+		r.mu.RLock()
+		nSubs := len(r.subscribers)
+		r.mu.RUnlock()
+		if nSubs == 0 {
+			return nil, ErrInformerStopped
+		}
+	} else {
+		r.markNeeded()
+	}
 
 	// Wait until store has synchronized to avoid querying a store
 	// that has not finished the initial listing.
@@ -288,9 +329,13 @@ func (r *resource[T]) metricEventReceived(action string, valid, equal bool) {
 }
 
 func (r *resource[T]) Start(hive.HookContext) error {
+	r.start()
+	return nil
+}
+
+func (r *resource[T]) start() {
 	r.wg.Add(1)
 	go r.startWhenNeeded()
-	return nil
 }
 
 func (r *resource[T]) markNeeded() {
@@ -339,7 +384,14 @@ func (r *resource[T]) startWhenNeeded() {
 }
 
 func (r *resource[T]) Stop(stopCtx hive.HookContext) error {
-	r.cancel()
+	if r.opts.stoppable {
+		// to avoid a race when the stoppable resource is concurrently reset and restarted.
+		r.mu.RLock()
+		r.cancel()
+		r.mu.RUnlock()
+	} else {
+		r.cancel()
+	}
 	r.wg.Wait()
 	return nil
 }
@@ -397,9 +449,6 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		apply(&options)
 	}
 
-	// Mark the resource as needed. This will start the informer if it was not already.
-	r.markNeeded()
-
 	out := make(chan Event[T])
 	ctx, subCancel := context.WithCancel(ctx)
 
@@ -411,6 +460,15 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 			workqueue.RateLimitingQueueConfig{Name: r.resourceName()}),
 	}
 
+	r.mu.Lock()
+	subId := r.subId
+	r.subId++
+	r.subscribers[subId] = sub
+	r.mu.Unlock()
+
+	// Mark the resource as needed. This will start the informer if it was not already.
+	r.markNeeded()
+
 	// Fork a goroutine to process the queued keys and pass them to the subscriber.
 	r.wg.Add(1)
 	go func() {
@@ -421,13 +479,13 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		store, err := r.storePromise.Await(ctx)
 		if err != nil {
 			// Subscriber cancelled before the informer started, bail out.
+			r.mu.Lock()
+			delete(r.subscribers, subId)
+			r.mu.Unlock()
 			return
 		}
 
 		r.mu.Lock()
-		subId := r.subId
-		r.subId++
-		r.subscribers[subId] = sub
 
 		// Populate the queue with the initial set of keys that are already
 		// in the store. Done under the resource lock to synchronize with delta
@@ -451,6 +509,24 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		r.mu.Lock()
 		delete(r.subscribers, subId)
 		r.mu.Unlock()
+
+		if !r.opts.stoppable {
+			return
+		}
+
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		// there are other subscribers or we're being stopped
+		if len(r.subscribers) > 0 || r.ctx.Err() != nil {
+			return
+		}
+
+		// in case of a stoppable resource, stop the underlying informer when the last
+		// subscriber cancels its subscription. The resource is restarted to be
+		// ready again in case of a subsequent call to Events().
+		r.reset()
+		r.start()
 	}()
 
 	// Fork a goroutine to wait for either the subscriber cancelling or the resource
@@ -486,6 +562,16 @@ func (r *resource[T]) resourceName() string {
 	}
 
 	return strings.ToLower(gvk.Kind)
+}
+
+func (r *resource[T]) reset() {
+	r.cancel()
+	close(r.needed)
+
+	r.needed = make(chan struct{}, 1)
+	r.synchronized = false
+	r.storeResolver, r.storePromise = promise.New[Store[T]]()
+	r.ctx, r.cancel = context.WithCancel(context.Background())
 }
 
 type subscriber[T k8sRuntime.Object] struct {
