@@ -31,6 +31,15 @@ const (
 	IngressBandwidth = "kubernetes.io/ingress-bandwidth"
 
 	EnableBBR = "enable-bbr"
+
+	// FqDefaultHorizon represents maximum allowed departure
+	// time delta in future. Given applications can set SO_TXTIME
+	// from user space this is a limit to prevent buggy applications
+	// to fill the FQ qdisc.
+	FqDefaultHorizon = bwmap.DefaultDropHorizon
+	// FqDefaultBuckets is the default 32k (2^15) bucket limit for bwm.
+	// Too low bucket limit can cause scalability issue.
+	FqDefaultBuckets = 15
 )
 
 type manager struct {
@@ -143,6 +152,7 @@ func (m *manager) init() error {
 		return fmt.Errorf("failed to set sysctl needed by BPF bandwidth manager: %w", err)
 	}
 
+	// Pass 1: Set up Qdiscs.
 	for _, device := range devs {
 		link, err := netlink.LinkByName(device)
 		if err != nil {
@@ -190,6 +200,29 @@ func (m *manager) init() error {
 		m.params.Log.WithField("device", device).Infof("Setting qdisc to %s", which)
 	}
 
+	// Pass 2: Iterate over leaf qdiscs and tweak their parameters.
+	for _, device := range devs {
+		link, err := netlink.LinkByName(device)
+		if err != nil {
+			m.params.Log.WithError(err).WithField("device", device).Warn("Link does not exist")
+			continue
+		}
+		qdiscs, err := netlink.QdiscList(link)
+		if err != nil {
+			m.params.Log.WithError(err).WithField("device", device).Warn("Cannot dump qdiscs")
+			continue
+		}
+		for _, qdisc := range qdiscs {
+			if qdisc.Type() == "fq" {
+				fq, _ := qdisc.(*netlink.Fq)
+				fq.Horizon = uint32(FqDefaultHorizon.Microseconds())
+				fq.Buckets = uint32(FqDefaultBuckets)
+				if err := netlink.QdiscReplace(qdisc); err != nil {
+					m.params.Log.WithError(err).WithField("device", device).Warn("Cannot upgrade qdisc attributes")
+				}
+			}
+		}
+	}
 	return nil
 }
 
