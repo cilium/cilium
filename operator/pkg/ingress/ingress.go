@@ -593,7 +593,7 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 		translator = ic.sharedTranslator
 		for _, k := range ic.ingressStore.ListKeys() {
 			item, _ := ic.getByKey(k)
-			if !ic.isCiliumIngressEntry(item) || ic.isEffectiveLoadbalancerModeDedicated(item) || ing.GetDeletionTimestamp() != nil {
+			if !ic.isCiliumIngressEntry(item) || ic.isEffectiveLoadbalancerModeDedicated(item) || item.GetDeletionTimestamp() != nil {
 				continue
 			}
 			if annotations.GetAnnotationTLSPassthroughEnabled(item) {
