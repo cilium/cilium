@@ -10,15 +10,18 @@ import (
 )
 
 func NetIP(ip net.IP) Key {
-	return bytes.Clone(ip)
+	// Use the 16-byte form to have a constant-size key.
+	return bytes.Clone(ip.To16())
 }
 
 func NetIPAddr(addr netip.Addr) Key {
-	buf, _ := addr.MarshalBinary()
-	return buf
+	// Use the 16-byte form to have a constant-size key.
+	buf := addr.As16()
+	return buf[:]
 }
 
 func NetIPPrefix(prefix netip.Prefix) Key {
-	buf, _ := prefix.MarshalBinary()
-	return buf
+	// Use the 16-byte form plus bits to have a constant-size key.
+	addrBytes := prefix.Addr().As16()
+	return append(addrBytes[:], uint8(prefix.Bits()))
 }

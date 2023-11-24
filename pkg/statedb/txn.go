@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -208,15 +209,15 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 	}
 
 	// Then update secondary indexes
-	for index, indexer := range meta.secondaryIndexers() {
-		indexTree := txn.mustIndexWriteTxn(tableName, index)
+	for idx, indexer := range meta.secondaryIndexers() {
+		indexTree := txn.mustIndexWriteTxn(tableName, idx)
 		newKeys := indexer.fromObject(obj)
 
 		if oldExists {
 			// If the object already existed it might've invalidated the
 			// non-primary indexes. Compute the old key for this index and
 			// if the new key is different delete the old entry.
-			indexer.fromObject(oldObj).Foreach(func(oldKey []byte) {
+			indexer.fromObject(oldObj).Foreach(func(oldKey index.Key) {
 				if !indexer.unique {
 					oldKey = append(oldKey, idKey...)
 				}
@@ -225,7 +226,7 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 				}
 			})
 		}
-		newKeys.Foreach(func(newKey []byte) {
+		newKeys.Foreach(func(newKey index.Key) {
 			// Non-unique secondary indexes are formed by concatenating them
 			// with the primary key.
 			if !indexer.unique {
@@ -312,12 +313,12 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 	}
 
 	// Then update secondary indexes.
-	for index, indexer := range meta.secondaryIndexers() {
-		indexer.fromObject(obj).Foreach(func(key []byte) {
+	for idx, indexer := range meta.secondaryIndexers() {
+		indexer.fromObject(obj).Foreach(func(key index.Key) {
 			if !indexer.unique {
 				key = append(key, idKey...)
 			}
-			txn.mustIndexWriteTxn(tableName, index).Delete(key)
+			txn.mustIndexWriteTxn(tableName, idx).Delete(key)
 		})
 	}
 

@@ -92,8 +92,8 @@ type genTable[Obj any] struct {
 	secondaryAnyIndexers map[string]anyIndexer
 }
 
-func (t *genTable[Obj]) tableKey() index.Key {
-	return index.String(t.table)
+func (t *genTable[Obj]) tableKey() []byte {
+	return []byte(t.table)
 }
 
 func (t *genTable[Obj]) primaryIndexer() anyIndexer {

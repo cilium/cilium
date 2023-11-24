@@ -65,10 +65,8 @@ var idIndex = statedb.Index[fuzzObj, uint64]{
 	FromObject: func(obj fuzzObj) index.KeySet {
 		return index.NewKeySet(index.Uint64(obj.id))
 	},
-	FromKey: func(n uint64) []byte {
-		return index.Uint64(n)
-	},
-	Unique: true,
+	FromKey: index.Uint64,
+	Unique:  true,
 }
 
 var (
