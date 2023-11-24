@@ -297,3 +297,35 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 }
+
+// OutsideToIngressService sends an HTTP request from client pod running on a node w/o
+// Cilium to NodePort services.
+func OutsideToIngressService() check.Scenario {
+	return &outsideToIngressService{}
+}
+
+type outsideToIngressService struct{}
+
+func (s *outsideToIngressService) Name() string {
+	return "outside-to-ingress-service"
+}
+
+func (s *outsideToIngressService) Run(ctx context.Context, t *check.Test) {
+	clientPod := t.Context().HostNetNSPodsByNode()[t.NodesWithoutCilium()[0]]
+	i := 0
+
+	for _, svc := range t.Context().IngressService() {
+		t.NewAction(s, fmt.Sprintf("curl-ingress-service-%d", i), &clientPod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+			for _, node := range t.Context().Nodes() {
+				node := node
+				a.ExecInPod(ctx, t.Context().CurlCommand(svc.ToNodeportService(node), features.IPFamilyAny))
+
+				a.ValidateFlows(ctx, clientPod, a.GetEgressRequirements(check.FlowParameters{
+					DNSRequired: true,
+					AltDstPort:  svc.Port(),
+				}))
+			}
+		})
+		i++
+	}
+}
