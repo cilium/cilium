@@ -44,8 +44,14 @@ var (
 	//go:embed manifests/deny-ingress-entity.yaml
 	denyIngressIdentityPolicyYAML string
 
+	//go:embed manifests/deny-world-entity.yaml
+	denyWorldIdentityPolicyYAML string
+
 	//go:embed manifests/deny-ingress-backend.yaml
 	denyIngressBackendPolicyYAML string
+
+	//go:embed manifests/deny-cidr.yaml
+	denyCIDRPolicyYAML string
 
 	//go:embed manifests/allow-cluster-entity.yaml
 	allowClusterEntityPolicyYAML string
@@ -210,6 +216,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		"clientEgressL7TLSPolicyYAML":              clientEgressL7TLSPolicyYAML,
 		"clientEgressL7HTTPMatchheaderSecretYAML":  clientEgressL7HTTPMatchheaderSecretYAML,
 		"echoIngressFromCIDRYAML":                  echoIngressFromCIDRYAML,
+		"denyCIDRPolicyYAML":                       denyCIDRPolicyYAML,
 	}
 
 	if ct.Params().K8sLocalHostTest {
@@ -1076,6 +1083,50 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		WithScenarios(
 			tests.PodToIngress(),
 		)
+
+	ct.NewTest("outside-to-ingress-service").
+		WithFeatureRequirements(
+			features.RequireEnabled(features.IngressController),
+			features.RequireEnabled(features.NodeWithoutCilium)).
+		WithScenarios(
+			tests.OutsideToIngressService(),
+		)
+
+	ct.NewTest("outside-to-ingress-service-deny-world-identity").
+		WithFeatureRequirements(
+			features.RequireEnabled(features.IngressController),
+			features.RequireEnabled(features.NodeWithoutCilium)).
+		WithCiliumPolicy(denyWorldIdentityPolicyYAML).
+		WithScenarios(
+			tests.OutsideToIngressService(),
+		).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	ct.NewTest("outside-to-ingress-service-deny-cidr").
+		WithFeatureRequirements(
+			features.RequireEnabled(features.IngressController),
+			features.RequireEnabled(features.NodeWithoutCilium)).
+		WithCiliumPolicy(renderedTemplates["denyCIDRPolicyYAML"]).
+		WithScenarios(
+			tests.OutsideToIngressService(),
+		).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	ct.NewTest("outside-to-ingress-service-deny-all-ingress").
+		WithFeatureRequirements(
+			features.RequireEnabled(features.IngressController),
+			features.RequireEnabled(features.NodeWithoutCilium)).
+		WithCiliumPolicy(denyAllIngressPolicyYAML).
+		WithScenarios(
+			tests.OutsideToIngressService(),
+		).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
 	ct.NewTest("dns-only").WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).
