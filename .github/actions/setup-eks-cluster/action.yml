@@ -14,6 +14,10 @@ inputs:
     description: ''
     required: false
     default: ''
+  spot:
+    description: ''
+    required: false
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -37,7 +41,7 @@ runs:
           instanceTypes:
            - t3.medium
           desiredCapacity: 1
-          spot: true
+          spot: ${{ inputs.spot }}
           privateNetworking: true
           volumeType: "gp3"
           volumeSize: 10
@@ -49,7 +53,7 @@ runs:
           instanceTypes:
            - t4g.medium
           desiredCapacity: 1
-          spot: true
+          spot: ${{ inputs.spot }}
           privateNetworking: true
           volumeType: "gp3"
           volumeSize: 10
