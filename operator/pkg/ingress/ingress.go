@@ -303,9 +303,8 @@ func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error
 }
 
 func (ic *Controller) handleIngressDeletedEvent(event ingressDeletedEvent) error {
-	log.WithField(logfields.Ingress, event.ingress.Name).WithField(logfields.K8sNamespace, event.ingress.Namespace).Debug("Deleting CiliumEnvoyConfig for ingress")
-
 	if ic.isEffectiveLoadbalancerModeDedicated(event.ingress) {
+		log.WithField(logfields.Ingress, event.ingress.Name).WithField(logfields.K8sNamespace, event.ingress.Namespace).Debug("Deleting resources (CiliumEnvoyConfig, Service & Endpoints) for dedicated Ingress")
 		if err := ic.deleteResources(event.ingress); err != nil {
 			log.WithError(err).Warn("Failed to delete resources for ingress")
 			return err
