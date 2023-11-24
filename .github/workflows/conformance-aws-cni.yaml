@@ -199,6 +199,7 @@ jobs:
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
+          spot: ${{ github.event_name != 'schedule' }}
 
       - name: Wait for images to be available
         timeout-minutes: 30
