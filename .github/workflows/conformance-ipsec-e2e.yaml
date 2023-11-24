@@ -283,7 +283,7 @@ jobs:
 
             KEYID=\$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
             if [[ \$KEYID -ge 15 ]]; then KEYID=0; fi
-            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1))) "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
+            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1))) "hmac\(sha512\)" 8b4d92bf9396e7febb4d51e87394bb158ebcc0d9d57e4da8e938b0e931223ec7 "cbc\(aes\)" \"}}")
             kubectl patch secret -n kube-system cilium-ipsec-keys -p="\$data" -v=1
 
             # Wait until key rotation starts
