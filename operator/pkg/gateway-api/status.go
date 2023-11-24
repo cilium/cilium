@@ -9,11 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	conditionStatusAccepted = "Accepted"
-	conditionReasonAccepted = "Accepted"
-)
-
 func newCondition(conditionType string, status metav1.ConditionStatus, reason, msg string, lastTransitionTime time.Time, observedGeneration int64) metav1.Condition {
 	return metav1.Condition{
 		Type:               conditionType,

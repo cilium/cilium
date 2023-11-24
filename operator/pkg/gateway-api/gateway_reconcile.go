@@ -305,11 +305,11 @@ func isAttachable(_ context.Context, gw *gatewayv1.Gateway, route metav1.Object,
 		}
 
 		for _, cond := range rps.Conditions {
-			if cond.Type == conditionStatusAccepted && cond.Status == metav1.ConditionTrue {
+			if cond.Type == string(gatewayv1.RouteConditionAccepted) && cond.Status == metav1.ConditionTrue {
 				return true
 			}
 
-			if cond.Type == "ResolvedRefs" && cond.Status == metav1.ConditionFalse {
+			if cond.Type == string(gatewayv1.RouteConditionResolvedRefs) && cond.Status == metav1.ConditionFalse {
 				return true
 			}
 		}
