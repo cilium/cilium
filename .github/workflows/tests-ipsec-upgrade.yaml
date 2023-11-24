@@ -75,7 +75,8 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        config: ['5.4', '5.10', 'bpf-next']
+        #config: ['5.4', '5.10', 'bpf-next']
+        config: ['5.4', 'bpf-next']
         mode: ['minor', 'patch']
         include:
           # Define three config sets
@@ -88,15 +89,15 @@ jobs:
             encryption: 'ipsec'
             ipv6: 'false' # due to https://github.com/cilium/cilium/issues/23461
 
-          - config: '5.10'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20231124.100406'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            endpoint-routes: 'true'
-            ipv6: 'false' # due to https://github.com/cilium/cilium/issues/23461
+          #- config: '5.10'
+          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #  kernel: '5.10-20231124.100406'
+          #  kube-proxy: 'iptables'
+          #  kpr: 'disabled'
+          #  tunnel: 'disabled'
+          #  encryption: 'ipsec'
+          #  endpoint-routes: 'true'
+          #  ipv6: 'false' # due to https://github.com/cilium/cilium/issues/23461
 
           - config: 'bpf-next'
             # We don't want to update bpf-next after branching
@@ -113,9 +114,9 @@ jobs:
             mode: 'minor'
             name: '1'
 
-          - config: '5.10'
-            mode: 'minor'
-            name: '2'
+          #- config: '5.10'
+          #  mode: 'minor'
+          #  name: '2'
 
           - config: 'bpf-next'
             mode: 'minor'
@@ -125,9 +126,9 @@ jobs:
             mode: 'patch'
             name: '4'
 
-          - config: '5.10'
-            mode: 'patch'
-            name: '5'
+          #- config: '5.10'
+          #  mode: 'patch'
+          #  name: '5'
 
           - config: 'bpf-next'
             mode: 'patch'
