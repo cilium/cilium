@@ -10,7 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
-type BackendID string
+type BackendID = string
 
 type Backend struct {
 	ID   BackendID
@@ -24,10 +24,8 @@ var (
 		FromObject: func(b Backend) index.KeySet {
 			return index.NewKeySet(index.String(string(b.ID)))
 		},
-		FromKey: func(id BackendID) []byte {
-			return index.String(string(id))
-		},
-		Unique: true,
+		FromKey: index.String,
+		Unique:  true,
 	}
 
 	BackendIPIndex = statedb.Index[Backend, netip.Addr]{

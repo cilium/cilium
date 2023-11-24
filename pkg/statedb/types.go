@@ -143,7 +143,7 @@ type RWTable[Obj any] interface {
 // the object type (the 'Obj' constraint).
 type TableMeta interface {
 	Name() TableName                          // The name of the table
-	tableKey() index.Key                      // The radix key for the table in the root tree
+	tableKey() []byte                         // The radix key for the table in the root tree
 	primaryIndexer() anyIndexer               // The untyped primary indexer for the table
 	secondaryIndexers() map[string]anyIndexer // Secondary indexers (if any)
 	sortableMutex() lock.SortableMutex        // The sortable mutex for locking the table for writing
@@ -202,7 +202,7 @@ func ByRevision[Obj any](rev uint64) Query[Obj] {
 type Index[Obj any, Key any] struct {
 	Name       string
 	FromObject func(obj Obj) index.KeySet
-	FromKey    func(key Key) []byte
+	FromKey    func(key Key) index.Key
 	Unique     bool
 }
 

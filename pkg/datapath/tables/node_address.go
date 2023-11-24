@@ -74,10 +74,8 @@ var (
 		FromObject: func(a NodeAddress) index.KeySet {
 			return index.NewKeySet(index.NetIPAddr(a.Addr))
 		},
-		FromKey: func(addr netip.Addr) []byte {
-			return index.NetIPAddr(addr)
-		},
-		Unique: true,
+		FromKey: index.NetIPAddr,
+		Unique:  true,
 	}
 
 	NodeAddressDeviceNameIndex = statedb.Index[NodeAddress, string]{

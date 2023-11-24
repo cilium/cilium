@@ -5,12 +5,12 @@ package index
 
 import "fmt"
 
-func String(s string) []byte {
-	return []byte(s)
+func String(s string) Key {
+	return append([]byte(s), 0 /* termination */)
 }
 
-func Stringer(s fmt.Stringer) []byte {
-	return []byte(s.String())
+func Stringer[T fmt.Stringer](s T) Key {
+	return String(s.String())
 }
 
 func StringSlice(ss []string) KeySet {

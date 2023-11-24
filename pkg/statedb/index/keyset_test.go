@@ -14,7 +14,7 @@ import (
 func TestKeySet_FromEmpty(t *testing.T) {
 	ks := index.NewKeySet()
 	require.Nil(t, ks.First())
-	ks.Foreach(func(_ []byte) {
+	ks.Foreach(func(_ index.Key) {
 		t.Fatalf("Foreach on NewKeySet called function")
 	})
 	require.False(t, ks.Exists(nil))
@@ -22,7 +22,7 @@ func TestKeySet_FromEmpty(t *testing.T) {
 
 	ks.Append([]byte("foo"))
 	require.EqualValues(t, "foo", ks.First())
-	ks.Foreach(func(bs []byte) {
+	ks.Foreach(func(bs index.Key) {
 		require.EqualValues(t, "foo", bs)
 	})
 	require.True(t, ks.Exists([]byte("foo")))
@@ -30,7 +30,7 @@ func TestKeySet_FromEmpty(t *testing.T) {
 	ks.Append([]byte("bar"))
 	require.EqualValues(t, "foo", ks.First())
 	vs := [][]byte{}
-	ks.Foreach(func(bs []byte) {
+	ks.Foreach(func(bs index.Key) {
 		vs = append(vs, bs)
 	})
 	require.ElementsMatch(t, vs, [][]byte{[]byte("foo"), []byte("bar")})
@@ -46,7 +46,7 @@ func TestKeySet_FromNonEmpty(t *testing.T) {
 	require.True(t, ks.Exists([]byte("quux")))
 	require.False(t, ks.Exists([]byte("foo")))
 	vs := [][]byte{}
-	ks.Foreach(func(bs []byte) {
+	ks.Foreach(func(bs index.Key) {
 		vs = append(vs, bs)
 	})
 	require.ElementsMatch(t, vs, [][]byte{[]byte("baz"), []byte("quux")})

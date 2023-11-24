@@ -44,10 +44,8 @@ var (
 		FromObject: func(t testObject) index.KeySet {
 			return index.NewKeySet(index.Uint64(t.ID))
 		},
-		FromKey: func(n uint64) []byte {
-			return index.Uint64(n)
-		},
-		Unique: true,
+		FromKey: index.Uint64,
+		Unique:  true,
 	}
 
 	tagsIndex = Index[testObject, string]{
@@ -55,10 +53,8 @@ var (
 		FromObject: func(t testObject) index.KeySet {
 			return index.StringSlice(t.Tags)
 		},
-		FromKey: func(tag string) []byte {
-			return index.String(tag)
-		},
-		Unique: false,
+		FromKey: index.String,
+		Unique:  false,
 	}
 )
 

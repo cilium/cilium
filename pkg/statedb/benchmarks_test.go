@@ -243,10 +243,8 @@ var (
 		FromObject: func(t testObject2) index.KeySet {
 			return index.NewKeySet(index.Uint64(t.ID))
 		},
-		FromKey: func(n uint64) []byte {
-			return index.Uint64(n)
-		},
-		Unique: true,
+		FromKey: index.Uint64,
+		Unique:  true,
 	}
 )
 

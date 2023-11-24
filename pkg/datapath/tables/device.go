@@ -20,10 +20,8 @@ var (
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.Int(d.Index))
 		},
-		FromKey: func(idx int) []byte {
-			return index.Int(idx)
-		},
-		Unique: true,
+		FromKey: index.Int,
+		Unique:  true,
 	}
 
 	DeviceNameIndex = statedb.Index[*Device, string]{
@@ -31,9 +29,7 @@ var (
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.String(d.Name))
 		},
-		FromKey: func(name string) []byte {
-			return index.String(name)
-		},
+		FromKey: index.String,
 	}
 
 	DeviceSelectedIndex = statedb.Index[*Device, bool]{
@@ -41,9 +37,7 @@ var (
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.Bool(d.Selected))
 		},
-		FromKey: func(selected bool) []byte {
-			return index.Bool(selected)
-		},
+		FromKey: index.Bool,
 	}
 )
 

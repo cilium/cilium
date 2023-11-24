@@ -5,12 +5,20 @@ package index
 
 import "bytes"
 
-type Key = []byte
+// Key is a byte slice describing a key used in an index by statedb.
+// If a key is variable-sized, then it must be either terminated with
+// e.g. zero byte or it must be length-encoded. If it is not, then
+// a Get() may return results that don't match the query (e.g. objects
+// indexed with a key that has the same prefix but are longer).
+// The reason is that Get() is implemented as a prefix seek to avoid
+// full key comparison on iteration and also to support the
+// non-unique indexes which key on "secondary + primary" keys.
+type Key []byte
 
 // KeySet is a sequence of (length, byte slice) pairs.
 // length is encoded as 16-bit big-endian unsigned int.
 type KeySet struct {
-	buf Key
+	buf []byte
 }
 
 func NewKeySet(keys ...Key) KeySet {

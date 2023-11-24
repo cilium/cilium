@@ -25,10 +25,8 @@ var (
 				}.Key(),
 			)
 		},
-		FromKey: func(id RouteID) []byte {
-			return id.Key()
-		},
-		Unique: true,
+		FromKey: RouteID.Key,
+		Unique:  true,
 	}
 
 	RouteLinkIndex = statedb.Index[*Route, int]{
@@ -36,9 +34,7 @@ var (
 		FromObject: func(r *Route) index.KeySet {
 			return index.NewKeySet(index.Int(r.LinkIndex))
 		},
-		FromKey: func(linkIndex int) []byte {
-			return index.Int(linkIndex)
-		},
+		FromKey: index.Int,
 	}
 )
 
@@ -56,11 +52,12 @@ type RouteID struct {
 	Dst       netip.Prefix
 }
 
-func (id RouteID) Key() []byte {
+func (id RouteID) Key() index.Key {
 	key := append(index.Uint64(uint64(id.Table)), '+')
 	key = append(key, index.Uint64(uint64(id.Table))...)
 	key = append(key, '+')
 	key = append(key, index.NetIPPrefix(id.Dst)...)
+	key = append(key, 0 /* termination */)
 	return key
 }
 
