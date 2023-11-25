@@ -85,6 +85,7 @@ The policy in ``yaml`` form is defined below:
       neighbors: # []CiliumBGPNeighbor
        - peerAddress: 'fc00:f853:ccd:e793::50/128'
          peerASN: 64512
+         authSecretRef: secretname
          eBGPMultihopTTL: 10
          connectRetryTimeSeconds: 120
          holdTimeSeconds: 90
@@ -314,7 +315,7 @@ An example of creating a secret is:
 
 .. code-block:: shell-session
 
-  # kubectl create secret generic -n cilium-bgp-secrets --type=string secretName --from-literal=password=my-secret-password
+   $ kubectl create secret generic -n cilium-bgp-secrets --type=string secretname --from-literal=password=my-secret-password
 
 Because TCP MD5 passwords sign the header of the packet they cannot be used if
 the session will be address translated by Cilium (i.e. the Cilium Agent's pod
@@ -325,6 +326,10 @@ connection will not succeed. This will appear as ``dial: i/o timeout`` in the
 Cilium Agent's logs rather than a more specific error message.
 
 .. _RFC-2385 : https://www.rfc-editor.org/rfc/rfc2385.html
+
+If a ``CiliumBGPPeeringPolicy`` is deployed with an ``authSecretRef`` that Cilium cannot find, the BGP session will use an empty password and the agent will log an error such as in the following example::
+
+   level=error msg="Failed to fetch secret \"secretname\": not found (will continue with empty password)" component=manager.fetchPeerPassword subsys=bgp-control-plane
 
 Graceful Restart
 ''''''''''''''''
@@ -607,7 +612,7 @@ Cilium CLI displays the BGP peering status of all nodes.
 
 .. code-block:: shell-session
 
-   # cilium bgp peers -h
+   $ cilium bgp peers -h
    Gets BGP peering status from all nodes in the cluster
 
    Usage:
