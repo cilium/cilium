@@ -86,7 +86,7 @@ jobs:
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
           - kernel: '6.1-20231026.065108'
-            ci-kernel: '510'
+            ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
           - kernel: 'bpf-next-20231123.012848'
             ci-kernel: 'netnext'
