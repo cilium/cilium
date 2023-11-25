@@ -32,9 +32,6 @@
 /* Set the LXC source address to be the address of pod one */
 #define LXC_IPV4 CLIENT_IP
 
-/* We need this for ipcache */
-#define HAVE_LPM_TRIE_MAP_TYPE
-
 /* Overlapping PodCIDR is only supported for IPv4 for now */
 #define ENABLE_IPV4
 
