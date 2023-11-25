@@ -21,10 +21,22 @@ static int BPF_FUNC(xdp_adjust_tail, struct xdp_md *xdp, int delta);
 static int BPF_FUNC(redirect, int ifindex, __u32 flags);
 
 /* Packet manipulation */
+
+#ifdef HAVE_XDP_LOAD_BYTES
+static int BPF_FUNC(xdp_load_bytes, struct xdp_md *xdp, __u32 off,
+		    void *to, __u32 len);
+#else
 static int BPF_STUB(xdp_load_bytes, struct xdp_md *xdp, __u32 off,
 		    void *to, __u32 len);
+#endif
+
+#ifdef HAVE_XDP_STORE_BYTES
+static int BPF_FUNC(xdp_store_bytes, struct xdp_md *xdp, __u32 off,
+		    const void *from, __u32 len, __u32 flags);
+#else
 static int BPF_STUB(xdp_store_bytes, struct xdp_md *xdp, __u32 off,
 		    const void *from, __u32 len, __u32 flags);
+#endif
 
 static int BPF_STUB(l3_csum_replace, struct xdp_md *xdp, __u32 off,
 		    __u32 from, __u32 to, __u32 flags);
