@@ -86,6 +86,8 @@ func (ps *fakePodStore) IndexKeys(indexName, indexedValue string) ([]string, err
 func (ps *fakePodStore) ByIndex(indexName, indexedValue string) ([]*slimcorev1.Pod, error) {
 	return nil, nil
 }
+func (ps *fakePodStore) Release() {
+}
 
 var (
 	tcpStr    = "TCP"

@@ -76,3 +76,6 @@ func (mds *mockBGPCPResourceStore[T]) GetByKey(key resource.Key) (item T, exists
 
 	return item, exists, nil
 }
+
+func (mds *mockBGPCPResourceStore[T]) Release() {
+}
