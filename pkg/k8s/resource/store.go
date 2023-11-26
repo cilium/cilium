@@ -34,11 +34,17 @@ type Store[T k8sRuntime.Object] interface {
 	// CacheStore returns the underlying cache.Store instance. Use for temporary
 	// compatibility purposes only!
 	CacheStore() cache.Store
+
+	// Release the store and allows the associated resource to stop its informer if
+	// this is the last reference to it.
+	// This is a no-op if the resource is not releasable.
+	Release()
 }
 
 // typedStore implements Store on top of an untyped cache.Indexer.
 type typedStore[T k8sRuntime.Object] struct {
-	store cache.Indexer
+	store   cache.Indexer
+	release func()
 }
 
 var _ Store[*corev1.Node] = &typedStore[*corev1.Node]{}
@@ -87,6 +93,10 @@ func (s *typedStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
 
 func (s *typedStore[T]) CacheStore() cache.Store {
 	return s.store
+}
+
+func (s *typedStore[T]) Release() {
+	s.release()
 }
 
 type KeyIter interface {
