@@ -291,7 +291,7 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 	rule.Mark = linux_defaults.RouteMarkEncrypt
 	if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("delete previousa IPv4 encrypt rule failed: %w", err)
+			return fmt.Errorf("delete previous IPv4 encrypt rule failed: %w", err)
 		}
 	}
 
