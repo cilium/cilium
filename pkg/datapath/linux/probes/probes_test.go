@@ -254,21 +254,21 @@ func TestWriteFeatureHeader(t *testing.T) {
 	}{
 		{
 			features: map[string]bool{
-				"HAVE_FIB_LOOKUP": true,
+				"HAVE_FEATURE_MACRO": true,
 			},
 			common: true,
 			expectedLines: []string{
-				"#define HAVE_FIB_LOOKUP 1",
+				"#define HAVE_FEATURE_MACRO 1",
 			},
 		},
 		{
 			features: map[string]bool{
-				"HAVE_FIB_LOOKUP": true,
+				"HAVE_FEATURE_MACRO": true,
 			},
 			common: false,
 			expectedLines: []string{
 				"#include \"features.h\"",
-				"#define HAVE_FIB_LOOKUP 1",
+				"#define HAVE_FEATURE_MACRO 1",
 			},
 		},
 	}
