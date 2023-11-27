@@ -55,6 +55,7 @@ concurrency:
 
 jobs:
   commit-status-start:
+    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -115,7 +116,7 @@ jobs:
           ./.travis/build.sh
 
   commit-status-final:
-    if: ${{ always() }}
+    if: ${{ github.event_name != 'push' }}
     name: Commit Status Final
     needs: integration-test
     runs-on: ubuntu-latest
