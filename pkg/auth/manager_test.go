@@ -56,8 +56,8 @@ func Test_authManager_authenticate(t *testing.T) {
 		{
 			name: "missing handler for auth type",
 			args: authKey{
-				localIdentity:  1,
-				remoteIdentity: 2,
+				localIdentity:  1000,
+				remoteIdentity: 2000,
 				remoteNodeID:   2,
 				authType:       1,
 			},
@@ -67,8 +67,8 @@ func Test_authManager_authenticate(t *testing.T) {
 		{
 			name: "missing node IP for node ID",
 			args: authKey{
-				localIdentity:  1,
-				remoteIdentity: 2,
+				localIdentity:  1000,
+				remoteIdentity: 2000,
 				remoteNodeID:   1,
 				authType:       2,
 			},
@@ -78,8 +78,8 @@ func Test_authManager_authenticate(t *testing.T) {
 		{
 			name: "successful auth",
 			args: authKey{
-				localIdentity:  1,
-				remoteIdentity: 2,
+				localIdentity:  1000,
+				remoteIdentity: 2000,
 				remoteNodeID:   2,
 				authType:       100,
 			},
@@ -124,12 +124,46 @@ func Test_authManager_handleAuthRequest(t *testing.T) {
 	am.handleAuthenticationFunc = func(_ *AuthManager, k authKey, reAuth bool) {
 		handleAuthCalled = true
 		assert.False(t, reAuth)
-		assert.Equal(t, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: 100}, k)
+		assert.Equal(t, authKey{localIdentity: 1000, remoteIdentity: 2000, remoteNodeID: 0, authType: 100}, k)
 	}
 
-	err = am.handleAuthRequest(context.Background(), signalAuthKey{LocalIdentity: 1, RemoteIdentity: 2, RemoteNodeID: 0, AuthType: 100, Pad: 0})
+	err = am.handleAuthRequest(context.Background(), signalAuthKey{LocalIdentity: 1000, RemoteIdentity: 2000, RemoteNodeID: 0, AuthType: 100, Pad: 0})
 	assert.NoError(t, err)
 	assert.True(t, handleAuthCalled)
+}
+
+func Test_authManager_handleAuthRequest_reservedRemoteIdentity(t *testing.T) {
+	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
+
+	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil, time.Second)
+	assert.NoError(t, err)
+	assert.NotNil(t, am)
+
+	handleAuthCalled := false
+	am.handleAuthenticationFunc = func(_ *AuthManager, k authKey, reAuth bool) {
+		handleAuthCalled = true
+	}
+
+	err = am.handleAuthRequest(context.Background(), signalAuthKey{LocalIdentity: 100, RemoteIdentity: identity.ReservedIdentityWorldIPv6.Uint32(), RemoteNodeID: 0, AuthType: 100, Pad: 0})
+	assert.NoError(t, err)
+	assert.False(t, handleAuthCalled)
+}
+
+func Test_authManager_handleAuthRequest_reservedLocalIdentity(t *testing.T) {
+	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
+
+	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil, time.Second)
+	assert.NoError(t, err)
+	assert.NotNil(t, am)
+
+	handleAuthCalled := false
+	am.handleAuthenticationFunc = func(_ *AuthManager, k authKey, reAuth bool) {
+		handleAuthCalled = true
+	}
+
+	err = am.handleAuthRequest(context.Background(), signalAuthKey{LocalIdentity: identity.ReservedIdentityWorldIPv6.Uint32(), RemoteIdentity: 100, RemoteNodeID: 0, AuthType: 100, Pad: 0})
+	assert.NoError(t, err)
+	assert.False(t, handleAuthCalled)
 }
 
 func Test_authManager_handleCertificateRotationEvent_Error(t *testing.T) {
@@ -150,9 +184,9 @@ func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
 	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
 	aMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
-			{localIdentity: 2, remoteIdentity: 3, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
-			{localIdentity: 3, remoteIdentity: 4, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 1000, remoteIdentity: 2000, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 2000, remoteIdentity: 3000, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 3000, remoteIdentity: 4000, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
 		},
 	}
 
@@ -164,10 +198,10 @@ func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
 	am.handleAuthenticationFunc = func(_ *AuthManager, k authKey, reAuth bool) {
 		handleAuthCalled = true
 		assert.True(t, reAuth)
-		assert.True(t, k.localIdentity == 2 || k.remoteIdentity == 2)
+		assert.True(t, k.localIdentity == 2000 || k.remoteIdentity == 2000)
 	}
 
-	err = am.handleCertificateRotationEvent(context.Background(), certs.CertificateRotationEvent{Identity: identity.NumericIdentity(2)})
+	err = am.handleCertificateRotationEvent(context.Background(), certs.CertificateRotationEvent{Identity: identity.NumericIdentity(2000)})
 	assert.NoError(t, err)
 	assert.True(t, handleAuthCalled)
 }
@@ -176,9 +210,9 @@ func Test_authManager_handleCertificateDeletionEvent(t *testing.T) {
 	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
 	aMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
-			{localIdentity: 2, remoteIdentity: 3, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
-			{localIdentity: 3, remoteIdentity: 4, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 1000, remoteIdentity: 2000, remoteNodeID: 1000, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 2000, remoteIdentity: 3000, remoteNodeID: 1000, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 3000, remoteIdentity: 4000, remoteNodeID: 1000, authType: 100}: {expiration: time.Now()},
 		},
 	}
 
@@ -187,7 +221,7 @@ func Test_authManager_handleCertificateDeletionEvent(t *testing.T) {
 	assert.NotNil(t, am)
 
 	err = am.handleCertificateRotationEvent(context.Background(), certs.CertificateRotationEvent{
-		Identity: identity.NumericIdentity(2),
+		Identity: identity.NumericIdentity(2000),
 		Deleted:  true,
 	})
 	assert.NoError(t, err)
