@@ -625,11 +625,9 @@ func ExecuteHeaderProbes() *FeatureProbes {
 
 		// skb related probes
 		{ebpf.SchedCLS, asm.FnSkbChangeTail},
-		{ebpf.SchedCLS, asm.FnFibLookup},
 		{ebpf.SchedCLS, asm.FnCsumLevel},
 
 		// xdp related probes
-		{ebpf.XDP, asm.FnFibLookup},
 		{ebpf.XDP, asm.FnXdpLoadBytes},
 		{ebpf.XDP, asm.FnXdpStoreBytes},
 	}
@@ -669,7 +667,6 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
 	featuresSkb := map[string]bool{
 		"HAVE_CHANGE_TAIL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnSkbChangeTail}],
-		"HAVE_FIB_LOOKUP":  probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnFibLookup}],
 		"HAVE_CSUM_LEVEL":  probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
 	}
 
@@ -679,7 +676,6 @@ func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
 // writeXdpHeader defines macros for bpf/include/bpf/features_xdp.h
 func writeXdpHeader(writer io.Writer, probes *FeatureProbes) error {
 	featuresXdp := map[string]bool{
-		"HAVE_FIB_LOOKUP":      probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnFibLookup}],
 		"HAVE_XDP_LOAD_BYTES":  probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
 		"HAVE_XDP_STORE_BYTES": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
 	}
