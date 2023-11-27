@@ -311,7 +311,7 @@ jobs:
 
       - name: Upgrade Cilium & Test (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@614f2ddcc8fe93aeaf463b4535dcc0f1dcc373a3
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@main
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
           operation-cmd: |
@@ -326,7 +326,7 @@ jobs:
 
       - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@614f2ddcc8fe93aeaf463b4535dcc0f1dcc373a3
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@main
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
           operation-cmd: |
