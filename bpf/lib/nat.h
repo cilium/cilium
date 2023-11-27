@@ -1249,64 +1249,6 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off, int l4
 	return 0;
 }
 
-static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
-						   struct ipv6_ct_tuple *tuple,
-						   struct ipv6_nat_entry *state,
-						   __u32 off)
-{
-	struct csum_offset csum = {};
-	__be32 sum;
-	int ret;
-
-	if (ipv6_addr_equals(&state->to_daddr, &tuple->daddr) &&
-	    state->to_dport == tuple->dport)
-		return 0;
-	sum = csum_diff(&tuple->daddr, 16, &state->to_daddr, 16, 0);
-	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
-	if (state->to_dport != tuple->dport) {
-		switch (tuple->nexthdr) {
-		case IPPROTO_TCP:
-		case IPPROTO_UDP:
-			ret = l4_modify_port(ctx, off,
-					     offsetof(struct tcphdr, dest),
-					     &csum, state->to_dport,
-					     tuple->dport);
-			if (ret < 0)
-				return ret;
-			break;
-#ifdef ENABLE_SCTP
-		case IPPROTO_SCTP:
-			return DROP_CSUM_L4;
-#endif  /* ENABLE_SCTP */
-		case IPPROTO_ICMPV6: {
-			__u8 type = 0;
-			__be32 from, to;
-
-			if (icmp6_load_type(ctx, off, &type) < 0)
-				return DROP_INVALID;
-			if (type == ICMPV6_ECHO_REPLY) {
-				if (ctx_store_bytes(ctx, off +
-						    offsetof(struct icmp6hdr,
-							     icmp6_dataun.u_echo.identifier),
-						    &state->to_dport,
-						    sizeof(state->to_dport), 0) < 0)
-					return DROP_WRITE_ERROR;
-				from = tuple->dport;
-				to = state->to_dport;
-				sum = csum_diff(&from, 4, &to, 4, sum);
-			}
-			break;
-		}}
-	}
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct ipv6hdr, daddr),
-			    &state->to_daddr, 16, 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (csum.offset &&
-	    csum_l4_replace(ctx, off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
-	return 0;
-}
-
 static __always_inline bool
 snat_v6_nat_can_skip(const struct ipv6_nat_target *target,
 		     const struct ipv6_ct_tuple *tuple)
@@ -1624,6 +1566,8 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	__u32 off, inner_l3_off;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__be16 to_dport = 0;
+	__u16 port_off = 0;
 	int ret, hdrlen;
 	struct {
 		__be16 sport;
@@ -1653,6 +1597,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 			return DROP_INVALID;
 		tuple.dport = l4hdr.dport;
 		tuple.sport = l4hdr.sport;
+		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMPV6:
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
@@ -1661,6 +1606,8 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		case ICMPV6_ECHO_REPLY:
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			tuple.sport = 0;
+			port_off = offsetof(struct icmp6hdr,
+					    icmp6_dataun.u_echo.identifier);
 			break;
 		case ICMPV6_PKT_TOOBIG:
 			/* ICMPV6_PKT_TOOBIG does not include identifer and
@@ -1690,8 +1637,13 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	if (ret < 0)
 		return ret;
 
+	/* Skip port rewrite for ICMPV6_PKT_TOOBIG by passing old_port == new_port == 0. */
+	to_dport = state->to_dport;
+
 rewrite:
-	return snat_v6_rewrite_ingress(ctx, &tuple, state, off);
+	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN, off,
+				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
+				       tuple.dport, to_dport, port_off);
 }
 #else
 static __always_inline __maybe_unused
