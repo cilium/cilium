@@ -771,6 +771,49 @@ func TestRequestIdentity(t *testing.T) {
 	hasIdentity(aPrefix, identity.IdentityScopeLocal+2)
 }
 
+func TestMetadataRevision(t *testing.T) {
+	m := newMetadata()
+
+	p1 := netip.MustParsePrefix("1.1.1.1/32")
+	p2 := netip.MustParsePrefix("1::1/128")
+
+	rev := m.enqueuePrefixUpdates(p1)
+	assert.Equal(t, uint64(1), rev)
+
+	rev = m.enqueuePrefixUpdates(p2)
+	assert.Equal(t, uint64(1), rev)
+
+	_, rev = m.dequeuePrefixUpdates()
+	assert.Equal(t, uint64(1), rev)
+	assert.Equal(t, uint64(0), m.injectedRevision)
+
+	rev = m.enqueuePrefixUpdates(p1)
+	assert.Equal(t, uint64(2), rev)
+	assert.Equal(t, uint64(0), m.injectedRevision)
+
+	m.setInjectedRevision(1)
+	rev = m.enqueuePrefixUpdates(p2)
+	assert.Equal(t, uint64(2), rev)
+	assert.Equal(t, uint64(1), m.injectedRevision)
+}
+
+func TestMetadataWaitForRevision(t *testing.T) {
+	m := newMetadata()
+
+	p1 := netip.MustParsePrefix("1.1.1.1/32")
+	wantRev := m.enqueuePrefixUpdates(p1)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		m.waitForRevision(wantRev)
+		wg.Done()
+	}()
+
+	m.setInjectedRevision(wantRev)
+	wg.Wait()
+}
+
 func setupTest(t *testing.T) (cleanup func()) {
 	t.Helper()
 
