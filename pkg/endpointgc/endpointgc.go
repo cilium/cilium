@@ -61,6 +61,7 @@ type gc struct {
 	restorerPromise            promise.Promise[endpointstate.Restorer]
 	endpointsCache             localEndpointCache
 	ciliumEndpointSliceEnabled bool
+	storeReleaseFn             func()
 }
 
 func registerGC(p params) {
@@ -94,6 +95,12 @@ func registerGC(p params) {
 }
 
 func (gc *gc) runGC(ctx context.Context) error {
+	defer func() {
+		if gc.storeReleaseFn != nil {
+			gc.storeReleaseFn()
+		}
+	}()
+
 	// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
 	// This will clear out any CiliumEndpoints that may be stale.
 	// Likely causes for this are Pods having their init container restarted or the node being restarted.
@@ -144,6 +151,7 @@ func (gc *gc) cleanStaleCEPs(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get CiliumEndpoint store: %w", err)
 	}
+	gc.storeReleaseFn = store.Release
 	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
 	if err != nil {
 		return fmt.Errorf("failed to get indexed CiliumEndpointSlice from store: %w", err)
@@ -164,6 +172,7 @@ func (gc *gc) cleanStaleCESs(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get CiliumEndpointSlice store: %w", err)
 	}
+	gc.storeReleaseFn = store.Release
 	objs, err := store.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
 	if err != nil {
 		return fmt.Errorf("failed to get indexed CiliumEndpointSlice from store: %w", err)
