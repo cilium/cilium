@@ -89,6 +89,13 @@ func (a *AuthManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 		authType:       policy.AuthType(key.AuthType),
 	}
 
+	if k.localIdentity.IsReservedIdentity() || k.remoteIdentity.IsReservedIdentity() {
+		a.logger.
+			WithField("key", k).
+			Info("Reserved identity, skipping authentication as reserved identities are not compatible with authentication")
+		return nil
+	}
+
 	a.logger.
 		WithField("key", k).
 		Debug("Handle authentication request")
