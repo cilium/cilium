@@ -421,66 +421,6 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	return 0;
 }
 
-/* NAT dest of the inner IP and L4 header of the ICMP packet.
- * It's like SNAT (endpoint -> host) but on the dest because
- * the inner packets are sent from remote to endpoint.
- */
-static __always_inline int
-snat_v4_icmp_rewrite_egress_embedded(struct __ctx_buff *ctx,
-				     struct ipv4_ct_tuple *tuple,
-				     struct ipv4_nat_entry *state,
-				     __u32 l4_off, __u32 inner_l4_off)
-{
-	int ret;
-	int flags = BPF_F_PSEUDO_HDR;
-	struct csum_offset csum = {};
-	__be32 sum;
-
-	if (state->to_saddr == tuple->saddr &&
-	    state->to_sport == tuple->sport)
-		return 0;
-	sum = csum_diff(&tuple->saddr, 4, &state->to_saddr, 4, 0);
-	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
-
-	if (state->to_sport != tuple->sport) {
-		switch (tuple->nexthdr) {
-		case IPPROTO_TCP:
-		case IPPROTO_UDP:
-			ret = l4_modify_port(ctx, inner_l4_off,
-					     offsetof(struct tcphdr, dest),
-					     &csum, state->to_sport, tuple->sport);
-			if (ret < 0)
-				return ret;
-			break;
-#ifdef ENABLE_SCTP
-		case IPPROTO_SCTP:
-			return DROP_CSUM_L4;
-#endif  /* ENABLE_SCTP */
-		case IPPROTO_ICMP: {
-			if (ctx_store_bytes(ctx, inner_l4_off +
-						offsetof(struct icmphdr, un.echo.id),
-						&state->to_sport,
-						sizeof(state->to_sport), 0) < 0)
-				return DROP_WRITE_ERROR;
-			if (l4_csum_replace(ctx, inner_l4_off + offsetof(struct icmphdr, checksum),
-					    tuple->sport,
-					    state->to_sport,
-					    sizeof(tuple->sport)) < 0)
-				return DROP_CSUM_L4;
-			break;
-		}}
-	}
-	if (ctx_store_bytes(ctx, l4_off + sizeof(struct icmphdr) + offsetof(struct iphdr, daddr),
-			    &state->to_saddr, 4, 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (ipv4_csum_update_by_diff(ctx, l4_off + sizeof(struct icmphdr), sum) < 0)
-		return DROP_CSUM_L3;
-	if (csum.offset &&
-	    csum_l4_replace(ctx, inner_l4_off, &csum, 0, sum, flags) < 0)
-		return DROP_CSUM_L4;
-	return 0;
-}
-
 static __always_inline bool
 snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
 		     const struct ipv4_ct_tuple *tuple)
@@ -696,11 +636,13 @@ static __always_inline __maybe_unused int
 snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 				    bool has_l4_header)
 {
+	__u32 inner_l3_off = off + sizeof(struct icmphdr);
 	struct ipv4_ct_tuple tuple = {};
 	struct ipv4_nat_entry *state;
 	struct iphdr iphdr;
-	__u32 icmpoff = off + sizeof(struct icmphdr);
 	__be16 identifier;
+	__u16 port_off;
+	__u32 icmpoff;
 	__u8 type;
 	int ret;
 
@@ -708,8 +650,7 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 	 * responding with an ICMP Error packet should embed the original
 	 * packet in its response.
 	 */
-	if (ctx_load_bytes(ctx, icmpoff, &iphdr,
-			   sizeof(iphdr)) < 0)
+	if (ctx_load_bytes(ctx, inner_l3_off, &iphdr, sizeof(iphdr)) < 0)
 		return DROP_INVALID;
 	/* From the embedded IP headers we should be able to determine
 	 * corresponding protocol, IP src/dst of the packet sent to resolve
@@ -720,7 +661,7 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 	tuple.daddr = iphdr.saddr;
 	tuple.flags = NAT_DIR_EGRESS;
 
-	icmpoff += ipv4_hdrlen(&iphdr);
+	icmpoff = inner_l3_off + ipv4_hdrlen(&iphdr);
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
@@ -732,6 +673,8 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 		 */
 		if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
 			return DROP_INVALID;
+
+		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
 		/* No reasons to see a packet different than ICMP_ECHOREPLY. */
@@ -739,9 +682,11 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 				   sizeof(type)) < 0 ||
 		    type != ICMP_ECHOREPLY)
 			return DROP_INVALID;
-		if (ctx_load_bytes(ctx, icmpoff +
-			    offsetof(struct icmphdr, un.echo.id),
-			&identifier, sizeof(identifier)) < 0)
+
+		port_off = offsetof(struct icmphdr, un.echo.id);
+
+		if (ctx_load_bytes(ctx, icmpoff + port_off,
+				   &identifier, sizeof(identifier)) < 0)
 			return DROP_INVALID;
 		tuple.sport = identifier;
 		tuple.dport = 0;
@@ -756,8 +701,9 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 	/* We found SNAT entry to NAT embedded packet. The destination addr
 	 * should be NATed according to the entry.
 	 */
-	ret = snat_v4_icmp_rewrite_egress_embedded(ctx, &tuple, state,
-						   off, icmpoff);
+	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, icmpoff,
+				      tuple.saddr, state->to_saddr, IPV4_DADDR_OFF,
+				      tuple.sport, state->to_sport, port_off);
 	if (IS_ERR(ret))
 		return ret;
 
