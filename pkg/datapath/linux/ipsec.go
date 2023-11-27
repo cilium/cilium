@@ -178,7 +178,9 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 			}
 		} else {
 			remoteCIDR := newNode.IPv4AllocCIDR.IPNet
-			n.replaceNodeIPSecOutRoute(remoteCIDR)
+			if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
+			}
 			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
 			errs = errors.Join(errs, upsertIPsecLog(err, "out IPv4", wildcardCIDR, remoteCIDR, spi, nodeID))
 		}
@@ -261,7 +263,9 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 			}
 		} else {
 			remoteCIDR := newNode.IPv6AllocCIDR.IPNet
-			n.replaceNodeIPSecOutRoute(remoteCIDR)
+			if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
+			}
 			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
 			errs = errors.Join(errs, upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi, nodeID))
 		}
@@ -426,7 +430,7 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) error {
 		old6RouteNet := &net.IPNet{IP: oldNode.IPv6AllocCIDR.IP, Mask: oldNode.IPv6AllocCIDR.Mask}
 		// See IPv4 case above.
 		if !n.subnetEncryption() {
-			n.deleteNodeIPSecOutRoute(old6RouteNet)
+			errs = errors.Join(errs, n.deleteNodeIPSecOutRoute(old6RouteNet))
 		}
 	}
 	return errs
