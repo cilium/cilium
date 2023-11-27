@@ -39,12 +39,17 @@ static inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 	struct ratelimit_value *value;
 	struct ratelimit_value new_value;
 	__u64 since_last_topup;
+	__u64 now;
+	__u64 interval;
+	__u64 remainder;
 	int ret;
+
+	now = ktime_get_ns();
 
 	/* Create a new bucket if we do not yet have one for the key */
 	value = map_lookup_elem(&RATELIMIT_MAP, key);
 	if (!value) {
-		new_value.last_topup = ktime_get_ns();
+		new_value.last_topup = now;
 		new_value.tokens = settings->tokens_per_topup - 1;
 		ret = map_update_elem(&RATELIMIT_MAP, key, &new_value, BPF_ANY);
 		if (ret < 0)
@@ -52,13 +57,19 @@ static inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 		return true;
 	}
 
+	/* Note, the updates below are racy, this causes a bit of inaccuracy but isn't fatal,
+	 * a more accurare implementation would use atomic operations to update the bucket
+	 * but this would be bad for performance.
+	 */
+
 	/* Topup the bucket if it has been at least more than 1 interval since we have done so */
-	since_last_topup = ktime_get_ns() - value->last_topup;
+	since_last_topup = now - value->last_topup;
 	if (since_last_topup > settings->topup_interval_ns) {
+		interval = since_last_topup / settings->topup_interval_ns;
+		remainder = since_last_topup % settings->topup_interval_ns;
 		/* Add tokens of every missed interval */
-		value->tokens += (since_last_topup / settings->topup_interval_ns) *
-						  settings->tokens_per_topup;
-		value->last_topup = ktime_get_ns();
+		value->tokens += interval * settings->tokens_per_topup;
+		value->last_topup = now - remainder;
 		/* Make sure to not overflow the bucket */
 		if (value->tokens > settings->bucket_size)
 			value->tokens = settings->bucket_size;
