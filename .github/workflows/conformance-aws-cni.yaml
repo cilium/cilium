@@ -252,11 +252,6 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-final-${{ join(matrix.*, '-') }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Clean up EKS
-        if: ${{ always() }}
-        run: |
-          eksctl delete cluster --name ${{ env.clusterName }} --region ${{ matrix.region }}
-
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
@@ -290,3 +285,32 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.installation-and-connectivity.result }}
+
+  cleanup:
+    name: Cleanup EKS Clusters
+    if: ${{ always() }}
+    continue-on-error: true
+    needs: [generate-matrix, installation-and-connectivity]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
+
+    steps:
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
+          rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
+          aws-region: ${{ matrix.region }}
+
+      - name: Clean up EKS
+        run: |
+          eksctl delete cluster --name ${{ env.clusterName }} --region ${{ matrix.region }}
