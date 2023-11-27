@@ -237,21 +237,32 @@ func (m *contentSHA256Header) HandleFinalize(
 	return next.HandleFinalize(ctx, in)
 }
 
-// SignHTTPRequestMiddlewareOptions is the configuration options for the SignHTTPRequestMiddleware middleware.
+// SignHTTPRequestMiddlewareOptions is the configuration options for
+// [SignHTTPRequestMiddleware].
+//
+// Deprecated: [SignHTTPRequestMiddleware] is deprecated.
 type SignHTTPRequestMiddlewareOptions struct {
 	CredentialsProvider aws.CredentialsProvider
 	Signer              HTTPSigner
 	LogSigning          bool
 }
 
-// SignHTTPRequestMiddleware is a `FinalizeMiddleware` implementation for SigV4 HTTP Signing
+// SignHTTPRequestMiddleware is a `FinalizeMiddleware` implementation for SigV4
+// HTTP Signing.
+//
+// Deprecated: AWS service clients no longer use this middleware. Signing as an
+// SDK operation is now performed through an internal per-service middleware
+// which opaquely selects and uses the signer from the resolved auth scheme.
 type SignHTTPRequestMiddleware struct {
 	credentialsProvider aws.CredentialsProvider
 	signer              HTTPSigner
 	logSigning          bool
 }
 
-// NewSignHTTPRequestMiddleware constructs a SignHTTPRequestMiddleware using the given Signer for signing requests
+// NewSignHTTPRequestMiddleware constructs a [SignHTTPRequestMiddleware] using
+// the given [Signer] for signing requests.
+//
+// Deprecated: SignHTTPRequestMiddleware is deprecated.
 func NewSignHTTPRequestMiddleware(options SignHTTPRequestMiddlewareOptions) *SignHTTPRequestMiddleware {
 	return &SignHTTPRequestMiddleware{
 		credentialsProvider: options.CredentialsProvider,
@@ -260,12 +271,17 @@ func NewSignHTTPRequestMiddleware(options SignHTTPRequestMiddlewareOptions) *Sig
 	}
 }
 
-// ID is the SignHTTPRequestMiddleware identifier
+// ID is the SignHTTPRequestMiddleware identifier.
+//
+// Deprecated: SignHTTPRequestMiddleware is deprecated.
 func (s *SignHTTPRequestMiddleware) ID() string {
 	return "Signing"
 }
 
-// HandleFinalize will take the provided input and sign the request using the SigV4 authentication scheme
+// HandleFinalize will take the provided input and sign the request using the
+// SigV4 authentication scheme.
+//
+// Deprecated: SignHTTPRequestMiddleware is deprecated.
 func (s *SignHTTPRequestMiddleware) HandleFinalize(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (
 	out middleware.FinalizeOutput, metadata middleware.Metadata, err error,
 ) {
