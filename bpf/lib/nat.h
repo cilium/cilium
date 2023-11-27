@@ -640,7 +640,6 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 	struct ipv4_ct_tuple tuple = {};
 	struct ipv4_nat_entry *state;
 	struct iphdr iphdr;
-	__be16 identifier;
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
@@ -686,10 +685,8 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 		port_off = offsetof(struct icmphdr, un.echo.id);
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
-				   &identifier, sizeof(identifier)) < 0)
+				   &tuple.sport, sizeof(tuple.sport)) < 0)
 			return DROP_INVALID;
-		tuple.sport = identifier;
-		tuple.dport = 0;
 		break;
 	default:
 		return DROP_UNKNOWN_L4;
@@ -801,7 +798,6 @@ snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx,
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct iphdr iphdr;
-	__be16 identifier;
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
@@ -847,10 +843,8 @@ snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx,
 		port_off = offsetof(struct icmphdr, un.echo.id);
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
-				   &identifier, sizeof(identifier)) < 0)
+				   &tuple.dport, sizeof(tuple.dport)) < 0)
 			return DROP_INVALID;
-		tuple.sport = 0;
-		tuple.dport = identifier;
 		break;
 	default:
 		return NAT_PUNT_TO_STACK;
@@ -1479,7 +1473,6 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 {
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6hdr iphdr;
-	__be16 identifier;
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
@@ -1537,10 +1530,8 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				    icmp6_dataun.u_echo.identifier);
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
-				   &identifier, sizeof(identifier)) < 0)
+				   &tuple.dport, sizeof(tuple.dport)) < 0)
 			return DROP_INVALID;
-		tuple.sport = 0;
-		tuple.dport = identifier;
 		break;
 	default:
 		return NAT_PUNT_TO_STACK;
