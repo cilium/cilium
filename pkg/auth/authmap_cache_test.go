@@ -19,8 +19,8 @@ func Test_authMapCache_restoreCache(t *testing.T) {
 		authmap: &fakeAuthMap{
 			entries: map[authKey]authInfo{
 				{
-					localIdentity:  1,
-					remoteIdentity: 2,
+					localIdentity:  1000,
+					remoteIdentity: 2000,
 					remoteNodeID:   10,
 					authType:       policy.AuthTypeDisabled,
 				}: {
@@ -37,8 +37,8 @@ func Test_authMapCache_restoreCache(t *testing.T) {
 	assert.Len(t, am.cacheEntries, 1)
 
 	val, err := am.Get(authKey{
-		localIdentity:  1,
-		remoteIdentity: 2,
+		localIdentity:  1000,
+		remoteIdentity: 2000,
 		remoteNodeID:   10,
 		authType:       policy.AuthTypeDisabled,
 	})
@@ -54,8 +54,8 @@ func Test_authMapCache_allReturnsCopy(t *testing.T) {
 		},
 		cacheEntries: map[authKey]authInfoCache{
 			{
-				localIdentity:  1,
-				remoteIdentity: 2,
+				localIdentity:  1000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -70,8 +70,8 @@ func Test_authMapCache_allReturnsCopy(t *testing.T) {
 	assert.Len(t, all, 1)
 
 	all[authKey{
-		localIdentity:  10,
-		remoteIdentity: 20,
+		localIdentity:  10000,
+		remoteIdentity: 20000,
 		remoteNodeID:   100,
 		authType:       policy.AuthTypeDisabled,
 	}] = authInfo{
@@ -85,8 +85,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 	fakeMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
 			{
-				localIdentity:  1,
-				remoteIdentity: 2,
+				localIdentity:  1000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -99,8 +99,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 		authmap: fakeMap,
 		cacheEntries: map[authKey]authInfoCache{
 			{
-				localIdentity:  1,
-				remoteIdentity: 2,
+				localIdentity:  1000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -108,8 +108,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 			{
-				localIdentity:  3,
-				remoteIdentity: 2,
+				localIdentity:  3000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -117,8 +117,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 			{
-				localIdentity:  4,
-				remoteIdentity: 2,
+				localIdentity:  4000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -131,8 +131,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 	assert.Len(t, am.cacheEntries, 3)
 
 	err := am.Delete(authKey{
-		localIdentity:  1,
-		remoteIdentity: 2,
+		localIdentity:  1000,
+		remoteIdentity: 2000,
 		remoteNodeID:   10,
 		authType:       policy.AuthTypeDisabled,
 	})
@@ -140,8 +140,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 	assert.Len(t, am.cacheEntries, 2)
 
 	err = am.Delete(authKey{
-		localIdentity:  3,
-		remoteIdentity: 2,
+		localIdentity:  3000,
+		remoteIdentity: 2000,
 		remoteNodeID:   10,
 		authType:       policy.AuthTypeDisabled,
 	})
@@ -150,8 +150,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 
 	fakeMap.failDelete = true
 	err = am.Delete(authKey{
-		localIdentity:  4,
-		remoteIdentity: 2,
+		localIdentity:  4000,
+		remoteIdentity: 2000,
 		remoteNodeID:   10,
 		authType:       policy.AuthTypeDisabled,
 	})
@@ -163,8 +163,8 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 	fakeMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
 			{
-				localIdentity:  1,
-				remoteIdentity: 2,
+				localIdentity:  1000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -177,8 +177,8 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 		authmap: fakeMap,
 		cacheEntries: map[authKey]authInfoCache{
 			{
-				localIdentity:  1,
-				remoteIdentity: 2,
+				localIdentity:  1000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -186,8 +186,8 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 			{
-				localIdentity:  3,
-				remoteIdentity: 2,
+				localIdentity:  3000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -195,8 +195,8 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 			{
-				localIdentity:  4,
-				remoteIdentity: 2,
+				localIdentity:  4000,
+				remoteIdentity: 2000,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
@@ -209,14 +209,14 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 	assert.Len(t, am.cacheEntries, 3)
 
 	err := am.DeleteIf(func(key authKey, info authInfo) bool {
-		return key.localIdentity == 1 || key.localIdentity == 3
+		return key.localIdentity == 1000 || key.localIdentity == 3000
 	})
 	assert.NoError(t, err)
 	assert.Len(t, am.cacheEntries, 1)
 
 	fakeMap.failDelete = true
 	err = am.DeleteIf(func(key authKey, info authInfo) bool {
-		return key.localIdentity == 4
+		return key.localIdentity == 4000
 	})
 	assert.ErrorContains(t, err, "failed to delete auth entry from map: failed to delete entry")
 	assert.Len(t, am.cacheEntries, 1)
