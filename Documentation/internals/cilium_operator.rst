@@ -109,24 +109,6 @@ When a ``Node`` object is deleted it is not possible to reliably cleanup
 the corresponding ``CiliumNode`` object from the Agent itself. The Cilium Operator
 holds the responsibility to garbage collect orphaned ``CiliumNodes``.
 
-CNP/CCNP node status garbage collection
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-For the same reasons that the Agent cannot reliably delete ``CiliumNode``, 
-the Agent also cannot remove the status corresponding to a node in a
-CiliumNetworkPolicy (CNP) or CiliumClusterwideNetworkPolicy (CCNP) object.
-This operation of node status garbage collection from CNP/CCNP objects is
-also performed by the Cilium Operator instead of the Agent.
-
-This behavior can be disabled passing ``--set enableCnpStatusUpdates=false``
-to ``helm install`` when installing or updating Cilium:
-
-.. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set enableCnpStatusUpdates=false
-
 Heartbeat update
 ^^^^^^^^^^^^^^^^
 
@@ -134,21 +116,6 @@ The Cilium Operator periodically updates the Cilium's heartbeat path key
 with the current time. The default key for this heartbeat is
 ``cilium/.heartbeat`` in the KVStore. It is used by Cilium Agents to validate
 that KVStore updates can be received.
-
-Policy status update
-^^^^^^^^^^^^^^^^^^^^
-
-Cilium Operator performs the operation of CNP/CCNP node status updates
-when ``k8s-events-handover`` is enabled. This optimizes Kubernetes events
-handling in large clusters. For the node status updates to be handled by
-the Cilium Operator, all the K8s events are mirrored to the KVStore, which
-is then used to perform operations via the Cilium Operator. This operation
-is performed for both ``CiliumNetworkPolicy`` and
-``CiliumClusterwideNetworkPolicy`` objects.
-
-For each CNP/CCNP object in the cluster, the Cilium Operator start a status
-handler. This handler periodically updates the node statuses for the
-CNP/CCNP objects with the status of the policy for the corresponding node.
 
 Identity garbage collection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

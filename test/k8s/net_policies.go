@@ -126,32 +126,6 @@ var _ = SkipDescribeIf(func() bool {
 			_ = kubectl.Exec(cmd)
 		})
 
-		It("Invalid Policy report status correctly", func() {
-			manifest := helpers.ManifestGet(kubectl.BasePath(), "invalid_cnp.yaml")
-			cnpName := "foo"
-			kubectl.Apply(helpers.ApplyOptions{FilePath: manifest, Namespace: namespaceForTest}).ExpectSuccess("Cannot apply policy manifest")
-
-			body := func() bool {
-				cnp := kubectl.GetCNP(namespaceForTest, cnpName)
-				if cnp != nil && len(cnp.Status.Nodes) > 0 {
-					for _, node := range cnp.Status.Nodes {
-						if node.Error == "" {
-							return false
-						}
-					}
-					return true
-				}
-				return false
-			}
-
-			err := helpers.WithTimeout(
-				body,
-				fmt.Sprintf("CNP %q does not report the status correctly after timeout", cnpName),
-				&helpers.TimeoutConfig{Timeout: 100 * time.Second})
-
-			Expect(err).To(BeNil(), "CNP status for invalid policy did not update correctly")
-		})
-
 		// Tests involving the L7 proxy do not work when built with -race, see issue #13757.
 		SkipContextIf(helpers.SkipRaceDetectorEnabled, "Traffic redirections to proxy", func() {
 			var (

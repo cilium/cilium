@@ -19,16 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
-	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/groups"
 )
 
 var (
-	// cnpStatusUpdateInterval is the amount of time between status updates
-	// being sent to the K8s apiserver for a given CNP.
-	cnpStatusUpdateInterval time.Duration
-
 	cnpToGroupsControllerGroup = controller.NewGroup("cilium-network-policy-to-groups")
 )
 
@@ -41,35 +35,8 @@ func init() {
 // enableCNPWatcher waits for the CiliumNetworkPolicy CRD availability and then
 // garbage collects stale CiliumNetworkPolicy status field entries.
 func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) error {
-	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
-	if enableCNPStatusUpdates {
-		log.Info("Starting CNP Status handover from kvstore to k8s")
-	}
 	log.Info("Starting CNP derivative handler")
-
-	var (
-		cnpStatusMgr *k8s.CNPStatusEventHandler
-	)
 	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-
-	if enableCNPStatusUpdates {
-		cnpStatusMgr = k8s.NewCNPStatusEventHandler(clientset, cnpStore, cnpStatusUpdateInterval)
-		cnpSharedStore, err := store.JoinSharedStore(store.Configuration{
-			Prefix: k8s.CNPStatusesPath,
-			KeyCreator: func() store.Key {
-				return &k8s.CNPNSWithMeta{}
-			},
-			Observer: cnpStatusMgr,
-		})
-		if err != nil {
-			return err
-		}
-
-		// It is safe to update the CNP store here given the CNP Store
-		// will only be used by StartStatusHandler method which is used in the
-		// cilium v2 controller below.
-		cnpStatusMgr.UpdateCNPStore(cnpSharedStore)
-	}
 
 	ciliumV2Controller := informer.NewInformerWithStore(
 		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNetworkPolicyList](clientset.CiliumV2().CiliumNetworkPolicies("")),
@@ -85,9 +52,6 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 					cnpCpy := cnp.DeepCopy()
 
 					groups.AddDerivativeCNPIfNeeded(clientset, cnpCpy.CiliumNetworkPolicy)
-					if enableCNPStatusUpdates {
-						cnpStatusMgr.StartStatusHandler(cnpCpy)
-					}
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -117,9 +81,6 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 				// The derivative policy will be deleted by the parent but need
 				// to delete the cnp from the pooling.
 				groups.DeleteDerivativeFromCache(cnp.CiliumNetworkPolicy)
-				if enableCNPStatusUpdates {
-					cnpStatusMgr.StopStatusHandler(cnp)
-				}
 			},
 		},
 		k8s.TransformToCNP,

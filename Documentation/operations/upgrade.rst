@@ -381,6 +381,8 @@ Removed Options
 * The ``dnsproxy-lock-count`` and ``dnsproxy-lock-timeout`` flags no longer have
   any effect and are deprecated. They will be removed in a future release.
 
+* Deprecated options ``enable-k8s-event-handover`` and ``cnp-status-update-interval`` has been removed.
+
 Helm Options
 ~~~~~~~~~~~~
 
@@ -401,6 +403,8 @@ Helm Options
 
 * Value ``tunnel`` was deprecated in Cilium 1.14 in favor of ``routingMode`` and
   ``tunnelProtocol``, and has been removed.
+
+* Values  ``enableK8sEventHandover`` and ``enableCnpStatusUpdates`` have been removed.
 
 Added Metrics
 ~~~~~~~~~~~~~

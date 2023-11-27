@@ -682,10 +682,6 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			)
 		}
 
-		if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
-			RunCNPNodeStatusGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore)
-		}
-
 		if operatorOption.Config.NodesGCInterval != 0 {
 			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore, operatorOption.Config.NodesGCInterval)
 		}

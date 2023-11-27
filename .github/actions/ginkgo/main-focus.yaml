@@ -79,7 +79,6 @@ include:
     cliFocus: "K8sAgentPolicyTest Multi-node policy test validates ingress"
 
   ###
-  # K8sAgentPolicyTest Basic Test Invalid Policy report status correctly
   # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests DNS proxy visibility without policy
   # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests HTTP proxy visibility without policy
   # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests proxy visibility interactions with policy lifecycle operations
