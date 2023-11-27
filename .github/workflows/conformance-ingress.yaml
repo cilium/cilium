@@ -65,6 +65,7 @@ env:
 
 jobs:
   commit-status-start:
+    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -289,7 +290,7 @@ jobs:
           retention-days: 5
 
   commit-status-final:
-    if: ${{ always() }}
+    if: ${{ github.event_name != 'push' }}
     name: Commit Status Final
     needs: ingress-conformance-test
     runs-on: ubuntu-latest
