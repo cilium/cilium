@@ -469,7 +469,9 @@ func (ipc *IPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resou
 
 // UpsertMetadataBatch applies updates to multiple prefixes in a single transaction,
 // reducing potential lock contention.
-func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) {
+//
+// Returns a revision number that can be passed to WaitForRevision().
+func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
@@ -477,8 +479,9 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) {
 		prefixes = append(prefixes, upd.Prefix)
 	}
 	ipc.metadata.Unlock()
-	ipc.metadata.enqueuePrefixUpdates(prefixes...)
+	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
 	ipc.TriggerLabelInjection()
+	return
 }
 
 // RemoveMetadata removes metadata associated with a specific resource from the
@@ -496,7 +499,9 @@ func (ipc *IPCache) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.Re
 	ipc.RemoveMetadataBatch(MU{Prefix: prefix, Resource: resource, Metadata: aux})
 }
 
-func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) {
+// RemoveMetadataBatch is a batched version of RemoveMetadata.
+// Returns a revision number that can be passed to WaitForRevision().
+func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
@@ -504,8 +509,9 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) {
 		prefixes = append(prefixes, upd.Prefix)
 	}
 	ipc.metadata.Unlock()
-	ipc.metadata.enqueuePrefixUpdates(prefixes...)
+	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
 	ipc.TriggerLabelInjection()
+	return
 }
 
 // UpsertPrefixes inserts the prefixes into the IPCache and associates CIDR
@@ -514,14 +520,17 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) {
 //
 // This will trigger asynchronous calculation of any datapath updates necessary
 // to implement the logic associated with the new CIDR labels.
-func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
+//
+// Returns a revision number that can be passed to WaitForRevision().
+func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) (revision uint64) {
 	ipc.metadata.Lock()
 	for _, p := range prefixes {
 		ipc.metadata.upsertLocked(p, src, resource, labels.GetCIDRLabels(p))
 	}
 	ipc.metadata.Unlock()
-	ipc.metadata.enqueuePrefixUpdates(prefixes...)
+	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
 	ipc.TriggerLabelInjection()
+	return
 }
 
 // RemovePrefixes removes the association between the prefixes and the CIDR
@@ -587,6 +596,25 @@ func (ipc *IPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.
 
 func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
 	ipc.RemoveMetadata(cidr, resource, overrideIdentity(true), identityLabels)
+}
+
+// WaitForRevision will block until the desired revision has been reached (or passed).
+// It can be used in concert with the revision number returned by Upsert* calls to
+// ensure that an update has been applied.
+//
+// The revision is updated every time the ipcache successfully applies all queued
+// metadata updates. Thus, the sequence
+//
+//	rev := UpsertMetadataBatch(prefix1, metadata, ...)
+//	WaitForRevision(rev)
+//
+// means that prefix1 has had at least one call to InjectLabels with the supplied
+// metadata. It does not guarantee that the metadata matches exactly what was
+// passed to UpsertMetadata, as other callers may have also queued modifications.
+//
+// Note that the revision number should be treated as an opaque identifier.
+func (ipc *IPCache) WaitForRevision(desired uint64) {
+	ipc.metadata.waitForRevision(desired)
 }
 
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
