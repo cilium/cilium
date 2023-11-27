@@ -484,8 +484,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.IPv6ServiceRange, AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
 	option.BindEnv(vp, option.IPv6ServiceRange)
 
-	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
-	option.BindEnv(vp, option.K8sEventHandover)
+	flags.Bool(option.LegacyTurnOffK8sEventHandover, defaults.LegacyTurnOffK8sEventHandover, "Turn off K8sEventsHandover - this is legacy behaviour")
+	option.BindEnv(vp, option.LegacyTurnOffK8sEventHandover)
+	flags.MarkHidden(option.LegacyTurnOffK8sEventHandover)
 
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
 	option.BindEnv(vp, option.K8sNamespaceName)
@@ -890,10 +891,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.PolicyTriggerInterval, defaults.PolicyTriggerInterval, "Time between triggers of policy updates (regenerations for all endpoints)")
 	flags.MarkHidden(option.PolicyTriggerInterval)
 	option.BindEnv(vp, option.PolicyTriggerInterval)
-
-	flags.Bool(option.DisableCNPStatusUpdates, true, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
-	flags.MarkDeprecated(option.DisableCNPStatusUpdates, "This option will be removed in v1.15 (disabled CNP Status Updates by default)")
-	option.BindEnv(vp, option.DisableCNPStatusUpdates)
 
 	flags.Bool(option.PolicyAuditModeArg, false, "Enable policy audit (non-drop) mode")
 	option.BindEnv(vp, option.PolicyAuditModeArg)

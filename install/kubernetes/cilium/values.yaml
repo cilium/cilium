@@ -679,13 +679,6 @@ enableRuntimeDeviceDetection: false
 # -- Limit iptables-based egress masquerading to interface selector.
 # egressMasqueradeInterfaces: ""
 
-# -- Whether to enable CNP status updates.
-enableCnpStatusUpdates: false
-
-# -- Configures the use of the KVStore to optimize Kubernetes event handling by
-# mirroring it into the KVstore for reduced overhead in large clusters.
-enableK8sEventHandover: false
-
 # -- Enable setting identity mark for local traffic.
 # enableIdentityMark: true
 

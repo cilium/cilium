@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -971,12 +970,6 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 }
 
 func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
-	back := option.Config.DisableCNPStatusUpdates
-	defer func() {
-		option.Config.DisableCNPStatusUpdates = back
-	}()
-	option.Config.DisableCNPStatusUpdates = true
-
 	uuid := k8sTypes.UID("13bba160-ddca-13e8-b697-0800273b04ff")
 	type args struct {
 		ciliumV2Store cache.Store

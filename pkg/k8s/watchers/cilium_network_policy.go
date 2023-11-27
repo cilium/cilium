@@ -10,7 +10,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/controller"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -24,15 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-var syncCNPStatusControllerGroup = controller.NewGroup("sync-cnp-policy-status")
 
 // ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
 // (namespace and name) to metadata about the importing of the rule into the
@@ -73,17 +67,6 @@ func (r *ruleImportMetadataCache) delete(cnp *types.SlimCNP) {
 	r.mutex.Lock()
 	delete(r.ruleImportMetadataMap, podNSName)
 	r.mutex.Unlock()
-}
-
-func (r *ruleImportMetadataCache) get(cnp *types.SlimCNP) (policyImportMetadata, bool) {
-	if cnp == nil {
-		return policyImportMetadata{}, false
-	}
-	podNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
-	r.mutex.RLock()
-	policyImportMeta, ok := r.ruleImportMetadataMap[podNSName]
-	r.mutex.RUnlock()
-	return policyImportMeta, ok
 }
 
 func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Clientset) {
@@ -334,28 +317,6 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 	// is populated by the time updateCiliumNetworkPolicyV2 is invoked.
 	importMetadataCache.upsert(cnp, rev, policyImportErr)
 
-	if !option.Config.DisableCNPStatusUpdates {
-		updateContext := &k8s.CNPStatusUpdateContext{
-			CiliumNPClient:              ciliumNPClient,
-			NodeName:                    nodeTypes.GetName(),
-			NodeManager:                 k.nodeDiscoverManager,
-			UpdateDuration:              spanstat.Start(),
-			WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,
-		}
-
-		ctrlName := cnp.GetControllerName()
-		k8sCM.UpdateController(ctrlName,
-			controller.ControllerParams{
-				Group: syncCNPStatusControllerGroup,
-				DoFunc: func(ctx context.Context) error {
-					// We need to deep-copy the CNP object because UpdateStatus modifies it
-					// to clear the LastAppliedConfiguration key from annotations map.
-					return updateContext.UpdateStatus(ctx, cnp.DeepCopy(), rev, policyImportErr)
-				},
-			},
-		)
-	}
-
 	return policyImportErr
 }
 
@@ -425,70 +386,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 		"annotations":                              newRuleCpy.ObjectMeta.Annotations,
 	}).Debug("Modified CiliumNetworkPolicy")
 
-	// Do not add rule into policy repository if the spec remains unchanged.
-	if !option.Config.DisableCNPStatusUpdates {
-		if oldRuleCpy.Spec.DeepEqual(newRuleCpy.CiliumNetworkPolicy.Spec) &&
-			oldRuleCpy.Specs.DeepEqual(&newRuleCpy.CiliumNetworkPolicy.Specs) {
-			if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
-
-				// Update annotations within a controller so the status of the update
-				// is trackable from the list of running controllers, and so we do
-				// not block subsequent policy lifecycle operations from Kubernetes
-				// until the update is complete.
-				oldCtrlName := oldRuleCpy.GetControllerName()
-				newCtrlName := newRuleCpy.GetControllerName()
-
-				// In case the controller name changes between copies of rules,
-				// remove old controller so we do not leak goroutines.
-				if oldCtrlName != newCtrlName {
-					err := k8sCM.RemoveController(oldCtrlName)
-					if err != nil {
-						log.WithError(err).Debugf("Unable to remove controller %s", oldCtrlName)
-					}
-				}
-				k.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, newRuleCpy)
-			}
-			return nil
-		}
-	}
-
 	return k.addCiliumNetworkPolicyV2(ciliumNPClient, newRuleCpy, initialRecvTime, resourceID)
-}
-
-func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, cnp *types.SlimCNP) {
-
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
-		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
-	})
-
-	scopedLog.Info("updating node status due to annotations-only change to CiliumNetworkPolicy")
-
-	ctrlName := cnp.GetControllerName()
-
-	// Revision will *always* be populated because importMetadataCache is guaranteed
-	// to be updated by addCiliumNetworkPolicyV2 before calls to
-	// updateCiliumNetworkPolicyV2 are invoked.
-	meta, _ := importMetadataCache.get(cnp)
-	updateContext := &k8s.CNPStatusUpdateContext{
-		CiliumNPClient:              ciliumNPClient,
-		NodeName:                    nodeTypes.GetName(),
-		NodeManager:                 k.nodeDiscoverManager,
-		UpdateDuration:              spanstat.Start(),
-		WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,
-	}
-
-	k8sCM.UpdateController(ctrlName,
-		controller.ControllerParams{
-			Group: syncCNPStatusControllerGroup,
-			DoFunc: func(ctx context.Context) error {
-				// We need to deep-copy the CNP object because UpdateStatus modifies it
-				// to clear the LastAppliedConfiguration key from annotations map.
-				return updateContext.UpdateStatus(ctx, cnp.DeepCopy(), meta.revision, meta.policyImportError)
-			},
-		})
-
 }
 
 func (k *K8sWatcher) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {

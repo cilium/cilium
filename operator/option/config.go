@@ -67,15 +67,6 @@ const (
 	// compatible with MetalLB's configuration.
 	BGPConfigPath = "bgp-config-path"
 
-	// CNPNodeStatusGCInterval is the GC interval for nodes which have been
-	// removed from the cluster in CiliumNetworkPolicy and
-	// CiliumClusterwideNetworkPolicy Status.
-	CNPNodeStatusGCInterval = "cnp-node-status-gc-interval"
-
-	// CNPStatusUpdateInterval is the interval between status updates
-	// being sent to the K8s apiserver for a given CNP.
-	CNPStatusUpdateInterval = "cnp-status-update-interval"
-
 	// SkipCNPStatusStartupClean specifies if the cleanup of all the CNP
 	// NodeStatus updates at startup must be skipped.
 	SkipCNPStatusStartupClean = "skip-cnp-status-startup-clean"
@@ -271,14 +262,6 @@ const (
 
 // OperatorConfig is the configuration used by the operator.
 type OperatorConfig struct {
-	// CNPNodeStatusGCInterval is the GC interval for nodes which have been
-	// removed from the cluster in CiliumNetworkPolicy and
-	// CiliumClusterwideNetworkPolicy Status.
-	CNPNodeStatusGCInterval time.Duration
-
-	// CNPStatusUpdateInterval is the interval between status updates
-	// being sent to the K8s apiserver for a given CNP.
-	CNPStatusUpdateInterval time.Duration
 
 	// NodesGCInterval is the GC interval for CiliumNodes
 	NodesGCInterval time.Duration
@@ -483,8 +466,6 @@ type OperatorConfig struct {
 
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(vp *viper.Viper) {
-	c.CNPNodeStatusGCInterval = vp.GetDuration(CNPNodeStatusGCInterval)
-	c.CNPStatusUpdateInterval = vp.GetDuration(CNPStatusUpdateInterval)
 	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
 	c.SkipCNPStatusStartupClean = vp.GetBool(SkipCNPStatusStartupClean)
 	c.CNPStatusCleanupQPS = vp.GetFloat64(CNPStatusCleanupQPS)

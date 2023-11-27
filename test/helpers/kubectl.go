@@ -117,9 +117,8 @@ var (
 		// "extraEnv[0].value":             "true",
 
 		// We need CNP node status to know when a policy is being enforced
-		"enableCnpStatusUpdates": "true",
-		"ipv4NativeRoutingCIDR":  IPv4NativeRoutingCIDR,
-		"ipv6NativeRoutingCIDR":  IPv6NativeRoutingCIDR,
+		"ipv4NativeRoutingCIDR": IPv4NativeRoutingCIDR,
+		"ipv6NativeRoutingCIDR": IPv6NativeRoutingCIDR,
 
 		"ipam.operator.clusterPoolIPv6PodCIDRList": "fd02::/112",
 
@@ -3177,13 +3176,6 @@ func (kub *Kubectl) waitNextPolicyRevisions(podRevisions map[string]int, timeout
 	return err
 }
 
-func getPolicyEnforcingJqFilter(numNodes int) string {
-	// Test filter: https://jqplay.org/s/EgNzc06Cgn
-	return fmt.Sprintf(
-		`[.items[]|{name:.metadata.name, enforcing: (.status|if has("nodes") then .nodes |to_entries|map_values(.value.enforcing) + [(.|length >= %d)]|all else true end)|tostring, status: has("status")|tostring}]`,
-		numNodes)
-}
-
 // CiliumPolicyAction performs the specified action in Kubernetes for the policy
 // stored in path filepath and waits up  until timeout seconds for the policy
 // to be applied in all Cilium endpoints. Returns an error if the policy is not
@@ -3194,7 +3186,6 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	if err != nil {
 		return "", err
 	}
-	numNodes := len(podRevisions)
 
 	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
 
@@ -3203,51 +3194,6 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
 	unchanged := action == KubectlApply && strings.HasSuffix(status.Stdout(), " unchanged\n")
-
-	// If policy is uninstalled we can't require a policy being enforced.
-	if action != KubectlDelete {
-		jqFilter := getPolicyEnforcingJqFilter(numNodes)
-		body := func() bool {
-			cmds := map[string]string{
-				"CNP":  fmt.Sprintf("%s get cnp --all-namespaces -o json | jq '%s'", KubectlCmd, jqFilter),
-				"CCNP": fmt.Sprintf("%s get ccnp -o json | jq '%s'", KubectlCmd, jqFilter),
-			}
-
-			for ctx, cmd := range cmds {
-				var data []map[string]string
-
-				res := kub.ExecShort(cmd)
-				if !res.WasSuccessful() {
-					kub.Logger().WithError(res.GetErr("")).Errorf("cannot get %s status", ctx)
-					return false
-				}
-
-				err := res.Unmarshal(&data)
-				if err != nil {
-					kub.Logger().WithError(err).Errorf("Cannot unmarshal json for %s status", ctx)
-					return false
-				}
-
-				for _, item := range data {
-					if item["enforcing"] != "true" || item["status"] != "true" {
-						kub.Logger().Errorf("%s policy '%s' is not enforcing yet", ctx, item["name"])
-						return false
-					}
-				}
-			}
-
-			return true
-		}
-
-		err = WithTimeout(
-			body,
-			"Timed out while waiting for policies to be enforced",
-			&TimeoutConfig{Timeout: timeout})
-
-		if err != nil {
-			return "", err
-		}
-	}
 
 	// If the applied policy was unchanged, we don't need to wait for the next policy revision.
 	if unchanged {
@@ -3264,7 +3210,6 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 	if err != nil {
 		return "", err
 	}
-	numNodes := len(podRevisions)
 
 	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
 
@@ -3273,45 +3218,6 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
 	unchanged := action == KubectlApply && strings.HasSuffix(status.Stdout(), " unchanged\n")
-
-	// If policy is uninstalled we can't require a policy being enforced.
-	if action != KubectlDelete {
-		jqFilter := getPolicyEnforcingJqFilter(numNodes)
-		body := func() bool {
-			var data []map[string]string
-			cmd := fmt.Sprintf("%s get ccnp -o json | jq '%s'",
-				KubectlCmd, jqFilter)
-
-			res := kub.ExecShort(cmd)
-			if !res.WasSuccessful() {
-				kub.Logger().WithError(res.GetErr("")).Error("cannot get ccnp status")
-				return false
-			}
-
-			err := res.Unmarshal(&data)
-			if err != nil {
-				kub.Logger().WithError(err).Error("Cannot unmarshal json")
-				return false
-			}
-
-			for _, item := range data {
-				if item["enforcing"] != "true" || item["status"] != "true" {
-					kub.Logger().Errorf("Clusterwide policy '%s' is not enforcing yet", item["name"])
-					return false
-				}
-			}
-			return true
-		}
-
-		err := WithTimeout(
-			body,
-			"Timed out while waiting CCNP to be enforced",
-			&TimeoutConfig{Timeout: timeout})
-
-		if err != nil {
-			return "", err
-		}
-	}
 
 	// If the applied policy was unchanged, we don't need to wait for the next policy revision.
 	if unchanged {

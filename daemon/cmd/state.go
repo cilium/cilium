@@ -122,7 +122,7 @@ func (d *Daemon) getPodForEndpoint(ep *endpoint.Endpoint) error {
 	if err != nil && k8serrors.IsNotFound(err) {
 		return fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
 	} else if err == nil && pod.Spec.NodeName != nodeTypes.GetName() {
-		// if flag `option.Config.K8sEventHandover` is false and CiliumEndpointCRD is disabled,
+		// if flag CiliumEndpointCRD is disabled,
 		// `GetCachedPod` may return endpoint has moved to another node.
 		return fmt.Errorf("Kubernetes pod %s/%s is not owned by this agent", ep.K8sNamespace, ep.K8sPodName)
 	}

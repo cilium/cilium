@@ -204,7 +204,7 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 			close(k.podStoreSet)
 		})
 
-		if !option.Config.K8sEventHandover {
+		if option.Config.LegacyTurnOffK8sEventHandover {
 			return
 		}
 

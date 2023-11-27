@@ -54,18 +54,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(vp, option.ConfigDir)
 
-	flags.Bool(option.DisableCNPStatusUpdates, true, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
-	flags.MarkDeprecated(option.DisableCNPStatusUpdates, "This option will be removed in v1.15 (disabled CNP Status Updates by default)")
-	option.BindEnv(vp, option.DisableCNPStatusUpdates)
-
-	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
-	flags.MarkDeprecated(option.K8sEventHandover, "This option will be removed in v1.15 (disabled CNP Status Updates by default)")
-	option.BindEnv(vp, option.K8sEventHandover)
-
-	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
-	flags.MarkDeprecated(operatorOption.CNPNodeStatusGCInterval, "This option will be removed in v1.15 (disabled by default)")
-	option.BindEnv(vp, operatorOption.CNPNodeStatusGCInterval)
-
 	flags.Bool(operatorOption.SkipCNPStatusStartupClean, false, `If set to true, the operator will not clean up CNP node status updates at startup`)
 	option.BindEnv(vp, operatorOption.SkipCNPStatusStartupClean)
 
@@ -76,9 +64,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(operatorOption.CNPStatusCleanupBurst, operatorOption.CNPStatusCleanupBurstDefault,
 		"Maximum burst of requests to clean up status nodes updates in CNPs")
 	option.BindEnv(vp, operatorOption.CNPStatusCleanupBurst)
-
-	flags.Duration(operatorOption.CNPStatusUpdateInterval, 1*time.Second, "Interval between CNP status updates sent to the k8s-apiserver per-CNP")
-	option.BindEnv(vp, operatorOption.CNPStatusUpdateInterval)
 
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(vp, option.DebugArg)
