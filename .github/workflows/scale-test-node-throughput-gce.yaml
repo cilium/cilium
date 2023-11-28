@@ -94,7 +94,7 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Kops
-        uses: ./.github/actions/scale-tests/install-kops
+        uses: cilium/scale-tests-action/install-kops@8a522b9d71254b6f6615c296e41a70610c9615ea # main
         with:
           release_version: ${{ env.kops_version }}
 
@@ -112,8 +112,8 @@ jobs:
       - name: Clone ClusterLoader2
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: learnitall/perf-tests
-          ref: d7a97a6b7b9efc29ccb496f3ff54f42588006e96 # tinker/learnitall/100-node-scale-test
+          repository: cilium/perf-tests
+          ref: 6f1bf283e22aa4c29d5db2a7b52501b091a0912e # master
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
@@ -131,7 +131,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: ./.github/actions/scale-tests/create-cluster
+        uses: cilium/scale-tests-action/create-cluster@8a522b9d71254b6f6615c296e41a70610c9615ea # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -143,7 +143,7 @@ jobs:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
       
       - name: Setup firewall rules
-        uses: ./.github/actions/scale-tests/setup-firewall
+        uses: cilium/scale-tests-action/setup-firewall@8a522b9d71254b6f6615c296e41a70610c9615ea # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
       
@@ -152,7 +152,7 @@ jobs:
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for cluster to be ready
-        uses: ./.github/actions/scale-tests/validate-cluster
+        uses: cilium/scale-tests-action/validate-cluster@8a522b9d71254b6f6615c296e41a70610c9615ea # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -191,14 +191,14 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: ./.github/actions/scale-tests/cleanup-cluster
+        uses: cilium/scale-tests-action/cleanup-cluster@8a522b9d71254b6f6615c296e41a70610c9615ea # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' }}
-        uses: ./.github/actions/scale-tests/export-results
+        uses: cilium/scale-tests-action/export-results@8a522b9d71254b6f6615c296e41a70610c9615ea # main
         with:
           results_bucket: ${{ secrets.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/*
