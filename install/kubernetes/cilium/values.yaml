@@ -3318,6 +3318,8 @@ dnsProxy:
   proxyPort: 0
   # -- The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
   proxyResponseMaxDelay: 100ms
+  # -- DNS proxy operation mode (true/false, or unset to use version dependent defaults)
+  # enableTransparentMode: true
 
 # -- SCTP Configuration Values
 sctp:

@@ -879,6 +879,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.DNSProxyLockTimeout)
 	option.BindEnv(vp, option.DNSProxyLockTimeout)
 
+	flags.Bool(option.DNSProxyEnableTransparentMode, defaults.DNSProxyEnableTransparentMode, "Enable DNS proxy transparent mode")
+	option.BindEnv(vp, option.DNSProxyEnableTransparentMode)
+
 	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "Size of queues for policy-related events")
 	option.BindEnv(vp, option.PolicyQueueSize)
 
@@ -1362,6 +1365,10 @@ func initEnv(vp *viper.Viper) {
 
 	if option.Config.EnableL7Proxy && !option.Config.InstallIptRules {
 		log.Fatal("L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
+	}
+
+	if option.Config.EnableIPSec && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
+		log.Fatal("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
 	}
 
 	if option.Config.EnableIPSec && !option.Config.EnableIPv4 {

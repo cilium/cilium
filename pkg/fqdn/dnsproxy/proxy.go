@@ -808,17 +808,22 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 //     for the source pod to be intercepted to the dnsproxy, which is exactly what we want but only
 //     until a DNS response has been received.
 func setSoMarks(fd int, ipFamily ipfamily.IPFamily, secId identity.NumericIdentity) error {
-	// Set IP_TRANSPARENT to be able to use a non-host address as the source address
-	if err := unix.SetsockoptInt(fd, ipFamily.SocketOptsFamily, ipFamily.SocketOptsTransparent, 1); err != nil {
-		return fmt.Errorf("setsockopt(IP_TRANSPARENT) for %s failed: %w", ipFamily.Name, err)
-	}
-
 	// Set SO_MARK to allow datapath to know these upstream packets from an egress proxy
 	mark := linux_defaults.MagicMarkEgress
 	mark |= int(uint32(secId&0xFFFF)<<16 | uint32((secId&0xFF0000)>>16))
 	err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_MARK, mark)
 	if err != nil {
 		return fmt.Errorf("error setting SO_MARK: %w", err)
+	}
+
+	// Rest of the options are only set in the transparent mode.
+	if !option.Config.DNSProxyEnableTransparentMode {
+		return nil
+	}
+
+	// Set IP_TRANSPARENT to be able to use a non-host address as the source address
+	if err := unix.SetsockoptInt(fd, ipFamily.SocketOptsFamily, ipFamily.SocketOptsTransparent, 1); err != nil {
+		return fmt.Errorf("setsockopt(IP_TRANSPARENT) for %s failed: %w", ipFamily.Name, err)
 	}
 
 	// Set SO_REUSEADDR to allow binding to an address that is already used by some other
@@ -1009,9 +1014,12 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	var key string
-	// Do not use original source address if the source is known to be in the host networking
-	// namespace, or the destination is known to be outside of the cluster, or is the local host
-	if !ep.IsHost() && !epAddr.IsLoopback() && ep.ID != uint16(identity.ReservedIdentityHost) && targetServerID.IsCluster() && targetServerID != identity.ReservedIdentityHost {
+	// Do not use original source address if
+	// - not configured, or if
+	// - the source is known to be in the host networking namespace, or
+	// - the destination is known to be outside of the cluster, or
+	// - is the local host
+	if option.Config.DNSProxyEnableTransparentMode && !ep.IsHost() && !epAddr.IsLoopback() && ep.ID != uint16(identity.ReservedIdentityHost) && targetServerID.IsCluster() && targetServerID != identity.ReservedIdentityHost {
 		dialer.LocalAddr = w.RemoteAddr()
 		key = protocol + "-" + epIPPort + "-" + targetServerAddrStr
 	}
