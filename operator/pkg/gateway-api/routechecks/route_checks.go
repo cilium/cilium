@@ -116,6 +116,31 @@ func CheckBackendIsExistingService(input Input) (bool, error) {
 	return continueChecks, nil
 }
 
+func CheckHasServiceImportSupport(input Input) (bool, error) {
+	for _, rule := range input.GetRules() {
+		for _, be := range rule.GetBackendRefs() {
+			if !helpers.IsServiceImport(be.BackendObjectReference) {
+				continue
+			}
+
+			if !helpers.HasServiceImportCRD() {
+				input.SetAllParentCondition(metav1.Condition{
+					Type:   string(gatewayv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionFalse,
+					Reason: string(gatewayv1.RouteReasonBackendNotFound),
+					Message: "Attempt to reference a ServiceImport backend while " +
+						"the corresponding CRD is not installed, " +
+						"please restart the cilium-operator if the CRD is already installed",
+				})
+				return false, nil
+			}
+			return true, nil
+		}
+	}
+
+	return true, nil
+}
+
 func CheckBackendIsExistingServiceImport(input Input) (bool, error) {
 	continueChecks := true
 
