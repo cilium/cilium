@@ -45,7 +45,7 @@ type queryHandler struct {
 
 // /statedb/query
 func (h *queryHandler) Handle(params GetStatedbQueryTableParams) middleware.Responder {
-	key, err := base64.StdEncoding.DecodeString(params.Key)
+	queryKey, err := base64.StdEncoding.DecodeString(params.Key)
 	if err != nil {
 		return api.Error(GetStatedbQueryTableBadRequestCode, fmt.Errorf("Invalid key: %w", err))
 	}
@@ -58,15 +58,29 @@ func (h *queryHandler) Handle(params GetStatedbQueryTableParams) middleware.Resp
 
 	iter := indexTxn.txn.Root().Iterator()
 	if params.Lowerbound {
-		iter.SeekLowerBound(key)
+		iter.SeekLowerBound(queryKey)
 	} else {
-		iter.SeekPrefixWatch(key)
+		iter.SeekPrefixWatch(queryKey)
 	}
 
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
 		w.WriteHeader(GetStatedbDumpOKCode)
 		enc := gob.NewEncoder(w)
-		for _, obj, ok := iter.Next(); ok; _, obj, ok = iter.Next() {
+
+		var match func([]byte) bool
+		if indexTxn.entry.unique {
+			match = func(k []byte) bool { return len(k) == len(queryKey) }
+		} else {
+			match = func(k []byte) bool {
+				_, secondary := decodeNonUniqueKey(k)
+				return len(secondary) == len(queryKey)
+			}
+		}
+
+		for key, obj, ok := iter.Next(); ok; _, obj, ok = iter.Next() {
+			if !match(key) {
+				continue
+			}
 			if err := enc.Encode(obj.revision); err != nil {
 				return
 			}

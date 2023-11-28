@@ -676,6 +676,7 @@ func TestWriteJSON(t *testing.T) {
 	}
 	txn.Commit()
 }
+
 func Test_callerPackage(t *testing.T) {
 	t.Parallel()
 
@@ -683,6 +684,32 @@ func Test_callerPackage(t *testing.T) {
 		return callerPackage()
 	}()
 	require.Equal(t, "pkg/statedb", pkg)
+}
+
+func Test_nonUniqueKey(t *testing.T) {
+	// empty keys
+	key := encodeNonUniqueKey(nil, nil)
+	primary, secondary := decodeNonUniqueKey(key)
+	assert.Len(t, primary, 0)
+	assert.Len(t, secondary, 0)
+
+	// empty primary
+	key = encodeNonUniqueKey(nil, []byte("foo"))
+	primary, secondary = decodeNonUniqueKey(key)
+	assert.Len(t, primary, 0)
+	assert.Equal(t, string(secondary), "foo")
+
+	// empty secondary
+	key = encodeNonUniqueKey([]byte("quux"), []byte{})
+	primary, secondary = decodeNonUniqueKey(key)
+	assert.Equal(t, string(primary), "quux")
+	assert.Len(t, secondary, 0)
+
+	// non-empty
+	key = encodeNonUniqueKey([]byte("foo"), []byte("quux"))
+	primary, secondary = decodeNonUniqueKey(key)
+	assert.EqualValues(t, primary, "foo")
+	assert.EqualValues(t, secondary, "quux")
 }
 
 func eventuallyGraveyardIsEmpty(t testing.TB, db *DB) {

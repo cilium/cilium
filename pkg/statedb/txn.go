@@ -237,7 +237,7 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 			// if the new key is different delete the old entry.
 			indexer.fromObject(oldObj).Foreach(func(oldKey index.Key) {
 				if !indexer.unique {
-					oldKey = append(oldKey, idKey...)
+					oldKey = encodeNonUniqueKey(idKey, oldKey)
 				}
 				if !newKeys.Exists(oldKey) {
 					indexTxn.txn.Delete(oldKey)
@@ -248,7 +248,7 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 			// Non-unique secondary indexes are formed by concatenating them
 			// with the primary key.
 			if !indexer.unique {
-				newKey = append(newKey, idKey...)
+				newKey = encodeNonUniqueKey(idKey, newKey)
 			}
 			indexTxn.txn.Insert(newKey, obj)
 		})
@@ -334,7 +334,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 	for idx, indexer := range meta.secondaryIndexers() {
 		indexer.fromObject(obj).Foreach(func(key index.Key) {
 			if !indexer.unique {
-				key = append(key, idKey...)
+				key = encodeNonUniqueKey(idKey, key)
 			}
 			txn.mustIndexWriteTxn(tableName, idx).txn.Delete(key)
 		})
@@ -351,6 +351,32 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 	}
 
 	return obj.data, true, nil
+}
+
+// encodeNonUniqueKey constructs the internal key to use with non-unique indexes.
+// It concatenates the secondary key with the primary key and the length of the secondary key.
+// The length is stored as unsigned 16-bit big endian.
+// This allows looking up from the non-unique index with the secondary key by doing a prefix
+// search. The length is used to safe-guard against indexers that don't terminate the key
+// properly (e.g. if secondary key is "foo", then we don't want "foobar" to match).
+func encodeNonUniqueKey(primary, secondary []byte) []byte {
+	key := make([]byte, 0, len(secondary)+len(primary)+2)
+	key = append(key, secondary...)
+	key = append(key, primary...)
+	// KeySet limits size of key to 16 bits.
+	return binary.BigEndian.AppendUint16(key, uint16(len(secondary)))
+}
+
+func decodeNonUniqueKey(key []byte) (primary []byte, secondary []byte) {
+	// Multi-index key is [<secondary...>, <primary...>, <secondary length>]
+	if len(key) < 2 {
+		return nil, nil
+	}
+	secondaryLength := int(binary.BigEndian.Uint16(key[len(key)-2:]))
+	if len(key) < secondaryLength {
+		return nil, nil
+	}
+	return key[secondaryLength : len(key)-2], key[:secondaryLength]
 }
 
 func (txn *txn) Abort() {
