@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"go4.org/netipx"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1945,25 +1946,5 @@ func isIPv6(ip netip.Addr) bool {
 
 func rangeFromPrefix(prefix netip.Prefix) (netip.Addr, netip.Addr) {
 	prefix = prefix.Masked()
-	from := prefix.Addr()
-	bitLen := from.BitLen()
-	varBits := bitLen - prefix.Bits()
-	toSlice := from.AsSlice()
-
-	i := len(toSlice) - 1
-	for varBits > 0 {
-		if varBits >= 8 {
-			toSlice[i] = 0xFF
-			varBits -= 8
-			i--
-			continue
-		}
-
-		mask := byte(1) << varBits
-		toSlice[i] |= mask
-		break
-	}
-
-	to, _ := netip.AddrFromSlice(toSlice)
-	return from, to
+	return prefix.Addr(), netipx.PrefixLastIP(prefix)
 }

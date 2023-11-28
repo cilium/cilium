@@ -3024,7 +3024,7 @@ func TestRangeFromPrefix(t *testing.T) {
 			name:   "/25",
 			prefix: "10.0.0.0/25",
 			from:   "10.0.0.0",
-			to:     "10.0.0.128",
+			to:     "10.0.0.127",
 		},
 		{
 			name:   "offset prefix",
