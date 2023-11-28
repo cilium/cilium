@@ -6,7 +6,7 @@ The most common structures are under `vendor/k8s.io/api/core/v1/types.go`, or
 `vendor/k8s.io/apimachinery/pkg/apis/meta/v1/types.go`.
 
 ```bash
-tag=v1.28.0-rc.0
+tag=v1.29.0-rc.1
 url="https://raw.githubusercontent.com/kubernetes/kubernetes/${tag}"
 
 curl "${url}/staging/src/k8s.io/api/core/v1/doc.go" > pkg/k8s/slim/k8s/api/core/v1/doc.go

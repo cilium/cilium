@@ -1,6 +1,6 @@
 # This file contain which k8s-versions should be executed for each PR
 ---
 k8s-version:
-  - "1.28"
+  - "1.29"
   - "1.27"
   - "1.26"

@@ -216,18 +216,36 @@ include:
 exclude:
   # The bandwidth test is disabled and hubble tests are not meant
   # to run on net-next.
-  - k8s-version: "1.28"
+  - k8s-version: "1.29"
     focus: "f10-agent-hubble-bandwidth"
 
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
-  - k8s-version: "1.28"
+  - k8s-version: "1.29"
     focus: "f16-datapath-service-ew-2"
 
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
-  - k8s-version: "1.28"
+  - k8s-version: "1.29"
     focus: "f17-datapath-service-ew-kube-proxy"
+
+  # These tests require an external node which is only available on 1.28
+  # / net-next so there's no point on running them
+  - k8s-version: "1.28"
+    focus: "f05-agent-policy-multi-node-2"
+
+  # These tests require kernel net-next so there's no point on running them
+  - k8s-version: "1.28"
+    focus: "f11-datapath-service-ns-tc"
+
+  - k8s-version: "1.28"
+    focus: "f12-datapath-service-ns-misc"
+
+  - k8s-version: "1.28"
+    focus: "f13-datapath-service-ns-xdp-1"
+
+  - k8s-version: "1.28"
+    focus: "f14-datapath-service-ns-xdp-2"
 
   # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them

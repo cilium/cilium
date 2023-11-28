@@ -17,12 +17,12 @@ All Kubernetes versions listed are e2e tested and guaranteed to be compatible
 with Cilium. Older and newer Kubernetes versions, while not listed, will depend
 on the forward / backward compatibility offered by Kubernetes.
 
-+------------------+---------------------------+----------------------------------+
-| k8s Version      | k8s NetworkPolicy API     | CiliumNetworkPolicy              |
-+------------------+---------------------------+----------------------------------+
-|                  |                           | ``cilium.io/v2`` has a           |
-| 1.26, 1.27, 1.28 | * `networking.k8s.io/v1`_ | :term:`CustomResourceDefinition` |
-+------------------+---------------------------+----------------------------------+
++------------------------+---------------------------+----------------------------------+
+| k8s Version            | k8s NetworkPolicy API     | CiliumNetworkPolicy              |
++------------------------+---------------------------+----------------------------------+
+|                        |                           | ``cilium.io/v2`` has a           |
+| 1.26, 1.27, 1.28, 1.29 | * `networking.k8s.io/v1`_ | :term:`CustomResourceDefinition` |
++------------------------+---------------------------+----------------------------------+
 
 As a general rule, Cilium aims to run e2e tests using the latest build from the
 development branch against currently supported Kubernetes versions defined in

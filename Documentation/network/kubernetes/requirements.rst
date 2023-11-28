@@ -21,6 +21,7 @@ backward compatibility offered by Kubernetes.
 * 1.26
 * 1.27
 * 1.28
+* 1.29
 
 Additionally, Cilium runs e2e tests against various cloud providers' managed
 Kubernetes offerings using multiple Kubernetes versions. See the following links

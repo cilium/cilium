@@ -101,6 +101,13 @@ message IngressBackend {
   // This is a mutually exclusive setting with "Resource".
   // +optional
   optional IngressServiceBackend service = 4;
+
+  // resource is an ObjectRef to another Kubernetes resource in the namespace
+  // of the Ingress object. If resource is specified, a service.Name and
+  // service.Port must not be specified.
+  // This is a mutually exclusive setting with "Service".
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.api.core.v1.TypedLocalObjectReference resource = 3;
 }
 
 // IngressClass represents the class of the Ingress, referenced by the Ingress

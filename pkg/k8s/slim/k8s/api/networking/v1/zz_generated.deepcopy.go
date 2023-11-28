@@ -117,6 +117,11 @@ func (in *IngressBackend) DeepCopyInto(out *IngressBackend) {
 		*out = new(IngressServiceBackend)
 		**out = **in
 	}
+	if in.Resource != nil {
+		in, out := &in.Resource, &out.Resource
+		*out = new(corev1.TypedLocalObjectReference)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

@@ -578,6 +578,20 @@ case $K8S_VERSION in
         CONTROLLER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
         API_SERVER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
 	;;
+    "1.29")
+        # kubeadm >= 1.24 requires conntrack to be installed, we can remove this
+        # once we have upgraded the VM image version.
+        sudo apt-get install -y conntrack
+        KUBERNETES_CNI_VERSION="1.1.1"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.29.0-rc.1"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_WORKER_OPTIONS="--config=/tmp/config.yaml"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA5}"
+        CONTROLLER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
+        API_SERVER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
+	;;
 esac
 
 if [ "$KUBEPROXY" == "0" ]; then
