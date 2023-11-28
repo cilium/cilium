@@ -56,38 +56,42 @@ func (h *queryHandler) Handle(params GetStatedbQueryTableParams) middleware.Resp
 		return api.Error(GetStatedbQueryTableNotFoundCode, err)
 	}
 
+	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
+		w.WriteHeader(GetStatedbDumpOKCode)
+		enc := gob.NewEncoder(w)
+		onObject := func(obj object) error {
+			if err := enc.Encode(obj.revision); err != nil {
+				return err
+			}
+			return enc.Encode(obj.data)
+		}
+		runQuery(indexTxn, params.Lowerbound, queryKey, onObject)
+	})
+}
+
+func runQuery(indexTxn indexReadTxn, lowerbound bool, queryKey []byte, onObject func(object) error) {
 	iter := indexTxn.txn.Root().Iterator()
-	if params.Lowerbound {
+	if lowerbound {
 		iter.SeekLowerBound(queryKey)
 	} else {
 		iter.SeekPrefixWatch(queryKey)
 	}
 
-	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
-		w.WriteHeader(GetStatedbDumpOKCode)
-		enc := gob.NewEncoder(w)
-
-		var match func([]byte) bool
-		if indexTxn.entry.unique {
-			match = func(k []byte) bool { return len(k) == len(queryKey) }
-		} else {
-			match = func(k []byte) bool {
-				_, secondary := decodeNonUniqueKey(k)
-				return len(secondary) == len(queryKey)
-			}
+	var match func([]byte) bool
+	if indexTxn.entry.unique {
+		match = func(k []byte) bool { return len(k) == len(queryKey) }
+	} else {
+		match = func(k []byte) bool {
+			_, secondary := decodeNonUniqueKey(k)
+			return len(secondary) == len(queryKey)
 		}
-
-		for key, obj, ok := iter.Next(); ok; _, obj, ok = iter.Next() {
-			if !match(key) {
-				continue
-			}
-			if err := enc.Encode(obj.revision); err != nil {
-				return
-			}
-			if err := enc.Encode(obj.data); err != nil {
-				return
-			}
+	}
+	for key, obj, ok := iter.Next(); ok; _, obj, ok = iter.Next() {
+		if !match(key) {
+			continue
 		}
-	})
-
+		if err := onObject(obj); err != nil {
+			return
+		}
+	}
 }
