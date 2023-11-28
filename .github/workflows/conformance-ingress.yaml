@@ -290,7 +290,7 @@ jobs:
           retention-days: 5
 
   commit-status-final:
-    if: ${{ github.event_name != 'push' }}
+    if: ${{ always() && github.event_name != 'push' }}
     name: Commit Status Final
     needs: ingress-conformance-test
     runs-on: ubuntu-latest

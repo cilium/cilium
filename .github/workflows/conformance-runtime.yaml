@@ -59,6 +59,7 @@ env:
 
 jobs:
   commit-status-start:
+    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -440,7 +441,7 @@ jobs:
           junit-directory: "cilium-junits"
 
   commit-status-final:
-    if: ${{ always() }}
+    if: ${{ always() && github.event_name != 'push' }}
     name: Commit Status Final
     needs: setup-and-test
     runs-on: ubuntu-latest
