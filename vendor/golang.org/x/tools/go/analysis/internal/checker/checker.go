@@ -342,20 +342,28 @@ func applyFixes(roots []*action) error {
 				for _, edit := range sf.TextEdits {
 					// Validate the edit.
 					// Any error here indicates a bug in the analyzer.
-					file := act.pkg.Fset.File(edit.Pos)
+					start, end := edit.Pos, edit.End
+					file := act.pkg.Fset.File(start)
 					if file == nil {
 						return fmt.Errorf("analysis %q suggests invalid fix: missing file info for pos (%v)",
-							act.a.Name, edit.Pos)
+							act.a.Name, start)
 					}
-					if edit.Pos > edit.End {
+					if !end.IsValid() {
+						end = start
+					}
+					if start > end {
 						return fmt.Errorf("analysis %q suggests invalid fix: pos (%v) > end (%v)",
-							act.a.Name, edit.Pos, edit.End)
+							act.a.Name, start, end)
 					}
-					if eof := token.Pos(file.Base() + file.Size()); edit.End > eof {
+					if eof := token.Pos(file.Base() + file.Size()); end > eof {
 						return fmt.Errorf("analysis %q suggests invalid fix: end (%v) past end of file (%v)",
-							act.a.Name, edit.End, eof)
+							act.a.Name, end, eof)
 					}
-					edit := diff.Edit{Start: file.Offset(edit.Pos), End: file.Offset(edit.End), New: string(edit.NewText)}
+					edit := diff.Edit{
+						Start: file.Offset(start),
+						End:   file.Offset(end),
+						New:   string(edit.NewText),
+					}
 					editsForTokenFile[file] = append(editsForTokenFile[file], edit)
 				}
 			}

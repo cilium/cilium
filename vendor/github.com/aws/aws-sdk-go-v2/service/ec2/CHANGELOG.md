@@ -1,3 +1,16 @@
+# v1.137.2 (2023-11-28)
+
+* **Bug Fix**: Respect setting RetryMaxAttempts in functional options at client construction.
+
+# v1.137.1 (2023-11-21)
+
+* **Documentation**: Documentation updates for Amazon EC2.
+
+# v1.137.0 (2023-11-20)
+
+* **Feature**: This release adds support for Security group referencing over Transit gateways, enabling you to simplify Security group management and control of instance-to-instance traffic across VPCs that are connected by Transit gateway.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.136.0 (2023-11-17)
 
 * **Feature**: This release adds new features for Amazon VPC IP Address Manager (IPAM) Allowing a choice between Free and Advanced Tiers, viewing public IP address insights across regions and in Amazon Cloudwatch, use IPAM to plan your subnet IPs within a VPC and bring your own autonomous system number to IPAM.

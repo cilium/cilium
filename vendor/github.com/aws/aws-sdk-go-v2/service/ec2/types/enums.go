@@ -6767,6 +6767,25 @@ func (Scope) Values() []Scope {
 	}
 }
 
+type SecurityGroupReferencingSupportValue string
+
+// Enum values for SecurityGroupReferencingSupportValue
+const (
+	SecurityGroupReferencingSupportValueEnable  SecurityGroupReferencingSupportValue = "enable"
+	SecurityGroupReferencingSupportValueDisable SecurityGroupReferencingSupportValue = "disable"
+)
+
+// Values returns all known values for SecurityGroupReferencingSupportValue. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (SecurityGroupReferencingSupportValue) Values() []SecurityGroupReferencingSupportValue {
+	return []SecurityGroupReferencingSupportValue{
+		"enable",
+		"disable",
+	}
+}
+
 type SelfServicePortal string
 
 // Enum values for SelfServicePortal

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -20,7 +21,6 @@ import (
 	"sync"
 	"unicode"
 
-	exec "golang.org/x/sys/execabs"
 	"golang.org/x/tools/go/internal/packagesdriver"
 	"golang.org/x/tools/internal/gocommand"
 	"golang.org/x/tools/internal/packagesinternal"

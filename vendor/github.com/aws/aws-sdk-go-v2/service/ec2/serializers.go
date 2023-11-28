@@ -40333,6 +40333,11 @@ func awsEc2query_serializeDocumentCreateTransitGatewayVpcAttachmentRequestOption
 		objectKey.String(string(v.Ipv6Support))
 	}
 
+	if len(v.SecurityGroupReferencingSupport) > 0 {
+		objectKey := object.Key("SecurityGroupReferencingSupport")
+		objectKey.String(string(v.SecurityGroupReferencingSupport))
+	}
+
 	return nil
 }
 
@@ -44085,6 +44090,11 @@ func awsEc2query_serializeDocumentModifyTransitGatewayOptions(v *types.ModifyTra
 		}
 	}
 
+	if len(v.SecurityGroupReferencingSupport) > 0 {
+		objectKey := object.Key("SecurityGroupReferencingSupport")
+		objectKey.String(string(v.SecurityGroupReferencingSupport))
+	}
+
 	if len(v.VpnEcmpSupport) > 0 {
 		objectKey := object.Key("VpnEcmpSupport")
 		objectKey.String(string(v.VpnEcmpSupport))
@@ -44110,6 +44120,11 @@ func awsEc2query_serializeDocumentModifyTransitGatewayVpcAttachmentRequestOption
 	if len(v.Ipv6Support) > 0 {
 		objectKey := object.Key("Ipv6Support")
 		objectKey.String(string(v.Ipv6Support))
+	}
+
+	if len(v.SecurityGroupReferencingSupport) > 0 {
+		objectKey := object.Key("SecurityGroupReferencingSupport")
+		objectKey.String(string(v.SecurityGroupReferencingSupport))
 	}
 
 	return nil
@@ -47755,6 +47770,11 @@ func awsEc2query_serializeDocumentTransitGatewayRequestOptions(v *types.TransitG
 	if len(v.MulticastSupport) > 0 {
 		objectKey := object.Key("MulticastSupport")
 		objectKey.String(string(v.MulticastSupport))
+	}
+
+	if len(v.SecurityGroupReferencingSupport) > 0 {
+		objectKey := object.Key("SecurityGroupReferencingSupport")
+		objectKey.String(string(v.SecurityGroupReferencingSupport))
 	}
 
 	if v.TransitGatewayCidrBlocks != nil {

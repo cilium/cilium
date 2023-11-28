@@ -115160,6 +115160,19 @@ func awsEc2query_deserializeDocumentSecurityGroupReference(v **types.SecurityGro
 				sv.ReferencingVpcId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("transitGatewayId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransitGatewayId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("vpcPeeringConnectionId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -126981,6 +126994,19 @@ func awsEc2query_deserializeDocumentTransitGatewayOptions(v **types.TransitGatew
 				sv.PropagationDefaultRouteTableId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("securityGroupReferencingSupport", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SecurityGroupReferencingSupport = types.SecurityGroupReferencingSupportValue(xtv)
+			}
+
 		case strings.EqualFold("transitGatewayCidrBlocks", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentValueStringList(&sv.TransitGatewayCidrBlocks, nodeDecoder); err != nil {
@@ -129735,6 +129761,19 @@ func awsEc2query_deserializeDocumentTransitGatewayVpcAttachmentOptions(v **types
 			{
 				xtv := string(val)
 				sv.Ipv6Support = types.Ipv6SupportValue(xtv)
+			}
+
+		case strings.EqualFold("securityGroupReferencingSupport", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SecurityGroupReferencingSupport = types.SecurityGroupReferencingSupportValue(xtv)
 			}
 
 		default:
