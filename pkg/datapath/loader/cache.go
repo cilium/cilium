@@ -10,20 +10,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/serializer"
+	"github.com/cilium/cilium/pkg/option"
 )
-
-const templateWatcherQueueSize = 10
 
 var ignoredELFPrefixes = []string{
 	"2/",                          // Calls within the endpoint
@@ -90,8 +86,6 @@ var ignoredELFPrefixes = []string{
 	"identity_length",
 }
 
-var templateDirWatcherControllerGroup = controller.NewGroup("template-dir-watcher")
-
 // RestoreTemplates populates the object cache from templates on the filesystem
 // at the specified path.
 func RestoreTemplates(stateDir string) error {
@@ -118,35 +112,27 @@ type objectCache struct {
 	workingDirectory string
 	baseHash         *datapathHash
 
-	// newTemplates is notified whenever template is added to the objectCache.
-	newTemplates        chan string
-	templateWatcherDone chan struct{}
-
-	// toPath maps a hash to the filesystem path of the corresponding object.
-	toPath map[string]string
-
-	// compileQueue maps a hash to a queue which ensures that only one
+	// objects maps a hash to a queue which ensures that only one
 	// attempt is made concurrently to compile the corresponding template.
-	compileQueue map[string]*serializer.FunctionQueue
+	objects map[string]*cachedObject
+}
+
+type cachedObject struct {
+	// Protects state in cachedObject. Also used to serialize compilation attempts.
+	lock.Mutex
+
+	// The path at which the object is cached. May be empty if there hasn't
+	// been a successful compile yet.
+	path string
 }
 
 func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
 	oc := &objectCache{
-		ConfigWriter:        c,
-		workingDirectory:    workingDir,
-		newTemplates:        make(chan string, templateWatcherQueueSize),
-		templateWatcherDone: make(chan struct{}),
-		toPath:              make(map[string]string),
-		compileQueue:        make(map[string]*serializer.FunctionQueue),
+		ConfigWriter:     c,
+		workingDirectory: workingDir,
+		objects:          make(map[string]*cachedObject),
 	}
 	oc.Update(nodeCfg)
-	controller.NewManager().UpdateController("template-dir-watcher",
-		controller.ControllerParams{
-			Group:  templateDirWatcherControllerGroup,
-			DoFunc: oc.watchTemplatesDirectory,
-			// No run interval but needs to re-run on errors.
-		})
-
 	return oc
 }
 
@@ -160,100 +146,58 @@ func (o *objectCache) Update(nodeCfg *datapath.LocalNodeConfiguration) {
 	o.baseHash = newHash
 }
 
-// serialize finds the channel that serializes builds against the same hash.
-// Returns the channel and whether or not the caller needs to compile the
-// datapath for this hash.
-func (o *objectCache) serialize(hash string) (fq *serializer.FunctionQueue, found bool) {
+// serialize access to an abitrary key.
+//
+// Lock the returned object to ensure mutual exclusion.
+func (o *objectCache) serialize(key string) *cachedObject {
 	o.Lock()
 	defer o.Unlock()
 
-	fq, compiled := o.compileQueue[hash]
-	if !compiled {
-		fq = serializer.NewFunctionQueue()
-		o.compileQueue[hash] = fq
+	obj, ok := o.objects[key]
+	if !ok {
+		obj = new(cachedObject)
+		o.objects[key] = obj
 	}
-	return fq, compiled
-}
-
-func (o *objectCache) lookup(hash string) (string, bool) {
-	o.Lock()
-	defer o.Unlock()
-	path, exists := o.toPath[hash]
-	return path, exists
-}
-
-func (o *objectCache) insert(hash, objectPath string) error {
-	o.Lock()
-	defer o.Unlock()
-	o.toPath[hash] = objectPath
-
-	scopedLog := log.WithField(logfields.Path, objectPath)
-	select {
-	case o.newTemplates <- objectPath:
-	case <-o.templateWatcherDone:
-		// This means that the controller was stopped and Cilium is
-		// shutting down; don't bother complaining too loudly.
-		scopedLog.Debug("Failed to watch for template filesystem changes")
-	default:
-		// Unusual case; send on channel was blocked.
-		scopedLog.Warn("Failed to watch for template filesystem changes")
-	}
-	return nil
-}
-
-func (o *objectCache) delete(hash string) {
-	o.Lock()
-	defer o.Unlock()
-	delete(o.toPath, hash)
-	delete(o.compileQueue, hash)
+	return obj
 }
 
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
-func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) error {
+func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) (string, error) {
 	isHost := cfg.IsHost()
 	templatePath := filepath.Join(o.workingDirectory, defaults.TemplatesDir, hash)
-	headerPath := filepath.Join(templatePath, common.CHeaderFileName)
-	epObj := endpointObj
+	dir := &directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  templatePath,
+		State:   templatePath,
+	}
+	prog := epProg
 	if isHost {
-		epObj = hostEndpointObj
-	}
-	objectPath := filepath.Join(templatePath, epObj)
-
-	if err := os.MkdirAll(templatePath, defaults.StateDirRights); err != nil {
-		return &os.PathError{
-			Op:   "failed to create template directory",
-			Path: templatePath,
-			Err:  err,
-		}
+		prog = hostEpProg
 	}
 
+	objectPath := prog.AbsoluteOutput(dir)
+
+	if err := os.MkdirAll(dir.Output, defaults.StateDirRights); err != nil {
+		return "", fmt.Errorf("failed to create template directory: %w", err)
+	}
+
+	headerPath := filepath.Join(dir.State, common.CHeaderFileName)
 	f, err := os.Create(headerPath)
 	if err != nil {
-		return &os.PathError{
-			Op:   "failed to open template header for writing",
-			Path: headerPath,
-			Err:  err,
-		}
+		return "", fmt.Errorf("failed to open template header for writing: %w", err)
 	}
 	defer f.Close()
 	if err = o.ConfigWriter.WriteEndpointConfig(f, cfg); err != nil {
-		return &os.PathError{
-			Op:   "failed to write template header",
-			Path: headerPath,
-			Err:  err,
-		}
+		return "", fmt.Errorf("failed to write template header: %w", err)
 	}
 
 	cfg.stats.BpfCompilation.Start()
-	err = compileTemplate(ctx, templatePath, isHost)
+	err = compileDatapath(ctx, dir, isHost, log)
 	cfg.stats.BpfCompilation.End(err == nil)
 	if err != nil {
-		return &os.PathError{
-			Op:   "failed to compile template program",
-			Path: templatePath,
-			Err:  err,
-		}
+		return "", fmt.Errorf("failed to compile template program: %w", err)
 	}
 
 	log.WithFields(logrus.Fields{
@@ -261,8 +205,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 		logfields.BPFCompilationTime: cfg.stats.BpfCompilation.Total(),
 	}).Info("Compiled new BPF template")
 
-	o.insert(hash, objectPath)
-	return nil
+	return objectPath, nil
 }
 
 // fetchOrCompile attempts to fetch the path to the datapath object
@@ -273,11 +216,11 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 //
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat) (path string, compiled bool, err error) {
+func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
 	var hash string
 	hash, err = o.baseHash.sumEndpoint(o, cfg, false)
 	if err != nil {
-		return "", false, err
+		return nil, false, err
 	}
 
 	// Capture the time spent waiting for the template to compile.
@@ -291,83 +234,36 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 
 	scopedLog := log.WithField(logfields.BPFHeaderfileHash, hash)
 
-	// Serializes attempts to compile this cfg.
-	// TODO(tb): replace with sync.Once.
-	fq, compiled := o.serialize(hash)
-	if !compiled {
-		fq.Enqueue(func() error {
-			templateCfg := wrap(cfg, stats)
-			if err := o.build(ctx, templateCfg, hash); err != nil {
-				if !errors.Is(err, context.Canceled) {
-					scopedLog.WithError(err).Error("BPF template object creation failed")
-				}
+	obj := o.serialize(hash)
 
-				o.Lock()
-				delete(o.compileQueue, hash)
-				o.Unlock()
+	// Only allow a single concurrent compilation.
+	obj.Lock()
+	defer obj.Unlock()
 
-				return err
-			}
-
-			return nil
-		})
-	}
-
-	// Wait until the build completes.
-	if err := fq.Wait(); err != nil {
-		return "", false, fmt.Errorf("BPF template compilation failed: %w", err)
-	}
-
-	// Fetch the result of the compilation.
-	path, ok := o.lookup(hash)
-	if !ok {
-		err := errors.New("Could not locate previously compiled BPF template")
-		scopedLog.WithError(err).Warning("BPF template compilation unsuccessful")
-		return "", false, err
-	}
-
-	return path, !compiled, nil
-}
-
-func (o *objectCache) watchTemplatesDirectory(ctx context.Context) error {
-	templateWatcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		close(o.templateWatcherDone)
-		templateWatcher.Close()
-	}()
-
-	for {
-		select {
-		// Watch for new templates being compiled and add to the filesystem watcher
-		case templatePath := <-o.newTemplates:
-			if err = templateWatcher.Add(templatePath); err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.Path: templatePath,
-				}).WithError(err).Warning("Failed to watch templates directory")
-			} else {
-				log.WithFields(logrus.Fields{
-					logfields.Path: templatePath,
-				}).Debug("Watching template path")
-			}
-		// Handle filesystem deletes for current templates
-		case event, open := <-templateWatcher.Events:
-			if !open {
-				break
-			}
-			if event.Has(fsnotify.Remove) {
-				log.WithField(logfields.Path, event.Name).Debug("Detected template removal")
-				templateHash := filepath.Base(filepath.Dir(event.Name))
-				o.delete(templateHash)
-			} else {
-				log.WithField("event", event).Debug("Ignoring template FS event")
-			}
-		case err = <-templateWatcher.Errors:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
+	if obj.path != "" {
+		// Only attempt to use a cached object if we previously built this object.
+		// Otherwise we risk reusing a previous process' output since we're not
+		// guaranteed an empty working directory.
+		if cached, err := os.Open(obj.path); err == nil {
+			return cached, false, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return nil, false, err
 		}
 	}
+
+	path, err := o.build(ctx, wrap(cfg, stats), hash)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			scopedLog.WithError(err).Error("BPF template object creation failed")
+		}
+		return nil, false, err
+	}
+
+	output, err := os.Open(path)
+	if err != nil {
+		return nil, false, err
+	}
+
+	obj.path = path
+	return output, !compiled, nil
 }

@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -74,6 +75,10 @@ type progInfo struct {
 	OutputType OutputType
 	// Options are passed directly to LLVM as individual parameters
 	Options []string
+}
+
+func (pi *progInfo) AbsoluteOutput(dir *directoryInfo) string {
+	return filepath.Join(dir.Output, pi.Output)
 }
 
 // directoryInfo includes relevant directories for compilation and linking
@@ -187,7 +192,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	compileCmd, cancelCompile := exec.WithCancel(ctx, compiler, compileArgs...)
 	defer cancelCompile()
 
-	output, err := os.Create(path.Join(dir.Output, prog.Output))
+	output, err := os.Create(prog.AbsoluteOutput(dir))
 	if err != nil {
 		return "", err
 	}
@@ -306,17 +311,6 @@ func CompileWithOptions(ctx context.Context, src string, out string, opts []stri
 // Compile compiles a BPF program generating an object file.
 func Compile(ctx context.Context, src string, out string) error {
 	return CompileWithOptions(ctx, src, out, nil)
-}
-
-// compileTemplate compiles a BPF program generating a template object file.
-func compileTemplate(ctx context.Context, out string, isHost bool) error {
-	dirs := directoryInfo{
-		Library: option.Config.BpfDir,
-		Runtime: option.Config.StateDir,
-		Output:  out,
-		State:   out,
-	}
-	return compileDatapath(ctx, &dirs, isHost, log)
 }
 
 // compileNetwork compiles a BPF program attached to network
