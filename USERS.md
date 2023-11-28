@@ -62,6 +62,11 @@ Users (Alphabetically)
       U: L3/L4/L7 policies
       L: https://youtu.be/39FLsSc2P-Y
 
+    * N: AirQo
+      D: AirQo uses Cilium as the CNI plugin
+      U: CNI, Networking, NetworkPolicy, Cluster Mesh, Hubble, Kubernetes services
+      L: @airqo-platform
+
     * N: Alibaba Cloud
       D: Alibaba Cloud is using Cilium together with Terway CNI as the high-performance ENI dataplane
       U: Networking, NetworkPolicy, Services, IPVLAN
