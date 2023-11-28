@@ -25,16 +25,12 @@ include ../Makefile.bpf
 
 all: $(PROGS)
 
-%.ll: %.h $(BASE_PROG) $(LIB)
+%.o: %.h $(BASE_PROG) $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} \
 		-DBPF_CUSTOM_PROG_FILE=$< \
 		-DBPF_CUSTOM_PROG_NAME=$(call sec_name,$<) \
 		-c $(BASE_PROG) -o $@
-
-$(PROGS): %.o: %.ll
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
 clean:
 	@$(ECHO_CLEAN)
