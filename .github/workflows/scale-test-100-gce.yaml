@@ -38,6 +38,7 @@ env:
   # has stricter DNS naming requirements.
   test_name: scale-100
   cluster_base_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
+  GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
   CILIUM_CLI_MODE: helm
 
 jobs:
@@ -217,6 +218,6 @@ jobs:
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
         uses: cilium/scale-tests-action/export-results@8a522b9d71254b6f6615c296e41a70610c9615ea # main
         with:
-          results_bucket: ${{ secrets.GCP_PERF_RESULTS_BUCKET }}
+          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/*
           other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
