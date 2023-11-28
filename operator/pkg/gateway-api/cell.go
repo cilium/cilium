@@ -96,6 +96,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 // registerSecretSync registers the Gateway API for secret synchronization based on TLS secrets referenced
 // by a Cilium Gateway resource.
 func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrationOut {
+	if err := checkRequiredCRDs(context.Background(), params.K8sClient); err != nil {
+		return secretsync.SecretSyncRegistrationOut{}
+	}
+
 	if !operatorOption.Config.EnableGatewayAPI || !params.Config.EnableGatewayAPISecretsSync {
 		return secretsync.SecretSyncRegistrationOut{}
 	}
