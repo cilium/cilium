@@ -216,7 +216,7 @@ func BenchmarkDB_SequentialLookup(b *testing.B) {
 	}
 }
 
-func BenchmarkDB_FullIteration(b *testing.B) {
+func BenchmarkDB_FullIteration_All(b *testing.B) {
 	db, table, _ := newTestDB(b)
 	wtxn := db.WriteTxn(table)
 	for i := 0; i < b.N; i++ {
@@ -228,6 +228,25 @@ func BenchmarkDB_FullIteration(b *testing.B) {
 
 	txn := db.ReadTxn()
 	iter, _ := table.All(txn)
+	i := uint64(0)
+	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+		require.Equal(b, obj.ID, i)
+		i++
+	}
+}
+
+func BenchmarkDB_FullIteration_Get(b *testing.B) {
+	db, table, _ := newTestDB(b, tagsIndex)
+	wtxn := db.WriteTxn(table)
+	for i := 0; i < b.N; i++ {
+		_, _, err := table.Insert(wtxn, testObject{ID: uint64(i), Tags: []string{"foo"}})
+		require.NoError(b, err)
+	}
+	wtxn.Commit()
+	b.ResetTimer()
+
+	txn := db.ReadTxn()
+	iter, _ := table.Get(txn, tagsIndex.Query("foo"))
 	i := uint64(0)
 	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
 		require.Equal(b, obj.ID, i)
