@@ -12,6 +12,8 @@
 {{- $fragmentTracking := "true" -}}
 {{- $defaultKubeProxyReplacement := "false" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
+{{- $defaultK8sClientQPS := 5 -}}
+{{- $defaultK8sClientBurst := 10 -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -73,6 +75,11 @@
   {{- $cniChainingMode = .Values.cni.chainingMode  -}}
 {{- else if (not (kindIs "invalid" .Values.cni.chainingTarget)) -}}
   {{- $cniChainingMode = "generic-veth" -}}
+{{- end -}}
+
+{{- if semverCompare ">=1.27-0" .Capabilities.KubeVersion.Version -}}
+  {{- $defaultK8sClientQPS = 10 -}}
+  {{- $defaultK8sClientBurst = 20 -}}
 {{- end -}}
 ---
 apiVersion: v1
@@ -1118,10 +1125,8 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
-{{- if hasKey .Values "k8sClientRateLimit" }}
-  k8s-client-qps: {{ .Values.k8sClientRateLimit.qps | quote }}
-  k8s-client-burst: {{ .Values.k8sClientRateLimit.burst | quote }}
-{{- end }}
+  k8s-client-qps: {{ .Values.k8sClientRateLimit.qps | default $defaultK8sClientQPS | quote}}
+  k8s-client-burst: {{ .Values.k8sClientRateLimit.burst | default $defaultK8sClientBurst | quote }}
 
 {{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}
   {{ fail "Cannot have operator.setNodeTaintsMaxNodes and not operator.removeNodeTaints = false" }}
