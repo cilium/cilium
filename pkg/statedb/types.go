@@ -184,17 +184,15 @@ type WriteTxn interface {
 }
 
 type Query[Obj any] struct {
-	index  IndexName
-	unique bool
-	key    []byte
+	index IndexName
+	key   []byte
 }
 
 // ByRevision constructs a revision query. Applicable to any table.
 func ByRevision[Obj any](rev uint64) Query[Obj] {
 	return Query[Obj]{
-		index:  RevisionIndex,
-		unique: false,
-		key:    index.Uint64(rev),
+		index: RevisionIndex,
+		key:   index.Uint64(rev),
 	}
 }
 
@@ -229,9 +227,8 @@ func (i Index[Obj, Key]) isUnique() bool {
 // Query constructs a query against this index from a key.
 func (i Index[Obj, Key]) Query(key Key) Query[Obj] {
 	return Query[Obj]{
-		index:  i.Name,
-		unique: i.isUnique(),
-		key:    i.FromKey(key),
+		index: i.Name,
+		key:   i.FromKey(key),
 	}
 }
 
