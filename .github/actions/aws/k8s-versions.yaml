@@ -4,7 +4,7 @@ include:
   - version: "1.23"
     region: eu-central-1
   - version: "1.24"
-    region: eu-central-1
+    region: eu-west-1
   - version: "1.25"
     region: ap-northeast-1
   - version: "1.26"
