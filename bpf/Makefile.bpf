@@ -3,7 +3,7 @@
 
 FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc --all) -O2 -g
 
-CLANG_FLAGS := ${FLAGS} --target=bpf -std=gnu89 -nostdinc -emit-llvm
+CLANG_FLAGS := ${FLAGS} --target=bpf -std=gnu89 -nostdinc
 # eBPF verifier enforces unaligned access checks where necessary, so don't
 # let clang complain too early.
 CLANG_FLAGS += -Wall -Wextra -Werror -Wshadow
@@ -13,21 +13,18 @@ CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end
 CLANG_FLAGS += -Wdeclaration-after-statement
 CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
 CLANG_FLAGS += -Wimplicit-fallthrough
-LLC_FLAGS := -march=bpf
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
 ifneq (,$(filter $(KERNEL),510 61 netnext))
-LLC_FLAGS += -mcpu=v3
+CLANG_FLAGS += -mcpu=v3
 else
-LLC_FLAGS += -mcpu=v2
+CLANG_FLAGS += -mcpu=v2
 endif
 
 LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h')
 BPF_C := $(patsubst %.o,%.c,$(BPF))
 BPF_ASM := $(patsubst %.o,%.s,$(BPF))
 
-CLANG ?= clang
-LLC   ?= llc
-
+CLANG      ?= clang
 HOST_CC    ?= gcc
 HOST_STRIP ?= strip
 
@@ -47,11 +44,11 @@ force:
 
 %.ll: %.c $(LIB)
 	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -emit-llvm -c $< -o $@
 
-%.s: %.ll
+%.o: %.c $(LIB)
 	@$(ECHO_CC)
-	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
 
 #
 # TODO: revert addition of ignore MACRO_ARG_REUSE below once cilium-checkpatch
