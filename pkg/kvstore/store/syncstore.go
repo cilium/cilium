@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
@@ -66,10 +67,10 @@ type wqSyncStore struct {
 
 	limiter   workqueue.RateLimiter
 	workqueue workqueue.RateLimitingInterface
-	state     sync.Map /* map[string][]byte --- map[NamedKey.GetKeyName()]Key.Marshal() */
+	state     lock.Map[string, []byte] // map[NamedKey.GetKeyName()]Key.Marshal()
 
-	synced          atomic.Bool // Synced() has been triggered
-	pendingSync     sync.Map    // map[string]struct{}: the set of keys still to sync
+	synced          atomic.Bool                // Synced() has been triggered
+	pendingSync     lock.Map[string, struct{}] // the set of keys still to sync
 	syncedKey       string
 	syncedCallbacks []func(context.Context)
 
@@ -182,7 +183,7 @@ func (wss *wqSyncStore) UpsertKey(_ context.Context, k Key) error {
 	}
 
 	prevValue, loaded := wss.state.Swap(key, value)
-	if loaded && bytes.Equal(prevValue.([]byte), value) {
+	if loaded && bytes.Equal(prevValue, value) {
 		wss.log.WithField(logfields.Key, k).Debug("ignoring upsert request for already up-to-date key")
 	} else {
 		if !wss.synced.Load() {
@@ -246,7 +247,9 @@ func (wss *wqSyncStore) processNextItem(ctx context.Context) bool {
 	// Since no error occurred, forget this item so it does not get queued again
 	// until another change happens.
 	wss.workqueue.Forget(key)
-	wss.pendingSync.Delete(key)
+	if skey, ok := key.(string); ok {
+		wss.pendingSync.Delete(skey)
+	}
 	return true
 }
 
@@ -255,8 +258,8 @@ func (wss *wqSyncStore) handle(ctx context.Context, key interface{}) error {
 		return wss.handleSync(ctx, value.skipCallbacks)
 	}
 
-	if value, ok := wss.state.Load(key); ok {
-		return wss.handleUpsert(ctx, key.(string), value.([]byte))
+	if value, ok := wss.state.Load(key.(string)); ok {
+		return wss.handleUpsert(ctx, key.(string), value)
 	}
 
 	return wss.handleDelete(ctx, key.(string))
@@ -290,7 +293,7 @@ func (wss *wqSyncStore) handleDelete(ctx context.Context, key string) error {
 func (wss *wqSyncStore) handleSync(ctx context.Context, skipCallbacks bool) error {
 	// This could be replaced by wss.toSync.Len() == 0 if it only existed...
 	syncCompleted := true
-	wss.pendingSync.Range(func(any, any) bool {
+	wss.pendingSync.Range(func(string, struct{}) bool {
 		syncCompleted = false
 		return false
 	})

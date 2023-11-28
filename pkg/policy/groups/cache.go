@@ -4,15 +4,16 @@
 package groups
 
 import (
-	"sync"
+	"k8s.io/apimachinery/pkg/types"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 var groupsCNPCache = groupsCNPCacheMap{}
 
 type groupsCNPCacheMap struct {
-	sync.Map
+	lock.Map[types.UID, *cilium_v2.CiliumNetworkPolicy]
 }
 
 func (cnpCache *groupsCNPCacheMap) UpdateCNP(cnp *cilium_v2.CiliumNetworkPolicy) {
@@ -25,8 +26,8 @@ func (cnpCache *groupsCNPCacheMap) DeleteCNP(cnp *cilium_v2.CiliumNetworkPolicy)
 
 func (cnpCache *groupsCNPCacheMap) GetAllCNP() []*cilium_v2.CiliumNetworkPolicy {
 	result := []*cilium_v2.CiliumNetworkPolicy{}
-	cnpCache.Range(func(k, v interface{}) bool {
-		result = append(result, v.(*cilium_v2.CiliumNetworkPolicy))
+	cnpCache.Range(func(_ types.UID, cnp *cilium_v2.CiliumNetworkPolicy) bool {
+		result = append(result, cnp)
 		return true
 	})
 	return result
