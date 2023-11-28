@@ -1,9 +1,12 @@
 name: Cyclonus Network Policy Test
 
 on:
-  schedule:
-    # run once a day at midnight
-    - cron: '0 0 * * *'
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
 
 permissions: read-all
 
