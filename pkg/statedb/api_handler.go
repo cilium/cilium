@@ -56,7 +56,7 @@ func (h *queryHandler) Handle(params GetStatedbQueryTableParams) middleware.Resp
 		return api.Error(GetStatedbQueryTableNotFoundCode, err)
 	}
 
-	iter := indexTxn.Root().Iterator()
+	iter := indexTxn.txn.Root().Iterator()
 	if params.Lowerbound {
 		iter.SeekLowerBound(key)
 	} else {
