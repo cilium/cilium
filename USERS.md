@@ -57,6 +57,11 @@ Users (Alphabetically)
       U: CiliumNetworkPolicy, Hubble, BPF NodePort, Direct routing
       L: @JrCs
 
+    * N: AirQo
+      D: AirQo uses Cilium as the CNI plugin
+      U: CNI, Networking, NetworkPolicy, Cluster Mesh, Hubble, Kubernetes services
+      L: @airqo-platform
+
     * N: Adobe, Inc.
       D: Adobe's Project Ethos uses Cilium for multi-tenant, multi-cloud clusters
       U: L3/L4/L7 policies
