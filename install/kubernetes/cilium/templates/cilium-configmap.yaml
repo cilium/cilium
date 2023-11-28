@@ -14,6 +14,7 @@
 {{- $azureUsePrimaryAddress := "true" -}}
 {{- $defaultK8sClientQPS := 5 -}}
 {{- $defaultK8sClientBurst := 10 -}}
+{{- $defaultDNSProxyEnableTransparentMode := "false" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -48,6 +49,7 @@
       {{- $azureUsePrimaryAddress = "false" -}}
   {{- end }}
   {{- $defaultKubeProxyReplacement = "disabled" -}}
+  {{- $defaultDNSProxyEnableTransparentMode = "true" -}}
 {{- end -}}
 
 {{- /* Default values when 1.14 was initially deployed */ -}}
@@ -1157,6 +1159,13 @@ data:
 {{- end }}
 
 {{- if .Values.dnsProxy }}
+  {{- if hasKey .Values.dnsProxy "enableTransparentMode" }}
+  # explicit setting gets precedence
+  dnsproxy-enable-transparent-mode: {{ .Values.dnsProxy.enableTransparentMode | quote }}
+  {{- else if eq $cniChainingMode "none" }}
+  # default DNS proxy to transparent mode in non-chaining modes
+  dnsproxy-enable-transparent-mode: {{ $defaultDNSProxyEnableTransparentMode | quote }}
+  {{- end }}
   {{- if .Values.dnsProxy.dnsRejectResponseCode }}
   tofqdns-dns-reject-response-code: {{ .Values.dnsProxy.dnsRejectResponseCode | quote }}
   {{- end }}
