@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,8 +29,9 @@ import (
 type localNodeSynchronizerParams struct {
 	cell.In
 
-	Config       *option.DaemonConfig
-	K8sLocalNode agentK8s.LocalNodeResource
+	Config             *option.DaemonConfig
+	K8sLocalNode       agentK8s.LocalNodeResource
+	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
@@ -120,6 +122,28 @@ func (ini *localNodeSynchronizer) getK8sLocalNode(ctx context.Context) (*slim_co
 	return nil, ctx.Err()
 }
 
+// getK8sLocalCiliumNode returns the CiliumNode object for the local node if it exists at the type
+// of the call.
+// In the case that the resource event is synced without a ciliumnode upsert event, we return nil.
+func (ini *localNodeSynchronizer) getK8sLocalCiliumNode(ctx context.Context) *v2.CiliumNode {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		return nil
+	case ev := <-ini.K8sCiliumLocalNode.Events(ctx):
+		ev.Done(nil)
+		switch ev.Kind {
+		case resource.Upsert:
+			return ev.Object
+		case resource.Sync:
+			log.Debug("sync event received before local ciliumnode upsert, skipping ciliumnode sync")
+			return nil
+		}
+	}
+	return nil
+}
+
 func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.LocalNode) error {
 	if ini.K8sLocalNode == nil {
 		return nil
@@ -149,9 +173,20 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 			node.SetNodeExternalIP(addr.IP)
 		}
 	}
-
 	ini.syncFromK8s(node, parsedNode)
 
+	// In cases where no local CiliumNode exists (such as on a fresh node) we skip restoring
+	// the CiliumNode information from k8s.
+	k8sCiliumNode := ini.getK8sLocalCiliumNode(ctx)
+	if k8sCiliumNode != nil {
+		for _, addr := range k8sCiliumNode.Spec.Addresses {
+			if addr.Type == addressing.NodeCiliumInternalIP {
+				node.SetCiliumInternalIP(net.ParseIP(addr.IP))
+			}
+		}
+	} else {
+		log.Info("no local ciliumnode found, will not restore cilium internal ips from k8s")
+	}
 	if ini.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(node.Labels)) {
 		log.WithField(logfields.Selector, ini.Config.NodeEncryptionOptOutLabels).
 			Infof("Opting out from node-to-node encryption on this node as per '%s' label selector",

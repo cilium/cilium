@@ -9,7 +9,7 @@ import (
 
 // AddressType represents a type of IP address for a node. They are copied
 // from k8s.io/api/core/v1/types.go to avoid pulling in a lot of Kubernetes
-// imports into this package.s
+// imports into this package.
 type AddressType string
 
 const (
