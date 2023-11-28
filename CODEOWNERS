@@ -508,7 +508,6 @@ Makefile* @cilium/build
 /pkg/redirectpolicy @cilium/sig-lb
 /pkg/resiliency @cilium/sig-agent
 /pkg/safeio @cilium/sig-agent
-/pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
 /pkg/slices @cilium/sig-foundations
 /pkg/socketlb @cilium/loader
