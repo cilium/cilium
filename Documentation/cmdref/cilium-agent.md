@@ -85,6 +85,7 @@ cilium-agent [flags]
       --dns-policy-unload-on-shutdown                             Unload DNS policy rules on graceful shutdown
       --dnsproxy-concurrency-limit int                            Limit concurrency of DNS message processing
       --dnsproxy-concurrency-processing-grace-period duration     Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing
+      --dnsproxy-enable-transparent-mode                          Enable DNS proxy transparent mode
       --egress-gateway-policy-map-max int                         Maximum number of entries in egress gateway policy map (default 16384)
       --egress-gateway-reconciliation-trigger-interval duration   Time between triggers of egress gateway state reconciliations (default 1s)
       --egress-masquerade-interfaces string                       Limit iptables-based egress masquerading to interface selector
