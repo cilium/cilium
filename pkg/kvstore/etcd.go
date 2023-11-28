@@ -13,7 +13,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/mvccpb"
@@ -377,7 +376,7 @@ type etcdClient struct {
 
 	lastHeartbeat time.Time
 
-	leaseExpiredObservers sync.Map
+	leaseExpiredObservers lock.Map[string, func(string)]
 
 	// logger is the scoped logger associated with this client
 	logger logrus.FieldLogger
@@ -1691,9 +1690,9 @@ func (e *etcdClient) RegisterLeaseExpiredObserver(prefix string, fn func(key str
 }
 
 func (e *etcdClient) expiredLeaseObserver(key string) {
-	e.leaseExpiredObservers.Range(func(prefix, fn any) bool {
-		if strings.HasPrefix(key, prefix.(string)) {
-			fn.(func(string))(key)
+	e.leaseExpiredObservers.Range(func(prefix string, fn func(string)) bool {
+		if strings.HasPrefix(key, prefix) {
+			fn(key)
 		}
 		return true
 	})

@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -200,13 +200,10 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 }
 
 func (s *K8sClientSuite) Test_client(c *C) {
-	requests := sync.Map{}
+	var requests lock.Map[string, *http.Request]
 	getRequest := func(k string) *http.Request {
-		v, ok := requests.Load(k)
-		if !ok {
-			return nil
-		}
-		return v.(*http.Request)
+		v, _ := requests.Load(k)
+		return v
 	}
 
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
