@@ -44,11 +44,13 @@ k8sServicePort: ""
 # rate limit, the agent and operator will start to throttle requests by delaying
 # them until there is budget or the request times out.
 k8sClientRateLimit:
-  # -- The sustained request rate in requests per second.
-  qps: 5
-  # -- The burst request rate in requests per second.
+  # -- (int) The sustained request rate in requests per second.
+  # @default -- 5 for k8s up to 1.26. 10 for k8s version 1.27+
+  qps:
+  # -- (int) The burst request rate in requests per second.
   # The rate limiter will allow short bursts with a higher rate.
-  burst: 10
+  # @default -- 10 for k8s up to 1.26. 20 for k8s version 1.27+
+  burst:
 
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
