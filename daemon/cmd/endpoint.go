@@ -331,6 +331,11 @@ func (m *endpointCreationManager) DebugStatus() (output string) {
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
 func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+	// Wait for the host datapath to be initialized before starting to manage
+	// endpoint programs. bpf_lxc makes the assumption that bpf_host is loaded
+	// and its policy program(s) inserted.
+	<-owner.Datapath().Loader().HostDatapathInitialized()
+
 	if option.Config.EnableEndpointRoutes {
 		if epTemplate.DatapathConfiguration == nil {
 			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}

@@ -318,6 +318,11 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	}
 
+	// Wait for the host datapath to be initialized before starting to manage
+	// endpoint programs. bpf_lxc makes the assumption that bpf_host is loaded
+	// and its policy program(s) inserted.
+	<-owner.Datapath().Loader().HostDatapathInitialized()
+
 	// Set up the endpoint routes.
 	if err = configureHealthRouting(info.ContainerName, epIfaceName, node.GetNodeAddressing(), mtuConfig); err != nil {
 		return nil, fmt.Errorf("Error while configuring routes: %s", err)
