@@ -131,6 +131,14 @@ func (in *IngressBackend) DeepEqual(other *IngressBackend) bool {
 		}
 	}
 
+	if (in.Resource == nil) != (other.Resource == nil) {
+		return false
+	} else if in.Resource != nil {
+		if !in.Resource.DeepEqual(other.Resource) {
+			return false
+		}
+	}
+
 	return true
 }
 

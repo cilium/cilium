@@ -27,7 +27,7 @@ env:
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=docker depName=quay.io/cilium/kindest-node
-  k8s_version: v1.28.3
+  k8s_version: v1.29.0-rc.1
 
 jobs:
   kubernetes-e2e-net-conformance:

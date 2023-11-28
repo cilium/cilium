@@ -486,6 +486,13 @@ type IngressBackend struct {
 	// This is a mutually exclusive setting with "Resource".
 	// +optional
 	Service *IngressServiceBackend `json:"service,omitempty" protobuf:"bytes,4,opt,name=service"`
+
+	// resource is an ObjectRef to another Kubernetes resource in the namespace
+	// of the Ingress object. If resource is specified, a service.Name and
+	// service.Port must not be specified.
+	// This is a mutually exclusive setting with "Service".
+	// +optional
+	Resource *v1.TypedLocalObjectReference `json:"resource,omitempty" protobuf:"bytes,3,opt,name=resource"`
 }
 
 // IngressServiceBackend references a Kubernetes Service as a Backend.

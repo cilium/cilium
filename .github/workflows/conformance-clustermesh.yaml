@@ -58,7 +58,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   kind_version: v0.20.0
   # renovate: datasource=docker depName=quay.io/cilium/kindest-node
-  k8s_version: v1.28.3
+  k8s_version: v1.29.0-rc.1
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   clusterName1: cluster1-${{ github.run_id }}
