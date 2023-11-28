@@ -2632,8 +2632,10 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ipam := &LBIPAM{
-				ipv4Enabled: tt.IPv4Enabled,
-				ipv6Enabled: tt.IPv6Enabled,
+				lbIPAMParams: lbIPAMParams{
+					ipv4Enabled: tt.IPv4Enabled,
+					ipv6Enabled: tt.IPv6Enabled,
+				},
 			}
 			gotIPv4Requested, gotIPv6Requested := ipam.serviceIPFamilyRequest(tt.svc)
 			if gotIPv4Requested != tt.wantIPv4Requested {

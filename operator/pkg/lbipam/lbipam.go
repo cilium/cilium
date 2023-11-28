@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/netip"
-	"runtime/pprof"
 	"slices"
 	"strconv"
 	"strings"
@@ -20,22 +19,21 @@ import (
 	"go4.org/netipx"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipalloc"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/api/meta"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	client_typed_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -67,79 +65,46 @@ var (
 	)
 )
 
-func newLBIPAM(params LBIPAMParams) *LBIPAM {
-	if !params.Clientset.IsEnabled() {
-		return nil
-	}
-
-	var lbClasses []string
-	if params.DaemonConfig.EnableBGPControlPlane {
-		lbClasses = append(lbClasses, cilium_api_v2alpha1.BGPLoadBalancerClass)
-	}
-
-	if params.DaemonConfig.EnableL2Announcements {
-		lbClasses = append(lbClasses, cilium_api_v2alpha1.L2AnnounceLoadBalancerClass)
-	}
-
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Scope,
-		job.WithLogger(params.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "lbipam")),
-	)
-
-	lbIPAM := &LBIPAM{
-		logger:       params.Logger,
-		poolResource: params.PoolResource,
-		svcResource:  params.SvcResource,
-		poolClient:   params.Clientset.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
-		svcClient:    params.Clientset.Slim().CoreV1(),
-		shutdowner:   params.Shutdowner,
-		pools:        make(map[string]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool),
-		rangesStore:  newRangesStore(),
-		serviceStore: NewServiceStore(),
-		lbClasses:    lbClasses,
-		ipv4Enabled:  option.Config.IPv4Enabled(),
-		ipv6Enabled:  option.Config.IPv6Enabled(),
-		jobGroup:     jobGroup,
-		metrics:      params.Metrics,
-	}
-
-	jobGroup.Add(
-		job.OneShot("lbipam main", func(ctx context.Context, health cell.HealthReporter) error {
-			lbIPAM.Run(ctx, health)
-			return nil
-		}),
-	)
-
-	params.LC.Append(jobGroup)
-
-	return lbIPAM
+type poolClient interface {
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumLoadBalancerIPPool, err error)
 }
 
-// LBIPAM is the loadbalancer IP address manager, controller which allocates and assigns IP addresses
-// to LoadBalancer services from the configured set of LoadBalancerIPPools in the cluster.
-type LBIPAM struct {
+type lbIPAMParams struct {
 	logger logrus.FieldLogger
 
 	lbClasses   []string
 	ipv4Enabled bool
 	ipv6Enabled bool
 
-	poolClient cilium_client_v2alpha1.CiliumLoadBalancerIPPoolInterface
+	poolClient poolClient
 	svcClient  client_typed_v1.ServicesGetter
 
 	poolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
 	svcResource  resource.Resource[*slim_core_v1.Service]
 
-	shutdowner hive.Shutdowner
+	jobGroup job.Group
+
+	metrics *ipamMetrics
+}
+
+func newLBIPAM(params lbIPAMParams) *LBIPAM {
+	lbIPAM := &LBIPAM{
+		lbIPAMParams: params,
+		pools:        make(map[string]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool),
+		rangesStore:  newRangesStore(),
+		serviceStore: NewServiceStore(),
+	}
+	return lbIPAM
+}
+
+// LBIPAM is the loadbalancer IP address manager, controller which allocates and assigns IP addresses
+// to LoadBalancer services from the configured set of LoadBalancerIPPools in the cluster.
+type LBIPAM struct {
+	lbIPAMParams
 
 	pools        map[string]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool
 	rangesStore  rangesStore
 	serviceStore serviceStore
-
-	jobGroup job.Group
-
-	metrics *ipamMetrics
 
 	// Only used during testing.
 	initDoneCallbacks []func()
@@ -169,7 +134,49 @@ func (ipam *LBIPAM) Run(ctx context.Context, health cell.HealthReporter) {
 	poolChan := ipam.poolResource.Events(ctx, eventsOpts)
 
 	ipam.logger.Info("LB-IPAM initializing")
+	svcChan := ipam.initialize(ctx, poolChan)
 
+	for _, cb := range ipam.initDoneCallbacks {
+		if cb != nil {
+			cb()
+		}
+	}
+
+	ipam.logger.Info("LB-IPAM done initializing")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case event, ok := <-poolChan:
+			if !ok {
+				poolChan = nil
+				continue
+			}
+			ipam.handlePoolEvent(ctx, event)
+
+			// This controller must go back into a dormant state when the last pool has been removed
+			if len(ipam.pools) == 0 {
+				// Upon return, restart the controller, which will start in pre-init state
+				defer ipam.restart()
+				return
+			}
+
+		case event, ok := <-svcChan:
+			if !ok {
+				svcChan = nil
+				continue
+			}
+			ipam.handleServiceEvent(ctx, event)
+		}
+	}
+}
+
+func (ipam *LBIPAM) initialize(
+	ctx context.Context,
+	poolChan <-chan resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool],
+) <-chan resource.Event[*slim_core_v1.Service] {
 	// Synchronize pools first as we need them before we can satisfy
 	// the services. This will also wait for the first pool to appear
 	// before we start processing the services, which will save us from
@@ -199,7 +206,6 @@ func (ipam *LBIPAM) Run(ctx context.Context, health cell.HealthReporter) {
 	}
 
 	svcChan := ipam.svcResource.Events(ctx, eventsOpts)
-
 	for event := range svcChan {
 		if event.Kind == resource.Sync {
 			if err := ipam.satisfyServices(ctx); err != nil {
@@ -220,40 +226,7 @@ func (ipam *LBIPAM) Run(ctx context.Context, health cell.HealthReporter) {
 		}
 	}
 
-	ipam.logger.Info("LB-IPAM done initializing")
-	for _, cb := range ipam.initDoneCallbacks {
-		if cb != nil {
-			cb()
-		}
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case event, ok := <-poolChan:
-			if !ok {
-				poolChan = nil
-				continue
-			}
-			ipam.handlePoolEvent(ctx, event)
-
-			// This controller must go back into a dormant state when the last pool has been removed
-			if len(ipam.pools) == 0 {
-				// Upon return, restart the controller, which will start in pre-init state
-				defer ipam.restart()
-				return
-			}
-
-		case event, ok := <-svcChan:
-			if !ok {
-				svcChan = nil
-				continue
-			}
-			ipam.handleServiceEvent(ctx, event)
-		}
-	}
+	return svcChan
 }
 
 func (ipam *LBIPAM) handlePoolEvent(ctx context.Context, event resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]) {
