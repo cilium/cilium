@@ -897,6 +897,9 @@ func initializeFlags() {
 	flags.MarkHidden(option.DNSProxyLockTimeout)
 	option.BindEnv(Vp, option.DNSProxyLockTimeout)
 
+	flags.Bool(option.DNSProxyEnableTransparentMode, defaults.DNSProxyEnableTransparentMode, "Enable DNS proxy transparent mode")
+	option.BindEnv(Vp, option.DNSProxyEnableTransparentMode)
+
 	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "Size of queues for policy-related events")
 	option.BindEnv(Vp, option.PolicyQueueSize)
 

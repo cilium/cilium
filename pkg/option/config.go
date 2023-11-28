@@ -497,6 +497,9 @@ const (
 	// DNSProxyLockCount.
 	DNSProxyLockTimeout = "dnsproxy-lock-timeout"
 
+	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
+	DNSProxyEnableTransparentMode = "dnsproxy-enable-transparent-mode"
+
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
@@ -1862,6 +1865,9 @@ type DaemonConfig struct {
 	// DNSProxyLockTimeout is timeout when acquiring the locks controlled by
 	// DNSProxyLockCount.
 	DNSProxyLockTimeout time.Duration
+
+	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
+	DNSProxyEnableTransparentMode bool
 
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
@@ -3296,6 +3302,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.DNSProxyConcurrencyProcessingGracePeriod = vp.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
 	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)
 	c.DNSProxyLockTimeout = vp.GetDuration(DNSProxyLockTimeout)
+	c.DNSProxyEnableTransparentMode = vp.GetBool(DNSProxyEnableTransparentMode)
 	c.FQDNRejectResponse = vp.GetString(FQDNRejectResponseCode)
 
 	// Convert IP strings into net.IPNet types
