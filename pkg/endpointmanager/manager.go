@@ -642,6 +642,11 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
 
+	// Wait for the host datapath to be initialized before starting to manage
+	// endpoint programs. bpf_lxc makes the assumption that bpf_host is loaded
+	// and its policy program(s) inserted.
+	<-owner.Datapath().Loader().HostDatapathInitialized()
+
 	// Updating logger to re-populate pod fields
 	// when endpoint and its logger are created pod details are not populated
 	// and all subsequent logs have empty pod details like ip addresses, k8sPodName
