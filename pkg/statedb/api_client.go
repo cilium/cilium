@@ -71,7 +71,7 @@ func (t *RemoteTable[Obj]) query(ctx context.Context, lowerBound bool, q Query[O
 		errChan <- err
 	}()
 
-	return &getIterator[Obj]{gob.NewDecoder(r)}, errChan
+	return &remoteGetIterator[Obj]{gob.NewDecoder(r)}, errChan
 }
 func (t *RemoteTable[Obj]) Get(ctx context.Context, q Query[Obj]) (Iterator[Obj], <-chan error) {
 	return t.query(ctx, false, q)
@@ -81,11 +81,11 @@ func (t *RemoteTable[Obj]) LowerBound(ctx context.Context, q Query[Obj]) (Iterat
 	return t.query(ctx, true, q)
 }
 
-type getIterator[Obj any] struct {
+type remoteGetIterator[Obj any] struct {
 	decoder *gob.Decoder
 }
 
-func (it *getIterator[Obj]) Next() (obj Obj, revision Revision, ok bool) {
+func (it *remoteGetIterator[Obj]) Next() (obj Obj, revision Revision, ok bool) {
 	err := it.decoder.Decode(&revision)
 	if err != nil {
 		return

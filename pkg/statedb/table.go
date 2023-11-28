@@ -125,7 +125,28 @@ func (t *genTable[Obj]) FirstWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
 	iter := indexTxn.txn.Root().Iterator()
 	watch = iter.SeekPrefixWatch(q.key)
-	_, iobj, ok := iter.Next()
+
+	var iobj object
+	for {
+		var key []byte
+		key, iobj, ok = iter.Next()
+		if !ok {
+			break
+		}
+
+		// Check that we have a full match on the key
+		var match bool
+		if indexTxn.entry.unique {
+			match = len(key) == len(q.key)
+		} else {
+			_, secondary := decodeNonUniqueKey(key)
+			match = len(secondary) == len(q.key)
+		}
+		if match {
+			break
+		}
+	}
+
 	if ok {
 		obj = iobj.data.(Obj)
 		revision = iobj.revision
@@ -142,7 +163,28 @@ func (t *genTable[Obj]) LastWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision 
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
 	iter := indexTxn.txn.Root().ReverseIterator()
 	watch = iter.SeekPrefixWatch(q.key)
-	_, iobj, ok := iter.Previous()
+
+	var iobj object
+	for {
+		var key []byte
+		key, iobj, ok = iter.Previous()
+		if !ok {
+			break
+		}
+
+		// Check that we have a full match on the key
+		var match bool
+		if indexTxn.entry.unique {
+			match = len(key) == len(q.key)
+		} else {
+			_, secondary := decodeNonUniqueKey(key)
+			match = len(secondary) == len(q.key)
+		}
+		if match {
+			break
+		}
+	}
+
 	if ok {
 		obj = iobj.data.(Obj)
 		revision = iobj.revision
@@ -175,7 +217,11 @@ func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan st
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
 	iter := indexTxn.txn.Root().Iterator()
 	watchCh := iter.SeekPrefixWatch(q.key)
-	return &iterator[Obj]{iter}, watchCh
+
+	if indexTxn.entry.unique {
+		return &uniqueIterator[Obj]{iter, q.key}, watchCh
+	}
+	return &nonUniqueIterator[Obj]{iter, q.key}, watchCh
 }
 
 func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
