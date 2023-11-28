@@ -333,6 +333,7 @@ jobs:
             export VMUSER=root
             echo '127.0.0.1 localhost' >> /etc/hosts
             echo '::1 localhost' >> /etc/hosts
+            sed -i '1s/^/nameserver 1.1.1.1\n/' /etc/resolv.conf
             /tmp/provision/runtime_install.sh
             service docker restart
 
