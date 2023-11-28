@@ -14,7 +14,7 @@ permissions: read-all
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !github.event.merge_group }}
 
 env:
   cilium_cli_ci_version:
