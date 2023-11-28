@@ -221,6 +221,12 @@ func (n *Node[T]) ReverseIterator() *ReverseIterator[T] {
 	return NewReverseIterator(n)
 }
 
+// Iterator is used to return an iterator at
+// the given node to walk the tree
+func (n *Node[T]) PathIterator(path []byte) *PathIterator[T] {
+	return &PathIterator[T]{node: n, path: path}
+}
+
 // rawIterator is used to return a raw iterator at the given node to walk the
 // tree.
 func (n *Node[T]) rawIterator() *rawIterator[T] {
@@ -274,29 +280,11 @@ func (n *Node[T]) WalkPrefix(prefix []byte, fn WalkFn[T]) {
 // all the entries *under* the given prefix, this walks the
 // entries *above* the given prefix.
 func (n *Node[T]) WalkPath(path []byte, fn WalkFn[T]) {
-	search := path
-	for {
-		// Visit the leaf values if any
-		if n.leaf != nil && fn(n.leaf.key, n.leaf.val) {
-			return
-		}
+	i := n.PathIterator(path)
 
-		// Check for key exhaustion
-		if len(search) == 0 {
+	for path, val, ok := i.Next(); ok; path, val, ok = i.Next() {
+		if fn(path, val) {
 			return
-		}
-
-		// Look for an edge
-		_, n = n.getEdge(search[0])
-		if n == nil {
-			return
-		}
-
-		// Consume the search prefix
-		if bytes.HasPrefix(search, n.prefix) {
-			search = search[len(n.prefix):]
-		} else {
-			break
 		}
 	}
 }

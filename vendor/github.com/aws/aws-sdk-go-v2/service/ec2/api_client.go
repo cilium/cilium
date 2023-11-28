@@ -48,8 +48,6 @@ func New(options Options, optFns ...func(*Options)) *Client {
 
 	setResolvedDefaultsMode(&options)
 
-	resolveRetryer(&options)
-
 	resolveHTTPClient(&options)
 
 	resolveHTTPSignerV4(&options)
@@ -63,6 +61,8 @@ func New(options Options, optFns ...func(*Options)) *Client {
 	for _, fn := range optFns {
 		fn(&options)
 	}
+
+	resolveRetryer(&options)
 
 	ignoreAnonymousAuth(&options)
 
