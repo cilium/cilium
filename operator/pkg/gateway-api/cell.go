@@ -20,6 +20,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -45,7 +46,6 @@ var requiredGVK = []schema.GroupVersionKind{
 	gatewayv1beta1.SchemeGroupVersion.WithKind("referencegrants"),
 	gatewayv1alpha2.SchemeGroupVersion.WithKind("grpcroutes"),
 	gatewayv1alpha2.SchemeGroupVersion.WithKind("tlsroutes"),
-	mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceimports"),
 }
 
 type gatewayApiConfig struct {
@@ -80,7 +80,12 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return nil
 	}
 
-	if err := registerGatewayAPITypesToScheme(params.Scheme); err != nil {
+	helpers.CheckServiceImportCRD(context.Background(), params.CtrlRuntimeManager.GetClient())
+	params.Logger.
+		WithField("enabled", helpers.HasServiceImportCRD()).
+		Info("Multi-cluster Service API ServiceImport GatewayAPI integration")
+
+	if err := registerTypesToScheme(params.Scheme); err != nil {
 		return err
 	}
 
@@ -167,7 +172,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, secretsNamespace string, idleT
 	return nil
 }
 
-func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) error {
+func registerTypesToScheme(scheme *runtime.Scheme) error {
 	for gv, f := range map[fmt.Stringer]func(s *runtime.Scheme) error{
 		gatewayv1.GroupVersion:       gatewayv1.AddToScheme,
 		gatewayv1beta1.GroupVersion:  gatewayv1beta1.AddToScheme,

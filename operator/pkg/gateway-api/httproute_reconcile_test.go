@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -20,11 +21,26 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 var (
 	httpRFFinalizer = "batch.gateway.io/finalizer"
+
+	crdsFixture = []client.Object{
+		// Minimal ServiceImport CRD for existence checking
+		&apiextensionsv1.CustomResourceDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "serviceimports.multicluster.x-k8s.io",
+			},
+			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+				Versions: []apiextensionsv1.CustomResourceDefinitionVersion{{
+					Name: "v1alpha1",
+				}},
+			},
+		},
+	}
 
 	httpRouteFixture = []client.Object{
 		// GatewayClass
@@ -161,7 +177,36 @@ var (
 		// Valid HTTPRoute
 		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid-http-route",
+				Name:      "valid-http-route-service",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{
+							Name: "dummy-gateway",
+						},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{
+					{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
+							{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Name: "dummy-backend",
+										Port: model.AddressOf[gatewayv1.PortNumber](8080),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		&gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "valid-http-route-serviceimport",
 				Namespace: "default",
 			},
 			Spec: gatewayv1.HTTPRouteSpec{
@@ -670,9 +715,12 @@ var (
 func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithScheme(testScheme()).
+		WithObjects(crdsFixture...).
 		WithObjects(httpRouteFixture...).
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
+
+	helpers.CheckServiceImportCRD(context.Background(), c)
 	r := &httpRouteReconciler{Client: c}
 
 	t.Run("no http route", func(t *testing.T) {
@@ -699,30 +747,31 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 	})
 
 	t.Run("valid http route", func(t *testing.T) {
-		key := types.NamespacedName{
-			Name:      "valid-http-route",
-			Namespace: "default",
+		for _, name := range []string{"service", "serviceimport"} {
+			key := types.NamespacedName{
+				Name:      "valid-http-route-" + name,
+				Namespace: "default",
+			}
+			result, err := r.Reconcile(context.Background(), ctrl.Request{
+				NamespacedName: key,
+			})
+
+			require.NoError(t, err, "Error reconciling httpRoute")
+			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+			route := &gatewayv1.HTTPRoute{}
+			err = c.Get(context.Background(), key, route)
+
+			require.NoError(t, err)
+			require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
+			require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+
+			require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+			require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+
+			require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+			require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
 		}
-		result, err := r.Reconcile(context.Background(), ctrl.Request{
-			NamespacedName: key,
-		})
-
-		require.NoError(t, err, "Error reconciling httpRoute")
-		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-
-		route := &gatewayv1.HTTPRoute{}
-		err = c.Get(context.Background(), key, route)
-
-		require.NoError(t, err)
-		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
-		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
-
-		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
-		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
-
-		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
-		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
-
 	})
 
 	t.Run("http route with nonexistent backend", func(t *testing.T) {
@@ -948,5 +997,73 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			require.Equal(t, "InvalidKind", route.Status.RouteStatus.Parents[0].Conditions[1].Reason)
 			require.Equal(t, "Must have port for backend object reference", route.Status.RouteStatus.Parents[0].Conditions[1].Message)
 		}
+	})
+}
+
+func Test_httpRouteReconciler_Reconcile_NoServiceImportCRD(t *testing.T) {
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme()).
+		WithObjects(httpRouteFixture...).
+		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
+		Build()
+
+	helpers.CheckServiceImportCRD(context.Background(), c)
+	r := &httpRouteReconciler{Client: c}
+
+	t.Run("valid http route with Service", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "valid-http-route-service",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err, "Error reconciling httpRoute")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		route := &gatewayv1.HTTPRoute{}
+		err = c.Get(context.Background(), key, route)
+
+		require.NoError(t, err)
+		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
+		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+
+		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+
+		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
+	})
+
+	t.Run("valid http route with ServiceImport", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "valid-http-route-serviceimport",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err, "Error reconciling httpRoute")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		route := &gatewayv1.HTTPRoute{}
+		err = c.Get(context.Background(), key, route)
+
+		require.NoError(t, err)
+		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
+		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+
+		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+
+		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
+		require.Equal(t, "BackendNotFound", route.Status.RouteStatus.Parents[0].Conditions[1].Reason)
+		require.Equal(t, "Attempt to reference a ServiceImport backend while "+
+			"the corresponding CRD is not installed, "+
+			"please restart the cilium-operator if the CRD is already installed",
+			route.Status.RouteStatus.Parents[0].Conditions[1].Message)
 	})
 }
