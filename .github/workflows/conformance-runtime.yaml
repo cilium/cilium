@@ -266,7 +266,6 @@ jobs:
           host-mount: ./
           cpu: 4
           mem: 12G
-          dns-resolver: '1.1.1.1'
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
