@@ -56,7 +56,8 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					case helpers.IsService(backend.BackendObjectReference):
 						backendServiceName = string(backend.Name)
 
-					case helpers.IsServiceImport(backend.BackendObjectReference):
+					case helpers.HasServiceImportCRD() &&
+						helpers.IsServiceImport(backend.BackendObjectReference):
 						svcImport := &mcsapiv1alpha1.ServiceImport{}
 						if err := r.Client.Get(context.Background(), client.ObjectKey{
 							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
@@ -137,21 +138,25 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to TLSRoute
 		For(&gatewayv1alpha2.TLSRoute{}).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
-		// Watch for changes to Backend Service Imports
-		Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport()).
 		// Watch for changes to Gateways and enqueue TLSRoutes that reference them
 		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
 				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName)),
-			)).
-		Complete(r)
+			))
+
+	if helpers.HasServiceImportCRD() {
+		// Watch for changes to Backend Service Imports
+		builder = builder.Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport())
+	}
+
+	return builder.Complete(r)
 }
 
 // enqueueRequestForBackendService makes sure that TLS Routes are reconciled
