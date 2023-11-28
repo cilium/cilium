@@ -103,7 +103,8 @@ func NewMap(name string, v4 bool, entries int) *Map {
 			entries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache(),
+		).WithCache().
+			WithPressureMetric(),
 		v4: v4,
 	}
 }

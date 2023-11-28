@@ -258,7 +258,7 @@ func (m *Map) WithPressureMetric() *Map {
 	return m.WithPressureMetricThreshold(0.0)
 }
 
-func (m *Map) updatePressureMetric() {
+func (m *Map) UpdatePressureMetricWithSize(size int32) {
 	if m.pressureGauge == nil {
 		return
 	}
@@ -273,8 +273,18 @@ func (m *Map) updatePressureMetric() {
 		return
 	}
 
-	pvalue := float64(len(m.cache)) / float64(m.MaxEntries)
+	pvalue := float64(size) / float64(m.MaxEntries)
 	m.pressureGauge.Set(pvalue)
+}
+
+func (m *Map) updatePressureMetric() {
+	// Skipping pressure metric gauge updates for LRU map as the cache size
+	// does not accurately represent the actual map sie.
+	if m.MapType == MapTypeLRUHash {
+		return
+	}
+
+	m.UpdatePressureMetricWithSize(int32(len(m.cache)))
 }
 
 func (m *Map) GetFd() int {

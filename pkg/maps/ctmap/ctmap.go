@@ -632,7 +632,11 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		}
 	}
 
-	natMap.DumpReliablyWithCallback(cb, stats.DumpStats)
+	if err := natMap.DumpReliablyWithCallback(cb, stats.DumpStats); err != nil {
+		log.WithError(err).Error("NATmap dump failed during GC")
+	} else {
+		natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
+	}
 
 	return &stats
 }
