@@ -30,8 +30,7 @@ focus:
 - "f16-datapath-service-ew-2"
 - "f17-datapath-service-ew-kube-proxy"
 - "f18-datapath-bgp-lrp"
-- "f19-update"
-- "f20-kafka"
+- "f19-kafka"
 include:
   ###
   # K8sAgentChaosTest Connectivity demo application Endpoint can still connect while Cilium is not running
@@ -204,13 +203,8 @@ include:
     cliFocus: "K8sDatapathBGPTests|K8sDatapathLRPTests"
 
   ###
-  # K8sUpdates Tests upgrade and downgrade from a Cilium stable image to master
-  - focus: "f19-update"
-    cliFocus: "K8sUpdates"
-
-  ###
   # K8sKafkaPolicyTest Kafka Policy Tests KafkaPolicies
-  - focus: "f20-kafka"
+  - focus: "f19-kafka"
     cliFocus: "K8sKafkaPolicyTest"
 
 exclude:
