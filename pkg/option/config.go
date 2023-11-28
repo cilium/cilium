@@ -126,10 +126,6 @@ const (
 	// direct routing mode (only required by BPF NodePort)
 	DirectRoutingDevice = "direct-routing-device"
 
-	// LBDevInheritIPAddr is device name which IP addr is inherited by devices
-	// running BPF loadbalancer program
-	LBDevInheritIPAddr = "bpf-lb-dev-ip-addr-inherit"
-
 	// DisableEnvoyVersionCheck do not perform Envoy binary version check on startup
 	DisableEnvoyVersionCheck = "disable-envoy-version-check"
 
@@ -1421,7 +1417,6 @@ type DaemonConfig struct {
 	devicesMu           lock.RWMutex // Protects devices
 	devices             []string     // bpf_host device
 	DirectRoutingDevice string       // Direct routing device (used by BPF NodePort and BPF Host Routing)
-	LBDevInheritIPAddr  string       // Device which IP addr used by bpf_host devices
 	EnableXDPPrefilter  bool         // Enable XDP-based prefiltering
 	XDPMode             string       // XDP mode, values: { xdpdrv | xdpgeneric | none }
 	HostV4Addr          net.IP       // Host v4 address of the snooping device
@@ -3020,7 +3015,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.Debug = vp.GetBool(DebugArg)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)
 	c.DirectRoutingDevice = vp.GetString(DirectRoutingDevice)
-	c.LBDevInheritIPAddr = vp.GetString(LBDevInheritIPAddr)
 	c.EnableIPv4 = vp.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = vp.GetBool(EnableIPv6Name)
 	c.EnableIPv6NDP = vp.GetBool(EnableIPv6NDPName)

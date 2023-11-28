@@ -272,14 +272,7 @@ func TestNodeAddress(t *testing.T) {
 			<-watch // wait for propagation
 
 			iter, _ := nodeAddrs.All(db.ReadTxn())
-			local := []string{}
-			nodePort := []string{}
-			for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
-				local = append(local, addr.Addr.String())
-				if addr.NodePort {
-					nodePort = append(nodePort, addr.Addr.String())
-				}
-			}
+			local, nodePort := collectAddrStrings(iter)
 			assert.ElementsMatch(t, local, ipStrings(tt.wantLocal), "LocalAddresses do not match")
 			assert.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "LoadBalancerNodeAddresses do not match")
 			assert.NoError(t, h.Stop(context.TODO()), "Stop")
@@ -446,20 +439,90 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			<-watch // wait for propagation
 
 			iter, _ := nodeAddrs.All(db.ReadTxn())
-			local := []string{}
-			nodePort := []string{}
-			for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
-				local = append(local, addr.Addr.String())
-				if addr.NodePort {
-					nodePort = append(nodePort, addr.Addr.String())
-				}
-			}
+			local, nodePort := collectAddrStrings(iter)
 			assert.ElementsMatch(t, local, ipStrings(tt.wantLocal), "LocalAddresses do not match")
 			assert.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "LoadBalancerNodeAddresses do not match")
 			assert.NoError(t, h.Stop(context.TODO()), "Stop")
 		})
 	}
+}
 
+func TestNodeAddressInheritDev(t *testing.T) {
+	t.Parallel()
+
+	var (
+		db        *statedb.DB
+		devices   statedb.RWTable[*tables.Device]
+		nodeAddrs statedb.Table[tables.NodeAddress]
+	)
+	h := hive.New(
+		job.Cell,
+		statedb.Cell,
+		tables.NodeAddressCell,
+		cell.Provide(
+			tables.NewDeviceTable,
+			statedb.RWTable[*tables.Device].ToTable,
+		),
+		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*tables.Device], na statedb.Table[tables.NodeAddress]) {
+			db = db_
+			devices = d
+			nodeAddrs = na
+			db.RegisterTable(d)
+		}),
+
+		// option.DaemonConfig needed for AddressMaxScope. This flag will move into NodeAddressConfig
+		// in a follow-up PR.
+		cell.Provide(func() *option.DaemonConfig {
+			return &option.DaemonConfig{
+				AddressScopeMax: defaults.AddressScopeMax,
+			}
+		}),
+	)
+
+	// Inherit the address of br0
+	h.Viper().Set("bpf-lb-dev-ip-addr-inherit", "br0")
+
+	if !assert.NoError(t, h.Start(context.TODO()), "Start") {
+		return
+	}
+
+	txn := db.WriteTxn(devices)
+	_, watch := nodeAddrs.All(txn)
+
+	addrs := []tables.DeviceAddress{
+		{
+			Addr:  netip.MustParseAddr("10.0.0.1"),
+			Scope: unix.RT_SCOPE_SITE,
+		},
+	}
+
+	devices.Insert(txn,
+		&tables.Device{
+			Index:    2,
+			Name:     "br0",
+			Selected: false,
+			Flags:    net.FlagUp,
+			Addrs:    addrs,
+		})
+
+	devices.Insert(txn,
+		&tables.Device{
+			Index:    3,
+			Name:     "eth0",
+			Selected: true,
+			Flags:    net.FlagUp,
+			Addrs:    nil,
+		})
+
+	txn.Commit()
+
+	<-watch // wait for propagation
+
+	iter, _ := nodeAddrs.All(db.ReadTxn())
+	_, nodePort := collectAddrStrings(iter)
+
+	assert.ElementsMatch(t, nodePort, []string{"10.0.0.1"}, "LoadBalancerNodeAddresses do not match")
+	assert.NoError(t, h.Stop(context.TODO()), "Stop")
 }
 
 // ipStrings converts net.IP to a string. Used to assert equalence without having to deal
@@ -469,6 +532,16 @@ func ipStrings(ips []net.IP) (ss []string) {
 		ss = append(ss, ips[i].String())
 	}
 	sort.Strings(ss)
+	return
+}
+
+func collectAddrStrings(iter statedb.Iterator[tables.NodeAddress]) (local, nodePort []string) {
+	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+		local = append(local, addr.Addr.String())
+		if addr.NodePort {
+			nodePort = append(nodePort, addr.Addr.String())
+		}
+	}
 	return
 }
 

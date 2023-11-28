@@ -60,10 +60,6 @@ func (n *NodeAddress) String() string {
 	return fmt.Sprintf("%s (%s)", n.Addr, n.DeviceName)
 }
 
-type NodeAddressConfig struct {
-	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
-}
-
 var (
 	// NodeAddressIndex is the primary index for node addresses:
 	//
@@ -136,6 +132,14 @@ func newAddressScopeMax(cfg NodeAddressConfig, daemonCfg *option.DaemonConfig) (
 	return AddressScopeMax(daemonCfg.AddressScopeMax), nil
 }
 
+type NodeAddressConfig struct {
+	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
+
+	// LBDevInheritIPAddr is device name which IP addr is inherited by devices
+	// running BPF loadbalancer program
+	LBDevInheritIPAddr string `mapstructure:"bpf-lb-dev-ip-addr-inherit"`
+}
+
 func (cfg NodeAddressConfig) getNets() []*net.IPNet {
 	nets := make([]*net.IPNet, len(cfg.NodePortAddresses))
 	for i, cidr := range cfg.NodePortAddresses {
@@ -149,6 +153,12 @@ func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
 		"nodeport-addresses",
 		nil,
 		"A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.")
+
+	flags.String(
+		"bpf-lb-dev-ip-addr-inherit",
+		"",
+		fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices),
+	)
 }
 
 type nodeAddressControllerParams struct {
@@ -349,15 +359,24 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 				nodePort = true
 				primary = true
 			}
-		} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
-			// User specified --nodeport-addresses and this address was within the range.
-			nodePort = true
-			if addr.Addr.Is4() && !ipv4Found {
-				primary = true
-				ipv4Found = true
-			} else if addr.Addr.Is6() && !ipv6Found {
-				primary = true
-				ipv6Found = true
+		} else {
+			// True if user specified --nodeport-addresses and this address was within the range.
+			inRange := dev.Selected && ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())})
+
+			// True if user specified --bpf-lb-dev-ip-addr-inherit and the device name matches.
+			// This is used in the edge-case where a bridge device is used and we want the IP address
+			// from the bridge device, but want to load BPF programs to the bridge slaves.
+			inheritFromDev := n.Config.LBDevInheritIPAddr != "" && n.Config.LBDevInheritIPAddr == dev.Name
+
+			if inRange || inheritFromDev {
+				nodePort = true
+				if addr.Addr.Is4() && !ipv4Found {
+					primary = true
+					ipv4Found = true
+				} else if addr.Addr.Is6() && !ipv6Found {
+					primary = true
+					ipv6Found = true
+				}
 			}
 		}
 
