@@ -149,13 +149,13 @@ func (db *DB) registerTable(table TableMeta, txn *iradix.Txn[tableEntry]) error 
 	var entry tableEntry
 	entry.meta = table
 	entry.deleteTrackers = iradix.New[deleteTracker]()
-	indexTxn := iradix.New[indexTree]().Txn()
-	indexTxn.Insert([]byte(table.primaryIndexer().name), iradix.New[object]())
-	indexTxn.Insert([]byte(RevisionIndex), iradix.New[object]())
-	indexTxn.Insert([]byte(GraveyardIndex), iradix.New[object]())
-	indexTxn.Insert([]byte(GraveyardRevisionIndex), iradix.New[object]())
-	for index := range table.secondaryIndexers() {
-		indexTxn.Insert([]byte(index), iradix.New[object]())
+	indexTxn := iradix.New[indexEntry]().Txn()
+	indexTxn.Insert([]byte(table.primaryIndexer().name), indexEntry{iradix.New[object](), true})
+	indexTxn.Insert([]byte(RevisionIndex), indexEntry{iradix.New[object](), true})
+	indexTxn.Insert([]byte(GraveyardIndex), indexEntry{iradix.New[object](), true})
+	indexTxn.Insert([]byte(GraveyardRevisionIndex), indexEntry{iradix.New[object](), true})
+	for index, indexer := range table.secondaryIndexers() {
+		indexTxn.Insert([]byte(index), indexEntry{iradix.New[object](), indexer.unique})
 	}
 	entry.indexes = indexTxn.CommitOnly()
 	txn.Insert(table.tableKey(), entry)
@@ -216,7 +216,7 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 		db:             db,
 		rootReadTxn:    rootReadTxn,
 		modifiedTables: tableEntries,
-		writeTxns:      make(map[tableIndex]*iradix.Txn[object]),
+		writeTxns:      make(map[tableIndex]indexWriteTxn),
 		smus:           smus,
 		acquiredAt:     acquiredAt,
 		tableNames:     strings.Join(tableNames, "+"),

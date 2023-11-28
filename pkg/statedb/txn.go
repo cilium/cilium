@@ -20,14 +20,14 @@ import (
 
 type txn struct {
 	db               *DB
-	rootReadTxn      *iradix.Txn[tableEntry]            // read transaction onto the tree of tables
-	lastIndexReadTxn lastIndexReadTxn                   // memoized result of the last indexReadTxn()
-	writeTxns        map[tableIndex]*iradix.Txn[object] // opened per-index write transactions
-	modifiedTables   map[TableName]*tableEntry          // table entries being modified
-	smus             lock.SortableMutexes               // the (sorted) table locks
-	acquiredAt       time.Time                          // the time at which the transaction acquired the locks
-	tableNames       string                             // plus-separated list of table names
-	packageName      string                             // name of the package that created the transaction
+	rootReadTxn      *iradix.Txn[tableEntry]      // read transaction onto the tree of tables
+	lastIndexReadTxn indexReadTxn                 // memoized result of the last indexReadTxn()
+	writeTxns        map[tableIndex]indexWriteTxn // opened per-index write transactions
+	modifiedTables   map[TableName]*tableEntry    // table entries being modified
+	smus             lock.SortableMutexes         // the (sorted) table locks
+	acquiredAt       time.Time                    // the time at which the transaction acquired the locks
+	tableNames       string                       // plus-separated list of table names
+	packageName      string                       // name of the package that created the transaction
 }
 
 type tableIndex struct {
@@ -35,9 +35,15 @@ type tableIndex struct {
 	index IndexName
 }
 
-type lastIndexReadTxn struct {
+type indexWriteTxn struct {
+	entry indexEntry
+	txn   *iradix.Txn[object]
+}
+
+type indexReadTxn struct {
 	table TableName
 	index IndexName
+	entry indexEntry
 	txn   *iradix.Txn[object]
 }
 
@@ -74,60 +80,72 @@ func (txn *txn) GetRevision(name TableName) Revision {
 
 // indexReadTxn returns a transaction to read from the specific index.
 // If the table or index is not found this returns nil & error.
-func (txn *txn) indexReadTxn(name TableName, index IndexName) (*iradix.Txn[object], error) {
-	if txn.writeTxns != nil {
-		indexTxn, ok := txn.writeTxns[tableIndex{name, index}]
-		if ok {
-			return indexTxn.Clone(), nil
-		}
-		if _, ok := txn.modifiedTables[name]; ok {
-			// We're writing into this table, reuse or create a write transaction
-			// instead so we can read the writes.
-			return txn.indexWriteTxn(name, index)
-		}
+func (txn *txn) indexReadTxn(name TableName, index IndexName) (indexReadTxn, error) {
+	if txn.lastIndexReadTxn.table == name && txn.lastIndexReadTxn.index == index {
+		return txn.lastIndexReadTxn, nil
 	}
 
-	if txn.lastIndexReadTxn.table == name && txn.lastIndexReadTxn.index == index {
-		return txn.lastIndexReadTxn.txn, nil
+	if txn.writeTxns != nil {
+		// Try to look up or create the transaction against this table & index,
+		// in case we're writing to it so that the writes can be read.
+		indexWriteTxn, ok := txn.writeTxns[tableIndex{name, index}]
+		if !ok {
+			if _, ok := txn.modifiedTables[name]; ok {
+				var err error
+				indexWriteTxn, err = txn.indexWriteTxn(name, index)
+				if err != nil {
+					return indexReadTxn{}, err
+				}
+			}
+		}
+
+		if indexWriteTxn.txn != nil {
+			txn.lastIndexReadTxn = indexReadTxn{table: name, index: index, entry: indexWriteTxn.entry, txn: indexWriteTxn.txn.Clone()}
+			return txn.lastIndexReadTxn, nil
+		}
 	}
 
 	table, ok := txn.rootReadTxn.Get([]byte(name))
 	if !ok {
-		return nil, fmt.Errorf("table %q not found", name)
+		return indexReadTxn{}, fmt.Errorf("table %q not found", name)
 	}
-	indexTree, ok := table.indexes.Get([]byte(index))
+	indexEntry, ok := table.indexes.Get([]byte(index))
 	if !ok {
-		return nil, fmt.Errorf("index %q not found from table %q", index, name)
+		return indexReadTxn{}, fmt.Errorf("index %q not found from table %q", index, name)
 	}
 
-	indexTxn := indexTree.Txn()
-	txn.lastIndexReadTxn = lastIndexReadTxn{table: name, index: index, txn: indexTxn}
-	return indexTxn, nil
+	indexTxn := indexEntry.tree.Txn()
+	txn.lastIndexReadTxn = indexReadTxn{table: name, index: index, entry: indexEntry, txn: indexTxn}
+	return txn.lastIndexReadTxn, nil
 }
 
 // indexWriteTxn returns a transaction to read/write to a specific index.
 // The created transaction is memoized and used for subsequent reads and/or writes.
-func (txn *txn) indexWriteTxn(name TableName, index IndexName) (*iradix.Txn[object], error) {
+func (txn *txn) indexWriteTxn(name TableName, index IndexName) (indexWriteTxn, error) {
 	if indexTreeTxn, ok := txn.writeTxns[tableIndex{name, index}]; ok {
 		return indexTreeTxn, nil
 	}
 	table, ok := txn.modifiedTables[name]
 	if !ok {
-		return nil, fmt.Errorf("table %q not found", name)
+		return indexWriteTxn{}, fmt.Errorf("table %q not found", name)
 	}
-	indexTree, ok := table.indexes.Get([]byte(index))
+	indexEntry, ok := table.indexes.Get([]byte(index))
 	if !ok {
-		return nil, fmt.Errorf("index %q not found from table %q", index, name)
+		return indexWriteTxn{}, fmt.Errorf("index %q not found from table %q", index, name)
 	}
-	indexTreeTxn := indexTree.Txn()
-	indexTreeTxn.TrackMutate(true)
-	txn.writeTxns[tableIndex{name, index}] = indexTreeTxn
-	return indexTreeTxn, nil
+	indexTxn := indexEntry.tree.Txn()
+	indexTxn.TrackMutate(true)
+	indexWriteTxn := indexWriteTxn{
+		entry: indexEntry,
+		txn:   indexTxn,
+	}
+	txn.writeTxns[tableIndex{name, index}] = indexWriteTxn
+	return indexWriteTxn, nil
 }
 
 // mustIndexReadTxn returns a transaction to read from the specific index.
 // Panics if table or index are not found.
-func (txn *txn) mustIndexReadTxn(name TableName, index IndexName) *iradix.Txn[object] {
+func (txn *txn) mustIndexReadTxn(name TableName, index IndexName) indexReadTxn {
 	indexTxn, err := txn.indexReadTxn(name, index)
 	if err != nil {
 		panic(err)
@@ -137,7 +155,7 @@ func (txn *txn) mustIndexReadTxn(name TableName, index IndexName) *iradix.Txn[ob
 
 // mustIndexReadTxn returns a transaction to read or write from the specific index.
 // Panics if table or index not found.
-func (txn *txn) mustIndexWriteTxn(name TableName, index IndexName) *iradix.Txn[object] {
+func (txn *txn) mustIndexWriteTxn(name TableName, index IndexName) indexWriteTxn {
 	indexTxn, err := txn.indexWriteTxn(name, index)
 	if err != nil {
 		panic(err)
@@ -167,15 +185,15 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 
 	// Update the primary index first
 	idKey := meta.primaryIndexer().fromObject(obj).First()
-	idIndexTree := txn.mustIndexWriteTxn(tableName, meta.primaryIndexer().name)
-	oldObj, oldExists := idIndexTree.Insert(idKey, obj)
+	idIndexTxn := txn.mustIndexWriteTxn(tableName, meta.primaryIndexer().name)
+	oldObj, oldExists := idIndexTxn.txn.Insert(idKey, obj)
 
 	// For CompareAndSwap() validate against the given guard revision
 	if guardRevision > 0 {
 		if !oldExists {
 			// CompareAndSwap requires the object to exist. Revert
 			// the insert.
-			idIndexTree.Delete(idKey)
+			idIndexTxn.txn.Delete(idKey)
 			table.revision = oldRevision
 			return nil, false, ErrObjectNotFound
 		}
@@ -183,34 +201,34 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 			// Revert the change. We're assuming here that it's rarer for CompareAndSwap() to
 			// fail and thus we're optimizing to have only one lookup in the common case
 			// (versus doing a Get() and then Insert()).
-			idIndexTree.Insert(idKey, oldObj)
+			idIndexTxn.txn.Insert(idKey, oldObj)
 			table.revision = oldRevision
 			return oldObj, true, ErrRevisionNotEqual
 		}
 	}
 
 	// Update revision index
-	revIndexTree := txn.mustIndexWriteTxn(tableName, RevisionIndex)
+	revIndexTxn := txn.mustIndexWriteTxn(tableName, RevisionIndex)
 	if oldExists {
-		_, ok := revIndexTree.Delete(revisionKey(oldObj.revision, idKey))
+		_, ok := revIndexTxn.txn.Delete(revisionKey(oldObj.revision, idKey))
 		if !ok {
 			panic("BUG: Old revision index entry not found")
 		}
 
 	}
-	revIndexTree.Insert(revisionKey(revision, idKey), obj)
+	revIndexTxn.txn.Insert(revisionKey(revision, idKey), obj)
 
 	// If it's new, possibly remove an older deleted object with the same
 	// primary key from the graveyard.
 	if !oldExists && txn.hasDeleteTrackers(tableName) {
-		if old, existed := txn.mustIndexWriteTxn(tableName, GraveyardIndex).Delete(idKey); existed {
-			txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).Delete(revisionKey(old.revision, idKey))
+		if old, existed := txn.mustIndexWriteTxn(tableName, GraveyardIndex).txn.Delete(idKey); existed {
+			txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Delete(revisionKey(old.revision, idKey))
 		}
 	}
 
 	// Then update secondary indexes
 	for idx, indexer := range meta.secondaryIndexers() {
-		indexTree := txn.mustIndexWriteTxn(tableName, idx)
+		indexTxn := txn.mustIndexWriteTxn(tableName, idx)
 		newKeys := indexer.fromObject(obj)
 
 		if oldExists {
@@ -222,7 +240,7 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 					oldKey = append(oldKey, idKey...)
 				}
 				if !newKeys.Exists(oldKey) {
-					indexTree.Delete(oldKey)
+					indexTxn.txn.Delete(oldKey)
 				}
 			})
 		}
@@ -232,7 +250,7 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 			if !indexer.unique {
 				newKey = append(newKey, idKey...)
 			}
-			indexTree.Insert(newKey, obj)
+			indexTxn.txn.Insert(newKey, obj)
 		})
 	}
 
@@ -291,7 +309,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 	// compute the primary key.
 	idKey := meta.primaryIndexer().fromObject(object{data: data}).First()
 	idIndexTree := txn.mustIndexWriteTxn(tableName, meta.primaryIndexer().name)
-	obj, existed := idIndexTree.Delete(idKey)
+	obj, existed := idIndexTree.txn.Delete(idKey)
 	if !existed {
 		return nil, false, nil
 	}
@@ -300,7 +318,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 	// revert the change.
 	if guardRevision > 0 {
 		if obj.revision != guardRevision {
-			idIndexTree.Insert(idKey, obj)
+			idIndexTree.txn.Insert(idKey, obj)
 			table.revision = oldRevision
 			return obj, true, ErrRevisionNotEqual
 		}
@@ -308,7 +326,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 
 	// Update revision index.
 	indexTree := txn.mustIndexWriteTxn(tableName, RevisionIndex)
-	if _, ok := indexTree.Delete(revisionKey(obj.revision, idKey)); !ok {
+	if _, ok := indexTree.txn.Delete(revisionKey(obj.revision, idKey)); !ok {
 		panic("BUG: Object to be deleted not found from revision index")
 	}
 
@@ -318,7 +336,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 			if !indexer.unique {
 				key = append(key, idKey...)
 			}
-			txn.mustIndexWriteTxn(tableName, idx).Delete(key)
+			txn.mustIndexWriteTxn(tableName, idx).txn.Delete(key)
 		})
 	}
 
@@ -326,10 +344,10 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 	if txn.hasDeleteTrackers(tableName) {
 		graveyardIndex := txn.mustIndexWriteTxn(tableName, GraveyardIndex)
 		obj.revision = revision
-		if _, existed := graveyardIndex.Insert(idKey, obj); existed {
+		if _, existed := graveyardIndex.txn.Insert(idKey, obj); existed {
 			panic("BUG: Double deletion! Deleted object already existed in graveyard")
 		}
-		txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).Insert(revisionKey(revision, idKey), obj)
+		txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Insert(revisionKey(revision, idKey), obj)
 	}
 
 	return obj.data, true, nil
@@ -398,8 +416,9 @@ func (txn *txn) Commit() {
 		if !ok {
 			panic("BUG: Table " + tableIndex.table + " in writeTxns, but not in modifiedTables")
 		}
+		subTxn.entry.tree = subTxn.txn.CommitOnly()
 		table.indexes, _, _ =
-			table.indexes.Insert([]byte(tableIndex.index), subTxn.CommitOnly())
+			table.indexes.Insert([]byte(tableIndex.index), subTxn.entry)
 
 		// Update metrics
 		db.metrics.TableGraveyardObjectCount.With(
@@ -440,7 +459,7 @@ func (txn *txn) Commit() {
 	// Now that new root is committed, we can notify readers by closing the watch channels of
 	// mutated radix tree nodes in all changed indexes and on the root itself.
 	for _, subTxn := range txn.writeTxns {
-		subTxn.Notify()
+		subTxn.txn.Notify()
 	}
 	rootTxn.Notify()
 
@@ -461,7 +480,7 @@ func (txn *txn) WriteJSON(w io.Writer) error {
 		}
 
 		indexTxn := txn.getTxn().mustIndexReadTxn(table.Name(), table.primaryIndexer().name)
-		root := indexTxn.Root()
+		root := indexTxn.txn.Root()
 		iter := root.Iterator()
 
 		buf.WriteString("  \"" + table.Name() + "\": [\n")

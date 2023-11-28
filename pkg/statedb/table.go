@@ -123,7 +123,7 @@ func (t *genTable[Obj]) First(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint
 
 func (t *genTable[Obj]) FirstWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, watch <-chan struct{}, ok bool) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
-	iter := indexTxn.Root().Iterator()
+	iter := indexTxn.txn.Root().Iterator()
 	watch = iter.SeekPrefixWatch(q.key)
 	_, iobj, ok := iter.Next()
 	if ok {
@@ -140,7 +140,7 @@ func (t *genTable[Obj]) Last(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint6
 
 func (t *genTable[Obj]) LastWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, watch <-chan struct{}, ok bool) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
-	iter := indexTxn.Root().ReverseIterator()
+	iter := indexTxn.txn.Root().ReverseIterator()
 	watch = iter.SeekPrefixWatch(q.key)
 	_, iobj, ok := iter.Previous()
 	if ok {
@@ -152,7 +152,7 @@ func (t *genTable[Obj]) LastWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision 
 
 func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
-	root := indexTxn.Root()
+	root := indexTxn.txn.Root()
 
 	// Since LowerBound query may be invalidated by changes in another branch
 	// of the tree, we cannot just simply watch the node we seeked to. Instead
@@ -165,7 +165,7 @@ func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-
 
 func (t *genTable[Obj]) All(txn ReadTxn) (Iterator[Obj], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, t.primaryAnyIndexer.name)
-	root := indexTxn.Root()
+	root := indexTxn.txn.Root()
 	// Grab the watch channel for the root node
 	watchCh, _, _ := root.GetWatch(nil)
 	return &iterator[Obj]{root.Iterator()}, watchCh
@@ -173,7 +173,7 @@ func (t *genTable[Obj]) All(txn ReadTxn) (Iterator[Obj], <-chan struct{}) {
 
 func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
-	iter := indexTxn.Root().Iterator()
+	iter := indexTxn.txn.Root().Iterator()
 	watchCh := iter.SeekPrefixWatch(q.key)
 	return &iterator[Obj]{iter}, watchCh
 }

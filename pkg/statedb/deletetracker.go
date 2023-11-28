@@ -35,7 +35,7 @@ func (dt *DeleteTracker[Obj]) getRevision() uint64 {
 // called!
 func (dt *DeleteTracker[Obj]) Deleted(txn ReadTxn, minRevision Revision) Iterator[Obj] {
 	indexTxn := txn.getTxn().mustIndexReadTxn(dt.table.Name(), GraveyardRevisionIndex)
-	iter := indexTxn.Root().Iterator()
+	iter := indexTxn.txn.Root().Iterator()
 	iter.SeekLowerBound(index.Uint64(minRevision))
 	return &iterator[Obj]{iter}
 }

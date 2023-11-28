@@ -289,27 +289,30 @@ type deleteTracker interface {
 	getRevision() uint64
 }
 
-type indexTree = *iradix.Tree[object]
+type indexEntry struct {
+	tree   *iradix.Tree[object]
+	unique bool
+}
 
 type tableEntry struct {
 	meta           TableMeta
-	indexes        *iradix.Tree[indexTree]
+	indexes        *iradix.Tree[indexEntry]
 	deleteTrackers *iradix.Tree[deleteTracker]
 	revision       uint64
 }
 
 func (t *tableEntry) numObjects() int {
-	indexTree, ok := t.indexes.Get([]byte(RevisionIndex))
+	indexEntry, ok := t.indexes.Get([]byte(RevisionIndex))
 	if ok {
-		return indexTree.Len()
+		return indexEntry.tree.Len()
 	}
 	return 0
 }
 
 func (t *tableEntry) numDeletedObjects() int {
-	indexTree, ok := t.indexes.Get([]byte(GraveyardIndex))
+	indexEntry, ok := t.indexes.Get([]byte(GraveyardIndex))
 	if ok {
-		return indexTree.Len()
+		return indexEntry.tree.Len()
 	}
 	return 0
 }
