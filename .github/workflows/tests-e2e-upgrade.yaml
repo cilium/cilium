@@ -53,7 +53,6 @@ concurrency:
 env:
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  # renovate: datasource=docker depName=quay.io/cilium/kindest-node
 
 jobs:
   commit-status-start:
