@@ -251,7 +251,7 @@ func (ipam *IPAM) AllocateNextWithExpiration(family, owner string, pool Pool, ti
 	if timeout != time.Duration(0) {
 		for _, result := range []*AllocationResult{ipv4Result, ipv6Result} {
 			if result != nil {
-				result.ExpirationUUID, err = ipam.StartExpirationTimer(result.IP, pool, timeout)
+				result.ExpirationUUID, err = ipam.StartExpirationTimer(result.IP, result.IPPoolName, timeout)
 				if err != nil {
 					if ipv4Result != nil {
 						ipam.ReleaseIP(ipv4Result.IP, ipv4Result.IPPoolName)
