@@ -72,13 +72,13 @@ type nodeStore struct {
 
 	clientset client.Clientset
 
-	conf      Configuration
+	conf      *option.DaemonConfig
 	mtuConfig MtuConfiguration
 }
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, conf Configuration, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
+func newNodeStore(nodeName string, conf *option.DaemonConfig, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
@@ -92,7 +92,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, clientset cl
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "crd-allocator-node-refresher",
-		MinInterval: option.Config.IPAMCiliumNodeUpdateRate,
+		MinInterval: conf.IPAMCiliumNodeUpdateRate,
 		TriggerFunc: store.refreshNodeTrigger,
 	})
 	if err != nil {
@@ -633,11 +633,11 @@ type crdAllocator struct {
 	// family is the address family this allocator is allocator for
 	family Family
 
-	conf Configuration
+	conf *option.DaemonConfig
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family, c Configuration, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
+func newCRDAllocator(family Family, c *option.DaemonConfig, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
 	initNodeStore.Do(func() {
 		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, clientset, k8sEventReg, mtuConfig)
 	})
