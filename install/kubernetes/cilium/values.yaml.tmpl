@@ -409,9 +409,9 @@ bgpControlPlane:
   # -- SecretsNamespace is the namespace which BGP support will retrieve secrets from.
   secretsNamespace:
     # -- Create secrets namespace for BGP secrets.
-    create: true
+    create: false
     # -- The name of the secret namespace to which Cilium agents are given read access
-    name: cilium-bgp-secrets
+    name: kube-system
 
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
