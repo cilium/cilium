@@ -104,7 +104,7 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		nodeAddressing:   nodeAddressing,
 		config:           c,
 		owner:            map[Pool]map[string]string{},
-		expirationTimers: map[string]string{},
+		expirationTimers: map[timerKey]expirationTimer{},
 		excludedIPs:      map[string]string{},
 	}
 
