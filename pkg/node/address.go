@@ -404,10 +404,15 @@ func SetIPv6NodeRange(net *cidr.CIDR) {
 
 // AutoComplete completes the parts of addressing that can be auto derived
 func AutoComplete() error {
+	log.WithFields(logrus.Fields{
+		"enableHostIPRestore": option.Config.EnableHostIPRestore,
+	}).Info("AutoComplete")
+
 	if option.Config.EnableHostIPRestore {
 		// At this point, only attempt to restore the `cilium_host` IPs from
 		// the filesystem because we haven't fully synced with K8s yet.
 		restoreCiliumHostIPsFromFS()
+		log.Info("restoreCiliumHostIPsFromFS Complete")
 	}
 
 	InitDefaultPrefix(option.Config.DirectRoutingDevice)
@@ -523,6 +528,9 @@ func restoreCiliumHostIPsFromFS() {
 	// compatibility.
 	router4, router6 := getCiliumHostIPs()
 	if option.Config.EnableIPv4 {
+		log.WithFields(logrus.Fields{
+			"router4": router4,
+		}).Info("SetInternalIPv4Router")
 		SetInternalIPv4Router(router4)
 	}
 	if option.Config.EnableIPv6 {
@@ -618,6 +626,7 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 	f, err := os.Open(nodeConfig)
 	switch {
 	case err != nil:
+		log.WithError(err).Warn("Open failed")
 	default:
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
@@ -636,16 +645,29 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 				ipv6Router = net.IP(ipv6)
 				hasIPv6 = true
 			case !hasIPv4 && strings.Contains(txt, defaults.RestoreV4Addr):
+				log.WithFields(logrus.Fields{
+					"search": defaults.RestoreV4Addr,
+				}).Info("RestoreV4Addr")
 				defineLine := strings.Split(txt, defaults.RestoreV4Addr)
+				log.WithFields(logrus.Fields{
+					"defineLine": defineLine,
+				}).Info("RestoreV4Addr")
 				if len(defineLine) != 2 {
 					continue
 				}
 				ipv4 := common.C2GoArray(defineLine[1])
+				log.WithFields(logrus.Fields{
+					"ipv4": len(ipv4),
+					"ipLen": ipLen,
+				}).Info("RestoreV4Addr")
 				if len(ipv4) != ipLen {
 					continue
 				}
 				ipv4GW = net.IP(ipv4)
 				hasIPv4 = true
+				log.WithFields(logrus.Fields{
+					"ipv4GW": ipv4GW,
+				}).Info("hasIPv4")
 
 			// Legacy cases based on the header defines:
 			case !hasIPv4 && strings.Contains(txt, "IPV4_GATEWAY"):
@@ -689,12 +711,12 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 	nodeConfig := option.Config.GetNodeConfigPath()
 	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
+	log.WithFields(logrus.Fields{
+		"ipv4": ipv4GW,
+		"ipv6": ipv6Router,
+		"file": nodeConfig,
+	}).Info("Restored router address from node_config")
 	if ipv4GW != nil || ipv6Router != nil {
-		log.WithFields(logrus.Fields{
-			"ipv4": ipv4GW,
-			"ipv6": ipv6Router,
-			"file": nodeConfig,
-		}).Info("Restored router address from node_config")
 		return ipv4GW, ipv6Router
 	}
 	return getCiliumHostIPsFromNetDev(defaults.HostDevice)
