@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"sync"
+	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -239,12 +240,19 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	compileCmd.Stderr = &compilerStderr
 
 	err = compileCmd.Run()
+
+	var maxRSS int64
+	if usage, ok := compileCmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
+		maxRSS = usage.Maxrss
+	}
+
 	if err != nil {
 		err = fmt.Errorf("Failed to compile %s: %w", prog.Output, err)
 
 		if !errors.Is(err, context.Canceled) {
 			log.WithFields(logrus.Fields{
 				"compiler-pid": pidFromProcess(compileCmd.Process),
+				"max-rss":      maxRSS,
 			}).Error(err)
 		}
 
@@ -254,6 +262,13 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 		}
 
 		return "", err
+	}
+
+	if maxRSS > 0 {
+		log.WithFields(logrus.Fields{
+			"compiler-pid": compileCmd.Process.Pid,
+			"output":       output.Name(),
+		}).Debugf("Compilation had peak RSS of %d bytes", maxRSS)
 	}
 
 	return output.Name(), nil
