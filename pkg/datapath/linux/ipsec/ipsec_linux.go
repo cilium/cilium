@@ -27,7 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fswatcher"
-	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
@@ -1006,7 +1007,7 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 	}
 }
 
-func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery datapath.NodeUpdater, nodeHandler datapath.NodeHandler) error {
+func StartKeyfileWatcher(group job.Group, keyfilePath string, nodeDiscovery datapath.NodeUpdater, nodeHandler datapath.NodeHandler) error {
 	if !option.Config.EnableIPsecKeyWatcher {
 		return nil
 	}
@@ -1016,7 +1017,10 @@ func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery 
 		return err
 	}
 
-	go keyfileWatcher(ctx, watcher, keyfilePath, nodediscovery, nodeHandler)
+	group.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, _ cell.HealthReporter) error {
+		keyfileWatcher(ctx, watcher, keyfilePath, nodeDiscovery, nodeHandler)
+		return nil
+	}))
 
 	return nil
 }
@@ -1133,14 +1137,14 @@ func equalDefaultDropPolicy(defaultDropPolicy, p *netlink.XfrmPolicy) bool {
 		p.Dst.String() == defaultDropPolicy.Dst.String()
 }
 
-func doReclaimStaleKeys() {
+func staleKeyReclaimer(ctx context.Context) error {
 	ipSecLock.Lock()
 	defer ipSecLock.Unlock()
 
 	// In case no IPSec key has been loaded yet, don't try to reclaim any
 	// old key
 	if ipSecCurrentKeySPI == 0 {
-		return
+		return nil
 	}
 
 	reclaimTimestamp := time.Now()
@@ -1148,26 +1152,14 @@ func doReclaimStaleKeys() {
 	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
 	if err := deleteStaleXfrmStates(reclaimTimestamp); err != nil {
 		scopedLog.WithError(err).Warning("Failed to delete stale XFRM states")
+		return err
 	}
 	if err := deleteStaleXfrmPolicies(reclaimTimestamp); err != nil {
 		scopedLog.WithError(err).Warning("Failed to delete stale XFRM policies")
+		return err
 	}
-}
 
-func StartStaleKeysReclaimer(ctx context.Context) {
-	timer, timerDone := inctimer.New()
-
-	go func() {
-		for {
-			select {
-			case <-timer.After(1 * time.Minute):
-				doReclaimStaleKeys()
-			case <-ctx.Done():
-				timerDone()
-				return
-			}
-		}
-	}()
+	return nil
 }
 
 // We need to install xfrm state for the local router (cilium_host) early

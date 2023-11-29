@@ -6,12 +6,17 @@ package ipsec
 import (
 	"context"
 	"fmt"
+	"runtime/pprof"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // The IPsec key custodian handles key-related initialisation tasks for the
@@ -24,9 +29,29 @@ var Cell = cell.Module(
 	cell.Provide(newKeyCustodian),
 )
 
-func newKeyCustodian(lc hive.Lifecycle, localNode *node.LocalNodeStore) types.IPsecKeyCustodian {
-	ipsec := &keyCustodian{}
+type custodianParameters struct {
+	cell.In
+
+	Logger         logrus.FieldLogger
+	Scope          cell.Scope
+	JobRegistry    job.Registry
+	LocalNodeStore *node.LocalNodeStore
+}
+
+func newKeyCustodian(lc hive.Lifecycle, p custodianParameters) types.IPsecKeyCustodian {
+	group := p.JobRegistry.NewGroup(
+		p.Scope,
+		job.WithLogger(p.Logger),
+		job.WithPprofLabels(pprof.Labels("cell", "ipsec-key-custodian")),
+	)
+
+	ipsec := &keyCustodian{
+		localNode: p.LocalNodeStore,
+		jobs:      group,
+	}
+
 	lc.Append(ipsec)
+	lc.Append(group)
 	return ipsec
 }
 
@@ -55,13 +80,13 @@ func (kc *keyCustodian) Start(hive.HookContext) error {
 }
 
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
-func (kc *keyCustodian) StartBackgroundJobs(ctx context.Context, updater types.NodeUpdater, handler types.NodeHandler) error {
+func (kc *keyCustodian) StartBackgroundJobs(_ context.Context, updater types.NodeUpdater, handler types.NodeHandler) error {
 	if option.Config.EnableIPSec {
-		if err := StartKeyfileWatcher(ctx, option.Config.IPSecKeyFile, updater, handler); err != nil {
+		if err := StartKeyfileWatcher(kc.jobs, option.Config.IPSecKeyFile, updater, handler); err != nil {
 			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 		}
 
-		StartStaleKeysReclaimer(ctx)
+		kc.jobs.Add(job.Timer("stale-key-reclaimer", staleKeyReclaimer, time.Minute))
 	}
 
 	return nil
@@ -80,7 +105,9 @@ func (kc *keyCustodian) SPI() uint8 {
 }
 
 type keyCustodian struct {
-	localNode   *node.LocalNodeStore
+	localNode *node.LocalNodeStore
+	jobs      job.Group
+
 	authKeySize int
 	spi         uint8
 }
