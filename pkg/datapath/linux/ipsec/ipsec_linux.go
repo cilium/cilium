@@ -962,7 +962,7 @@ func DeleteIPsecEncryptRoute() {
 	}
 }
 
-func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodediscovery datapath.NodeUpdater, nodeHandler datapath.NodeHandler) {
+func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodediscovery datapath.NodeUpdater, nodeHandler datapath.NodeHandler, health cell.HealthReporter) error {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -972,6 +972,7 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 
 			_, spi, err := LoadIPSecKeysFile(keyfilePath)
 			if err != nil {
+				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
 				log.WithError(err).Errorf("Failed to load IPsec keyfile")
 				continue
 			}
@@ -993,16 +994,19 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 			// Push SPI update into BPF datapath now that XFRM state
 			// is configured.
 			if err := SetIPSecSPI(spi); err != nil {
+				health.Degraded("Failed to set IPsec SPI", err)
 				log.WithError(err).Errorf("Failed to set IPsec SPI")
 				continue
 			}
+			health.OK("Watching keyfiles")
 		case err := <-watcher.Errors:
 			log.WithError(err).WithField(logfields.Path, keyfilePath).
 				Warning("Error encountered while watching file with fsnotify")
 
 		case <-ctx.Done():
+			health.Stopped("Context done")
 			watcher.Close()
-			return
+			return nil
 		}
 	}
 }
@@ -1017,9 +1021,8 @@ func StartKeyfileWatcher(group job.Group, keyfilePath string, nodeDiscovery data
 		return err
 	}
 
-	group.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, _ cell.HealthReporter) error {
-		keyfileWatcher(ctx, watcher, keyfilePath, nodeDiscovery, nodeHandler)
-		return nil
+	group.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.HealthReporter) error {
+		return keyfileWatcher(ctx, watcher, keyfilePath, nodeDiscovery, nodeHandler, health)
 	}))
 
 	return nil
