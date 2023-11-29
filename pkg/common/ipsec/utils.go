@@ -4,8 +4,8 @@
 package ipsec
 
 import (
+	"errors"
 	"fmt"
-	"os"
 
 	"github.com/vishvananda/netlink"
 
@@ -18,7 +18,7 @@ const (
 	markStateOut = 0xe00
 )
 
-func CountUniqueIPsecKeys(states []netlink.XfrmState) int {
+func CountUniqueIPsecKeys(states []netlink.XfrmState) (int, error) {
 	keys := make(map[string]bool)
 	invalidStateFound := false
 	for _, s := range states {
@@ -35,9 +35,9 @@ func CountUniqueIPsecKeys(states []netlink.XfrmState) int {
 		invalidStateFound = true
 	}
 	if invalidStateFound {
-		fmt.Fprintf(os.Stderr, "an unsupported XfrmStateAlgo combination has been found\n")
+		return len(keys), errors.New("an unsupported XfrmStateAlgo combination has been found")
 	}
-	return len(keys)
+	return len(keys), nil
 }
 
 func CountXfrmStatesByDir(states []netlink.XfrmState) (int, int) {
