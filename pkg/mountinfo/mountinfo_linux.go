@@ -53,6 +53,6 @@ func IsMountFS(mntType int64, path string) (bool, bool, error) {
 		return true, false, &os.PathError{Op: "statfs", Path: path, Err: err}
 	}
 
-	return true, fst.Type == mntType, nil
+	return true, int64(fst.Type) == mntType, nil
 
 }
