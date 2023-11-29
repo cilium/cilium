@@ -30,24 +30,19 @@ import (
 type OutputType string
 
 const (
-	outputObject   = OutputType("obj")
-	outputAssembly = OutputType("asm")
-	outputSource   = OutputType("c")
+	outputObject = OutputType("obj")
+	outputSource = OutputType("c")
 
 	compiler = "clang"
 
-	endpointPrefix   = "bpf_lxc"
-	endpointProg     = endpointPrefix + "." + string(outputSource)
-	endpointObj      = endpointPrefix + ".o"
-	endpointObjDebug = endpointPrefix + ".dbg.o"
-	endpointAsm      = endpointPrefix + "." + string(outputAssembly)
+	endpointPrefix = "bpf_lxc"
+	endpointProg   = endpointPrefix + "." + string(outputSource)
+	endpointObj    = endpointPrefix + ".o"
 
 	hostEndpointPrefix       = "bpf_host"
 	hostEndpointNetdevPrefix = "bpf_netdev_"
 	hostEndpointProg         = hostEndpointPrefix + "." + string(outputSource)
 	hostEndpointObj          = hostEndpointPrefix + ".o"
-	hostEndpointObjDebug     = hostEndpointPrefix + ".dbg.o"
-	hostEndpointAsm          = hostEndpointPrefix + "." + string(outputAssembly)
 
 	networkPrefix = "bpf_network"
 	networkProg   = networkPrefix + "." + string(outputSource)
@@ -108,40 +103,6 @@ var (
 	// paths into the compile command at test time. It is usually nil.
 	testIncludes []string
 
-	debugProgs = []*progInfo{
-		{
-			Source:     endpointProg,
-			Output:     endpointObjDebug,
-			OutputType: outputObject,
-		},
-		{
-			Source:     endpointProg,
-			Output:     endpointAsm,
-			OutputType: outputAssembly,
-		},
-		{
-			Source:     endpointProg,
-			Output:     endpointProg,
-			OutputType: outputSource,
-		},
-	}
-	debugHostProgs = []*progInfo{
-		{
-			Source:     hostEndpointProg,
-			Output:     hostEndpointObjDebug,
-			OutputType: outputObject,
-		},
-		{
-			Source:     hostEndpointProg,
-			Output:     hostEndpointAsm,
-			OutputType: outputAssembly,
-		},
-		{
-			Source:     hostEndpointProg,
-			Output:     hostEndpointProg,
-			OutputType: outputSource,
-		},
-	}
 	epProg = &progInfo{
 		Source:     endpointProg,
 		Output:     endpointObj,
@@ -206,9 +167,6 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	switch prog.OutputType {
 	case outputSource:
 		compileArgs = append(compileArgs, "-E") // Preprocessor
-	case outputAssembly:
-		compileArgs = append(compileArgs, "-S")
-		fallthrough
 	case outputObject:
 		compileArgs = append(compileArgs, "-g")
 	}
@@ -293,29 +251,27 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 		compiler: string(compilerVersion),
 	}).Debug("Compiling datapath")
 
-	if option.Config.Debug {
-		// Write out assembly and preprocessing files for debugging purposes
-		progs := debugProgs
-		if isHost {
-			progs = debugHostProgs
-		}
-		for _, p := range progs {
-			if _, err := compile(ctx, p, dirs); err != nil {
-				// Only log an error here if the context was not canceled. This log message
-				// should only represent failures with respect to compiling the program.
-				if !errors.Is(err, context.Canceled) {
-					scopedLog.WithField(logfields.Params, logfields.Repr(p)).WithError(err).Debug("JoinEP: Failed to compile")
-				}
-				return err
-			}
-		}
-	}
-
-	// Compile the new program
 	prog := epProg
 	if isHost {
 		prog = hostEpProg
 	}
+
+	if option.Config.Debug && prog.OutputType == outputObject {
+		// Write out preprocessing files for debugging purposes
+		debugProg := *prog
+		debugProg.Output = debugProg.Source
+		debugProg.OutputType = outputSource
+
+		if _, err := compile(ctx, &debugProg, dirs); err != nil {
+			// Only log an error here if the context was not canceled. This log message
+			// should only represent failures with respect to compiling the program.
+			if !errors.Is(err, context.Canceled) {
+				scopedLog.WithField(logfields.Params, logfields.Repr(debugProg)).WithError(err).Debug("JoinEP: Failed to compile")
+			}
+			return err
+		}
+	}
+
 	if _, err := compile(ctx, prog, dirs); err != nil {
 		// Only log an error here if the context was not canceled. This log message
 		// should only represent failures with respect to compiling the program.
