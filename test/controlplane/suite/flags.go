@@ -20,5 +20,4 @@ func ParseFlags() {
 	if *FlagDebug {
 		logging.SetLogLevelToDebug()
 	}
-	logging.InitializeDefaultLogger()
 }
