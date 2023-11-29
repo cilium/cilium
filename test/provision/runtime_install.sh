@@ -15,6 +15,8 @@ source "${PROVISIONSRC}/helpers.bash"
 sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
+"${PROVISIONSRC}"/wait-for-systemd-resolved.sh
+
 if [[ "${PROVISION_EXTERNAL_WORKLOAD}" == "false" ]]; then
     "${PROVISIONSRC}"/compile.sh
     "${PROVISIONSRC}"/wait-cilium-in-docker.sh
