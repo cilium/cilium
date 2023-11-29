@@ -296,7 +296,12 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 		"ip":    ip.String(),
 		"owner": owner,
 	}).Debugf("Released IP")
-	delete(ipam.expirationTimers, ip.String())
+
+	key := timerKey{ip: ip.String(), pool: pool}
+	if t, ok := ipam.expirationTimers[key]; ok {
+		close(t.stop)
+		delete(ipam.expirationTimers, key)
+	}
 
 	metrics.IPAMEvent.WithLabelValues(metricRelease, string(family)).Inc()
 	return nil
@@ -376,24 +381,35 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Durati
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	ipString := ip.String()
-	if _, ok := ipam.expirationTimers[ipString]; ok {
+	key := timerKey{ip: ip.String(), pool: pool}
+	if _, ok := ipam.expirationTimers[key]; ok {
 		return "", fmt.Errorf("expiration timer already registered")
 	}
 
 	allocationUUID := uuid.New().String()
-	ipam.expirationTimers[ipString] = allocationUUID
+	stop := make(chan struct{})
+	ipam.expirationTimers[key] = expirationTimer{
+		uuid: allocationUUID,
+		stop: stop,
+	}
 
-	go func(ip net.IP, allocationUUID string, timeout time.Duration) {
-		ipString := ip.String()
-		time.Sleep(timeout)
+	go func(key timerKey, ip net.IP, pool Pool, allocationUUID string, timeout time.Duration, stop <-chan struct{}) {
+		timer := time.NewTimerWithoutMaxDelay(timeout)
+		select {
+		case <-stop:
+			// Expiration timer was explicitly stopped before timeout.
+			// Ensure time.Timer can be garbage collected and exit
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
 
 		ipam.allocatorMutex.Lock()
 		defer ipam.allocatorMutex.Unlock()
 
-		if currentUUID, ok := ipam.expirationTimers[ipString]; ok {
-			if currentUUID == allocationUUID {
-				scopedLog := log.WithFields(logrus.Fields{"ip": ipString, "uuid": allocationUUID})
+		if t, ok := ipam.expirationTimers[key]; ok {
+			if t.uuid == allocationUUID {
+				scopedLog := log.WithFields(logrus.Fields{"ip": ip, "pool": pool, "uuid": allocationUUID})
 				if err := ipam.releaseIPLocked(ip, pool); err != nil {
 					scopedLog.WithError(err).Warning("Unable to release IP after expiration")
 				} else {
@@ -407,7 +423,7 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, pool Pool, timeout time.Durati
 		} else {
 			// Expiration timer was removed. No action is required
 		}
-	}(ip, allocationUUID, timeout)
+	}(key, ip, pool, allocationUUID, timeout, stop)
 
 	return allocationUUID, nil
 }
@@ -420,14 +436,16 @@ func (ipam *IPAM) StopExpirationTimer(ip net.IP, pool Pool, allocationUUID strin
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	ipString := ip.String()
-	if currentUUID, ok := ipam.expirationTimers[ipString]; !ok {
+	key := timerKey{ip: ip.String(), pool: pool}
+	t, ok := ipam.expirationTimers[key]
+	if !ok {
 		return fmt.Errorf("no expiration timer registered")
-	} else if currentUUID != allocationUUID {
+	} else if t.uuid != allocationUUID {
 		return fmt.Errorf("UUID mismatch, not stopping expiration timer")
 	}
 
-	delete(ipam.expirationTimers, ipString)
+	close(t.stop)
+	delete(ipam.expirationTimers, key)
 
 	return nil
 }

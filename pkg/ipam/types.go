@@ -97,7 +97,7 @@ type IPAM struct {
 	// expirationTimers is a map of all expiration timers. Each entry
 	// represents a IP allocation which is protected by an expiration
 	// timer.
-	expirationTimers map[string]string
+	expirationTimers map[timerKey]expirationTimer
 
 	// mutex covers access to all members of this struct
 	allocatorMutex lock.RWMutex
@@ -125,4 +125,14 @@ type Pool string
 
 func (p Pool) String() string {
 	return string(p)
+}
+
+type timerKey struct {
+	ip   string
+	pool Pool
+}
+
+type expirationTimer struct {
+	uuid string
+	stop chan<- struct{}
 }
