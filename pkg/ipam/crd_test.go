@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
@@ -58,18 +58,15 @@ func TestIPNotAvailableInPoolError(t *testing.T) {
 	assert.False(t, errors.Is(err, err2))
 }
 
-type testConfigurationCRD struct{}
+var testConfigurationCRD = &option.DaemonConfig{
+	EnableIPv4:              true,
+	EnableIPv6:              false,
+	EnableHealthChecking:    true,
+	EnableUnreachableRoutes: false,
+	IPAM:                    ipamOption.IPAMCRD,
+}
 
-func (t *testConfigurationCRD) IPv4Enabled() bool                        { return true }
-func (t *testConfigurationCRD) IPv6Enabled() bool                        { return false }
-func (t *testConfigurationCRD) HealthCheckingEnabled() bool              { return true }
-func (t *testConfigurationCRD) UnreachableRoutesEnabled() bool           { return false }
-func (t *testConfigurationCRD) IPAMMode() string                         { return ipamOption.IPAMCRD }
-func (t *testConfigurationCRD) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
-func (t *testConfigurationCRD) GetIPv4NativeRoutingCIDR() *cidr.CIDR     { return nil }
-func (t *testConfigurationCRD) IPv4NativeRoutingCIDR() *cidr.CIDR        { return nil }
-
-func newFakeNodeStore(conf Configuration, c *C) *nodeStore {
+func newFakeNodeStore(conf *option.DaemonConfig, c *C) *nodeStore {
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "fake-crd-allocator-node-refresher",
 		MinInterval: 3 * time.Second,
@@ -95,7 +92,7 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 	}
 
 	fakeAddressing := fake.NewNodeAddressing()
-	conf := &testConfigurationCRD{}
+	conf := testConfigurationCRD
 	initNodeStore.Do(func() {
 		sharedNodeStore = newFakeNodeStore(conf, c)
 		sharedNodeStore.ownNode = cn

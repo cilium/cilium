@@ -26,7 +26,7 @@ import (
 )
 
 func Test_MultiPoolManager(t *testing.T) {
-	fakeConfig := &testConfiguration{}
+	fakeConfig := testConfiguration
 	fakeOwner := &ownerMock{}
 	events := make(chan string, 1)
 	fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPIResource{

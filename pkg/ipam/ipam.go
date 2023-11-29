@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -39,34 +38,6 @@ func DeriveFamily(ip net.IP) Family {
 		return IPv6
 	}
 	return IPv4
-}
-
-// Configuration is the configuration passed into the IPAM subsystem
-type Configuration interface {
-	// IPv4Enabled must return true when IPv4 is enabled
-	IPv4Enabled() bool
-
-	// IPv6 must return true when IPv6 is enabled
-	IPv6Enabled() bool
-
-	// IPAMMode returns the IPAM mode
-	IPAMMode() string
-
-	// HealthCheckingEnabled must return true when health-checking is
-	// enabled
-	HealthCheckingEnabled() bool
-
-	// UnreachableRoutesEnabled returns true when unreachable-routes is
-	// enabled
-	UnreachableRoutesEnabled() bool
-
-	// SetIPv4NativeRoutingCIDR is called by the IPAM module to announce
-	// the native IPv4 routing CIDR if it exists
-	SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR)
-
-	// IPv4NativeRoutingCIDR is called by the IPAM module retrieve
-	// the native IPv4 routing CIDR if it exists
-	GetIPv4NativeRoutingCIDR() *cidr.CIDR
 }
 
 // Owner is the interface the owner of an IPAM allocator has to implement
@@ -99,7 +70,7 @@ type Metadata interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
+func NewIPAM(nodeAddressing types.NodeAddressing, c *option.DaemonConfig, owner Owner, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
 	ipam := &IPAM{
 		nodeAddressing:   nodeAddressing,
 		config:           c,
