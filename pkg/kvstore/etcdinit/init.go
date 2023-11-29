@@ -17,8 +17,8 @@ import (
 )
 
 // ClusterMeshEtcdInit initializes etcd for use by Cilium Clustermesh via the provided client. It creates a number of
-// user accounts and roles with permissions, sets a well-known key to indicate config has been done, and enables
-// authentication for the cluster.
+// user accounts and roles with permissions, sets a well-known key to indicate that clients should expect a cilium
+// config to be present, and enables authentication for the cluster.
 //
 // This function uses log to perform informational and debug logging about operations. This function does not log errors
 // and instead returns an error for handling, as it is assumed that the calling function will log errors. Most errors

@@ -5,6 +5,7 @@ package etcdinit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -154,14 +155,16 @@ func InitEtcdLocal() (returnErr error) {
 	defer func() {
 		log := log.WithField("etcdPID", etcdPid)
 		log.Debug("Cleaning up etcd process")
-		// Send the process a SIGTERM. SIGTERM is the "gentle" shutdown signal, and etcd should close down it's resources
+		// Send the process a SIGTERM. SIGTERM is the "gentle" shutdown signal, and etcd should close down its resources
 		// cleanly and then exit.
 		log.Info("Sending SIGTERM signal to etcd process")
 		err := etcdCmd.Process.Signal(syscall.SIGTERM)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to send SIGTERM signal to etcd process")
-			returnErr = err
+			// Return both this error, and the main function's return error (if there is one).
+			returnErr = errors.Join(returnErr, err)
+			return
 		}
 
 		// Wait for the etcd process to finish, and cleanup resources.
@@ -179,10 +182,9 @@ func InitEtcdLocal() (returnErr error) {
 						// which would report a false error. That's very unlikely, so we don't worry about it here.
 						log.WithField("timeout", timeout).
 							Error("etcd exited, but our context has expired. etcd may have been terminated due to timeout. Consider increasing the value of the timeout using the --timeout flag or CILIUM_TIMEOUT environment variable.")
-						// If we're not already returning an error, return an error here
-						if returnErr == nil {
-							returnErr = ctx.Err()
-						}
+						// Return both this error, and the main function's return error (if there is one). This is just
+						// to make sure that the calling code correctly detects that an error occurs.
+						returnErr = errors.Join(returnErr, ctx.Err())
 						return
 					}
 					// This is the "good state", the context hasn't expired, the etcd process has exited, and we're
@@ -193,19 +195,15 @@ func InitEtcdLocal() (returnErr error) {
 				log.WithError(err).
 					WithField("etcdExitCode", exitError.ExitCode()).
 					Error("etcd process exited improperly")
-				// If we're not already returning an error, return an error here
-				if returnErr == nil {
-					returnErr = err
-				}
+				// Return both this error, and the main function's return error (if there is one).
+				returnErr = errors.Join(returnErr, err)
 				return
 			} else {
 				// Some other kind of error
 				log.WithError(err).
 					Error("Failed to wait on etcd process finishing")
-				// If we're not already returning an error, return an error here
-				if returnErr == nil {
-					returnErr = err
-				}
+				// Return both this error, and the main function's return error (if there is one).
+				returnErr = errors.Join(returnErr, err)
 				return
 			}
 		}
@@ -226,6 +224,7 @@ func InitEtcdLocal() (returnErr error) {
 			Error("Failed to construct etcd client from configuration")
 		return err
 	}
+	defer etcdClient.Close()
 
 	// Run the init commands
 	log.WithField(logfields.ClusterName, ciliumClusterName).
