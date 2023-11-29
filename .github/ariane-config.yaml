@@ -18,7 +18,6 @@ triggers:
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
     - tests-l4lb.yaml
-    - tests-e2e-upgrade.yaml
     - tests-ipsec-upgrade.yaml
   /ci-aks:
     workflows:
