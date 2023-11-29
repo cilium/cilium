@@ -396,6 +396,9 @@ spec:
         volumeMounts:
         - name: cilium-run
           mountPath: /var/run/cilium
+        {{- with .Values.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- with .Values.monitor.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -632,6 +635,9 @@ spec:
           mountPropagation: HostToContainer
         - name: cilium-run
           mountPath: /var/run/cilium
+        {{- with .Values.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- with .Values.nodeinit.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
