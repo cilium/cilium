@@ -4,8 +4,6 @@
 package fake
 
 import (
-	"context"
-
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
@@ -22,7 +20,7 @@ func (*ipsecKeyCustodian) SPI() uint8 {
 }
 
 // StartBackgroundJobs implements types.IPsecKeyCustodian.
-func (*ipsecKeyCustodian) StartBackgroundJobs(context.Context, types.NodeUpdater, types.NodeHandler) error {
+func (*ipsecKeyCustodian) StartBackgroundJobs(types.NodeUpdater, types.NodeHandler) error {
 	return nil
 }
 

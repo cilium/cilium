@@ -4,7 +4,6 @@
 package ipsec
 
 import (
-	"context"
 	"fmt"
 	"runtime/pprof"
 
@@ -80,7 +79,7 @@ func (kc *keyCustodian) Start(hive.HookContext) error {
 }
 
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
-func (kc *keyCustodian) StartBackgroundJobs(_ context.Context, updater types.NodeUpdater, handler types.NodeHandler) error {
+func (kc *keyCustodian) StartBackgroundJobs(updater types.NodeUpdater, handler types.NodeHandler) error {
 	if option.Config.EnableIPSec {
 		if err := StartKeyfileWatcher(kc.jobs, option.Config.IPSecKeyFile, updater, handler); err != nil {
 			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
