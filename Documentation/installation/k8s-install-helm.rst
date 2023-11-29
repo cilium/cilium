@@ -192,11 +192,17 @@ Install Cilium
 
           Cilium can alternatively run in EKS using an overlay mode that gives
           pods non-VPC-routable IPs.  This allows running more pods per
-          Kubernetes worker node than the ENI limit, but means that pod
-          connectivity to resources outside the cluster (e.g., VMs in the VPC
-          or AWS managed services) is masqueraded (i.e., SNAT) by Cilium to use
-          the VPC IP address of the Kubernetes worker node. To set up Cilium 
-          overlay mode, follow the steps below:
+          Kubernetes worker node than the ENI limit but includes the following caveats:
+
+            1. Pod connectivity to resources outside the cluster (e.g., VMs in the VPC
+               or AWS managed services) is masqueraded (i.e., SNAT) by Cilium to use the
+               VPC IP address of the Kubernetes worker node.
+            2. The EKS API Server is unable to route packets to the overlay network. This
+               implies that any `webhook <https://kubernetes.io/docs/reference/access-authn-authz/webhook/>`_
+               which needs to be accessed must be host networked or exposed through a service
+               or ingress.
+
+          To set up Cilium overlay mode, follow the steps below:
 
             1. Excluding the lines for ``eni.enabled=true``, ``ipam.mode=eni`` and 
                ``routingMode=native`` from the helm command will configure Cilium to use
