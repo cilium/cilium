@@ -13,11 +13,32 @@ import (
 	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
+
+func (s *EndpointSuite) TestEndpointLogFormat(c *C) {
+	// Default log format is text
+	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
+	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+
+	_, ok := ep.getLogger().Logger.Formatter.(*logrus.TextFormatter)
+	c.Assert(ok, Equals, true)
+
+	// Log format is JSON when configured
+	logging.SetLogFormat(logging.LogFormatJSON)
+	defer func() {
+		logging.SetLogFormat(logging.LogFormatText)
+	}()
+	do = &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
+	ep = NewEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+
+	_, ok = ep.getLogger().Logger.Formatter.(*logrus.JSONFormatter)
+	c.Assert(ok, Equals, true)
+}
 
 func (s *EndpointSuite) TestPolicyLog(c *C) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
