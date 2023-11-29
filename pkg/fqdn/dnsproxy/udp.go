@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+const pseudoHeaderLength = 40
+
 // This is the required size of the OOB buffer to pass to ReadMsgUDP.
 var udpOOBSize = func() int {
 	var hdr unix.Cmsghdr
@@ -191,7 +193,7 @@ func (s *sessionUDP) RemoteAddr() net.Addr { return s.raddr }
 // LocalAddr returns the local network address for the current request.
 func (s *sessionUDP) LocalAddr() net.Addr { return s.laddr }
 
-// WriteResponse writes a response to a request received earlier
+// WriteResponse writes a response to a request received earlier.
 // It uses the raw udp connections (IPv4 or IPv6) from its sessionUDPFactory.
 func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 	// Must give the UDP header to get the source port right.
@@ -205,6 +207,12 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 	binary.Write(bb, binary.BigEndian, uint16(0)) // checksum
 	bb.Write(b)
 	buf := bb.Bytes()
+
+	// A UDP checksum is required for IPv6
+	if s.raddr.IP.To4() == nil {
+		// Compute the UDP the checksum
+		binary.BigEndian.PutUint16(buf[6:8], computeIPv6Checksum(s.laddr.IP, s.raddr.IP, buf))
+	}
 
 	var n int
 	var err error
@@ -270,7 +278,7 @@ func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 	return nil, fmt.Errorf("no original destination found")
 }
 
-// correctSource returns the oob data with the given source address
+// controlMessage returns the oob data with the given source address
 func (s *sessionUDP) controlMessage(src *net.UDPAddr) []byte {
 	// If the src is definitely an IPv6, then use ipv6's ControlMessage to
 	// respond otherwise use ipv4's because ipv6's marshal ignores ipv4
@@ -283,4 +291,58 @@ func (s *sessionUDP) controlMessage(src *net.UDPAddr) []byte {
 	cm := new(ipv4.ControlMessage)
 	cm.Src = src.IP
 	return cm.Marshal()
+}
+
+// computeIPv6Checksum computes and returns a checksum from the given src/dest IPs
+// and UDP header with a payload.
+func computeIPv6Checksum(srcIP, dstIP net.IP, udpHeaderWithPayload []byte) uint16 {
+	pseudoHeader := genIPv6PseudoHeader(srcIP, dstIP, len(udpHeaderWithPayload))
+	packet := append(pseudoHeader, udpHeaderWithPayload...)
+	checksum := computeChecksum(packet)
+	return checksum
+}
+
+// genIPv6PseudoHeader generates and returns an IPv6 pseudo-header used for calculating
+// the checksum of a UDP packet.
+func genIPv6PseudoHeader(srcIP, dstIP net.IP, headerAndPayloadSize int) []byte {
+	header := make([]byte, pseudoHeaderLength)
+	// Source address
+	copy(header[0:], srcIP)
+	// Destination address
+	copy(header[16:], dstIP)
+	// Payload length (16-bit field)
+	binary.BigEndian.PutUint16(header[32:34], uint16(headerAndPayloadSize))
+	if headerAndPayloadSize != 0 {
+		// Next header (UDP)
+		header[39] = 0x11
+	}
+	return header
+}
+
+// computeChecksum computes and returns a checksum for the given packet represented as
+// a byte slice.
+func computeChecksum(packet []byte) uint16 {
+	sum := uint32(0)
+
+	for ; len(packet) >= 2; packet = packet[2:] {
+		sum += uint32(packet[0])<<8 | uint32(packet[1])
+	}
+	if len(packet) > 0 {
+		sum += uint32(packet[0]) << 8
+	}
+	for sum > 0xffff {
+		sum = (sum >> 16) + (sum & 0xffff)
+	}
+	csum := ^uint16(sum)
+	/*
+	 * From RFC 768:
+	 * If the computed checksum is zero, it is transmitted as all ones (the
+	 * equivalent in one's complement arithmetic). An all zero transmitted
+	 * checksum value means that the transmitter generated no checksum (for
+	 * debugging or for higher level protocols that don't care).
+	 */
+	if csum == 0 {
+		csum = 0xffff
+	}
+	return csum
 }
