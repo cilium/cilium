@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
@@ -962,7 +961,7 @@ func DeleteIPsecEncryptRoute() {
 	}
 }
 
-func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery, nodeHandler datapath.NodeHandler) {
+func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodediscovery datapath.NodeUpdater, nodeHandler datapath.NodeHandler) {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1007,7 +1006,7 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 	}
 }
 
-func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery, nodeHandler datapath.NodeHandler) error {
+func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery datapath.NodeUpdater, nodeHandler datapath.NodeHandler) error {
 	if !option.Config.EnableIPsecKeyWatcher {
 		return nil
 	}

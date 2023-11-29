@@ -3,6 +3,10 @@
 
 package types
 
+type NodeUpdater interface {
+	UpdateLocalNode()
+}
+
 type IPsecKeyCustodian interface {
 	AuthKeySize() int
 	SPI() uint8
