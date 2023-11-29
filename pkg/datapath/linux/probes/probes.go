@@ -628,6 +628,7 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.SchedCLS, asm.FnCsumLevel},
 
 		// xdp related probes
+		{ebpf.XDP, asm.FnXdpGetBuffLen},
 		{ebpf.XDP, asm.FnXdpLoadBytes},
 		{ebpf.XDP, asm.FnXdpStoreBytes},
 	}
@@ -676,8 +677,9 @@ func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
 // writeXdpHeader defines macros for bpf/include/bpf/features_xdp.h
 func writeXdpHeader(writer io.Writer, probes *FeatureProbes) error {
 	featuresXdp := map[string]bool{
-		"HAVE_XDP_LOAD_BYTES":  probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
-		"HAVE_XDP_STORE_BYTES": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
+		"HAVE_XDP_GET_BUFF_LEN": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpGetBuffLen}],
+		"HAVE_XDP_LOAD_BYTES":   probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
+		"HAVE_XDP_STORE_BYTES":  probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
 	}
 
 	return writeFeatureHeader(writer, featuresXdp, false)
