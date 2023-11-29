@@ -1,14 +1,15 @@
 on:
+  pull_request: {}
   push:
     # Sequence of patterns matched against refs/tags
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
-name: Create Release
+name: Release
 
 jobs:
   build:
-    name: Create Release
+    name: Create Release ${{ github.event_name == 'pull_request' && '(dry-run)' }}
     if: github.repository == 'cilium/cilium-cli'
     runs-on: ubuntu-22.04
     steps:
@@ -25,6 +26,7 @@ jobs:
         run: make release
 
       - name: Create Release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v0.1.15
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
