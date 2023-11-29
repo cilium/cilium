@@ -44,10 +44,6 @@ export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
 export CILIUM_ENVOY_VERSION:=v1.27.2-f19708f3d0188fe39b7e024b4525b75a9eeee61f
 export CILIUM_ENVOY_DIGEST:=sha256:80de27c1d16ab92923cc0cd1fff90f2e7047a9abf3906fda712268d9cbc5b950
 
-export ETCD_REPO:=quay.io/coreos/etcd
-export ETCD_VERSION:=v3.5.4
-export ETCD_DIGEST:=sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3
-
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
 export HUBBLE_UI_BACKEND_VERSION:=v0.12.1
 export HUBBLE_UI_BACKEND_DIGEST:=sha256:1f86f3400827a0451e6332262467f894eeb7caf0eb8779bd951e2caa9d027cbe

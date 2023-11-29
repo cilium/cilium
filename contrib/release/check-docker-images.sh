@@ -6,10 +6,6 @@ cilium_tag="${1}"
 org="cilium"
 suffix=${CILIUM_OPERATOR_SUFFIX:-}
 
-external_dependencies=(
-  "quay.io/coreos/etcd:${ETCD_VERSION}" \
-)
-
 internal_dependencies_quay_only=(
   "cilium-etcd-operator:${CILIUM_ETCD_OPERATOR_VERSION}" \
   "startup-script:${CILIUM_NODEINIT_VERSION}"
@@ -36,13 +32,6 @@ image_tag_exists(){
   local image="${1}"
   docker buildx imagetools inspect "${image}" &> /dev/null
 }
-
-for image in "${external_dependencies[@]}" ; do
-  if ! image_tag_exists "${image}" ; then
-    echo "${image} does not exist!"
-    not_found=true
-  fi
-done
 
 for image in "${internal_dependencies[@]}" ; do
   image_tag=${image#*:}
