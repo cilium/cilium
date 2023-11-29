@@ -294,22 +294,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 		return
 	}
 
-	if dev.Name == defaults.HostDevice {
-		// If AddressScopeMax is a scope more broad (numerically less than) than SCOPE_LINK then
-		// include all addresses at SCOPE_LINK which are assigned to the Cilium host device.
-		if n.AddressScopeMax < unix.RT_SCOPE_LINK {
-			for _, addr := range sortedAddresses(dev.Addrs) {
-				if addr.Scope == unix.RT_SCOPE_LINK {
-					addrs.Insert(NodeAddress{
-						Addr:       addr.Addr,
-						NodePort:   false,
-						Primary:    !addr.Secondary,
-						DeviceName: dev.Name,
-					})
-				}
-			}
-		}
-	} else {
+	if dev.Name != defaults.HostDevice {
 		// Skip obviously uninteresting devices. We include the HostDevice as its IP addresses are
 		// considered node addresses and added to e.g. ipcache as HOST_IDs.
 		for _, prefix := range defaults.ExcludedDevicePrefixes {
@@ -326,30 +311,36 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 	for _, addr := range sortedAddresses(dev.Addrs) {
 		// We keep the scope-based address filtering as was introduced
 		// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
-		if addr.Scope > uint8(n.AddressScopeMax) || addr.Addr.IsLoopback() {
+		skip := addr.Scope > uint8(n.AddressScopeMax) || addr.Addr.IsLoopback()
+
+		// Always include LINK scope'd addresses for cilium_host device, regardless
+		// of what the maximum scope is.
+		skip = skip && !(dev.Name == defaults.HostDevice && addr.Scope == unix.RT_SCOPE_LINK)
+
+		if skip {
 			continue
 		}
 
 		// Figure out if the address is usable for NodePort.
 		nodePort := false
 		primary := false
-		if dev.Selected && len(n.Config.NodePortAddresses) == 0 {
+		if len(n.Config.NodePortAddresses) == 0 {
 			// The user has not specified IP ranges to filter on IPs on which to serve NodePort.
 			// Thus the default behavior is to use the primary IPv4 and IPv6 addresses of each
 			// device.
 			if addr.Addr.Is4() && !ipv4Found {
 				ipv4Found = true
-				nodePort = true
+				nodePort = dev.Selected
 				primary = true
 			}
 			if addr.Addr.Is6() && !ipv6Found {
 				ipv6Found = true
-				nodePort = true
+				nodePort = dev.Selected
 				primary = true
 			}
 		} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
 			// User specified --nodeport-addresses and this address was within the range.
-			nodePort = true
+			nodePort = dev.Selected
 			if addr.Addr.Is4() && !ipv4Found {
 				primary = true
 				ipv4Found = true
