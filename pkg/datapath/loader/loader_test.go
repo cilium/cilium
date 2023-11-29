@@ -236,6 +236,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 	defer cancel()
 
 	dirInfo := getDirs(b)
+	option.Config.Debug = true
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

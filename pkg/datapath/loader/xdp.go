@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -152,14 +151,14 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		Options:    args,
 	}
 
-	if err := compile(ctx, prog, dirs); err != nil {
+	objPath, err := compile(ctx, prog, dirs)
+	if err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
-	objPath := path.Join(dirs.Output, prog.Output)
 	progs := []progDefinition{{progName: symbolFromHostNetdevXDP, direction: ""}}
 	finalize, err := replaceDatapath(ctx, xdpDev, objPath, progs, xdpMode)
 	if err != nil {
