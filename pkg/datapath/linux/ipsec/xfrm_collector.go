@@ -127,7 +127,10 @@ func (x *xfrmCollector) collectConfigStats(ch chan<- prometheus.Metric) {
 		log.WithError(err).Error("Failed to retrieve XFRM states to compute Prometheus metrics")
 		return
 	}
-	nbKeys := ipsec.CountUniqueIPsecKeys(states)
+	nbKeys, err := ipsec.CountUniqueIPsecKeys(states)
+	if err != nil {
+		log.WithError(err).Error("Error counting IPsec keys")
+	}
 	ch <- prometheus.MustNewConstMetric(x.nbKeysDesc, prometheus.GaugeValue, float64(nbKeys))
 
 	nbStatesIn, nbStatesOut := ipsec.CountXfrmStatesByDir(states)
