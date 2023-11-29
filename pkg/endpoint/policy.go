@@ -307,7 +307,9 @@ func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult) error {
 	if res == nil {
 		if e.SecurityIdentity != nil {
 			e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
-			return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
+			// Wrap context.Cancelled here, so that the upper layers have a signal that
+			// this failure is a cancellation, not an error.
+			return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration: %w", e.ID, context.Canceled)
 		}
 
 		return nil
@@ -315,7 +317,9 @@ func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult) error {
 	// if the security identity changed, reject the policy computation
 	if e.identityRevision != res.identityRevision {
 		e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
-		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
+		// Wrap context.Cancelled here, so that the upper layers have a signal that this
+		// failure is a cancellation, not an error.
+		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration: %w", e.ID, context.Canceled)
 	}
 
 	// Set the revision of this endpoint to the current revision of the policy
