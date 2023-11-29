@@ -167,6 +167,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         timeout-minutes: 30
+        shell: bash
         # --enable-exec-service=false to reduce number of pods so 100 pods can fit in node
         # POD_STARTUP_LATENCY_THRESHOLD=60s so the test doesn't fail, currently we have ~30s pods startup latency
         run: |
