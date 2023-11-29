@@ -105,18 +105,6 @@ func CheckMinRequirements() {
 		log.Infof("clang (%s) and kernel (%s) versions: OK!", clangVersion, kernelVersion)
 	}
 
-	if filePath, err := exec.LookPath("llc"); err != nil {
-		log.WithError(err).Fatal("llc: NOT OK")
-	} else {
-		lccVersion, err := exec.Command(filePath, "--version").CombinedOutput()
-		if err == nil {
-			if strings.Contains(strings.ToLower(string(lccVersion)), "debug") {
-				log.Warn("llc version was compiled in debug mode, expect higher latency!")
-			}
-		}
-		log.Info("linking environment: OK!")
-	}
-
 	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")

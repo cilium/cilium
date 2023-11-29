@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -232,6 +233,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 	defer cancel()
 
 	dirInfo := getDirs(b)
+	option.Config.Debug = true
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
