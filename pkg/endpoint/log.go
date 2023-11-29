@@ -95,21 +95,6 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		return
 	}
 
-	// default to a new default logger
-	baseLogger := logging.InitializeDefaultLogger()
-
-	// Set log format based on daemon config
-	baseLogger.SetFormatter(logging.GetFormatter(
-		logging.LogOptions(option.Config.LogOpt).GetLogFormat(),
-	))
-
-	// If this endpoint is set to debug ensure it will print debug by giving it
-	// an independent logger.
-	// If this endpoint is not set to debug, it will use the log level set by the user.
-	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
-		baseLogger.SetLevel(logrus.DebugLevel)
-	}
-
 	// When adding new fields, make sure they are abstracted by a setter
 	// and update the logger when the value is set.
 	f := logrus.Fields{
@@ -129,7 +114,17 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		f[logfields.Identity] = e.SecurityIdentity.ID.StringID()
 	}
 
-	e.logger.Store(baseLogger.WithFields(f))
+	// Inherit properties from default logger.
+	baseLogger := logging.DefaultLogger.WithFields(f)
+
+	// If this endpoint is set to debug ensure it will print debug by giving it
+	// an independent logger.
+	// If this endpoint is not set to debug, it will use the log level set by the user.
+	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
+		baseLogger.Logger.SetLevel(logrus.DebugLevel)
+	}
+
+	e.logger.Store(baseLogger)
 }
 
 // Only to be called from UpdateLogger() above
