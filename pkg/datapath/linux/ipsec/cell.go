@@ -4,6 +4,9 @@
 package ipsec
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -47,6 +50,19 @@ func (kc *keyCustodian) Start(hive.HookContext) error {
 	kc.localNode.Update(func(n *node.LocalNode) {
 		n.EncryptionKey = kc.spi
 	})
+
+	return nil
+}
+
+// StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
+func (kc *keyCustodian) StartBackgroundJobs(ctx context.Context, updater types.NodeUpdater, handler types.NodeHandler) error {
+	if option.Config.EnableIPSec {
+		if err := StartKeyfileWatcher(ctx, option.Config.IPSecKeyFile, updater, handler); err != nil {
+			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
+		}
+
+		StartStaleKeysReclaimer(ctx)
+	}
 
 	return nil
 }
