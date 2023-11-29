@@ -244,7 +244,7 @@ jobs:
         id: cilium-stable-config
         uses: ./.github/actions/cilium-config
         with:
-          image-tag: ${{ steps.vars.outputs.downgrade_version }}
+          image-tag: 'quay.io/cilium/cilium-ci:f07de6edc614c62e1feb7d8504fd819a7d7dc55f'
           chart-dir: './cilium-${{ steps.vars.outputs.downgrade_version }}/install/kubernetes/cilium/'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
