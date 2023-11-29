@@ -17,11 +17,20 @@ import (
 func TestCompile(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
+	debugOutput := func(p *progInfo) *progInfo {
+		cpy := *p
+		cpy.Output = cpy.Source
+		cpy.OutputType = outputSource
+		return &cpy
+	}
+
 	dirs := getDirs(t)
-	progs := append([]*progInfo(nil), debugProgs...)
-	progs = append(progs, debugHostProgs...)
-	progs = append(progs, epProg, hostEpProg)
-	for _, prog := range progs {
+	for _, prog := range []*progInfo{
+		epProg,
+		hostEpProg,
+		debugOutput(epProg),
+		debugOutput(hostEpProg),
+	} {
 		name := fmt.Sprintf("%s:%s", prog.OutputType, prog.Output)
 		t.Run(name, func(t *testing.T) {
 			path, err := compile(context.Background(), prog, dirs)
