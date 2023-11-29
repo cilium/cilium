@@ -288,6 +288,7 @@ jobs:
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           cpu: 4
+          mem: 12G
           install-dependencies: 'true'
           cmd: |
             git config --global --add safe.directory /host
