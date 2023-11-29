@@ -3,8 +3,6 @@
 
 package types
 
-import "context"
-
 type NodeUpdater interface {
 	UpdateLocalNode()
 }
@@ -12,5 +10,5 @@ type NodeUpdater interface {
 type IPsecKeyCustodian interface {
 	AuthKeySize() int
 	SPI() uint8
-	StartBackgroundJobs(context.Context, NodeUpdater, NodeHandler) error
+	StartBackgroundJobs(NodeUpdater, NodeHandler) error
 }
