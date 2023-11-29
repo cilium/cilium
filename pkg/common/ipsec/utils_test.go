@@ -65,35 +65,41 @@ func getXfrmPolicy(t *testing.T, src string, dst string, dir netlink.Dir) netlin
 func TestCountUniqueIPsecKeys(t *testing.T) {
 	var xfrmStates []netlink.XfrmState
 
-	keys := CountUniqueIPsecKeys(xfrmStates)
+	keys, err := CountUniqueIPsecKeys(xfrmStates)
+	require.NoError(t, err)
 	require.Equal(t, keys, 0)
 
 	xfrmStates = append(xfrmStates, getXfrmState(t, "10.0.0.1", "10.0.0.2", 2, "rfc4106(gcm(aes))", "611d0c8049dd88600ec4f9eded7b1ed540ea607f", 0x12343e00))
 	xfrmStates = append(xfrmStates, getXfrmState(t, "10.0.0.2", "10.0.0.1", 1, "rfc4106(gcm(aes))", "611d0c8049dd88600ec4f9eded7b1ed540ea607f", 0x12343d00))
 
-	keys = CountUniqueIPsecKeys(xfrmStates)
+	keys, err = CountUniqueIPsecKeys(xfrmStates)
+	require.NoError(t, err)
 	require.Equal(t, keys, 1)
 
 	xfrmStates = append(xfrmStates, getXfrmState(t, "10.0.0.1", "10.0.0.2", 1, "rfc4106(gcm(aes))", "383fa49ea57848c9e85af88a187321f81da54bb6", 0x12343e00))
 
-	keys = CountUniqueIPsecKeys(xfrmStates)
+	keys, err = CountUniqueIPsecKeys(xfrmStates)
+	require.NoError(t, err)
 	require.Equal(t, keys, 2)
 
 	xfrmStates = append(xfrmStates, getXfrmState(t, "10.0.0.1", "10.0.0.2", 1, "cbc(aes)", "a9d204b6c2df6f0b707bbfdb71b4bd44", 0x12343e00))
 
-	keys = CountUniqueIPsecKeys(xfrmStates)
+	keys, err = CountUniqueIPsecKeys(xfrmStates)
+	require.NoError(t, err)
 	require.Equal(t, keys, 3)
 
 	state := getXfrmState(t, "10.0.0.1", "10.0.0.2", 2, "cbc(aes)", "123d0c8049dd88600ec4f9eded7b1ed540ea607a", 0x12343e00)
 	state.Auth = nil // make it invalid
 	xfrmStates = append(xfrmStates, state)
-	keys = CountUniqueIPsecKeys(xfrmStates)
+	keys, err = CountUniqueIPsecKeys(xfrmStates)
+	require.Error(t, err)
 	require.Equal(t, keys, 3)
 
 	state = getXfrmState(t, "10.0.0.1", "10.0.0.2", 2, "cbc(aes)", "234d0c8049dd88600ec4f9eded7b1ed540ea607b", 0x12343e00)
 	state.Crypt = nil // make it invalid
 	xfrmStates = append(xfrmStates, state)
-	keys = CountUniqueIPsecKeys(xfrmStates)
+	keys, err = CountUniqueIPsecKeys(xfrmStates)
+	require.Error(t, err)
 	require.Equal(t, keys, 3)
 
 	state = getXfrmState(t, "10.0.0.1", "10.0.0.2", 2, "cbc(aes)", "345d0c8049dd88600ec4f9eded7b1ed540ea607c", 0x12343e00)
@@ -101,7 +107,8 @@ func TestCountUniqueIPsecKeys(t *testing.T) {
 	state.Auth = nil  // make it invalid
 	state.Crypt = nil // make it invalid
 	xfrmStates = append(xfrmStates, state)
-	keys = CountUniqueIPsecKeys(xfrmStates)
+	keys, err = CountUniqueIPsecKeys(xfrmStates)
+	require.Error(t, err)
 	require.Equal(t, keys, 3)
 }
 
