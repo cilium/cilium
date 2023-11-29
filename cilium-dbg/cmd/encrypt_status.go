@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"reflect"
 	"regexp"
@@ -164,7 +165,10 @@ func dumpIPsecStatus() {
 	if err != nil {
 		Fatalf("Cannot get xfrm state: %s", err)
 	}
-	keys := ipsec.CountUniqueIPsecKeys(xfrmStates)
+	keys, err := ipsec.CountUniqueIPsecKeys(xfrmStates)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error counting IPsec keys: %s\n", err)
+	}
 	oseq := maxSequenceNumber()
 	interfaces := getDecryptionInterfaces()
 	fmt.Printf("Decryption interface(s): %s\n", strings.Join(interfaces, ", "))
