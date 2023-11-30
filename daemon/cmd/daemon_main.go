@@ -976,6 +976,15 @@ func initializeFlags() {
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(Vp, option.DisableIptablesFeederRules)
 
+	flags.Bool(option.HubbleDropEvents, defaults.HubbleDropEventsEnabled, "Emit packet drop Events related to pods")
+	option.BindEnv(vp, option.HubbleDropEvents)
+
+	flags.Duration(option.HubbleDropEventsInterval, defaults.HubbleDropEventsInterval, "Minimum time between emitting same events")
+	option.BindEnv(vp, option.HubbleDropEventsInterval)
+
+	flags.Int(option.HubbleDropEventsHistorySize, defaults.HubbleDropEventsHistorySize, "Maximum size of the drop event history")
+	option.BindEnv(vp, option.HubbleDropEventsHistorySize)
+
 	flags.Bool(option.EnableIPv4FragmentsTrackingName, defaults.EnableIPv4FragmentsTracking, "Enable IPv4 fragments tracking for L4-based lookups")
 	option.BindEnv(Vp, option.EnableIPv4FragmentsTrackingName)
 

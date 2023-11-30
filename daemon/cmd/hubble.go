@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
+	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
@@ -99,6 +100,26 @@ func (d *Daemon) launchHubble() {
 		observerOpts []observeroption.Option
 		localSrvOpts []serveroption.Option
 	)
+
+	if option.Config.HubbleDropEvents {
+		logger.Infof("Starting packet drop events emitter with interval %s", option.Config.HubbleDropEventsInterval.String())
+
+		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
+			option.Config.HubbleDropEventsInterval,
+			option.Config.HubbleDropEventsHistorySize,
+			d.clientset,
+		)
+
+		observerOpts = append(observerOpts,
+			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+				err := dropEventEmitter.ProcessFlow(ctx, flow)
+				if err != nil {
+					logger.WithError(err).Error("Failed to ProcessFlow in drop events handler")
+				}
+				return false, nil
+			}),
+		)
+	}
 
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{

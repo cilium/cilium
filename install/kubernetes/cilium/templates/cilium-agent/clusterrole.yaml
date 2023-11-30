@@ -37,6 +37,13 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 {{- if .Values.annotateK8sNode }}
 - apiGroups:
   - ""

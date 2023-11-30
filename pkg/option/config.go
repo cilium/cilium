@@ -701,7 +701,7 @@ const (
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName = "monitor-queue-size"
 
-	//FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
+	// FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
 	// FQDNProxyDenyWithNameError is useful when stub resolvers, like the one
@@ -986,6 +986,18 @@ const (
 	// DisableIptablesFeederRules specifies which chains will be excluded
 	// when installing the feeder rules
 	DisableIptablesFeederRules = "disable-iptables-feeder-rules"
+
+	// HubbleDropEvents controls whether Hubble should create v1.Events
+	// for packet drops related to pods
+	HubbleDropEvents = "hubble-drop-events"
+
+	// HubbleDropEventsInterval controls the minimum time between emitting events
+	// with the same source and destination IP
+	HubbleDropEventsInterval = "hubble-drop-events-interval"
+
+	// HubbleDropEventsHistorySize controls the maximum size of the drop history,
+	// to prevent excessive memory usage
+	HubbleDropEventsHistorySize = "hubble-drop-events-history-size"
 
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
@@ -2169,6 +2181,18 @@ type DaemonConfig struct {
 	// HubbleSkipUnknownCGroupIDs specifies if events with unknown cgroup ids should be skipped
 	HubbleSkipUnknownCGroupIDs bool
 
+	// HubbleDropEvents controls whether Hubble should create v1.Events
+	// for packet drops related to pods
+	HubbleDropEvents bool
+
+	// HubbleDropEventsInterval controls the minimum time between emitting events
+	// with the same source and destination IP
+	HubbleDropEventsInterval time.Duration
+
+	// HubbleDropEventsHistorySize controls the maximum size of the drop history,
+	// to prevent excessive memory usage
+	HubbleDropEventsHistorySize int
+
 	// EndpointStatus enables population of information in the
 	// CiliumEndpoint.Status resource
 	EndpointStatus map[string]struct{}
@@ -3351,9 +3375,11 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleRecorderStoragePath = vp.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)
 	c.HubbleSkipUnknownCGroupIDs = vp.GetBool(HubbleSkipUnknownCGroupIDs)
-
 	c.DisableIptablesFeederRules = vp.GetStringSlice(DisableIptablesFeederRules)
 	c.EnableCiliumEndpointSlice = vp.GetBool(EnableCiliumEndpointSlice)
+	c.HubbleDropEvents = vp.GetBool(HubbleDropEvents)
+	c.HubbleDropEventsInterval = vp.GetDuration(HubbleDropEventsInterval)
+	c.HubbleDropEventsHistorySize = vp.GetInt(HubbleDropEventsHistorySize)
 
 	// Hidden options
 	c.CompilerFlags = vp.GetStringSlice(CompilerFlags)

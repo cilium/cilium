@@ -62,7 +62,7 @@ const (
 	// StateDirRights are the default access rights of the state directory
 	StateDirRights = 0770
 
-	//StateDir is the default path for the state directory relative to RuntimePath
+	// StateDir is the default path for the state directory relative to RuntimePath
 	StateDir = "state"
 
 	// TemplatesDir is the default path for the compiled template objects relative to StateDir
@@ -97,6 +97,18 @@ const (
 
 	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
 	HubbleRecorderSinkQueueSize = 1024
+
+	// HubbleDropEventsEnabled controls whether Hubble should create v1.Events
+	// for packet drops related to pods
+	HubbleDropEventsEnabled = false
+
+	// HubbleDropEventsInterval controls the minimum time between emitting events
+	// with the same source and destination IP
+	HubbleDropEventsInterval = 2 * time.Minute
+
+	// HubbleDropEventsHistorySize controls the maximum size of the drop history,
+	// to prevent excessive memory usage
+	HubbleDropEventsHistorySize = 100
 
 	// MonitorSockPath1_2 is the path to the UNIX domain socket used to
 	// distribute BPF and agent events to listeners.
@@ -153,7 +165,7 @@ const (
 
 	// FQDNProxyResponseMaxDelay The maximum time the DNS proxy holds an allowed
 	// DNS response before sending it along. Responses are sent as soon as the
-	//datapath is updated with the new IP information.
+	// datapath is updated with the new IP information.
 	FQDNProxyResponseMaxDelay = 100 * time.Millisecond
 
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
