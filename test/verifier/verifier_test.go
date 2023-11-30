@@ -163,8 +163,11 @@ func TestVerifier(t *testing.T) {
 						fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
 						fmt.Sprintf("KERNEL=%s", kernelVersion),
 					)
+					t.Logf("Compiling with %q", cmd.Args)
+					t.Logf("Env is %q", cmd.Env)
 					if out, err := cmd.CombinedOutput(); err != nil {
-						t.Fatalf("Failed to compile bpf objects: %v\ncommand output: %s", err, out)
+						t.Logf("Command output:\n%s", string(out))
+						t.Fatalf("Failed to compile bpf objects: %v", err)
 					}
 
 					objFile := filepath.Join("./", name+".o")
@@ -230,7 +233,7 @@ func TestVerifier(t *testing.T) {
 						// of the program that triggered the verifier error.
 						// ebpf.VerifierError only contains the return code and verifier log
 						// buffer.
-						t.Fatalf("Error: %v\nVerifier error tail: %-10v\nDatapath build config: %s", err, ve, datapathConfig)
+						t.Fatalf("Error: %v\nVerifier error tail: %-10v", err, ve)
 					}
 					if err != nil {
 						t.Fatal(err)
