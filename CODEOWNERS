@@ -410,6 +410,7 @@ Makefile* @cilium/build
 /pkg/counter @cilium/sig-datapath
 /pkg/crypto/ @cilium/sig-hubble @cilium/sig-policy
 /pkg/datapath/ @cilium/sig-datapath
+/pkg/datapath/fake/ipsec.go @cilium/ipsec
 /pkg/datapath/linux/config/ @cilium/loader
 /pkg/datapath/linux/ipsec/ @cilium/ipsec
 /pkg/datapath/linux/ipsec/xfrm_collector* @cilium/ipsec @cilium/metrics
@@ -417,6 +418,7 @@ Makefile* @cilium/build
 /pkg/datapath/linux/node.go @cilium/sig-datapath
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
+/pkg/datapath/types/ipsec.go @cilium/ipsec
 /pkg/datapath/types/loader.go @cilium/loader
 /pkg/datapath/loader/ @cilium/loader
 /pkg/datapath/ipcache/ @cilium/ipcache
