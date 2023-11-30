@@ -84,7 +84,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Cl
 		cnpCache := make(map[resource.Key]*types.SlimCNP)
 
 		cidrGroupCache := make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup)
-		cidrGroupEvents := k.resources.CIDRGroups.Events(ctx)
+		cidrGroupEvents := k.resources.CiliumCIDRGroups.Events(ctx)
 
 		// cidrGroupPolicies is the set of policies that are referencing CiliumCIDRGroup objects.
 		cidrGroupPolicies := make(map[resource.Key]struct{})
