@@ -1,24 +1,22 @@
-name: Chart CI Push
+name: Push CI Helm Chart to Quay
 
 on:
-  # run after the image build completes
-  workflow_run:
-    workflows:
-      - Image CI Build
-      - Hot Fix Image Release Build
-    types:
-      - completed
+  pull_request_target: {}
+  push:
+    branches:
+      - main
+      - hf/main/**
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
   # allow manually triggering it as well, for existing refs
   workflow_dispatch:
     inputs:
       checkout_ref:
         description: 'Git ref to build. This needs to be a full commit SHA.'
         required: true
-
-  # To test: uncomment this and update it to your branch name and push to the branch.
-  # push:
-  #   branches:
-  #     - ft/main/<your_branch>
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -34,7 +32,8 @@ concurrency:
   group: |
     ${{ github.workflow }}-${{ github.event_name }}-${{
       (github.event_name == 'workflow_dispatch' && inputs.checkout_ref) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha)
+      (github.event_name == 'pull_request_target' && github.event.pull_request.head.sha) ||
+      (github.event_name == 'push' && github.sha)
     }}
   cancel-in-progress: true
 
@@ -42,10 +41,8 @@ jobs:
   push-charts:
     name: Push Charts
     runs-on: ubuntu-22.04
-    # we also check for push events in case someone is testing the workflow by uncommenting the push trigger above.
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
     steps:
-    - name: Checkout GitHub main
+    - name: Checkout GitHub main branch to access local actions
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       with:
         ref: ${{ github.event.repository.default_branch }}
@@ -60,23 +57,24 @@ jobs:
         if [[ "${{ github.event_name }}" == "workflow_dispatch"  ]]; then
           echo ref="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
           echo sha="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-          if [[ "${{ github.event.workflow_run.head_repository.fork }}" == "true"  ]]; then
-            # use the SHA on forks since the head_branch won't exist in the upstream repository
-            echo ref="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
-          else
-            echo ref="${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
-          fi
-          echo sha="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
         elif [[ "${{ github.event_name }}" == "push" ]]; then
           echo ref="${{ github.ref }}" >> $GITHUB_OUTPUT
           echo sha="${{ github.sha }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
+          if [[ "${{ github.event.pull_request.head.repo.fork }}" == "true"  ]]; then
+            # use the SHA on forks since the head_branch won't exist in the upstream repository
+            echo ref=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
+          else
+            echo ref="${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+          fi
+          echo sha=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
         else
           echo "Invalid event type"
           exit 1
         fi
 
     - name: Set commit status to pending
+      if: ${{ github.event_name == 'workflow_dispatch' }}
       uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
       with:
         sha: ${{ steps.get-ref.outputs.sha }}
@@ -91,6 +89,7 @@ jobs:
         ref: ${{ steps.get-ref.outputs.ref }}
         # required for git describe
         fetch-depth: 0
+
     - name: Get version
       id: get-version
       run: |
@@ -102,6 +101,15 @@ jobs:
           echo "./contrib/scripts/print-chart-version.sh missing. Perhaps it needs to be backported to your target branch?"
           exit 1
         fi
+
+    # Wait for images to prevent pushing a Helm Chart for unpublished images
+    - name: Wait for images to be available
+      timeout-minutes: 30
+      shell: bash
+      run: |
+        for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.get-ref.outputs.sha }} &> /dev/null; do sleep 45s; done
+        done
 
     - name: Push charts
       uses: cilium/reusable-workflows/.github/actions/push-helm-chart@6ae27958f2f37545bf48e44106b73df05b1f6d12 # v0.1.0
@@ -149,7 +157,7 @@ jobs:
         echo helm install cilium -n kube-system  oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version ${{ steps.get-version.outputs.chart_version }}
 
     - name: Set commit status to success
-      if: ${{ success() }}
+      if: ${{ success() && github.event_name == 'workflow_dispatch' }}
       uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
       with:
         sha: ${{ steps.get-ref.outputs.sha }}
@@ -157,7 +165,7 @@ jobs:
         description: Helm push successful
 
     - name: Set commit status to failure
-      if: ${{ failure() }}
+      if: ${{ failure() && github.event_name == 'workflow_dispatch' }}
       uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
       with:
         sha: ${{ steps.get-ref.outputs.sha }}
@@ -165,7 +173,7 @@ jobs:
         description: Helm push failed
 
     - name: Set commit status to cancelled
-      if: ${{ cancelled() }}
+      if: ${{ cancelled() && github.event_name == 'workflow_dispatch' }}
       uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
       with:
         sha: ${{ steps.get-ref.outputs.sha }}
