@@ -1612,6 +1612,14 @@
      - Additional hubble-relay environment variables.
      - list
      - ``[]``
+   * - :spelling:ignore:`hubble.relay.extraVolumeMounts`
+     - Additional hubble-relay volumeMounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.relay.extraVolumes`
+     - Additional hubble-relay volumes.
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.relay.gops.enabled`
      - Enable gops for hubble-relay
      - bool
