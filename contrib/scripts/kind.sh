@@ -15,6 +15,8 @@ default_service_subnet=""
 default_agent_port_prefix="234"
 default_operator_port_prefix="235"
 default_network="kind-cilium"
+default_apiserver_addr="127.0.0.1"
+default_apiserver_port=0 # kind will randomly select
 secondary_network="${default_network}-secondary"
 
 PROG=${0}
@@ -42,6 +44,8 @@ cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
 image="${4:-${IMAGE:=${default_image}}}"
 kubeproxy_mode="${5:-${KUBEPROXY_MODE:=${default_kubeproxy_mode}}}"
 ipfamily="${6:-${IPFAMILY:=${default_ipfamily}}}"
+apiserver_addr="${7:-${APISERVER_ADDR:=${default_apiserver_addr}}}"
+apiserver_port="${8:-${APISERVER_PORT:=${default_apiserver_port}}}"
 pod_subnet="${PODSUBNET:=${default_pod_subnet}}"
 service_subnet="${SERVICESUBNET:=${default_service_subnet}}"
 agent_port_prefix="${AGENTPORTPREFIX:=${default_agent_port_prefix}}"
@@ -56,7 +60,7 @@ v6_prefix_secondary="fc00:c112::/64"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
-  echo "Usage: ${PROG} [--xdp] [--secondary-network] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
+  echo "Usage: ${PROG} [--xdp] [--secondary-network] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family] [apiserver-addr] [apiserver-port]"
 }
 
 have_kind() {
@@ -79,7 +83,7 @@ if ! have_kubectl; then
     exit 1
 fi
 
-if [ ${#} -gt 6 ]; then
+if [ ${#} -gt 8 ]; then
   usage
   exit 1
 fi
@@ -163,6 +167,9 @@ networking:
   ipFamily: ${ipfamily}
   ${pod_subnet:+"podSubnet: "$pod_subnet}
   ${service_subnet:+"serviceSubnet: "$service_subnet}
+  apiServerAddress: ${apiserver_addr}
+  apiServerPort: ${apiserver_port}
+
 kubeadmConfigPatches:
   - |
     kind: ClusterConfiguration
