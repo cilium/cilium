@@ -82,6 +82,9 @@ spec:
         volumeMounts:
         - name: etcd-data-dir
           mountPath: /var/run/etcd
+        {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
         {{- with .Values.clustermesh.apiserver.etcd.init.resources }}
         resources:
@@ -133,6 +136,9 @@ spec:
           readOnly: true
         - name: etcd-data-dir
           mountPath: /var/run/etcd
+        {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
         {{- with .Values.clustermesh.apiserver.etcd.resources }}
         resources:
