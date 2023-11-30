@@ -15,7 +15,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -208,29 +207,6 @@ func ConvertToNetworkV1IngressLoadBalancerIngress(slimLBIngs []slim_corev1.LoadB
 			})
 	}
 	return ingLBIngs
-}
-
-func ConvertToSlimIngressLoadBalancerStatus(slimLBStatus *slim_corev1.LoadBalancerStatus) *slim_networkingv1.IngressLoadBalancerStatus {
-	ingLBIngs := make([]slim_networkingv1.IngressLoadBalancerIngress, 0, len(slimLBStatus.Ingress))
-	for _, lbIng := range slimLBStatus.Ingress {
-		ports := make([]slim_networkingv1.IngressPortStatus, 0, len(lbIng.Ports))
-		for _, port := range lbIng.Ports {
-			ports = append(ports, slim_networkingv1.IngressPortStatus{
-				Port:     port.Port,
-				Protocol: slim_corev1.Protocol(port.Protocol),
-				Error:    port.Error,
-			})
-		}
-		ingLBIngs = append(ingLBIngs,
-			slim_networkingv1.IngressLoadBalancerIngress{
-				IP:       lbIng.IP,
-				Hostname: lbIng.Hostname,
-				Ports:    ports,
-			})
-	}
-	return &slim_networkingv1.IngressLoadBalancerStatus{
-		Ingress: ingLBIngs,
-	}
 }
 
 // TransformToK8sService transforms a *v1.Service into a *slim_corev1.Service
@@ -536,7 +512,6 @@ func TransformToCiliumEndpoint(obj interface{}) (interface{}, error) {
 // ConvertCEPToCoreCEP converts a CiliumEndpoint to a CoreCiliumEndpoint
 // containing only a minimal set of entities used to
 func ConvertCEPToCoreCEP(cep *cilium_v2.CiliumEndpoint) *cilium_v2alpha1.CoreCiliumEndpoint {
-
 	// Copy Networking field into core CEP
 	var epNetworking *cilium_v2.EndpointNetworking
 	if cep.Status.Networking != nil {
