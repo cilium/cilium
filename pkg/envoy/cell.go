@@ -4,14 +4,20 @@
 package envoy
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
+	"runtime/pprof"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell initializes and manages the Envoy proxy and its control-plane components like xDS- and accesslog server.
@@ -118,6 +124,9 @@ type versionCheckParams struct {
 	cell.In
 
 	Lifecycle        hive.Lifecycle
+	Logger           logrus.FieldLogger
+	JobRegistry      job.Registry
+	Scope            cell.Scope
 	EnvoyAdminClient *EnvoyAdminClient
 }
 
@@ -134,19 +143,24 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 		envoyVersionFunc = getEmbeddedEnvoyVersion
 	}
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(startContext hive.HookContext) error {
-			// To prevent agent restarts in case the Envoy DaemonSet isn't ready yet,
-			// version check is performed asynchronously and errors are only logged.
-			go func() {
-				if err := checkEnvoyVersion(envoyVersionFunc); err != nil {
-					log.WithError(err).Error("Envoy: Version check failed")
-				}
-			}()
+	jobGroup := params.JobRegistry.NewGroup(
+		params.Scope,
+		job.WithLogger(params.Logger),
+		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
+	)
+	params.Lifecycle.Append(jobGroup)
 
-			return nil
-		},
-	})
+	// To prevent agent restarts in case the Envoy DaemonSet isn't ready yet,
+	// version check is performed periodically and any errors are logged
+	// and reported via health reporter.
+	jobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
+		if err := checkEnvoyVersion(envoyVersionFunc); err != nil {
+			params.Logger.WithError(err).Error("Envoy: Version check failed")
+			return err
+		}
+
+		return nil
+	}, 5*time.Minute))
 }
 
 func newLocalEndpointStore() *LocalEndpointStore {
