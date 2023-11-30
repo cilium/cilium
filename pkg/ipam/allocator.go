@@ -299,7 +299,6 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 	delete(ipam.expirationTimers, ip.String())
 
 	metrics.IPAMEvent.WithLabelValues(metricRelease, string(family)).Inc()
-	metrics.IPAMEvent.WithLabelValues(metricRelease, string(family)).Inc()
 	return nil
 }
 
