@@ -1,0 +1,42 @@
+name: K8s on LVH
+description: Creates K8s cluster inside LVH VM, and then exposes K8s cluster to GHA runner.
+
+inputs:
+  kernel:
+    required: true
+    type: string
+  kind-params:
+    required: true
+    type: string
+  test-name:
+    required: true
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Provision LVH VMs
+      uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+      with:
+        test-name: ${{ inputs.test-name }}
+        image-version: ${{ inputs.kernel }}
+        host-mount: ./
+        cpu: 4
+        install-dependencies: 'true'
+        port-forward: '6443:6443'
+        cmd: |
+          git config --global --add safe.directory /host
+
+    - name: Create K8s cluster
+      uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+      with:
+        provision: 'false'
+        cmd: |
+          cd /host
+          ./contrib/scripts/kind.sh ${{ inputs.kind-params }} 0.0.0.0 6443
+
+    - name: Copy kubeconfig
+      shell: bash
+      run: |
+        mkdir ~/.kube
+        scp -o StrictHostKeyChecking=no -P 2222 root@localhost:/root/.kube/config ~/.kube/config
