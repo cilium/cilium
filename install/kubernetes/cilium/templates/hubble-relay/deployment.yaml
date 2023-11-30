@@ -91,6 +91,9 @@ spec:
             mountPath: /var/lib/hubble-relay/tls
             readOnly: true
           {{- end }}
+          {{- with .Values.hubble.relay.extraVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           terminationMessagePolicy: FallbackToLogsOnError
       restartPolicy: Always
       priorityClassName: {{ .Values.hubble.relay.priorityClassName }}
@@ -158,5 +161,8 @@ spec:
                 - key: tls.key
                   path: server.key
           {{- end }}
+      {{- end }}
+      {{- with .Values.hubble.relay.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end }}
