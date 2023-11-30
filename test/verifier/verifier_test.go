@@ -169,8 +169,12 @@ func TestVerifier(t *testing.T) {
 						fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
 						fmt.Sprintf("KERNEL=%s", kernelVersion),
 					)
-					if out, err := cmd.CombinedOutput(); err != nil {
-						t.Fatalf("Failed to compile bpf objects: %v\ncommand output: %s", err, out)
+					t.Logf("Compiling with %q", cmd.Args)
+					t.Logf("Env is %q", cmd.Env)
+					out, err := cmd.CombinedOutput()
+					t.Logf("Command output:\n%s", string(out))
+					if err != nil {
+						t.Fatalf("Failed to compile bpf objects: %v", err)
 					}
 
 					objFile := path.Join(*ciliumBasePath, "bpf", name+".o")
