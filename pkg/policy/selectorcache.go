@@ -253,6 +253,14 @@ type SelectorCache struct {
 	userNotes []userNotification
 }
 
+func (sc *SelectorCache) RLock() {
+	sc.mutex.RLock()
+}
+
+func (sc *SelectorCache) RUnlock() {
+	sc.mutex.RUnlock()
+}
+
 // GetModel returns the API model of the SelectorCache.
 func (sc *SelectorCache) GetModel() models.SelectorCache {
 	sc.mutex.RLock()

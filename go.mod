@@ -20,7 +20,7 @@ require (
 	github.com/cilium/coverbee v0.2.2
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
-	github.com/cilium/dns v1.1.51-0.20231108175042-eaf71f6affd2
+	github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
 	github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2
 	github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735
 	github.com/cilium/lumberjack/v2 v2.2.2
@@ -200,7 +200,6 @@ require (
 	github.com/mdlayher/netlink v1.4.1 // indirect
 	github.com/mdlayher/raw v0.0.0-20210412142147-51b895745faf // indirect
 	github.com/mdlayher/socket v0.0.0-20211102153432-57e3fa563ecb // indirect
-	github.com/miekg/dns v1.1.51 // indirect
 	github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect

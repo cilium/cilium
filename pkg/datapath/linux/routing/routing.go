@@ -38,7 +38,9 @@ var (
 // ip: The endpoint IP address to direct traffic out / from interface.
 // info: The interface routing info used to create rules and routes.
 // mtu: The interface MTU.
-func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
+// compat: Whether to use the compat egress priority or not.
+// host: Whether the IP is a host IP and needs to be routed via the 'local' table
+func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) error {
 	if ip.To4() == nil {
 		log.WithFields(logrus.Fields{
 			"endpointIP": ip,
@@ -56,14 +58,19 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 		Mask: net.CIDRMask(32, 32),
 	}
 
-	// On ingress, route all traffic to the endpoint IP via the main routing
-	// table. Egress rules are created in a per-ENI routing table.
-	if err := route.ReplaceRule(route.Rule{
-		Priority: linux_defaults.RulePriorityIngress,
-		To:       &ipWithMask,
-		Table:    route.MainTable,
-	}); err != nil {
-		return fmt.Errorf("unable to install ip rule: %s", err)
+	// Ingress rule. This rule is not installed for the cilium_host IP, because
+	// the cilium_host IP is a local IP and therefore must be routed via the
+	// 'local' table instead of 'main'.
+	if !host {
+		// On ingress, route all traffic to the endpoint IP via the main routing
+		// table. Egress rules are created in a per-ENI routing table.
+		if err := route.ReplaceRule(route.Rule{
+			Priority: linux_defaults.RulePriorityIngress,
+			To:       &ipWithMask,
+			Table:    route.MainTable,
+		}); err != nil {
+			return fmt.Errorf("unable to install ip rule: %s", err)
+		}
 	}
 
 	var egressPriority, tableID int
@@ -230,44 +237,6 @@ func Delete(ip netip.Addr, compat bool) error {
 	return nil
 }
 
-// SetupRules installs routing rules based on the passed attributes. It accounts
-// for option.Config.EgressMultiHomeIPRuleCompat while configuring the rules.
-func SetupRules(from, to *net.IPNet, mac string, ifaceNum int) error {
-	var (
-		prio    int
-		tableId int
-	)
-
-	if option.Config.EgressMultiHomeIPRuleCompat {
-		prio = linux_defaults.RulePriorityEgress
-		ifindex, err := retrieveIfaceIdxFromMAC(mac)
-		if err != nil {
-			return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
-		}
-		tableId = ifindex
-	} else {
-		prio = linux_defaults.RulePriorityEgressv2
-		tableId = computeTableIDFromIfaceNumber(ifaceNum)
-	}
-	return route.ReplaceRule(route.Rule{
-		Priority: prio,
-		From:     from,
-		To:       to,
-		Table:    tableId,
-	})
-}
-
-// RetrieveIfaceNameFromMAC finds the corresponding device name for a
-// given MAC address.
-func RetrieveIfaceNameFromMAC(mac string) (string, error) {
-	iface, err := retrieveIfaceFromMAC(mac)
-	if err != nil {
-		err = fmt.Errorf("failed to get iface name with MAC %w", err)
-		return "", err
-	}
-	return iface.Attrs().Name, nil
-}
-
 func deleteRule(r route.Rule) error {
 	rules, err := route.ListRules(netlink.FAMILY_V4, &r)
 	if err != nil {
@@ -337,37 +306,4 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 // ENI interface number.
 func computeTableIDFromIfaceNumber(num int) int {
 	return linux_defaults.RouteTableInterfacesOffset + num
-}
-
-// retrieveIfaceIdxFromMAC finds the corresponding interface index for a
-// given MAC address.
-// It returns -1 as the index for error conditions.
-func retrieveIfaceIdxFromMAC(mac string) (int, error) {
-	iface, err := retrieveIfaceFromMAC(mac)
-	if err != nil {
-		err = fmt.Errorf("failed to get iface index with MAC %w", err)
-		return -1, err
-	}
-	return iface.Attrs().Index, nil
-}
-
-// retrieveIfaceFromFromMAC finds the corresponding interface for a
-// given MAC address.
-func retrieveIfaceFromMAC(mac string) (link netlink.Link, err error) {
-	var links []netlink.Link
-
-	links, err = netlink.LinkList()
-	if err != nil {
-		err = fmt.Errorf("unable to list interfaces: %w", err)
-		return
-	}
-	for _, l := range links {
-		if l.Attrs().HardwareAddr.String() == mac {
-			link = l
-			return
-		}
-	}
-
-	err = fmt.Errorf("interface with MAC not found")
-	return
 }

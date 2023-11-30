@@ -60,6 +60,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		ipConfig.Address.IP,
 		int(conf.DeviceMTU),
 		conf.EgressMultiHomeIPRuleCompat,
+		false,
 	); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %s", err)
 	}

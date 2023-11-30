@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,9 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -113,7 +110,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	return fw.Flush()
 }
 
-func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressing) ([]sysctl.Setting, error) {
+func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
 	// AWS ENI mode requires symmetric routing, see
 	// iptables.addCiliumENIRules().
 	// The default AWS daemonset installs the following rules that are used
@@ -169,20 +166,6 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressi
 		return nil, fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
 	}
 
-	// Add rules for router (cilium_host).
-	info := node.GetRouterInfo()
-	cidrs := info.GetIPv4CIDRs()
-	routerIP := net.IPNet{
-		IP:   nodeAddressing.IPv4().Router(),
-		Mask: net.CIDRMask(32, 32),
-	}
-
-	for _, cidr := range cidrs {
-		if err = linuxrouting.SetupRules(&routerIP, &cidr, info.GetMac().String(), info.GetInterfaceNumber()); err != nil {
-			return nil, fmt.Errorf("unable to install ip rule for cilium_host: %w", err)
-		}
-	}
-
 	return retSettings, nil
 }
 
@@ -229,6 +212,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 }
 
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
+	maybeRemoveXDPLinks()
 	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode)
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
@@ -389,7 +373,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		var err error
-		if sysSettings, err = addENIRules(sysSettings, o.Datapath().LocalNodeAddressing()); err != nil {
+		if sysSettings, err = addENIRules(sysSettings); err != nil {
 			return fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
 		}
 	}

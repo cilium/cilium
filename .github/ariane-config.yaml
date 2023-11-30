@@ -13,6 +13,7 @@ triggers:
     - conformance-ingress.yaml
     - tests-clustermesh-upgrade.yaml
     - tests-l4lb.yaml
+    - tests-ipsec-upgrade.yaml
   /ci-aks:
     workflows:
     - conformance-aks.yaml
