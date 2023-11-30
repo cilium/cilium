@@ -414,6 +414,8 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.relay.dialTimeout | string | `nil` | Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s"). |
 | hubble.relay.enabled | bool | `false` | Enable Hubble Relay (requires hubble.enabled=true) |
 | hubble.relay.extraEnv | list | `[]` | Additional hubble-relay environment variables. |
+| hubble.relay.extraVolumeMounts | list | `[]` | Additional hubble-relay volumeMounts. |
+| hubble.relay.extraVolumes | list | `[]` | Additional hubble-relay volumes. |
 | hubble.relay.gops.enabled | bool | `true` | Enable gops for hubble-relay |
 | hubble.relay.gops.port | int | `9893` | Configure gops listen port for hubble-relay |
 | hubble.relay.image | object | `{"digest":"sha256:ca81622fd9f04c1316bf4144bde5dbce613758810f6022f6c706b14c9c0815db","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.14.4","useDigest":true}` | Hubble-relay container image. |
