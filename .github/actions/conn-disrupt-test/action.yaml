@@ -16,34 +16,26 @@ runs:
   using: composite
   steps:
     - name: Setup Conn Disrupt Test
-      uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
-      with:
-        provision: 'false'
-        cmd: |
-          cd /host/
-          # Create pods which establish long lived connections. It will be used by
-          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
-          # interruption in such flows.
-          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+      shell: bash
+      run: |
+        # Create pods which establish long lived connections. It will be used by
+        # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+        # interruption in such flows.
+        ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
 
     - name: Operate Cilium
-      uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
-      with:
-        provision: 'false'
-        cmd: |
-          ${{ inputs.operation-cmd }}
+      shell: bash
+      run: |
+        ${{ inputs.operation-cmd }}
 
     - name: Perform Conn Disrupt Test
-      uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
-      with:
-        provision: 'false'
-        cmd: |
-          cd /host/
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --include-conn-disrupt-test \
-            --flush-ct \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
-            --junit-file "cilium-junits/${{ inputs.job-name }}.xml" \
-            ${{ inputs.extra-connectivity-test-flags }} \
-            --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})"
+      shell: bash
+      run: |
+        ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          --include-conn-disrupt-test \
+          --flush-ct \
+          --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
+          --junit-file "cilium-junits/${{ inputs.job-name }}.xml" \
+          ${{ inputs.extra-connectivity-test-flags }} \
+          --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})"
