@@ -96,7 +96,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	}
 
 	// default to a new default logger
-	baseLogger := logging.InitializeDefaultLogger()
+	baseLogger := logging.DefaultLogger
 
 	// Set log format based on daemon config
 	baseLogger.SetFormatter(logging.GetFormatter(
