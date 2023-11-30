@@ -114,12 +114,6 @@ func TestVerifier(t *testing.T) {
 	kernelVersion, source := getCIKernelVersion(t)
 	t.Logf("CI kernel version: %s (%s)", kernelVersion, source)
 
-	cmd := exec.Command("make", "-C", "bpf/", "clean")
-	cmd.Dir = *ciliumBasePath
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to clean bpf objects: %v\ncommand output: %s", err, out)
-	}
-
 	for _, bpfProgram := range []struct {
 		name      string
 		macroName string
@@ -161,7 +155,7 @@ func TestVerifier(t *testing.T) {
 					datapathConfig := readDatapathConfig(t, file)
 
 					name := fmt.Sprintf("%s_%s", bpfProgram.name, configName)
-					cmd = exec.Command("make", "-C", "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
+					cmd := exec.Command("make", "-C", "bpf", "clean", fmt.Sprintf("%s.o", bpfProgram.name))
 					cmd.Dir = *ciliumBasePath
 					cmd.Env = append(cmd.Env,
 						fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
@@ -171,7 +165,7 @@ func TestVerifier(t *testing.T) {
 						t.Fatalf("Failed to compile bpf objects: %v\ncommand output: %s", err, out)
 					}
 
-					objFile := path.Join(*ciliumBasePath, "bpf", name+".o")
+					objFile := filepath.Join("./", name+".o")
 					// Rename object file to avoid subsequent runs to overwrite it,
 					// so we can keep it for CI's artifact upload.
 					if err = os.Rename(initObjFile, objFile); err != nil {
