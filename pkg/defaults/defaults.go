@@ -98,6 +98,17 @@ const (
 	// HubbleRedactKafkaApiKey controls if the Kafka API key will be redacted from flows
 	HubbleRedactKafkaApiKey = false
 
+	// HubbleDropEventsEnabled controls whether Hubble should create v1.Events
+	// for packet drops related to pods
+	HubbleDropEventsEnabled = false
+
+	// HubbleDropEventsInterval controls the minimum time between emitting events
+	// with the same source and destination IP
+	HubbleDropEventsInterval = 2 * time.Minute
+
+	// HubbleDropEventsReasons controls which drop reasons to emit events for
+	HubbleDropEventsReasons = "auth_required,policy_denied"
+
 	// MonitorSockPath1_2 is the path to the UNIX domain socket used to
 	// distribute BPF and agent events to listeners.
 	// This is the 1.2 protocol version.
