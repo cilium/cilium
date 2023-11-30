@@ -1289,6 +1289,12 @@ hubble:
       rollingUpdate:
         maxUnavailable: 1
 
+    # -- Additional hubble-relay volumes.
+    extraVolumes: []
+
+    # -- Additional hubble-relay volumeMounts.
+    extraVolumeMounts: []
+
     # -- hubble-relay pod security context
     podSecurityContext:
       fsGroup: 65532
