@@ -17,6 +17,19 @@ sudo systemctl restart ssh
 
 "${PROVISIONSRC}"/dns.sh
 
+sudo systemctl status systemd-resolved.service || true
+# Remove symlinked resolv.conf to systemd-resolved
+rm /etc/resolv.conf
+# Remove systemd-resolvd resolv.conf to avoid being read by docker
+rm /run/systemd/resolve/stub-resolv.conf || true
+# Explicitly set nameserver 1.1.1.1 for runtime tests
+# to avoid chases with Cilium DNS
+echo "nameserver 1.1.1.1" > /etc/resolv.conf
+cat /etc/resolv.conf
+
+# Restarting docker to use correct nameserver
+service docker restart
+
 if [[ "${PROVISION_EXTERNAL_WORKLOAD}" == "false" ]]; then
     "${PROVISIONSRC}"/compile.sh
     "${PROVISIONSRC}"/wait-cilium-in-docker.sh
