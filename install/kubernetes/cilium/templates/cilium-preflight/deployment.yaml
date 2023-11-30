@@ -56,6 +56,10 @@ spec:
               - /tmp/ready-validate-cnp
             initialDelaySeconds: 5
             periodSeconds: 5
+          {{- with .Values.preflight.extraVolumeMounts }}
+          volumeMounts:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           env:
           {{- if .Values.k8sServiceHost }}
           - name: KUBERNETES_SERVICE_HOST
@@ -73,11 +77,16 @@ spec:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
           terminationMessagePolicy: FallbackToLogsOnError
+      {{- with .Values.preflight.extraVolumes }}
+      volumes:
+      {{- toYaml . | trim | nindent 6 }}
+      {{- end }}
       hostNetwork: true
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.preflight.automount }}
       terminationGracePeriodSeconds: {{ .Values.preflight.terminationGracePeriodSeconds }}
       {{- with .Values.preflight.affinity }}
       affinity:
