@@ -298,11 +298,13 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		}
 	}
 
-	if (*state)
+	if (*state) {
+		barrier_data(*state);
 		return 0;
-	else
-		return snat_v4_new_mapping(ctx, map, tuple, (*state = tmp),
-					   target, needs_ct, ext_err);
+	}
+
+	*state = tmp;
+	return snat_v4_new_mapping(ctx, map, tuple, tmp, target, needs_ct, ext_err);
 }
 
 static __always_inline int
@@ -1207,11 +1209,13 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		}
 	}
 
-	if (*state)
+	if (*state) {
+		barrier_data(*state);
 		return 0;
-	else
-		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct,
-					   ext_err);
+	}
+
+	*state = tmp;
+	return snat_v6_new_mapping(ctx, tuple, tmp, target, needs_ct, ext_err);
 }
 
 static __always_inline int
