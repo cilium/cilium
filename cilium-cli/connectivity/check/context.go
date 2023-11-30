@@ -618,7 +618,7 @@ func (ct *ConnectivityTest) report() error {
 			ct.Logf("%s", strings.Repeat("-", 145))
 			for p, d := range ct.PerfResults {
 				ct.Logf("📋 %-15s | %-50s | %-15s | %-15d | %-15s | %.2f (%s)", d.Scenario, p.Pod, p.Test, d.Samples, d.Duration, d.Avg, d.Metric)
-				ct.Debugf("Individual Values from run : %s", d.Values)
+				ct.Debugf("Individual Values from run : %f", d.Values)
 			}
 			ct.Logf("%s", strings.Repeat("-", 145))
 		}
