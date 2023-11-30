@@ -22,6 +22,7 @@ runs:
         image-version: ${{ inputs.kernel }}
         host-mount: ./
         cpu: 4
+        mem: 12G
         install-dependencies: 'true'
         port-forward: '6443:6443'
         cmd: |
