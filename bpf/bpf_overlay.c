@@ -101,9 +101,13 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 		/* Maybe overwrite the REMOTE_NODE_ID with
 		 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
-		 * this should be removed.
+		 * identity_is_remote_node() should be removed.
+		 *
+		 * A packet that has DSR info and comes from 'world' may have specific identity when
+		 * a CNP that is using CIDR rules is applied.
 		 */
-		if (info && identity_is_remote_node(*identity))
+		if (info && (identity_is_remote_node(*identity) ||
+			     (ctx_is_dsr(ctx) && *identity == WORLD_ID)))
 			*identity = info->sec_identity;
 	}
 
@@ -395,7 +399,8 @@ skip_vtep:
 		}
 #endif
 		/* See comment at equivalent code in handle_ipv6() */
-		if (info && identity_is_remote_node(*identity))
+		if (info && (identity_is_remote_node(*identity) ||
+			     (ctx_is_dsr(ctx) && *identity == WORLD_ID)))
 			*identity = info->sec_identity;
 	}
 
@@ -570,6 +575,9 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	int ret;
 
 	ctx_skip_nodeport_clear(ctx);
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ctx_is_dsr_clear(ctx);
+#endif
 
 	if (!validate_ethertype(ctx, &proto)) {
 		/* Pass unknown traffic to the stack */

@@ -772,6 +772,9 @@ create_ct:
 	}
 
 	ctx_skip_nodeport_set(ctx);
+#if defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ctx_is_dsr_set(ctx);
+#endif
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 	ret = DROP_MISSED_TAIL_CALL;
 
@@ -2231,6 +2234,9 @@ create_ct:
 
 	/* Recircle, so packet can continue on its way to the local backend: */
 	ctx_skip_nodeport_set(ctx);
+#if defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ctx_is_dsr_set(ctx);
+#endif
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 	ret = DROP_MISSED_TAIL_CALL;
 

@@ -145,6 +145,35 @@ ctx_skip_host_fw(struct __sk_buff *ctx)
 }
 #endif /* ENABLE_HOST_FIREWALL */
 
+static __always_inline __maybe_unused void
+ctx_is_dsr_clear(struct __sk_buff *ctx __maybe_unused)
+{
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ctx->tc_index &= ~TC_INDEX_F_IS_DSR;
+#endif
+}
+
+static __always_inline __maybe_unused void
+ctx_is_dsr_set(struct __sk_buff *ctx __maybe_unused)
+{
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ctx->tc_index |= TC_INDEX_F_IS_DSR;
+#endif
+}
+
+static __always_inline __maybe_unused bool
+ctx_is_dsr(struct __sk_buff *ctx __maybe_unused)
+{
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	volatile __u32 tc_index = ctx->tc_index;
+
+	ctx->tc_index &= ~TC_INDEX_F_IS_DSR;
+	return tc_index & TC_INDEX_F_IS_DSR;
+#else
+	return false;
+#endif
+}
+
 static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
 							 __u32 off)
 {

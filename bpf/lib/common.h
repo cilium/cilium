@@ -750,6 +750,7 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 #define TC_INDEX_F_SKIP_NODEPORT	4
 #define TC_INDEX_F_SKIP_RECIRCULATION	8
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
+#define TC_INDEX_F_IS_DSR	32
 
 /*
  * For use in ctx_{load,store}_meta(), which operates on sk_buff->cb or
