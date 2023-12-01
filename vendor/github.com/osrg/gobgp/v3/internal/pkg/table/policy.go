@@ -3491,14 +3491,14 @@ func (r *RoutingPolicy) GetDefinedSet(typ DefinedType, name string) (*oc.Defined
 	return sets, nil
 }
 
-func (r *RoutingPolicy) AddDefinedSet(s DefinedSet) error {
+func (r *RoutingPolicy) AddDefinedSet(s DefinedSet, replace bool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if m, ok := r.definedSetMap[s.Type()]; !ok {
 		return fmt.Errorf("invalid defined-set type: %d", s.Type())
 	} else {
-		if d, ok := m[s.Name()]; ok {
+		if d, ok := m[s.Name()]; ok && !replace {
 			if err := d.Append(s); err != nil {
 				return err
 			}

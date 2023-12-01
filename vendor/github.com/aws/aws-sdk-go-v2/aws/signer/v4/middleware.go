@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws/middleware/private/metrics"
 	v4Internal "github.com/aws/aws-sdk-go-v2/aws/signer/internal/v4"
 	internalauth "github.com/aws/aws-sdk-go-v2/internal/auth"
 	"github.com/aws/aws-sdk-go-v2/internal/sdk"
@@ -300,7 +301,22 @@ func (s *SignHTTPRequestMiddleware) HandleFinalize(ctx context.Context, in middl
 		return out, metadata, &SigningError{Err: fmt.Errorf("computed payload hash missing from context")}
 	}
 
+	mctx := metrics.Context(ctx)
+
+	if mctx != nil {
+		if attempt, err := mctx.Data().LatestAttempt(); err == nil {
+			attempt.CredentialFetchStartTime = sdk.NowTime()
+		}
+	}
+
 	credentials, err := s.credentialsProvider.Retrieve(ctx)
+
+	if mctx != nil {
+		if attempt, err := mctx.Data().LatestAttempt(); err == nil {
+			attempt.CredentialFetchEndTime = sdk.NowTime()
+		}
+	}
+
 	if err != nil {
 		return out, metadata, &SigningError{Err: fmt.Errorf("failed to retrieve credentials: %w", err)}
 	}
@@ -321,7 +337,20 @@ func (s *SignHTTPRequestMiddleware) HandleFinalize(ctx context.Context, in middl
 		})
 	}
 
+	if mctx != nil {
+		if attempt, err := mctx.Data().LatestAttempt(); err == nil {
+			attempt.SignStartTime = sdk.NowTime()
+		}
+	}
+
 	err = s.signer.SignHTTP(ctx, credentials, req.Request, payloadHash, signingName, signingRegion, sdk.NowTime(), signerOptions...)
+
+	if mctx != nil {
+		if attempt, err := mctx.Data().LatestAttempt(); err == nil {
+			attempt.SignEndTime = sdk.NowTime()
+		}
+	}
+
 	if err != nil {
 		return out, metadata, &SigningError{Err: fmt.Errorf("failed to sign http request, %w", err)}
 	}

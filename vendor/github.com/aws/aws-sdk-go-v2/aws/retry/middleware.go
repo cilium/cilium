@@ -3,6 +3,7 @@ package retry
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws/middleware/private/metrics"
 	"strconv"
 	"strings"
 	"time"
@@ -225,6 +226,13 @@ func (r *Attempt) handleAttempt(
 	// that time. Potentially early exist if the sleep is canceled via the
 	// context.
 	retryDelay, reqErr := r.retryer.RetryDelay(attemptNum, err)
+	mctx := metrics.Context(ctx)
+	if mctx != nil {
+		attempt, err := mctx.Data().LatestAttempt()
+		if err != nil {
+			attempt.RetryDelay = retryDelay
+		}
+	}
 	if reqErr != nil {
 		return out, attemptResult, releaseRetryToken, reqErr
 	}
