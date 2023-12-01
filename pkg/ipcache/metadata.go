@@ -714,5 +714,8 @@ func (ipc *IPCache) triggerLabelInjection() {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this
 	//           channel is preventing transient BPF entries.
+	if !ipc.started {
+		panic("triggerLabelInjection of stopped ipcache")
+	}
 	ipc.controllers.TriggerController(labelInjectorName)
 }

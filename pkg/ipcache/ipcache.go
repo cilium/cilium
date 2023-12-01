@@ -132,6 +132,8 @@ type IPCache struct {
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
 	prefixLengths *counter.PrefixLengthCounter
+
+	started bool
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -166,6 +168,7 @@ func (ipc *IPCache) Start() {
 			MaxRetryInterval: 1 * time.Minute,
 		},
 	)
+	ipc.started = true
 }
 
 // Shutdown cleans up asynchronous routines associated with the IPCache.
