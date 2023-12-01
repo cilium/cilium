@@ -102,6 +102,9 @@
         // type func(a Status, b Status) bool of func(a, b Status) bool {…} does not match inferred
         // type func(a Status, b Status) int for func(a E, b E) int
         "golang.org/x/exp",
+	// This package is not versioned leading to "empty" updates every week.
+	// Update it manually once newly introduces tetragon CRDs are required.
+	"github.com/cilium/tetragon/pkg/k8s",
       ],
       "matchPackagePatterns": [
         // k8s dependencies will be updated manually in lockstep.
