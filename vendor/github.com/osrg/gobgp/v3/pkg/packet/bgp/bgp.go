@@ -1093,6 +1093,9 @@ func (c *CapSoftwareVersion) DecodeFromBytes(data []byte) error {
 		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "Not all CapabilitySoftwareVersion bytes allowed")
 	}
 	softwareVersionLen := uint8(data[0])
+	if len(data[1:]) < int(softwareVersionLen) || softwareVersionLen > 64 {
+		return NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_UNSUPPORTED_CAPABILITY, nil, "invalid length of software version capablity")
+	}
 	c.SoftwareVersionLen = softwareVersionLen
 	c.SoftwareVersion = string(data[1:c.SoftwareVersionLen])
 	return nil

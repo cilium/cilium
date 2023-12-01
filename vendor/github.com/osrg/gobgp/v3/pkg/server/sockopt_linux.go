@@ -18,8 +18,10 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"os"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -33,7 +35,22 @@ const (
 
 func buildTcpMD5Sig(address, key string) *unix.TCPMD5Sig {
 	t := unix.TCPMD5Sig{}
-	addr := net.ParseIP(address)
+
+	var addr net.IP
+	if strings.Contains(address, "/") {
+		var err error
+		var ipnet *net.IPNet
+		addr, ipnet, err = net.ParseCIDR(address)
+		if err != nil {
+			return nil
+		}
+		prefixlen, _ := ipnet.Mask.Size()
+		t.Prefixlen = uint8(prefixlen)
+		t.Flags = unix.TCP_MD5SIG_FLAG_PREFIX
+	} else {
+		addr = net.ParseIP(address)
+	}
+
 	if addr.To4() != nil {
 		t.Addr.Family = unix.AF_INET
 		copy(t.Addr.Data[2:], addr.To4())
@@ -56,8 +73,17 @@ func setTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
 
 	var sockerr error
 	t := buildTcpMD5Sig(address, key)
+	if t == nil {
+		return fmt.Errorf("unable to generate TcpMD5Sig from %s", address)
+	}
 	if err := sc.Control(func(s uintptr) {
-		sockerr = unix.SetsockoptTCPMD5Sig(int(s), unix.IPPROTO_TCP, unix.TCP_MD5SIG, t)
+		opt := unix.TCP_MD5SIG
+
+		if t.Prefixlen != 0 {
+			opt = unix.TCP_MD5SIG_EXT
+		}
+
+		sockerr = unix.SetsockoptTCPMD5Sig(int(s), unix.IPPROTO_TCP, opt, t)
 	}); err != nil {
 		return err
 	}

@@ -75,6 +75,15 @@ func New(options Options, optFns ...func(*Options)) *Client {
 	return client
 }
 
+// Options returns a copy of the client configuration.
+//
+// Callers SHOULD NOT perform mutations on any inner structures within client
+// config. Config overrides should instead be made on a per-operation basis through
+// functional options.
+func (c *Client) Options() Options {
+	return c.options.Copy()
+}
+
 func (c *Client) invokeOperation(ctx context.Context, opID string, params interface{}, optFns []func(*Options), stackFns ...func(*middleware.Stack, Options) error) (result interface{}, metadata middleware.Metadata, err error) {
 	ctx = middleware.ClearStackValues(ctx)
 	stack := middleware.NewStack(opID, smithyhttp.NewStackRequest)
@@ -522,7 +531,7 @@ func (m *presignContextPolyfillMiddleware) HandleFinalize(ctx context.Context, i
 
 	schemeID := rscheme.Scheme.SchemeID()
 
-	if schemeID == "aws.auth#sigv4" {
+	if schemeID == "aws.auth#sigv4" || schemeID == "com.amazonaws.s3#sigv4express" {
 		if sn, ok := smithyhttp.GetSigV4SigningName(&rscheme.SignerProperties); ok {
 			ctx = awsmiddleware.SetSigningName(ctx, sn)
 		}

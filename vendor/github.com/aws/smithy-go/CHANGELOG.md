@@ -1,3 +1,13 @@
+# Release (2023-11-30)
+
+* No change notes available for this release.
+
+# Release (2023-11-29)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.18.0
+  * **Feature**: Expose Options() method on generated service clients.
+
 # Release (2023-11-15)
 
 ## Module Highlights

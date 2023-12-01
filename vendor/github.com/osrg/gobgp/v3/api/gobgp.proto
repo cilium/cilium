@@ -322,7 +322,10 @@ message SetPoliciesRequest {
   repeated PolicyAssignment assignments = 3;
 }
 
-message AddDefinedSetRequest { DefinedSet defined_set = 1; }
+message AddDefinedSetRequest {
+  DefinedSet defined_set = 1;
+  bool replace = 2;
+}
 
 message DeleteDefinedSetRequest {
   DefinedSet defined_set = 1;
