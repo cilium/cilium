@@ -765,8 +765,8 @@ github.com/uber/jaeger-client-go v2.30.0+incompatible h1:D6wyKGCecFaSRUpo8lCVbaO
 github.com/uber/jaeger-client-go v2.30.0+incompatible/go.mod h1:WVhlPFC8FDjOFMMWRy2pZqQJSXxYSwNYOkTr/Z6d3Kk=
 github.com/uber/jaeger-lib v2.4.1+incompatible h1:td4jdvLcExb4cBISKIpHuGoVXh+dVKhn2Um6rjCsSsg=
 github.com/uber/jaeger-lib v2.4.1+incompatible/go.mod h1:ComeNDZlWwrWnDv8aPp0Ba6+uUTzImX/AauajbLI56U=
-github.com/vishvananda/netlink v1.2.1-beta.2.0.20231024175852-77df5d35f725 h1:jXQwcl0Ga5tfyej8AdhADlg1R4OcbpSVRWrpn4ihl8M=
-github.com/vishvananda/netlink v1.2.1-beta.2.0.20231024175852-77df5d35f725/go.mod h1:whJevzBpTrid75eZy99s3DqCmy05NfibNaF2Ol5Ox5A=
+github.com/vishvananda/netlink v1.2.1-beta.2.0.20231127184239-0ced8385386a h1:PdKmLjqKUM8AfjGqDbrF/C56RvuGFDMYB0Z+8TMmGpU=
+github.com/vishvananda/netlink v1.2.1-beta.2.0.20231127184239-0ced8385386a/go.mod h1:whJevzBpTrid75eZy99s3DqCmy05NfibNaF2Ol5Ox5A=
 github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae/go.mod h1:DD4vA1DwXk04H54A1oHXtwZmA0grkVMdPxx/VGLCah0=
 github.com/vishvananda/netns v0.0.4 h1:Oeaw1EM2JMxD51g9uhtC0D7erkIjgmj8+JZc26m1YX8=
 github.com/vishvananda/netns v0.0.4/go.mod h1:SpkAiCQRtJ6TvvxPnOSyH3BMl6unz3xZlaprSwhNNJM=

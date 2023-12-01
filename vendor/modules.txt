@@ -1159,7 +1159,7 @@ github.com/tklauser/go-sysconf
 # github.com/tklauser/numcpus v0.6.0
 ## explicit; go 1.13
 github.com/tklauser/numcpus
-# github.com/vishvananda/netlink v1.2.1-beta.2.0.20231024175852-77df5d35f725
+# github.com/vishvananda/netlink v1.2.1-beta.2.0.20231127184239-0ced8385386a
 ## explicit; go 1.12
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
