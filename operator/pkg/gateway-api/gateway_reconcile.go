@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -166,53 +167,35 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.Service) error {
-	existing := &corev1.Service{}
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return r.Client.Create(ctx, desired)
-		}
-		return err
-	}
-
-	temp := existing.DeepCopy()
-	temp.Spec = desired.Spec
-	setMergedLabelsAndAnnotations(temp, desired)
-
-	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
+	svc := desired.DeepCopy()
+	_, err := controllerutil.CreateOrPatch(ctx, r.Client, svc, func() error {
+		svc.Spec = desired.Spec
+		svc.OwnerReferences = desired.OwnerReferences
+		setMergedLabelsAndAnnotations(svc, desired)
+		return nil
+	})
+	return err
 }
 
 func (r *gatewayReconciler) ensureEndpoints(ctx context.Context, desired *corev1.Endpoints) error {
-	existing := &corev1.Endpoints{}
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return r.Client.Create(ctx, desired)
-		}
-		return err
-	}
-
-	temp := existing.DeepCopy()
-	temp.Subsets = desired.Subsets
-	setMergedLabelsAndAnnotations(temp, desired)
-
-	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
+	ep := desired.DeepCopy()
+	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
+		ep.Subsets = desired.Subsets
+		ep.OwnerReferences = desired.OwnerReferences
+		setMergedLabelsAndAnnotations(ep, desired)
+		return nil
+	})
+	return err
 }
 
 func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, desired *ciliumv2.CiliumEnvoyConfig) error {
-	existing := &ciliumv2.CiliumEnvoyConfig{}
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), existing)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return r.Client.Create(ctx, desired)
-		}
-		return err
-	}
-	temp := existing.DeepCopy()
-	temp.Spec = desired.Spec
-	setMergedLabelsAndAnnotations(temp, desired)
-
-	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
+	cec := desired.DeepCopy()
+	_, err := controllerutil.CreateOrPatch(ctx, r.Client, cec, func() error {
+		cec.Spec = desired.Spec
+		setMergedLabelsAndAnnotations(cec, desired)
+		return nil
+	})
+	return err
 }
 
 func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv1.Gateway, new *gatewayv1.Gateway) error {
