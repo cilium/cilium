@@ -32,9 +32,9 @@ TESTPKGS ?= ./...
 
 GOTEST_BASE := -timeout 600s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
-BENCH_EVAL := "."
+BENCH_EVAL := .
 BENCH ?= $(BENCH_EVAL)
-BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
+BENCHFLAGS_EVAL := -bench='$(BENCH)' -run='^Test$$/.+Suite/^Benchmark$(BENCH)' -benchtime=10s
 BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
 SKIP_KVSTORES ?= "false"
 SKIP_K8S_CODE_GEN_CHECK ?= "true"
@@ -129,11 +129,11 @@ integration-tests: start-kvstores ## Run Go tests including ones that are marked
 	$(MAKE) stop-kvstores
 
 bench: start-kvstores ## Run benchmarks for Cilium integration-tests in the repository.
-	$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
+	INTEGRATION_TESTS=y $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS) -check.b
 	$(MAKE) stop-kvstores
 
 bench-privileged: ## Run benchmarks for privileged tests.
-	PRIVILEGED_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
+	PRIVILEGED_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS) -check.b
 
 clean-tags: ## Remove all the tags files from the repository.
 	@$(ECHO_CLEAN) tags
