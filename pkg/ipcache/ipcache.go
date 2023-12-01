@@ -153,10 +153,25 @@ func NewIPCache(c *Configuration) *IPCache {
 	return ipc
 }
 
+func (ipc *IPCache) Start() {
+	// Start the label-injection loop.
+	// It doesn't run periodically (except on error), just when triggered
+	// by metadata update.
+	ipc.controllers.UpdateController(
+		labelInjectorName,
+		controller.ControllerParams{
+			Group:            injectLabelsControllerGroup,
+			Context:          ipc.Configuration.Context,
+			DoFunc:           ipc.injectQueuedPrefixes,
+			MaxRetryInterval: 1 * time.Minute,
+		},
+	)
+}
+
 // Shutdown cleans up asynchronous routines associated with the IPCache.
 func (ipc *IPCache) Shutdown() error {
 	ipc.deferredPrefixRelease.Shutdown()
-	return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
+	return ipc.controllers.RemoveControllerAndWait(labelInjectorName)
 }
 
 // Lock locks the IPCache's mutex.
@@ -193,14 +208,6 @@ func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	defer ipc.mutex.RUnlock()
 	// Initialize new listener with the current mappings
 	ipc.DumpToListenerLocked(listener)
-}
-
-// Update a controller for this IPCache
-func (ipc *IPCache) UpdateController(
-	name string,
-	params controller.ControllerParams,
-) {
-	ipc.controllers.UpdateController(name, params)
 }
 
 // endpointIPToCIDR converts the endpoint IP into an equivalent full CIDR.

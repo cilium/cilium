@@ -126,6 +126,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hc hive.HookContext) error {
 			iao.policy.Start()
+			ipc.Start()
 			return nil
 		},
 		OnStop: func(hc hive.HookContext) error {

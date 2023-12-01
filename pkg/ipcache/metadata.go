@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -30,10 +29,10 @@ var (
 	// the local identity allocator is uninitialized.
 	ErrLocalIdentityAllocatorUninitialized = errors.New("local identity allocator uninitialized")
 
-	LabelInjectorName = "ipcache-inject-labels"
-
 	injectLabelsControllerGroup = controller.NewGroup("ipcache-inject-labels")
 )
+
+const labelInjectorName = "ipcache-inject-labels"
 
 // metadata contains the ipcache metadata. Mainily it holds a map which maps IP
 // prefixes (x.x.x.x/32) to a set of information (PrefixInfo).
@@ -206,6 +205,20 @@ func (ipc *IPCache) GetMetadataByPrefix(prefix netip.Prefix) PrefixInfo {
 
 func (m *metadata) getLocked(prefix netip.Prefix) PrefixInfo {
 	return m.m[prefix]
+}
+
+// injectQueuedPrefixes dequeues any pending prefixes and passes them
+// to injectLabels().
+func (ipc *IPCache) injectQueuedPrefixes(ctx context.Context) error {
+	idsToModify, rev := ipc.metadata.dequeuePrefixUpdates()
+	remaining, err := ipc.injectLabels(ctx, idsToModify)
+	if len(remaining) > 0 {
+		ipc.metadata.enqueuePrefixUpdates(remaining...)
+	} else {
+		ipc.metadata.setInjectedRevision(rev)
+	}
+
+	return err
 }
 
 // injectLabels injects labels from the ipcache metadata (IDMD) map into the
@@ -701,26 +714,5 @@ func (ipc *IPCache) triggerLabelInjection() {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this
 	//           channel is preventing transient BPF entries.
-
-	// This controller is for retrying this operation in case it fails. It
-	// should eventually succeed.
-	ipc.UpdateController(
-		LabelInjectorName,
-		controller.ControllerParams{
-			Group:   injectLabelsControllerGroup,
-			Context: ipc.Configuration.Context,
-			DoFunc: func(ctx context.Context) error {
-				idsToModify, rev := ipc.metadata.dequeuePrefixUpdates()
-				remaining, err := ipc.injectLabels(ctx, idsToModify)
-				if len(remaining) > 0 {
-					ipc.metadata.enqueuePrefixUpdates(remaining...)
-				} else {
-					ipc.metadata.setInjectedRevision(rev)
-				}
-
-				return err
-			},
-			MaxRetryInterval: 1 * time.Minute,
-		},
-	)
+	ipc.controllers.TriggerController(labelInjectorName)
 }
