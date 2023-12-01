@@ -553,6 +553,7 @@ func (ms *mapState) denyPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
 func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes ChangeState) {
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
+	var datapathEqual bool
 	oldEntry, exists := ms.Get(key)
 	if exists {
 		// Deny entry can only be overridden by another deny entry
@@ -569,6 +570,9 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 			changes.insertOldIfNotExists(key, oldEntry)
 		}
 
+		// Compare for datapath equalness before merging, as the old entry is updated in
+		// place!
+		datapathEqual = oldEntry.DatapathEqual(&entry)
 		oldEntry.Merge(&entry)
 		ms.Insert(key, oldEntry)
 	} else {
@@ -581,7 +585,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 	}
 
 	// Record an incremental Add if desired and entry is new or changed
-	if changes.Adds != nil && (!exists || !oldEntry.DatapathEqual(&entry)) {
+	if changes.Adds != nil && (!exists || !datapathEqual) {
 		changes.Adds[key] = struct{}{}
 		// Key add overrides any previous delete of the same key
 		if changes.Deletes != nil {
