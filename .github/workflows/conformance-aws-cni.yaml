@@ -224,7 +224,7 @@ jobs:
 
       - name: Wait for Cilium to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --wait-duration=10m
           kubectl get pods -n kube-system
 
       - name: Port forward Relay
