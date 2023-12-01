@@ -724,8 +724,3 @@ func (ipc *IPCache) TriggerLabelInjection() {
 		},
 	)
 }
-
-// ShutdownLabelInjection shuts down the controller in TriggerLabelInjection().
-func (ipc *IPCache) ShutdownLabelInjection() error {
-	return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
-}
