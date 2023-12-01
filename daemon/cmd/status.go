@@ -542,7 +542,7 @@ func (c *clusterNodesClient) NodeNeighDiscoveryEnabled() bool {
 	return false
 }
 
-func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) error {
+func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node, refresh bool) error {
 	return nil
 }
 

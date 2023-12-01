@@ -68,7 +68,7 @@ func (n *FakeNodeHandler) NodeNeighDiscoveryEnabled() bool {
 	return false
 }
 
-func (n *FakeNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) error {
+func (n *FakeNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node, refresh bool) error {
 	return nil
 }
 

@@ -42,6 +42,8 @@ type Notifier interface {
 }
 
 type NodeManager interface {
+	datapath.NodeNeighborEnqueuer
+
 	Notifier
 
 	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
@@ -67,6 +69,10 @@ type NodeManager interface {
 	// StartNeighborRefresh spawns a controller which refreshes neighbor table
 	// by sending arping periodically.
 	StartNeighborRefresh(nh datapath.NodeNeighbors)
+
+	// StartNodeNeighborLinkUpdater spawns a controller that watches a queue
+	// for node neighbor link updates.
+	StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors)
 }
 
 type ipsetManager interface {

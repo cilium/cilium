@@ -82,6 +82,7 @@ type linuxNodeHandler struct {
 
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 	enableEncapsulation    func(node *nodeTypes.Node) bool
+	nodeNeighborQueue      datapath.NodeNeighborEnqueuer
 }
 
 var (
@@ -97,6 +98,7 @@ func NewNodeHandler(
 	nodeAddressing datapath.NodeAddressing,
 	nodeMap nodemap.Map,
 	mtu datapath.MTUConfiguration,
+	nbq datapath.NodeNeighborEnqueuer,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
@@ -114,6 +116,7 @@ func NewNodeHandler(
 		nodeIPsByIDs:           map[uint16]string{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
+		nodeNeighborQueue:      nbq,
 	}
 }
 
@@ -671,7 +674,7 @@ func (n *linuxNodeHandler) insertNeighborCommon(ctx context.Context, nextHop Nex
 	}
 	n.neighByNextHop[nextHop.Name] = &neigh
 
-	return nil
+	return errs
 }
 
 func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) error {
@@ -745,11 +748,10 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 	}
 
 	if err := errors.Join(errs, n.insertNeighborCommon(ctx, nh, link, refresh)); err != nil {
-		scopedLog.WithError(err).Debug("insert node neighbor IPv4 failed")
-		return err
+		return fmt.Errorf("insert node neighbor IPv4 for %s(%s) failed : %w", link.Attrs().Name, newNodeIP, err)
 	}
 
-	return nil
+	return errs
 }
 
 func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) error {
@@ -828,7 +830,7 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 		return err
 	}
 
-	return nil
+	return errs
 }
 
 // insertNeighbor inserts a non-GC'able neighbor entry for a nexthop to the given
@@ -867,14 +869,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 }
 
 func (n *linuxNodeHandler) InsertMiscNeighbor(newNode *nodeTypes.Node) {
-	ctx := context.Background()
-	n.insertNeighbor(ctx, newNode, false)
-}
-
-func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, completed chan struct{}) {
-	defer close(completed)
-
-	n.insertNeighbor(ctx, nodeToRefresh, true)
+	n.nodeNeighborQueue.Enqueue(newNode, false)
 }
 
 func (n *linuxNodeHandler) deleteNeighborCommon(nextHopStr string) {
@@ -1002,19 +997,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.enableNeighDiscovery && !newNode.IsLocal() {
-		// Running insertNeighbor in a separate goroutine relies on the following
-		// assumptions:
-		// 1. newNode is accessed only by reads.
-		// 2. It is safe to invoke insertNeighbor for the same node.
-		//
-		// Because neighbor inserts is not synced, we do not currently
-		// collect/ bubble up errors.
-		// Instead we just rely on logging errors as they come up in the
-		// neighbor update procedure.
-		//
-		// In v1.15, we will have the neighbor sync component report its own
-		// health via stored errors.
-		go n.insertNeighbor(context.Background(), newNode, false)
+		// If neighbor discovery is enabled, enqueue the request so we can monitor/report call health.
+		n.nodeNeighborQueue.Enqueue(newNode, false)
 	}
 
 	// Local node update
@@ -1393,17 +1377,18 @@ func (n *linuxNodeHandler) NodeNeighDiscoveryEnabled() bool {
 
 // NodeNeighborRefresh is called to refresh node neighbor table.
 // This is currently triggered by controller neighbor-table-refresh
-func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefresh nodeTypes.Node) error {
+// When refresh is set, insertNeighbor will perform a timestamp check on
+// the last ping and potentially skip the refresh to prevent ddos on the gateway.
+func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefresh nodeTypes.Node, refresh bool) error {
 	n.mutex.Lock()
-	isInitialized := n.isInitialized
-	n.mutex.Unlock()
-	if !isInitialized {
+	if !n.isInitialized {
+		n.mutex.Unlock()
 		// Wait until the node is initialized. When it's not, insertNeighbor()
 		// is not invoked, so there is nothing to refresh.
 		return nil
 	}
-
-	return n.insertNeighbor(ctx, &nodeToRefresh, true)
+	n.mutex.Unlock()
+	return n.insertNeighbor(ctx, &nodeToRefresh, refresh)
 }
 
 func (n *linuxNodeHandler) NodeCleanNeighborsLink(l netlink.Link, migrateOnly bool) bool {

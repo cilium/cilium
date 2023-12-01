@@ -43,8 +43,10 @@ import (
 var (
 	randGen                    = rand.NewSafeRand(time.Now().UnixNano())
 	baseBackgroundSyncInterval = time.Minute
+	defaultNodeUpdateInterval  = 10 * time.Second
 
 	neighborTableRefreshControllerGroup = controller.NewGroup("neighbor-table-refresh")
+	neighborTableUpdateControllerGroup  = controller.NewGroup("neighbor-table-update")
 )
 
 const (
@@ -127,6 +129,24 @@ type manager struct {
 
 	// healthScope reports on the current health status of the node manager module.
 	healthScope cell.Scope
+
+	// nodeNeighborQueue tracks node neighbor link updates.
+	nodeNeighborQueue queue[nodeQueueEntry]
+}
+
+type nodeQueueEntry struct {
+	node    *nodeTypes.Node
+	refresh bool
+}
+
+// Enqueue add a node to a controller managed queue which sets up the neighbor link.
+func (m *manager) Enqueue(n *nodeTypes.Node, refresh bool) {
+	if n == nil {
+		log.WithFields(logrus.Fields{
+			logfields.LogSubsys: "enqueue",
+		}).Warn("Skipping nodeNeighbor insert: No node given")
+	}
+	m.nodeNeighborQueue.push(&nodeQueueEntry{node: n, refresh: refresh})
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -326,19 +346,21 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 				m.mutex.RUnlock()
 				continue
 			}
+			m.mutex.RUnlock()
 
 			entry.mutex.Lock()
-			m.mutex.RUnlock()
-			m.Iter(func(nh datapath.NodeHandler) {
-				if err := nh.NodeValidateImplementation(entry.node); err != nil {
-					log.WithFields(logrus.Fields{
-						"handler": nh.Name(),
-						"node":    entry.node.Name,
-					}).WithError(err).
-						Error("Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.")
-					errs = errors.Join(errs, fmt.Errorf("failed while handling %s on node %s: %w", nh.Name(), entry.node.Name, err))
-				}
-			})
+			{
+				m.Iter(func(nh datapath.NodeHandler) {
+					if err := nh.NodeValidateImplementation(entry.node); err != nil {
+						log.WithFields(logrus.Fields{
+							"handler": nh.Name(),
+							"node":    entry.node.Name,
+						}).WithError(err).
+							Error("Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.")
+						errs = errors.Join(errs, fmt.Errorf("failed while handling %s on node %s: %w", nh.Name(), entry.node.Name, err))
+					}
+				})
+			}
 			entry.mutex.Unlock()
 
 			m.metrics.DatapathValidations.Inc()
@@ -833,8 +855,47 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	return nodes
 }
 
+// StartNodeNeighborLinkUpdater manages node neighbors links sync.
+// This provides a central location for all node neighbor link updates.
+// Under proper conditions, publisher enqueues the node which requires a link update.
+// This controller is agnostic of the condition under which the links must be established, thus
+// that responsibility lies on the publishers.
+// This controller also provides for module health to be reported in a single central location.
+func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
+	sc := cell.GetSubScope(m.healthScope, "neighbor-link-updater")
+	controller.NewManager().UpdateController(
+		"node-neighbor-link-updater",
+		controller.ControllerParams{
+			Group: neighborTableUpdateControllerGroup,
+			DoFunc: func(ctx context.Context) error {
+				if m.nodeNeighborQueue.isEmpty() {
+					return nil
+				}
+				var errs error
+				for {
+					e := m.nodeNeighborQueue.pop()
+					if e == nil || e.node == nil {
+						errs = errors.Join(errs, fmt.Errorf("invalid node spec found in queue: %#v", e))
+						break
+					}
+
+					log.Debugf("Refreshing node neighbor link for %s", e.node.Name)
+					hr := cell.GetHealthReporter(sc, e.node.Name)
+					if errs = errors.Join(errs, nh.NodeNeighborRefresh(ctx, *e.node, e.refresh)); errs != nil {
+						hr.Degraded("Failed node neighbor link update", errs)
+					} else {
+						hr.OK("Node neighbor link update successful")
+					}
+				}
+				return errs
+			},
+			RunInterval: defaultNodeUpdateInterval,
+		},
+	)
+}
+
 // StartNeighborRefresh spawns a controller which refreshes neighbor table
-// by sending arping periodically.
+// by forcing node neighbors refresh periodically based on the arping settings.
 func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 	ctx, cancel := context.WithCancel(context.Background())
 	controller.NewManager().UpdateController(
@@ -854,14 +915,15 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 					if entryNode.IsLocal() {
 						continue
 					}
-					go func(c context.Context, e nodeTypes.Node) {
+					go func(ctx context.Context, e *nodeTypes.Node) {
+						// TODO Should this be moved to dequeue instead?
 						// To avoid flooding network with arping requests
 						// at the same time, spread them over the
 						// [0; ARPPingRefreshPeriod/2) period.
 						n := randGen.Int63n(int64(m.conf.ARPPingRefreshPeriod / 2))
 						time.Sleep(time.Duration(n))
-						nh.NodeNeighborRefresh(c, e)
-					}(ctx, entryNode)
+						m.Enqueue(e, false)
+					}(ctx, &entryNode)
 				}
 				return nil
 			},

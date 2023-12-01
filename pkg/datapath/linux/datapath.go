@@ -8,6 +8,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
+	"github.com/cilium/cilium/pkg/node/manager"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -41,6 +42,7 @@ type DatapathParams struct {
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
 	Loader         loader.Loader
+	NodeManager    manager.NodeManager
 }
 
 // NewDatapath creates a new Linux datapath
@@ -56,7 +58,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		bwmgr:           p.BWManager,
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.NodeManager)
 	return dp
 }
 
