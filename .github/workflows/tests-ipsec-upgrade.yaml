@@ -240,7 +240,7 @@ jobs:
 
       - name: Provision LVH VMs
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           test-name: ipsec-upgrade
           image-version: ${{ matrix.kernel }}
@@ -253,7 +253,7 @@ jobs:
 
       - name: Setup K8s cluster (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           provision: 'false'
           cmd: |
@@ -281,7 +281,7 @@ jobs:
 
       - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           provision: 'false'
           cmd: |
@@ -297,7 +297,7 @@ jobs:
 
       - name: Start conn-disrupt-test
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           provision: 'false'
           cmd: |
@@ -341,7 +341,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           provision: 'false'
           cmd: |

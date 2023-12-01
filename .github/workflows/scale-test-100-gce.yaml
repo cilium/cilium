@@ -31,7 +31,7 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.15.11
   # renovate: datasource=github-releases depName=kubernetes/kops
-  kops_version: v1.28.0
+  kops_version: v1.28.1
   # renovate: datasource=golang-version depName=go
   go_version: 1.21.4
   # Adding k8s.local to the end makes kops happy-
