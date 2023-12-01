@@ -1874,6 +1874,9 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
+	// Watches for node neighbors link updates.
+	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(d.datapath.NodeNeighbors())
+
 	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 		if !d.datapath.NodeNeighbors().NodeNeighDiscoveryEnabled() {
 			// Remove all non-GC'ed neighbor entries that might have previously set

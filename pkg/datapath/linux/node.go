@@ -82,6 +82,7 @@ type linuxNodeHandler struct {
 
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 	enableEncapsulation    func(node *nodeTypes.Node) bool
+	nodeNeighborQueue      datapath.NodeNeighborEnqueuer
 }
 
 var (
@@ -97,6 +98,7 @@ func NewNodeHandler(
 	nodeAddressing datapath.NodeAddressing,
 	nodeMap nodemap.Map,
 	mtu datapath.MTUConfiguration,
+	nbq datapath.NodeNeighborEnqueuer,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
@@ -114,6 +116,7 @@ func NewNodeHandler(
 		nodeIPsByIDs:           map[uint16]string{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
+		nodeNeighborQueue:      nbq,
 	}
 }
 
@@ -671,7 +674,7 @@ func (n *linuxNodeHandler) insertNeighborCommon(ctx context.Context, nextHop Nex
 	}
 	n.neighByNextHop[nextHop.Name] = &neigh
 
-	return nil
+	return errs
 }
 
 func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) error {
@@ -750,7 +753,7 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 		return err
 	}
 
-	return nil
+	return errs
 }
 
 func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) error {
@@ -831,7 +834,7 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 		return err
 	}
 
-	return nil
+	return errs
 }
 
 // insertNeighbor inserts a non-GC'able neighbor entry for a nexthop to the given
@@ -867,12 +870,6 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}
 
 	return errs
-}
-
-func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, completed chan struct{}) {
-	defer close(completed)
-
-	n.insertNeighbor(ctx, nodeToRefresh, true)
 }
 
 func (n *linuxNodeHandler) deleteNeighborCommon(nextHopStr string) {
@@ -996,19 +993,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.enableNeighDiscovery && !newNode.IsLocal() {
-		// Running insertNeighbor in a separate goroutine relies on the following
-		// assumptions:
-		// 1. newNode is accessed only by reads.
-		// 2. It is safe to invoke insertNeighbor for the same node.
-		//
-		// Because neighbor inserts is not synced, we do not currently
-		// collect/ bubble up errors.
-		// Instead we just rely on logging errors as they come up in the
-		// neighbor update procedure.
-		//
-		// In v1.15, we will have the neighbor sync component report its own
-		// health via stored errors.
-		go n.insertNeighbor(context.Background(), newNode, false)
+		// If neighbor discovery is enabled enqueue the request so we can monitor/report call health.
+		n.nodeNeighborQueue.Enqueue(newNode)
 	}
 
 	// Local node update
@@ -1389,14 +1375,12 @@ func (n *linuxNodeHandler) NodeNeighDiscoveryEnabled() bool {
 // This is currently triggered by controller neighbor-table-refresh
 func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefresh nodeTypes.Node) error {
 	n.mutex.Lock()
-	isInitialized := n.isInitialized
-	n.mutex.Unlock()
-	if !isInitialized {
+	if !n.isInitialized {
 		// Wait until the node is initialized. When it's not, insertNeighbor()
 		// is not invoked, so there is nothing to refresh.
 		return nil
 	}
-
+	n.mutex.Unlock()
 	return n.insertNeighbor(ctx, &nodeToRefresh, true)
 }
 

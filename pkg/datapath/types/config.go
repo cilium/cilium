@@ -11,8 +11,15 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
+
+// NodeNeighborEnqueuer track neighbor links updates.
+type NodeNeighborEnqueuer interface {
+	// Enqueue queues up a node neighbor link inserts.
+	Enqueue(*nodeTypes.Node)
+}
 
 // DeviceConfiguration is an interface for injecting configuration of datapath
 // options that affect lookups and logic applied at a per-device level, whether
