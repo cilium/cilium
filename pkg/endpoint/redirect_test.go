@@ -43,14 +43,14 @@ func (s *RedirectSuite) SetUpSuite(c *check.C) {
 // RedirectSuiteProxy implements EndpointProxy. It is used for testing the
 // functions related to generating proxy redirects for a given Endpoint.
 type RedirectSuiteProxy struct {
-	parserProxyPortMap  map[policy.L7ParserType]uint16
+	parserProxyPortMap  map[string]uint16
 	redirectPortUserMap map[uint16][]string
 }
 
 // CreateOrUpdateRedirect returns the proxy port for the given L7Parser from the
 // ProxyPolicy parameter.
 func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
-	pp := r.parserProxyPortMap[l4.GetL7Parser()]
+	pp := r.parserProxyPortMap[l4.GetL7Parser().String()+l4.GetListener()]
 	return pp, nil, func() { log.Infof("FINALIZER CALLED") }, nil
 }
 
@@ -155,10 +155,10 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	kafkaPort := uint16(19003)
 
 	rsp := &RedirectSuiteProxy{
-		parserProxyPortMap: map[policy.L7ParserType]uint16{
-			policy.ParserTypeHTTP:  httpPort,
-			policy.ParserTypeDNS:   dnsPort,
-			policy.ParserTypeKafka: kafkaPort,
+		parserProxyPortMap: map[string]uint16{
+			policy.ParserTypeHTTP.String():  httpPort,
+			policy.ParserTypeDNS.String():   dnsPort,
+			policy.ParserTypeKafka.String(): kafkaPort,
 		},
 		redirectPortUserMap: make(map[uint16][]string),
 	}
@@ -290,6 +290,7 @@ var (
 	identityFoo = uint32(100)
 	labelsFoo   = labels.ParseSelectLabelArray("foo", "red")
 	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	selectRed_  = api.NewESFromLabels(labels.ParseSelectLabel("red"))
 	denyFooL3__ = selectFoo_
 
 	identityBar = uint32(200)
@@ -386,10 +387,10 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	kafkaPort := uint16(19003)
 
 	rsp := &RedirectSuiteProxy{
-		parserProxyPortMap: map[policy.L7ParserType]uint16{
-			policy.ParserTypeHTTP:  httpPort,
-			policy.ParserTypeDNS:   dnsPort,
-			policy.ParserTypeKafka: kafkaPort,
+		parserProxyPortMap: map[string]uint16{
+			policy.ParserTypeHTTP.String():  httpPort,
+			policy.ParserTypeDNS.String():   dnsPort,
+			policy.ParserTypeKafka.String(): kafkaPort,
 		},
 		redirectPortUserMap: make(map[uint16][]string),
 	}
@@ -474,6 +475,181 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	// Check that the redirect is still realized
 	c.Assert(len(desiredRedirects), check.Equals, 1)
 	c.Assert(ep.desiredPolicy.GetPolicyMap().Len(), check.Equals, 4)
+
+	// Pretend that something failed and revert the changes
+	revertFunc()
+
+	// Check that the state before addRedirects is restored
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+		c.Fatal("desired policy map does not equal expected map:\n",
+			ep.desiredPolicy.GetPolicyMap().Diff(c.T, expected))
+	}
+	c.Assert(ep.desiredPolicy.GetPolicyMap().Len(), check.Equals, 2)
+}
+
+var (
+	allowListener1Port80 = []api.PortRule{{
+		Ports: []api.PortProtocol{
+			{Port: "80", Protocol: api.ProtoTCP},
+		},
+		Listener: &api.Listener{
+			EnvoyConfig: &api.EnvoyConfig{
+				Name: "cec1",
+			},
+			Name: "listener1",
+		},
+	}}
+	allowListener2Port80 = []api.PortRule{{
+		Ports: []api.PortProtocol{
+			{Port: "80", Protocol: api.ProtoTCP},
+		},
+		Listener: &api.Listener{
+			EnvoyConfig: &api.EnvoyConfig{
+				Name: "cec2",
+			},
+			Name:     "listener2",
+			Priority: 1,
+		},
+	}}
+	lblsL4L7AllowListener1 = labels.ParseLabelArray("foo-l4l7-allow-listener1")
+	ruleL4L7AllowListener1 = api.NewRule().
+				WithLabels(lblsL4L7AllowListener1).
+				WithIngressRules([]api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{selectFoo_},
+			},
+			ToPorts: allowListener1Port80,
+		}})
+	lblsL4L7AllowListener2 = labels.ParseLabelArray("l4l7-allow-listener2")
+	ruleL4L7AllowListener2 = api.NewRule().
+				WithLabels(lblsL4L7AllowListener2).
+				WithIngressRules([]api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{},
+			},
+			ToPorts: allowPort80,
+		}})
+	lblsL4L7AllowListener2red = labels.ParseLabelArray("red-l4l7-allow-listener2")
+	ruleL4L7AllowListener2red = api.NewRule().
+					WithLabels(lblsL4L7AllowListener2red).
+					WithIngressRules([]api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{selectRed_},
+			},
+			ToPorts: allowListener2Port80,
+		}})
+)
+
+func (s *RedirectSuite) TestRedirectWithPriority(c *check.C) {
+	// Setup dependencies for endpoint.
+	kvstore.SetupDummy(c, "etcd")
+
+	oldPolicyEnable := policy.GetPolicyEnabled()
+	defer policy.SetPolicyEnabled(oldPolicyEnable)
+	policy.SetPolicyEnabled(option.DefaultEnforcement)
+
+	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
+
+	mgr := NewCachingIdentityAllocator(idAllocatorOwner)
+	<-mgr.InitIdentityAllocator(nil)
+	defer mgr.Close()
+
+	identityCache := cache.IdentityCache{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+		identity.NumericIdentity(identityBar): labelsBar,
+	}
+
+	do := &DummyOwner{
+		repo: policy.NewPolicyRepository(mgr, identityCache, nil, nil),
+	}
+	do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+	identitymanager.Subscribe(do.repo)
+	defer identitymanager.RemoveAll()
+
+	crd1Port := uint16(19000)
+	crd2Port := uint16(19001)
+
+	rsp := &RedirectSuiteProxy{
+		parserProxyPortMap: map[string]uint16{
+			"crd/cec1/listener1": crd1Port,
+			"crd/cec2/listener2": crd2Port,
+		},
+		redirectPortUserMap: make(map[uint16][]string),
+	}
+
+	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), rsp, mgr, 12345, StateRegenerating)
+
+	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), labelsBar.Labels(),
+		true, identity.NumericIdentity(identityBar))
+	c.Assert(err, check.IsNil)
+	ep.SetIdentity(epIdentity, true)
+
+	rules := api.Rules{
+		ruleL4L7AllowListener1.WithEndpointSelector(selectBar_),
+		ruleL4L7AllowListener2.WithEndpointSelector(selectBar_),
+		ruleL4L7AllowListener2red.WithEndpointSelector(selectBar_),
+	}
+	do.repo.AddList(rules)
+
+	res, err := ep.regeneratePolicy()
+	c.Assert(err, check.IsNil)
+	err = ep.setDesiredPolicy(res)
+	c.Assert(err, check.IsNil)
+
+	expected := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+		mapKeyAllowAllE: {
+			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
+		},
+		mapKeyAllL7: {
+			DerivedFromRules: labels.LabelArrayList{lblsL4L7AllowListener1, lblsL4L7AllowListener2, lblsL4L7AllowListener2red},
+		},
+	})
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+		c.Fatal("desired policy map does not equal expected map:\n",
+			ep.desiredPolicy.GetPolicyMap().Diff(c.T, expected))
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmp := completion.NewWaitGroup(ctx)
+
+	realizedRedirects := ep.GetRealizedRedirects()
+	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
+	c.Assert(err, check.IsNil)
+	finalizeFunc()
+
+	// Redirect is still created, even if all MapState entries may have been overridden by a
+	// deny entry.  A new FQDN redirect may have no MapState entries as the associated CIDR
+	// identities may match no numeric IDs yet, so we can not count the number of added MapState
+	// entries and make any conclusions from it.
+	c.Assert(desiredRedirects["12345:ingress:TCP:80:/cec2/listener2"], check.Equals, crd2Port)
+	c.Assert(desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"], check.Equals, crd1Port)
+	c.Assert(len(desiredRedirects), check.Equals, 2)
+
+	expected2 := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+		mapKeyAllowAllE: {
+			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
+		},
+		mapKeyFooL7: {
+			ProxyPort:        crd2Port,
+			Listener:         "/cec2/listener2",
+			DerivedFromRules: labels.LabelArrayList{lblsL4L7AllowListener1, lblsL4L7AllowListener2, lblsL4L7AllowListener2red},
+		},
+		mapKeyAllL7: {
+			DerivedFromRules: labels.LabelArrayList{lblsL4L7AllowListener1, lblsL4L7AllowListener2, lblsL4L7AllowListener2red},
+		},
+	})
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
+		c.Fatal("desired policy map does not equal expected map:\n",
+			ep.desiredPolicy.GetPolicyMap().Diff(c.T, expected2))
+	}
+
+	// Keep only desired redirects
+	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
+
+	// Check that the redirect is still realized
+	c.Assert(len(desiredRedirects), check.Equals, 2)
+	c.Assert(ep.desiredPolicy.GetPolicyMap().Len(), check.Equals, 3)
 
 	// Pretend that something failed and revert the changes
 	revertFunc()

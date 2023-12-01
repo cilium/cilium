@@ -487,8 +487,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
-	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -629,8 +629,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, 0, "", false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{

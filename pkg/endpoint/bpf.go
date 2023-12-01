@@ -176,18 +176,24 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 // instead of returning a 0 port number.
 type proxyPolicy struct {
 	*policy.L4Filter
+	ps   *policy.PerSelectorPolicy
 	port uint16
 }
 
 // newProxyPolicy returns a new instance of proxyPolicy by value
-func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, port uint16) proxyPolicy {
-	return proxyPolicy{L4Filter: l4, port: port}
+func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, ps *policy.PerSelectorPolicy, port uint16) proxyPolicy {
+	return proxyPolicy{L4Filter: l4, ps: ps, port: port}
 }
 
 // GetPort returns the destination port number on which the proxy policy applies
 // This version properly returns the port resolved from a named port, if any.
 func (p *proxyPolicy) GetPort() uint16 {
 	return p.port
+}
+
+// GetListener returns the listener name referenced by the policy, if any
+func (p *proxyPolicy) GetListener() string {
+	return p.ps.GetListener()
 }
 
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
@@ -213,70 +219,71 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	// create or update proxy redirects
 	e.desiredPolicy.UpdateRedirects(ingress,
 		func(l4 *policy.L4Filter) map[string]uint16 {
-			var redirectPort uint16
-
 			// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
 			updateMaps := e.desiredPolicy != e.realizedPolicy
 
-			// proxyID() returns also the destination port for the policy,
-			// which may be resolved from a named port
-			proxyID, dstPort := e.proxyID(l4)
-			if proxyID == "" {
-				// Skip redirects for which a proxyID cannot be created.
-				// This may happen due to the named port mapping not
-				// existing or multiple PODs defining the same port name
-				// with different port values. The redirect will be created
-				// when the mapping is available or when the port name
-				// conflicts have been resolved in POD specs.
-				return nil
+			if !updateMaps {
+				log.Fatalf("addNewRedirectsFromDesiredPolicy: e.desiredPolicy == e.realizedPolicy")
 			}
 
-			// desiredRedirects starts out empty, so we can use it check
-			// if the redirect has already been updated on this round.
-			if redirectPort = desiredRedirects[proxyID]; redirectPort != 0 {
-				if updateMaps {
-					return desiredRedirects
+			for _, v := range l4.PerSelectorPolicies {
+				if v == nil || !v.IsRedirect() {
+					continue
 				}
-				return nil
-			}
-
-			// Only create a redirect if the proxy is NOT running in a sidecar container
-			// or the parser is not HTTP. If running in a sidecar container and the parser
-			// is HTTP, just allow traffic to the port at L4 by setting the proxy port
-			// to 0.
-			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
-				var finalizeFunc revert.FinalizeFunc
-				var revertFunc revert.RevertFunc
-
-				pp := e.newProxyPolicy(l4, dstPort)
-
-				var err error
-				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
-				if err != nil {
-					// Skip redirects that can not be created or updated.  This
-					// can happen when a listener is missing, for example when
-					// restarting and k8s delivers the CNP before the related
-					// CEC.
-					// Policy is regenerated when listeners are added or removed
-					// to fix this condition when the listener is available.
-					e.getLogger().WithField(logfields.Listener, l4.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
-					return nil
+				// proxyID() returns also the destination port for the policy,
+				// which may be resolved from a named port
+				proxyID, dstPort := e.proxyID(l4, v.Listener)
+				if proxyID == "" {
+					// Skip redirects for which a proxyID cannot be created.
+					// This may happen due to the named port mapping not
+					// existing or multiple PODs defining the same port name
+					// with different port values. The redirect will be created
+					// when the mapping is available or when the port name
+					// conflicts have been resolved in POD specs.
+					continue
 				}
-				finalizeList.Append(finalizeFunc)
-				revertStack.Push(revertFunc)
+				// desiredRedirects starts out empty, so we can use it check
+				// if the redirect has already been updated on this round.
+				if desiredRedirects[proxyID] != 0 {
+					continue
+				}
+
+				var redirectPort uint16
+
+				// Only create a redirect if the proxy is NOT running in a sidecar container
+				// with an HTTP parser. If running in a sidecar container and the parser
+				// is HTTP, just allow traffic to the port at L4 by setting the proxy port
+				// to 0.
+				if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
+
+					pp := e.newProxyPolicy(l4, v, dstPort)
+					proxyPort, err, finalizeFunc, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
+					if err != nil {
+						// Skip redirects that can not be created or updated.  This
+						// can happen when a listener is missing, for example when
+						// restarting and k8s delivers the CNP before the related
+						// CEC.
+						// Policy is regenerated when listeners are added or removed
+						// to fix this condition when the listener is available.
+						e.getLogger().WithField(logfields.Listener, pp.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
+						continue
+					}
+					redirectPort = proxyPort
+					finalizeList.Append(finalizeFunc)
+					revertStack.Push(revertFunc)
+				}
+				desiredRedirects[proxyID] = redirectPort
+
+				// Update the endpoint API model to report that Cilium manages a
+				// redirect for that port.
+				statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, redirectPort)
+				e.proxyStatisticsMutex.Lock()
+				proxyStats := e.getProxyStatisticsLocked(statsKey, string(l4.L7Parser), dstPort, l4.Ingress)
+				proxyStats.AllocatedProxyPort = int64(redirectPort)
+				e.proxyStatisticsMutex.Unlock()
+
+				updatedStats = append(updatedStats, proxyStats)
 			}
-
-			desiredRedirects[proxyID] = redirectPort
-
-			// Update the endpoint API model to report that Cilium manages a
-			// redirect for that port.
-			statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, redirectPort)
-			e.proxyStatisticsMutex.Lock()
-			proxyStats := e.getProxyStatisticsLocked(statsKey, string(l4.L7Parser), dstPort, l4.Ingress)
-			proxyStats.AllocatedProxyPort = int64(redirectPort)
-			e.proxyStatisticsMutex.Unlock()
-
-			updatedStats = append(updatedStats, proxyStats)
 
 			if updateMaps {
 				return desiredRedirects

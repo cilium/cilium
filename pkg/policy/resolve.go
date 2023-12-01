@@ -189,23 +189,23 @@ func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 	}
 }
 
-// createRedirectFunc returns 'nil' if map changes should not be applied immemdiately,
-// otherwise the returned map is to be used to find the redirect port for map updates.
-type createRedirectFunc func(*L4Filter) map[string]uint16
+// createRedirectsFunc returns 'nil' if map changes should not be applied immemdiately,
+// otherwise the returned map is to be used to find redirect ports for map updates.
+type createRedirectsFunc func(*L4Filter) map[string]uint16
 
 // UpdateRedirects updates redirects in the EndpointPolicy's PolicyMapState by using the provided
-// function to obtain a proxy port number to use. Changes to 'p.PolicyMapState' are collected in
+// function to create redirects. Changes to 'p.PolicyMapState' are collected in
 // 'adds' and 'updated' so that they can be reverted when needed.
-func (p *EndpointPolicy) UpdateRedirects(ingress bool, createRedirect createRedirectFunc, changes ChangeState) {
+func (p *EndpointPolicy) UpdateRedirects(ingress bool, createRedirects createRedirectsFunc, changes ChangeState) {
 	l4policy := &p.L4Policy.Ingress
 	if ingress {
 		l4policy = &p.L4Policy.Egress
 	}
 
-	l4policy.updateRedirects(p, createRedirect, changes)
+	l4policy.updateRedirects(p, createRedirects, changes)
 }
 
-func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedirect createRedirectFunc, changes ChangeState) {
+func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedirects createRedirectsFunc, changes ChangeState) {
 	// Selectorcache needs to be locked for toMapState (GetLabels()) call
 	p.SelectorCache.mutex.RLock()
 	defer p.SelectorCache.mutex.RUnlock()
@@ -217,7 +217,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 				continue
 			}
 
-			redirects := createRedirect(l4)
+			redirects := createRedirects(l4)
 			if redirects != nil {
 				// Set the proxy port in the policy map.
 				l4.toMapState(p, l4policy.features, redirects, changes)

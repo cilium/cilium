@@ -353,6 +353,9 @@ const (
 	// Listener is the name of an Envoy Listener defined in CEC or CCEC
 	Listener = "listener"
 
+	// ListenerPriority is the priority of an Envoy Listener defined in CEC or CCEC
+	ListenerPriority = "listenerPriority"
+
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
 
