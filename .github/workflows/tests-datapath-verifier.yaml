@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -114,7 +114,7 @@ jobs:
             uname -a
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
-            CGO_ENABLED=0 go install golang.org/dl/go${{ env.go-version }}@latest
+            CGO_ENABLED=0 GOPROXY=direct GOSUMDB= go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
 
       - name: Run verifier tests
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}
