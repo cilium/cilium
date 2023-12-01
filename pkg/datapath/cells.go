@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -173,6 +174,7 @@ func newDatapath(params datapathParams) types.Datapath {
 		NodeAddressing: params.NodeAddressing,
 		BWManager:      params.BandwidthManager,
 		Loader:         params.Loader,
+		NodeManager:    params.NodeManager,
 	}, datapathConfig)
 
 	params.LC.Append(cell.Hook{
@@ -215,4 +217,6 @@ type datapathParams struct {
 	TunnelConfig tunnel.Config
 
 	Loader loaderTypes.Loader
+
+	NodeManager nodeManager.NodeManager
 }
