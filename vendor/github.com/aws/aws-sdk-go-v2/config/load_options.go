@@ -206,6 +206,9 @@ type LoadOptions struct {
 
 	// The sdk app ID retrieved from env var or shared config to be added to request user agent header
 	AppID string
+
+	// Whether S3 Express auth is disabled.
+	S3DisableExpressAuth *bool
 }
 
 func (o LoadOptions) getDefaultsMode(ctx context.Context) (aws.DefaultsMode, bool, error) {
@@ -1041,6 +1044,25 @@ func WithDefaultsMode(mode aws.DefaultsMode, optFns ...func(options *DefaultsMod
 	}
 	return func(options *LoadOptions) error {
 		options.DefaultsModeOptions = do
+		return nil
+	}
+}
+
+// GetS3DisableExpressAuth returns the configured value for
+// [EnvConfig.S3DisableExpressAuth].
+func (o LoadOptions) GetS3DisableExpressAuth() (value, ok bool) {
+	if o.S3DisableExpressAuth == nil {
+		return false, false
+	}
+
+	return *o.S3DisableExpressAuth, true
+}
+
+// WithS3DisableExpressAuth sets [LoadOptions.S3DisableExpressAuth]
+// to the value provided.
+func WithS3DisableExpressAuth(v bool) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.S3DisableExpressAuth = &v
 		return nil
 	}
 }

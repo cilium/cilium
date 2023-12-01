@@ -42,8 +42,6 @@ func New(options Options, optFns ...func(*Options)) *Client {
 
 	setResolvedDefaultsMode(&options)
 
-	resolveRetryer(&options)
-
 	resolveHTTPClient(&options)
 
 	resolveHTTPSignerV4(&options)
@@ -56,6 +54,8 @@ func New(options Options, optFns ...func(*Options)) *Client {
 		fn(&options)
 	}
 
+	resolveRetryer(&options)
+
 	ignoreAnonymousAuth(&options)
 
 	resolveAuthSchemes(&options)
@@ -65,6 +65,15 @@ func New(options Options, optFns ...func(*Options)) *Client {
 	}
 
 	return client
+}
+
+// Options returns a copy of the client configuration.
+//
+// Callers SHOULD NOT perform mutations on any inner structures within client
+// config. Config overrides should instead be made on a per-operation basis through
+// functional options.
+func (c *Client) Options() Options {
+	return c.options.Copy()
 }
 
 func (c *Client) invokeOperation(ctx context.Context, opID string, params interface{}, optFns []func(*Options), stackFns ...func(*middleware.Stack, Options) error) (result interface{}, metadata middleware.Metadata, err error) {

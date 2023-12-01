@@ -27,7 +27,6 @@ import (
 // all relative $ref's will be resolved from there.
 //
 // PathLoader injects a document loading method. By default, this resolves to the function provided by the SpecLoader package variable.
-//
 type ExpandOptions struct {
 	RelativeBase        string                                // the path to the root document to expand. This is a file, not a directory
 	SkipSchemas         bool                                  // do not expand schemas, just paths, parameters and responses
