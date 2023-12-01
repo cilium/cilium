@@ -325,7 +325,7 @@ func (mgr *endpointManager) LookupIPv6(ipv6 string) *endpoint.Endpoint {
 
 // LookupIP looks up endpoint by IP address
 func (mgr *endpointManager) LookupIP(ip netip.Addr) (ep *endpoint.Endpoint) {
-	ipStr := ip.String()
+	ipStr := ip.Unmap().String()
 	mgr.mutex.RLock()
 	if ip.Is4() {
 		ep = mgr.lookupIPv4(ipStr)
