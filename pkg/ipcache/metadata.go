@@ -208,7 +208,7 @@ func (m *metadata) getLocked(prefix netip.Prefix) PrefixInfo {
 	return m.m[prefix]
 }
 
-// InjectLabels injects labels from the ipcache metadata (IDMD) map into the
+// injectLabels injects labels from the ipcache metadata (IDMD) map into the
 // identities used for the prefixes in the IPCache. The given source is the
 // source of the caller, as inserting into the IPCache requires knowing where
 // this updated information comes from. Conversely, RemoveLabelsExcluded()
@@ -224,7 +224,7 @@ func (m *metadata) getLocked(prefix netip.Prefix) PrefixInfo {
 // Returns the CIDRs that were not yet processed, for example due to an
 // unexpected error while processing the identity updates for those CIDRs
 // The caller should attempt to retry injecting labels for those CIDRs.
-func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, err error) {
+func (ipc *IPCache) injectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, err error) {
 	if ipc.IdentityAllocator == nil {
 		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
 	}
@@ -666,7 +666,7 @@ func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ..
 	m.enqueuePrefixUpdates(prefix)
 }
 
-// TriggerLabelInjection triggers the label injection controller to iterate
+// triggerLabelInjection triggers the label injection controller to iterate
 // through the IDMD and potentially allocate new identities based on any label
 // changes.
 //
@@ -697,7 +697,7 @@ func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ..
 //	legend:
 //	* W means write
 //	* R means read
-func (ipc *IPCache) TriggerLabelInjection() {
+func (ipc *IPCache) triggerLabelInjection() {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this
 	//           channel is preventing transient BPF entries.
@@ -711,7 +711,7 @@ func (ipc *IPCache) TriggerLabelInjection() {
 			Context: ipc.Configuration.Context,
 			DoFunc: func(ctx context.Context) error {
 				idsToModify, rev := ipc.metadata.dequeuePrefixUpdates()
-				remaining, err := ipc.InjectLabels(ctx, idsToModify)
+				remaining, err := ipc.injectLabels(ctx, idsToModify)
 				if len(remaining) > 0 {
 					ipc.metadata.enqueuePrefixUpdates(remaining...)
 				} else {

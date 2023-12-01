@@ -480,7 +480,7 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
-	ipc.TriggerLabelInjection()
+	ipc.triggerLabelInjection()
 	return
 }
 
@@ -510,7 +510,7 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
-	ipc.TriggerLabelInjection()
+	ipc.triggerLabelInjection()
 	return
 }
 
@@ -529,7 +529,7 @@ func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, r
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
-	ipc.TriggerLabelInjection()
+	ipc.triggerLabelInjection()
 	return
 }
 
@@ -551,7 +551,7 @@ func (ipc *IPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, r
 	}
 	ipc.metadata.Unlock()
 	ipc.metadata.enqueuePrefixUpdates(prefixes...)
-	ipc.TriggerLabelInjection()
+	ipc.triggerLabelInjection()
 }
 
 // UpsertLabels upserts a given IP and its corresponding labels associated
