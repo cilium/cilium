@@ -542,8 +542,8 @@ func (c *clusterNodesClient) NodeNeighDiscoveryEnabled() bool {
 	return false
 }
 
-func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) {
-	// no-op
+func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) error {
+	return nil
 }
 
 func (c *clusterNodesClient) NodeCleanNeighbors(migrateOnly bool) {
