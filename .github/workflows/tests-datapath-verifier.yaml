@@ -114,7 +114,7 @@ jobs:
             uname -a
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
-            CGO_ENABLED=0 go install golang.org/dl/go${{ env.go-version }}@latest
+            CGO_ENABLED=0 GOPROXY=direct GOSUMDB= go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
 
       - name: Run verifier tests
