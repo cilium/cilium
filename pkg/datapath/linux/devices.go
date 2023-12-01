@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"slices"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -103,36 +102,6 @@ func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 	}
 
 	return names, nil
-}
-
-func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
-	devs := make(chan []string)
-	go func() {
-		defer close(devs)
-
-		prevDevices := dm.initialDevices
-		for {
-			rxn := dm.params.DB.ReadTxn()
-			devices, invalidated := tables.SelectedDevices(dm.params.DeviceTable, rxn)
-			newDevices := tables.DeviceNames(devices)
-
-			if !slices.Equal(prevDevices, newDevices) {
-				select {
-				case devs <- newDevices:
-				case <-ctx.Done():
-					return
-				}
-			}
-
-			select {
-			case <-invalidated:
-			case <-ctx.Done():
-				return
-			}
-			prevDevices = newDevices
-		}
-	}()
-	return devs, nil
 }
 
 type devicesManagerParams struct {
