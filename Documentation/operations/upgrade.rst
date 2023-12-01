@@ -379,7 +379,7 @@ Removed Options
 * The long defunct and undocumented ``single-cluster-route`` flag has been removed.
 
 * The ``dnsproxy-lock-count`` and ``dnsproxy-lock-timeout`` flags no longer have
-  any effect and are deprecated. They will be removed in a future release.
+  any effect and are deprecated. They will be removed in v1.16.
 
 * Deprecated options ``enable-k8s-event-handover`` and ``cnp-status-update-interval`` has been removed.
 
