@@ -415,9 +415,10 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	// It should only allocate once, even if we run it multiple times.
 	identityReferences++
 	for i := 0; i < 2; i++ {
-		IPIdentityCache.UpsertLabels(prefix, labels, source.CustomResource, resource)
-		// Need to wait for the label injector to finish; easiest just to remove it
-		IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+		IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
+		remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 0)
 	}
 
 	// Ensure the source is now correctly understood in the ipcache
@@ -449,8 +450,10 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	assert.Equal(t, id.ID.Uint32(), uint32(realID.ID))
 
 	// Remove the identity allocation via newer APIs
-	IPIdentityCache.RemoveLabels(prefix, labels, resource)
-	IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+	IPIdentityCache.metadata.remove(prefix, resource, labels)
+	remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
 	identityReferences--
 	assert.Equal(t, identityReferences, 0)
 
