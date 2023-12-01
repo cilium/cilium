@@ -30,7 +30,7 @@ runs:
       id: build-cli
       shell: bash
       run: |
-        CLI_PATH=$(find . -iwholename '${{ inputs.local-path }}' -type d | head -n 1)
+        CLI_PATH=$(find . -iwholename '${{ inputs.local-path }}' -type d -not -path './.git/*' -not -path './vendor/*' | head -n 1)
         echo path="${CLI_PATH}" >> $GITHUB_OUTPUT
 
     - name: Setup Go
