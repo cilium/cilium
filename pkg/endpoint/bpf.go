@@ -266,7 +266,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				// Update the endpoint API model to report that Cilium manages a
 				// redirect for that port.
 				e.proxyStatisticsMutex.Lock()
-				proxyStats := e.getProxyStatisticsLocked(proxyID, string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
+				proxyStats := e.getProxyStatisticsLocked(proxyID, string(l4.L7Parser), dstPort, l4.Ingress)
 				proxyStats.AllocatedProxyPort = int64(redirectPort)
 				e.proxyStatisticsMutex.Unlock()
 
