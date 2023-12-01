@@ -54,6 +54,7 @@ type ClusterMeshServicesTestSuite struct {
 	testDir    string
 	mesh       *ClusterMesh
 	randomName string
+	ipc        *ipcache.IPCache
 }
 
 var _ = Suite(&ClusterMeshServicesTestSuite{})
@@ -101,10 +102,10 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
-	ipc := ipcache.NewIPCache(&ipcache.Configuration{
+	s.ipc = ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 	})
-	defer ipc.Shutdown()
+	s.ipc.Start()
 	store := store.NewFactory(store.MetricsProvider())
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
@@ -113,7 +114,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		NodeObserver:          &testObserver{},
 		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
-		IPCache:               ipc,
+		IPCache:               s.ipc,
 		ClusterIDsManager:     NewClusterMeshUsedIDs(),
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
@@ -128,6 +129,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 }
 
 func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
+	s.ipc.Shutdown()
 	os.RemoveAll(s.testDir)
 }
 

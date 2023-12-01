@@ -53,6 +53,7 @@ func (s *IPCacheTestSuite) SetUpTest(c *C) {
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
 	})
+	IPIdentityCache.Start()
 
 	s.cleanup = func() {
 		cancel()

@@ -61,10 +61,15 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 	})
 	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil)
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
+	d.ipcache.Start()
 
 	ds.d = d
 
 	logger.SetEndpointInfoRegistry(&dummyInfoRegistry{})
+}
+
+func (ds *DaemonFQDNSuite) TearDownTest(c *C) {
+	ds.d.ipcache.Shutdown()
 }
 
 type dummyInfoRegistry struct{}

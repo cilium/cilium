@@ -829,6 +829,8 @@ func setupTest(t *testing.T) (cleanup func()) {
 		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
 	})
+	// Don't start the ipcache here, as we don't want the controller stepping on our toes.
+	// A lot of the tests recreate specific interleaving of actions.
 
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServer)
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.Local, "host-uid", labels.LabelHost)
