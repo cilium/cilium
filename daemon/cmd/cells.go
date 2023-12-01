@@ -201,6 +201,9 @@ var (
 
 		// RegeneratorCell provides extra options and utilities for endpoints regeneration.
 		endpoint.RegeneratorCell,
+
+		// The device reloader reloads the datapath when the devices change at runtime.
+		cell.Invoke(registerDeviceReloader),
 	)
 )
 

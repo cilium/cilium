@@ -1032,58 +1032,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d.ipcache.InitIPIdentityWatcher(d.ctx, params.StoreFactory)
 	identitymanager.Subscribe(d.policy)
 
-	// Start listening to changed devices if requested.
-	if option.Config.EnableRuntimeDeviceDetection && d.deviceManager != nil {
-		if option.Config.AreDevicesRequired() {
-			devicesChan, err := d.deviceManager.Listen(ctx)
-			if err != nil {
-				log.WithError(err).Warn("Runtime device detection failed to start")
-			}
-			go func() {
-				for devices := range devicesChan {
-					d.ReloadOnDeviceChange(devices)
-				}
-			}()
-		} else {
-			log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
-		}
-	}
-
 	if err := params.IPsecKeyCustodian.StartBackgroundJobs(d.Datapath().Node()); err != nil {
 		log.WithError(err).Error("Unable to start IPsec key watcher")
 	}
 
 	return &d, restoredEndpoints, nil
-}
-
-// ReloadOnDeviceChange regenerates device related information and reloads the datapath.
-// The devices is the new set of devices that replaces the old set.
-func (d *Daemon) ReloadOnDeviceChange(devices []string) {
-	option.Config.SetDevices(devices)
-
-	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
-		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {
-			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
-		}
-	}
-
-	if d.l2announcer != nil {
-		d.l2announcer.DevicesChanged(devices)
-	}
-
-	if option.Config.EnableNodePort {
-		// Synchronize services and endpoints to reflect new addresses onto lbmap.
-		d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
-		d.controllers.TriggerController(syncHostIPsController)
-	}
-
-	// Reload the datapath.
-	wg, err := d.TriggerReloadWithoutCompile("devices changed")
-	if err != nil {
-		log.WithError(err).Warn("Failed to reload datapath")
-		return
-	}
-	wg.Wait()
 }
 
 // Close shuts down a daemon
