@@ -100,7 +100,7 @@ jobs:
           release_version: ${{ env.kops_version }}
 
       - name: Setup gcloud credentials
-        uses: google-github-actions/auth@f105ef0cdb3b102a020be1767fcc8a974898b7c6 # v1.2.0
+        uses: google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591 # v2.0.0
         with:
           credentials_json: '${{ secrets.GCP_PERF_SA_KEY }}'
 
