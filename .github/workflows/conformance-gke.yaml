@@ -242,10 +242,6 @@ jobs:
           cilium status --wait --wait-duration=10m
           kubectl get pods -n kube-system
 
-      - name: Wait for Cilium status to be ready
-        run: |
-          cilium status --wait
-
       - name: Port forward Relay
         run: |
           cilium hubble port-forward&
