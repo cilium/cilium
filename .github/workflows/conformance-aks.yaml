@@ -229,7 +229,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --wait-duration=10m
 
       - name: Port forward Relay
         run: |
@@ -268,7 +268,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --wait-duration=10m
 
       - name: Port forward Relay
         run: |
