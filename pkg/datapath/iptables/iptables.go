@@ -1204,7 +1204,7 @@ func (m *Manager) RemoveFromNodeIpset(nodeIP net.IP) {
 	if ip.IsIPv6(nodeIP) {
 		ciliumNodeIpset = ciliumNodeIpsetV6
 	}
-	progArgs := []string{"del", ciliumNodeIpset, nodeIP.String()}
+	progArgs := []string{"del", ciliumNodeIpset, nodeIP.String(), "-exist"}
 	if err := ipset.runProg(progArgs); err != nil {
 		scopedLog.WithError(err).Errorf("Failed to remove IP from ipset %s", ciliumNodeIpset)
 	}
