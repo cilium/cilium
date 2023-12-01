@@ -205,7 +205,7 @@ type AssumeRoleInput struct {
 	// Services STS. The following is an example of a ProvidedContext value that
 	// includes a single trusted context assertion and the ARN of the context provider
 	// from which the trusted context assertion was generated.
-	// [{"ProviderArn":"arn:aws:iam::aws:contextProvider/identitycenter","ContextAssertion":"trusted-context-assertion"}]
+	// [{"ProviderArn":"arn:aws:iam::aws:contextProvider/IdentityCenter","ContextAssertion":"trusted-context-assertion"}]
 	ProvidedContexts []types.ProvidedContext
 
 	// The identification number of the MFA device that is associated with the user

@@ -161,22 +161,10 @@ func ReadOnly(ctx context.Context, path, in string, data interface{}) *errors.Va
 func Required(path, in string, data interface{}) *errors.Validation {
 	val := reflect.ValueOf(data)
 	if val.IsValid() {
-		typ := reflect.TypeOf(data)
-		switch typ.Kind() {
-		case reflect.Pointer:
-			if val.IsNil() {
-				return errors.Required(path, in, data)
-			}
-			if reflect.DeepEqual(reflect.Zero(val.Elem().Type()).Interface(), val.Elem().Interface()) {
-				return errors.Required(path, in, data)
-			}
-			return nil
-		default:
-			if reflect.DeepEqual(reflect.Zero(val.Type()).Interface(), val.Interface()) {
-				return errors.Required(path, in, data)
-			}
-			return nil
+		if reflect.DeepEqual(reflect.Zero(val.Type()).Interface(), val.Interface()) {
+			return errors.Required(path, in, data)
 		}
+		return nil
 	}
 	return errors.Required(path, in, data)
 }

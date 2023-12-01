@@ -26,7 +26,7 @@ import (
 const (
 	// SwaggerSchemaURL the url for the swagger 2.0 schema to validate specs
 	SwaggerSchemaURL = "http://swagger.io/v2/schema.json#"
-	// JSONSchemaURL the url for the json schema schema
+	// JSONSchemaURL the url for the json schema
 	JSONSchemaURL = "http://json-schema.org/draft-04/schema#"
 )
 
