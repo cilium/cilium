@@ -24,10 +24,6 @@ type LoggingHook struct {
 // NewLoggingHook returns a new instance of LoggingHook for the given Cilium
 // component.
 func NewLoggingHook() *LoggingHook {
-	// NOTE(mrostecki): For now errors and warning metric exists only for Cilium
-	// daemon, but support of Prometheus metrics in some other components (i.e.
-	// cilium-health - GH-4268) is planned.
-
 	lh := &LoggingHook{}
 	go func() {
 		// This channel is closed after registry is created. At this point if the errs/warnings metric
