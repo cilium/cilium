@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/workerpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -25,6 +26,7 @@ import (
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/node"
@@ -398,7 +400,13 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
 // interface is invoked.
 func (m *manager) NodeUpdated(n nodeTypes.Node) {
-	log.Debugf("Received node update event from %s: %#v", n.Source, n)
+	log.WithFields(logrus.Fields{
+		logfields.ClusterName: n.Cluster,
+		logfields.NodeName:    n.Name,
+	}).Info("Node updated")
+	if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		log.Debugf("Received node update event from %s: %#v", n.Source, n)
+	}
 
 	nodeIdentifier := n.Identity()
 	dpUpdate := true
@@ -620,9 +628,15 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 // origins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
 func (m *manager) NodeDeleted(n nodeTypes.Node) {
-	m.metrics.EventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
+	log.WithFields(logrus.Fields{
+		logfields.ClusterName: n.Cluster,
+		logfields.NodeName:    n.Name,
+	}).Info("Node deleted")
+	if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		log.Debugf("Received node delete event from %s", n.Source)
+	}
 
-	log.Debugf("Received node delete event from %s", n.Source)
+	m.metrics.EventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
 
 	nodeIdentifier := n.Identity()
 
