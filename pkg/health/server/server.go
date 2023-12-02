@@ -338,14 +338,14 @@ func (s *Server) runActiveServices() error {
 	prober := newProber(s, nodesAdded)
 	prober.MaxRTT = s.ProbeInterval
 	prober.OnIdle = func() {
-		// Fetch results and update set of nodes to probe every
-		// ProbeInterval
-		s.updateCluster(prober.getResults())
+		// Update set of nodes to probe every ProbeInterval and then fetch
+		// results
 		if nodesAdded, nodesRemoved, err := s.getNodes(); err != nil {
 			log.WithError(err).Error("unable to get cluster nodes")
 		} else {
 			prober.setNodes(nodesAdded, nodesRemoved)
 		}
+		s.updateCluster(prober.getResults())
 	}
 	prober.RunLoop()
 	defer prober.Stop()
