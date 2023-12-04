@@ -24,6 +24,7 @@ const (
 	XDPType           = sys.BPF_LINK_TYPE_XDP
 	PerfEventType     = sys.BPF_LINK_TYPE_PERF_EVENT
 	KprobeMultiType   = sys.BPF_LINK_TYPE_KPROBE_MULTI
+	TCXType           = sys.BPF_LINK_TYPE_TCX
 )
 
 var haveProgAttach = internal.NewFeatureTest("BPF_PROG_ATTACH", "4.10", func() error {
@@ -72,10 +73,10 @@ var haveProgAttachReplace = internal.NewFeatureTest("BPF_PROG_ATTACH atomic repl
 	// present.
 	attr := sys.ProgAttachAttr{
 		// We rely on this being checked after attachFlags.
-		TargetFd:    ^uint32(0),
-		AttachBpfFd: uint32(prog.FD()),
-		AttachType:  uint32(ebpf.AttachCGroupInetIngress),
-		AttachFlags: uint32(flagReplace),
+		TargetFdOrIfindex: ^uint32(0),
+		AttachBpfFd:       uint32(prog.FD()),
+		AttachType:        uint32(ebpf.AttachCGroupInetIngress),
+		AttachFlags:       uint32(flagReplace),
 	}
 
 	err = sys.ProgAttach(&attr)
@@ -110,8 +111,8 @@ var haveProgQuery = internal.NewFeatureTest("BPF_PROG_QUERY", "4.15", func() err
 		// We rely on this being checked during the syscall.
 		// With an otherwise correct payload we expect EBADF here
 		// as an indication that the feature is present.
-		TargetFd:   ^uint32(0),
-		AttachType: sys.AttachType(ebpf.AttachCGroupInetIngress),
+		TargetFdOrIfindex: ^uint32(0),
+		AttachType:        sys.AttachType(ebpf.AttachCGroupInetIngress),
 	}
 
 	err := sys.ProgQuery(&attr)
