@@ -268,6 +268,9 @@ func qdiscPayload(req *nl.NetlinkRequest, qdisc Qdisc) error {
 		if qdisc.Buckets > 0 {
 			options.AddRtAttr(nl.TCA_FQ_BUCKETS_LOG, nl.Uint32Attr((uint32(qdisc.Buckets))))
 		}
+		if qdisc.PacketLimit > 0 {
+			options.AddRtAttr(nl.TCA_FQ_PLIMIT, nl.Uint32Attr((uint32(qdisc.PacketLimit))))
+		}
 		if qdisc.LowRateThreshold > 0 {
 			options.AddRtAttr(nl.TCA_FQ_LOW_RATE_THRESHOLD, nl.Uint32Attr((uint32(qdisc.LowRateThreshold))))
 		}

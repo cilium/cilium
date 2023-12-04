@@ -209,12 +209,7 @@ func loadRawSpec(btf io.ReaderAt, bo binary.ByteOrder, base *Spec) (*Spec, error
 		}
 	}
 
-	rawTypes, rawStrings, err := parseBTF(btf, bo, baseStrings)
-	if err != nil {
-		return nil, err
-	}
-
-	types, err := inflateRawTypes(rawTypes, rawStrings, base)
+	types, rawStrings, err := parseBTF(btf, bo, baseStrings, base)
 	if err != nil {
 		return nil, err
 	}
@@ -322,12 +317,12 @@ func loadKernelSpec() (_ *Spec, fallback bool, _ error) {
 	}
 	defer file.Close()
 
-	spec, err := loadSpecFromELF(file)
+	spec, err := LoadSpecFromReader(file)
 	return spec, true, err
 }
 
 // findVMLinux scans multiple well-known paths for vmlinux kernel images.
-func findVMLinux() (*internal.SafeELFFile, error) {
+func findVMLinux() (*os.File, error) {
 	release, err := internal.KernelRelease()
 	if err != nil {
 		return nil, err
@@ -346,7 +341,7 @@ func findVMLinux() (*internal.SafeELFFile, error) {
 	}
 
 	for _, loc := range locations {
-		file, err := internal.OpenSafeELFFile(fmt.Sprintf(loc, release))
+		file, err := os.Open(fmt.Sprintf(loc, release))
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
@@ -373,7 +368,7 @@ func guessRawBTFByteOrder(r io.ReaderAt) binary.ByteOrder {
 
 // parseBTF reads a .BTF section into memory and parses it into a list of
 // raw types and a string table.
-func parseBTF(btf io.ReaderAt, bo binary.ByteOrder, baseStrings *stringTable) ([]rawType, *stringTable, error) {
+func parseBTF(btf io.ReaderAt, bo binary.ByteOrder, baseStrings *stringTable, base *Spec) ([]Type, *stringTable, error) {
 	buf := internal.NewBufferedSectionReader(btf, 0, math.MaxInt64)
 	header, err := parseBTFHeader(buf, bo)
 	if err != nil {
@@ -387,12 +382,12 @@ func parseBTF(btf io.ReaderAt, bo binary.ByteOrder, baseStrings *stringTable) ([
 	}
 
 	buf.Reset(io.NewSectionReader(btf, header.typeStart(), int64(header.TypeLen)))
-	rawTypes, err := readTypes(buf, bo, header.TypeLen)
+	types, err := readAndInflateTypes(buf, bo, header.TypeLen, rawStrings, base)
 	if err != nil {
-		return nil, nil, fmt.Errorf("can't read types: %w", err)
+		return nil, nil, err
 	}
 
-	return rawTypes, rawStrings, nil
+	return types, rawStrings, nil
 }
 
 type symbol struct {

@@ -34,6 +34,8 @@ const (
 	PodCIDRSelectorName = "PodCIDR"
 	// CiliumLoadBalancerIPPoolSelectorName defines the name for a selector matching CiliumLoadBalancerIPPool resources.
 	CiliumLoadBalancerIPPoolSelectorName = "CiliumLoadBalancerIPPool"
+	// CiliumPodIPPoolSelectorName defines the name for a selector matching CiliumPodIPPool resources.
+	CiliumPodIPPoolSelectorName = CPIPKindDefinition
 )
 
 // +genclient
@@ -138,8 +140,10 @@ type CiliumBGPPathAttributes struct {
 	//   Only affects routes of cluster scope / Kubernetes IPAM CIDRs, not Multi-Pool IPAM CIDRs.
 	// - For "CiliumLoadBalancerIPPool" the Selector matches CiliumLoadBalancerIPPool custom resources
 	//   (path attributes apply to routes announced for selected CiliumLoadBalancerIPPools).
+	// - For "CiliumPodIPPool" the Selector matches CiliumPodIPPool custom resources
+	//   (path attributes apply to routes announced for allocated CIDRs of selected CiliumPodIPPools).
 	//
-	// +kubebuilder:validation:Enum=PodCIDR;CiliumLoadBalancerIPPool
+	// +kubebuilder:validation:Enum=PodCIDR;CiliumLoadBalancerIPPool;CiliumPodIPPool
 	// +kubebuilder:validation:Required
 	SelectorType string `json:"selectorType"`
 

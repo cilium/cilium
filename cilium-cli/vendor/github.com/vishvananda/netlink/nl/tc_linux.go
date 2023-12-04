@@ -1,8 +1,10 @@
 package nl
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -87,7 +89,11 @@ const (
 	TCA_STATS_RATE_EST
 	TCA_STATS_QUEUE
 	TCA_STATS_APP
-	TCA_STATS_MAX = TCA_STATS_APP
+	TCA_STATS_RATE_EST64
+	TCA_STATS_PAD
+	TCA_STATS_BASIC_HW
+	TCA_STATS_PKT64
+	TCA_STATS_MAX = TCA_STATS_PKT64
 )
 
 const (
@@ -146,6 +152,18 @@ func DeserializeTcMsg(b []byte) *TcMsg {
 
 func (x *TcMsg) Serialize() []byte {
 	return (*(*[SizeofTcMsg]byte)(unsafe.Pointer(x)))[:]
+}
+
+type Tcf struct {
+	Install  uint64
+	LastUse  uint64
+	Expires  uint64
+	FirstUse uint64
+}
+
+func DeserializeTcf(b []byte) *Tcf {
+	const size = int(unsafe.Sizeof(Tcf{}))
+	return (*Tcf)(unsafe.Pointer(&b[0:size][0]))
 }
 
 // struct tcamsg {
@@ -1071,14 +1089,14 @@ func (x *TcSfqQopt) Serialize() []byte {
 	return (*(*[SizeofTcSfqQopt]byte)(unsafe.Pointer(x)))[:]
 }
 
-// struct tc_sfqred_stats {
-// 	__u32           prob_drop;      /* Early drops, below max threshold */
-// 	__u32           forced_drop;	/* Early drops, after max threshold */
-// 	__u32           prob_mark;      /* Marked packets, below max threshold */
-// 	__u32           forced_mark;    /* Marked packets, after max threshold */
-// 	__u32           prob_mark_head; /* Marked packets, below max threshold */
-// 	__u32           forced_mark_head;/* Marked packets, after max threshold */
-// };
+//	struct tc_sfqred_stats {
+//		__u32           prob_drop;      /* Early drops, below max threshold */
+//		__u32           forced_drop;	/* Early drops, after max threshold */
+//		__u32           prob_mark;      /* Marked packets, below max threshold */
+//		__u32           forced_mark;    /* Marked packets, after max threshold */
+//		__u32           prob_mark_head; /* Marked packets, below max threshold */
+//		__u32           forced_mark_head;/* Marked packets, after max threshold */
+//	};
 type TcSfqRedStats struct {
 	ProbDrop       uint32
 	ForcedDrop     uint32
@@ -1100,22 +1118,26 @@ func (x *TcSfqRedStats) Serialize() []byte {
 	return (*(*[SizeofTcSfqRedStats]byte)(unsafe.Pointer(x)))[:]
 }
 
-// struct tc_sfq_qopt_v1 {
-// 	struct tc_sfq_qopt v0;
-// 	unsigned int	depth;		/* max number of packets per flow */
-// 	unsigned int	headdrop;
+//	struct tc_sfq_qopt_v1 {
+//		struct tc_sfq_qopt v0;
+//		unsigned int	depth;		/* max number of packets per flow */
+//		unsigned int	headdrop;
+//
 // /* SFQRED parameters */
-// 	__u32		limit;		/* HARD maximal flow queue length (bytes) */
-// 	__u32		qth_min;	/* Min average length threshold (bytes) */
-// 	__u32		qth_max;	/* Max average length threshold (bytes) */
-// 	unsigned char   Wlog;		/* log(W)		*/
-// 	unsigned char   Plog;		/* log(P_max/(qth_max-qth_min))	*/
-// 	unsigned char   Scell_log;	/* cell size for idle damping */
-// 	unsigned char	flags;
-// 	__u32		max_P;		/* probability, high resolution */
+//
+//	__u32		limit;		/* HARD maximal flow queue length (bytes) */
+//	__u32		qth_min;	/* Min average length threshold (bytes) */
+//	__u32		qth_max;	/* Max average length threshold (bytes) */
+//	unsigned char   Wlog;		/* log(W)		*/
+//	unsigned char   Plog;		/* log(P_max/(qth_max-qth_min))	*/
+//	unsigned char   Scell_log;	/* cell size for idle damping */
+//	unsigned char	flags;
+//	__u32		max_P;		/* probability, high resolution */
+//
 // /* SFQRED stats */
-// 	struct tc_sfqred_stats stats;
-// };
+//
+//		struct tc_sfqred_stats stats;
+//	};
 type TcSfqQoptV1 struct {
 	TcSfqQopt
 	Depth    uint32
@@ -1174,4 +1196,395 @@ func (i IPProto) String() string {
 		return "icmpv6"
 	}
 	return fmt.Sprintf("%d", i)
+}
+
+const (
+	MaxOffs        = 128
+	SizeOfPeditSel = 24
+	SizeOfPeditKey = 24
+
+	TCA_PEDIT_KEY_EX_HTYPE = 1
+	TCA_PEDIT_KEY_EX_CMD   = 2
+)
+
+const (
+	TCA_PEDIT_UNSPEC = iota
+	TCA_PEDIT_TM
+	TCA_PEDIT_PARMS
+	TCA_PEDIT_PAD
+	TCA_PEDIT_PARMS_EX
+	TCA_PEDIT_KEYS_EX
+	TCA_PEDIT_KEY_EX
+)
+
+// /* TCA_PEDIT_KEY_EX_HDR_TYPE_NETWROK is a special case for legacy users. It
+//  * means no specific header type - offset is relative to the network layer
+//  */
+type PeditHeaderType uint16
+
+const (
+	TCA_PEDIT_KEY_EX_HDR_TYPE_NETWORK = iota
+	TCA_PEDIT_KEY_EX_HDR_TYPE_ETH
+	TCA_PEDIT_KEY_EX_HDR_TYPE_IP4
+	TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	TCA_PEDIT_KEY_EX_HDR_TYPE_TCP
+	TCA_PEDIT_KEY_EX_HDR_TYPE_UDP
+	__PEDIT_HDR_TYPE_MAX
+)
+
+type PeditCmd uint16
+
+const (
+	TCA_PEDIT_KEY_EX_CMD_SET = 0
+	TCA_PEDIT_KEY_EX_CMD_ADD = 1
+)
+
+type TcPeditSel struct {
+	TcGen
+	NKeys uint8
+	Flags uint8
+}
+
+func DeserializeTcPeditKey(b []byte) *TcPeditKey {
+	return (*TcPeditKey)(unsafe.Pointer(&b[0:SizeOfPeditKey][0]))
+}
+
+func DeserializeTcPedit(b []byte) (*TcPeditSel, []TcPeditKey) {
+	x := &TcPeditSel{}
+	copy((*(*[SizeOfPeditSel]byte)(unsafe.Pointer(x)))[:SizeOfPeditSel], b)
+
+	var keys []TcPeditKey
+
+	next := SizeOfPeditKey
+	var i uint8
+	for i = 0; i < x.NKeys; i++ {
+		keys = append(keys, *DeserializeTcPeditKey(b[next:]))
+		next += SizeOfPeditKey
+	}
+
+	return x, keys
+}
+
+type TcPeditKey struct {
+	Mask    uint32
+	Val     uint32
+	Off     uint32
+	At      uint32
+	OffMask uint32
+	Shift   uint32
+}
+
+type TcPeditKeyEx struct {
+	HeaderType PeditHeaderType
+	Cmd        PeditCmd
+}
+
+type TcPedit struct {
+	Sel    TcPeditSel
+	Keys   []TcPeditKey
+	KeysEx []TcPeditKeyEx
+	Extend uint8
+}
+
+func (p *TcPedit) Encode(parent *RtAttr) {
+	parent.AddRtAttr(TCA_ACT_KIND, ZeroTerminated("pedit"))
+	actOpts := parent.AddRtAttr(TCA_ACT_OPTIONS, nil)
+
+	bbuf := bytes.NewBuffer(make([]byte, 0, int(unsafe.Sizeof(p.Sel)+unsafe.Sizeof(p.Keys))))
+
+	bbuf.Write((*(*[SizeOfPeditSel]byte)(unsafe.Pointer(&p.Sel)))[:])
+
+	for i := uint8(0); i < p.Sel.NKeys; i++ {
+		bbuf.Write((*(*[SizeOfPeditKey]byte)(unsafe.Pointer(&p.Keys[i])))[:])
+	}
+	actOpts.AddRtAttr(TCA_PEDIT_PARMS_EX, bbuf.Bytes())
+
+	exAttrs := actOpts.AddRtAttr(int(TCA_PEDIT_KEYS_EX|NLA_F_NESTED), nil)
+	for i := uint8(0); i < p.Sel.NKeys; i++ {
+		keyAttr := exAttrs.AddRtAttr(int(TCA_PEDIT_KEY_EX|NLA_F_NESTED), nil)
+
+		htypeBuf := make([]byte, 2)
+		cmdBuf := make([]byte, 2)
+
+		NativeEndian().PutUint16(htypeBuf, uint16(p.KeysEx[i].HeaderType))
+		NativeEndian().PutUint16(cmdBuf, uint16(p.KeysEx[i].Cmd))
+
+		keyAttr.AddRtAttr(TCA_PEDIT_KEY_EX_HTYPE, htypeBuf)
+		keyAttr.AddRtAttr(TCA_PEDIT_KEY_EX_CMD, cmdBuf)
+	}
+}
+
+func (p *TcPedit) SetEthDst(mac net.HardwareAddr) {
+	u32 := NativeEndian().Uint32(mac)
+	u16 := NativeEndian().Uint16(mac[4:])
+
+	tKey := TcPeditKey{}
+	tKeyEx := TcPeditKeyEx{}
+
+	tKey.Val = u32
+
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_ETH
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+	p.Sel.NKeys++
+
+	tKey = TcPeditKey{}
+	tKeyEx = TcPeditKeyEx{}
+
+	tKey.Val = uint32(u16)
+	tKey.Mask = 0xffff0000
+	tKey.Off = 4
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_ETH
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+
+	p.Sel.NKeys++
+}
+
+func (p *TcPedit) SetEthSrc(mac net.HardwareAddr) {
+	u16 := NativeEndian().Uint16(mac)
+	u32 := NativeEndian().Uint32(mac[2:])
+
+	tKey := TcPeditKey{}
+	tKeyEx := TcPeditKeyEx{}
+
+	tKey.Val = uint32(u16) << 16
+	tKey.Mask = 0x0000ffff
+	tKey.Off = 4
+
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_ETH
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+	p.Sel.NKeys++
+
+	tKey = TcPeditKey{}
+	tKeyEx = TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Mask = 0
+	tKey.Off = 8
+
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_ETH
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+
+	p.Sel.NKeys++
+}
+
+func (p *TcPedit) SetIPv6Src(ip6 net.IP) {
+	u32 := NativeEndian().Uint32(ip6[:4])
+
+	tKey := TcPeditKey{}
+	tKeyEx := TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 8
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+	p.Sel.NKeys++
+
+	u32 = NativeEndian().Uint32(ip6[4:8])
+	tKey = TcPeditKey{}
+	tKeyEx = TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 12
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+
+	p.Sel.NKeys++
+
+	u32 = NativeEndian().Uint32(ip6[8:12])
+	tKey = TcPeditKey{}
+	tKeyEx = TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 16
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+
+	p.Sel.NKeys++
+
+	u32 = NativeEndian().Uint32(ip6[12:16])
+	tKey = TcPeditKey{}
+	tKeyEx = TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 20
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+
+	p.Sel.NKeys++
+}
+
+func (p *TcPedit) SetDstIP(ip net.IP) {
+	if ip.To4() != nil {
+		p.SetIPv4Dst(ip)
+	} else {
+		p.SetIPv6Dst(ip)
+	}
+}
+
+func (p *TcPedit) SetSrcIP(ip net.IP) {
+	if ip.To4() != nil {
+		p.SetIPv4Src(ip)
+	} else {
+		p.SetIPv6Src(ip)
+	}
+}
+
+func (p *TcPedit) SetIPv6Dst(ip6 net.IP) {
+	u32 := NativeEndian().Uint32(ip6[:4])
+
+	tKey := TcPeditKey{}
+	tKeyEx := TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 24
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+	p.Sel.NKeys++
+
+	u32 = NativeEndian().Uint32(ip6[4:8])
+	tKey = TcPeditKey{}
+	tKeyEx = TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 28
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+
+	p.Sel.NKeys++
+
+	u32 = NativeEndian().Uint32(ip6[8:12])
+	tKey = TcPeditKey{}
+	tKeyEx = TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 32
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+
+	p.Sel.NKeys++
+
+	u32 = NativeEndian().Uint32(ip6[12:16])
+	tKey = TcPeditKey{}
+	tKeyEx = TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 36
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP6
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+
+	p.Sel.NKeys++
+}
+
+func (p *TcPedit) SetIPv4Src(ip net.IP) {
+	u32 := NativeEndian().Uint32(ip[:4])
+
+	tKey := TcPeditKey{}
+	tKeyEx := TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 12
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP4
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+	p.Sel.NKeys++
+}
+
+func (p *TcPedit) SetIPv4Dst(ip net.IP) {
+	u32 := NativeEndian().Uint32(ip[:4])
+
+	tKey := TcPeditKey{}
+	tKeyEx := TcPeditKeyEx{}
+
+	tKey.Val = u32
+	tKey.Off = 16
+	tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_IP4
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+	p.Sel.NKeys++
+}
+
+// SetDstPort only tcp and udp are supported to set port
+func (p *TcPedit) SetDstPort(dstPort uint16, protocol uint8) {
+	tKey := TcPeditKey{}
+	tKeyEx := TcPeditKeyEx{}
+
+	switch protocol {
+	case unix.IPPROTO_TCP:
+		tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_TCP
+	case unix.IPPROTO_UDP:
+		tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_UDP
+	default:
+		return
+	}
+
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	tKey.Val = uint32(Swap16(dstPort)) << 16
+	tKey.Mask = 0x0000ffff
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+	p.Sel.NKeys++
+}
+
+// SetSrcPort only tcp and udp are supported to set port
+func (p *TcPedit) SetSrcPort(srcPort uint16, protocol uint8) {
+	tKey := TcPeditKey{}
+	tKeyEx := TcPeditKeyEx{}
+
+	switch protocol {
+	case unix.IPPROTO_TCP:
+		tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_TCP
+	case unix.IPPROTO_UDP:
+		tKeyEx.HeaderType = TCA_PEDIT_KEY_EX_HDR_TYPE_UDP
+	default:
+		return
+	}
+
+	tKeyEx.Cmd = TCA_PEDIT_KEY_EX_CMD_SET
+
+	tKey.Val = uint32(Swap16(srcPort))
+	tKey.Mask = 0xffff0000
+	p.Keys = append(p.Keys, tKey)
+	p.KeysEx = append(p.KeysEx, tKeyEx)
+	p.Sel.NKeys++
 }

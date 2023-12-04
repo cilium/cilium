@@ -36,6 +36,8 @@ type ClientOption func(*runtime.ClientOperation)
 type ClientService interface {
 	GetStatedbDump(params *GetStatedbDumpParams, writer io.Writer, opts ...ClientOption) (*GetStatedbDumpOK, error)
 
+	GetStatedbQueryTable(params *GetStatedbQueryTableParams, writer io.Writer, opts ...ClientOption) (*GetStatedbQueryTableOK, error)
+
 	SetTransport(transport runtime.ClientTransport)
 }
 
@@ -74,6 +76,44 @@ func (a *Client) GetStatedbDump(params *GetStatedbDumpParams, writer io.Writer, 
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetStatedbDump: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+GetStatedbQueryTable performs a query against a state d b table
+*/
+func (a *Client) GetStatedbQueryTable(params *GetStatedbQueryTableParams, writer io.Writer, opts ...ClientOption) (*GetStatedbQueryTableOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetStatedbQueryTableParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "GetStatedbQueryTable",
+		Method:             "GET",
+		PathPattern:        "/statedb/query/{table}",
+		ProducesMediaTypes: []string{"application/octet-stream"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetStatedbQueryTableReader{formats: a.formats, writer: writer},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*GetStatedbQueryTableOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetStatedbQueryTable: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

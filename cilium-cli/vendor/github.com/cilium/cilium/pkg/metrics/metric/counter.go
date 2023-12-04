@@ -60,7 +60,9 @@ func (c *counter) Add(val float64) {
 	}
 }
 
-func NewCounterVec(opts CounterOpts, labelNames []string) DeletableVec[Counter] {
+// NewCounterVec creates a new DeletableVec[Counter] based on the provided CounterOpts and
+// partitioned by the given label names.
+func NewCounterVec(opts CounterOpts, labelNames []string) *counterVec {
 	return &counterVec{
 		CounterVec: prometheus.NewCounterVec(opts.toPrometheus(), labelNames),
 		metric: metric{
@@ -70,12 +72,47 @@ func NewCounterVec(opts CounterOpts, labelNames []string) DeletableVec[Counter] 
 	}
 }
 
+// NewCounterVecWithLabels creates a new DeletableVec[Counter] based on the provided CounterOpts and
+// partitioned by the given labels.
+// This will also initialize the labels with the provided values so that metrics with known label value
+// ranges can be pre-initialized to zero upon init.
+//
+// This should only be used when all label values are known at init, otherwise use of the
+// metric vector with uninitialized labels will result in warnings.
+//
+// Note: Disabled metrics will not have their label values initialized.
+//
+// For example:
+//
+//	NewCounterVecWithLabels(CounterOpts{
+//		Namespace: "cilium",
+//		Subsystem: "subsystem",
+//		Name:      "cilium_test",
+//		Disabled:  false,
+//	}, Labels{
+//		{Name: "foo", Values: NewValues("0", "1")},
+//		{Name: "bar", Values: NewValues("a", "b")},
+//	})
+//
+// Will initialize the following metrics to:
+//
+//	cilium_subsystem_cilium_test{foo="0", bar="a"} 0
+//	cilium_subsystem_cilium_test{foo="0", bar="b"} 0
+//	cilium_subsystem_cilium_test{foo="1", bar="a"} 0
+//	cilium_subsystem_cilium_test{foo="1", bar="b"} 0
+func NewCounterVecWithLabels(opts CounterOpts, labels Labels) *counterVec {
+	cv := NewCounterVec(opts, labels.labelNames())
+	initLabels[Counter](&cv.metric, labels, cv, opts.Disabled)
+	return cv
+}
+
 type counterVec struct {
 	*prometheus.CounterVec
 	metric
 }
 
 func (cv *counterVec) CurryWith(labels prometheus.Labels) (Vec[Counter], error) {
+	cv.checkLabels(labels)
 	vec, err := cv.CounterVec.CurryWith(labels)
 	if err == nil {
 		return &counterVec{CounterVec: vec, metric: cv.metric}, nil
@@ -118,6 +155,7 @@ func (cv *counterVec) GetMetricWithLabelValues(lvs ...string) (Counter, error) {
 }
 
 func (cv *counterVec) With(labels prometheus.Labels) Counter {
+	cv.checkLabels(labels)
 	if !cv.enabled {
 		return &counter{
 			metric: metric{enabled: false},
@@ -132,6 +170,7 @@ func (cv *counterVec) With(labels prometheus.Labels) Counter {
 }
 
 func (cv *counterVec) WithLabelValues(lvs ...string) Counter {
+	cv.checkLabelValues(lvs...)
 	if !cv.enabled {
 		return &counter{
 			metric: metric{enabled: false},

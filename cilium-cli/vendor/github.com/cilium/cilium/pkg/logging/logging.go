@@ -41,7 +41,7 @@ const (
 
 // DefaultLogger is the base logrus logger. It is different from the logrus
 // default to avoid external dependencies from writing out unexpectedly
-var DefaultLogger = InitializeDefaultLogger()
+var DefaultLogger = initializeDefaultLogger()
 
 func initializeKLog() {
 	log := DefaultLogger.WithField(logfields.LogSubsys, "klog")
@@ -73,8 +73,9 @@ func initializeKLog() {
 // LogOptions maps configuration key-value pairs related to logging.
 type LogOptions map[string]string
 
-// InitializeDefaultLogger returns a logrus Logger with a custom text formatter.
-func InitializeDefaultLogger() (logger *logrus.Logger) {
+// initializeDefaultLogger returns a logrus Logger with the default logging
+// settings.
+func initializeDefaultLogger() (logger *logrus.Logger) {
 	logger = logrus.New()
 	logger.SetFormatter(GetFormatter(DefaultLogFormat))
 	logger.SetLevel(DefaultLogLevel)
