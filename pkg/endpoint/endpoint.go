@@ -18,7 +18,6 @@ import (
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
-
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1654,7 +1653,8 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	restoredEndpoint, blocking bool,
 	baseLabels labels.Labels,
 	bwm bandwidth.Manager,
-	resolveMetadata MetadataResolverCB) (regenTriggered bool, err error) {
+	resolveMetadata MetadataResolverCB,
+) (regenTriggered bool, err error) {
 	if !e.K8sNamespaceAndPodNameIsSet() {
 		e.Logger(resolveLabels).Debug("Namespace and Pod are not set")
 		return false, nil
@@ -1758,8 +1758,10 @@ type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim
 // will handle updates (such as pkg/k8s/watchers informers).
 func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, bwm bandwidth.Manager, resolveMetadata MetadataResolverCB) (regenTriggered bool) {
 	var regenTriggeredCh chan bool
+	callerBlocked := false
 	if blocking {
 		regenTriggeredCh = make(chan bool)
+		callerBlocked = true
 	}
 	controllerName := resolveLabels + "-" + e.GetK8sNamespaceAndPodName()
 
@@ -1770,19 +1772,22 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 			Group:       resolveLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				regenTriggered, err := e.metadataResolver(ctx, restoredEndpoint, blocking, baseLabels, bwm, resolveMetadata)
-				if blocking {
+
+				// Check if the caller is still blocked.
+				// It might already have been unblocked in a previous run, where resolving metadata
+				// resulted in a regeneration even though it returned an error.
+				if callerBlocked {
 					select {
-					// Check if the channel was closed.
-					case <-regenTriggeredCh:
 					case <-e.aliveCtx.Done():
 					case regenTriggeredCh <- regenTriggered:
+						// First regeneration will close the channel and unblock the caller.
+						// This might be the case even if resolving metadata resulted in an error.
 						close(regenTriggeredCh)
+						callerBlocked = false
 					}
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+
+				return err
 			},
 			Context: e.aliveCtx,
 		},
