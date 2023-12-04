@@ -370,7 +370,7 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 	// Original source address use works if xt_socket match is supported, or if ip early demux
 	// is disabled, but it is not needed when tunneling is used as the tunnel header carries
 	// the source security ID.
-	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && option.Config.Tunnel == option.TunnelDisabled
+	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && (option.Config.Tunnel == option.TunnelDisabled || option.Config.EnableIPSec)
 }
 
 // removeRules removes iptables rules installed by Cilium.
