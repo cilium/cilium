@@ -126,8 +126,8 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		tuple.saddr = ip4->saddr;
 		l4_off = l3_off + ipv4_hdrlen(ip4);
 
-		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-				 &ct_state, &monitor);
+		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
+				 CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
 			ct_state_new.node_port = ct_state.node_port;
@@ -186,8 +186,8 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		tuple.saddr = ip4->saddr;
 		l4_off = l3_off + ipv4_hdrlen(ip4);
 
-		ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			   &ct_state, &monitor);
+		ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
+			   CT_INGRESS, &ct_state, &monitor);
 
 		if (data + pkt_size > data_end)
 			test_fatal("packet shrank");

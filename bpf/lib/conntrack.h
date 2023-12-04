@@ -871,25 +871,15 @@ ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff 
 /* Offset must point to IPv4 header */
 static __always_inline int ct_lookup4(const void *map,
 				      struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int off, enum ct_dir dir,
+				      struct __ctx_buff *ctx, struct iphdr *ip4,
+				      int off, enum ct_dir dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
+	bool is_fragment = ipv4_is_fragment(ip4);
 	bool has_l4_header = true;
-	bool is_fragment = false;
-	struct iphdr *ip4 = NULL;
-#ifdef ENABLE_IPV4_FRAGMENTS
-	void *data, *data_end;
-#endif
 	int ret;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, SCOPE_BIDIR);
-
-#ifdef ENABLE_IPV4_FRAGMENTS
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_CT_INVALID_HDR;
-
-	is_fragment = ipv4_is_fragment(ip4);
-#endif
 
 	ret = ct_extract_ports4(ctx, ip4, off, dir, tuple, &has_l4_header);
 	if (ret < 0)

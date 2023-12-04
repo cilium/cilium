@@ -346,7 +346,7 @@ ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
-	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ct_buffer->l4_off,
+	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
 				    CT_EGRESS, &ct_buffer->ct_state, &ct_buffer->monitor);
 	return true;
 }
@@ -465,7 +465,7 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
-	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ct_buffer->l4_off,
+	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
 				    CT_INGRESS, &ct_buffer->ct_state, &ct_buffer->monitor);
 
 	return true;
