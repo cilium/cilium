@@ -706,8 +706,8 @@ ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
 }
 
 static __always_inline int
-ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
-		  struct ipv4_ct_tuple *tuple, bool *has_l4_header)
+ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, int off,
+		  enum ct_dir dir, struct ipv4_ct_tuple *tuple, bool *has_l4_header)
 {
 	int err;
 
@@ -752,7 +752,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		err = ipv4_load_l4_ports(ctx, NULL, off, dir, &tuple->dport,
+		err = ipv4_load_l4_ports(ctx, ip4, off, dir, &tuple->dport,
 					 has_l4_header);
 		if (err < 0)
 			return err;
@@ -876,9 +876,9 @@ static __always_inline int ct_lookup4(const void *map,
 {
 	bool has_l4_header = true;
 	bool is_fragment = false;
+	struct iphdr *ip4 = NULL;
 #ifdef ENABLE_IPV4_FRAGMENTS
 	void *data, *data_end;
-	struct iphdr *ip4;
 #endif
 	int ret;
 
@@ -891,7 +891,7 @@ static __always_inline int ct_lookup4(const void *map,
 	is_fragment = ipv4_is_fragment(ip4);
 #endif
 
-	ret = ct_extract_ports4(ctx, off, dir, tuple, &has_l4_header);
+	ret = ct_extract_ports4(ctx, ip4, off, dir, tuple, &has_l4_header);
 	if (ret < 0)
 		return ret;
 
