@@ -1,6 +1,7 @@
 package btf
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
+	"golang.org/x/exp/slices"
 )
 
 // Mirrors MAX_RESOLVE_DEPTH in libbpf.
@@ -117,7 +119,7 @@ type Int struct {
 }
 
 func (i *Int) Format(fs fmt.State, verb rune) {
-	formatType(fs, verb, i, i.Encoding, "size=", i.Size*8)
+	formatType(fs, verb, i, i.Encoding, "size=", i.Size)
 }
 
 func (i *Int) TypeName() string { return i.Name }
@@ -726,17 +728,22 @@ func (c *copier) copy(typ *Type, transform Transformer) {
 
 type typeDeque = internal.Deque[*Type]
 
-// inflateRawTypes takes a list of raw btf types linked via type IDs, and turns
-// it into a graph of Types connected via pointers.
+// readAndInflateTypes reads the raw btf type info and turns it into a graph
+// of Types connected via pointers.
 //
-// If base is provided, then the raw types are considered to be of a split BTF
+// If base is provided, then the types are considered to be of a split BTF
 // (e.g., a kernel module).
 //
 // Returns a slice of types indexed by TypeID. Since BTF ignores compilation
 // units, multiple types may share the same name. A Type may form a cyclic graph
 // by pointing at itself.
-func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable, base *Spec) ([]Type, error) {
-	types := make([]Type, 0, len(rawTypes)+1) // +1 for Void added to base types
+func readAndInflateTypes(r io.Reader, bo binary.ByteOrder, typeLen uint32, rawStrings *stringTable, base *Spec) ([]Type, error) {
+	// because of the interleaving between types and struct members it is difficult to
+	// precompute the numbers of raw types this will parse
+	// this "guess" is a good first estimation
+	sizeOfbtfType := uintptr(btfTypeLen)
+	tyMaxCount := uintptr(typeLen) / sizeOfbtfType / 2
+	types := make([]Type, 0, tyMaxCount)
 
 	// Void is defined to always be type ID 0, and is thus omitted from BTF.
 	types = append(types, (*Void)(nil))
@@ -841,62 +848,128 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable, base *Spec) ([
 		return members, nil
 	}
 
+	var (
+		buf       = make([]byte, 1024)
+		header    btfType
+		bInt      btfInt
+		bArr      btfArray
+		bMembers  []btfMember
+		bEnums    []btfEnum
+		bParams   []btfParam
+		bVariable btfVariable
+		bSecInfos []btfVarSecinfo
+		bDeclTag  btfDeclTag
+		bEnums64  []btfEnum64
+	)
+
 	var declTags []*declTag
-	for _, raw := range rawTypes {
+	for {
 		var (
 			id  = firstTypeID + TypeID(len(types))
 			typ Type
 		)
 
+		if _, err := io.ReadFull(r, buf[:btfTypeLen]); err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("can't read type info for id %v: %v", id, err)
+		}
+
+		if _, err := unmarshalBtfType(&header, buf[:btfTypeLen], bo); err != nil {
+			return nil, fmt.Errorf("can't unmarshal type info for id %v: %v", id, err)
+		}
+
 		if id < firstTypeID {
 			return nil, fmt.Errorf("no more type IDs")
 		}
 
-		name, err := rawStrings.Lookup(raw.NameOff)
+		name, err := rawStrings.Lookup(header.NameOff)
 		if err != nil {
 			return nil, fmt.Errorf("get name for type id %d: %w", id, err)
 		}
 
-		switch raw.Kind() {
+		switch header.Kind() {
 		case kindInt:
-			size := raw.Size()
-			bi := raw.data.(*btfInt)
-			if bi.Offset() > 0 || bi.Bits().Bytes() != size {
-				legacyBitfields[id] = [2]Bits{bi.Offset(), bi.Bits()}
+			size := header.Size()
+			buf = buf[:btfIntLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfInt, id: %d: %w", id, err)
 			}
-			typ = &Int{name, raw.Size(), bi.Encoding()}
+			if _, err := unmarshalBtfInt(&bInt, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't unmarshal btfInt, id: %d: %w", id, err)
+			}
+			if bInt.Offset() > 0 || bInt.Bits().Bytes() != size {
+				legacyBitfields[id] = [2]Bits{bInt.Offset(), bInt.Bits()}
+			}
+			typ = &Int{name, header.Size(), bInt.Encoding()}
 
 		case kindPointer:
 			ptr := &Pointer{nil}
-			fixup(raw.Type(), &ptr.Target)
+			fixup(header.Type(), &ptr.Target)
 			typ = ptr
 
 		case kindArray:
-			btfArr := raw.data.(*btfArray)
-			arr := &Array{nil, nil, btfArr.Nelems}
-			fixup(btfArr.IndexType, &arr.Index)
-			fixup(btfArr.Type, &arr.Type)
+			buf = buf[:btfArrayLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfArray, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfArray(&bArr, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't unmarshal btfArray, id: %d: %w", id, err)
+			}
+
+			arr := &Array{nil, nil, bArr.Nelems}
+			fixup(bArr.IndexType, &arr.Index)
+			fixup(bArr.Type, &arr.Type)
 			typ = arr
 
 		case kindStruct:
-			members, err := convertMembers(raw.data.([]btfMember), raw.Bitfield())
+			vlen := header.Vlen()
+			bMembers = slices.Grow(bMembers[:0], vlen)[:vlen]
+			buf = slices.Grow(buf[:0], vlen*btfMemberLen)[:vlen*btfMemberLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfMembers, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfMembers(bMembers, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't unmarshal btfMembers, id: %d: %w", id, err)
+			}
+
+			members, err := convertMembers(bMembers, header.Bitfield())
 			if err != nil {
 				return nil, fmt.Errorf("struct %s (id %d): %w", name, id, err)
 			}
-			typ = &Struct{name, raw.Size(), members}
+			typ = &Struct{name, header.Size(), members}
 
 		case kindUnion:
-			members, err := convertMembers(raw.data.([]btfMember), raw.Bitfield())
+			vlen := header.Vlen()
+			bMembers = slices.Grow(bMembers[:0], vlen)[:vlen]
+			buf = slices.Grow(buf[:0], vlen*btfMemberLen)[:vlen*btfMemberLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfMembers, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfMembers(bMembers, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't unmarshal btfMembers, id: %d: %w", id, err)
+			}
+
+			members, err := convertMembers(bMembers, header.Bitfield())
 			if err != nil {
 				return nil, fmt.Errorf("union %s (id %d): %w", name, id, err)
 			}
-			typ = &Union{name, raw.Size(), members}
+			typ = &Union{name, header.Size(), members}
 
 		case kindEnum:
-			rawvals := raw.data.([]btfEnum)
-			vals := make([]EnumValue, 0, len(rawvals))
-			signed := raw.Signed()
-			for i, btfVal := range rawvals {
+			vlen := header.Vlen()
+			bEnums = slices.Grow(bEnums[:0], vlen)[:vlen]
+			buf = slices.Grow(buf[:0], vlen*btfEnumLen)[:vlen*btfEnumLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfEnums, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfEnums(bEnums, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't unmarshal btfEnums, id: %d: %w", id, err)
+			}
+
+			vals := make([]EnumValue, 0, vlen)
+			signed := header.Signed()
+			for i, btfVal := range bEnums {
 				name, err := rawStrings.Lookup(btfVal.NameOff)
 				if err != nil {
 					return nil, fmt.Errorf("get name for enum value %d: %s", i, err)
@@ -908,40 +981,49 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable, base *Spec) ([
 				}
 				vals = append(vals, EnumValue{name, value})
 			}
-			typ = &Enum{name, raw.Size(), signed, vals}
+			typ = &Enum{name, header.Size(), signed, vals}
 
 		case kindForward:
-			typ = &Fwd{name, raw.FwdKind()}
+			typ = &Fwd{name, header.FwdKind()}
 
 		case kindTypedef:
 			typedef := &Typedef{name, nil}
-			fixup(raw.Type(), &typedef.Type)
+			fixup(header.Type(), &typedef.Type)
 			typ = typedef
 
 		case kindVolatile:
 			volatile := &Volatile{nil}
-			fixup(raw.Type(), &volatile.Type)
+			fixup(header.Type(), &volatile.Type)
 			typ = volatile
 
 		case kindConst:
 			cnst := &Const{nil}
-			fixup(raw.Type(), &cnst.Type)
+			fixup(header.Type(), &cnst.Type)
 			typ = cnst
 
 		case kindRestrict:
 			restrict := &Restrict{nil}
-			fixup(raw.Type(), &restrict.Type)
+			fixup(header.Type(), &restrict.Type)
 			typ = restrict
 
 		case kindFunc:
-			fn := &Func{name, nil, raw.Linkage()}
-			fixup(raw.Type(), &fn.Type)
+			fn := &Func{name, nil, header.Linkage()}
+			fixup(header.Type(), &fn.Type)
 			typ = fn
 
 		case kindFuncProto:
-			rawparams := raw.data.([]btfParam)
-			params := make([]FuncParam, 0, len(rawparams))
-			for i, param := range rawparams {
+			vlen := header.Vlen()
+			bParams = slices.Grow(bParams[:0], vlen)[:vlen]
+			buf = slices.Grow(buf[:0], vlen*btfParamLen)[:vlen*btfParamLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfParams, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfParams(bParams, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't unmarshal btfParams, id: %d: %w", id, err)
+			}
+
+			params := make([]FuncParam, 0, vlen)
+			for i, param := range bParams {
 				name, err := rawStrings.Lookup(param.NameOff)
 				if err != nil {
 					return nil, fmt.Errorf("get name for func proto parameter %d: %s", i, err)
@@ -951,57 +1033,90 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable, base *Spec) ([
 				})
 			}
 			for i := range params {
-				fixup(rawparams[i].Type, &params[i].Type)
+				fixup(bParams[i].Type, &params[i].Type)
 			}
 
 			fp := &FuncProto{nil, params}
-			fixup(raw.Type(), &fp.Return)
+			fixup(header.Type(), &fp.Return)
 			typ = fp
 
 		case kindVar:
-			variable := raw.data.(*btfVariable)
-			v := &Var{name, nil, VarLinkage(variable.Linkage)}
-			fixup(raw.Type(), &v.Type)
+			buf = buf[:btfVariableLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfVariable, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfVariable(&bVariable, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't read btfVariable, id: %d: %w", id, err)
+			}
+
+			v := &Var{name, nil, VarLinkage(bVariable.Linkage)}
+			fixup(header.Type(), &v.Type)
 			typ = v
 
 		case kindDatasec:
-			btfVars := raw.data.([]btfVarSecinfo)
-			vars := make([]VarSecinfo, 0, len(btfVars))
-			for _, btfVar := range btfVars {
+			vlen := header.Vlen()
+			bSecInfos = slices.Grow(bSecInfos[:0], vlen)[:vlen]
+			buf = slices.Grow(buf[:0], vlen*btfVarSecinfoLen)[:vlen*btfVarSecinfoLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfVarSecInfos, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfVarSecInfos(bSecInfos, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't unmarshal btfVarSecInfos, id: %d: %w", id, err)
+			}
+
+			vars := make([]VarSecinfo, 0, vlen)
+			for _, btfVar := range bSecInfos {
 				vars = append(vars, VarSecinfo{
 					Offset: btfVar.Offset,
 					Size:   btfVar.Size,
 				})
 			}
 			for i := range vars {
-				fixup(btfVars[i].Type, &vars[i].Type)
+				fixup(bSecInfos[i].Type, &vars[i].Type)
 			}
-			typ = &Datasec{name, raw.Size(), vars}
+			typ = &Datasec{name, header.Size(), vars}
 
 		case kindFloat:
-			typ = &Float{name, raw.Size()}
+			typ = &Float{name, header.Size()}
 
 		case kindDeclTag:
-			btfIndex := raw.data.(*btfDeclTag).ComponentIdx
+			buf = buf[:btfDeclTagLen]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfDeclTag, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfDeclTag(&bDeclTag, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't read btfDeclTag, id: %d: %w", id, err)
+			}
+
+			btfIndex := bDeclTag.ComponentIdx
 			if uint64(btfIndex) > math.MaxInt {
 				return nil, fmt.Errorf("type id %d: index exceeds int", id)
 			}
 
 			dt := &declTag{nil, name, int(int32(btfIndex))}
-			fixup(raw.Type(), &dt.Type)
+			fixup(header.Type(), &dt.Type)
 			typ = dt
 
 			declTags = append(declTags, dt)
 
 		case kindTypeTag:
 			tt := &typeTag{nil, name}
-			fixup(raw.Type(), &tt.Type)
+			fixup(header.Type(), &tt.Type)
 			typ = tt
 
 		case kindEnum64:
-			rawvals := raw.data.([]btfEnum64)
-			vals := make([]EnumValue, 0, len(rawvals))
-			for i, btfVal := range rawvals {
+			vlen := header.Vlen()
+			bEnums64 = slices.Grow(bEnums64[:0], vlen)[:vlen]
+			buf = slices.Grow(buf[:0], vlen*btfEnum64Len)[:vlen*btfEnum64Len]
+			if _, err := io.ReadFull(r, buf); err != nil {
+				return nil, fmt.Errorf("can't read btfEnum64s, id: %d: %w", id, err)
+			}
+			if _, err := unmarshalBtfEnums64(bEnums64, buf, bo); err != nil {
+				return nil, fmt.Errorf("can't unmarshal btfEnum64s, id: %d: %w", id, err)
+			}
+
+			vals := make([]EnumValue, 0, vlen)
+			for i, btfVal := range bEnums64 {
 				name, err := rawStrings.Lookup(btfVal.NameOff)
 				if err != nil {
 					return nil, fmt.Errorf("get name for enum64 value %d: %s", i, err)
@@ -1009,10 +1124,10 @@ func inflateRawTypes(rawTypes []rawType, rawStrings *stringTable, base *Spec) ([
 				value := (uint64(btfVal.ValHi32) << 32) | uint64(btfVal.ValLo32)
 				vals = append(vals, EnumValue{name, value})
 			}
-			typ = &Enum{name, raw.Size(), raw.Signed(), vals}
+			typ = &Enum{name, header.Size(), header.Signed(), vals}
 
 		default:
-			return nil, fmt.Errorf("type id %d: unknown kind: %v", id, raw.Kind())
+			return nil, fmt.Errorf("type id %d: unknown kind: %v", id, header.Kind())
 		}
 
 		types = append(types, typ)

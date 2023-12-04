@@ -559,6 +559,11 @@ done:
 			if m.Header.Pid != pid {
 				continue
 			}
+
+			if m.Header.Flags&unix.NLM_F_DUMP_INTR != 0 {
+				return nil, syscall.Errno(unix.EINTR)
+			}
+
 			if m.Header.Type == unix.NLMSG_DONE || m.Header.Type == unix.NLMSG_ERROR {
 				native := NativeEndian()
 				errno := int32(native.Uint32(m.Data[0:4]))
@@ -569,7 +574,7 @@ done:
 				err = syscall.Errno(-errno)
 
 				unreadData := m.Data[4:]
-				if m.Header.Flags|unix.NLM_F_ACK_TLVS != 0 && len(unreadData) > syscall.SizeofNlMsghdr {
+				if m.Header.Flags&unix.NLM_F_ACK_TLVS != 0 && len(unreadData) > syscall.SizeofNlMsghdr {
 					// Skip the echoed request message.
 					echoReqH := (*syscall.NlMsghdr)(unsafe.Pointer(&unreadData[0]))
 					unreadData = unreadData[nlmAlignOf(int(echoReqH.Len)):]
@@ -661,12 +666,14 @@ func GetNetlinkSocketAt(newNs, curNs netns.NsHandle, protocol int) (*NetlinkSock
 // In case of success, the caller is expected to execute the returned function
 // at the end of the code that needs to be executed in the network namespace.
 // Example:
-// func jobAt(...) error {
-//      d, err := executeInNetns(...)
-//      if err != nil { return err}
-//      defer d()
-//      < code which needs to be executed in specific netns>
-//  }
+//
+//	func jobAt(...) error {
+//	     d, err := executeInNetns(...)
+//	     if err != nil { return err}
+//	     defer d()
+//	     < code which needs to be executed in specific netns>
+//	 }
+//
 // TODO: his function probably belongs to netns pkg.
 func executeInNetns(newNs, curNs netns.NsHandle) (func(), error) {
 	var (
