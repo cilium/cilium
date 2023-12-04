@@ -12,18 +12,24 @@ debug: all
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount tools/sysctlfix
+SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount tools/sysctlfix plugins/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := operator
+
+ifdef LIBNETWORK_PLUGIN
+SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
+endif
 
 # Add the ability to override variables
 -include Makefile.override
 
+# List of subdirectories used for global "make build", "make clean", etc
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools hubble-relay bpf
 
-SUBDIRS_CILIUM_CONTAINER += plugins/cilium-cni
-ifdef LIBNETWORK_PLUGIN
-SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
-endif
+# Filter out any directories where the parent directory is also present, to avoid
+# building or cleaning a subdirectory twice.
+# For example: The directory "tools" is transformed into a match pattern "tools/%",
+# which is then used to filter out items such as "tools/mount" and "tools/sysctlfx"
+SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 
 # Space-separated list of Go packages to test, equivalent to 'go test' package patterns.
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
