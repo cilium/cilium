@@ -1655,7 +1655,7 @@ if [ -z "$CLUSTER_ADDR" ] ; then
 fi
 
 port='@(6553[0-5]|655[0-2][0-9]|65[0-4][0-9][0-9]|6[0-4][0-9][0-9][0-9]|[1-5][0-9][0-9][0-9][0-9]|[1-9][0-9][0-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9]|[1-9])'
-byte='@(25[0-5]|2[0-4][0-9]|[1][0-9][0-9]|[1-9][0-9]|[0-9])'
+byte='@(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])'
 ipv4="$byte\.$byte\.$byte\.$byte"
 
 # Default port is for a HostPort service
@@ -1665,7 +1665,7 @@ case "$CLUSTER_ADDR" in
 	CLUSTER_IP=${CLUSTER_ADDR#\[}
 	CLUSTER_IP=${CLUSTER_IP%%\]:*}
 	;;
-    [^[]$ipv4:$port)
+    $ipv4:$port)
 	CLUSTER_PORT=${CLUSTER_ADDR##*:}
 	CLUSTER_IP=${CLUSTER_ADDR%%:*}
 	;;
