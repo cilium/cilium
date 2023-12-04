@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1597,7 +1596,8 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 func (e *Endpoint) metadataResolver(ctx context.Context,
 	restoredEndpoint, blocking bool,
 	baseLabels labels.Labels,
-	resolveMetadata MetadataResolverCB) (regenTriggered bool, err error) {
+	resolveMetadata MetadataResolverCB,
+) (regenTriggered bool, err error) {
 
 	const resolveLabels = "resolve-labels"
 
@@ -1705,8 +1705,10 @@ type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim
 func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabels labels.Labels, resolveMetadata MetadataResolverCB) (regenTriggered bool) {
 	const controllerPrefix = "resolve-labels"
 	var regenTriggeredCh chan bool
+	callerBlocked := false
 	if blocking {
 		regenTriggeredCh = make(chan bool)
+		callerBlocked = true
 	}
 	controllerName := fmt.Sprintf("%s-%s", controllerPrefix, e.GetK8sNamespaceAndPodName())
 
@@ -1716,19 +1718,21 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 			RunInterval: 0,
 			DoFunc: func(ctx context.Context) error {
 				regenTriggered, err := e.metadataResolver(ctx, restoredEndpoint, blocking, baseLabels, resolveMetadata)
-				if blocking {
+				// Check if the caller is still blocked.
+				// It might already have been unblocked in a previous run, where resolving metadata
+				// resulted in a regeneration even though it returned an error.
+				if callerBlocked {
 					select {
-					// Check if the channel was closed.
-					case <-regenTriggeredCh:
 					case <-e.aliveCtx.Done():
 					case regenTriggeredCh <- regenTriggered:
+						// First regeneration will close the channel and unblock the caller.
+						// This might be the case even if resolving metadata resulted in an error.
 						close(regenTriggeredCh)
+						callerBlocked = false
 					}
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+
+				return err
 			},
 			Context: e.aliveCtx,
 		},
