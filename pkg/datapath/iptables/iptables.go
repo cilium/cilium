@@ -1325,47 +1325,47 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 				goto nextPass
 			}
 		}
-	}
-
-	// Masquerade all egress traffic leaving the node (catch-all)
-	//
-	// This rule must be first as the node ipset rule as it has different
-	// exclusion criteria than the other rules in this table.
-	//
-	// The following conditions must be met:
-	// * May not leave on a cilium_ interface, this excludes all
-	//   tunnel traffic
-	// * Must originate from an IP in the local allocation range
-	// * Must not be reply if BPF NodePort is enabled
-	// * Tunnel mode:
-	//   * May not be targeted to an IP in the local allocation
-	//     range
-	// * Non-tunnel mode:
-	//   * May not be targeted to an IP in the cluster range
-	progArgs := []string{
-		"-t", "nat",
-		"-A", ciliumPostNatChain,
-		"!", "-d", snatDstExclusionCIDR,
-	}
-	if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
-		progArgs = append(
-			progArgs,
-			"-o", strings.Join(m.sharedCfg.MasqueradeInterfaces, ","))
 	} else {
+		// Masquerade all egress traffic leaving the node (catch-all)
+		//
+		// This rule must be first as the node ipset rule as it has different
+		// exclusion criteria than the other rules in this table.
+		//
+		// The following conditions must be met:
+		// * May not leave on a cilium_ interface, this excludes all
+		//   tunnel traffic
+		// * Must originate from an IP in the local allocation range
+		// * Must not be reply if BPF NodePort is enabled
+		// * Tunnel mode:
+		//   * May not be targeted to an IP in the local allocation
+		//     range
+		// * Non-tunnel mode:
+		//   * May not be targeted to an IP in the cluster range
+		progArgs := []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"!", "-d", snatDstExclusionCIDR,
+		}
+		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
+			progArgs = append(
+				progArgs,
+				"-o", strings.Join(m.sharedCfg.MasqueradeInterfaces, ","))
+		} else {
+			progArgs = append(
+				progArgs,
+				"-s", allocRange,
+				"!", "-o", "cilium_+")
+		}
 		progArgs = append(
 			progArgs,
-			"-s", allocRange,
-			"!", "-o", "cilium_+")
-	}
-	progArgs = append(
-		progArgs,
-		"-m", "comment", "--comment", "cilium masquerade non-cluster",
-		"-j", "MASQUERADE")
-	if m.cfg.IPTablesRandomFully {
-		progArgs = append(progArgs, "--random-fully")
-	}
-	if err := prog.runProg(progArgs); err != nil {
-		return err
+			"-m", "comment", "--comment", "cilium masquerade non-cluster",
+			"-j", "MASQUERADE")
+		if m.cfg.IPTablesRandomFully {
+			progArgs = append(progArgs, "--random-fully")
+		}
+		if err := prog.runProg(progArgs); err != nil {
+			return err
+		}
 	}
 
 	// The following rule exclude traffic from the remaining rules in this chain.
