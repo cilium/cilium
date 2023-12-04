@@ -416,6 +416,7 @@ type StatusNode struct {
 	UpdateTimestamp time.Time     `json:"timestamp"`
 	Count           int           `json:"count"`
 	SubStatuses     []*StatusNode `json:"sub_statuses,omitempty"`
+	Error           string        `json:"error,omitempty"`
 }
 
 var _ Update = (*StatusNode)(nil)
@@ -475,6 +476,9 @@ func (s *subreporterBase) getStatusTreeLocked(nid string) *StatusNode {
 			Name:            rn.name,
 			UpdateTimestamp: rn.Timestamp,
 			Count:           rn.count,
+		}
+		if err := rn.Error; err != nil {
+			n.Error = err.Error()
 		}
 		allok := true
 		childIDs := maps.Keys(children)
