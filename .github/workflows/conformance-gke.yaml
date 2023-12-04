@@ -116,6 +116,7 @@ jobs:
     timeout-minutes: 75
     env:
       job_name: "Installation and Connectivity Test"
+      preemptible: ${{ github.event_name != 'schedule' && '--preemptible' || '' }}
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
@@ -213,7 +214,7 @@ jobs:
             --disk-type pd-standard \
             --disk-size 20GB \
             --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute \
-            --preemptible
+            ${{ env.preemptible }}
 
       - name: Get cluster credentials
         run: |

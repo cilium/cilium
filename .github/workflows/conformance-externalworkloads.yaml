@@ -111,6 +111,7 @@ jobs:
     timeout-minutes: 45
     env:
       job_name: "Installation and Connectivity Test"
+      preemptible: ${{ github.event_name != 'schedule' && '--preemptible' || '' }}
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
@@ -208,7 +209,7 @@ jobs:
               --machine-type e2-custom-2-4096 \
               --boot-disk-type pd-standard \
               --boot-disk-size 10GB \
-              --preemptible \
+              ${{ env.preemptible }} \
               --image-project ubuntu-os-cloud \
               --image-family ubuntu-2004-lts \
               --metadata hostname=${{ env.vmName }}-${{ matrix.vmIndex }} \
@@ -229,7 +230,7 @@ jobs:
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 20GB \
-            --preemptible
+            ${{ env.preemptible }}
 
       - name: Get cluster credentials
         run: |
