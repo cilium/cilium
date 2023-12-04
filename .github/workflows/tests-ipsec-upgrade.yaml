@@ -238,38 +238,24 @@ jobs:
           binary-name: cilium-cli
           binary-dir: ./
 
-      - name: Provision LVH VMs
+      - name: Set Kind params
+        id: kind-params
+        shell: bash
+        run: |
+          IP_FAM="dual"
+          if [ "${{ matrix.ipv6 }}" == "false" ]; then
+            IP_FAM="ipv4"
+          fi
+          echo params="\"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
+
+      - name: Provision K8s on LVH VM
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+        uses: cilium/cilium/.github/actions/lvh-kind@main
         with:
-          test-name: ipsec-upgrade
-          image-version: ${{ matrix.kernel }}
-          host-mount: ./
-          cpu: 4
-          mem: '12G'
-          install-dependencies: 'true'
-          cmd: |
-            git config --global --add safe.directory /host
-
-      - name: Setup K8s cluster (${{ matrix.name }})
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-
-            IP_FAM="dual"
-            if [ "${{ matrix.ipv6 }}" == "false" ]; then
-              IP_FAM="ipv4"
-            fi
-            IMAGE=quay.io/cilium/kindest-node:${k8s_version} ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}" \$IP_FAM
-
-            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
-            kubectl create -n kube-system secret generic cilium-ipsec-keys \
-                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
-
-            mkdir -p cilium-junits
+          test-name: e2e-conformance
+          kernel: ${{ matrix.kernel }}
+          kind-params: "${{ steps.kind-params.outputs.params }}"
+          kind-image-vsn: ${k8s_version}
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -281,32 +267,30 @@ jobs:
 
       - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
+        shell: bash
+        run: |
+          kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
-            CILIUM_CLI_MODE=helm ./cilium-cli install \
-              ${{ steps.cilium-stable-config.outputs.config }}
+          mkdir -p cilium-junits
 
-            ./cilium-cli status --wait
-            kubectl get pods --all-namespaces -o wide
-            # TODO: After Cilium 1.15 release, update to cilium-dbg
-            kubectl -n kube-system exec daemonset/cilium -- cilium status
+          CILIUM_CLI_MODE=helm ./cilium-cli install \
+            ${{ steps.cilium-stable-config.outputs.config }}
+
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          # TODO: After Cilium 1.15 release, update to cilium-dbg
+          kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Start conn-disrupt-test
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-
-            # Create pods which establish long lived connections. It will be used by
-            # subsequent connectivity tests with --include-conn-disrupt-test to catch any
-            # interruption in such flows.
-            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+        shell: bash
+        run: |
+          # Create pods which establish long lived connections. It will be used by
+          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+          # interruption in such flows.
+          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
 
       - name: Upgrade Cilium & Test (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -314,8 +298,6 @@ jobs:
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
           operation-cmd: |
-            cd /host/
-
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
               ${{ steps.cilium-newest-config.outputs.config }}
 
@@ -329,8 +311,6 @@ jobs:
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
           operation-cmd: |
-            cd /host/
-
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
               ${{ steps.cilium-stable-config.outputs.config }}
 
@@ -341,17 +321,14 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host
-            kubectl get pods --all-namespaces -o wide
-            ./cilium-cli status
-            mkdir -p cilium-sysdumps
-            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-            # To debug https://github.com/cilium/cilium/issues/26062
-            head -n -0 /proc/buddyinfo /proc/pagetypeinfo
+        shell: bash
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          ./cilium-cli status
+          mkdir -p cilium-sysdumps
+          ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+          # To debug https://github.com/cilium/cilium/issues/26062
+          head -n -0 /proc/buddyinfo /proc/pagetypeinfo
 
       - name: Upload artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
