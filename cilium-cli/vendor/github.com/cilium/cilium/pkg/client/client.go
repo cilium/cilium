@@ -107,14 +107,42 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 // If host is nil then use SockPath provided by CILIUM_SOCK
 // or the cilium default SockPath
 func NewClient(host string) (*Client, error) {
-	clientTrans, err := NewRuntime(host)
+	clientTrans, err := NewRuntime(WithHost(host))
 	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, err
 }
 
-func NewRuntime(host string) (*runtime_client.Runtime, error) {
+type runtimeOptions struct {
+	host     string
+	basePath string
+}
+
+func WithHost(host string) func(options *runtimeOptions) {
+	return func(options *runtimeOptions) {
+		options.host = host
+	}
+}
+
+func WithBasePath(basePath string) func(options *runtimeOptions) {
+	return func(options *runtimeOptions) {
+		options.basePath = basePath
+	}
+}
+
+func NewRuntime(opts ...func(options *runtimeOptions)) (*runtime_client.Runtime, error) {
+	r := runtimeOptions{}
+	for _, opt := range opts {
+		opt(&r)
+	}
+
+	host := r.host
 	if host == "" {
 		host = DefaultSockPath()
 	}
+	basePath := r.basePath
+	if basePath == "" {
+		basePath = clientapi.DefaultBasePath
+	}
+
 	tmp := strings.SplitN(host, "://", 2)
 	if len(tmp) != 2 {
 		return nil, fmt.Errorf("invalid host format '%s'", host)
@@ -138,7 +166,7 @@ func NewRuntime(host string) (*runtime_client.Runtime, error) {
 
 	transport := configureTransport(nil, tmp[0], host)
 	httpClient := &http.Client{Transport: transport}
-	clientTrans := runtime_client.NewWithClient(hostHeader, clientapi.DefaultBasePath,
+	clientTrans := runtime_client.NewWithClient(hostHeader, basePath,
 		clientapi.DefaultSchemes, httpClient)
 	return clientTrans, nil
 }
@@ -320,6 +348,20 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			fmt.Fprintf(w, "\t[%s]", strings.Join(sr.HostFirewall.Devices, ", "))
 		}
 		fmt.Fprintf(w, "\n")
+	}
+
+	if sr.Srv6 != nil {
+		var fields []string
+
+		status := "Disabled"
+		fields = append(fields, status)
+
+		if sr.Srv6.Enabled {
+			fields[0] = "Enabled"
+			fields = append(fields, fmt.Sprintf("[encap-mode: %s]", sr.Srv6.Srv6EncapMode))
+		}
+
+		fmt.Fprintf(w, "SRv6:\t%s\n", strings.Join(fields, "\t"))
 	}
 
 	if sr.CniChaining != nil {
@@ -606,7 +648,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	}
 
 	if sd.KubeProxyReplacementDetails && sr.Kubernetes != nil && sr.KubeProxyReplacement != nil {
-		var selection, mode, xdp string
+		var selection, mode, dsrMode, xdp string
 
 		lb := "Disabled"
 		cIP := "Enabled"
@@ -618,6 +660,10 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			}
 			xdp = np.Acceleration
 			mode = np.Mode
+			if mode == models.KubeProxyReplacementFeaturesNodePortModeDSR ||
+				mode == models.KubeProxyReplacementFeaturesNodePortModeHybrid {
+				dsrMode = np.DsrMode
+			}
 			nPort = fmt.Sprintf("Enabled (Range: %d-%d)", np.PortMin, np.PortMax)
 			lb = "Enabled"
 		}
@@ -683,6 +729,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 		if mode != "" {
 			fmt.Fprintf(tab, "  Mode:\t%s\n", mode)
+		}
+		if dsrMode != "" {
+			fmt.Fprintf(tab, "    DSR Dispatch Mode:\t%s\n", dsrMode)
 		}
 		if selection != "" {
 			fmt.Fprintf(tab, "  Backend Selection:\t%s\n", selection)

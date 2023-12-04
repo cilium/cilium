@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -96,11 +97,24 @@ const (
 
 	// Labels
 
+	// LabelValueFalse is the string value for true metric label values.
+	LabelValueTrue = "true"
+
+	// LabelValueFalse is the string value for false metric label values.
+	LabelValueFalse = "false"
+
 	// LabelValueOutcomeSuccess is used as a successful outcome of an operation
 	LabelValueOutcomeSuccess = "success"
 
 	// LabelValueOutcomeFail is used as an unsuccessful outcome of an operation
 	LabelValueOutcomeFail = "fail"
+
+	// LabelValueOutcomeFailure is used as an unsuccessful outcome of an operation.
+	// NOTE: This should only be used for existing metrics, new metrics should use LabelValueOutcomeFail.
+	LabelValueOutcomeFailure = "failure"
+
+	// LabelDropReason is used to describe reason for dropping a packets/bytes
+	LabelDropReason = "reason"
 
 	// LabelEventSourceAPI marks event-related metrics that come from the API
 	LabelEventSourceAPI = "api"
@@ -141,6 +155,8 @@ const (
 
 	// LabelPolicySource is the label used to see the enforcement status
 	LabelPolicySource = "source"
+
+	LabelSource = "source"
 
 	// LabelScope is the label used to defined multiples scopes in the same
 	// metric. For example, one counter may measure a metric over the scope of
@@ -221,6 +237,12 @@ const (
 	LabelLocationRemoteIntraCluster = "remote_intra_cluster"
 	LabelLocationRemoteInterCluster = "remote_inter_cluster"
 
+	// Rule label is a label for a L7 rule name.
+	LabelL7Rule = "rule"
+
+	// LabelL7ProxyType is the label for denoting a L7 proxy type.
+	LabelL7ProxyType = "proxy_type"
+
 	// LabelType is the label for type in general (e.g. endpoint, node)
 	LabelType         = "type"
 	LabelPeerEndpoint = "endpoint"
@@ -235,6 +257,9 @@ const (
 )
 
 var (
+	// LabelValuesBool is metric label value set for boolean type.
+	LabelValuesBool = metric.NewValues(LabelValueTrue, LabelValueFalse)
+
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
 	Namespace = CiliumAgentNamespace
@@ -330,11 +355,9 @@ var (
 
 	// Events
 
-	// EventTS*is the time in seconds since epoch that we last received an
-	// event that we will handle
-	// source is one of k8s, docker or apia
-
-	// EventTS is the timestamp of k8s resource events.
+	// EventTS is the time in seconds since epoch that we last received an
+	// event that was handled by Cilium. This metric tracks the source of the
+	// event which can be one of K8s or Cilium's API.
 	EventTS = NoOpGaugeVec
 
 	// EventLagK8s is the lag calculation for k8s Pod events.
@@ -357,22 +380,6 @@ var (
 	ProxyDatapathUpdateTimeout = NoOpCounter
 
 	// L3-L4 statistics
-
-	// DropCount is the total drop requests,
-	// tagged by drop reason and direction(ingress/egress)
-	DropCount = NoOpCounterVec
-
-	// DropBytes is the total dropped bytes,
-	// tagged by drop reason and direction(ingress/egress)
-	DropBytes = NoOpCounterVec
-
-	// ForwardCount is the total forwarded packets,
-	// tagged by ingress/egress direction
-	ForwardCount = NoOpCounterVec
-
-	// ForwardBytes is the total forwarded bytes,
-	// tagged by ingress/egress direction
-	ForwardBytes = NoOpCounterVec
 
 	// Datapath statistics
 
@@ -658,10 +665,6 @@ type LegacyMetrics struct {
 	ProxyPolicyL7Total               metric.Vec[metric.Counter]
 	ProxyUpstreamTime                metric.Vec[metric.Observer]
 	ProxyDatapathUpdateTimeout       metric.Counter
-	DropCount                        metric.Vec[metric.Counter]
-	DropBytes                        metric.Vec[metric.Counter]
-	ForwardCount                     metric.Vec[metric.Counter]
-	ForwardBytes                     metric.Vec[metric.Counter]
 	ConntrackGCRuns                  metric.Vec[metric.Counter]
 	ConntrackGCKeyFallbacks          metric.Vec[metric.Counter]
 	ConntrackGCSize                  metric.Vec[metric.Gauge]
@@ -735,13 +738,18 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Duration of processed API calls labeled by path, method and return code.",
 		}, []string{LabelPath, LabelMethod, LabelAPIReturnCode}),
 
-		EndpointRegenerationTotal: metric.NewCounterVec(metric.CounterOpts{
+		EndpointRegenerationTotal: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_endpoint_regenerations_total",
 
 			Namespace: Namespace,
 			Name:      "endpoint_regenerations_total",
 			Help:      "Count of all endpoint regenerations that have completed, tagged by outcome",
-		}, []string{"outcome"}),
+		}, metric.Labels{
+			{
+				Name:   LabelOutcome,
+				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFailure),
+			},
+		}),
 
 		EndpointStateCount: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_endpoint_state",
@@ -788,13 +796,18 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Highest policy revision number in the agent",
 		}),
 
-		PolicyChangeTotal: metric.NewCounterVec(metric.CounterOpts{
+		PolicyChangeTotal: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_policy_change_total",
 
 			Namespace: Namespace,
 			Name:      "policy_change_total",
 			Help:      "Number of policy changes by outcome",
-		}, []string{"outcome"}),
+		}, metric.Labels{
+			{
+				Name:   LabelOutcome,
+				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFailure),
+			},
+		}),
 
 		PolicyEndpointStatus: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_policy_endpoint_enforcement_status",
@@ -804,13 +817,18 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Number of endpoints labeled by policy enforcement status",
 		}, []string{LabelPolicyEnforcement}),
 
-		PolicyImplementationDelay: metric.NewHistogramVec(metric.HistogramOpts{
+		PolicyImplementationDelay: metric.NewHistogramVecWithLabels(metric.HistogramOpts{
 			ConfigName: Namespace + "_policy_implementation_delay",
 
 			Namespace: Namespace,
 			Name:      "policy_implementation_delay",
 			Help:      "Time between a policy change and it being fully deployed into the datapath",
-		}, []string{LabelPolicySource}),
+		}, metric.Labels{
+			{
+				Name:   LabelPolicySource,
+				Values: metric.NewValues(string(source.Kubernetes), string(source.CustomResource), string(source.LocalAPI)),
+			},
+		}),
 
 		CIDRGroupsReferenced: metric.NewGauge(metric.GaugeOpts{
 			ConfigName: Namespace + "cidrgroups_referenced",
@@ -841,7 +859,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			ConfigName: Namespace + "_event_ts",
 			Namespace:  Namespace,
 			Name:       "event_ts",
-			Help:       "Last timestamp when we received an event",
+			Help:       "Last timestamp when Cilium received an event from a control plane source, per resource and per action",
 		}, []string{LabelEventSource, LabelScope, LabelAction}),
 
 		EventLagK8s: metric.NewGauge(metric.GaugeOpts{
@@ -861,12 +879,21 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Number of redirects installed for endpoints, labeled by protocol",
 		}, []string{LabelProtocolL7}),
 
-		ProxyPolicyL7Total: metric.NewCounterVec(metric.CounterOpts{
+		ProxyPolicyL7Total: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_policy_l7_total",
 			Namespace:  Namespace,
 			Name:       "policy_l7_total",
 			Help:       "Number of total proxy requests handled",
-		}, []string{"rule", "proxy_type"}),
+		}, metric.Labels{
+			{
+				Name:   LabelL7Rule,
+				Values: metric.NewValues("received", "forwarded", "denied", "parse_errors"),
+			},
+			{
+				Name:   LabelL7ProxyType,
+				Values: metric.NewValues("fqdn", "envoy"),
+			},
+		}),
 
 		ProxyUpstreamTime: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_proxy_upstream_reply_seconds",
@@ -883,38 +910,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:      "proxy_datapath_update_timeout_total",
 			Help:      "Number of total datapath update timeouts due to FQDN IP updates",
 		}),
-
-		DropCount: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_drop_count_total",
-			Namespace:  Namespace,
-			Name:       "drop_count_total",
-			Help:       "Total dropped packets, tagged by drop reason and ingress/egress direction",
-		},
-			[]string{"reason", LabelDirection}),
-
-		DropBytes: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_drop_bytes_total",
-			Namespace:  Namespace,
-			Name:       "drop_bytes_total",
-			Help:       "Total dropped bytes, tagged by drop reason and ingress/egress direction",
-		},
-			[]string{"reason", LabelDirection}),
-
-		ForwardCount: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_forward_count_total",
-			Namespace:  Namespace,
-			Name:       "forward_count_total",
-			Help:       "Total forwarded packets, tagged by ingress/egress direction",
-		},
-			[]string{LabelDirection}),
-
-		ForwardBytes: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_forward_bytes_total",
-			Namespace:  Namespace,
-			Name:       "forward_bytes_total",
-			Help:       "Total forwarded bytes, tagged by ingress/egress direction",
-		},
-			[]string{LabelDirection}),
 
 		ConntrackGCRuns: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total",
@@ -1014,19 +1009,51 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of times that Cilium has started a subprocess, labeled by subsystem",
 		}, []string{LabelSubsystem}),
 
-		KubernetesEventProcessed: metric.NewCounterVec(metric.CounterOpts{
+		KubernetesEventProcessed: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_kubernetes_events_total",
 			Namespace:  Namespace,
 			Name:       "kubernetes_events_total",
 			Help:       "Number of Kubernetes events processed labeled by scope, action and execution result",
-		}, []string{LabelScope, LabelAction, LabelStatus}),
+		},
+			metric.Labels{
+				{
+					Name:   LabelScope,
+					Values: metric.NewValues("CiliumNetworkPolicy", "CiliumClusterwideNetworkPolicy", "NetworkPolicy"),
+				},
+				{
+					Name:   LabelAction,
+					Values: metric.NewValues("update", "delete"),
+				},
+				{
+					Name:   LabelStatus,
+					Values: metric.NewValues("success", "failed"),
+				},
+			},
+		),
 
-		KubernetesEventReceived: metric.NewCounterVec(metric.CounterOpts{
+		KubernetesEventReceived: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			ConfigName: Namespace + "_kubernetes_events_received_total",
 			Namespace:  Namespace,
 			Name:       "kubernetes_events_received_total",
 			Help:       "Number of Kubernetes events received labeled by scope, action, valid data and equalness",
-		}, []string{LabelScope, LabelAction, "valid", "equal"}),
+		}, metric.Labels{
+			{
+				Name:   LabelScope,
+				Values: metric.NewValues("CiliumNetworkPolicy", "CiliumClusterwideNetworkPolicy", "NetworkPolicy"),
+			},
+			{
+				Name:   LabelAction,
+				Values: metric.NewValues("update", "delete"),
+			},
+			{
+				Name:   "valid",
+				Values: LabelValuesBool,
+			},
+			{
+				Name:   "equal",
+				Values: LabelValuesBool,
+			},
+		}),
 
 		KubernetesAPIInteractions: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds",
@@ -1369,10 +1396,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ProxyPolicyL7Total = lm.ProxyPolicyL7Total
 	ProxyUpstreamTime = lm.ProxyUpstreamTime
 	ProxyDatapathUpdateTimeout = lm.ProxyDatapathUpdateTimeout
-	DropCount = lm.DropCount
-	DropBytes = lm.DropBytes
-	ForwardCount = lm.ForwardCount
-	ForwardBytes = lm.ForwardBytes
 	ConntrackGCRuns = lm.ConntrackGCRuns
 	ConntrackGCKeyFallbacks = lm.ConntrackGCKeyFallbacks
 	ConntrackGCSize = lm.ConntrackGCSize
@@ -1487,11 +1510,13 @@ func Reinitialize() {
 
 // Register registers a collector
 func Register(c prometheus.Collector) error {
+	var err error
+
 	withRegistry(func(reg *Registry) {
-		reg.Register(c)
+		err = reg.Register(c)
 	})
 
-	return nil
+	return err
 }
 
 // RegisterList registers a list of collectors. If registration of one

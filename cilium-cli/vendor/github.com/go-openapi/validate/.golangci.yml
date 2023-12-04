@@ -39,7 +39,12 @@ linters:
     - tparallel
     - paralleltest
     - cyclop # because we have gocyclo already
+    - depguard # we do not add a config for this
     # TODO: review the linters below. We disabled them to make the CI pass first.
+    - nonamedreturns
+    - exhaustruct
+    - nosnakecase
+    - nolintlint
     - ireturn
     - varnamelen
     - forcetypeassert

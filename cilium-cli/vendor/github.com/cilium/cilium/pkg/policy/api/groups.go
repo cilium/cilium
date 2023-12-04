@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	providers = sync.Map{} // map with the list of providers to callback to retrieve info from.
+	providers lock.Map[string, GroupProviderFunc] // map with the list of providers to callback to retrieve info from.
 )
 
 // GroupProviderFunc is a func that need to be register to be able to
@@ -50,13 +50,9 @@ func (group *ToGroups) GetCidrSet(ctx context.Context) ([]CIDRRule, error) {
 	var addrs []netip.Addr
 	// Get per  provider CIDRSet
 	if group.AWS != nil {
-		callbackInterface, ok := providers.Load(AWSProvider)
+		callback, ok := providers.Load(AWSProvider)
 		if !ok {
 			return nil, fmt.Errorf("Provider %s is not registered", AWSProvider)
-		}
-		callback, ok := callbackInterface.(GroupProviderFunc)
-		if !ok {
-			return nil, fmt.Errorf("Provider callback for %s is not a valid instance", AWSProvider)
 		}
 		awsAddrs, err := callback(ctx, group)
 		if err != nil {

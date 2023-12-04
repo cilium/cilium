@@ -115,6 +115,9 @@ const (
 	// LabelSourceContainer is a label imported from the container runtime
 	LabelSourceContainer = "container"
 
+	// LabelSourceCNI is a label imported from the CNI plugin
+	LabelSourceCNI = "cni"
+
 	// LabelSourceReserved is the label source for reserved types.
 	LabelSourceReserved = "reserved"
 

@@ -120,7 +120,7 @@ func UniqueItems(path, in string, data interface{}) *errors.Validation {
 
 // MinLength validates a string for minimum length
 func MinLength(path, in, data string, minLength int64) *errors.Validation {
-	strLen := int64(utf8.RuneCount([]byte(data)))
+	strLen := int64(utf8.RuneCountInString(data))
 	if strLen < minLength {
 		return errors.TooShort(path, in, minLength, data)
 	}
@@ -129,7 +129,7 @@ func MinLength(path, in, data string, minLength int64) *errors.Validation {
 
 // MaxLength validates a string for maximum length
 func MaxLength(path, in, data string, maxLength int64) *errors.Validation {
-	strLen := int64(utf8.RuneCount([]byte(data)))
+	strLen := int64(utf8.RuneCountInString(data))
 	if strLen > maxLength {
 		return errors.TooLong(path, in, maxLength, data)
 	}

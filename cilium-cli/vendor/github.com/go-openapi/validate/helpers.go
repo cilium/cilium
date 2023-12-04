@@ -250,7 +250,7 @@ func (h *paramHelper) resolveParam(path, method, operationID string, param *spec
 
 	}
 	if err != nil { // Safeguard
-		// NOTE: we may enter enter here when the whole parameter is an unresolved $ref
+		// NOTE: we may enter here when the whole parameter is an unresolved $ref
 		refPath := strings.Join([]string{"\"" + path + "\"", method}, ".")
 		errorHelp.addPointerError(res, err, param.Ref.String(), refPath)
 		return nil, res

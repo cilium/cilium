@@ -105,11 +105,18 @@ func NewTicker(d Duration) *time.Ticker {
 }
 
 // NewTimer overrides the stdlib time.NewTimer to enforce maximum sleepiness
-// va option.MaxInternalTimerDelay.
+// via option.MaxInternalTimerDelay.
 func NewTimer(d Duration) *time.Timer {
 	if MaxInternalTimerDelay > 0 && d > MaxInternalTimerDelay {
 		d = MaxInternalTimerDelay
 	}
+	return time.NewTimer(d)
+}
+
+// NewTimerWithoutMaxDelay returns a time.NewTimer without enforcing maximum
+// sleepiness. This function should only be used in cases where the timer firing
+// early impacts correctness. If in doubt, you probably should use NewTimer.
+func NewTimerWithoutMaxDelay(d Duration) *time.Timer {
 	return time.NewTimer(d)
 }
 

@@ -340,6 +340,14 @@ func (in *LoadBalancerIngress) DeepEqual(other *LoadBalancerIngress) bool {
 	if in.Hostname != other.Hostname {
 		return false
 	}
+	if (in.IPMode == nil) != (other.IPMode == nil) {
+		return false
+	} else if in.IPMode != nil {
+		if *in.IPMode != *other.IPMode {
+			return false
+		}
+	}
+
 	if ((in.Ports != nil) && (other.Ports != nil)) || ((in.Ports == nil) != (other.Ports == nil)) {
 		in, other := &in.Ports, &other.Ports
 		if other == nil {
