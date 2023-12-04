@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/jsonpath"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
@@ -32,12 +34,12 @@ func (s *ciliumHealth) Run(ctx context.Context, t *check.Test) {
 	for name, pod := range t.Context().CiliumPods() {
 		pod := pod
 		t.NewAction(s, name, &pod, nil, features.IPFamilyAny).Run(func(a *check.Action) {
-			runHealthProbe(ctx, t.Context(), &pod)
+			runHealthProbe(ctx, t, &pod)
 		})
 	}
 }
 
-func runHealthProbe(ctx context.Context, t *check.ConnectivityTest, pod *check.Pod) {
+func runHealthProbe(ctx context.Context, t *check.Test, pod *check.Pod) {
 	cmd := []string{"cilium-health", "status", "--probe", "-o=json"}
 	done := ctx.Done()
 
@@ -45,20 +47,25 @@ func runHealthProbe(ctx context.Context, t *check.ConnectivityTest, pod *check.P
 	for {
 		retryTimer := time.After(time.Second)
 
+		if _, err := pod.K8sClient.GetPod(ctx, pod.Pod.Namespace, pod.Pod.Name, metav1.GetOptions{}); k8serrors.IsNotFound(err) {
+			t.Failf("cilium-health validation failed. Cilium Agent Pod %s/%s no longer exists", pod.Pod.Namespace, pod.Pod.Name)
+			return
+		}
+
 		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 		if err != nil {
-			t.Warnf("cilium-health probe failed: %q, stdout: %q, retrying...", err, stdout)
+			t.Context().Warnf("cilium-health probe failed: %q, stdout: %q, retrying...", err, stdout)
 		} else {
-			err = validateHealthStatus(t, pod, stdout)
+			err = validateHealthStatus(t.Context(), pod, stdout)
 			if err == nil {
 				return
 			}
-			t.Warnf("cilium-health validation failed: %q, retrying...", err)
+			t.Context().Warnf("cilium-health validation failed: %q, retrying...", err)
 		}
 		// Wait until it's time to retry or context is cancelled.
 		select {
 		case <-done:
-			t.Fatalf("cilium-health probe on '%s' failed: %s", pod.Name(), err)
+			t.Context().Fatalf("cilium-health probe on '%s' failed: %s", pod.Name(), err)
 			return
 		case <-retryTimer:
 		}
