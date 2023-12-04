@@ -40,6 +40,9 @@ type NodeElement struct {
 
 	// Alternative addresses assigned to the node
 	SecondaryAddresses []*NodeAddressingElement `json:"secondary-addresses"`
+
+	// Source of the node configuration
+	Source string `json:"source,omitempty"`
 }
 
 // Validate validates this node element

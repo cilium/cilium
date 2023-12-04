@@ -1134,12 +1134,16 @@ func (m *KubeProxyReplacementFeaturesNat46X64Service) UnmarshalBinary(b []byte) 
 type KubeProxyReplacementFeaturesNodePort struct {
 
 	// acceleration
-	// Enum: [None Native Generic]
+	// Enum: [None Native Generic Best-Effort]
 	Acceleration string `json:"acceleration,omitempty"`
 
 	// algorithm
 	// Enum: [Random Maglev]
 	Algorithm string `json:"algorithm,omitempty"`
+
+	// dsr mode
+	// Enum: [IP Option/Extension IPIP Geneve]
+	DsrMode string `json:"dsrMode,omitempty"`
 
 	// enabled
 	Enabled bool `json:"enabled,omitempty"`
@@ -1170,6 +1174,10 @@ func (m *KubeProxyReplacementFeaturesNodePort) Validate(formats strfmt.Registry)
 		res = append(res, err)
 	}
 
+	if err := m.validateDsrMode(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateMode(formats); err != nil {
 		res = append(res, err)
 	}
@@ -1184,7 +1192,7 @@ var kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["None","Native","Generic"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["None","Native","Generic","Best-Effort"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -1202,6 +1210,9 @@ const (
 
 	// KubeProxyReplacementFeaturesNodePortAccelerationGeneric captures enum value "Generic"
 	KubeProxyReplacementFeaturesNodePortAccelerationGeneric string = "Generic"
+
+	// KubeProxyReplacementFeaturesNodePortAccelerationBestDashEffort captures enum value "Best-Effort"
+	KubeProxyReplacementFeaturesNodePortAccelerationBestDashEffort string = "Best-Effort"
 )
 
 // prop value enum
@@ -1261,6 +1272,51 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateAlgorithm(formats strfmt.
 
 	// value enum
 	if err := m.validateAlgorithmEnum("features"+"."+"nodePort"+"."+"algorithm", "body", m.Algorithm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var kubeProxyReplacementFeaturesNodePortTypeDsrModePropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["IP Option/Extension","IPIP","Geneve"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		kubeProxyReplacementFeaturesNodePortTypeDsrModePropEnum = append(kubeProxyReplacementFeaturesNodePortTypeDsrModePropEnum, v)
+	}
+}
+
+const (
+
+	// KubeProxyReplacementFeaturesNodePortDsrModeIPOptionExtension captures enum value "IP Option/Extension"
+	KubeProxyReplacementFeaturesNodePortDsrModeIPOptionExtension string = "IP Option/Extension"
+
+	// KubeProxyReplacementFeaturesNodePortDsrModeIPIP captures enum value "IPIP"
+	KubeProxyReplacementFeaturesNodePortDsrModeIPIP string = "IPIP"
+
+	// KubeProxyReplacementFeaturesNodePortDsrModeGeneve captures enum value "Geneve"
+	KubeProxyReplacementFeaturesNodePortDsrModeGeneve string = "Geneve"
+)
+
+// prop value enum
+func (m *KubeProxyReplacementFeaturesNodePort) validateDsrModeEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, kubeProxyReplacementFeaturesNodePortTypeDsrModePropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *KubeProxyReplacementFeaturesNodePort) validateDsrMode(formats strfmt.Registry) error {
+	if swag.IsZero(m.DsrMode) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateDsrModeEnum("features"+"."+"nodePort"+"."+"dsrMode", "body", m.DsrMode); err != nil {
 		return err
 	}
 

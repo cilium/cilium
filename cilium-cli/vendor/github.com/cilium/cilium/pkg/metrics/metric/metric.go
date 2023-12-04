@@ -4,8 +4,17 @@
 package metric
 
 import (
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics/metric/collections"
 )
+
+var logger = logrus.WithField(logfields.LogSubsys, "metric")
 
 // WithMetadata is the interface implemented by any metric defined in this package. These typically embed existing
 // prometheus metric types and add additional metadata. In addition, these metrics have the concept of being enabled
@@ -20,6 +29,44 @@ type WithMetadata interface {
 type metric struct {
 	enabled bool
 	opts    Opts
+	labels  *labelSet
+}
+
+// forEachLabelVector performs a product of all possible label value combinations
+// and calls the provided function for each combination.
+func (b *metric) forEachLabelVector(fn func(lvls []string)) {
+	if b.labels == nil {
+		return
+	}
+	var labelValues [][]string
+	for _, label := range b.labels.lbls {
+		labelValues = append(labelValues, maps.Keys(label.Values))
+	}
+	for _, labelVector := range collections.CartesianProduct(labelValues...) {
+		fn(labelVector)
+	}
+}
+
+// checkLabelValues checks that the provided label values are within the range
+// of provided label values, if labels where defined using the Labels type.
+// Violations are logged as errors for detection, but metrics should still
+// be collected as is.
+func (b *metric) checkLabelValues(lvs ...string) {
+	if b.labels == nil {
+		return
+	}
+	if err := b.labels.checkLabelValues(lvs); err != nil {
+		logger.WithError(err).Error("metric label constraints violated")
+	}
+}
+
+func (b *metric) checkLabels(labels prometheus.Labels) {
+	if b.labels == nil {
+		return
+	}
+	if err := b.labels.checkLabels(labels); err != nil {
+		logger.WithError(err).Error("metric label constraints violated")
+	}
 }
 
 func (b *metric) IsEnabled() bool {
@@ -195,4 +242,91 @@ func (b Opts) GetConfigName() string {
 		return prometheus.BuildFQName(b.Namespace, b.Subsystem, b.Name)
 	}
 	return b.ConfigName
+}
+
+// Label represents a metric label with a pre-defined range of values.
+// This is used with the NewxxxVecWithLabels metrics constructors to initialize
+// vector metrics with known label value ranges, avoiding empty metrics.
+type Label struct {
+	Name string
+	// If defined, only these values are allowed.
+	Values Values
+}
+
+// Values is a distinct set of possible label values for a particular Label.
+type Values map[string]struct{}
+
+// NewValues constructs a Values type from a set of strings.
+func NewValues(vs ...string) Values {
+	vals := Values{}
+	for _, v := range vs {
+		vals[v] = struct{}{}
+	}
+	return vals
+}
+
+// Labels is a slice of labels that represents a label set for a vector type
+// metric.
+type Labels []Label
+
+func (lbls Labels) labelNames() []string {
+	lns := make([]string, len(lbls))
+	for i, label := range lbls {
+		lns[i] = label.Name
+	}
+	return lns
+}
+
+type labelSet struct {
+	lbls Labels
+	m    map[string]map[string]struct{}
+}
+
+func (l *labelSet) namesToValues() map[string]map[string]struct{} {
+	if l.m != nil {
+		return l.m
+	}
+	l.m = make(map[string]map[string]struct{})
+	for _, label := range l.lbls {
+		l.m[label.Name] = label.Values
+	}
+	return l.m
+}
+
+func (l *labelSet) checkLabels(labels prometheus.Labels) error {
+	for name, value := range labels {
+		if lvs, ok := l.namesToValues()[name]; ok {
+			if _, ok := lvs[value]; !ok {
+				return fmt.Errorf("value %s not allowed for label %s (should be one of %v)", value, name, lvs)
+			}
+		} else {
+			return fmt.Errorf("invalid label name: %s", name)
+		}
+	}
+	return nil
+}
+
+func (l *labelSet) checkLabelValues(lvs []string) error {
+	if len(l.lbls) != len(lvs) {
+		return fmt.Errorf("invalid labels")
+	}
+	for i, label := range l.lbls {
+		if _, ok := label.Values[lvs[i]]; !ok {
+			return fmt.Errorf("invalid label value")
+		}
+	}
+	return nil
+}
+
+// initLabels is a helper function to initialize the labels of a metric.
+// It is used by xxxVecWithLabels metrics constructors to initialize the
+// labels of the metric and the vector (i.e. registering all possible label value combinations).
+func initLabels[T any](m *metric, labels Labels, vec Vec[T], disabled bool) {
+	if disabled {
+		return
+	}
+	m.labels = &labelSet{lbls: labels}
+	m.forEachLabelVector(func(vs []string) {
+		vec.WithLabelValues(vs...)
+	})
 }

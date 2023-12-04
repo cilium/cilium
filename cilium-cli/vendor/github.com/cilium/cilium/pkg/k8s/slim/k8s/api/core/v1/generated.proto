@@ -231,6 +231,15 @@ message LoadBalancerIngress {
   // +optional
   optional string hostname = 2;
 
+  // IPMode specifies how the load-balancer IP behaves, and may only be specified when the ip field is specified.
+  // Setting this to "VIP" indicates that traffic is delivered to the node with
+  // the destination set to the load-balancer's IP and port.
+  // Setting this to "Proxy" indicates that traffic is delivered to the node or pod with
+  // the destination set to the node's IP and node port or the pod's IP and port.
+  // Service implementations may use this information to adjust traffic routing.
+  // +optional
+  optional string ipMode = 3;
+
   // Ports is a list of records of service ports
   // If used, every port defined in the service should have an entry in it
   // +listType=atomic
@@ -420,7 +429,7 @@ message PodCondition {
 
 // PodIP represents a single IP address allocated to the pod.
 message PodIP {
-  // ip is an IP address (IPv4 or IPv6) assigned to the pod
+  // IP is the IP address assigned to the pod
   optional string ip = 1;
 }
 

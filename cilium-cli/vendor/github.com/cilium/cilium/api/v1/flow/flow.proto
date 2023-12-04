@@ -402,6 +402,7 @@ enum DropReason {
     UNENCRYPTED_TRAFFIC = 195;
     TTL_EXCEEDED = 196;
     NO_NODE_ID = 197;
+    DROP_RATE_LIMITED = 198;
 }
 
 enum TrafficDirection {
@@ -470,7 +471,8 @@ message FlowFilter {
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
     // The pod name can be omitted to only filter by namespace
-    // (e.g. "kube-system/")
+    // (e.g. "kube-system/") or the namespace can be omitted to filter for
+    // pods in any namespace (e.g. "/xwing")
     repeated string source_pod = 2;
     // source_fqdn filters by a list of source fully qualified domain names
     repeated string source_fqdn = 7;
@@ -533,6 +535,8 @@ message FlowFilter {
     repeated string http_path = 22;
     // http_url is a list of regular expressions to filter on the HTTP URL.
     repeated string http_url = 31;
+    // http_header is a list of key:value pairs to filter on the HTTP headers.
+    repeated HTTPHeader http_header = 32;
 
     // tcp_flags filters flows based on TCP header flags
     repeated TCPFlags tcp_flags = 23;

@@ -15,6 +15,7 @@ import (
 type stringTable struct {
 	base    *stringTable
 	offsets []uint32
+	prevIdx int
 	strings []string
 }
 
@@ -61,7 +62,7 @@ func readStringTable(r sizedReader, base *stringTable) (*stringTable, error) {
 		return nil, errors.New("first item in string table is non-empty")
 	}
 
-	return &stringTable{base, offsets, strings}, nil
+	return &stringTable{base, offsets, 0, strings}, nil
 }
 
 func splitNull(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -84,26 +85,29 @@ func (st *stringTable) Lookup(offset uint32) (string, error) {
 }
 
 func (st *stringTable) lookup(offset uint32) (string, error) {
+	// Fast path: zero offset is the empty string, looked up frequently.
+	if offset == 0 && st.base == nil {
+		return "", nil
+	}
+
+	// Accesses tend to be globally increasing, so check if the next string is
+	// the one we want. This skips the binary search in about 50% of cases.
+	if st.prevIdx+1 < len(st.offsets) && st.offsets[st.prevIdx+1] == offset {
+		st.prevIdx++
+		return st.strings[st.prevIdx], nil
+	}
+
 	i, found := slices.BinarySearch(st.offsets, offset)
 	if !found {
 		return "", fmt.Errorf("offset %d isn't start of a string", offset)
 	}
 
-	return st.strings[i], nil
-}
-
-func (st *stringTable) Marshal(w io.Writer) error {
-	for _, str := range st.strings {
-		_, err := io.WriteString(w, str)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write([]byte{0})
-		if err != nil {
-			return err
-		}
+	// Set the new increment index, but only if its greater than the current.
+	if i > st.prevIdx+1 {
+		st.prevIdx = i
 	}
-	return nil
+
+	return st.strings[i], nil
 }
 
 // Num returns the number of strings in the table.
