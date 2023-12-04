@@ -892,6 +892,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.PolicyAuditModeArg, false, "Enable policy audit (non-drop) mode")
 	option.BindEnv(vp, option.PolicyAuditModeArg)
 
+	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
+	option.BindEnv(vp, option.PolicyAccountingArg)
+
 	flags.Bool(option.EnableHubble, false, "Enable hubble server")
 	option.BindEnv(vp, option.EnableHubble)
 
@@ -1308,7 +1311,7 @@ func initEnv(vp *viper.Viper) {
 	option.Config.Opts.SetBool(option.ConntrackAccounting, true)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
-	option.Config.Opts.SetBool(option.PolicyAccounting, true)
+	option.Config.Opts.SetBool(option.PolicyAccounting, option.Config.PolicyAccounting)
 	option.Config.Opts.SetBool(option.SourceIPVerification, true)
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)

@@ -934,6 +934,9 @@ const (
 	// PolicyAuditModeArg argument enables policy audit mode.
 	PolicyAuditModeArg = "policy-audit-mode"
 
+	// PolicyAccountingArg argument enable policy accounting.
+	PolicyAccountingArg = "policy-accounting"
+
 	// EnableHubble enables hubble in the agent.
 	EnableHubble = "enable-hubble"
 
@@ -2134,6 +2137,9 @@ type DaemonConfig struct {
 	// Policy related decisions can be checked via the poicy verdict messages.
 	PolicyAuditMode bool
 
+	// PolicyAccounting enable policy accounting
+	PolicyAccounting bool
+
 	// EnableHubble specifies whether to enable the hubble server.
 	EnableHubble bool
 
@@ -3130,6 +3136,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.CTMapEntriesTimeoutSYN = vp.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = vp.GetDuration(CTMapEntriesTimeoutFINName)
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
+	c.PolicyAccounting = vp.GetBool(PolicyAccountingArg)
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
 	c.CRDWaitTimeout = vp.GetDuration(CRDWaitTimeout)
