@@ -17,10 +17,12 @@ int cil_from_network(struct __ctx_buff *ctx)
 	int ret = CTX_ACT_OK;
 
 	__u16 proto __maybe_unused;
-	enum trace_reason reason = TRACE_REASON_UNKNOWN;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	enum trace_point obs_point_to = TRACE_TO_STACK;
 	enum trace_point obs_point_from = TRACE_FROM_NETWORK;
-
 	bpf_clear_meta(ctx);
 
 	/* This program should be attached to the tc-ingress of
@@ -67,8 +69,10 @@ int cil_from_network(struct __ctx_buff *ctx)
  * because it doesn't matter for the non-IPSec mode.
  */
 #ifdef ENABLE_IPSEC
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
-		reason = TRACE_REASON_ENCRYPTED;
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
+		trace.reason = TRACE_REASON_ENCRYPTED;
+		trace.monitor = 0;
+	}
 
 	/* Only possible redirect in here is the one in the do_decrypt
 	 * which redirects to cilium_host.
@@ -79,10 +83,12 @@ int cil_from_network(struct __ctx_buff *ctx)
 
 out:
 	send_trace_notify(ctx, obs_point_from, 0, 0, 0,
-			  ctx->ingress_ifindex, reason, TRACE_PAYLOAD_LEN);
+			  ctx->ingress_ifindex,
+			  trace.reason, trace.monitor);
 
 	send_trace_notify(ctx, obs_point_to, 0, 0, 0,
-			  ctx->ingress_ifindex, reason, TRACE_PAYLOAD_LEN);
+			  ctx->ingress_ifindex,
+			  trace.reason, trace.monitor);
 
 	return ret;
 }
