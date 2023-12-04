@@ -462,6 +462,15 @@ const (
 	BPF_STATS_RUN_TIME StatsType = 0
 )
 
+type TcxActionBase int32
+
+const (
+	TCX_NEXT     TcxActionBase = -1
+	TCX_PASS     TcxActionBase = 0
+	TCX_DROP     TcxActionBase = 2
+	TCX_REDIRECT TcxActionBase = 7
+)
+
 type XdpAction uint32
 
 const (
@@ -712,6 +721,25 @@ type LinkCreatePerfEventAttr struct {
 }
 
 func LinkCreatePerfEvent(attr *LinkCreatePerfEventAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
+type LinkCreateTcxAttr struct {
+	ProgFd           uint32
+	TargetIfindex    uint32
+	AttachType       AttachType
+	Flags            uint32
+	RelativeFdOrId   uint32
+	_                [4]byte
+	ExpectedRevision uint64
+	_                [32]byte
+}
+
+func LinkCreateTcx(attr *LinkCreateTcxAttr) (*FD, error) {
 	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
 	if err != nil {
 		return nil, err
@@ -971,13 +999,13 @@ func ObjPin(attr *ObjPinAttr) error {
 }
 
 type ProgAttachAttr struct {
-	TargetFd         uint32
-	AttachBpfFd      uint32
-	AttachType       uint32
-	AttachFlags      uint32
-	ReplaceBpfFd     uint32
-	RelativeFd       uint32
-	ExpectedRevision uint64
+	TargetFdOrIfindex uint32
+	AttachBpfFd       uint32
+	AttachType        uint32
+	AttachFlags       uint32
+	ReplaceBpfFd      uint32
+	RelativeFdOrId    uint32
+	ExpectedRevision  uint64
 }
 
 func ProgAttach(attr *ProgAttachAttr) error {
@@ -997,9 +1025,13 @@ func ProgBindMap(attr *ProgBindMapAttr) error {
 }
 
 type ProgDetachAttr struct {
-	TargetFd    uint32
-	AttachBpfFd uint32
-	AttachType  uint32
+	TargetFdOrIfindex uint32
+	AttachBpfFd       uint32
+	AttachType        uint32
+	AttachFlags       uint32
+	_                 [4]byte
+	RelativeFdOrId    uint32
+	ExpectedRevision  uint64
 }
 
 func ProgDetach(attr *ProgDetachAttr) error {
@@ -1065,17 +1097,17 @@ func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
 }
 
 type ProgQueryAttr struct {
-	TargetFd        uint32
-	AttachType      AttachType
-	QueryFlags      uint32
-	AttachFlags     uint32
-	ProgIds         Pointer
-	ProgCount       uint32
-	_               [4]byte
-	ProgAttachFlags Pointer
-	LinkIds         Pointer
-	LinkAttachFlags Pointer
-	Revision        uint64
+	TargetFdOrIfindex uint32
+	AttachType        AttachType
+	QueryFlags        uint32
+	AttachFlags       uint32
+	ProgIds           Pointer
+	Count             uint32
+	_                 [4]byte
+	ProgAttachFlags   Pointer
+	LinkIds           Pointer
+	LinkAttachFlags   Pointer
+	Revision          uint64
 }
 
 func ProgQuery(attr *ProgQueryAttr) error {
@@ -1141,6 +1173,11 @@ type RawTracepointLinkInfo struct {
 	TpName    Pointer
 	TpNameLen uint32
 	_         [4]byte
+}
+
+type TcxLinkInfo struct {
+	Ifindex    uint32
+	AttachType AttachType
 }
 
 type TracingLinkInfo struct {

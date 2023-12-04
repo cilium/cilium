@@ -128,8 +128,8 @@ github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f h1:t1A8nGkbZc
 github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f/go.mod h1:O4ERd4TTIfE/EKtiqESR2OQEiLwkDwBTW3zrbcQ4S3M=
 github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2 h1:aUhT8ib6cKposeTys3ncn4AVOxEdAo2tXpWuCed/Nfk=
 github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2/go.mod h1:AyKxZ17L5Q7fk2doxT3yjMYGlrJdq5/jvR2xN5KMbxA=
-github.com/cilium/ebpf v0.12.3 h1:8ht6F9MquybnY97at+VDZb3eQQr8ev79RueWeVaEcG4=
-github.com/cilium/ebpf v0.12.3/go.mod h1:TctK1ivibvI3znr66ljgi4hqOT8EYQjz1KWBfb1UVgM=
+github.com/cilium/ebpf v0.12.4-0.20231206140356-b89a4cb96b72 h1:ojy7nkkxH9Wep8lfiBeUd7uz6Y12F90OsMKnMZn+M2k=
+github.com/cilium/ebpf v0.12.4-0.20231206140356-b89a4cb96b72/go.mod h1:9BszLnmZR7oucpa/kBbVVf1ts3BoUSpltcnNp1hQkVw=
 github.com/cilium/fake v0.6.1 h1:cLkNx1nkF0b0pPW79JaQxaI5oG2/rBzRKpp0YUg1fTA=
 github.com/cilium/fake v0.6.1/go.mod h1:V9lCbbcsnSf3vB6sdOP7Q0bsUUJ/jyHPZxnFAw5nPUc=
 github.com/cilium/linters v0.0.0-20231219142606-aea5ed8db47a h1:IQnTfloi26sGkv8hPNIJwwJDYVTwy3YMz5ZhGK5PaXw=
@@ -258,6 +258,8 @@ github.com/go-openapi/swag v0.22.7 h1:JWrc1uc/P9cSomxfnsFSVWoE1FW6bNbrVPmpQYpCcR
 github.com/go-openapi/swag v0.22.7/go.mod h1:Gl91UqO+btAM0plGGxHqJcQZ1ZTy6jbmridBTsDy8A0=
 github.com/go-openapi/validate v0.22.6 h1:+NhuwcEYpWdO5Nm4bmvhGLW0rt1Fcc532Mu3wpypXfo=
 github.com/go-openapi/validate v0.22.6/go.mod h1:eaddXSqKeTg5XpSmj1dYyFTK/95n/XHwcOY+BMxKMyM=
+github.com/go-quicktest/qt v1.101.0 h1:O1K29Txy5P2OK0dGo59b7b0LR6wKfIhttaAhHUyn7eI=
+github.com/go-quicktest/qt v1.101.0/go.mod h1:14Bz/f7NwaXPtdYEgzsx46kqSxVwTbzVZsDC26tQJow=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0/go.mod h1:fyg7847qk6SyHyPtNmDHnmrv/HOrqktSC+C9fM+CJOE=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 h1:tfuBGBXKqDEevZMzYi5KSi8KkcZtzBcTgAUUtapy0OI=

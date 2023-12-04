@@ -102,10 +102,12 @@ testdata/loader-%-eb.elf: testdata/loader.c
 	$(CLANG) $(CFLAGS) -target bpfeb -c $< -o $@
 	$(STRIP) -g $@
 
-.PHONY: generate-btf
-generate-btf: KERNEL_VERSION?=6.1.29
-generate-btf:
+.PHONY: update-kernel-deps
+update-kernel-deps: KERNEL_VERSION?=6.6
+update-kernel-deps:
 	$(eval TMP := $(shell mktemp -d))
+	curl -fL https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/tools/lib/bpf/libbpf.c?h=v$(KERNEL_VERSION) -o "$(TMP)/libbpf.c"
+	"$(CURDIR)/internal/cmd/gensections.awk" "$(TMP)/libbpf.c" | gofmt > "$(CURDIR)/elf_sections.go"
 	curl -fL "$(CI_KERNEL_URL)/linux-$(KERNEL_VERSION)-amd64.tgz" -o "$(TMP)/linux.tgz"
 	tar xvf "$(TMP)/linux.tgz" -C "$(TMP)" --strip-components=2 ./boot/vmlinuz ./lib/modules
 	/lib/modules/$(shell uname -r)/build/scripts/extract-vmlinux "$(TMP)/vmlinuz" > "$(TMP)/vmlinux"
