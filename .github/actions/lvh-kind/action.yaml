@@ -8,6 +8,8 @@ inputs:
   kind-params:
     required: true
     type: string
+  kind-image-vsn:
+    type: string
   test-name:
     required: true
     type: string
@@ -34,6 +36,9 @@ runs:
         provision: 'false'
         cmd: |
           cd /host
+          if [ "${{ inputs.kind-image-vsn }}" != "" ]; then
+            export IMAGE=quay.io/cilium/kindest-node:${{ inputs.kind-image-vsn }}
+          fi
           ./contrib/scripts/kind.sh ${{ inputs.kind-params }} 0.0.0.0 6443
 
     - name: Copy kubeconfig
