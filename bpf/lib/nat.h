@@ -676,11 +676,12 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		/* No reasons to see a packet different than ICMP_ECHOREPLY. */
-		if (ctx_load_bytes(ctx, icmpoff, &type,
-				   sizeof(type)) < 0 ||
-		    type != ICMP_ECHOREPLY)
+		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0)
 			return DROP_INVALID;
+
+		/* No reasons to see a packet different than ICMP_ECHOREPLY. */
+		if (type != ICMP_ECHOREPLY)
+			return DROP_UNKNOWN_ICMP_TYPE;
 
 		port_off = offsetof(struct icmphdr, un.echo.id);
 
