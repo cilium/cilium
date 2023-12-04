@@ -946,7 +946,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_ENCRYPTED,
-		.monitor = TRACE_PAYLOAD_LEN,
+		.monitor = 0,
 	};
 	struct remote_endpoint_info *ep = NULL;
 	void *data, *data_end;
@@ -1066,8 +1066,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 #ifdef ENABLE_IPSEC
 		if (magic == MARK_MAGIC_ENCRYPT) {
 			send_trace_notify(ctx, TRACE_FROM_STACK, identity, 0, 0,
-					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-					  TRACE_PAYLOAD_LEN);
+					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 			ret = CTX_ACT_OK;
 # ifdef TUNNEL_MODE
 			ret = do_netdev_encrypt_encap(ctx, identity);
