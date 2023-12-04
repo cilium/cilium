@@ -27,7 +27,7 @@ func (v *BearerTokenSignerAdapter) SignRequest(ctx context.Context, r *smithyhtt
 
 	signed, err := v.Signer.SignWithBearerToken(ctx, ca.Token, r)
 	if err != nil {
-		return fmt.Errorf("sign request: %v", err)
+		return fmt.Errorf("sign request: %w", err)
 	}
 
 	*r = *signed.(*smithyhttp.Request)

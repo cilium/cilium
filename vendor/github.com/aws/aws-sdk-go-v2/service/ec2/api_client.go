@@ -147,7 +147,7 @@ func (m *setOperationInputMiddleware) HandleSerialize(ctx context.Context, in mi
 
 func addProtocolFinalizerMiddlewares(stack *middleware.Stack, options Options, operation string) error {
 	if err := stack.Finalize.Add(&resolveAuthSchemeMiddleware{operation: operation, options: options}, middleware.Before); err != nil {
-		return fmt.Errorf("add ResolveAuthScheme: %v", err)
+		return fmt.Errorf("add ResolveAuthScheme: %w", err)
 	}
 	if err := stack.Finalize.Insert(&getIdentityMiddleware{options: options}, "ResolveAuthScheme", middleware.After); err != nil {
 		return fmt.Errorf("add GetIdentity: %v", err)
@@ -156,7 +156,7 @@ func addProtocolFinalizerMiddlewares(stack *middleware.Stack, options Options, o
 		return fmt.Errorf("add ResolveEndpointV2: %v", err)
 	}
 	if err := stack.Finalize.Insert(&signRequestMiddleware{}, "ResolveEndpointV2", middleware.After); err != nil {
-		return fmt.Errorf("add Signing: %v", err)
+		return fmt.Errorf("add Signing: %w", err)
 	}
 	return nil
 }

@@ -39,7 +39,7 @@ func (v *CredentialsProviderAdapter) GetIdentity(ctx context.Context, _ smithy.P
 
 	creds, err := v.Provider.Retrieve(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get credentials: %v", err)
+		return nil, fmt.Errorf("get credentials: %w", err)
 	}
 
 	return &CredentialsAdapter{Credentials: creds}, nil

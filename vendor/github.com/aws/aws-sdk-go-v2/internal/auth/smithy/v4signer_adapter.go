@@ -46,7 +46,7 @@ func (v *V4SignerAdapter) SignRequest(ctx context.Context, r *smithyhttp.Request
 		o.LogSigning = v.LogSigning
 	})
 	if err != nil {
-		return fmt.Errorf("sign http: %v", err)
+		return fmt.Errorf("sign http: %w", err)
 	}
 
 	return nil
