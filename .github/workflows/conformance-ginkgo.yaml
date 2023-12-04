@@ -272,7 +272,7 @@ jobs:
           mv ./linux-amd64/helm ./helm
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           test-name: datapath-conformance
           install-dependencies: true
@@ -288,7 +288,7 @@ jobs:
 
       - name: Provision kind
         timeout-minutes: 5
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           provision: 'false'
           cmd: |
@@ -356,7 +356,7 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           provision: 'false'
           cmd: |
@@ -416,7 +416,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           provision: 'false'
           cmd: |
