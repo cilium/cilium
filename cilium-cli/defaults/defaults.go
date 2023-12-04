@@ -3,7 +3,9 @@
 
 package defaults
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	// renovate: datasource=github-releases depName=cilium/cilium
@@ -135,6 +137,9 @@ const (
 	// ClustermeshMaxConnectedClusters is the default number of the maximum
 	// number of clusters that should be allowed to connect to the Clustermesh.
 	ClustermeshMaxConnectedClusters = 255
+
+	// Default timeout for Connectivity Test Suite (disabled by default)
+	ConnectivityTestSuiteTimeout = 0 * time.Minute
 )
 
 var (

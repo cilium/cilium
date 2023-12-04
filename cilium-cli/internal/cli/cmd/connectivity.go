@@ -44,6 +44,7 @@ var params = check.Parameters{
 		Writer:                   os.Stdout,
 	},
 }
+
 var tests []string
 
 func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
@@ -76,11 +77,17 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 				return err
 			}
 
-			ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			ctx, _ := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+
+			if params.Timeout > 0 {
+				timeoutCtx, cancelFunc := context.WithTimeoutCause(ctx, params.Timeout, fmt.Errorf("connectivity test suite timeout (%s) reached", params.Timeout))
+				defer cancelFunc()
+				ctx = timeoutCtx
+			}
 
 			go func() {
 				<-ctx.Done()
-				cc.Log("Interrupt received, cancelling tests...")
+				cc.Logf("Cancellation request (%s) received, cancelling tests...", context.Cause(ctx))
 			}()
 
 			done := make(chan struct{})
@@ -186,6 +193,8 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.FlushCT, "flush-ct", false, "Flush conntrack of Cilium on each node")
 	cmd.Flags().MarkHidden("flush-ct")
 	cmd.Flags().StringVar(&params.SecondaryNetworkIface, "secondary-network-iface", "", "Secondary network iface name (e.g., to test NodePort BPF on multiple networks)")
+
+	cmd.Flags().DurationVar(&params.Timeout, "timeout", defaults.ConnectivityTestSuiteTimeout, "Maximum time to allow the connectivity test suite to take")
 
 	hooks.AddConnectivityTestFlags(cmd.Flags())
 
