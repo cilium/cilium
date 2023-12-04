@@ -213,7 +213,7 @@ func WithSigV4SigningRegion(region string) func(*Options) {
 }
 
 func ignoreAnonymousAuth(options *Options) {
-	if _, ok := options.Credentials.(aws.AnonymousCredentials); ok {
+	if aws.IsCredentialsProvider(options.Credentials, (*aws.AnonymousCredentials)(nil)) {
 		options.Credentials = nil
 	}
 }

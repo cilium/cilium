@@ -120,7 +120,7 @@ func (m *resolveAuthSchemeMiddleware) HandleFinalize(ctx context.Context, in mid
 	params := bindAuthResolverParams(m.operation, getOperationInput(ctx), m.options)
 	options, err := m.options.AuthSchemeResolver.ResolveAuthSchemes(ctx, params)
 	if err != nil {
-		return out, metadata, fmt.Errorf("resolve auth scheme: %v", err)
+		return out, metadata, fmt.Errorf("resolve auth scheme: %w", err)
 	}
 
 	scheme, ok := m.selectScheme(options)
@@ -200,7 +200,7 @@ func (m *getIdentityMiddleware) HandleFinalize(ctx context.Context, in middlewar
 
 	identity, err := resolver.GetIdentity(ctx, rscheme.IdentityProperties)
 	if err != nil {
-		return out, metadata, fmt.Errorf("get identity: %v", err)
+		return out, metadata, fmt.Errorf("get identity: %w", err)
 	}
 
 	ctx = setIdentity(ctx, identity)
@@ -249,7 +249,7 @@ func (m *signRequestMiddleware) HandleFinalize(ctx context.Context, in middlewar
 	}
 
 	if err := signer.SignRequest(ctx, req, identity, rscheme.SignerProperties); err != nil {
-		return out, metadata, fmt.Errorf("sign request: %v", err)
+		return out, metadata, fmt.Errorf("sign request: %w", err)
 	}
 
 	return next.HandleFinalize(ctx, in)

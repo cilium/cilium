@@ -36,7 +36,7 @@ func (v *BearerTokenProviderAdapter) GetIdentity(ctx context.Context, _ smithy.P
 ) {
 	token, err := v.Provider.RetrieveBearerToken(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get token: %v", err)
+		return nil, fmt.Errorf("get token: %w", err)
 	}
 
 	return &BearerTokenAdapter{Token: token}, nil
