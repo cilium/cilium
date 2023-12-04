@@ -115,7 +115,7 @@ func (ds *PolicyTestSuite) TearDownSuite(c *C) {
 // |Case | L3 (1, 2) match | L4 match | L7 match (1, 2) | Notes                                                |
 // +=====+=================+==========+=================+======================================================+
 // |  1A |      *, *       |  80/TCP  |      *, *       | Allow all communication on the specified port        |
-// |  1B |      *, *       |  80/TCP  |      *, *       | Same as 1A, with implicit L3 wildcards               |
+// |  1B |      -, -       |  80/TCP  |      *, *       | Deny all with an empty FromEndpoints slice           |
 // |  2A |      *, *       |  80/TCP  |   *, "GET /"    | Rule 1 shadows rule 2                                |
 // |  2B |      *, *       |  80/TCP  |   "GET /", *    | Same as 2A, but import in reverse order              |
 // |  3  |      *, *       |  80/TCP  | "GET /","GET /" | Exactly duplicate rules (HTTP)                       |
@@ -135,7 +135,6 @@ func (ds *PolicyTestSuite) TearDownSuite(c *C) {
 // | 12  |     "id=a",     |  80/TCP  |     "GET /"     | Configure to allow localhost traffic always          |
 // +-----+-----------------+----------+-----------------+------------------------------------------------------+
 
-// Case 1: allow all at L3 in both rules, and all at L7 (duplicate rule).
 func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
 	repo := parseAndAddRules(c, api.Rules{&api.Rule{
@@ -184,7 +183,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
-	// Case1B: implicitly wildcard all endpoints.
+	// Case1B: an empty non-nil FromEndpoints does not select any identity.
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -220,15 +219,9 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Log(buffer)
 
-	filter, ok = l4IngressPolicy["80/TCP"]
-	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
-	c.Assert(filter.Ingress, Equals, true)
+	_, ok = l4IngressPolicy["80/TCP"]
+	c.Assert(ok, Equals, false)
 
-	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
-
-	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
-	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 

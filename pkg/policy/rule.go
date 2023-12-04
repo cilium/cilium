@@ -359,6 +359,11 @@ func rulePortsCoverSearchContext(ports []api.PortProtocol, ctx *SearchContext) b
 func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Authentication, toPorts, icmp api.PortsIterator, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	found := 0
 
+	// short-circuit if no endpoint is selected
+	if fromEndpoints == nil {
+		return found, nil
+	}
+
 	if ctx.From != nil && len(fromEndpoints) > 0 {
 		if ctx.TraceEnabled() {
 			traceL3(ctx, fromEndpoints, "from", policyCtx.IsDeny())
@@ -469,6 +474,7 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 		if len(fromEndpoints) == 0 {
 			fromEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 		}
+
 		if !policyCtx.IsDeny() {
 			ctx.PolicyTrace("      Allows ICMP type %v\n", r.GetPortProtocols())
 		} else {
