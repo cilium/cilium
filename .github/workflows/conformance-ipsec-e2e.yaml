@@ -125,87 +125,35 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Get Cilium's default values
-        id: default_vars
-        uses: ./.github/actions/helm-default
-        with:
-          image-tag: ${{ inputs.SHA }}
-
       - name: Set up job variables
         id: vars
         run: |
-          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --wait \
-            --helm-set=hubble.eventBufferCapacity=65535 \
-            --helm-set=authentication.mutual.spire.enabled=true \
-            --helm-set=authentication.mutual.spire.install.enabled=true \
-            --nodes-without-cilium=kind-worker3 \
-            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
-          TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
-          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
-            TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
           fi
-          LB_MODE=""
-          if [ "${{ matrix.lb-mode }}" != "" ]; then
-            LB_MODE="--helm-set-string=loadBalancer.mode=${{ matrix.lb-mode }}"
-          fi
-          ENDPOINT_ROUTES=""
-          if [ "${{ matrix.endpoint-routes }}" == "true" ]; then
-            ENDPOINT_ROUTES="--helm-set-string=endpointRoutes.enabled=true"
-          fi
-          IPV6=""
-          if [ "${{ matrix.ipv6 }}" != "false" ]; then
-            IPV6="--helm-set=ipv6.enabled=true"
-          fi
-          MASQ=""
-          if [ "${{ matrix.kpr }}" == "true" ]; then
-            # BPF-masq requires KPR=true.
-            MASQ="--helm-set=bpf.masquerade=true"
-            if [ "${{ matrix.host-fw }}" == "true" ]; then
-              # BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-              MASQ="${MASQ} --helm-set=enableIPv6Masquerade=false"
-            fi
-          fi
-          EGRESS_GATEWAY=""
-          if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true --helm-set=debug.enabled=true"
-          fi
-          LB_ACCELERATION=""
-          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
-            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
-          fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
 
-          ENCRYPT=""
-          if [ "${{ matrix.encryption }}" != "" ]; then
-            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
-            if [ "${{ matrix.encryption-node }}" != "" ]; then
-              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
-            fi
-          fi
-
-          HOST_FW=""
-          if [ "${{ matrix.host-fw }}" == "true" ]; then
-            HOST_FW="--helm-set=hostFirewall.enabled=true"
-          fi
-
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
-          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
-
-          JUNIT=""
-          for NAME in ${{ matrix.kube-proxy }} ${{ matrix.tunnel }} ${{ matrix.lb-mode }} ${{ matrix.encryption }} ${{ matrix.endpoint-routes }}; do
-            if [[ "${NAME}" != "" ]] && [[ "${NAME}" != "disabled" ]] && [[ "${NAME}" != "none" ]]; then
-              if [[ "${JUNIT}" != "" ]]; then
-                JUNIT+="-"
-              fi
-              if [[ "${NAME}" == "true" ]];then
-                NAME="endpoint-routes"
-              fi
-              JUNIT+="${NAME}"
-            fi
-          done
-          echo junit_type="${JUNIT}" >> $GITHUB_OUTPUT
-          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+      - name: Derive Cilium installation config and junit type
+        id: cilium-config
+        uses: ./.github/actions/cilium-config
+        with:
+          image-tag: ${{ steps.vars.outputs.sha }}
+          chart-dir: './install/kubernetes/cilium'
+          tunnel: ${{ matrix.tunnel }}
+          devices: ${{ matrix.devices }}
+          endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv6: ${{ matrix.ipv6 }}
+          kpr: ${{ matrix.kpr }}
+          lb-mode: ${{ matrix.lb-mode }}
+          lb-acceleration: ${{ matrix.lb-acceleration }}
+          encryption: ${{ matrix.encryption }}
+          encryption-node: ${{ matrix.encryption-node }}
+          egress-gateway: ${{ matrix.egress-gateway }}
+          host-fw: ${{ matrix.host-fw }}
+          ingress-controller: ${{ matrix.ingress-controller }}
+          misc: ${{ matrix.misc }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -257,7 +205,7 @@ jobs:
             --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
           export CILIUM_CLI_MODE=helm
-          ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+          ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
