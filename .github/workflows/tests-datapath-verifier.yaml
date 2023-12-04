@@ -71,16 +71,16 @@ jobs:
       matrix:
         include:
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '4.19-20231124.100406'
+          - kernel: '4.19-20231128.100518'
             ci-kernel: '419'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.4-20231124.100406'
+          - kernel: '5.4-20231128.100518'
             ci-kernel: '54'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.10-20231124.100406'
+          - kernel: '5.10-20231128.100518'
             ci-kernel: '510'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.15-20231124.100406'
+          - kernel: '5.15-20231128.100518'
             ci-kernel: '510'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
           - kernel: '6.1-20231124.100406'
