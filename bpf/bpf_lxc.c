@@ -280,7 +280,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	if (!map)								\
 		return drop_for_direction(ctx, DIR, DROP_CT_NO_MAP_FOUND);	\
 										\
-	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ct_buffer.l4_off,		\
+	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer.l4_off,	\
 				   DIR, ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret);		\
