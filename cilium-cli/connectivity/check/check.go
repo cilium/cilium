@@ -95,6 +95,8 @@ type Parameters struct {
 
 	ExternalTargetCANamespace string
 	ExternalTargetCAName      string
+
+	Timeout time.Duration
 }
 
 type podCIDRs struct {
