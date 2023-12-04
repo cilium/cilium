@@ -835,10 +835,12 @@ snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx,
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		/* No reasons to see a packet different than ICMP_ECHO. */
-		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0 ||
-		    type != ICMP_ECHO)
+		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0)
 			return DROP_INVALID;
+
+		/* No reasons to see a packet different than ICMP_ECHO. */
+		if (type != ICMP_ECHO)
+			return NAT_PUNT_TO_STACK;
 
 		port_off = offsetof(struct icmphdr, un.echo.id);
 
@@ -1519,12 +1521,14 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMPV6:
+		if (icmp6_load_type(ctx, icmpoff, &type) < 0)
+			return DROP_INVALID;
+
 		/* No reasons to see a packet different than
 		 * ICMPV6_ECHO_REQUEST.
 		 */
-		if (icmp6_load_type(ctx, icmpoff, &type) < 0 ||
-		    type != ICMPV6_ECHO_REQUEST)
-			return DROP_INVALID;
+		if (type != ICMPV6_ECHO_REQUEST)
+			return NAT_PUNT_TO_STACK;
 
 		port_off = offsetof(struct icmp6hdr,
 				    icmp6_dataun.u_echo.identifier);
