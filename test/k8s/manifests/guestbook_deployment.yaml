@@ -68,7 +68,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: follower
-        image: gcr.io/google_samples/gb-redis-follower:v2
+        image: us-docker.pkg.dev/google-samples/containers/gke/gb-redis-follower:v2
         imagePullPolicy: IfNotPresent
         ports:
         - name: redis-server
@@ -111,7 +111,7 @@ spec:
     spec:
       containers:
       - name: php-redis
-        image: gcr.io/google-samples/gb-frontend:v6
+        image: us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
         resources:
           requests:
             cpu: 100m
