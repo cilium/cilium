@@ -288,7 +288,6 @@ BEAR_CLI   = $(shell which bear 2> /dev/null)
 gen_compile_commands:
 ifeq (, $(BEAR_CLI))
 	@echo 'Bear cli must be in $$PATH to generate json compilation database'
-	@echo 'See: https://github.com/rizsotto/Bear'
 else
 	bear -- make
 endif
