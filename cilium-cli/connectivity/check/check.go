@@ -41,12 +41,14 @@ type Parameters struct {
 	Timestamp             bool
 	PauseOnFail           bool
 	SkipIPCacheCheck      bool
+	// Perf is not user-facing parameter, but it's used to run perf subcommand
+	// using connectivity test suite.
 	Perf                  bool
+	PerfReportDir         string
 	PerfDuration          time.Duration
-	PerfCRR               bool
 	PerfHostNet           bool
+	PerfPodNet            bool
 	PerfSamples           int
-	PerfLatency           bool
 	CurlImage             string
 	PerformanceImage      string
 	JSONMockImage         string
