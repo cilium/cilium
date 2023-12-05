@@ -16,21 +16,18 @@ func TestK8sHubbleRelayImage(t *testing.T) {
 		ciliumVersion string
 		relayImage    string
 		relayVersion  string
-		imagePathMode utils.ImagePathMode
 		want          string
 	}{
 		{
 			ciliumVersion: "-cluster-mesh:v1.11.0-beta.1",
 			relayImage:    "",
 			relayVersion:  "",
-			imagePathMode: utils.ImagePathExcludeDigest,
 			want:          "quay.io/cilium/hubble-relay-cluster-mesh:v1.11.0-beta.1",
 		},
 		{
 			ciliumVersion: "v1.11.1",
 			relayImage:    "",
 			relayVersion:  "-cluster-mesh:v1.11.0-beta.1",
-			imagePathMode: utils.ImagePathExcludeDigest,
 			want:          "quay.io/cilium/hubble-relay-cluster-mesh:v1.11.0-beta.1",
 		},
 	}
@@ -42,13 +39,13 @@ func TestK8sHubbleRelayImage(t *testing.T) {
 					RelayVersion: tt.relayVersion,
 				},
 			}
-			if got := k.relayImage(tt.imagePathMode, tt.ciliumVersion); got != tt.want {
-				t.Errorf("k.relayImage(%d) == %q, want %q", tt.imagePathMode, got, tt.want)
+			if got := k.relayImage(tt.ciliumVersion); got != tt.want {
+				t.Errorf("k.relayImage(%s) == %q, want %q", tt.ciliumVersion, got, tt.want)
 			}
 		})
 	}
 }
 
-func (k *K8sHubble) relayImage(imagePathMode utils.ImagePathMode, ciliumVersion string) string {
-	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaults.RelayImage, ciliumVersion, imagePathMode)
+func (k *K8sHubble) relayImage(ciliumVersion string) string {
+	return utils.BuildImagePath(k.params.RelayImage, k.params.RelayVersion, defaults.RelayImage, ciliumVersion)
 }

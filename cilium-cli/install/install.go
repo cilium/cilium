@@ -432,11 +432,11 @@ func (p *Parameters) validate() error {
 	return nil
 }
 
-func (k *K8sInstaller) fqAgentImage(imagePathMode utils.ImagePathMode) string {
-	return utils.BuildImagePath(k.params.AgentImage, k.params.Version, defaults.AgentImage, defaults.Version, imagePathMode)
+func (k *K8sInstaller) fqAgentImage() string {
+	return utils.BuildImagePath(k.params.AgentImage, k.params.Version, defaults.AgentImage, defaults.Version)
 }
 
-func (k *K8sInstaller) fqOperatorImage(imagePathMode utils.ImagePathMode) string {
+func (k *K8sInstaller) fqOperatorImage() string {
 	defaultImage := defaults.OperatorImage
 	switch k.params.DatapathMode {
 	case DatapathAwsENI:
@@ -445,15 +445,15 @@ func (k *K8sInstaller) fqOperatorImage(imagePathMode utils.ImagePathMode) string
 		defaultImage = defaults.OperatorImageAzure
 	}
 
-	return utils.BuildImagePath(k.params.OperatorImage, k.params.Version, defaultImage, defaults.Version, imagePathMode)
+	return utils.BuildImagePath(k.params.OperatorImage, k.params.Version, defaultImage, defaults.Version)
 }
 
-func (k *K8sInstaller) fqRelayImage(imagePathMode utils.ImagePathMode) string {
-	return utils.BuildImagePath(k.params.RelayImage, k.params.Version, defaults.RelayImage, defaults.Version, imagePathMode)
+func (k *K8sInstaller) fqRelayImage() string {
+	return utils.BuildImagePath(k.params.RelayImage, k.params.Version, defaults.RelayImage, defaults.Version)
 }
 
-func (k *K8sInstaller) fqClusterMeshAPIImage(imagePathMode utils.ImagePathMode) string {
-	return utils.BuildImagePath(k.params.ClusterMeshAPIImage, k.params.Version, defaults.ClusterMeshApiserverImage, defaults.Version, imagePathMode)
+func (k *K8sInstaller) fqClusterMeshAPIImage() string {
+	return utils.BuildImagePath(k.params.ClusterMeshAPIImage, k.params.Version, defaults.ClusterMeshApiserverImage, defaults.Version)
 }
 
 func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInstaller, error) {
