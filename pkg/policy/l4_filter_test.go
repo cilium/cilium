@@ -133,6 +133,7 @@ func (ds *PolicyTestSuite) TearDownSuite(c *C) {
 // | 10  | "id=a", "id=c"  |  80/TCP  | "GET /","GET /" | Allow at L7 for two distinct labels (disjoint set)   |
 // | 11  | "id=a", "id=c"  |  80/TCP  |      *, *       | Allow at L4 for two distinct labels (disjoint set)   |
 // | 12  |     "id=a",     |  80/TCP  |     "GET /"     | Configure to allow localhost traffic always          |
+// | 13  |      -, -       |  80/TCP  |      *, *       | Deny all with an empty ToEndpoints slice             |
 // +-----+-----------------+----------+-----------------+------------------------------------------------------+
 
 func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
@@ -2214,4 +2215,37 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
+}
+
+// Case 13: deny all at L3 in case of an empty non-nil toEndpoints slice.
+func (ds *PolicyTestSuite) TestEgressEmptyToEndpoints(c *C) {
+	rule := &rule{
+		Rule: api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer := new(bytes.Buffer)
+	ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+	ctxFromA.Logging = stdlog.New(buffer, "", 0)
+	c.Log(buffer)
+
+	state := traceState{}
+	res, err := rule.resolveEgressPolicy(testPolicyContext, &ctxFromA, &state, L4PolicyMap{}, nil, nil)
+
+	c.Assert(err, IsNil)
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 }
