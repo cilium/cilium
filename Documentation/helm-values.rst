@@ -873,6 +873,18 @@
      - Enable hostPort service support.
      - bool
      - ``false``
+   * - :spelling:ignore:`hubble.dropEventEmitter`
+     - Emit v1.Events related to pods on detection of packet drops.
+     - object
+     - ``{"enabled":false,"historySize":100,"interval":"120s"}``
+   * - :spelling:ignore:`hubble.dropEventEmitter.historySize`
+     - - Maximum size of the drop history.
+     - int
+     - ``100``
+   * - :spelling:ignore:`hubble.dropEventEmitter.interval`
+     - - Minimum time between emitting same events.
+     - string
+     - ``"120s"``
    * - :spelling:ignore:`hubble.enabled`
      - Enable Hubble (true by default).
      - bool

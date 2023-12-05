@@ -1389,6 +1389,14 @@ hubble:
       #    hosts:
       #      - chart-example.local
 
+  # -- Emit v1.Events related to pods on detection of packet drops.
+  dropEventEmitter:
+    enabled: false
+    # --- Minimum time between emitting same events.
+    interval: 120s
+    # --- Maximum size of the drop history.
+    historySize: 100
+
 # -- Method to use for identity allocation (`crd` or `kvstore`).
 identityAllocationMode: "crd"
 
