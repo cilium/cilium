@@ -19,10 +19,12 @@ variables:
     - trap "docker buildx rm $builder" EXIT
     # Construct valid --build-args arguments from the DOCKER_BUILD_ARGS variable
     - BUILD_ARGS=""; IFS=$'\n'; for arg in $DOCKER_BUILD_ARGS; do BUILD_ARGS+=" $(echo "--build-arg $arg")"; done; IFS=$' ';
-    - IMAGE_TAG="registry.ddbuild.io/$IMAGE_NAME:$CI_COMMIT_TAG"
+    - IMAGE_TAG="$CI_COMMIT_TAG"
+    - if [ "$TARGET" = "debug" ] ; then IMAGE_TAG="$IMAGE_TAG-debug" ; fi
+    - IMAGE_REF="registry.ddbuild.io/$IMAGE_NAME:$IMAGE_TAG"
     - METADATA_FILE=$(mktemp)
-    - docker buildx build --platform linux/amd64,linux/arm64 --tag $IMAGE_TAG --file $DOCKERFILE_PATH $BUILD_ARGS --label CILIUM_VERSION=$(cat VERSION) --label target=prod --target release --push --metadata-file $METADATA_FILE $DOCKER_CONTEXT
-    - ddsign sign $IMAGE_TAG --docker-metadata-file $METADATA_FILE
+    - docker buildx build --platform linux/amd64,linux/arm64 --tag $IMAGE_REF --file $DOCKERFILE_PATH $BUILD_ARGS --label CILIUM_VERSION=$(cat VERSION) --label target=prod --target $TARGET --push --metadata-file $METADATA_FILE $DOCKER_CONTEXT
+    - ddsign sign $IMAGE_REF --docker-metadata-file $METADATA_FILE
 
 build-docker-image-operator:
   <<: *build-docker-image
@@ -32,6 +34,7 @@ build-docker-image-operator:
     DOCKER_BUILD_ARGS: |
       BASE_IMAGE=registry.ddbuild.io/images/base/gbi-distroless:release
       OPERATOR_VARIANT=operator
+    TARGET: release
 
 build-docker-image-runtime:
   <<: *build-docker-image
@@ -41,6 +44,7 @@ build-docker-image-runtime:
     DOCKER_BUILD_ARGS: |
       UBUNTU_IMAGE=registry.ddbuild.io/images/base/gbi-ubuntu_2204:release
     DOCKER_CONTEXT: "./images/runtime"
+    TARGET: release
 
 build-docker-image-cilium:
   <<: *build-docker-image
@@ -52,6 +56,24 @@ build-docker-image-cilium:
     DOCKERFILE_PATH: images/cilium/Dockerfile
     DOCKER_BUILD_ARGS: |
       CILIUM_RUNTIME_IMAGE=registry.ddbuild.io/cilium-runtime:$CI_COMMIT_TAG
+    TARGET: release
+
+# Caveats:
+# * The build image is single-arch amd64 and we're doing cross-compilation, so the dlv copy is only valid on amd64. In
+#   other words, the arm64 image does not work.
+# * Delve doesn't seem to work well in any case. For instance, `args` panics and `grs` doesn't work.
+build-docker-image-cilium-debug:
+  <<: *build-docker-image
+  needs:
+    # The debug image depends on the runtime image
+    - build-docker-image-runtime
+  variables:
+    IMAGE_NAME: cilium
+    DOCKERFILE_PATH: images/cilium/Dockerfile
+    DOCKER_BUILD_ARGS: |
+      CILIUM_RUNTIME_IMAGE=registry.ddbuild.io/cilium-runtime:$CI_COMMIT_TAG
+    NOSTRIP: 1
+    TARGET: debug
 
 build-docker-image-hubble-relay:
   <<: *build-docker-image
@@ -60,3 +82,4 @@ build-docker-image-hubble-relay:
     DOCKERFILE_PATH: images/hubble-relay/Dockerfile
     DOCKER_BUILD_ARGS: |
       BASE_IMAGE=registry.ddbuild.io/images/base/gbi-distroless:release
+    TARGET: release
