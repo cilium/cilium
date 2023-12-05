@@ -219,6 +219,13 @@ type EgressDenyRule struct {
 // ToEndpoints is not aggregated due to requirement folding in
 // GetDestinationEndpointSelectorsWithRequirements()
 func (e *EgressCommonRule) getAggregatedSelectors() EndpointSelectorSlice {
+	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
+	if (e.ToEntities != nil && len(e.ToEntities) == 0) ||
+		(e.ToCIDR != nil && len(e.ToCIDR) == 0) ||
+		(e.ToCIDRSet != nil && len(e.ToCIDRSet) == 0) {
+		return nil
+	}
+
 	res := make(EndpointSelectorSlice, 0, len(e.ToEntities)+len(e.ToCIDR)+len(e.ToCIDRSet))
 	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
 	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
@@ -281,6 +288,11 @@ func (e *EgressDenyRule) GetDestinationEndpointSelectorsWithRequirements(require
 func (e *EgressCommonRule) getDestinationEndpointSelectorsWithRequirements(
 	requirements []slim_metav1.LabelSelectorRequirement,
 ) EndpointSelectorSlice {
+
+	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
+	if e.aggregatedSelectors == nil || (e.ToEndpoints != nil && len(e.ToEndpoints) == 0) {
+		return nil
+	}
 
 	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.aggregatedSelectors))
 
