@@ -510,6 +510,10 @@ spec:
       - name: apply-sysctl-overwrites
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.initResources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         env:
         - name: BIN_PATH
           value: {{ .Values.cni.binPath }}
@@ -555,6 +559,10 @@ spec:
       - name: mount-bpf-fs
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.initResources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         args:
         - 'mount | grep "/sys/fs/bpf type bpf" || mount -t bpf bpf /sys/fs/bpf'
         command:
@@ -576,6 +584,10 @@ spec:
       - name: wait-for-node-init
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.initResources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         command:
         - sh
         - -c
@@ -656,7 +668,7 @@ spec:
         {{- with .Values.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        {{- with .Values.nodeinit.resources }}
+        {{- with .Values.initResources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
@@ -664,6 +676,10 @@ spec:
       - name: wait-for-kube-proxy
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.initResources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         securityContext:
           privileged: true
         command:
