@@ -194,6 +194,9 @@ resources: {}
   #   cpu: 100m
   #   memory: 512Mi
 
+# -- resources & limits for the agent init containers
+initResources: {}
+
 # -- Security context to be added to agent pods
 securityContext:
   # runAsUser: 0

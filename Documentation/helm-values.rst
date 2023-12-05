@@ -1221,6 +1221,10 @@
      - Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
      - bool
      - ``true``
+   * - :spelling:ignore:`initResources`
+     - resources & limits for the agent init containers
+     - object
+     - ``{}``
    * - :spelling:ignore:`installIptablesRules`
      - Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy.
      - bool
