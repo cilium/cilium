@@ -39,7 +39,7 @@ echo "Latest image from branch ${github_branch}: ${image_full}"
 
 DOCKERFILEPATH="./images/cilium/Dockerfile"
 echo "Updating image in ${DOCKERFILEPATH}"
-sed -i -E "s|FROM quay.io/cilium/cilium-envoy.*:.*@sha256:[0-9a-z]* as cilium-envoy|FROM ${image}:${image_tag}@${image_sha256} as cilium-envoy|" ${DOCKERFILEPATH}
+sed -i -E "s|ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy.*:.*@sha256:[0-9a-z]*|ARG CILIUM_ENVOY_IMAGE=${image}:${image_tag}@${image_sha256}|" ${DOCKERFILEPATH}
 
 MAKEFILEPATH="./install/kubernetes/Makefile.values"
 echo "Updating image in ${MAKEFILEPATH}"

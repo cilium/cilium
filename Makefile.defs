@@ -124,7 +124,7 @@ ifeq ($(NOSTRIP),)
 endif
 
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
-    CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
+    CILIUM_ENVOY_REF=$(shell sed -E -e 's/^ARG CILIUM_ENVOY_IMAGE=([^ ]*)/\1/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
     CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:(.*-)?([^:@]*).*/\2/p;d')
     GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.requiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 endif
