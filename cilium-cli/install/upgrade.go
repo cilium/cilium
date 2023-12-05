@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
-	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
 )
@@ -44,14 +43,13 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 
 	if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
 		deployment:         deployment,
-		imageIncludeDigest: k.fqOperatorImage(utils.ImagePathIncludeDigest),
-		imageExcludeDigest: k.fqOperatorImage(utils.ImagePathExcludeDigest),
+		imageExcludeDigest: k.fqOperatorImage(),
 		containerName:      defaults.OperatorContainerName,
 	}, &patched); err != nil {
 		return err
 	}
 
-	agentImage := k.fqAgentImage(utils.ImagePathIncludeDigest)
+	agentImage := k.fqAgentImage()
 	var containerPatches []string
 	for _, c := range daemonSet.Spec.Template.Spec.Containers {
 		if c.Image != agentImage {
@@ -68,7 +66,7 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 	if len(containerPatches) == 0 && len(initContainerPatches) == 0 {
 		k.Log("✅ Cilium is already up to date")
 	} else {
-		k.Log("🚀 Upgrading cilium to version %s...", k.fqAgentImage(utils.ImagePathExcludeDigest))
+		k.Log("🚀 Upgrading cilium to version %s...", k.fqAgentImage())
 
 		patch := []byte(`{"spec":{"template":{"spec":{"containers":[` + strings.Join(containerPatches, ",") + `], "initContainers":[` + strings.Join(initContainerPatches, ",") + `]}}}}`)
 		_, err = k.client.PatchDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
@@ -87,8 +85,7 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 	if err == nil { // only update if hubble relay deployment was found on the cluster
 		if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
 			deployment:         hubbleRelayDeployment,
-			imageIncludeDigest: k.fqRelayImage(utils.ImagePathIncludeDigest),
-			imageExcludeDigest: k.fqRelayImage(utils.ImagePathExcludeDigest),
+			imageExcludeDigest: k.fqRelayImage(),
 			containerName:      defaults.RelayContainerName,
 		}, &patched); err != nil {
 			return err
@@ -103,8 +100,7 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 	if err == nil { // only update clustermesh-apiserver if deployment was found on the cluster
 		if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
 			deployment:         clustermeshAPIServerDeployment,
-			imageIncludeDigest: k.fqClusterMeshAPIImage(utils.ImagePathIncludeDigest),
-			imageExcludeDigest: k.fqClusterMeshAPIImage(utils.ImagePathExcludeDigest),
+			imageExcludeDigest: k.fqClusterMeshAPIImage(),
 			containerName:      defaults.ClusterMeshContainerName,
 		}, &patched); err != nil {
 			return err
@@ -135,21 +131,19 @@ func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 
 type upgradeDeploymentParams struct {
 	deployment         *appsv1.Deployment
-	imageIncludeDigest string
 	imageExcludeDigest string
 	containerName      string
 }
 
 func upgradeDeployment(ctx context.Context, k *K8sInstaller, params upgradeDeploymentParams, patched *int) error {
-	if params.deployment.Spec.Template.Spec.Containers[0].Image == params.imageIncludeDigest ||
-		params.deployment.Spec.Template.Spec.Containers[0].Image == params.imageExcludeDigest {
+	if params.deployment.Spec.Template.Spec.Containers[0].Image == params.imageExcludeDigest {
 		k.Log("✅ %s is already up to date", params.deployment.Name)
 		return nil
 	}
 
 	k.Log("🚀 Upgrading %s to version %s...", params.deployment.Name, params.imageExcludeDigest)
 	containerPath := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name": "%s", "image":"`, params.containerName)
-	patch := []byte(containerPath + params.imageIncludeDigest + `"}]}}}}`)
+	patch := []byte(containerPath + params.imageExcludeDigest + `"}]}}}}`)
 
 	_, err := k.client.PatchDeployment(ctx, k.params.Namespace, params.deployment.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
