@@ -176,8 +176,8 @@ etcdctl user grant-role remote remote;
 etcdctl auth enable;
 exit`}
 
-func (k *K8sClusterMesh) apiserverImage(imagePathMode utils.ImagePathMode) string {
-	return utils.BuildImagePath(k.params.ApiserverImage, k.params.ApiserverVersion, defaults.ClusterMeshApiserverImage, k.imageVersion, imagePathMode)
+func (k *K8sClusterMesh) apiserverImage() string {
+	return utils.BuildImagePath(k.params.ApiserverImage, k.params.ApiserverVersion, defaults.ClusterMeshApiserverImage, k.imageVersion)
 }
 
 func (k *K8sClusterMesh) etcdImage() string {
@@ -281,7 +281,7 @@ func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *
 								"--kvstore-opt",
 								"etcd.config=/var/lib/cilium/etcd-config.yaml",
 							),
-							Image:           k.apiserverImage(utils.ImagePathIncludeDigest),
+							Image:           k.apiserverImage(),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{
@@ -624,7 +624,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	k.Log("✨ Deploying clustermesh-apiserver from %s...", k.apiserverImage(utils.ImagePathExcludeDigest))
+	k.Log("✨ Deploying clustermesh-apiserver from %s...", k.apiserverImage())
 	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.ClusterMeshServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
 	}

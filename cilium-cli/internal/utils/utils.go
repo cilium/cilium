@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
-
-	"github.com/cilium/cilium-cli/defaults"
 )
 
 var versionRegexp = regexp.MustCompile(`^((v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9.]+)*|[a-zA-Z0-9-_.@:]*:[a-zA-Z0-9-_.@:]+)|([0-9a-fA-F]{40})|(latest))$`).MatchString
@@ -27,13 +25,7 @@ func ParseCiliumVersion(version string) (semver.Version, error) {
 	return semver.ParseTolerant(version)
 }
 
-type ImagePathMode int
-
-const (
-	ImagePathExcludeDigest ImagePathMode = iota
-	ImagePathIncludeDigest
-	CLIModeVariableName = "CILIUM_CLI_MODE"
-)
+const CLIModeVariableName = "CILIUM_CLI_MODE"
 
 var imageRegexp = regexp.MustCompile(`\A(.*?)(?:(:.*?)(@sha256:[0-9a-f]{64})?)?\z`)
 
@@ -49,11 +41,7 @@ var imageRegexp = regexp.MustCompile(`\A(.*?)(?:(:.*?)(@sha256:[0-9a-f]{64})?)?\
 // colon 'userVersion' is always prepended with 'v' if it is missing.
 // This is also useful for postfixing the image name with "-ci", for
 // example ("--version -ci:4fac771179959ca575eb6f993d566653d3bfa167").
-//
-// If imagePathMode is ImagePathIncludeDigest and the resulting image is well
-// known (i.e. is in defaults.WellKnownImageDigests) then its digest is appended
-// to the path.
-func BuildImagePath(userImage, userVersion, defaultImage, defaultVersion string, imagePathMode ImagePathMode) string {
+func BuildImagePath(userImage, userVersion, defaultImage, defaultVersion string) string {
 	var image string
 	switch {
 	case userImage == "" && userVersion == "":
@@ -80,14 +68,10 @@ func BuildImagePath(userImage, userVersion, defaultImage, defaultVersion string,
 		image = userImage + ":" + userVersion
 	}
 
-	switch imagePathMode {
-	case ImagePathIncludeDigest:
-		image = image + defaults.WellKnownImageDigests[image]
-	case ImagePathExcludeDigest:
-		if m := imageRegexp.FindStringSubmatch(image); m != nil {
-			image = m[1] + m[2]
-		}
+	if m := imageRegexp.FindStringSubmatch(image); m != nil {
+		image = m[1] + m[2]
 	}
+
 	return image
 }
 
