@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/api/v1/observer"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
+	"github.com/cilium/cilium-cli/connectivity/perf/common"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/junit"
 	"github.com/cilium/cilium-cli/k8s"
@@ -62,9 +63,9 @@ type ConnectivityTest struct {
 	echoExternalPods  map[string]Pod
 	clientPods        map[string]Pod
 	clientCPPods      map[string]Pod
-	perfClientPods    map[string]Pod
-	perfServerPod     map[string]Pod
-	PerfResults       map[PerfTests]PerfResult
+	perfClientPods    []Pod
+	perfServerPod     []Pod
+	PerfResults       []common.PerfSummary
 	echoServices      map[string]Service
 	ingressService    map[string]Service
 	k8sService        Service
@@ -85,21 +86,6 @@ type ConnectivityTest struct {
 
 	manifests      map[string]string
 	helmYAMLValues string
-}
-
-type PerfTests struct {
-	Pod  string
-	Test string
-}
-
-type PerfResult struct {
-	Metric   string
-	Scenario string
-	Duration time.Duration
-	Samples  int
-	Values   []float64
-	Avg      float64
-	Latency  map[string][]float64
 }
 
 func netIPToCIDRs(netIPs []netip.Addr) (netCIDRs []netip.Prefix) {
@@ -220,9 +206,9 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 		echoExternalPods:         make(map[string]Pod),
 		clientPods:               make(map[string]Pod),
 		clientCPPods:             make(map[string]Pod),
-		perfClientPods:           make(map[string]Pod),
-		perfServerPod:            make(map[string]Pod),
-		PerfResults:              make(map[PerfTests]PerfResult),
+		perfClientPods:           []Pod{},
+		perfServerPod:            []Pod{},
+		PerfResults:              []common.PerfSummary{},
 		echoServices:             make(map[string]Service),
 		ingressService:           make(map[string]Service),
 		externalWorkloads:        make(map[string]ExternalWorkload),
@@ -593,34 +579,51 @@ func (ct *ConnectivityTest) report() error {
 	}
 
 	if ct.params.Perf {
-		if ct.params.PerfLatency {
-			// Report Performance results for latency
-			ct.Header("🔥 Latency Test Summary:")
-			ct.Logf("%s", strings.Repeat("-", 233))
-			ct.Logf("📋 %-15s | %-50s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Pod", "Test", "Num Samples", "Duration", "Min", "Mean", "Max", "P50", "P90", "P99")
-			ct.Logf("%s", strings.Repeat("-", 233))
-			for p, d := range ct.PerfResults {
-				ct.Logf("📋 %-15s | %-50s | %-15s | %-15d | %-15s | %-12.2f %s | %-12.2f %s | %-12.2f %s | %-12.2f %s | %-12.2f %s | %-12.2f %s",
-					d.Scenario, p.Pod, p.Test, d.Samples, d.Duration,
-					d.Latency["min"][0], d.Metric,
-					d.Latency["mean"][0], d.Metric,
-					d.Latency["max"][0], d.Metric,
-					d.Latency["p50"][0], d.Metric,
-					d.Latency["p90"][0], d.Metric,
-					d.Latency["p99"][0], d.Metric)
+		ct.Header("🔥 Network Performance Test Summary:")
+		ct.Logf("%s", strings.Repeat("-", 200))
+		ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Node", "Test", "Duration", "Min", "Mean", "Max", "P50", "P90", "P99", "Transaction rate OP/s")
+		ct.Logf("%s", strings.Repeat("-", 200))
+		nodeString := func(sameNode bool) string {
+			if sameNode {
+				return "same-node"
 			}
-			ct.Logf("%s", strings.Repeat("-", 233))
-		} else {
-			// Report Performance results for throughput
-			ct.Header("🔥 Performance Test Summary:")
-			ct.Logf("%s", strings.Repeat("-", 145))
-			ct.Logf("📋 %-15s | %-50s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Pod", "Test", "Num Samples", "Duration", "Avg value")
-			ct.Logf("%s", strings.Repeat("-", 145))
-			for p, d := range ct.PerfResults {
-				ct.Logf("📋 %-15s | %-50s | %-15s | %-15d | %-15s | %.2f (%s)", d.Scenario, p.Pod, p.Test, d.Samples, d.Duration, d.Avg, d.Metric)
-				ct.Debugf("Individual Values from run : %f", d.Values)
+			return "other-node"
+		}
+		for _, result := range ct.PerfResults {
+			if result.Result.Latency != nil && result.Result.TransactionRateMetric != nil {
+				ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-12.2f",
+					result.PerfTest.Scenario,
+					nodeString(result.PerfTest.SameNode),
+					result.PerfTest.Test,
+					result.PerfTest.Duration,
+					result.Result.Latency.Min,
+					result.Result.Latency.Avg,
+					result.Result.Latency.Max,
+					result.Result.Latency.Perc50,
+					result.Result.Latency.Perc90,
+					result.Result.Latency.Perc99,
+					result.Result.TransactionRateMetric.TransactionRate,
+				)
 			}
-			ct.Logf("%s", strings.Repeat("-", 145))
+		}
+		ct.Logf("%s", strings.Repeat("-", 200))
+		ct.Logf("%s", strings.Repeat("-", 85))
+		ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-15s ", "Scenario", "Node", "Test", "Duration", "Throughput Mb/s")
+		ct.Logf("%s", strings.Repeat("-", 85))
+		for _, result := range ct.PerfResults {
+			if result.Result.ThroughputMetric != nil {
+				ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-12.2f ",
+					result.PerfTest.Scenario,
+					nodeString(result.PerfTest.SameNode),
+					result.PerfTest.Test,
+					result.PerfTest.Duration,
+					result.Result.ThroughputMetric.Throughput/1000000,
+				)
+			}
+		}
+		ct.Logf("%s", strings.Repeat("-", 85))
+		if ct.Params().PerfReportDir != "" {
+			common.ExportPerfSummaries(ct.PerfResults, ct.Params().PerfReportDir)
 		}
 	}
 
@@ -1086,11 +1089,11 @@ func (ct *ConnectivityTest) SecondaryNetworkNodeIPv6() map[string]string {
 	return ct.secondaryNetworkNodeIPv6
 }
 
-func (ct *ConnectivityTest) PerfServerPod() map[string]Pod {
+func (ct *ConnectivityTest) PerfServerPod() []Pod {
 	return ct.perfServerPod
 }
 
-func (ct *ConnectivityTest) PerfClientPods() map[string]Pod {
+func (ct *ConnectivityTest) PerfClientPods() []Pod {
 	return ct.perfClientPods
 }
 
