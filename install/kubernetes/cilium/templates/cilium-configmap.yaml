@@ -929,6 +929,11 @@ data:
   hubble-disable-tls: "true"
 {{- end }}
 {{- end }}
+{{- if .Values.hubble.dropEventEmitter.enabled }}
+  hubble-drop-events: "true"
+  hubble-drop-events-interval: {{ .Values.hubble.dropEventEmitter.interval | quote }}
+  hubble-drop-events-reasons: {{ .Values.hubble.dropEventEmitter.reasons | join "," | quote }}
+{{- end }}
 {{- if .Values.hubble.preferIpv6 }}
   hubble-prefer-ipv6: "true"
 {{- end }}
