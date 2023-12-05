@@ -1975,8 +1975,8 @@ var _ = SkipDescribeIf(func() bool {
 			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l tier=frontend", helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil(), "Frontend pods are not ready after timeout")
 
-			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-master", helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-master service to be ready")
+			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-leader", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-leader service to be ready")
 
 			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-follower", helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-follower service to be ready")
