@@ -41,6 +41,7 @@ rules:
   - get
   - list
   - watch
+{{- if and .Values.hubble.enabled .Values.hubble.dropEventEmitter.enabled }}
 - apiGroups:
   - ""
   resources:
@@ -48,6 +49,7 @@ rules:
   verbs:
   - create
   - patch
+{{- end }}
 {{- if .Values.annotateK8sNode }}
 - apiGroups:
   - ""

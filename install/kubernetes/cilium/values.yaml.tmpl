@@ -1431,6 +1431,18 @@ hubble:
             #     - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
             #     excludeFilters: []
             #     end: "2023-10-09T23:59:59-07:00"
+
+  # -- Emit v1.Events related to pods on detection of packet drops.
+  dropEventEmitter:
+    enabled: false
+    # --- Minimum time between emitting same events.
+    interval: 2m
+    # --- Drop reasons to emit events for.
+    # ref: https://docs.cilium.io/en/stable/_api/v1/flow/README/#dropreason
+    reasons:
+      - auth_required
+      - policy_denied
+
 # -- Method to use for identity allocation (`crd` or `kvstore`).
 identityAllocationMode: "crd"
 # -- (string) Time to wait before using new identity on endpoint identity change.
