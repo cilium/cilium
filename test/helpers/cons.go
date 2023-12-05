@@ -244,6 +244,7 @@ const (
 	failedToUpdateLock         = "Failed to update lock:"
 	failedToReleaseLock        = "Failed to release lock:"
 	errorCreatingInitialLeader = "error initially creating leader election record:"
+	cantEnableJIT              = "bpf_jit_enable: no such file or directory" // Because we run tests in Kind.
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -307,7 +308,10 @@ var badLogMessages = map[string][]string{
 	"DATA RACE":         nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
-	logutils.ErrorLogs:   {opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName, failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
+	logutils.ErrorLogs: {opCantBeFulfilled, initLeaderElection, globalDataSupport,
+		removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName,
+		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
+	logutils.WarningLogs: {cantEnableJIT},
 }
 
 var ciliumCLICommands = map[string]string{
