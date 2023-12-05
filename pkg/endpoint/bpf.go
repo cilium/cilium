@@ -194,7 +194,7 @@ func (p *proxyPolicy) GetPort() uint16 {
 // writing. On success, returns nil; otherwise, returns an error indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.mutex Lock()ed.
-func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode || e.IsProxyDisabled() {
 		return nil, nil, nil
 	}
@@ -213,6 +213,9 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	e.desiredPolicy.UpdateRedirects(ingress,
 		func(l4 *policy.L4Filter) (uint16, bool) {
 			var redirectPort uint16
+			// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
+			updateMaps := e.desiredPolicy != e.realizedPolicy
+
 			// Only create a redirect if the proxy is NOT running in a sidecar container
 			// or the parser is not HTTP. If running in a sidecar container and the parser
 			// is HTTP, just allow traffic to the port at L4 by setting the proxy port
@@ -233,6 +236,11 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					// conflicts have been resolved in POD specs.
 					return 0, false
 				}
+				// desiredRedirects starts out empty, so we can use it check
+				// if the redirect has already been updated on this round.
+				if redirectPort = desiredRedirects[proxyID]; redirectPort != 0 {
+					return redirectPort, updateMaps
+				}
 
 				pp := e.newProxyPolicy(l4, dstPort)
 				var err error
@@ -250,18 +258,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				finalizeList.Append(finalizeFunc)
 				revertStack.Push(revertFunc)
 
-				if e.realizedRedirects == nil {
-					e.realizedRedirects = make(map[string]uint16)
-				}
-				if _, found := e.realizedRedirects[proxyID]; !found {
-					revertStack.Push(func() error {
-						delete(e.realizedRedirects, proxyID)
-						return nil
-					})
-				}
-				e.realizedRedirects[proxyID] = redirectPort
-
-				desiredRedirects[proxyID] = true
+				desiredRedirects[proxyID] = redirectPort
 
 				// Update the endpoint API model to report that Cilium manages a
 				// redirect for that port.
@@ -273,12 +270,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 				updatedStats = append(updatedStats, proxyStats)
 			}
-
-			if e.desiredPolicy == e.realizedPolicy {
-				// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
-				return 0, false
-			}
-			return redirectPort, true
+			return redirectPort, updateMaps
 		}, changes)
 
 	revertStack.Push(func() error {
@@ -296,7 +288,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	return nil, finalizeList.Finalize, revertStack.Revert
 }
 
-func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	var (
 		visPolicy    policy.DirectionalVisibilityPolicy
 		finalizeList revert.FinalizeList
@@ -335,7 +327,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 
 		// Skip adding a visibility redirect if a redirect for the given proto and port already
 		// exists. The existing redirect will do policy enforcement and also provides visibility
-		if desiredRedirects[proxyID] {
+		if desiredRedirects[proxyID] != 0 {
 			continue
 		}
 
@@ -347,18 +339,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		finalizeList.Append(finalizeFunc)
 		revertStack.Push(revertFunc)
 
-		if e.realizedRedirects == nil {
-			e.realizedRedirects = make(map[string]uint16)
-		}
-		if _, found := e.realizedRedirects[proxyID]; !found {
-			revertStack.Push(func() error {
-				delete(e.realizedRedirects, proxyID)
-				return nil
-			})
-		}
-		e.realizedRedirects[proxyID] = redirectPort
-
-		desiredRedirects[proxyID] = true
+		desiredRedirects[proxyID] = redirectPort
 
 		// Update the endpoint API model to report that Cilium manages a
 		// redirect for that port.
@@ -395,7 +376,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Must be called with endpoint.mutex Lock()ed.
-func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	var (
 		finalizeList revert.FinalizeList
 		revertStack  revert.RevertStack
@@ -411,7 +392,7 @@ func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desire
 		}
 	}()
 
-	desiredRedirects = make(map[string]bool)
+	desiredRedirects = make(map[string]uint16)
 
 	for dirLogStr, ingress := range map[string]bool{"ingress": true, "egress": false} {
 		err, ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
@@ -441,19 +422,18 @@ func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desire
 }
 
 // Must be called with endpoint.mutex Lock()ed.
-func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil
 	}
 
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
-	removedRedirects := make(map[string]uint16, len(e.realizedRedirects))
-	updatedStats := make(map[uint16]*models.ProxyStatistics, len(e.realizedRedirects))
+	updatedStats := make(map[uint16]*models.ProxyStatistics, len(realizedRedirects))
 
-	for id, redirectPort := range e.realizedRedirects {
+	for id, redirectPort := range realizedRedirects {
 		// Remove only the redirects that are not required.
-		if desiredRedirects[id] {
+		if desiredRedirects[id] != 0 {
 			continue
 		}
 
@@ -464,9 +444,6 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 		}
 		finalizeList.Append(finalizeFunc)
 		revertStack.Push(revertFunc)
-
-		delete(e.realizedRedirects, id)
-		removedRedirects[id] = redirectPort
 
 		// Update the endpoint API model to report that no redirect is
 		// active or known for that port anymore. We never delete stats
@@ -494,10 +471,6 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 				stats.AllocatedProxyPort = int64(redirectPort)
 			}
 			e.proxyStatisticsMutex.Unlock()
-
-			for id, redirectPort := range removedRedirects {
-				e.realizedRedirects[id] = redirectPort
-			}
 
 			err := revertStack.Revert()
 
@@ -833,10 +806,13 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		// Do this before updating the bpf policy maps, so that the proxies are ready when new traffic
 		// is redirected to them.
 		var (
-			desiredRedirects map[string]bool
+			desiredRedirects map[string]uint16
 			finalizeFunc     revert.FinalizeFunc
 			revertFunc       revert.RevertFunc
 		)
+		// Get currently realized redirects
+		previouslyRealizedRedirects := e.GetRealizedRedirects()
+
 		if e.desiredPolicy != nil {
 			stats.proxyConfiguration.Start()
 			// Deny policies do not support redirects
@@ -865,6 +841,16 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		}
 		datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
 
+		// At this point desiredRedirects only contains the (new) realized redirects,
+		// so update e.realizedRedirects pointer now, before syncPolicyMap() refers to
+		// e.realizedRedirects below
+		e.realizedRedirects.Store(&desiredRedirects)
+		datapathRegenCtxt.revertStack.Push(func() error {
+			// revert back to the set of previously realized redirects
+			e.realizedRedirects.Store(&previouslyRealizedRedirects)
+			return nil
+		})
+
 		// Synchronously try to update PolicyMap for this endpoint. If any
 		// part of updating the PolicyMap fails, bail out and do not generate
 		// BPF. Unfortunately, this means that the map will be in an inconsistent
@@ -882,7 +868,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		// now-obsolete redirects, since we synced the updated policy map above.
 		// It's now safe to remove the redirects from the proxy's configuration.
 		stats.proxyConfiguration.Start()
-		finalizeFunc, revertFunc = e.removeOldRedirects(desiredRedirects, datapathRegenCtxt.proxyWaitGroup)
+		finalizeFunc, revertFunc = e.removeOldRedirects(desiredRedirects, previouslyRealizedRedirects, datapathRegenCtxt.proxyWaitGroup)
 		datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 		datapathRegenCtxt.revertStack.Push(revertFunc)
 		stats.proxyConfiguration.End(true)
@@ -1192,17 +1178,19 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
 	changes := policy.ChangeState{Adds: adds}
 
+	realizedRedirects := e.GetRealizedRedirects()
+
 	// Add possible visibility redirects due to incrementally added keys
 	if e.visibilityPolicy != nil {
 		for _, visMeta := range e.visibilityPolicy.Ingress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
-			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
+			if redirectPort, exists := realizedRedirects[proxyID]; exists && redirectPort != 0 {
 				e.desiredPolicy.GetPolicyMap().AddVisibilityKeys(e, redirectPort, visMeta, changes)
 			}
 		}
 		for _, visMeta := range e.visibilityPolicy.Egress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
-			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
+			if redirectPort, exists := realizedRedirects[proxyID]; exists && redirectPort != 0 {
 				e.desiredPolicy.GetPolicyMap().AddVisibilityKeys(e, redirectPort, visMeta, changes)
 			}
 		}
@@ -1227,7 +1215,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 		// due to the fact that proxies may not yet have bound to a specific port when a proxy
 		// policy is first instantiated.
 		if entry.IsRedirectEntry() {
-			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd, entry.Listener)]
+			entry.ProxyPort = realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd, entry.Listener)]
 		}
 		if !e.addPolicyKey(keyToAdd, entry, true) {
 			errors++
@@ -1283,6 +1271,8 @@ func (e *Endpoint) syncPolicyMap() error {
 func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
 	errors := 0
 
+	realizedRedirects := e.GetRealizedRedirects()
+
 	// Add policy map entries before deleting to avoid transient drops
 
 	e.desiredPolicy.GetPolicyMap().ForEach(func(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
@@ -1292,7 +1282,7 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 			// bound to a specific port when a proxy policy is first instantiated.
 			if entry.IsRedirectEntry() {
 				// Will change to 0 if on a sidecar
-				entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd, entry.Listener)]
+				entry.ProxyPort = realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd, entry.Listener)]
 			}
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
