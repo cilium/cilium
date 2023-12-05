@@ -7,4 +7,4 @@ set -e
 cilium connectivity test --debug --all-flows --collect-sysdump-on-failure --external-target google.com
 
 # Run performance test
-cilium connectivity test --perf --perf-duration 1s
+cilium connectivity perf --duration 1s
