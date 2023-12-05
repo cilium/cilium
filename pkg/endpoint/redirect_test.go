@@ -227,7 +227,8 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	err = ep.setDesiredPolicy(res)
 	c.Assert(err, check.IsNil)
 
-	_, err, _, _ = ep.addNewRedirects(cmp)
+	realizedRedirects := ep.GetRealizedRedirects()
+	d2, err, _, _ := ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
@@ -256,15 +257,15 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	c.Assert(ok, check.Equals, true)
 	c.Assert(v.ProxyPort, check.Equals, httpPort)
 	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80), "")
-	p, ok := ep.realizedRedirects[pID]
+	p, ok := d2[pID]
 	c.Assert(ok, check.Equals, true)
 	c.Assert(p, check.Equals, httpPort)
 
 	// Check that the egress redirect is removed when the redirects have been
 	// updated.
-	ep.removeOldRedirects(d, cmp)
-	// Egress redirect should be removed.
-	_, ok = ep.realizedRedirects[pID]
+	ep.removeOldRedirects(d, realizedRedirects, cmp)
+	// Egress redirect should not exist in desired redirects
+	_, ok = d[pID]
 	c.Assert(ok, check.Equals, false)
 
 	// Check that all redirects are removed when no visibility policy applies.
@@ -277,10 +278,11 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	err = ep.setDesiredPolicy(res)
 	c.Assert(err, check.IsNil)
 
+	realizedRedirects = ep.GetRealizedRedirects()
 	d, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
-	ep.removeOldRedirects(d, cmp)
-	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
+	ep.removeOldRedirects(d, realizedRedirects, cmp)
+	c.Assert(len(d), check.Equals, 0)
 }
 
 var (
@@ -427,6 +429,7 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
 
+	realizedRedirects := ep.GetRealizedRedirects()
 	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	finalizeFunc()
@@ -464,10 +467,10 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	}
 
 	// Keep only desired redirects
-	ep.removeOldRedirects(desiredRedirects, cmp)
+	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
 
 	// Check that the redirect is still realized
-	c.Assert(len(ep.realizedRedirects), check.Equals, 1)
+	c.Assert(len(desiredRedirects), check.Equals, 1)
 	c.Assert(ep.desiredPolicy.GetPolicyMap().Len(), check.Equals, 4)
 
 	// Pretend that something failed and revert the changes
@@ -478,6 +481,5 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 		c.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.GetPolicyMap().Diff(c.T, expected))
 	}
-	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
 	c.Assert(ep.desiredPolicy.GetPolicyMap().Len(), check.Equals, 2)
 }

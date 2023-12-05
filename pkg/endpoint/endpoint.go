@@ -332,9 +332,7 @@ type Endpoint struct {
 	// realizedRedirects maps the ID of each proxy redirect that has been
 	// successfully added into a proxy for this endpoint, to the redirect's
 	// proxy port number.
-	// You must hold Endpoint.mutex AND Endpoint.buildMutex to write to it,
-	// and either (or both) of those locks to read from it.
-	realizedRedirects map[string]uint16
+	realizedRedirects atomic.Pointer[map[string]uint16]
 
 	// ctCleaned indicates whether the conntrack table has already been
 	// cleaned when this endpoint was first created
@@ -388,6 +386,13 @@ type Endpoint struct {
 	// Root scope for all of this endpoints reporters.
 	reporterScope       cell.Scope
 	closeHealthReporter func()
+}
+
+func (e *Endpoint) GetRealizedRedirects() (redirects map[string]uint16) {
+	if p := e.realizedRedirects.Load(); p != nil {
+		redirects = *p
+	}
+	return redirects
 }
 
 func (e *Endpoint) GetReporter(name string) cell.HealthReporter {
@@ -1214,9 +1219,10 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	// Remove restored rules of cleaned endpoint
 	e.owner.RemoveRestoredDNSRules(e.ID)
 
-	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
+	realizedRedirects := e.GetRealizedRedirects()
+	if e.SecurityIdentity != nil && len(realizedRedirects) > 0 {
 		// Passing a new map of nil will purge all redirects
-		finalize, _ := e.removeOldRedirects(nil, proxyWaitGroup)
+		finalize, _ := e.removeOldRedirects(nil, realizedRedirects, proxyWaitGroup)
 		if finalize != nil {
 			finalize()
 		}
