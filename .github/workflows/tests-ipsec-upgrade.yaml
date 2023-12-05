@@ -290,7 +290,8 @@ jobs:
           # Create pods which establish long lived connections. It will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
-          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-dispatch-interval 0ms
 
       - name: Upgrade Cilium & Test (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}

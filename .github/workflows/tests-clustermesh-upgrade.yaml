@@ -364,7 +364,8 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --conn-disrupt-test-setup
+            --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-dispatch-interval 0ms
 
 
       - name: Upgrade Cilium in cluster1 and enable kvstoremesh
@@ -410,7 +411,8 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --conn-disrupt-test-setup
+            --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-dispatch-interval 0ms
 
 
       # Perform an additional "stress" test, scaling the clustermesh-apiservers in both clusters
@@ -467,7 +469,8 @@ jobs:
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
-            --include-conn-disrupt-test --conn-disrupt-test-setup
+            --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-dispatch-interval 0ms
 
 
       - name: Downgrade Cilium in cluster1 and disable kvstoremesh
