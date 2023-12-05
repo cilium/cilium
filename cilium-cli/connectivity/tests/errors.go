@@ -5,7 +5,6 @@ package tests
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
@@ -75,43 +74,34 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 
 }
 
-// NoMissedTailCalls checks whether there were no drops due to missed (BPF)
-// tail calls.
-func NoMissedTailCalls() check.Scenario {
-	return &noMissedTailCalls{}
+// NoUnexpectedPacketDrops checks whether there were no drops due to expected
+// packet drops.
+func NoUnexpectedPacketDrops() check.Scenario {
+	return &noUnexpectedPacketDrops{}
 }
 
-type noMissedTailCalls struct{}
+type noUnexpectedPacketDrops struct{}
 
-func (n *noMissedTailCalls) Name() string {
-	return "no-missed-tail-calls"
+func (n *noUnexpectedPacketDrops) Name() string {
+	return "no-unexpected-packet-drops"
 }
 
-func (n *noMissedTailCalls) Run(ctx context.Context, t *check.Test) {
+func (n *noUnexpectedPacketDrops) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	cmd := []string{
 		"/bin/sh", "-c",
-		"cilium metrics list -o json | jq '.[] | select( .name == \"cilium_drop_count_total\" and .labels.reason == \"Missed tail call\" ).value'",
+		"cilium metrics list -o json | jq '.[] | select((.name == \"cilium_drop_count_total\") and (.labels.reason | IN(\"Policy denied\", \"Policy denied by denylist\") | not))'",
 	}
 
 	for _, pod := range ct.CiliumPods() {
 		pod := pod
 		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 		if err != nil {
-			t.Fatalf("Error fetching missed tail call drop counts: %s", err)
+			t.Fatalf("Error fetching packet drop counts: %s", err)
 		}
 		countStr := strings.TrimSpace(stdout.String())
-		if countStr == "" {
-			return
-		}
-
-		count, err := strconv.Atoi(countStr)
-		if err != nil {
-			t.Fatalf("Failed to convert missed tail call drops %q to int: %s", countStr, err)
-		}
-
-		if count != 0 {
-			t.Fatalf("Detected drops due to missed tail calls: %d", count)
+		if countStr != "" {
+			t.Fatalf("Found unexpected packet drops:\n%s", countStr)
 		}
 	}
 
