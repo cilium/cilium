@@ -259,9 +259,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			// include --include-conn-disrupt-test"
 			return ct.Run(ctx)
 		}
-
-		ct.NewTest("no-missed-tail-calls").WithScenarios(tests.NoMissedTailCalls())
 	}
+
+	ct.NewTest("no-unexpected-packet-drops").WithScenarios(tests.NoUnexpectedPacketDrops())
 
 	// Run all tests without any policies in place.
 	noPoliciesScenarios := []check.Scenario{
