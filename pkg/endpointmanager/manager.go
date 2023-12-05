@@ -170,6 +170,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 	}()
 
 	// TODO: bound by number of CPUs?
+	mgr.mutex.RLock()
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
 			// Proceed only after all notifications have been delivered to endpoints
@@ -180,6 +181,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 			epWG.Done()
 		}(ep)
 	}
+	mgr.mutex.RUnlock()
 
 	return &wg
 }
