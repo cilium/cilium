@@ -110,6 +110,8 @@ jobs:
           cpu: 4
           install-dependencies: 'true'
           cmd: |
+            for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
+
             git config --global --add safe.directory /host
             uname -a
             # The LVH image might ship with an arbitrary Go toolchain version,
