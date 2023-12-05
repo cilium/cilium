@@ -480,6 +480,10 @@
      - Additional clustermesh-apiserver volumes.
      - list
      - ``[]``
+   * - :spelling:ignore:`clustermesh.apiserver.healthPort`
+     - TCP port for the clustermesh-apiserver health API.
+     - int
+     - ``9880``
    * - :spelling:ignore:`clustermesh.apiserver.image`
      - Clustermesh API server image.
      - object
