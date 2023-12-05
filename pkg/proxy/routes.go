@@ -99,7 +99,7 @@ var (
 	// Routing rule for traffic from proxy.
 	fromProxyRule = route.Rule{
 		Priority: linux_defaults.RulePriorityFromProxyIngress,
-		Mark:     linux_defaults.MagicMarkIsProxy,
+		Mark:     linux_defaults.MagicMarkIngress,
 		Mask:     linux_defaults.MagicMarkHostMask,
 		Table:    linux_defaults.RouteTableFromProxy,
 	}
