@@ -63,6 +63,7 @@ jobs:
 
       - name: Login to DockerHub
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        if: ${{ env.PUSH_TO_DOCKER_HUB == 'true' }}
         with:
           username: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
@@ -77,7 +78,13 @@ jobs:
       - name: Getting image tag
         id: tag
         run: |
-          echo tag=${GITHUB_REF##*/} >> $GITHUB_OUTPUT
+          tag=${GITHUB_REF##*/}
+          echo tag=$tag >> $GITHUB_OUTPUT
+          if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
+            echo image_tags=${{ github.repository_owner }}/${{ matrix.name }}:$tag,quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:$tag >> $GITHUB_OUTPUT
+          else
+            echo image_tags=quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:$tag >> $GITHUB_OUTPUT
+          fi
 
       - name: Checkout Source Code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -93,9 +100,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
-            quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
+          tags: ${{ steps.tag.outputs.image_tags }}
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -105,7 +110,9 @@ jobs:
 
       - name: Sign Container Image
         run: |
-          cosign sign -y docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+          if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
+            cosign sign -y docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+          fi
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Install Bom
@@ -128,15 +135,19 @@ jobs:
 
       - name: Attach SBOM to container images
         run: |
-          cosign attach sbom --sbom sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+          if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
+            cosign attach sbom --sbom sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+          fi
           cosign attach sbom --sbom sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Sign SBOM Image
         run: |
-          docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
-          image_name="docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${docker_build_release_digest/:/-}.sbom"
-          docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${docker_build_release_sbom_digest}"
+          if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
+            docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
+            image_name="docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${docker_build_release_digest/:/-}.sbom"
+            docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
+            cosign sign -y "docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${docker_build_release_sbom_digest}"
+          fi
 
           docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:${docker_build_release_digest/:/-}.sbom"
@@ -154,7 +165,9 @@ jobs:
 
           echo "### ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          if [ "${{ env.PUSH_TO_DOCKERHUB }}" == "true" ]; then
+            echo "\`docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          fi
           echo "\`quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
 
