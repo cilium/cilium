@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 )
 
 type DNSCacheTestSuite struct{}
@@ -107,7 +106,7 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
 		c.Assert(cache.forward, checker.HasKey, name, Commentf("Expired name '%s' not deleted from forward", name))
 		for _, ip := range ips {
-			c.Assert(cache.reverse, checker.HasKey, ippkg.MustAddrFromIP(ip), Commentf("Expired IP '%s' not deleted from reverse", ip))
+			c.Assert(cache.reverse, checker.HasKey, ip, Commentf("Expired IP '%s' not deleted from reverse", ip))
 		}
 	}
 
@@ -130,7 +129,7 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
 		c.Assert(cache.forward, checker.HasKey, name, Commentf("Expired name '%s' not deleted from forward", name))
 		for _, ip := range ips {
-			c.Assert(cache.reverse, checker.HasKey, ippkg.MustAddrFromIP(ip), Commentf("Expired IP '%s' not deleted from reverse", ip))
+			c.Assert(cache.reverse, checker.HasKey, ip, Commentf("Expired IP '%s' not deleted from reverse", ip))
 		}
 	}
 

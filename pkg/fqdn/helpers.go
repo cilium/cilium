@@ -4,7 +4,6 @@
 package fqdn
 
 import (
-	"net"
 	"net/netip"
 	"regexp"
 
@@ -30,7 +29,7 @@ func (n *NameManager) mapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSel
 
 	// Map each FQDNSelector to set of CIDRs
 	for ToFQDN := range fqdnSelectors {
-		ipsSelected := make([]net.IP, 0)
+		ipsSelected := make([]netip.Addr, 0)
 		// lookup matching DNS names
 		if len(ToFQDN.MatchName) > 0 {
 			dnsName := prepareMatchName(ToFQDN.MatchName)
@@ -70,8 +69,7 @@ func (n *NameManager) mapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSel
 			}
 		}
 
-		ips := ip.KeepUniqueIPs(ipsSelected)
-		selectorIPMapping[ToFQDN] = ip.MustAddrsFromIPs(ips)
+		selectorIPMapping[ToFQDN] = ip.KeepUniqueAddrs(ipsSelected)
 	}
 
 	return selectorIPMapping
