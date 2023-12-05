@@ -96,11 +96,13 @@ func removeToProxyRoutesIPv6() error {
 }
 
 var (
-	// Routing rule for traffic from proxy.
+	// Routing rule for reply traffic from ingress proxy.
+	// Reply traffic has only the Ingress-Proxy mark, while forward traffic
+	// also embeds an identity. So we match against *exactly* the Ingress-Proxy mark.
 	fromProxyRule = route.Rule{
 		Priority: linux_defaults.RulePriorityFromProxyIngress,
 		Mark:     linux_defaults.MagicMarkIngress,
-		Mask:     linux_defaults.MagicMarkHostMask,
+		Mask:     0xFFFFFFFF,
 		Table:    linux_defaults.RouteTableFromProxy,
 	}
 )
