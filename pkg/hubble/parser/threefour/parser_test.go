@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -638,10 +639,10 @@ func TestDecodeLocalIdentity(t *testing.T) {
 }
 
 func TestDecodeTrafficDirection(t *testing.T) {
-	localIP := "1.2.3.4"
+	localIP := netip.MustParseAddr("1.2.3.4")
 	localEP := uint16(1234)
 	hostEP := uint16(0x1092)
-	remoteIP := "5.6.7.8"
+	remoteIP := netip.MustParseAddr("5.6.7.8")
 	remoteID := uint32(5678)
 
 	directionFromProto := func(direction flowpb.TrafficDirection) trafficdirection.TrafficDirection {
@@ -664,7 +665,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
-			if ip == netip.MustParseAddr(localIP) {
+			if ip == localIP {
 				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
 					PolicyMap: map[policy.Key]labels.LabelArrayList{
@@ -679,14 +680,14 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	parser, err := New(log, endpointGetter, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
-	parseFlow := func(event interface{}, srcIPv4, dstIPv4 string) *flowpb.Flow {
+	parseFlow := func(event any, srcIPv4, dstIPv4 netip.Addr) *flowpb.Flow {
 		data, err := testutils.CreateL3L4Payload(event,
 			&layers.Ethernet{
 				SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
 				DstMAC:       net.HardwareAddr{7, 8, 9, 0, 1, 2},
 				EthernetType: layers.EthernetTypeIPv4,
 			},
-			&layers.IPv4{SrcIP: net.ParseIP(srcIPv4), DstIP: net.ParseIP(dstIPv4)})
+			&layers.IPv4{SrcIP: srcIPv4.AsSlice(), DstIP: dstIPv4.AsSlice()})
 		require.NoError(t, err)
 		f := &flowpb.Flow{}
 		err = parser.Decode(data, f)
@@ -736,6 +737,20 @@ func TestDecodeTrafficDirection(t *testing.T) {
 		ObsPoint: monitorAPI.TraceToLxc,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
+	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
+
+	// TO_NETWORK Egress (SNAT)
+	tnv1 := monitor.TraceNotifyV1{
+		TraceNotifyV0: monitor.TraceNotifyV0{
+			Type:     byte(monitorAPI.MessageTypeTrace),
+			Source:   hostEP,
+			ObsPoint: monitorAPI.TraceToNetwork,
+			Version:  monitor.TraceNotifyVersion1,
+		},
+		OrigIP: types.IPv6{1, 2, 3, 4}, // localIP
+	}
+	f = parseFlow(tnv1, netip.MustParseAddr("10.11.12.13"), remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
@@ -837,7 +852,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
-	ep, ok := endpointGetter.GetEndpointInfo(netip.MustParseAddr(localIP))
+	ep, ok := endpointGetter.GetEndpointInfo(localIP)
 	assert.Equal(t, true, ok)
 	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 		Identity:         f.GetDestination().GetIdentity(),

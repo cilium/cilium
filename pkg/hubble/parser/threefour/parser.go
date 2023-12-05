@@ -496,6 +496,8 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 		if tn.TraceReasonIsKnown() {
 			// true if the traffic source is the local endpoint, i.e. egress
 			isSourceEP := tn.Source == uint16(srcEP)
+			// when OrigIP is set, then the packet was SNATed
+			isSNATed := !tn.OriginalIP().IsUnspecified()
 			// true if the packet is a reply, i.e. reverse direction
 			isReply := tn.TraceReasonIsReply()
 
@@ -510,6 +512,8 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)
 			case isSourceEP != isReply:
+				return pb.TrafficDirection_EGRESS
+			case isSNATed:
 				return pb.TrafficDirection_EGRESS
 			}
 			return pb.TrafficDirection_INGRESS
