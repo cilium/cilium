@@ -739,22 +739,6 @@ func PartitionCIDR(targetCIDR net.IPNet, excludeCIDR net.IPNet) ([]*net.IPNet, [
 	return left, excludeList, right
 }
 
-// KeepUniqueIPs transforms the provided multiset of IPs into a single set,
-// lexicographically sorted via a byte-wise comparison of the IP slices (i.e.
-// IPv4 addresses show up before IPv6).
-// The slice is manipulated in-place destructively.
-func KeepUniqueIPs(ips []net.IP) []net.IP {
-	return slices.SortedUniqueFunc(
-		ips,
-		func(i, j int) bool {
-			return bytes.Compare(ips[i], ips[j]) == -1
-		},
-		func(a, b net.IP) bool {
-			return a.Equal(b)
-		},
-	)
-}
-
 // KeepUniqueAddrs transforms the provided multiset of IP addresses into a
 // single set, lexicographically sorted via comparison of the addresses using
 // netip.Addr.Compare (i.e. IPv4 addresses show up before IPv6).
