@@ -6,6 +6,7 @@ package check
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -26,11 +28,14 @@ import (
 )
 
 const (
-	perfClientDeploymentName       = "perf-client"
-	perfClientAcrossDeploymentName = "perf-client-other-node"
-	perfServerDeploymentName       = "perf-server"
-
-	perfHostNetNamingSuffix = "-host-net"
+	PerfHostName                          = "-host-net"
+	PerfOtherNode                         = "-other-node"
+	perfClientDeploymentName              = "perf-client"
+	perfClientHostNetDeploymentName       = perfClientDeploymentName + PerfHostName
+	perfClientAcrossDeploymentName        = perfClientDeploymentName + PerfOtherNode
+	perfClientHostNetAcrossDeploymentName = perfClientAcrossDeploymentName + PerfHostName
+	perfServerDeploymentName              = "perf-server"
+	perfServerHostNetDeploymentName       = perfServerDeploymentName + PerfHostName
 
 	clientDeploymentName  = "client"
 	client2DeploymentName = "client2"
@@ -64,57 +69,23 @@ const (
 	ingressServiceSecurePort   = "31001"
 )
 
-// perfDeploymentNameManager provides methods for building deployment names
-// based on the given parameters.
-// Names returned by the methods will be unique depending on how the deployments
-// are expected to be modified for the configured test.
-type perfDeploymentNameManager struct {
-	clientDeploymentName       string
-	clientAcrossDeploymentName string
-	serverDeploymentName       string
-}
-
-func (nm *perfDeploymentNameManager) ClientName() string {
-	return nm.clientDeploymentName
-}
-
-func (nm *perfDeploymentNameManager) ClientAcrossName() string {
-	return nm.clientAcrossDeploymentName
-}
-
-func (nm *perfDeploymentNameManager) ServerName() string {
-	return nm.serverDeploymentName
-}
-
-func newPerfDeploymentNameManager(params *Parameters) *perfDeploymentNameManager {
-	suffix := ""
-	if params.PerfHostNet {
-		suffix = perfHostNetNamingSuffix
-	}
-
-	return &perfDeploymentNameManager{
-		clientDeploymentName:       perfClientDeploymentName + suffix,
-		clientAcrossDeploymentName: perfClientAcrossDeploymentName + suffix,
-		serverDeploymentName:       perfServerDeploymentName + suffix,
-	}
-}
-
 type deploymentParameters struct {
-	Name           string
-	Kind           string
-	Image          string
-	Replicas       int
-	NamedPort      string
-	Port           int
-	HostPort       int
-	Command        []string
-	Affinity       *corev1.Affinity
-	NodeSelector   map[string]string
-	ReadinessProbe *corev1.Probe
-	Labels         map[string]string
-	Annotations    map[string]string
-	HostNetwork    bool
-	Tolerations    []corev1.Toleration
+	Name                          string
+	Kind                          string
+	Image                         string
+	Replicas                      int
+	NamedPort                     string
+	Port                          int
+	HostPort                      int
+	Command                       []string
+	Affinity                      *corev1.Affinity
+	NodeSelector                  map[string]string
+	ReadinessProbe                *corev1.Probe
+	Labels                        map[string]string
+	Annotations                   map[string]string
+	HostNetwork                   bool
+	Tolerations                   []corev1.Toleration
+	TerminationGracePeriodSeconds *int64
 }
 
 func newDeployment(p deploymentParameters) *appsv1.Deployment {
@@ -165,11 +136,12 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 							},
 						},
 					},
-					Affinity:           p.Affinity,
-					NodeSelector:       p.NodeSelector,
-					HostNetwork:        p.HostNetwork,
-					Tolerations:        p.Tolerations,
-					ServiceAccountName: p.Name,
+					Affinity:                      p.Affinity,
+					NodeSelector:                  p.NodeSelector,
+					HostNetwork:                   p.HostNetwork,
+					Tolerations:                   p.Tolerations,
+					ServiceAccountName:            p.Name,
+					TerminationGracePeriodSeconds: p.TerminationGracePeriodSeconds,
 				},
 			},
 			Replicas: &replicas32,
@@ -423,180 +395,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	if ct.params.Perf {
-		// For performance workloads, we want to ensure the client/server are in the same zone
-		// If a zone has > 1 node, use that zone
-		zones := map[string]int{}
-		zone := ""
-		lz := ""
-		n, hasNodes := ct.client.ListNodes(ctx, metav1.ListOptions{})
-		if hasNodes != nil {
-			return fmt.Errorf("unable to query nodes")
-		}
-		for _, l := range n.Items {
-			if _, ok := zones[l.GetLabels()[corev1.LabelTopologyZone]]; ok {
-				zone = l.GetLabels()[corev1.LabelTopologyZone]
-				break
-			}
-			zones[l.GetLabels()[corev1.LabelTopologyZone]] = 1
-			lz = l.GetLabels()[corev1.LabelTopologyZone]
-		}
-		// No zone had > 1, use the last zone.
-		if zone == "" {
-			ct.Warn("Each zone only has a single node - could impact the performance test results")
-			zone = lz
-		}
-
-		if ct.params.PerfHostNet {
-			ct.Info("Deploying Perf deployments using host networking")
-		}
-
-		nm := newPerfDeploymentNameManager(&ct.params)
-
-		// Need to capture the IP of the Server Deployment, and pass to the client to execute benchmark
-		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ClientName(), metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), nm.ClientName())
-			perfClientDeployment := newDeployment(deploymentParameters{
-				Name:      nm.ClientName(),
-				Kind:      kindPerfName,
-				NamedPort: "http-80",
-				Port:      80,
-				Image:     ct.params.PerformanceImage,
-				Labels: map[string]string{
-					"client": "role",
-				},
-				Annotations: ct.params.DeploymentAnnotations.Match(nm.ClientName()),
-				Command:     []string{"/bin/bash", "-c", "sleep 10000000"},
-				Affinity: &corev1.Affinity{
-					NodeAffinity: &corev1.NodeAffinity{
-						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-							{
-								Weight: 100,
-								Preference: corev1.NodeSelectorTerm{
-									MatchExpressions: []corev1.NodeSelectorRequirement{
-										{Key: corev1.LabelTopologyZone, Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
-									},
-								},
-							},
-						},
-					},
-				},
-				NodeSelector: ct.params.NodeSelector,
-				HostNetwork:  ct.params.PerfHostNet,
-			})
-			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(nm.ClientName()), metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service account %s: %s", nm.ClientName(), err)
-			}
-			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s: %w", perfClientDeployment, err)
-			}
-		}
-
-		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ServerName(), metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), nm.ServerName())
-			perfServerDeployment := newDeployment(deploymentParameters{
-				Name: nm.ServerName(),
-				Kind: kindPerfName,
-				Labels: map[string]string{
-					"server": "role",
-				},
-				Annotations: ct.params.DeploymentAnnotations.Match(nm.ServerName()),
-				Port:        5001,
-				Image:       ct.params.PerformanceImage,
-				Command:     []string{"/bin/bash", "-c", "netserver;sleep 10000000"},
-				Affinity: &corev1.Affinity{
-					NodeAffinity: &corev1.NodeAffinity{
-						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-							{
-								Weight: 100,
-								Preference: corev1.NodeSelectorTerm{
-									MatchExpressions: []corev1.NodeSelectorRequirement{
-										{Key: corev1.LabelTopologyZone, Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
-									},
-								},
-							},
-						},
-					},
-					PodAffinity: &corev1.PodAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-							{
-								LabelSelector: &metav1.LabelSelector{
-									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{nm.ClientName()}},
-									},
-								},
-								TopologyKey: corev1.LabelHostname,
-							},
-						},
-					},
-				},
-				NodeSelector: ct.params.NodeSelector,
-				HostNetwork:  ct.params.PerfHostNet,
-			})
-			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(nm.ServerName()), metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service account %s: %s", nm.ServerName(), err)
-			}
-
-			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfServerDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s: %w", perfServerDeployment, err)
-			}
-		}
-
-		// Deploy second client on a different node
-		if !ct.params.SingleNode {
-			_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ClientAcrossName(), metav1.GetOptions{})
-			if err != nil {
-				ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), nm.ClientAcrossName())
-				perfOtherClientDeployment := newDeployment(deploymentParameters{
-					Name: nm.ClientAcrossName(),
-					Kind: kindPerfName,
-					Port: 5001,
-					Labels: map[string]string{
-						"client": "role",
-					},
-					Annotations: ct.params.DeploymentAnnotations.Match(nm.ClientAcrossName()),
-					Image:       ct.params.PerformanceImage,
-					Command:     []string{"/bin/bash", "-c", "sleep 10000000"},
-					Affinity: &corev1.Affinity{
-						NodeAffinity: &corev1.NodeAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-								{
-									Weight: 100,
-									Preference: corev1.NodeSelectorTerm{
-										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{Key: corev1.LabelTopologyZone, Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
-										},
-									},
-								},
-							},
-						},
-						PodAntiAffinity: &corev1.PodAntiAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-								{Weight: 100, PodAffinityTerm: corev1.PodAffinityTerm{
-									LabelSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{nm.ClientName()}}}},
-									TopologyKey: corev1.LabelHostname}}}},
-					},
-					NodeSelector: ct.params.NodeSelector,
-					HostNetwork:  ct.params.PerfHostNet,
-				})
-				_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(nm.ClientAcrossName()), metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create service account %s: %s", nm.ClientAcrossName(), err)
-				}
-
-				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfOtherClientDeployment, metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create deployment %s: %s", perfOtherClientDeployment, err)
-				}
-			}
-		}
-		return nil
+		return ct.deployPerf(ctx)
 	}
 
 	// Deploy test-conn-disrupt actors
@@ -1059,15 +858,131 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	return nil
 }
 
+func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name string, nodeName string, hostNetwork bool) error {
+	ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), name)
+	gracePeriod := int64(1)
+	perfClientDeployment := newDeployment(deploymentParameters{
+		Name:      name,
+		Kind:      kindPerfName,
+		NamedPort: "http-80",
+		Port:      80,
+		Image:     ct.params.PerformanceImage,
+		Labels: map[string]string{
+			"client": "role",
+		},
+		Annotations:                   ct.params.DeploymentAnnotations.Match(name),
+		Command:                       []string{"/bin/bash", "-c", "sleep 10000000"},
+		NodeSelector:                  map[string]string{"kubernetes.io/hostname": nodeName},
+		HostNetwork:                   hostNetwork,
+		TerminationGracePeriodSeconds: &gracePeriod,
+	})
+	_, err := ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(name), metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to create service account %s: %s", name, err)
+	}
+	_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to create deployment %s: %w", perfClientDeployment, err)
+	}
+	return nil
+}
+
+func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name, nodeName string, hostNetwork bool) error {
+	ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), name)
+	gracePeriod := int64(1)
+	perfServerDeployment := newDeployment(deploymentParameters{
+		Name: name,
+		Kind: kindPerfName,
+		Labels: map[string]string{
+			"server": "role",
+		},
+		Annotations:                   ct.params.DeploymentAnnotations.Match(name),
+		Port:                          5001,
+		Image:                         ct.params.PerformanceImage,
+		Command:                       []string{"/bin/bash", "-c", "netserver;sleep 10000000"},
+		NodeSelector:                  map[string]string{"kubernetes.io/hostname": nodeName},
+		HostNetwork:                   hostNetwork,
+		TerminationGracePeriodSeconds: &gracePeriod,
+	})
+	_, err := ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(name), metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to create service account %s: %s", name, err)
+	}
+
+	_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfServerDeployment, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to create deployment %s: %w", perfServerDeployment, err)
+	}
+	return nil
+}
+
+func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
+	var err error
+
+	nodeSelector := labels.SelectorFromSet(ct.params.NodeSelector).String()
+	nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{LabelSelector: nodeSelector})
+	if err != nil {
+		return fmt.Errorf("unable to query nodes")
+	}
+
+	if len(nodes.Items) < 2 {
+		return fmt.Errorf("Insufficient number of nodes selected with nodeSelector: %s", nodeSelector)
+	}
+	firstNodeName := nodes.Items[0].Name
+	firstNodeZone := nodes.Items[0].Labels[corev1.LabelTopologyZone]
+	secondNodeName := nodes.Items[1].Name
+	secondNodeZone := nodes.Items[1].Labels[corev1.LabelTopologyZone]
+	ct.Info("Nodes used for performance testing:")
+	ct.Infof("Node name: %s, zone: %s", firstNodeName, firstNodeZone)
+	ct.Infof("Node name: %s, zone: %s", secondNodeName, secondNodeZone)
+	if firstNodeZone != secondNodeZone {
+		ct.Warn("Selected nodes have different zones, tweak nodeSelector if that's not what you intended")
+	}
+
+	if ct.params.PerfPodNet {
+		if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, firstNodeName, false); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+		// Create second client on other node
+		if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, secondNodeName, false); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, firstNodeName, false); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+	}
+
+	if ct.params.PerfHostNet {
+		if err = ct.createClientPerfDeployment(ctx, perfClientHostNetDeploymentName, firstNodeName, true); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+		// Create second client on other node
+		if err = ct.createClientPerfDeployment(ctx, perfClientHostNetAcrossDeploymentName, secondNodeName, true); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+		if err = ct.createServerPerfDeployment(ctx, perfServerHostNetDeploymentName, firstNodeName, true); err != nil {
+			ct.Warnf("unable to create deployment: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // deploymentList returns 2 lists of Deployments to be used for running tests with.
 func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
 	if !ct.params.Perf {
 		srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
 	} else {
-		perfNm := newPerfDeploymentNameManager(&ct.params)
-		srcList = []string{perfNm.ClientName(), perfNm.ServerName()}
-		if !ct.params.SingleNode {
-			srcList = append(srcList, perfNm.ClientAcrossName())
+		srcList = []string{}
+		if ct.params.PerfPodNet {
+			srcList = append(srcList, perfClientDeploymentName)
+			srcList = append(srcList, perfClientAcrossDeploymentName)
+			srcList = append(srcList, perfServerDeploymentName)
+		}
+		if ct.params.PerfHostNet {
+			srcList = append(srcList, perfClientHostNetDeploymentName)
+			srcList = append(srcList, perfClientHostNetAcrossDeploymentName)
+			srcList = append(srcList, perfServerHostNetDeploymentName)
 		}
 	}
 
@@ -1158,31 +1073,33 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return fmt.Errorf("unable to list perf pods: %w", err)
 		}
 		for _, perfPod := range perfPods.Items {
-			// Filter out existing perf pods in cilium-test based on scenario
-			if ct.params.PerfHostNet != perfPod.Spec.HostNetwork {
-				continue
-			}
-
 			// Individual endpoints will not be created for pods using node's network stack
-			if !ct.params.PerfHostNet {
+			if !perfPod.Spec.HostNetwork {
 				if err := WaitForCiliumEndpoint(ctx, ct, ct.clients.src, ct.Params().TestNamespace, perfPod.Name); err != nil {
 					return err
 				}
 			}
 			_, hasLabel := perfPod.GetLabels()["server"]
 			if hasLabel {
-				ct.perfServerPod[perfPod.Name] = Pod{
+				ct.perfServerPod = append(ct.perfServerPod, Pod{
 					K8sClient: ct.client,
 					Pod:       perfPod.DeepCopy(),
 					port:      5201,
-				}
+				})
 			} else {
-				ct.perfClientPods[perfPod.Name] = Pod{
+				ct.perfClientPods = append(ct.perfClientPods, Pod{
 					K8sClient: ct.client,
 					Pod:       perfPod.DeepCopy(),
-				}
+				})
 			}
 		}
+		// Sort pods so results are always displayed in the same order in console
+		sort.SliceStable(ct.perfServerPod, func(i, j int) bool {
+			return ct.perfServerPod[i].Pod.Name < ct.perfServerPod[j].Pod.Name
+		})
+		sort.SliceStable(ct.perfClientPods, func(i, j int) bool {
+			return ct.perfClientPods[i].Pod.Name < ct.perfClientPods[j].Pod.Name
+		})
 		return nil
 	}
 

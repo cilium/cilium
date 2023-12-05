@@ -53,4 +53,4 @@ cilium connectivity test --debug --all-flows --collect-sysdump-on-failure --exte
   # - cilium-cli default cilium version has been updated to pick up the fix
 
 # Run performance test
-cilium connectivity test --perf --perf-duration 1s
+cilium connectivity perf --duration 1s
