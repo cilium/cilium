@@ -140,8 +140,14 @@
 #   Provide background on how the Cilium Endpoint package fits into the overall
 #   agent architecture, relationship with generation of policy / datapath
 #   constructs, serialization and restore from disk.
+# - @cilium/envoy:
+#   Maintain the L7 proxy integration with Envoy. This includes the
+#   configurations for Envoy via xDS protocols as well as the extensible
+#   proxylib framework for Go-based layer 7 filters.
 # - @cilium/egress-gateway:
 #   Maintain the egress gateway control plane and datapath logic.
+# - @cilium/fqdn:
+#   Maintain the L7 DNS proxy integration.
 # - @cilium/ipcache:
 #   Provide background on how the userspace IPCache structure fits into the
 #   overall agent architecture, ordering constraints with respect to network
@@ -163,10 +169,8 @@
 #   component. Take care of the corresponding garbage collection and leader
 #   election logic.
 # - @cilium/proxy:
-#   Review low-level implementations used to redirect and process traffic at
-#   Layer 7, including via the Cilium DNS proxy and Envoy. Maintain the
-#   configurations for Envoy via xDS protocols as well as the extensible
-#   proxylib framework for Go-based layer 7 filters.
+#   Review low-level implementations used to redirect L7 traffic to the actual
+#   proxy implementations (FQDN, Envoy, ...).
 # - @cilium/sig-agent:
 #   Provide Cilium (agent) general Go review. Internal architecture, core data
 #   structures and daemon startup.
@@ -269,6 +273,7 @@ Makefile* @cilium/build
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
+/daemon/cmd/fqdn* @cilium/fqdn
 /daemon/cmd/health* @cilium/sig-agent
 /daemon/cmd/hubble.go @cilium/sig-hubble
 /daemon/cmd/ipcache* @cilium/ipcache
@@ -429,9 +434,9 @@ Makefile* @cilium/build
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
 /pkg/endpointstate/ @cilium/endpoint
-/pkg/envoy/ @cilium/proxy
+/pkg/envoy/ @cilium/envoy
 /pkg/flowdebug/ @cilium/proxy
-/pkg/fqdn/ @cilium/sig-agent @cilium/proxy
+/pkg/fqdn/ @cilium/fqdn
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
@@ -488,7 +493,9 @@ Makefile* @cilium/build
 /pkg/pprof @cilium/sig-foundations
 /pkg/promise @cilium/sig-foundations
 /pkg/proxy/ @cilium/proxy
-/pkg/proxy/accesslog @cilium/api
+/pkg/proxy/accesslog @cilium/proxy @cilium/api
+/pkg/proxy/dns.go @cilium/proxy @cilium/fqdn
+/pkg/proxy/envoyproxy.go @cilium/proxy @cilium/envoy
 /pkg/rate/metrics @cilium/metrics
 /pkg/recorder @cilium/sig-datapath
 /pkg/redirectpolicy @cilium/sig-lb
@@ -534,9 +541,9 @@ Makefile* @cilium/build
 /test/k8s/hubble.go @cilium/sig-hubble @cilium/ci-structure
 /test/runtime/monitor.go @cilium/sig-hubble @cilium/ci-structure
 # L7 proxy tests
-/test/k8s/fqdn.go @cilium/proxy @cilium/ci-structure
-/test/k8s/kafka_policies.go @cilium/proxy @cilium/ci-structure
-/test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
+/test/k8s/fqdn.go @cilium/fqdn @cilium/ci-structure
+/test/k8s/kafka_policies.go @cilium/envoy @cilium/ci-structure
+/test/runtime/fqdn.go @cilium/fqdn @cilium/ci-structure
 # Standalone L4LB tests
 /test/l4lb @cilium/sig-lb @cilium/ci-structure
 /test/nat46x64 @cilium/sig-lb @cilium/ci-structure
