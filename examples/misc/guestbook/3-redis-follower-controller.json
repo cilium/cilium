@@ -2,30 +2,30 @@
     "kind":"ReplicationController",
     "apiVersion":"v1",
     "metadata":{
-        "name":"redis-slave",
+        "name":"redis-follower",
         "labels":{
             "k8s-app.guestbook":"redis",
-            "role":"slave"
+            "role":"follower"
         }
     },
     "spec":{
         "replicas":1,
         "selector":{
             "k8s-app.guestbook":"redis",
-            "role":"slave"
+            "role":"follower"
         },
         "template":{
             "metadata":{
                 "labels":{
                     "k8s-app.guestbook":"redis",
-                    "role":"slave"
+                    "role":"follower"
                 }
             },
             "spec":{
                 "containers":[{
-                    "name":"redis-slave",
-                    "image":"docker.io/library/redis:4.0.1",
-                    "command": ["redis-server","--loglevel","verbose","--slaveof","redis-master","6379"],
+                    "name":"redis-follower",
+                    "image":"docker.io/redis:6.0.5",
+                    "command": ["redis-server","--loglevel","verbose","--slaveof","redis-leader","6379"],
                     "ports":[{
                         "name":"redis-server",
                         "containerPort":6379

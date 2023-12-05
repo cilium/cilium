@@ -2,10 +2,10 @@
     "kind":"Service",
     "apiVersion":"v1",
     "metadata":{
-        "name":"redis-slave",
+        "name":"redis-follower",
         "labels":{
             "k8s-app.guestbook":"redis",
-            "role":"slave"
+            "role":"follower"
         }
     },
     "spec":{
@@ -15,7 +15,7 @@
         }],
         "selector":{
             "k8s-app.guestbook":"redis",
-            "role":"slave"
+            "role":"follower"
         }
     }
 }
