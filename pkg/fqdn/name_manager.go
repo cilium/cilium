@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"regexp"
+	"slices"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -264,7 +265,7 @@ func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, new
 	// The 0 checks below account for an unlike race condition where this
 	// function is called with already expired data and if other cache data
 	// from before also expired.
-	return (len(cacheIPs) == 0 && len(sortedNewIPs) == 0) || !ip.SortedIPListsAreEqual(sortedNewIPs, cacheIPs)
+	return (len(cacheIPs) == 0 && len(sortedNewIPs) == 0) || !slices.Equal(sortedNewIPs, cacheIPs)
 }
 
 var ipcacheResource = ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "", "fqdn-name-manager")

@@ -73,15 +73,14 @@ type nameEntries map[string]*cacheEntry
 
 // getIPs returns a sorted list of non-expired unique IPs.
 // This needs a read-lock
-func (s ipEntries) getIPs(now time.Time) []net.IP {
-	ips := make([]net.IP, 0, len(s)) // worst case size
+func (s ipEntries) getIPs(now time.Time) []netip.Addr {
+	ips := make([]netip.Addr, 0, len(s)) // worst case size
 	for ip, entry := range s {
 		if entry != nil && !entry.isExpiredBy(now) {
-			ips = append(ips, ip.Unmap().AsSlice())
+			ips = append(ips, ip.Unmap())
 		}
 	}
-
-	return ippkg.KeepUniqueIPs(ips) // sorts IPs
+	return ippkg.KeepUniqueAddrs(ips) // sorts IPs
 }
 
 // DNSCache manages DNS data that will expire after a certain TTL. Information
@@ -399,7 +398,7 @@ func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*D
 // Lookup returns a set of unique IPs that are currently unexpired for name, if
 // any exist. An empty list indicates no valid records exist. The IPs are
 // returned sorted.
-func (c *DNSCache) Lookup(name string) (ips []net.IP) {
+func (c *DNSCache) Lookup(name string) (ips []netip.Addr) {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -408,7 +407,7 @@ func (c *DNSCache) Lookup(name string) (ips []net.IP) {
 
 // lookupByTime takes a timestamp for expiration comparisons, and is only
 // intended for testing.
-func (c *DNSCache) lookupByTime(now time.Time, name string) (ips []net.IP) {
+func (c *DNSCache) lookupByTime(now time.Time, name string) (ips []netip.Addr) {
 	entries, found := c.forward[name]
 	if !found {
 		return nil
@@ -419,14 +418,14 @@ func (c *DNSCache) lookupByTime(now time.Time, name string) (ips []net.IP) {
 
 // LookupByRegexp returns all non-expired cache entries that match re as a map
 // of name -> IPs
-func (c *DNSCache) LookupByRegexp(re *regexp.Regexp) (matches map[string][]net.IP) {
+func (c *DNSCache) LookupByRegexp(re *regexp.Regexp) (matches map[string][]netip.Addr) {
 	return c.lookupByRegexpByTime(c.lastCleanup, re)
 }
 
 // lookupByRegexpByTime takes a timestamp for expiration comparisons, and is
 // only intended for testing.
-func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (matches map[string][]net.IP) {
-	matches = make(map[string][]net.IP)
+func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (matches map[string][]netip.Addr) {
+	matches = make(map[string][]netip.Addr)
 
 	c.RLock()
 	defer c.RUnlock()
