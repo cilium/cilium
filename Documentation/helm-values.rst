@@ -1468,6 +1468,18 @@
      - Annotations to be added to all top-level hubble objects (resources under templates/hubble)
      - object
      - ``{}``
+   * - :spelling:ignore:`hubble.dropEventEmitter`
+     - Emit v1.Events related to pods on detection of packet drops.
+     - object
+     - ``{"enabled":false,"interval":"2m","reasons":["auth_required","policy_denied"]}``
+   * - :spelling:ignore:`hubble.dropEventEmitter.interval`
+     - - Minimum time between emitting same events.
+     - string
+     - ``"2m"``
+   * - :spelling:ignore:`hubble.dropEventEmitter.reasons`
+     - - Drop reasons to emit events for. ref: https://docs.cilium.io/en/stable/_api/v1/flow/README/#dropreason
+     - list
+     - ``["auth_required","policy_denied"]``
    * - :spelling:ignore:`hubble.enabled`
      - Enable Hubble (true by default).
      - bool
