@@ -64,7 +64,7 @@ type EndpointPolicy struct {
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
-	LookupRedirectPortBuildLocked(ingress bool, protocol string, port uint16, listener string) uint16
+	LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) uint16
 	HasBPFPolicyMap() bool
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
@@ -188,7 +188,7 @@ func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 		l4.toMapState(p, l4policy.features, func(keyFromFilter Key, entry *MapStateEntry) bool {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {
-				entry.ProxyPort = p.PolicyOwner.LookupRedirectPortBuildLocked(l4.Ingress, string(l4.Protocol), keyFromFilter.DestPort, entry.Listener)
+				entry.ProxyPort = p.PolicyOwner.LookupRedirectPort(l4.Ingress, string(l4.Protocol), keyFromFilter.DestPort, entry.Listener)
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by
