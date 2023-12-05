@@ -65,6 +65,37 @@ Additional Requirements for Native-routed Datapath Modes
   firewall rules allowing pods in different clusters to reach each other on all
   ports.
 
+Scaling Limitations
+=============================
+
+* By default, the maximum number of clusters that can be connected together using Cluster Mesh is
+  255. By using the option ``maxConnectedClusters`` this limit can be set to 511, at the expense of
+  lowering the maximum number of cluster-local identities. Valid configurations for this option are
+  255 and 511.
+
+* All clusters across a Cluster Mesh must be configured with the same ``maxConnectedClusters``
+  value.
+
+ * ConfigMap option ``max-connected-clusters=511``
+ * Helm option ``--set clustermesh.maxConnectedClusters=511``
+ * ``cilium install`` option ``--set clustermesh.maxConnectedClusters=511``
+
+* This option controls the bit allocation of numeric identities and will affect the number of
+  identities that can be allocated per cluster:
+
++------------------------+------------+----------+----------+
+| MaxConnectedClusters   | Maximum cluster-local identities |
++========================+============+==========+==========+
+| 255 (default)          | 65535                            |
++------------------------+------------+----------+----------+
+| 511                    | 32767                            |
++------------------------+------------+----------+----------+
+
+.. warning::
+  ``MaxConnectedClusters`` can only be set once during Cilium installation and should not be
+  changed for existing clusters. Changing this option on a live cluster may result in connection
+  disruption and possible incorrect enforcement of network policies
+
 Install the Cilium CLI
 ======================
 
@@ -272,10 +303,3 @@ Use the following list of steps to troubleshoot issues with ClusterMesh:
 
 If you cannot resolve the issue with the above commands, see the
 :ref:`troubleshooting_clustermesh` for a more detailed troubleshooting guide.
-
-Limitations
-###########
-
- * The number of clusters that can be connected together is currently limited
-   to 255. This limitation will be lifted in the future when running in direct
-   routing mode or when running in encapsulation mode with encryption enabled.
