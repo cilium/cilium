@@ -603,6 +603,11 @@ func (r *rule) matches(securityIdentity *identity.Identity) bool {
 func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, toPorts, icmp api.PortsIterator, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
 	found := 0
 
+	// short-circuit if no endpoint is selected
+	if toEndpoints == nil {
+		return found, nil
+	}
+
 	if ctx.To != nil && len(toEndpoints) > 0 {
 		if ctx.TraceEnabled() {
 			traceL3(ctx, toEndpoints, "to", policyCtx.IsDeny())
