@@ -563,6 +563,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 				Endpoints:    legacy.resources.Endpoints,
 				SharedOnly:   true,
 				StoreFactory: legacy.storeFactory,
+				SyncCallback: func(_ context.Context) {},
 			})
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
