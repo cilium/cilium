@@ -2,7 +2,7 @@
 kind: ReplicationController
 apiVersion: v1
 metadata:
-  name: redis-master
+  name: redis-leader
   labels:
     app: redis
     role: leader
@@ -32,7 +32,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: redis-master
+  name: redis-leader
   labels:
     app: redis
     role: leader
