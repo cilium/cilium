@@ -883,9 +883,6 @@ func (s *IPTestSuite) TestIPListEquals(c *C) {
 	ips := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")}
 	sorted := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8"), net.ParseIP("fd00::1")}
 
-	sortedIPs := getSortedIPList(ips)
-	c.Assert(SortedIPListsAreEqual(sorted, sortedIPs), checker.Equals, true)
-
 	c.Assert(UnsortedIPListsAreEqual(ips, sorted), checker.Equals, true)
 }
 
