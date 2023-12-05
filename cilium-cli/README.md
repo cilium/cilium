@@ -234,22 +234,27 @@ To install Cilium while automatically detected:
 
 #### Network Performance test 
 
-    cilium connectivity test --perf
-    🔥 Performance Test Summary
-    -----------------------------------------------------------------------------------------------------------------------------
-    📋 Scenario                                           | Test            | Num Samples     | Duration        | Avg value      
-    -----------------------------------------------------------------------------------------------------------------------------
-    📋 perf-client-5d7cb4d587-cn8sw                       | TCP_RR          | 1               | 10s             | 29975.37 (OP/s)
-    📋 perf-client-5d7cb4d587-cn8sw                       | TCP_CRR         | 1               | 10s             | 3926.56 (OP/s)
-    📋 perf-client-5d7cb4d587-cn8sw                       | TCP_STREAM      | 1               | 10s             | 2275.42 (Mb/s)
-    📋 perf-client-other-node-7867748554-vfvgt            | TCP_RR          | 1               | 10s             | 964.55 (OP/s)
-    📋 perf-client-other-node-7867748554-vfvgt            | TCP_STREAM      | 1               | 10s             | 4743.39 (Mb/s)
-    📋 perf-client-other-node-7867748554-vfvgt            | UDP_RR          | 1               | 10s             | 1134.20 (OP/s)
-    📋 perf-client-other-node-7867748554-vfvgt            | UDP_STREAM      | 1               | 10s             | 1425.74 (Mb/s)
-    📋 perf-client-5d7cb4d587-cn8sw                       | UDP_RR          | 1               | 10s             | 31737.62 (OP/s)
-    📋 perf-client-5d7cb4d587-cn8sw                       | UDP_STREAM      | 1               | 10s             | 865.24 (Mb/s)
-    📋 perf-client-other-node-7867748554-vfvgt            | TCP_CRR         | 1               | 10s             | 435.80 (OP/s)
-    -----------------------------------------------------------------------------------------------------------------------------
+    cilium connectivity perf
+    🔥 Network Performance Test Summary:
+    --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    📋 Scenario        | Node       | Test            | Duration        | Min             | Mean            | Max             | P50             | P90             | P99             | Transaction rate OP/s
+    --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    📋 pod-to-pod      | same-node  | TCP_RR          | 1s              | 16µs            | 32.39µs         | 1.567ms         | 20µs            | 52µs            | 97µs            | 30696.13    
+    📋 pod-to-pod      | same-node  | UDP_RR          | 1s              | 14µs            | 29.86µs         | 4.41ms          | 17µs            | 47µs            | 97µs            | 33251.51    
+    📋 pod-to-pod      | same-node  | TCP_CRR         | 1s              | 290µs           | 512.1µs         | 13.413ms        | 467µs           | 626µs           | 980µs           | 1949.69     
+    📋 pod-to-pod      | other-node | TCP_RR          | 1s              | 350µs           | 692.85µs        | 3.543ms         | 631µs           | 1.001ms         | 1.483ms         | 1438.69     
+    📋 pod-to-pod      | other-node | UDP_RR          | 1s              | 312µs           | 865.83µs        | 8.731ms         | 605µs           | 1.444ms         | 6ms             | 1150.79     
+    📋 pod-to-pod      | other-node | TCP_CRR         | 1s              | 959µs           | 2.15805ms       | 7.677ms         | 1.555ms         | 5.425ms         | 7.133ms         | 461.78      
+    --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    -------------------------------------------------------------------------------------
+    📋 Scenario        | Node       | Test            | Duration        | Throughput Mb/s
+    -------------------------------------------------------------------------------------
+    📋 pod-to-pod      | same-node  | TCP_STREAM      | 1s              | 631.58       
+    📋 pod-to-pod      | same-node  | UDP_STREAM      | 1s              | 458.66       
+    📋 pod-to-pod      | other-node | TCP_STREAM      | 1s              | 411.43       
+    📋 pod-to-pod      | other-node | UDP_STREAM      | 1s              | 144.44       
+    -------------------------------------------------------------------------------------
+
 
 ### ClusterMesh
 
