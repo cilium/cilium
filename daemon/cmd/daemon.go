@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -1116,4 +1117,11 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 
 type endpointMetadataFetcher interface {
 	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
+}
+
+// getDevices is a temporary helper to retrieve the device names
+// from the devices table.
+func (d *Daemon) getDevices() ([]string, []*tables.Device, <-chan struct{}) {
+	devices, watch := tables.SelectedDevices(d.devices, d.db.ReadTxn())
+	return tables.DeviceNames(devices), devices, watch
 }
