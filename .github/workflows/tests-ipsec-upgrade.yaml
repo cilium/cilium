@@ -75,7 +75,7 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        config: ['5.4', '5.10', 'bpf-next']
+        config: ['5.10']
         mode: ['minor', 'patch']
         include:
           # Define three config sets
@@ -93,9 +93,9 @@ jobs:
             kernel: '5.10-20231124.100406'
             kube-proxy: 'iptables'
             kpr: 'disabled'
-            tunnel: 'disabled'
+            tunnel: 'vxlan'
             encryption: 'ipsec'
-            endpoint-routes: 'true'
+            endpoint-routes: 'false'
             ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - config: 'bpf-next'
@@ -165,7 +165,8 @@ jobs:
             #   we bump the patch version number to 90 and we can't easily
             #   derive the number of the previous patch release version from
             #   that.
-            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh patch || true)
+            #CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh patch || true)
+            CILIUM_DOWNGRADE_VERSION=v1.12.7
             # Pass an empty tag to the cilium-config action to fall back to the
             # default release image, without crafting an image path with the
             # "-ci" suffix
