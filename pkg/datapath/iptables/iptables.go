@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
@@ -37,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -260,6 +262,8 @@ type Manager struct {
 	sysctl     sysctl.Sysctl
 	cfg        Config
 	sharedCfg  SharedConfig
+	db         *statedb.DB
+	devices    statedb.Table[*tables.Device]
 
 	// This lock ensures there are no concurrent executions of the InstallRules() and
 	// InstallProxyRules() methods, as otherwise we may end up with errors (as rules may have
@@ -285,6 +289,9 @@ type params struct {
 
 	Cfg       Config
 	SharedCfg SharedConfig
+
+	DB      *statedb.DB
+	Devices statedb.Table[*tables.Device]
 }
 
 func newIptablesManager(p params) *Manager {
@@ -294,6 +301,8 @@ func newIptablesManager(p params) *Manager {
 		sysctl:        p.Sysctl,
 		cfg:           p.Cfg,
 		sharedCfg:     p.SharedCfg,
+		db:            p.DB,
+		devices:       p.Devices,
 		haveIp6tables: true,
 	}
 
@@ -1267,7 +1276,10 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 	if m.sharedCfg.EnableMasqueradeRouteSource {
 		var defaultRoutes []netlink.Route
 
-		devices := m.sharedCfg.Devices
+		// TODO reconcile on device changes
+		nativeDevices, _ := tables.SelectedDevices(m.devices, m.db.ReadTxn())
+		devices := tables.DeviceNames(nativeDevices)
+
 		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
 			devices = m.sharedCfg.MasqueradeInterfaces
 		}
