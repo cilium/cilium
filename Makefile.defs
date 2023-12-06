@@ -70,12 +70,12 @@ SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(RO
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
 # as non-immediate variables
-GO_BUILD_FLAGS =
-GO_TEST_FLAGS =
-GO_CLEAN_FLAGS =
-GO_BUILD_LDFLAGS =
+GO_BUILD_FLAGS ?=
+GO_TEST_FLAGS ?=
+GO_CLEAN_FLAGS ?=
+GO_BUILD_LDFLAGS ?=
 # go build/test -tags values
-GO_TAGS_FLAGS = osusergo
+GO_TAGS_FLAGS += osusergo
 
 # This is declared here as it is needed to change the covermode depending on if
 # RACE is specified.
