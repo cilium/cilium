@@ -130,7 +130,7 @@ jobs:
             mode: 'patch'
             name: '6'
 
-    timeout-minutes: 60
+    timeout-minutes: 1800
     steps:
       - name: Checkout context ref
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -334,6 +334,10 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
+      - name: Setup tmate session (post-upgrade)
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run pwru (1)
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
@@ -362,6 +366,10 @@ jobs:
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+      - name: Setup tmate session (post-downgrade)
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
 
       - name: Run pwru (2)
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
