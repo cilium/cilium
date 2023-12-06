@@ -13,11 +13,11 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -96,7 +96,7 @@ func (t TestAllocatorKey) Value(any) any {
 }
 
 func randomTestName() string {
-	return rand.RandomStringWithPrefix(testPrefix, 12)
+	return fmt.Sprintf("%s%s", testPrefix, rand.String(12))
 }
 
 func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
