@@ -7,8 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/netip"
 	"path"
 
 	"github.com/sirupsen/logrus"
@@ -117,24 +115,6 @@ type IdentityAllocator interface {
 
 	// GetIdentities returns a copy of the current cache of identities.
 	GetIdentities() IdentitiesModel
-
-	// AllocateCIDRsForIPs attempts to allocate identities for a list of
-	// CIDRs. If any allocation fails, all allocations are rolled back and
-	// the error is returned. When an identity is freshly allocated for a
-	// CIDR, it is added to the ipcache if 'newlyAllocatedIdentities' is
-	// 'nil', otherwise the newly allocated identities are placed in
-	// 'newlyAllocatedIdentities' and it is the caller's responsibility to
-	// upsert them into ipcache by calling UpsertGeneratedIdentities().
-	//
-	// Upon success, the caller must also arrange for the resulting identities to
-	// be released via a subsequent call to ReleaseCIDRIdentitiesByID().
-	//
-	// The implementation for this function currently lives in pkg/ipcache.
-	AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error)
-
-	// ReleaseCIDRIdentitiesByID() is a wrapper for ReleaseSlice() that
-	// also handles ipcache entries.
-	ReleaseCIDRIdentitiesByID(context.Context, []identity.NumericIdentity)
 
 	// WithholdLocalIdentities holds a set of numeric identities out of the local
 	// allocation pool(s). Once withheld, a numeric identity can only be used

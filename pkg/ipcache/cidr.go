@@ -5,14 +5,12 @@ package ipcache
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -83,19 +81,6 @@ func (ipc *IPCache) AllocateCIDRs(
 		identities = append(identities, id)
 	}
 	return identities, nil
-}
-
-// AllocateCIDRsForIPs performs the same action as AllocateCIDRs but for IP
-// addresses instead of CIDRs.
-//
-// Upon success, the caller must also arrange for the resulting identities to
-// be released via a subsequent call to ReleaseCIDRIdentitiesByID().
-//
-// Deprecated: Prefer UpsertLabels() instead.
-func (ipc *IPCache) AllocateCIDRsForIPs(
-	prefixes []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity,
-) ([]*identity.Identity, error) {
-	return ipc.AllocateCIDRs(ip.IPsToNetPrefixes(prefixes), newlyAllocatedIdentities)
 }
 
 func cidrLabelToPrefix(id *identity.Identity) (prefix netip.Prefix, ok bool) {
@@ -237,43 +222,4 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []netip.
 // Deprecated: Prefer RemoveLabels() or RemoveIdentity() instead.
 func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []netip.Prefix) {
 	ipc.deferredPrefixRelease.enqueue(prefixes, "cidr-prefix-release")
-}
-
-// ReleaseCIDRIdentitiesByID releases the specified identities.
-// When the last use of the identity is released, the ipcache entry is deleted.
-//
-// Deprecated: Prefer RemoveLabels() or RemoveIdentity() instead.
-func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
-	prefixes := make([]netip.Prefix, 0, len(identities))
-	for _, nid := range identities {
-		if id := ipc.IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
-			prefix, ok := cidrLabelToPrefix(id)
-			if !ok {
-				lgr := log.WithFields(logrus.Fields{
-					logfields.Identity: nid,
-					logfields.Labels:   id.Labels,
-				})
-
-				if !id.IsReserved() {
-					lgr.Warn("Unexpected release of non-CIDR identity, will leak this identity. Please report this issue to the developers.")
-				} else {
-					// If we have arrived here because the identity is a
-					// reserved identity, then the caller was mistaken. This
-					// currently has a number of occurrences, in which case we
-					// debug log here because this has caused excessive log
-					// pressure. https://github.com/cilium/cilium/issues/23192
-					lgr.Debug("Unexpected release of Reserved identity. Please report this issue to the developers.")
-				}
-
-				continue
-			}
-			prefixes = append(prefixes, prefix)
-		} else {
-			log.WithFields(logrus.Fields{
-				logfields.Identity: nid,
-			}).Warn("Unexpected release of numeric identity that is no longer allocated")
-		}
-	}
-
-	ipc.deferredPrefixRelease.enqueue(prefixes, "selector-prefix-release")
 }

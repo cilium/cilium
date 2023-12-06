@@ -5,7 +5,6 @@ package ipcache
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"sync"
 	"testing"
@@ -328,11 +327,11 @@ func TestInjectExisting(t *testing.T) {
 	defer cancel()
 
 	// mimic fqdn policy:
-	// - identitiesForFQDNSelectorIPs calls AllocateCIDRsForIPs()
+	// - identitiesForFQDNSelectorIPs calls AllocateCIDRs()
 	// - notifyOnDNSMsg calls upsertGeneratedIdentities())
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
 	prefix := netip.MustParsePrefix("172.19.0.5/32")
-	_, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
+	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
 	assert.NoError(t, err)
 
 	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, nil)
@@ -382,11 +381,11 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	defer cancel()
 
 	// mimic fqdn policy:
-	// - identitiesForFQDNSelectorIPs calls AllocateCIDRsForIPs()
+	// - identitiesForFQDNSelectorIPs calls AllocateCIDRs()
 	// - notifyOnDNSMsg calls upsertGeneratedIdentities())
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
 	prefix := netip.MustParsePrefix("172.19.0.5/32")
-	_, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
+	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
 	assert.NoError(t, err)
 	identityReferences := 1
 
@@ -482,7 +481,7 @@ func TestInjectLegacySecond(t *testing.T) {
 
 	// Allocate via old APIs
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
-	currentlyAllocatedIdentities, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
+	currentlyAllocatedIdentities, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
 	assert.NoError(t, err)
 	assert.Len(t, newlyAllocatedIdentities, 0)
 	assert.Len(t, currentlyAllocatedIdentities, 1)
@@ -556,7 +555,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.NotNil(t, id)
 	assert.Equal(t, 1, id.ReferenceCount)
 	// Simulate adding CIDR policy.
-	ids, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{net.ParseIP("1.1.1.1").To4()}, nil)
+	ids, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{netip.MustParsePrefix("1.1.1.1/32")}, nil)
 	assert.Nil(t, err)
 	assert.Len(t, ids, 1)
 	assert.Equal(t, 2, id.ReferenceCount)

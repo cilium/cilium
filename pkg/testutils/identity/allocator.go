@@ -5,8 +5,6 @@ package testidentity
 
 import (
 	"context"
-	"net"
-	"net/netip"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -28,7 +26,6 @@ type MockIdentityAllocator struct {
 	// map from scope -> next ID
 	nextIDs map[identity.NumericIdentity]int
 
-	ipToIdentity     map[string]int
 	idToIdentity     map[int]*identity.Identity
 	labelsToIdentity map[string]int // labels are sorted as a key
 
@@ -51,7 +48,6 @@ func NewMockIdentityAllocator(c cache.IdentityCache) *MockIdentityAllocator {
 			identity.IdentityScopeRemoteNode: 0,
 		},
 
-		ipToIdentity:       make(map[string]int),
 		idToIdentity:       make(map[int]*identity.Identity),
 		labelsToIdentity:   make(map[string]int),
 		withheldIdentities: map[identity.NumericIdentity]struct{}{},
@@ -174,29 +170,6 @@ func (f *MockIdentityAllocator) LookupIdentityByID(ctx context.Context, id ident
 		return identity
 	}
 	return f.idToIdentity[int(id)]
-}
-
-// AllocateCIDRsForIPs allocates CIDR identities for the given IPs. It is meant
-// to generally mock the CIDR identity allocator logic.
-func (f *MockIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, _ map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
-	result := make([]*identity.Identity, 0, len(IPs))
-	for _, ip := range IPs {
-		id, ok := f.ipToIdentity[ip.String()]
-		if !ok {
-			id = f.nextIDs[identity.IdentityScopeLocal]
-			f.ipToIdentity[ip.String()] = id
-			f.nextIDs[identity.IdentityScopeLocal]++
-		}
-		cidrLabels := append([]string{}, ip.String())
-		result = append(result, &identity.Identity{
-			ID:        identity.NumericIdentity(id),
-			CIDRLabel: labels.NewLabelsFromModel(cidrLabels),
-		})
-	}
-	return result, nil
-}
-
-func (f *MockIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
 }
 
 // GetIdentityCache returns the identity cache.

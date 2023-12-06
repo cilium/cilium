@@ -5,8 +5,6 @@ package endpoint
 
 import (
 	"context"
-	"net"
-	"net/netip"
 	"reflect"
 	"strings"
 	"testing"
@@ -20,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -46,7 +43,7 @@ type EndpointSuite struct {
 	regeneration.Owner
 	repo     *policy.Repository
 	datapath datapath.Datapath
-	mgr      fakeIdentityAllocator
+	mgr      *cache.CachingIdentityAllocator
 
 	// Owners interface mock
 	OnGetPolicyRepository     func() *policy.Repository
@@ -114,34 +111,11 @@ func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
 func (s *EndpointSuite) RemoveRestoredDNSRules(epID uint16) {
 }
 
-// TODO: Remove the etcd dependency from these tests with a full dummy
-// implementation of an identity allocator under pkg/testutils/identity.
-// Until we do that, these tests must rely on the real CachingIdentityAllocator
-// implementation inside.
-type fakeIdentityAllocator struct {
-	*cache.CachingIdentityAllocator
-}
-
-func (f fakeIdentityAllocator) AllocateCIDRsForIPs([]net.IP, map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
-	return nil, nil
-}
-
-func (f fakeIdentityAllocator) ReleaseCIDRIdentitiesByID(context.Context, []identity.NumericIdentity) {
-}
-
-func NewCachingIdentityAllocator(owner cache.IdentityAllocatorOwner) fakeIdentityAllocator {
-	return fakeIdentityAllocator{
-		CachingIdentityAllocator: cache.NewCachingIdentityAllocator(owner),
-	}
-}
-
-// func (f *fakeIdentityAllocator)
-
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy(c, "etcd")
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	<-mgr.InitIdentityAllocator(nil)
 	s.mgr = mgr
 	node.SetTestLocalNodeStore()
