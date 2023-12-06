@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -29,7 +28,8 @@ func (n *NameManager) mapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSel
 
 	// Map each FQDNSelector to set of CIDRs
 	for ToFQDN := range fqdnSelectors {
-		ipsSelected := make([]netip.Addr, 0)
+		var ipsSelected []netip.Addr
+		dedup := false
 		// lookup matching DNS names
 		if len(ToFQDN.MatchName) > 0 {
 			dnsName := prepareMatchName(ToFQDN.MatchName)
@@ -40,7 +40,7 @@ func (n *NameManager) mapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSel
 				"IPs":       lookupIPs,
 				"matchName": ToFQDN.MatchName,
 			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-			ipsSelected = append(ipsSelected, lookupIPs...)
+			ipsSelected = lookupIPs
 		}
 
 		if len(ToFQDN.MatchPattern) > 0 {
@@ -64,12 +64,22 @@ func (n *NameManager) mapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSel
 						"IPs":          ips,
 						"matchPattern": ToFQDN.MatchPattern,
 					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-					ipsSelected = append(ipsSelected, ips...)
+					if ipsSelected == nil {
+						ipsSelected = ips
+					} else {
+						ipsSelected = append(ipsSelected, ips...)
+						dedup = true
+					}
 				}
 			}
 		}
+		if dedup {
+			s := make(sets.Set[netip.Addr], len(ipsSelected))
+			s.Insert(ipsSelected...)
+			ipsSelected = s.UnsortedList()
+		}
 
-		selectorIPMapping[ToFQDN] = ip.KeepUniqueAddrs(ipsSelected)
+		selectorIPMapping[ToFQDN] = ipsSelected
 	}
 
 	return selectorIPMapping
