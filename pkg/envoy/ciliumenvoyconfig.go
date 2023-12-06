@@ -186,20 +186,6 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			// Only inject Cilium filters if Cilium allocates listener address
 			injectCiliumFilters := listener.GetAddress() == nil && !isInternalListener
 
-			// Inject Cilium bpf metadata listener filter, if not already present.
-			if !isInternalListener {
-				found := false
-				for _, lf := range listener.ListenerFilters {
-					if lf.Name == "cilium.bpf_metadata" {
-						found = true
-						break
-					}
-				}
-				if !found {
-					listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
-				}
-			}
-
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
 				fillInTransportSocketXDS(cecNamespace, cecName, fc.TransportSocket)
@@ -445,17 +431,36 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 		// Figure out if this is an internal listener
 		isInternalListener := listener.GetInternalListener() != nil
 
-		if listener.GetAddress() == nil && !isInternalListener {
-			port, err := portAllocator.AllocateProxyPort(listener.Name, false, true)
-			if err != nil || port == 0 {
-				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %s", listener.Name, err)
+		if !isInternalListener {
+			if listener.GetAddress() == nil {
+				port, err := portAllocator.AllocateProxyPort(listener.Name, false, true)
+				if err != nil || port == 0 {
+					return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %s", listener.Name, err)
+				}
+				listener.Address, listener.AdditionalAddresses = getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+				if resources.portAllocations == nil {
+					resources.portAllocations = make(map[string]uint16)
+				}
+				resources.portAllocations[listener.Name] = port
 			}
-			listener.Address, listener.AdditionalAddresses = getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
-			if resources.portAllocations == nil {
-				resources.portAllocations = make(map[string]uint16)
+
+			// Inject Cilium bpf metadata listener filter, if not already present.
+			// This must be done after listener address/port is already set.
+			found := false
+			for _, lf := range listener.ListenerFilters {
+				if lf.Name == "cilium.bpf_metadata" {
+					found = true
+					break
+				}
 			}
-			resources.portAllocations[listener.Name] = port
+			if !found {
+				// Get the listener port from the listener's (main) address
+				port := uint16(listener.GetAddress().GetSocketAddress().GetPortValue())
+
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB, port))
+			}
 		}
+
 		if validate {
 			if err := listener.Validate(); err != nil {
 				return Resources{}, fmt.Errorf("ParseResources: Could not validate Listener %q (%s): %s", listener.Name, err, listener.String())
