@@ -137,9 +137,6 @@ jobs:
           echo "downgrade_version=${CILIUM_DOWNGRADE_VERSION}" >> $GITHUB_OUTPUT
 
           # * bpf.masquerade is disabled due to #23283
-          # * IPv6 is disabled because an issue under investigation (#28088) seems
-          #   to possibly cause seldom and brief connection disruptions on agent
-          #   restart in dual stack clusters, independently of clustermesh.
           # * Hubble is disabled to avoid the performance penalty in the testing
           #   environment due to the relatively high traffic load.
           # * We explicitly configure the sync timeout to a higher value to
@@ -153,7 +150,7 @@ jobs:
             --set=routingMode=tunnel \
             --set=tunnelProtocol=vxlan \
             --set=ipv4.enabled=true \
-            --set=ipv6.enabled=false \
+            --set=ipv6.enabled=true \
             --set=clustermesh.useAPIServer=true \
             --set=clustermesh.config.enabled=true \
             --set=extraConfig.clustermesh-ip-identities-sync-timeout=5m"
