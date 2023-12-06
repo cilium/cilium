@@ -1843,7 +1843,9 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	union macaddr dmac = {};
 	struct in6_addr saddr;
 	struct in6_addr daddr;
-	struct ratelimit_key rkey = {};
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_ICMPV6,
+	};
 	/* Rate limit to 100 ICMPv6 replies per second, burstable to 1000 responses/s */
 	struct ratelimit_settings settings = {
 		.bucket_size = 1000,
@@ -1857,7 +1859,7 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
 		sizeof(struct icmp6hdr);
 
-	rkey.netdev_idx = ctx_get_ifindex(ctx);
+	rkey.key.icmpv6.netdev_idx = ctx_get_ifindex(ctx);
 	if (!ratelimit_check_and_take(&rkey, &settings))
 		return DROP_RATE_LIMITED;
 

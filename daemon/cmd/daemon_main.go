@@ -1008,6 +1008,14 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.LBMapEntriesName, lbmap.DefaultMaxEntries, "Maximum number of entries in Cilium BPF lbmap")
 	option.BindEnv(vp, option.LBMapEntriesName)
 
+	flags.Int(option.BPFEventsDefaultRateLimit, 0, fmt.Sprintf("Limit of average number of messages per second that can be written to BPF events map (if set, --%s value must also be specified). If both --%s and --%s are 0 or not specified, no limit is imposed.", option.BPFEventsDefaultBurstLimit, option.BPFEventsDefaultRateLimit, option.BPFEventsDefaultBurstLimit))
+	flags.MarkHidden(option.BPFEventsDefaultRateLimit)
+	option.BindEnv(vp, option.BPFEventsDefaultRateLimit)
+
+	flags.Int(option.BPFEventsDefaultBurstLimit, 0, fmt.Sprintf("Maximum number of messages that can be written to BPF events map in 1 second (if set, --%s value must also be specified). If both --%s and --%s are 0 or not specified, no limit is imposed.", option.BPFEventsDefaultRateLimit, option.BPFEventsDefaultBurstLimit, option.BPFEventsDefaultRateLimit))
+	flags.MarkHidden(option.BPFEventsDefaultBurstLimit)
+	option.BindEnv(vp, option.BPFEventsDefaultBurstLimit)
+
 	flags.Int(option.LBServiceMapMaxEntries, 0, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for services (if this isn't set, the value of --%s will be used.)", option.LBMapEntriesName))
 	flags.MarkHidden(option.LBServiceMapMaxEntries)
 	option.BindEnv(vp, option.LBServiceMapMaxEntries)

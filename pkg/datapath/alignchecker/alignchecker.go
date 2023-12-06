@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/ratelimitmetricsmap"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
@@ -96,27 +97,29 @@ func init() {
 		// "capture_rule":      {recorder.CaptureRule6{}},
 		// "ipv4_nat_entry":    {nat.NatEntry4{}},
 		// "ipv6_nat_entry":    {nat.NatEntry6{}},
-		"endpoint_key":           {bpf.EndpointKey{}},
-		"lb4_affinity_key":       {lbmap.Affinity4Key{}},
-		"lb6_affinity_key":       {lbmap.Affinity6Key{}},
-		"lb_affinity_match":      {lbmap.AffinityMatchKey{}},
-		"lb_affinity_val":        {lbmap.AffinityValue{}},
-		"lb4_src_range_key":      {lbmap.SourceRangeKey4{}},
-		"lb6_src_range_key":      {lbmap.SourceRangeKey6{}},
-		"edt_id":                 {bwmap.EdtId{}},
-		"edt_info":               {bwmap.EdtInfo{}},
-		"egress_gw_policy_key":   {egressmap.EgressPolicyKey4{}},
-		"egress_gw_policy_entry": {egressmap.EgressPolicyVal4{}},
-		"srv6_vrf_key4":          {srv6map.VRFKey4{}},
-		"srv6_vrf_key6":          {srv6map.VRFKey6{}},
-		"srv6_policy_key4":       {srv6map.PolicyKey4{}},
-		"srv6_policy_key6":       {srv6map.PolicyKey6{}},
-		"tunnel_key":             {tunnel.TunnelKey{}},
-		"tunnel_value":           {tunnel.TunnelValue{}},
-		"vtep_key":               {vtep.Key{}},
-		"vtep_value":             {vtep.VtepEndpointInfo{}},
-		"auth_key":               {authmap.AuthKey{}},
-		"auth_info":              {authmap.AuthInfo{}},
+		"endpoint_key":            {bpf.EndpointKey{}},
+		"lb4_affinity_key":        {lbmap.Affinity4Key{}},
+		"lb6_affinity_key":        {lbmap.Affinity6Key{}},
+		"lb_affinity_match":       {lbmap.AffinityMatchKey{}},
+		"lb_affinity_val":         {lbmap.AffinityValue{}},
+		"lb4_src_range_key":       {lbmap.SourceRangeKey4{}},
+		"lb6_src_range_key":       {lbmap.SourceRangeKey6{}},
+		"edt_id":                  {bwmap.EdtId{}},
+		"edt_info":                {bwmap.EdtInfo{}},
+		"egress_gw_policy_key":    {egressmap.EgressPolicyKey4{}},
+		"egress_gw_policy_entry":  {egressmap.EgressPolicyVal4{}},
+		"srv6_vrf_key4":           {srv6map.VRFKey4{}},
+		"srv6_vrf_key6":           {srv6map.VRFKey6{}},
+		"srv6_policy_key4":        {srv6map.PolicyKey4{}},
+		"srv6_policy_key6":        {srv6map.PolicyKey6{}},
+		"tunnel_key":              {tunnel.TunnelKey{}},
+		"tunnel_value":            {tunnel.TunnelValue{}},
+		"vtep_key":                {vtep.Key{}},
+		"vtep_value":              {vtep.VtepEndpointInfo{}},
+		"auth_key":                {authmap.AuthKey{}},
+		"auth_info":               {authmap.AuthInfo{}},
+		"ratelimit_metrics_key":   {ratelimitmetricsmap.Key{}},
+		"ratelimit_metrics_value": {ratelimitmetricsmap.Value{}},
 	})
 
 	registerToCheckSizes(map[string][]any{

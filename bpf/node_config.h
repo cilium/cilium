@@ -142,6 +142,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define SRV6_STATE_MAP6 test_cilium_srv6_state6
 #define ENDPOINTS_MAP test_cilium_lxc
 #define EVENTS_MAP test_cilium_events
+#define EVENTS_MAP_RATE_LIMIT 0
+#define EVENTS_MAP_BURST_LIMIT 0
 #define SIGNAL_MAP test_cilium_signals
 #define METRICS_MAP test_cilium_metrics
 #define POLICY_CALL_MAP test_cilium_policy
@@ -152,6 +154,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define ENCRYPT_MAP test_cilium_encrypt_state
 #define L2_RESPONDER_MAP4 test_cilium_l2_responder_v4
 #define RATELIMIT_MAP test_cilium_ratelimit
+#define RATELIMIT_METRICS_MAP test_cilium_ratelimit_metrics
 #define TUNNEL_MAP test_cilium_tunnel_map
 #define VTEP_MAP test_cilium_vtep_map
 #define LB6_REVERSE_NAT_MAP test_cilium_lb6_reverse_nat

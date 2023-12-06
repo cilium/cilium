@@ -190,6 +190,7 @@ bugfix
 bugfixes
 bugtool
 buildx
+burstLimit
 bytecode
 cBPF
 callee
@@ -602,6 +603,8 @@ qede
 qemu
 queryable
 queueing
+rateLimit
+ratelimiter
 rc
 reStructuredText
 reachability

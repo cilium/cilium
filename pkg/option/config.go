@@ -690,6 +690,25 @@ const (
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
 
+	// BPFEventsDefaultRateLimit specifies limit of messages per second that can be written to
+	// BPF events map. This limit is defined for all types of events except dbg and pcap.
+	// The number of messages is averaged, meaning that if no messages were written
+	// to the map over 5 seconds, it's possible to write more events than the value of rate limit
+	// in the 6th second.
+	//
+	// If BPFEventsDefaultRateLimit > 0, non-zero value for BPFEventsDefaultBurstLimit must also be provided
+	// lest the configuration is considered invalid.
+	// If both rate and burst limit are 0 or not specified, no limit is imposed.
+	BPFEventsDefaultRateLimit = "bpf-events-default-rate-limit"
+
+	// BPFEventsDefaultBurstLimit specifies the maximum number of messages that can be written
+	// to BPF events map in 1 second. This limit is defined for all types of events except dbg and pcap.
+	//
+	// If BPFEventsDefaultBurstLimit > 0, non-zero value for BPFEventsDefaultRateLimit must also be provided
+	// lest the configuration is considered invalid.
+	// If both burst and rate limit are 0 or not specified, no limit is imposed.
+	BPFEventsDefaultBurstLimit = "bpf-events-default-burst-limit"
+
 	// FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
@@ -1537,6 +1556,24 @@ type DaemonConfig struct {
 	// aggregation ensures reports are generated for when monitor-aggragation
 	// is enabled. Network byte-order.
 	MonitorAggregationFlags uint16
+
+	// BPFEventsDefaultRateLimit specifies limit of messages per second that can be written to
+	// BPF events map. This limit is defined for all types of events except dbg and pcap.
+	// The number of messages is averaged, meaning that if no messages were written
+	// to the map over 5 seconds, it's possible to write more events than the value of rate limit
+	// in the 6th second.
+	//
+	// If BPFEventsDefaultRateLimit > 0, non-zero value for BPFEventsDefaultBurstLimit must also be provided
+	// lest the configuration is considered invalid.
+	BPFEventsDefaultRateLimit uint32
+
+	// BPFEventsDefaultBurstLimit specifies the maximum number of messages that can be written
+	// to BPF events map in 1 second. This limit is defined for all types of events except dbg and pcap.
+	//
+	// If BPFEventsDefaultBurstLimit > 0, non-zero value for BPFEventsDefaultRateLimit must also be provided
+	// lest the configuration is considered invalid.
+	// If both burst and rate limit are 0 or not specified, no limit is imposed.
+	BPFEventsDefaultBurstLimit uint32
 
 	// BPFMapsDynamicSizeRatio is ratio of total system memory to use for
 	// dynamic sizing of the CT, NAT, Neighbor and SockRevNAT BPF maps.
@@ -3388,6 +3425,18 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.Fatalf("unable to parse %s: %s", LogOpt, err)
 	} else {
 		c.LogOpt = m
+	}
+
+	bpfEventsDefaultRateLimit := vp.GetUint32(BPFEventsDefaultRateLimit)
+	bpfEventsDefaultBurstLimit := vp.GetUint32(BPFEventsDefaultBurstLimit)
+	switch {
+	case bpfEventsDefaultRateLimit > 0 && bpfEventsDefaultBurstLimit == 0:
+		log.Fatalf("invalid BPF events default config: burst limit must also be specified when rate limit is provided")
+	case bpfEventsDefaultRateLimit == 0 && bpfEventsDefaultBurstLimit > 0:
+		log.Fatalf("invalid BPF events default config: rate limit must also be specified when burst limit is provided")
+	default:
+		c.BPFEventsDefaultRateLimit = vp.GetUint32(BPFEventsDefaultRateLimit)
+		c.BPFEventsDefaultBurstLimit = vp.GetUint32(BPFEventsDefaultBurstLimit)
 	}
 
 	c.bpfMapEventConfigs = make(BPFEventBufferConfigs)
