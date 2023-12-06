@@ -235,6 +235,12 @@ Users (Alphabetically)
       L: https://metal.equinix.com/
       Q: @matoszz
 
+    * N: Equinix
+      D: Equinix NL Managed Services is using Cilium with their Managed Kubernetes offering
+      U: CNI, network policies, visibility
+      L: https://www.equinix.nl/products/support-services/managed-services/netherlands
+      Q: @jonkerj
+
     * N: Exoscale
       D: Exoscale is offering Cilium as a CNI option on its managed Kubernetes service named SKS (Scalable Kubernetes Service)
       U: CNI, Networking
