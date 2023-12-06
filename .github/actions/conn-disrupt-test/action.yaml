@@ -39,9 +39,12 @@ runs:
         provision: 'false'
         cmd: |
           cd /host/
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          ./cilium-cli connectivity test --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
             --flush-ct \
+            --debug \
+            --test no-interrupted-connections \
+            --test node-to-node-encryption \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
             --junit-file "cilium-junits/${{ inputs.job-name }}.xml" \

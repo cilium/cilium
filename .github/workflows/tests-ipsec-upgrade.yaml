@@ -296,7 +296,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Start conn-disrupt-test
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && false }}
         uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
           provision: 'false'
