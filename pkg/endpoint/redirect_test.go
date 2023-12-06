@@ -136,7 +136,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 
 	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
 
-	mgr := NewCachingIdentityAllocator(idAllocatorOwner)
+	mgr := cache.NewCachingIdentityAllocator(idAllocatorOwner)
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 
@@ -363,7 +363,7 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 
 	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
 
-	mgr := NewCachingIdentityAllocator(idAllocatorOwner)
+	mgr := cache.NewCachingIdentityAllocator(idAllocatorOwner)
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 

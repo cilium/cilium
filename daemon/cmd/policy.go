@@ -93,10 +93,7 @@ type policyOut struct {
 // special care.
 func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	iao := &identityAllocatorOwner{}
-	idAlloc := &cachingIdentityAllocator{
-		cache.NewCachingIdentityAllocator(iao),
-		nil,
-	}
+	idAlloc := cache.NewCachingIdentityAllocator(iao)
 
 	iao.policy = policy.NewStoppedPolicyRepository(
 		idAlloc,
@@ -121,7 +118,6 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		DatapathHandler:   params.EndpointManager,
 		CacheStatus:       params.CacheStatus,
 	})
-	idAlloc.ipcache = ipc
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hc hive.HookContext) error {
