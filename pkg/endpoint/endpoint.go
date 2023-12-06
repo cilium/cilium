@@ -1564,11 +1564,12 @@ func (e *Endpoint) getProxyStatisticsLocked(key string, l7Protocol string, port 
 
 // UpdateProxyStatistics updates the Endpoint's proxy  statistics to account
 // for a new observed flow with the given characteristics.
-func (e *Endpoint) UpdateProxyStatistics(proxyType, l4Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict) {
+func (e *Endpoint) UpdateProxyStatistics(proxyType, l4Protocol string, port, proxyPort uint16, ingress, request bool, verdict accesslog.FlowVerdict) {
+	key := policy.ProxyStatsKey(ingress, l4Protocol, port, proxyPort)
+
 	e.proxyStatisticsMutex.Lock()
 	defer e.proxyStatisticsMutex.Unlock()
 
-	key := policy.ProxyID(e.ID, ingress, l4Protocol, port)
 	proxyStats, ok := e.proxyStatistics[key]
 	if !ok {
 		e.getLogger().WithField(logfields.L4PolicyID, key).Debug("Proxy stats not found when updating")
