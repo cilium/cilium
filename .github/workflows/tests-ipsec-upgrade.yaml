@@ -75,7 +75,7 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        config: ['5.4', '5.10', 'bpf-next']
+        config: ['5.4', '5.10', '6.1', 'bpf-next']
         mode: ['minor', 'patch']
         include:
           # Define three config sets
@@ -96,6 +96,15 @@ jobs:
             encryption: 'ipsec'
             endpoint-routes: 'true'
 
+          - config: '6.1'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.1-20231026.065108'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            endpoint-routes: 'false'
+
           - config: 'bpf-next'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20231128.012937'
@@ -114,21 +123,29 @@ jobs:
             mode: 'minor'
             name: '2'
 
-          - config: 'bpf-next'
+          - config: '6.1'
             mode: 'minor'
             name: '3'
 
-          - config: '5.4'
-            mode: 'patch'
+          - config: 'bpf-next'
+            mode: 'minor'
             name: '4'
 
-          - config: '5.10'
+          - config: '5.4'
             mode: 'patch'
             name: '5'
 
-          - config: 'bpf-next'
+          - config: '5.10'
             mode: 'patch'
             name: '6'
+
+          - config: '6.1'
+            mode: 'patch'
+            name: '7'
+
+          - config: 'bpf-next'
+            mode: 'patch'
+            name: '8'
 
     timeout-minutes: 60
     steps:
