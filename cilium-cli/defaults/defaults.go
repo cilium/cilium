@@ -190,4 +190,9 @@ var (
 		"authentication.mutual.spire.install.agent.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator=NotIn",
 		"authentication.mutual.spire.install.agent.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]=true",
 	}
+
+	ExpectedDropReasons = []string{
+		"Policy denied",
+		"Policy denied by denylist",
+	}
 )
