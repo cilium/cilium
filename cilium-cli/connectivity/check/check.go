@@ -74,8 +74,11 @@ type Parameters struct {
 	ConnDisruptTestRestartsPath   string
 	ConnDisruptTestXfrmErrorsPath string
 	ConnDisruptDispatchInterval   time.Duration
-	FlushCT                       bool
-	SecondaryNetworkIface         string
+
+	ExpectedDropReasons []string
+
+	FlushCT               bool
+	SecondaryNetworkIface string
 
 	K8sVersion           string
 	HelmChartDirectory   string
