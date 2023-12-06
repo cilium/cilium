@@ -30,6 +30,7 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
@@ -241,10 +242,12 @@ type Service struct {
 	l7lbSvcs map[lb.ServiceName]*L7LBInfo
 
 	backendConnectionHandler sockets.SocketDestroyer
+
+	backendDiscovery datapathTypes.NodeNeighbors
 }
 
 // NewService creates a new instance of the service handler.
-func NewService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap) *Service {
+func NewService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors) *Service {
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New()
@@ -260,6 +263,7 @@ func NewService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap) *Ser
 		lbmap:                    lbmap,
 		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
 		backendConnectionHandler: backendConnectionHandler{},
+		backendDiscovery:         backendDiscoveryHandler,
 	}
 	svc.lastUpdatedTs.Store(time.Now())
 
@@ -792,6 +796,11 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 		newBackends, obsoleteBackends, prevSessionAffinity, prevLoadBalancerSourceRanges,
 		obsoleteSVCBackendIDs, getScopedLog, debugLogsEnabled); err != nil {
 		return false, lb.ID(0), err
+	}
+
+	// Update managed neighbor entries of the LB
+	if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly {
+		s.upsertBackendNeighbors(newBackends, obsoleteBackends)
 	}
 
 	// Only add a HealthCheckNodePort server if this is a service which may
@@ -1800,7 +1809,7 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 
 func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	ipv6 := svc.frontend.L3n4Addr.IsIPv6() || svc.svcNatPolicy == lb.SVCNatPolicyNat46
-	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
+	obsoleteBackendIDs, obsoleteBackends := s.deleteBackendsFromCacheLocked(svc)
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceID: svc.frontend.ID,
 		logfields.ServiceIP: svc.frontend.L3n4Addr,
@@ -1840,6 +1849,11 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 	if err := DeleteID(uint32(svc.frontend.ID)); err != nil {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
+	}
+
+	// Delete managed neighbor entries of the LB
+	if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly {
+		s.deleteBackendNeighbors(obsoleteBackends)
 	}
 
 	if svc.healthcheckFrontendHash != "" {
@@ -1946,17 +1960,19 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 	return newBackends, obsoleteBackends, obsoleteSVCBackendIDs, nil
 }
 
-func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) []lb.BackendID {
+func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) ([]lb.BackendID, []*lb.Backend) {
 	obsoleteBackendIDs := []lb.BackendID{}
+	obsoleteBackends := []*lb.Backend{}
 
 	for hash, backend := range svc.backendByHash {
 		if s.backendRefCount.Delete(hash) {
 			DeleteBackendID(backend.ID)
 			obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
+			obsoleteBackends = append(obsoleteBackends, backend.DeepCopy())
 		}
 	}
 
-	return obsoleteBackendIDs
+	return obsoleteBackendIDs, obsoleteBackends
 }
 
 func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []*lb.Backend,
@@ -2134,4 +2150,27 @@ func (s *Service) SyncNodePortFrontends(addrs sets.Set[netip.Addr]) error {
 		}
 	}
 	return nil
+}
+
+func backendToNode(b *lb.Backend) *nodeTypes.Node {
+	return &nodeTypes.Node{
+		Name: fmt.Sprintf("backend-%s", b.L3n4Addr.AddrCluster.AsNetIP()),
+		IPAddresses: []nodeTypes.Address{{
+			Type: addressing.NodeInternalIP,
+			IP:   b.L3n4Addr.AddrCluster.AsNetIP(),
+		}},
+	}
+}
+
+func (s *Service) upsertBackendNeighbors(newBackends, oldBackends []*lb.Backend) {
+	for _, b := range newBackends {
+		s.backendDiscovery.InsertMiscNeighbor(backendToNode(b))
+	}
+	s.deleteBackendNeighbors(oldBackends)
+}
+
+func (s *Service) deleteBackendNeighbors(obsoleteBackends []*lb.Backend) {
+	for _, b := range obsoleteBackends {
+		s.backendDiscovery.DeleteMiscNeighbor(backendToNode(b))
+	}
 }

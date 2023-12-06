@@ -851,6 +851,11 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}
 }
 
+func (n *linuxNodeHandler) InsertMiscNeighbor(newNode *nodeTypes.Node) {
+	ctx := context.Background()
+	n.insertNeighbor(ctx, newNode, false)
+}
+
 func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, completed chan struct{}) {
 	defer close(completed)
 
@@ -905,6 +910,10 @@ func (n *linuxNodeHandler) deleteNeighbor6(oldNode *nodeTypes.Node) {
 func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 	n.deleteNeighbor4(oldNode)
 	n.deleteNeighbor6(oldNode)
+}
+
+func (n *linuxNodeHandler) DeleteMiscNeighbor(oldNode *nodeTypes.Node) {
+	n.deleteNeighbor(oldNode)
 }
 
 // getDefaultEncryptionInterface() is needed to find the interface used when
