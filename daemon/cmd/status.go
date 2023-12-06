@@ -187,7 +187,7 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
 	}
 
-	s.Devices = option.Config.GetDevices()
+	s.Devices, _, _ = d.getDevices()
 	return s
 }
 
@@ -204,9 +204,11 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	if option.Config.EnableHostFirewall {
 		mode = models.HostFirewallModeEnabled
 	}
+
+	devices, _, _ := d.getDevices()
 	return &models.HostFirewall{
 		Mode:    mode,
-		Devices: option.Config.GetDevices(),
+		Devices: devices,
 	}
 }
 
