@@ -155,7 +155,14 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 	}
 
 	progs := []progDefinition{{progName: symbolFromHostNetdevXDP, direction: ""}}
-	finalize, err := replaceDatapath(ctx, xdpDev, objPath, progs, xdpMode)
+	finalize, err := replaceDatapath(ctx,
+		replaceDatapathOptions{
+			device:   xdpDev,
+			elf:      objPath,
+			programs: progs,
+			xdpMode:  xdpMode,
+		},
+	)
 	if err != nil {
 		return err
 	}
