@@ -75,8 +75,7 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        #config: ['5.4', '5.10', 'bpf-next']
-        config: ['5.4', 'bpf-next']
+        config: ['5.4', '5.10', 'bpf-next']
         mode: ['minor', 'patch']
         include:
           # Define three config sets
@@ -88,14 +87,14 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
 
-          #- config: '5.10'
-          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: '5.10-20231124.100406'
-          #  kube-proxy: 'iptables'
-          #  kpr: 'disabled'
-          #  tunnel: 'disabled'
-          #  encryption: 'ipsec'
-          #  endpoint-routes: 'true'
+          - config: '5.10'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.10-20231124.100406'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            endpoint-routes: 'true'
 
           - config: 'bpf-next'
             # We don't want to update bpf-next after branching
@@ -111,9 +110,9 @@ jobs:
             mode: 'minor'
             name: '1'
 
-          #- config: '5.10'
-          #  mode: 'minor'
-          #  name: '2'
+          - config: '5.10'
+            mode: 'minor'
+            name: '2'
 
           - config: 'bpf-next'
             mode: 'minor'
@@ -123,9 +122,9 @@ jobs:
             mode: 'patch'
             name: '4'
 
-          #- config: '5.10'
-          #  mode: 'patch'
-          #  name: '5'
+          - config: '5.10'
+            mode: 'patch'
+            name: '5'
 
           - config: 'bpf-next'
             mode: 'patch'
