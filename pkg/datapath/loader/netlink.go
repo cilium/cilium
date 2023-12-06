@@ -60,6 +60,13 @@ type progDefinition struct {
 	direction string
 }
 
+type replaceDatapathOptions struct {
+	device   string           // name of the netlink interface we attach to
+	elf      string           // path to object file
+	programs []progDefinition // programs that we want to attach/replace
+	xdpMode  string           // XDP driver mode, only applies when attaching XDP programs
+}
+
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
 //
 // When successful, returns a finalizer to allow the map cleanup operation to be
@@ -73,25 +80,25 @@ type progDefinition struct {
 // For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
 // gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
 // will miss tail calls (and drop packets) until it has been replaced as well.
-func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDefinition, xdpMode string) (_ func(), err error) {
+func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func(), err error) {
 	// Avoid unnecessarily loading a prog.
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	link, err := netlink.LinkByName(ifName)
+	link, err := netlink.LinkByName(opts.device)
 	if err != nil {
-		return nil, fmt.Errorf("getting interface %s by name: %w", ifName, err)
+		return nil, fmt.Errorf("getting interface %s by name: %w", opts.device, err)
 	}
 
-	l := log.WithField("device", ifName).WithField("objPath", objPath).
+	l := log.WithField("device", opts.device).WithField("objPath", opts.elf).
 		WithField("ifindex", link.Attrs().Index)
 
 	// Load the ELF from disk.
 	l.Debug("Loading CollectionSpec from ELF")
-	spec, err := bpf.LoadCollectionSpec(objPath)
+	spec, err := bpf.LoadCollectionSpec(opts.elf)
 	if err != nil {
-		return nil, fmt.Errorf("loading eBPF ELF: %w", err)
+		return nil, fmt.Errorf("loading eBPF ELF %s: %w", opts.elf, err)
 	}
 
 	revert := func() {
@@ -102,7 +109,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		}
 	}
 
-	for _, prog := range progs {
+	for _, prog := range opts.programs {
 		if spec.Programs[prog.progName] == nil {
 			return nil, fmt.Errorf("no program %s found in eBPF ELF", prog.progName)
 		}
@@ -153,14 +160,14 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	// bpffs in the process.
 	finalize := func() {}
 	pinPath := bpf.TCGlobalsPath()
-	opts := ebpf.CollectionOptions{
+	collOpts := ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{PinPath: pinPath},
 	}
 	if err := bpf.MkdirBPF(pinPath); err != nil {
 		return nil, fmt.Errorf("creating bpffs pin path: %w", err)
 	}
 	l.Debug("Loading Collection into kernel")
-	coll, err := bpf.LoadCollection(spec, opts)
+	coll, err := bpf.LoadCollection(spec, collOpts)
 	if errors.Is(err, ebpf.ErrMapIncompatible) {
 		// Temporarily rename bpffs pins of maps whose definitions have changed in
 		// a new version of a datapath ELF.
@@ -178,7 +185,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 
 		// Retry loading the Collection after starting map migration.
 		l.Debug("Retrying loading Collection into kernel after map migration")
-		coll, err = bpf.LoadCollection(spec, opts)
+		coll, err = bpf.LoadCollection(spec, collOpts)
 	}
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
@@ -220,16 +227,16 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 
 	// Finally, attach the endpoint's tc or xdp entry points to allow traffic to
 	// flow in.
-	for _, prog := range progs {
+	for _, prog := range opts.programs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
-		if xdpMode != "" {
+		if opts.xdpMode != "" {
 			linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), link)
 			if err := bpf.MkdirBPF(linkDir); err != nil {
 				return nil, fmt.Errorf("creating bpffs link dir for device %s: %w", link.Attrs().Name, err)
 			}
 
 			scopedLog.Debug("Attaching XDP program to interface")
-			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, linkDir, xdpConfigModeToFlag(xdpMode))
+			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, linkDir, xdpConfigModeToFlag(opts.xdpMode))
 		} else {
 			scopedLog.Debug("Attaching TC program to interface")
 			err = attachTCProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction))

@@ -305,7 +305,13 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		{progName: symbolToHostEp, direction: dirIngress},
 		{progName: symbolFromHostEp, direction: dirEgress},
 	}
-	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
+	finalize, err := replaceDatapath(ctx,
+		replaceDatapathOptions{
+			device:   ep.InterfaceName(),
+			elf:      objPath,
+			programs: progs,
+		},
+	)
 	if err != nil {
 		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
@@ -337,7 +343,13 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		{progName: symbolToHostEp, direction: dirIngress},
 	}
 
-	finalize, err = replaceDatapath(ctx, defaults.SecondHostDevice, secondDevObjPath, progs, "")
+	finalize, err = replaceDatapath(ctx,
+		replaceDatapathOptions{
+			device:   defaults.SecondHostDevice,
+			elf:      secondDevObjPath,
+			programs: progs,
+		},
+	)
 	if err != nil {
 		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
@@ -383,7 +395,13 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			}
 		}
 
-		finalize, err := replaceDatapath(ctx, device, netdevObjPath, progs, "")
+		finalize, err := replaceDatapath(ctx,
+			replaceDatapathOptions{
+				device:   device,
+				elf:      netdevObjPath,
+				programs: progs,
+			},
+		)
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
@@ -432,7 +450,13 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			}
 		}
 
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
+		finalize, err := replaceDatapath(ctx,
+			replaceDatapathOptions{
+				device:   ep.InterfaceName(),
+				elf:      objPath,
+				programs: progs,
+			},
+		)
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
@@ -478,7 +502,13 @@ func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 		{progName: symbolToOverlay, direction: dirEgress},
 	}
 
-	finalize, err := replaceDatapath(ctx, iface, overlayObj, progs, "")
+	finalize, err := replaceDatapath(ctx,
+		replaceDatapathOptions{
+			device:   iface,
+			elf:      overlayObj,
+			programs: progs,
+		},
+	)
 	if err != nil {
 		log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load overlay network failed")
 	}
