@@ -342,6 +342,12 @@ Annotations:
 * The ``CILIUM_PREPEND_IPTABLES_CHAIN`` environment variable has been renamed
   to ``CILIUM_PREPEND_IPTABLES_CHAINS`` (note the trailing ``S``) to more accurately
   match the name of the associated command line flag ``--prepend-iptables-chains``.
+* ``CiliumNetworkPolicy`` changed the semantic of the empty non-nil slice.
+  For an Ingress CNP, an empty slice in one of the fields ``fromEndpoints``, ``fromCIDR``,
+  ``fromCIDRSet`` and ``fromEntities`` will not select any identity, thus falling back
+  to default deny for an allow policy. Similarly, for an Egress CNP, an empty slice in
+  one of the fields ``toEndpoints``, ``toCIDR``, ``toCIDRSet`` and ``toEntities`` will
+  not select any identity either.
 
 .. _upgrade_cilium_cli_helm_mode:
 
