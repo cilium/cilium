@@ -520,6 +520,17 @@
         },
         "events": {
           "properties": {
+            "default": {
+              "properties": {
+                "burstLimit": {
+                  "type": "null"
+                },
+                "rateLimit": {
+                  "type": "null"
+                }
+              },
+              "type": "object"
+            },
             "drop": {
               "properties": {
                 "enabled": {

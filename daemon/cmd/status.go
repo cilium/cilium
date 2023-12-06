@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/ratelimitmetricsmap"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -422,6 +423,10 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			{
 				Name: "Metrics",
 				Size: int64(metricsmap.MaxEntries),
+			},
+			{
+				Name: "Ratelimit metrics",
+				Size: int64(ratelimitmetricsmap.MaxEntries),
 			},
 			{
 				Name: "NAT",
