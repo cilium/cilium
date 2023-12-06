@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 // TestConflictResolution tests that, upon initialization, LB IPAM will detect conflicts between pools,
 // internally disables one of the pools, and notifies the user via a status update.
 // Next, we update the conflicting pool to remove the offending range, this should re-enable the pool.
-func TestConflictResolution(t *testing.T) {
+func TestOldConflictResolution(t *testing.T) {
 	poolB := mkPool(poolBUID, "pool-b", []string{"10.0.10.0/24", "FF::0/48"})
 	poolB.CreationTimestamp = meta_v1.Date(2022, 10, 16, 13, 30, 00, 0, time.UTC)
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
@@ -121,7 +121,7 @@ func TestConflictResolution(t *testing.T) {
 // TestPoolInternalConflict tests that LB-IPAM can detect when two ranges in the same pool have overlapping CIDRs,
 // mark the pool as `conflicting` and disables all ranges. Then de-conflict the pool by removing one of the ranges
 // after which the pool should be no longer be marked conflicting.
-func TestPoolInternalConflict(t *testing.T) {
+func TestOldPoolInternalConflict(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24", "10.0.10.64/28"})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		poolA,
@@ -177,7 +177,7 @@ func TestPoolInternalConflict(t *testing.T) {
 
 // TestAllocHappyPath tests that an existing service will first get an IPv4 address assigned, then when they request
 // an IPv6 instead, the IPv4 is freed and an IPv6 is allocated for them.
-func TestAllocHappyPath(t *testing.T) {
+func TestOldAllocHappyPath(t *testing.T) {
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24", "FF::0/48"}),
 	}, true, true, nil)
@@ -341,7 +341,7 @@ func TestAllocHappyPath(t *testing.T) {
 
 // This test makes sure that two services with the same sharing key get assigned the same IP.
 // And when the sharing key changes the IP is changed as well.
-func TestSharedServiceUpdatedSharingKey(t *testing.T) {
+func TestOldSharedServiceUpdatedSharingKey(t *testing.T) {
 	done := make(chan struct{})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
@@ -450,7 +450,7 @@ func TestSharedServiceUpdatedSharingKey(t *testing.T) {
 
 // This test makes sure that two services with the same sharing key get assigned the same IP.
 // And when the ports change to overlap the IP is changed as well.
-func TestSharedServiceUpdatedPorts(t *testing.T) {
+func TestOldSharedServiceUpdatedPorts(t *testing.T) {
 	done := make(chan struct{})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
@@ -559,7 +559,7 @@ func TestSharedServiceUpdatedPorts(t *testing.T) {
 
 // TestSharingKey tests that the sharing key causes the LB IPAM to reuse the same IP for services with the same
 // sharing key. This test also verifies that the ip is not reused if there is a conflict with another service.
-func TestSharingKey(t *testing.T) {
+func TestOldSharingKey(t *testing.T) {
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
 	}, true, true, nil)
@@ -903,7 +903,7 @@ func TestSharingKey(t *testing.T) {
 
 // TestServiceDelete tests the service deletion logic. It makes sure that the IP that was assigned to the service is
 // released after the service is deleted so it can be re-assigned.
-func TestServiceDelete(t *testing.T) {
+func TestOldServiceDelete(t *testing.T) {
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
 	}, true, true, nil)
@@ -978,7 +978,7 @@ func TestServiceDelete(t *testing.T) {
 // TestReallocOnInit tests the edge case where an existing service has an IP assigned for which there is no IP Pool.
 // LB IPAM should take the unknown IP away and allocate a new and valid IP. This scenario can happen when a service
 // passes ownership from on controller to another or when a pool is deleted while the operator is down.
-func TestReallocOnInit(t *testing.T) {
+func TestOldReallocOnInit(t *testing.T) {
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
 	}, true, true, nil)
@@ -1061,7 +1061,7 @@ func TestReallocOnInit(t *testing.T) {
 
 // TestAllocOnInit tests that on init, ingress IPs on services which match configured pools are imported
 // and marked as allocated. This is crucial when restarting the operator in a running cluster.
-func TestAllocOnInit(t *testing.T) {
+func TestOldAllocOnInit(t *testing.T) {
 	initDone := make(chan struct{})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
@@ -1146,7 +1146,7 @@ func TestAllocOnInit(t *testing.T) {
 
 // TestPoolSelector tests that an IP Pool will only allocate IPs to services which match its service selector.
 // The selector in this case is a very simple label.
-func TestPoolSelectorBasic(t *testing.T) {
+func TestOldPoolSelectorBasic(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	selector := slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -1291,7 +1291,7 @@ func TestPoolSelectorBasic(t *testing.T) {
 
 // TestPoolSelectorNamespace tests that an IP Pool with a 'io.kubernetes.service.namespace' selector will only
 // assign IPs to services in the given namespace.
-func TestPoolSelectorNamespace(t *testing.T) {
+func TestOldPoolSelectorNamespace(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	selector := slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -1432,7 +1432,7 @@ func TestPoolSelectorNamespace(t *testing.T) {
 
 // TestChangeServiceType tests that we don't handle non-LB services, then we update the type and check that we start
 // handling the service, then switch the type again and verify that we release the allocated IP.
-func TestChangeServiceType(t *testing.T) {
+func TestOldChangeServiceType(t *testing.T) {
 	initDone := make(chan struct{})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
@@ -1586,7 +1586,7 @@ func TestChangeServiceType(t *testing.T) {
 }
 
 // TestAllowFirstLastIPs tests that first and last IPs are assigned when we set .spec.allowFirstLastIPs to yes.
-func TestAllowFirstLastIPs(t *testing.T) {
+func TestOldAllowFirstLastIPs(t *testing.T) {
 	pool := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
 	pool.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
@@ -1657,7 +1657,7 @@ func TestAllowFirstLastIPs(t *testing.T) {
 
 // TestUpdateAllowFirstAndLastIPs tests that first and last IPs are assigned when we update the
 // .spec.allowFirstLastIPs field.
-func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
+func TestOldUpdateAllowFirstAndLastIPs(t *testing.T) {
 	// Add pool which does not allow first and last IPs
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"}),
@@ -1780,7 +1780,7 @@ func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 }
 
 // TestRequestIPs tests that we can request specific IPs
-func TestRequestIPs(t *testing.T) {
+func TestOldRequestIPs(t *testing.T) {
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
 	}, true, true, nil)
@@ -1975,7 +1975,7 @@ func TestRequestIPs(t *testing.T) {
 }
 
 // TestAddPool tests that adding a new pool will satisfy services.
-func TestAddPool(t *testing.T) {
+func TestOldAddPool(t *testing.T) {
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
 	}, true, true, nil)
@@ -2052,7 +2052,7 @@ func TestAddPool(t *testing.T) {
 }
 
 // TestAddRange tests adding a range to a pool will satisfy services which have not been able to get an IP
-func TestAddRange(t *testing.T) {
+func TestOldAddRange(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		poolA,
@@ -2134,7 +2134,7 @@ func TestAddRange(t *testing.T) {
 
 // TestDisablePool tests that disabling a pool will not remove existing allocations but will stop new allocations.
 // Then re-enable the pool and see that the pool resumes allocating IPs
-func TestDisablePool(t *testing.T) {
+func TestOldDisablePool(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		poolA,
@@ -2270,7 +2270,7 @@ func TestDisablePool(t *testing.T) {
 
 // TestPoolDelete tests that when a pool is deleted, all of the IPs from that pool are released and that any effected
 // services get a new IP from another pool.
-func TestPoolDelete(t *testing.T) {
+func TestOldPoolDelete(t *testing.T) {
 	initDone := make(chan struct{})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}),
@@ -2367,7 +2367,7 @@ func TestPoolDelete(t *testing.T) {
 
 // TestRangeDelete tests that when a range is deleted from a pool, all of the IPs from that range are released and
 // that any effected services get a new IP from another range.
-func TestRangeDelete(t *testing.T) {
+func TestOldRangeDelete(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		poolA,
@@ -2475,7 +2475,7 @@ func TestRangeDelete(t *testing.T) {
 
 // TestLBIPAM_serviceIPFamilyRequest tests that the correct IP address families are requested in the different
 // combinations of service spec fields and enabled families in the cluster.
-func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
+func TestOldLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 	type test struct {
 		name              string
 		IPv4Enabled       bool
@@ -2650,7 +2650,7 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 
 // TestRemoveServiceLabel tests that changing/removing labels from a service that cause it to no longer match a pool
 // will cause the allocated IPs from that pool to be released and removed from the service.
-func TestRemoveServiceLabel(t *testing.T) {
+func TestOldRemoveServiceLabel(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -2737,7 +2737,7 @@ func TestRemoveServiceLabel(t *testing.T) {
 
 // TestRequestIPWithMismatchedLabel tests that Requested IPs will not be allocated/assigned from a pool if the service
 // doesn't match the selector on the pool.
-func TestRequestIPWithMismatchedLabel(t *testing.T) {
+func TestOldRequestIPWithMismatchedLabel(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -2788,7 +2788,7 @@ func TestRequestIPWithMismatchedLabel(t *testing.T) {
 
 // TestRemoveRequestedIP tests that removing a requested IP from the spec will free the IP from the pool and remove
 // it from the ingress list.
-func TestRemoveRequestedIP(t *testing.T) {
+func TestOldRemoveRequestedIP(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		poolA,
@@ -2888,7 +2888,7 @@ func TestRemoveRequestedIP(t *testing.T) {
 
 // TestNonMatchingLBClass tests that services, which explicitly set a LBClass which doesn't match any of the classes
 // LBIPAM looks for, are ignored by LBIPAM.
-func TestNonMatchingLBClass(t *testing.T) {
+func TestOldNonMatchingLBClass(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		poolA,
@@ -2929,7 +2929,7 @@ func TestNonMatchingLBClass(t *testing.T) {
 
 // TestChangePoolSelector tests that when the selector of a pool changes, all services which no longer match are
 // stripped of their allocations and assignments
-func TestChangePoolSelector(t *testing.T) {
+func TestOldChangePoolSelector(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{"color": "red"},
@@ -3007,7 +3007,7 @@ func TestChangePoolSelector(t *testing.T) {
 	}
 }
 
-func TestRangeFromPrefix(t *testing.T) {
+func TestOldRangeFromPrefix(t *testing.T) {
 	type test struct {
 		name   string
 		prefix string
