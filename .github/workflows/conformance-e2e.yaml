@@ -222,6 +222,18 @@ jobs:
             tunnel: 'vxlan'
             misc: 'policyCIDRMatchMode=nodes'
 
+          - name: '14'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.4-20231124.100406'
+            kube-proxy: 'iptables'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'vxlan'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            lb-acceleration: 'testing-only'
+
 
     timeout-minutes: 60
     steps:
