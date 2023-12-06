@@ -170,7 +170,7 @@ var (
 		"install-no-conntrack-iptables-rules": "false",
 		"l7Proxy":                             "false",
 		"hubble.enabled":                      "false",
-		"kubeProxyReplacement":                "strict",
+		"kubeProxyReplacement":                "true",
 		"endpointHealthChecking.enabled":      "false",
 		"cni.install":                         "true",
 		"cni.customConf":                      "true",
@@ -2499,7 +2499,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 	if RunsWithKubeProxyReplacement() {
 		opts := map[string]string{
-			"kubeProxyReplacement": "strict",
+			"kubeProxyReplacement": "true",
 		}
 
 		if RunsWithKubeProxy() {
@@ -2534,7 +2534,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
 	if DoesNotRunOnNetNextKernel() {
-		addIfNotOverwritten(options, "kubeProxyReplacement", "disabled")
+		addIfNotOverwritten(options, "kubeProxyReplacement", "false")
 		addIfNotOverwritten(options, "bpf.masquerade", "false")
 		addIfNotOverwritten(options, "sessionAffinity", "false")
 		addIfNotOverwritten(options, "bandwidthManager.enabled", "false")

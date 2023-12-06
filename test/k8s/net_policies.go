@@ -1477,7 +1477,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 					// https://github.com/cilium/cilium/issues/16197.
 					"routingMode":          "native",
 					"autoDirectNodeRoutes": "true",
-					"kubeProxyReplacement": "strict",
+					"kubeProxyReplacement": "true",
 				})
 
 				By("Deploying demo local daemonset")
