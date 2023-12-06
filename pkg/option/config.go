@@ -2533,12 +2533,6 @@ func (c *DaemonConfig) GetDevices() []string {
 	return c.devices
 }
 
-func (c *DaemonConfig) AppendDevice(dev string) {
-	c.devicesMu.Lock()
-	c.devices = append(c.devices, dev)
-	c.devicesMu.Unlock()
-}
-
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {

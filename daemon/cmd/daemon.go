@@ -742,7 +742,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.l2announcer.DevicesChanged(devices)
 	}
 
-	if err := finishKubeProxyReplacementInit(params.Sysctl); err != nil {
+	_, nativeDevices, _ := d.getDevices()
+	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
