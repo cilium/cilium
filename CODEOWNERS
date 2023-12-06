@@ -445,6 +445,7 @@ Makefile* @cilium/build
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
 /pkg/identity @cilium/sig-policy
 /pkg/idpool/ @cilium/kvstore
+/pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
 /pkg/ipam/ @cilium/sig-ipam
 /pkg/ipam/allocator/alibabacloud/ @cilium/sig-ipam @cilium/alibabacloud
