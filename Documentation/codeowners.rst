@@ -143,8 +143,14 @@ external software and protocols:
   Provide background on how the Cilium Endpoint package fits into the overall
   agent architecture, relationship with generation of policy / datapath
   constructs, serialization and restore from disk.
+- `@cilium/envoy <https://github.com/orgs/cilium/teams/envoy>`__:
+  Maintain the L7 proxy integration with Envoy. This includes the
+  configurations for Envoy via xDS protocols as well as the extensible
+  proxylib framework for Go-based layer 7 filters.
 - `@cilium/egress-gateway <https://github.com/orgs/cilium/teams/egress-gateway>`__:
   Maintain the egress gateway control plane and datapath logic.
+- `@cilium/fqdn <https://github.com/orgs/cilium/teams/fqdn>`__:
+  Maintain the L7 DNS proxy integration.
 - `@cilium/ipcache <https://github.com/orgs/cilium/teams/ipcache>`__:
   Provide background on how the userspace IPCache structure fits into the
   overall agent architecture, ordering constraints with respect to network
@@ -166,10 +172,8 @@ external software and protocols:
   component. Take care of the corresponding garbage collection and leader
   election logic.
 - `@cilium/proxy <https://github.com/orgs/cilium/teams/proxy>`__:
-  Review low-level implementations used to redirect and process traffic at
-  Layer 7, including via the Cilium DNS proxy and Envoy. Maintain the
-  configurations for Envoy via xDS protocols as well as the extensible
-  proxylib framework for Go-based layer 7 filters.
+  Review low-level implementations used to redirect L7 traffic to the actual
+  proxy implementations (FQDN, Envoy, ...).
 - `@cilium/sig-agent <https://github.com/orgs/cilium/teams/sig-agent>`__:
   Provide Cilium (agent) general Go review. Internal architecture, core data
   structures and daemon startup.
