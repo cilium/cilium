@@ -11,12 +11,12 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -132,19 +132,19 @@ func (s *StoreSuite) TestStoreCreation(c *C) {
 	c.Assert(store, IsNil)
 
 	// Missing KeyCreator must result in error
-	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomString()})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.String(12)})
 	c.Assert(err, ErrorMatches, "KeyCreator must be specified")
 	c.Assert(store, IsNil)
 
 	// Basic creation should result in default values
-	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomString(), KeyCreator: newTestType})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.String(12), KeyCreator: newTestType})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	c.Assert(store.conf.SynchronizationInterval, Equals, option.Config.KVstorePeriodicSync)
 	store.Close(context.TODO())
 
 	// Test with kvstore client specified
-	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomString(), KeyCreator: newTestType, Backend: kvstore.Client()})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.String(12), KeyCreator: newTestType, Backend: kvstore.Client()})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	c.Assert(store.conf.SynchronizationInterval, Equals, option.Config.KVstorePeriodicSync)
@@ -169,7 +169,7 @@ func expect(check func() bool) error {
 func (s *StoreSuite) TestStoreOperations(c *C) {
 	// Basic creation should result in default values
 	store, err := JoinSharedStore(Configuration{
-		Prefix:               rand.RandomString(),
+		Prefix:               rand.String(12),
 		KeyCreator:           newTestType,
 		Observer:             &observer{},
 		SharedKeyDeleteDelay: sharedKeyDeleteDelay,
@@ -216,7 +216,7 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 	// Create a store with a very short periodic sync interval
 	store, err := JoinSharedStore(Configuration{
-		Prefix:                  rand.RandomString(),
+		Prefix:                  rand.String(12),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: 10 * time.Millisecond,
 		SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
@@ -246,7 +246,7 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 
 func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 	store, err := JoinSharedStore(Configuration{
-		Prefix:                  rand.RandomString(),
+		Prefix:                  rand.String(12),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: time.Hour, // ensure that periodic sync does not interfer
 		Observer:                &observer{},
@@ -298,12 +298,12 @@ func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
 }
 
 func (s *StoreSuite) TestStoreCollaboration(c *C) {
-	storePrefix := rand.RandomString()
+	storePrefix := rand.String(12)
 
-	collab1 := setupStoreCollaboration(c, storePrefix, rand.RandomString())
+	collab1 := setupStoreCollaboration(c, storePrefix, rand.String(12))
 	defer collab1.Close(context.TODO())
 
-	collab2 := setupStoreCollaboration(c, storePrefix, rand.RandomString())
+	collab2 := setupStoreCollaboration(c, storePrefix, rand.String(12))
 	defer collab2.Close(context.TODO())
 
 	c.Assert(expect(func() bool {

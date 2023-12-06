@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
@@ -61,7 +62,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -375,7 +375,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 	if err != nil {
 		log.WithError(err).Fatal("Failed to get hostname when generating lease lock identity")
 	}
-	operatorID = rand.RandomStringWithPrefix(operatorID+"-", 10)
+	operatorID = fmt.Sprintf("%s-%s", operatorID, rand.String(10))
 
 	ns := option.Config.K8sNamespace
 	// If due to any reason the CILIUM_K8S_NAMESPACE is not set we assume the operator

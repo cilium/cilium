@@ -17,11 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/stream"
 )
@@ -226,7 +226,7 @@ func (t TestAllocatorKey) Value(any) any {
 }
 
 func randomTestName() string {
-	return rand.RandomStringWithPrefix(testPrefix, 12)
+	return fmt.Sprintf("%s%s", testPrefix, rand.String(12))
 }
 
 func (s *AllocatorSuite) TestSelectID(c *C) {
