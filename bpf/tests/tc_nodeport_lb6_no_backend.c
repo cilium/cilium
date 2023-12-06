@@ -155,7 +155,12 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(l4->icmp6_cksum == bpf_htons(0x7da8));
 
 	struct ratelimit_key key = {
-		.netdev_idx = 1,
+		.usage = RATELIMIT_USAGE_ICMPV6,
+		.key = {
+			.icmpv6 = {
+				.netdev_idx = 1,
+			},
+		},
 	};
 
 	value = map_lookup_elem(&RATELIMIT_MAP, &key);
