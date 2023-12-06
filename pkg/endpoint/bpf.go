@@ -199,6 +199,7 @@ func (p *proxyPolicy) GetListener() string {
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
+// Only called after a new desired policy has been computed.
 // Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode || e.IsProxyDisabled() {
@@ -219,13 +220,6 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	// create or update proxy redirects
 	e.desiredPolicy.UpdateRedirects(ingress,
 		func(l4 *policy.L4Filter) map[string]uint16 {
-			// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
-			updateMaps := e.desiredPolicy != e.realizedPolicy
-
-			if !updateMaps {
-				log.Fatalf("addNewRedirectsFromDesiredPolicy: e.desiredPolicy == e.realizedPolicy")
-			}
-
 			for _, v := range l4.PerSelectorPolicies {
 				if v == nil || !v.IsRedirect() {
 					continue
@@ -285,10 +279,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				updatedStats = append(updatedStats, proxyStats)
 			}
 
-			if updateMaps {
-				return desiredRedirects
-			}
-			return nil
+			return desiredRedirects
 		}, changes)
 
 	revertStack.Push(func() error {

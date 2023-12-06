@@ -218,10 +218,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 			}
 
 			redirects := createRedirects(l4)
-			if redirects != nil {
-				// Set the proxy port in the policy map.
-				l4.toMapState(p, l4policy.features, redirects, changes)
-			}
+			l4.toMapState(p, l4policy.features, redirects, changes)
 		}
 	}
 }

@@ -509,6 +509,7 @@ type ChangeState struct {
 // AuthType, and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to
 // 'p.PolicyMapState' using denyPreferredInsertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
+// 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
 // SelectorCache is also in read-locked state during this call.
 func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redirects map[string]uint16, changes ChangeState) {
 	port := uint16(l4.Port)
