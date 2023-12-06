@@ -119,9 +119,6 @@ jobs:
           "
 
           # * bpf.masquerade is disabled due to #23283
-          # * IPv6 is disabled because an issue under investigation seems to
-          #   possibly cause seldom and brief connection disruptions on agent
-          #   restart in dual stack clusters, independently of clustermesh.
           # * Hubble is disabled to avoid the performance penalty in the testing
           #   environment due to the relatively high traffic load.
           CILIUM_INSTALL_DEFAULTS=" \
@@ -131,7 +128,7 @@ jobs:
             --set=hubble.enabled=false \
             --set=tunnel=vxlan \
             --set=ipv4.enabled=true \
-            --set=ipv6.enabled=false \
+            --set=ipv6.enabled=true \
             --set=clustermesh.useAPIServer=true \
             --set=clustermesh.config.enabled=true"
 
