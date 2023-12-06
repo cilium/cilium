@@ -3,6 +3,9 @@ name: 100 Nodes Scale Test
 on:
   schedule:
     - cron: '39 0 * * 1-5'
+  push:
+    branches:
+      - add_metrics_to_scale_test
 
 permissions:
   # To be able to access the repository with actions/checkout
@@ -113,7 +116,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: marseel/perf-tests
-          ref: 946d8636347c2dce8e97e8e2f8232729feea682b # master
+          ref: 613b7fe0d78cab0408166c83af3e04ad3bf11abf # master
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
