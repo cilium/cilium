@@ -194,5 +194,13 @@ var (
 	ExpectedDropReasons = []string{
 		"Policy denied",
 		"Policy denied by denylist",
+		"Unsupported L3 protocol",
+		"Stale or unroutable IP",
+		"Authentication required",
+		"Service backend not found",
+		"Unsupported protocol for NAT masquerade",
+		"Invalid source ip",
+		"Unknown L3 target address",
+		"No tunnel/encapsulation endpoint (datapath BUG!)",
 	}
 )
