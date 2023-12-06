@@ -12,3 +12,10 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, __NR_CPUS__);
 } EVENTS_MAP __section_maps_btf;
+
+#ifdef EVENTS_MAP_RATE_LIMIT
+#ifndef EVENTS_MAP_BURST_LIMIT
+#define EVENTS_MAP_BURST_LIMIT EVENTS_MAP_RATE_LIMIT
+#endif
+#endif
+
