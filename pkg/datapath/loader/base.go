@@ -209,7 +209,13 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
 		}
 
-		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, "")
+		finalize, err := replaceDatapath(ctx,
+			replaceDatapathOptions{
+				device:   iface,
+				elf:      networkObj,
+				programs: progs,
+			},
+		)
 		if err != nil {
 			log.WithField(logfields.Interface, iface).WithError(err).Error("Load encryption network failed")
 			// collect errors, but keep trying replacing other interfaces.
