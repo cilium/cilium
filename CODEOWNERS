@@ -424,6 +424,7 @@ Makefile* @cilium/build
 /pkg/common/ipsec/ @cilium/ipsec
 /pkg/completion/ @cilium/proxy
 /pkg/components/ @cilium/sig-agent
+/pkg/container/bitlpm/ @cilium/ipcache @cilium/sig-policy
 /pkg/contexthelpers/ @cilium/kvstore
 /pkg/controller @cilium/sig-agent
 /pkg/counter @cilium/sig-datapath
