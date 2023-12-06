@@ -228,6 +228,17 @@ jobs:
           cilium status --wait --wait-duration=10m
           kubectl get pods -n kube-system
 
+      - name: Check that AWS leftover iptables chains have been removed
+        run: |
+          for pod in $(kubectl get po -n kube-system -l app.kubernetes.io/name=cilium-agent -o name); do
+            echo "Checking ${pod}"
+            if kubectl exec -n kube-system  ${pod} -c cilium-agent -- iptables-save | grep --silent ':AWS'; then
+              echo "Unexpected AWS leftover iptables chains"
+              kubectl exec -n kube-system ds/cilium -- iptables-save | grep ':AWS'
+              exit 1
+            fi
+          done
+
       - name: Port forward Relay
         run: |
           cilium hubble port-forward&
