@@ -646,7 +646,7 @@ func (m *metadata) filterByLabels(filter labels.Labels) []netip.Prefix {
 	return matching
 }
 
-// removeLabels asynchronously removes the labels association for a prefix.
+// remove asynchronously removes the labels association for a prefix.
 //
 // This function assumes that the ipcache metadata lock is held for writing.
 func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ...IPMetadata) {
