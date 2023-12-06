@@ -329,13 +329,13 @@ func TestInjectExisting(t *testing.T) {
 
 	// mimic fqdn policy:
 	// - identitiesForFQDNSelectorIPs calls AllocateCIDRsForIPs()
-	// - notifyOnDNSMsg calls UpsertGeneratedIdentities())
+	// - notifyOnDNSMsg calls upsertGeneratedIdentities())
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
 	prefix := netip.MustParsePrefix("172.19.0.5/32")
 	_, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
 	assert.NoError(t, err)
 
-	IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
+	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, nil)
 
 	// sanity check: ensure the cidr is correctly in the ipcache
 	wantID := identity.IdentityScopeLocal
@@ -383,7 +383,7 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 
 	// mimic fqdn policy:
 	// - identitiesForFQDNSelectorIPs calls AllocateCIDRsForIPs()
-	// - notifyOnDNSMsg calls UpsertGeneratedIdentities())
+	// - notifyOnDNSMsg calls upsertGeneratedIdentities())
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
 	prefix := netip.MustParsePrefix("172.19.0.5/32")
 	_, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
@@ -392,7 +392,7 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 
 	wantID := newlyAllocatedIdentities[prefix].ID
 
-	IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
+	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, nil)
 
 	// sanity check: ensure the cidr is correctly in the ipcache
 	id, ok := IPIdentityCache.LookupByIP(prefix.String())
@@ -487,7 +487,7 @@ func TestInjectLegacySecond(t *testing.T) {
 	assert.Len(t, newlyAllocatedIdentities, 0)
 	assert.Len(t, currentlyAllocatedIdentities, 1)
 	assert.Equal(t, wantID, currentlyAllocatedIdentities[0].ID)
-	IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities, currentlyAllocatedIdentities)
+	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, currentlyAllocatedIdentities)
 
 	// Remove via new APIs
 	IPIdentityCache.metadata.remove(prefix, resource, labels)

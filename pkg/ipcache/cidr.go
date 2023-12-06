@@ -25,7 +25,7 @@ import (
 // When an identity is freshly allocated for a CIDR, it is added to the
 // ipcache if 'newlyAllocatedIdentities' is 'nil', otherwise the newly allocated
 // identities are placed in 'newlyAllocatedIdentities' and it is the caller's
-// responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
+// responsibility to upsert them into ipcache by calling upsertGeneratedIdentities().
 //
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
@@ -75,7 +75,7 @@ func (ipc *IPCache) AllocateCIDRs(
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
 	if upsert {
-		ipc.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
+		ipc.upsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
 	}
 
 	identities := make([]*identity.Identity, 0, len(allocatedIdentities))
@@ -119,14 +119,14 @@ func cidrLabelToPrefix(id *identity.Identity) (prefix netip.Prefix, ok bool) {
 	return prefix, true
 }
 
-// UpsertGeneratedIdentities unconditionally upserts 'newlyAllocatedIdentities'
+// upsertGeneratedIdentities unconditionally upserts 'newlyAllocatedIdentities'
 // into the ipcache, then also upserts any CIDR identities in 'usedIdentities'
 // that were not already upserted. If any 'usedIdentities' are upserted, these
 // are counted separately as they may provide an indication of another logic
 // error elsewhere in the codebase that is causing premature ipcache deletions.
 //
 // Deprecated: Prefer UpsertLabels() instead.
-func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, usedIdentities []*identity.Identity) {
+func (ipc *IPCache) upsertGeneratedIdentities(newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, usedIdentities []*identity.Identity) {
 	for prefix, id := range newlyAllocatedIdentities {
 		ipc.Upsert(prefix.String(), nil, 0, nil, Identity{
 			ID:     id.ID,
@@ -181,7 +181,7 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []netip.
 	// releaseCIDRIdentities()    | AllocateCIDRs()
 	// -> Release(..., id, ...)   |
 	//                            | -> allocate(...)
-	//                            | -> ipc.UpsertGeneratedIdentities(...)
+	//                            | -> ipc.upsertGeneratedIdentities(...)
 	// -> ipc.deleteLocked(...)   |
 	//
 	// In this case, the expectation from Goroutine 2 is that an identity
