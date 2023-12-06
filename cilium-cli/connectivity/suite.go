@@ -261,7 +261,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		}
 	}
 
-	ct.NewTest("no-unexpected-packet-drops").WithScenarios(tests.NoUnexpectedPacketDrops())
+	ct.NewTest("no-unexpected-packet-drops").WithScenarios(tests.NoUnexpectedPacketDrops(ct.Params().ExpectedDropReasons))
 
 	// Run all tests without any policies in place.
 	noPoliciesScenarios := []check.Scenario{

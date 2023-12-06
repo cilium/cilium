@@ -5,6 +5,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -76,11 +77,13 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 
 // NoUnexpectedPacketDrops checks whether there were no drops due to expected
 // packet drops.
-func NoUnexpectedPacketDrops() check.Scenario {
-	return &noUnexpectedPacketDrops{}
+func NoUnexpectedPacketDrops(expectedDrops []string) check.Scenario {
+	return &noUnexpectedPacketDrops{expectedDrops}
 }
 
-type noUnexpectedPacketDrops struct{}
+type noUnexpectedPacketDrops struct {
+	expectedDrops []string
+}
 
 func (n *noUnexpectedPacketDrops) Name() string {
 	return "no-unexpected-packet-drops"
@@ -88,9 +91,11 @@ func (n *noUnexpectedPacketDrops) Name() string {
 
 func (n *noUnexpectedPacketDrops) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
+
+	filter := computeExpectedDropReasons(defaults.ExpectedDropReasons, n.expectedDrops)
 	cmd := []string{
 		"/bin/sh", "-c",
-		"cilium metrics list -o json | jq '.[] | select((.name == \"cilium_drop_count_total\") and (.labels.reason | IN(\"Policy denied\", \"Policy denied by denylist\") | not))'",
+		fmt.Sprintf("cilium metrics list -o json | jq '.[] | select((.name == \"cilium_drop_count_total\") and (.labels.reason | IN(%s) | not))'", filter),
 	}
 
 	for _, pod := range ct.CiliumPods() {
@@ -104,7 +109,49 @@ func (n *noUnexpectedPacketDrops) Run(ctx context.Context, t *check.Test) {
 			t.Fatalf("Found unexpected packet drops:\n%s", countStr)
 		}
 	}
+}
 
+func computeExpectedDropReasons(defaultReasons, inputReasons []string) string {
+	filter := ""
+	if len(inputReasons) > 0 {
+		// Build final list of drop reasons based on default reasons, added
+		// reasons (+ prefix), and removed reasons (- prefix).
+		addedAllDefaults := false
+		dropReasons := map[string]bool{}
+		for _, reason := range inputReasons {
+			if reason[0] == '+' || reason[0] == '-' {
+				if !addedAllDefaults {
+					for _, r := range defaultReasons {
+						dropReasons[r] = true
+					}
+					addedAllDefaults = true
+				}
+			}
+			switch reason[0] {
+			case '+':
+				dropReasons[reason[1:]] = true
+			case '-':
+				dropReasons[reason[1:]] = false
+			default:
+				dropReasons[reason] = true
+			}
+		}
+
+		// Build output string in form of '"reason1", "reason2"'.
+		i := 0
+		for reason, isIn := range dropReasons {
+			if !isIn {
+				continue
+			}
+			if i == 0 {
+				filter = fmt.Sprintf("%q", reason)
+			} else {
+				filter = fmt.Sprintf("%s, %q", filter, reason)
+			}
+			i++
+		}
+	}
+	return filter
 }
 
 func (n *noErrorsInLogs) checkErrorsInLogs(logs string, t *check.Test) {
