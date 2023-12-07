@@ -703,7 +703,7 @@ Users (Alphabetically)
     * N: Wildlife Studios
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
       U: ClusterMesh, Global Service Load Balancing.
-      Q: @Oki @luanguimaraesla
+      Q: @Oki @luanguimaraesla @rsafonseca
 
     * N: Yahoo!
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services
