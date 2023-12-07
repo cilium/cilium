@@ -107,15 +107,17 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
-check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
+check-codeowners: builder-image update-codeowners ## Validate code owners list in contributor guide
+	@$(ECHO_CHECK) codeowners.rst
+	$(QUIET) ./check-codeowners.sh
+
+check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values check-codeowners ## Validate command and Helm references, policy examples, and others.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
 	$(QUIET) ./check-helmvalues.sh
 	@$(ECHO_CHECK) examples
 	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
-	@$(ECHO_CHECK) codeowners.rst
-	$(QUIET) ./check-codeowners.sh
 	@$(ECHO_CHECK) configuration/api-restrictions-table.rst
 	$(QUIET) ./check-flaggen.sh
 	@$(ECHO_CHECK) crdlist.rst
