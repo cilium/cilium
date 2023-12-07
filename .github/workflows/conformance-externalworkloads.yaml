@@ -94,7 +94,10 @@ jobs:
         run: |
           cd /tmp/generated/gke
 
-          if [ "${{ github.event_name }}" == "schedule" ];then
+          # Use complete matrix in case of scheduled run
+          # main -> event_name = schedule
+          # other stable branches -> PR-number starting with v (e.g. v1.14)
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
             jq '{ "include": [ .k8s[] ] }' gke.json > /tmp/matrix.json
           else
             jq '{ "include": [ .k8s[] | select(.default) ] }' gke.json > /tmp/matrix.json
