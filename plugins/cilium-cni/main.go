@@ -18,9 +18,10 @@ func init() {
 }
 
 func main() {
-	skel.PluginMain(cmd.Add,
-		cmd.Check,
-		cmd.Del,
+	c := cmd.NewCmd()
+	skel.PluginMain(c.Add,
+		c.Check,
+		c.Del,
 		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0"),
 		"Cilium CNI plugin "+version.Version)
 }

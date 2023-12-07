@@ -57,6 +57,16 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-cni")
 )
 
+// Cmd provides methods for the CNI ADD, DEL and CHECK commands.
+type Cmd struct{}
+
+// NewCmd creates a new Cmd instance, whose Add, Del and Check methods can be
+// passed to skel.PluginMain
+func NewCmd() *Cmd {
+	cmd := &Cmd{}
+	return cmd
+}
+
 type CmdState struct {
 	IP6       netip.Addr
 	IP6routes []route.Route
@@ -347,7 +357,7 @@ func setupLogging(n *types.NetConf) error {
 	return nil
 }
 
-func Add(args *skel.CmdArgs) (err error) {
+func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return fmt.Errorf("unable to parse CNI configuration %q: %w", string(args.StdinData), err)
@@ -591,7 +601,7 @@ func Add(args *skel.CmdArgs) (err error) {
 //
 // Note: ENI specific attributes do not need to be released as the ENIs and ENI
 // IPs can be reused and are not released until the node terminates.
-func Del(args *skel.CmdArgs) error {
+func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
 	// are guaranteed to be recoverable.
@@ -694,7 +704,7 @@ func Del(args *skel.CmdArgs) error {
 // Currently, it verifies that
 // - endpoint exists in the agent and is healthy
 // - the interface in the container is sane
-func Check(args *skel.CmdArgs) error {
+func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidNetworkConfig",
