@@ -34,6 +34,7 @@ jobs:
             codeowners-changed:
               - 'CODEOWNERS'
               - '.github/workflows/lint-codeowners.yaml'
+              - 'Documentation/codeowners.rst'
 
   codeowners:
     needs: check_changes
@@ -127,3 +128,9 @@ jobs:
               echo '::error title=missing_team::The teams above are not documented in CODEOWNERS. Typo?'
               exit ${EXIT_STATUS}
           fi
+
+      - name: Check if code owners list in contributor guide matches CODEOWNERS
+        if: ${{ needs.check_changes.outputs.codeowners-changed == 'true' }}
+        run: |
+          cd src/github.com/cilium/cilium
+          make -C Documentation check-codeowners
