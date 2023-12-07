@@ -48,7 +48,7 @@ func GetProtocol(httpProtocol cilium.HttpProtocol) string {
 	case cilium.HttpProtocol_HTTP2:
 		return "HTTP/2"
 	default:
-		return "Unknown"
+		return "Unknownn"
 	}
 }
 

@@ -17,7 +17,7 @@ import (
 
 func main() {
 	cmd := &cobra.Command{
-		Use:   "clustermesh-apiserver",
+		Use:   "clustermesh-apiserverr",
 		Short: "Run the ClusterMesh apiserver",
 	}
 
