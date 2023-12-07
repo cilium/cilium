@@ -1,4 +1,4 @@
-name: Cilium Conformance IPsec E2E (ci-ipsec-e2e)
+name: Conformance IPsec E2E (ci-ipsec-e2e)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
