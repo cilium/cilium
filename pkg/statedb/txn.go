@@ -184,8 +184,8 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 	}
 
 	// Update the primary index first
-	idKey := meta.primaryIndexer().fromObject(obj).First()
-	idIndexTxn := txn.mustIndexWriteTxn(tableName, meta.primaryIndexer().name)
+	idKey := meta.primary().fromObject(obj).First()
+	idIndexTxn := txn.mustIndexWriteTxn(tableName, meta.primary().name)
 	oldObj, oldExists := idIndexTxn.txn.Insert(idKey, obj)
 
 	// For CompareAndSwap() validate against the given guard revision
@@ -227,7 +227,7 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 	}
 
 	// Then update secondary indexes
-	for idx, indexer := range meta.secondaryIndexers() {
+	for idx, indexer := range meta.secondary() {
 		indexTxn := txn.mustIndexWriteTxn(tableName, idx)
 		newKeys := indexer.fromObject(obj)
 
@@ -307,8 +307,8 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 	// Delete from the primary index first to grab the object.
 	// We assume that "data" has only enough defined fields to
 	// compute the primary key.
-	idKey := meta.primaryIndexer().fromObject(object{data: data}).First()
-	idIndexTree := txn.mustIndexWriteTxn(tableName, meta.primaryIndexer().name)
+	idKey := meta.primary().fromObject(object{data: data}).First()
+	idIndexTree := txn.mustIndexWriteTxn(tableName, meta.primary().name)
 	obj, existed := idIndexTree.txn.Delete(idKey)
 	if !existed {
 		return nil, false, nil
@@ -331,7 +331,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 	}
 
 	// Then update secondary indexes.
-	for idx, indexer := range meta.secondaryIndexers() {
+	for idx, indexer := range meta.secondary() {
 		indexer.fromObject(obj).Foreach(func(key index.Key) {
 			if !indexer.unique {
 				key = encodeNonUniqueKey(idKey, key)
@@ -505,7 +505,7 @@ func (txn *txn) WriteJSON(w io.Writer) error {
 			first = false
 		}
 
-		indexTxn := txn.getTxn().mustIndexReadTxn(table.Name(), table.primaryIndexer().name)
+		indexTxn := txn.getTxn().mustIndexReadTxn(table.Name(), table.primary().name)
 		root := indexTxn.txn.Root()
 		iter := root.Iterator()
 
