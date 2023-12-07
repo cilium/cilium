@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -25,6 +26,10 @@ type EndpointConfiguration interface {
 	IfName() string
 	// IPAMPool specifies which IPAM pool the endpoint's IP should be allocated from
 	IPAMPool() string
+
+	// PrepareEndpoint returns the interface configuration 'cmd' of the container
+	// namespace as well as the template for the endpoint creation request 'ep'.
+	PrepareEndpoint(ipam *models.IPAMResponse) (cmd *CmdState, ep *models.EndpointChangeRequest, err error)
 }
 
 // ConfigurationParams contains the arguments and Cilium configuration of a CNI
@@ -63,4 +68,28 @@ func (c *defaultEndpointConfiguration) IfName() string {
 
 func (c *defaultEndpointConfiguration) IPAMPool() string {
 	return "" // auto-select
+}
+
+func (c *defaultEndpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse) (cmd *CmdState, ep *models.EndpointChangeRequest, err error) {
+	ep = &models.EndpointChangeRequest{
+		ContainerID:            c.Args.ContainerID,
+		Labels:                 models.Labels{},
+		State:                  models.EndpointStateWaitingDashForDashIdentity.Pointer(),
+		Addressing:             &models.AddressPair{},
+		K8sPodName:             string(c.CniArgs.K8S_POD_NAME),
+		K8sNamespace:           string(c.CniArgs.K8S_POD_NAMESPACE),
+		ContainerInterfaceName: c.Args.IfName,
+		DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
+	}
+
+	if c.Conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
+		// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
+		ep.DatapathConfiguration.ExternalIpam = true
+	}
+
+	state := &CmdState{
+		HostAddr: ipam.HostAddressing,
+	}
+
+	return state, ep, nil
 }
