@@ -5,10 +5,12 @@ package linux
 
 import (
 	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -43,6 +45,8 @@ type DatapathParams struct {
 	MTU            datapath.MTUConfiguration
 	Loader         loader.Loader
 	NodeManager    manager.NodeManager
+	DB             *statedb.DB
+	Devices        statedb.Table[*tables.Device]
 }
 
 // NewDatapath creates a new Linux datapath
@@ -58,7 +62,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		bwmgr:           p.BWManager,
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.NodeManager)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.NodeManager, p.DB, p.Devices)
 	return dp
 }
 
