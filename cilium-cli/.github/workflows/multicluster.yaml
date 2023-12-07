@@ -40,8 +40,6 @@ jobs:
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix:
-        mode: ["classic", "helm"]
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -49,10 +47,10 @@ jobs:
       # Note: These names currently approach the limit of 40 characters
       - name: Set mode-specific names
         run: |
-          echo "clusterNameBase=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}" >> $GITHUB_ENV
-          echo "clusterName1=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}-1" >> $GITHUB_ENV
-          echo "clusterName2=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}-2" >> $GITHUB_ENV
-          echo "firewallRuleName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode}}" >> $GITHUB_ENV
+          echo "clusterNameBase=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_ENV
+          echo "clusterName1=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-1" >> $GITHUB_ENV
+          echo "clusterName2=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-2" >> $GITHUB_ENV
+          echo "firewallRuleName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_ENV
 
       - name: Install kubectl
         run: |
@@ -190,8 +188,7 @@ jobs:
             --set job_name=cilium-cli \
             --set test_script_cm=cilium-cli-test-script \
             --set cluster_name_1=${{ env.clusterName1 }} \
-            --set cluster_name_2=${{ env.clusterName2 }} \
-            --set cilium_cli_mode=${{ matrix.mode }}
+            --set cluster_name_2=${{ env.clusterName2 }}
 
       - name: Wait for test job
         env:
