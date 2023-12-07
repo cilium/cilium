@@ -24,7 +24,7 @@ import (
 
 type Enabler interface {
 	// Enable enables the connection tracking garbage collection.
-	Enable(restoredEndpoints []*endpoint.Endpoint)
+	Enable()
 }
 
 // EndpointManager is any type which returns the list of Endpoints which are
@@ -87,10 +87,7 @@ func New(params parameters) *GC {
 }
 
 // Enable enables the connection tracking garbage collection.
-// The restored endpoints and local node addresses are used to avoid GCing
-// connections that may still be in use: connections of active endpoints and,
-// in case the host firewall is enabled, connections of the local host.
-func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
+func (gc *GC) Enable() {
 	var (
 		initialScan         = true
 		initialScanComplete = make(chan struct{})
@@ -145,8 +142,8 @@ func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
 			}
 
 			if len(eps) > 0 || initialScan {
-				gcFilter := gc.createGCFilter(initialScan, restoredEndpoints, emitEntryCB, gc.nodeAddressing)
-				maxDeleteRatio = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, gcFilter)
+				gc.logger.Info("Starting initial GC of connection tracking")
+				maxDeleteRatio = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
@@ -342,5 +339,5 @@ func (gc *GC) createGCFilter(initialScan bool, restoredEndpoints []*endpoint.End
 
 type fakeCTMapGC struct{}
 
-func NewFake() Enabler                                            { return fakeCTMapGC{} }
-func (fakeCTMapGC) Enable(restoredEndpoints []*endpoint.Endpoint) {}
+func NewFake() Enabler      { return fakeCTMapGC{} }
+func (fakeCTMapGC) Enable() {}
