@@ -544,7 +544,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
-	ctx_skip_nodeport_clear(ctx);
+	ctx->tc_index = 0;
 
 	if (!validate_ethertype(ctx, &proto)) {
 		/* Pass unknown traffic to the stack */
@@ -708,6 +708,8 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
 	__s8 ext_err = 0;
+
+	ctx->tc_index = 0;
 
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the

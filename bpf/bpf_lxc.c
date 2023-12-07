@@ -2352,6 +2352,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 	}
 
 	bpf_clear_meta(ctx);
+	ctx->tc_index = 0;
 
 	magic = inherit_identity_from_host(ctx, &identity);
 	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)

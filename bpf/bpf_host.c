@@ -1242,7 +1242,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		}
 	}
 
-	ctx_skip_nodeport_clear(ctx);
+	ctx->tc_index = 0;
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
 	if (flags & XFER_PKT_NO_SVC)
@@ -1280,6 +1280,8 @@ int cil_from_host(struct __ctx_buff *ctx)
 	 * not be subject to EDT rate-limiting.
 	 */
 	edt_set_aggregate(ctx, 0);
+	ctx->tc_index = 0;
+
 	return handle_netdev(ctx, true);
 }
 
@@ -1303,6 +1305,8 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 #ifdef ENABLE_HOST_FIREWALL
 	__u16 proto = 0;
 #endif
+
+	ctx->tc_index = 0;
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
