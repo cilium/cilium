@@ -65,3 +65,50 @@ jobs:
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
+
+  check-generated-documentation:
+    name: Check generated documentation
+    if: ${{ github.event_name != 'merge_group' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.21.5
+
+      - name: Set clang directory
+        id: set_clang_dir
+        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        with:
+          path: ${{ steps.set_clang_dir.outputs.clang_dir }}
+          key: llvm-10.0
+
+      - name: Install LLVM and Clang prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtinfo5
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@be40c5af3a4adc3e4a03199995ab73aa37536712 # v1.9.0
+        with:
+          version: "10.0"
+          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+
+      # Building Cilium as precondition to generate documentation artifacts.
+      - name: Build Cilium
+        run: |
+          make -C Documentation cilium-build
+
+      - name: Check generated documentation
+        run: |
+          SKIP_BUILD=true make -C Documentation check
