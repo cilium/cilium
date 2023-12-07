@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -284,57 +283,6 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 	}
 
 	return
-}
-
-func (gc *GC) createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint,
-	emitEntryCB ctmap.EmitCTEntryCBFunc, nodeAddressing types.NodeAddressing) *ctmap.GCFilter {
-	filter := &ctmap.GCFilter{
-		RemoveExpired: true,
-		EmitCTEntryCB: emitEntryCB,
-	}
-
-	// On the initial scan, scrub all IPs from the conntrack table which do
-	// not belong to IPs of any endpoint that has been restored. No new
-	// endpoints can appear yet so we can assume that any other entry not
-	// belonging to a restored endpoint has become stale.
-	if initialScan {
-		filter.ValidIPs = map[netip.Addr]struct{}{}
-		for _, ep := range restoredEndpoints {
-			if ep.IsHost() {
-				continue
-			}
-			if ep.IPv6.IsValid() {
-				filter.ValidIPs[ep.IPv6] = struct{}{}
-			}
-			if ep.IPv4.IsValid() {
-				filter.ValidIPs[ep.IPv4] = struct{}{}
-			}
-		}
-
-		// Once the host firewall is enabled, we will start tracking (and
-		// potentially enforcing policies) on all connections to and from the
-		// host IP addresses. Thus, we also need to avoid GCing the host IPs.
-		if option.Config.EnableHostFirewall {
-			addrs, err := nodeAddressing.IPv4().LocalAddresses()
-			if err != nil {
-				gc.logger.WithError(err).Warning("Unable to list local IPv4 addresses")
-			}
-			addrsV6, err := nodeAddressing.IPv6().LocalAddresses()
-			if err != nil {
-				gc.logger.WithError(err).Warning("Unable to list local IPv6 addresses")
-			}
-			addrs = append(addrs, addrsV6...)
-
-			for _, ip := range addrs {
-				if option.Config.IsExcludedLocalAddress(ip) {
-					continue
-				}
-				filter.ValidIPs[iputil.MustAddrFromIP(ip)] = struct{}{}
-			}
-		}
-	}
-
-	return filter
 }
 
 type fakeCTMapGC struct{}
