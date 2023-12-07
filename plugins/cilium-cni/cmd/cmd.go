@@ -497,20 +497,9 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			return errors.New("IPAM did provide neither IPv4 nor IPv6 address")
 		}
 
-		ep := &models.EndpointChangeRequest{
-			ContainerID:            args.ContainerID,
-			Labels:                 models.Labels{},
-			State:                  models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-			Addressing:             &models.AddressPair{},
-			K8sPodName:             string(cniArgs.K8S_POD_NAME),
-			K8sNamespace:           string(cniArgs.K8S_POD_NAMESPACE),
-			ContainerInterfaceName: epConf.IfName(),
-			DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
-		}
-
-		if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
-			// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
-			ep.DatapathConfiguration.ExternalIpam = true
+		state, ep, err := epConf.PrepareEndpoint(ipam)
+		if err != nil {
+			return fmt.Errorf("unable to prepare endpoint configuration: %w", err)
 		}
 
 		switch conf.DatapathMode {
@@ -545,10 +534,6 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			}
 		}
 
-		state := CmdState{
-			HostAddr: ipam.HostAddressing,
-		}
-
 		var (
 			ipConfig *cniTypesV1.IPConfig
 			routes   []*cniTypes.Route
@@ -558,7 +543,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
 			ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
-			ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, &state, int(conf.RouteMTU))
+			ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, state, int(conf.RouteMTU))
 			if err != nil {
 				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV6, err)
 			}
@@ -573,7 +558,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
 			ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
 
-			ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, &state, int(conf.RouteMTU))
+			ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, state, int(conf.RouteMTU))
 			if err != nil {
 				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV4, err)
 			}
@@ -598,7 +583,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 					logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
 				}
 			}
-			macAddrStr, err = configureIface(ipam, epConf.IfName(), &state)
+			macAddrStr, err = configureIface(ipam, epConf.IfName(), state)
 			return err
 		}); err != nil {
 			return fmt.Errorf("unable to configure interfaces in container namespace: %w", err)
