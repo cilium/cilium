@@ -1839,7 +1839,7 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 		       (__u16)sample_len);
 	ip4->id = 0;
 	ip4->frag_off = 0;
-	ip4->ttl = 64;
+	ip4->ttl = IPDEFTTL;
 	ip4->protocol = IPPROTO_ICMP;
 	ip4->check = 0;
 	ip4->daddr = saddr;
@@ -2001,7 +2001,7 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	ip6->flow_lbl[2] = 0;
 	ip6->payload_len = bpf_htons(sizeof(struct icmp6hdr) + (__u16)sample_len);
 	ip6->nexthdr = IPPROTO_ICMPV6;
-	ip6->hop_limit = 64;
+	ip6->hop_limit = IPDEFTTL;
 	memcpy(&ip6->daddr, &saddr, sizeof(struct in6_addr));
 	memcpy(&ip6->saddr, &daddr, sizeof(struct in6_addr));
 
