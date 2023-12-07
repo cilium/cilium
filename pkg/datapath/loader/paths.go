@@ -20,6 +20,15 @@ func bpffsDevicesDir(base string) string {
 	return filepath.Join(base, "devices")
 }
 
+// bpffsDeviceDir returns the path to the per-device directory on bpffs, usually
+// /sys/fs/bpf/cilium/devices/<device>. It does not ensure the directory exists.
+//
+// base is typically set to /sys/fs/bpf/cilium, but can be a temp directory
+// during tests.
+func bpffsDeviceDir(base string, device netlink.Link) string {
+	return filepath.Join(bpffsDevicesDir(base), device.Attrs().Name)
+}
+
 // bpffsDeviceLinksDir returns the bpffs path to the per-device links directory,
 // usually /sys/fs/bpf/cilium/devices/<device>/links. It does not ensure the
 // directory exists.
@@ -27,7 +36,7 @@ func bpffsDevicesDir(base string) string {
 // base is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
 func bpffsDeviceLinksDir(base string, device netlink.Link) string {
-	return filepath.Join(bpffsDevicesDir(base), device.Attrs().Name, "links")
+	return filepath.Join(bpffsDeviceDir(base, device), "links")
 }
 
 // bpffsEndpointsDir returns the path to the 'endpoints' directory on bpffs, usually
@@ -39,6 +48,16 @@ func bpffsEndpointsDir(base string) string {
 	return filepath.Join(base, "endpoints")
 }
 
+// bpffsEndpointDir returns the path to the per-endpoint directory on bpffs,
+// usually /sys/fs/bpf/cilium/endpoints/<endpoint-id>. It does not ensure the
+// directory exists.
+//
+// base is typically set to /sys/fs/bpf/cilium, but can be a temp directory
+// during tests.
+func bpffsEndpointDir(base string, ep datapath.Endpoint) string {
+	return filepath.Join(bpffsEndpointsDir(base), ep.StringID())
+}
+
 // bpffsEndpointLinksDir returns the bpffs path to the per-endpoint links directory,
 // usually /sys/fs/bpf/cilium/endpoints/<endpoint-id>/links. It does not ensure the
 // directory exists.
@@ -46,5 +65,5 @@ func bpffsEndpointsDir(base string) string {
 // base is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
 func bpffsEndpointLinksDir(base string, ep datapath.Endpoint) string {
-	return filepath.Join(bpffsEndpointsDir(base), ep.StringID(), "links")
+	return filepath.Join(bpffsEndpointDir(base, ep), "links")
 }
