@@ -342,6 +342,10 @@ Annotations:
 * The ``CILIUM_PREPEND_IPTABLES_CHAIN`` environment variable has been renamed
   to ``CILIUM_PREPEND_IPTABLES_CHAINS`` (note the trailing ``S``) to more accurately
   match the name of the associated command line flag ``--prepend-iptables-chains``.
+* If Cilium is configured with BPF masquerade support but the requirements are not
+  met (e.g: NodePort service implementation in BPF is disabled or socket load-balancing
+  is disabled), it will fail to initialize and will log an error instead of silently
+  fall back to iptables based masquerading.
 
 .. _upgrade_cilium_cli_helm_mode:
 
