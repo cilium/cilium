@@ -451,7 +451,7 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	// Add an additional IP to the selector (for which the identity exists)
 	user1.Reset()
 	wg := &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIPs, wg)
+	sc.UpdateFQDNSelectors(map[api.FQDNSelector][]netip.Addr{ciliumSel: ciliumIPs}, wg)
 	wg.Wait()
 
 	adds, deletes := user1.WaitForUpdate()
@@ -466,7 +466,7 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	// Change to a different IP that does not yet exist
 	user1.Reset()
 	wg = &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, []netip.Addr{netip.MustParseAddr("4.4.4.4")}, wg)
+	sc.UpdateFQDNSelectors(map[api.FQDNSelector][]netip.Addr{ciliumSel: {netip.MustParseAddr("4.4.4.4")}}, wg)
 	wg.Wait()
 
 	adds, deletes = user1.WaitForUpdate()

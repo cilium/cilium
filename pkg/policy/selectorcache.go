@@ -275,7 +275,7 @@ const (
 	UpdateResultUnchanged = UpdateResult(0)
 )
 
-// UpdateFQDNSelector updates the mapping of fqdnKey (the FQDNSelector from a
+// UpdateFQDNSelectors updates the mapping of fqdnKey (the FQDNSelector from a
 // policy rule as a string) to to the provided list of IPs.
 //
 // If the supplied IPs are already known to the SelectorCache (i.e. they already)
@@ -293,10 +293,17 @@ const (
 //
 // Returns an UpdateResult that indicates if the caller should call UpdatePolicyMaps() and/or
 // wait for ipcache UpsertMetadata() to finish.
-func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, ips []netip.Addr, wg *sync.WaitGroup) UpdateResult {
+func (sc *SelectorCache) UpdateFQDNSelectors(fqdnSelecs map[api.FQDNSelector][]netip.Addr, wg *sync.WaitGroup) UpdateResult {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	return sc.updateFQDNSelector(fqdnSelec, ips, wg)
+	result := UpdateResultUnchanged
+	for fqdnSelec, ips := range fqdnSelecs {
+		log.WithFields(logrus.Fields{
+			"fqdnSelectorString": fqdnSelec,
+			"ips":                ips}).Debug("updating FQDN selector")
+		result |= sc.updateFQDNSelector(fqdnSelec, ips, wg)
+	}
+	return result
 }
 
 func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, ips []netip.Addr, wg *sync.WaitGroup) UpdateResult {

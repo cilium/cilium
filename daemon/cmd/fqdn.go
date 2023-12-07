@@ -84,13 +84,7 @@ func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQ
 	notifyWg := &sync.WaitGroup{}
 	updateResult := policy.UpdateResultUnchanged
 	// Update mapping of selector to set of IPs in selector cache.
-	for selector, ips := range selectors {
-		logger.WithFields(logrus.Fields{
-			"fqdnSelectorString": selector,
-			"ips":                ips}).Debug("updating FQDN selector")
-		res := d.policy.GetSelectorCache().UpdateFQDNSelector(selector, ips, notifyWg)
-		updateResult |= res
-	}
+	updateResult |= d.policy.GetSelectorCache().UpdateFQDNSelectors(selectors, notifyWg)
 
 	// UpdatePolicyMaps consumes notifyWG, and returns its own WaitGroup
 	// that is Done() when all endpoints have pushed their incremental changes
