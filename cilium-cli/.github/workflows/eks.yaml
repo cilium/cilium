@@ -38,13 +38,10 @@ jobs:
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    strategy:
-      matrix:
-        mode: ["classic", "helm"]
     steps:
       - name: Set cluster name
         run: |
-          echo "clusterName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}" >> $GITHUB_ENV
+          echo "clusterName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -142,8 +139,7 @@ jobs:
             --generate-name \
             --set tag=${{ steps.vars.outputs.sha }} \
             --set cilium_version=${{ env.cilium_version }} \
-            --set cluster_name=${{ env.clusterName }} \
-            --set cilium_cli_mode=${{ matrix.mode }}
+            --set cluster_name=${{ env.clusterName }}
 
       - name: Wait for job
         env:
@@ -193,8 +189,7 @@ jobs:
             --set tag=${{ steps.vars.outputs.sha }} \
             --set cluster_name=${{ env.clusterName }} \
             --set job_name=cilium-cli-uninstall \
-            --set test_script_cm=cilium-cli-test-script-uninstall \
-            --set cilium_cli_mode=${{ matrix.mode }}
+            --set test_script_cm=cilium-cli-test-script-uninstall
 
           # Background wait for job to complete or timeout
           kubectl -n kube-system wait job/cilium-cli-uninstall --for=condition=complete --timeout=${{ env.timeout }} &

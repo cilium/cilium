@@ -38,13 +38,10 @@ jobs:
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 45
-    strategy:
-      matrix:
-        mode: ["classic", "helm"]
     steps:
       - name: Set cluster name
         run: |
-          echo "clusterName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}" >> $GITHUB_ENV
+          echo "clusterName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -135,8 +132,7 @@ jobs:
             --set tag=${{ steps.vars.outputs.sha }} \
             --set cilium_version=${{ env.cilium_version }} \
             --set cluster_name=${{ env.clusterName }} \
-            --set cluster_cidr=${{ steps.cluster.outputs.cluster_cidr }} \
-            --set cilium_cli_mode=${{ matrix.mode }} \
+            --set cluster_cidr=${{ steps.cluster.outputs.cluster_cidr }}
 
       - name: Wait for test job
         env:
