@@ -44,8 +44,6 @@ spec:
             value: {{ .Values.azure.client_id }}
           - name: AZURE_CLIENT_SECRET
             value: {{ .Values.azure.client_secret }}
-          - name: CILIUM_CLI_MODE
-            value: {{ .Values.cilium_cli_mode }}
       dnsPolicy: ClusterFirst
       enableServiceLinks: true
       priority: 0

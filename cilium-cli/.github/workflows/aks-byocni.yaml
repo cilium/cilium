@@ -48,9 +48,6 @@ jobs:
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 45
-    strategy:
-      matrix:
-        mode: ["classic", "helm"]
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -93,7 +90,7 @@ jobs:
 
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
           echo "owner=${OWNER}" >> $GITHUB_OUTPUT
-          echo "name=${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}" >> $GITHUB_OUTPUT
+          echo "name=${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_OUTPUT
 
       - name: Create AKS cluster
         run: |
@@ -135,8 +132,7 @@ jobs:
             --set job_name=cilium-cli-install \
             --set test_script_cm=cilium-cli-test-script-install \
             --set tag=${{ steps.vars.outputs.sha }} \
-            --set cilium_version=${{ env.cilium_version }} \
-            --set cilium_cli_mode=${{ matrix.mode }}
+            --set cilium_version=${{ env.cilium_version }}
 
       - name: Wait for install job
         env:
@@ -169,8 +165,7 @@ jobs:
             --generate-name \
             --set job_name=cilium-cli \
             --set test_script_cm=cilium-cli-test-script \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set cilium_cli_mode=${{ matrix.mode }}
+            --set tag=${{ steps.vars.outputs.sha }}
 
       - name: Wait for test job
         env:
