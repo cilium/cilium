@@ -90,8 +90,10 @@ func NewCmd(opts ...Option) *Cmd {
 type CmdState struct {
 	IP6       netip.Addr
 	IP6routes []route.Route
+	IP6rules  []route.Rule
 	IP4       netip.Addr
 	IP4routes []route.Route
+	IP4rules  []route.Rule
 	HostAddr  *models.NodeAddressing
 }
 
@@ -210,7 +212,7 @@ func allocateIPsWithDelegatedPlugin(
 	return ipam, releaseFunc, nil
 }
 
-func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, ifName string) error {
+func addIPConfigToLink(ip netip.Addr, routes []route.Route, rules []route.Rule, link netlink.Link, ifName string) error {
 	log.WithFields(logrus.Fields{
 		logfields.IPAddr:    ip,
 		"netLink":           logfields.Repr(link),
@@ -236,6 +238,7 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, i
 			Scope:     netlink.SCOPE_UNIVERSE,
 			Dst:       &r.Prefix,
 			MTU:       r.MTU,
+			Table:     r.Table,
 		}
 
 		if r.Nexthop == nil {
@@ -249,6 +252,19 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, i
 				return fmt.Errorf("failed to add route '%s via %v dev %v': %w",
 					r.Prefix.String(), r.Nexthop, ifName, err)
 			}
+		}
+	}
+
+	for _, r := range rules {
+		log.WithField("rule", logfields.Repr(r)).Debug("Adding rule")
+		var err error
+		if ip.Is4() {
+			err = route.ReplaceRule(r)
+		} else {
+			err = route.ReplaceRuleIPv6(r)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to add rule '%s for dev %v': %w", r, ifName, err)
 		}
 	}
 
@@ -266,13 +282,13 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 	}
 
 	if ipv4IsEnabled(ipam) {
-		if err := addIPConfigToLink(state.IP4, state.IP4routes, l, ifName); err != nil {
+		if err := addIPConfigToLink(state.IP4, state.IP4routes, state.IP4rules, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv4: %w", err)
 		}
 	}
 
 	if ipv6IsEnabled(ipam) {
-		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
+		if err := addIPConfigToLink(state.IP6, state.IP6routes, state.IP6rules, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv6: %w", err)
 		}
 	}
@@ -318,19 +334,19 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 	if ip.Is6() {
 		state.IP6 = ip
 		if state.HostAddr != nil {
-			if state.IP6routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
+			if routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
 				return nil, nil, err
 			}
-			routes = state.IP6routes
+			state.IP6routes = append(state.IP6routes, routes...)
 			gw = connector.IPv6Gateway(state.HostAddr)
 		}
 	} else {
 		state.IP4 = ip
 		if state.HostAddr != nil {
-			if state.IP4routes, err = connector.IPv4Routes(state.HostAddr, mtu); err != nil {
+			if routes, err = connector.IPv4Routes(state.HostAddr, mtu); err != nil {
 				return nil, nil, err
 			}
-			routes = state.IP4routes
+			state.IP4routes = append(state.IP4routes, routes...)
 			gw = connector.IPv4Gateway(state.HostAddr)
 		}
 	}
