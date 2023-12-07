@@ -33,7 +33,7 @@ helm install cilium ${HELM_CHART_DIR} \
     --set ipv6.enabled=true \
     --set routingMode='native' \
     --set bpf.masquerade=true \
-    --set kubeProxyReplacement=strict \
+    --set kubeProxyReplacement=true \
     --set ipam.mode=kubernetes \
     --set autoDirectNodeRoutes=true \
     --set hostLegacyRouting=false \
