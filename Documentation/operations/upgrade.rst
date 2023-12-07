@@ -382,6 +382,10 @@ Changed Metrics
   to default deny for an allow policy. Similarly, for an Egress CNP, an empty slice in
   one of the fields ``toEndpoints``, ``toCIDR``, ``toCIDRSet`` and ``toEntities`` will
   not select any identity either.
+* If Cilium is configured with BPF masquerade support but the requirements are not
+  met (e.g: NodePort service implementation in BPF is disabled or socket load-balancing
+  is disabled), it will fail to initialize and will log an error instead of silently
+  fall back to iptables based masquerading.
 
 .. _upgrade_cilium_cli_helm_mode:
 
