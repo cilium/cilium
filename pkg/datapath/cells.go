@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -175,6 +176,8 @@ func newDatapath(params datapathParams) types.Datapath {
 		BWManager:      params.BandwidthManager,
 		Loader:         params.Loader,
 		NodeManager:    params.NodeManager,
+		DB:             params.DB,
+		Devices:        params.Devices,
 	}, datapathConfig)
 
 	params.LC.Append(cell.Hook{
@@ -205,6 +208,8 @@ type datapathParams struct {
 	// This is required until option.Config.GetDevices() has been removed and
 	// uses of it converted to Table[Device].
 	DeviceManager *linuxdatapath.DeviceManager
+	DB            *statedb.DB
+	Devices       statedb.Table[*tables.Device]
 
 	BandwidthManager types.BandwidthManager
 
