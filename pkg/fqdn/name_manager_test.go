@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -63,7 +64,9 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 	nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.2")}}})
 	c.Assert(len(selIPMap), Equals, 1, Commentf("Only one entry per FQDNSelector should be present"))
 	expectedIPs = []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("10.0.0.2")}
-	c.Assert(selIPMap[ciliumIOSel], checker.DeepEquals, expectedIPs)
+	cips := selIPMap[ciliumIOSel]
+	ip.SortAddrList(cips)
+	c.Assert(cips, checker.DeepEquals, expectedIPs)
 }
 
 // Test that all IPs are updated when one is
@@ -107,8 +110,10 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	c.Assert(len(selIPMap), Equals, 2, Commentf("More than 2 FQDN selectors while only 2 were added"))
 	c.Assert(len(selIPMap[ciliumIOSel]), Equals, 2, Commentf("Incorrect number of IPs for cilium.io selector"))
 	c.Assert(len(selIPMap[githubSel]), Equals, 1, Commentf("Incorrect number of IPs for github.com selector"))
-	c.Assert(selIPMap[ciliumIOSel][0], Equals, netip.MustParseAddr("1.1.1.1"), Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[ciliumIOSel][1], Equals, netip.MustParseAddr("10.0.0.2"), Commentf("Incorrect IP mapping to FQDN"))
+	cips := selIPMap[ciliumIOSel]
+	ip.SortAddrList(cips)
+	c.Assert(cips[0], Equals, netip.MustParseAddr("1.1.1.1"), Commentf("Incorrect IP mapping to FQDN"))
+	c.Assert(cips[1], Equals, netip.MustParseAddr("10.0.0.2"), Commentf("Incorrect IP mapping to FQDN"))
 	c.Assert(selIPMap[githubSel][0], Equals, netip.MustParseAddr("10.0.0.3"), Commentf("Incorrect IP mapping to FQDN"))
 
 	// poll DNS once, check that we only generate 4 IPs, 2 cilium.io cached IPs, 1 cached github.com IP, 1 new github.com IP
@@ -118,10 +123,15 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 		dns.FQDN("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.4")}}})
 	c.Assert(len(selIPMap[ciliumIOSel]), Equals, 2, Commentf("Incorrect number of IPs for cilium.io selector"))
 	c.Assert(len(selIPMap[githubSel]), Equals, 2, Commentf("Incorrect number of IPs for github.com selector"))
-	c.Assert(selIPMap[ciliumIOSel][0], Equals, netip.MustParseAddr("1.1.1.1"), Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[ciliumIOSel][1], Equals, netip.MustParseAddr("10.0.0.2"), Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[githubSel][0], Equals, netip.MustParseAddr("10.0.0.3"), Commentf("Incorrect IP mapping to FQDN"))
-	c.Assert(selIPMap[githubSel][1], Equals, netip.MustParseAddr("10.0.0.4"), Commentf("Incorrect IP mapping to FQDN"))
+	cips = selIPMap[ciliumIOSel]
+	ip.SortAddrList(cips)
+	c.Assert(cips[0], Equals, netip.MustParseAddr("1.1.1.1"), Commentf("Incorrect IP mapping to FQDN"))
+	c.Assert(cips[1], Equals, netip.MustParseAddr("10.0.0.2"), Commentf("Incorrect IP mapping to FQDN"))
+
+	ghips := selIPMap[githubSel]
+	ip.SortAddrList(ghips)
+	c.Assert(ghips[0], Equals, netip.MustParseAddr("10.0.0.3"), Commentf("Incorrect IP mapping to FQDN"))
+	c.Assert(ghips[1], Equals, netip.MustParseAddr("10.0.0.4"), Commentf("Incorrect IP mapping to FQDN"))
 
 	// Second registration fails because IdenitityAllocator is not initialized
 	nameManager.Lock()

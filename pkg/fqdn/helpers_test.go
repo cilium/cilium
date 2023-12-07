@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -71,6 +72,7 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	ciliumIPs, ok = selIPMapping[ciliumIOSel]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
+	ip.SortAddrList(ciliumIPs)
 	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
 	c.Assert(ciliumIPs[1], Equals, ciliumIP2)
 
@@ -82,6 +84,7 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
+	ip.SortAddrList(ciliumIPs)
 	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
 	c.Assert(ciliumIPs[1], Equals, ciliumIP2)
 
@@ -92,11 +95,13 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
+	ip.SortAddrList(ciliumIPs)
 	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
 	c.Assert(ciliumIPs[1], Equals, ciliumIP2)
 	ciliumIPs, ok = selIPMapping[ciliumIOSel]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
+	ip.SortAddrList(ciliumIPs)
 	c.Assert(ciliumIPs[0], Equals, ciliumIP1)
 	c.Assert(ciliumIPs[1], Equals, ciliumIP2)
 }

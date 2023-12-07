@@ -843,6 +843,12 @@ func SortIPList(ipList []net.IP) {
 	})
 }
 
+func SortAddrList(ipList []netip.Addr) {
+	sort.Slice(ipList, func(i, j int) bool {
+		return ipList[i].Compare(ipList[j]) < 0
+	})
+}
+
 // getSortedIPList returns a new net.IP slice in which the IPs are sorted.
 func getSortedIPList(ipList []net.IP) []net.IP {
 	sortedIPList := make([]net.IP, len(ipList))
