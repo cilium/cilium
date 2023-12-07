@@ -74,7 +74,8 @@ update-cmdref: builder-image cilium-build ## Update the command reference docume
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
-codeowners.rst: $(ROOT_DIR)/CODEOWNERS
+.PHONY: codeowners.rst
+codeowners.rst:
 	@$(ECHO_GEN)$@
 	$(QUIET)$(DOCKER_RUN) ./update-codeowners.sh
 
