@@ -221,7 +221,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -283,7 +283,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -379,7 +379,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(c *check.C,
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -660,7 +660,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(c *check.C) {
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodeMap, &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodeMap, &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -820,7 +820,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(c *check
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -921,7 +921,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -1148,7 +1148,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -1270,7 +1270,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(c *check.
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -1445,7 +1445,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		}),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq, db, devices)
 			mq.nh = linuxNodeHandler
 		}),
 	)
@@ -2210,7 +2210,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 		}),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq, db, devices)
 			mq.nh = linuxNodeHandler
 		}),
 	)
@@ -2493,7 +2493,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq, db, devices)
 			mq.nh = linuxNodeHandler
 		}),
 	)
@@ -3254,7 +3254,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, mq, db, devices)
 			mq.nh = linuxNodeHandler
 		}),
 	)
@@ -3451,7 +3451,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config da
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -3558,7 +3558,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(c *check.C, config
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -3637,7 +3637,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(c *ch
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer))
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMapV2(), &s.mtuConfig, new(mockEnqueuer), db, devices)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
