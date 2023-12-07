@@ -341,11 +341,15 @@ func (s *Server) runActiveServices() error {
 		// Update set of nodes to probe every ProbeInterval and then fetch
 		// results
 		if nodesAdded, nodesRemoved, err := s.getNodes(); err != nil {
+			// reset the cache by setting clientID to 0 and removing all current nodes
+			s.clientID = 0
+			prober.setNodes(nil, prober.nodes)
 			log.WithError(err).Error("unable to get cluster nodes")
+			return
 		} else {
 			prober.setNodes(nodesAdded, nodesRemoved)
+			s.updateCluster(prober.getResults())
 		}
-		s.updateCluster(prober.getResults())
 	}
 	prober.RunLoop()
 	defer prober.Stop()
