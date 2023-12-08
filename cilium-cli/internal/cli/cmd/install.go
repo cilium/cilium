@@ -268,7 +268,7 @@ cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=clu
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
-			if params.DryRun || params.DryRunHelmValues {
+			if params.IsDryRun() {
 				params.Writer = io.Discard
 			}
 			installer, err := install.NewK8sInstaller(k8sClient, params)
@@ -346,7 +346,7 @@ cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
-			if params.DryRun || params.DryRunHelmValues {
+			if params.IsDryRun() {
 				params.Writer = io.Discard
 			}
 			installer, err := install.NewK8sInstaller(k8sClient, params)
