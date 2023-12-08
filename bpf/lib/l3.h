@@ -64,6 +64,7 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
  */
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel,
+					       __u32 magic __maybe_unused,
 					       const struct endpoint_info *ep,
 					       __u8 direction,
 					       bool from_host __maybe_unused,
@@ -101,7 +102,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
-	ctx->mark |= MARK_MAGIC_IDENTITY;
+	ctx->mark |= magic;
 	set_identity_mark(ctx, seclabel);
 
 	return redirect_ep(ctx, ep->ifindex, from_host);
@@ -123,7 +124,9 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
  * destination pod via a tail call.
  */
 static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
-					       __u32 seclabel, struct iphdr *ip4,
+					       __u32 seclabel,
+					       __u32 magic __maybe_unused,
+					       struct iphdr *ip4,
 					       const struct endpoint_info *ep,
 					       __u8 direction __maybe_unused,
 					       bool from_host __maybe_unused,
@@ -160,7 +163,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
-	ctx->mark |= MARK_MAGIC_IDENTITY;
+	ctx->mark |= magic;
 	set_identity_mark(ctx, seclabel);
 
 	return redirect_ep(ctx, ep->ifindex, from_host);

@@ -201,6 +201,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	__u8 nexthdr;
 	__u8 encrypt_key __maybe_unused = 0;
 	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
+	__u32 magic = from_ingress_proxy ? MARK_MAGIC_PROXY_INGRESS :
+					   MARK_MAGIC_IDENTITY;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -282,7 +284,7 @@ skip_host_firewall:
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
-		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
+		return ipv6_local_delivery(ctx, l3_off, secctx, magic, ep,
 					   METRIC_INGRESS, from_host, false);
 	}
 
@@ -474,6 +476,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	int ret;
 	__u8 encrypt_key __maybe_unused = 0;
 	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
+	__u32 magic = from_ingress_proxy ? MARK_MAGIC_PROXY_INGRESS :
+					   MARK_MAGIC_IDENTITY;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -572,7 +576,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
+		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, magic, ip4, ep,
 					   METRIC_INGRESS, from_host, false);
 	}
 
