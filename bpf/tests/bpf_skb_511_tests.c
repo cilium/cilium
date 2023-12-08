@@ -30,7 +30,7 @@ int check_get_identity(struct __ctx_buff *ctx)
 
 	test_init();
 
-	set_identity_mark(ctx, IDENTITY);
+	set_identity_mark(ctx, IDENTITY, MARK_MAGIC_IDENTITY);
 
 	identity = get_identity(ctx);
 	if (identity != IDENTITY)
