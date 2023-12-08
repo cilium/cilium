@@ -193,7 +193,7 @@ func (k *K8sInstaller) azureSetupServicePrincipal() error {
 		}
 	}
 
-	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
+	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" && !k.params.IsDryRun() {
 		k.Log("🚀 Creating Azure Service Principal for Cilium Azure operator...")
 		bytes, err := k.azExec("ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID+"/resourceGroups/"+k.params.Azure.AKSNodeResourceGroup, "--role", "Contributor")
 		if err != nil {
