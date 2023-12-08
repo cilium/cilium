@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 
@@ -37,7 +38,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -54,7 +54,10 @@ const (
 	k8sMinimumEventHearbeat = time.Minute
 )
 
-var randGen = rand.NewSafeRand(time.Now().UnixNano())
+// randGen is a global PRNG which can be overridden in tests in order to provide a fixed sequence.
+// Because only its Int63 method is used which is based on the runtime's lock-free fastrand64, no
+// locking is needed to access it.
+var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type k8sVersion struct {
 	version          string

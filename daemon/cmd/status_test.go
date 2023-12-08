@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"math/rand"
 	"time"
 
 	. "github.com/cilium/checkmate"
@@ -44,9 +45,9 @@ func (g *GetNodesSuite) SetUpSuite(c *C) {
 }
 
 func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
-	// Set seed so we can have the same pseudorandom client IDs.
-	// The seed is set to 0 for each unit test.
-	randGen.Seed(0)
+	// Create a PRNG source with a fixed seed so we can have the same pseudo-random client IDs
+	// for each test run.
+	randGen = rand.New(rand.NewSource(0))
 	const numberOfClients = 10
 
 	clientIDs := make([]int64, 0, numberOfClients)
