@@ -408,7 +408,9 @@ type Parameters struct {
 	HelmRepository string
 }
 
-type rollbackStep func(context.Context)
+func (p *Parameters) IsDryRun() bool {
+	return p.DryRun || p.DryRunHelmValues
+}
 
 func (p *Parameters) validate() error {
 	p.configOverwrites = map[string]string{}
@@ -1003,6 +1005,8 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	return nil
 }
 
+type rollbackStep func(context.Context)
+
 func (k *K8sInstaller) pushRollbackStep(step rollbackStep) {
 	// Prepend the step to the steps slice so that, in case rollback is
 	// performed, steps are rolled back in the reverse order
@@ -1037,7 +1041,7 @@ func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient *k8s.Clien
 	helmClient.Namespace = k.params.Namespace
 	helmClient.Wait = k.params.Wait
 	helmClient.Timeout = k.params.WaitDuration
-	helmClient.DryRun = k.params.DryRun || k.params.DryRunHelmValues
+	helmClient.DryRun = k.params.IsDryRun()
 	release, err := helmClient.RunWithContext(ctx, k.chart, vals)
 	if err != nil {
 		return err
