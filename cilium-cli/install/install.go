@@ -684,7 +684,7 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 		chainingMode := getChainingMode(helmValues)
 
 		// Do not stop AWS DS if we are running in chaining mode
-		if chainingMode != "aws-cni" {
+		if chainingMode != "aws-cni" && !k.params.IsDryRun() {
 			if _, err := k.client.GetDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, metav1.GetOptions{}); err == nil {
 				k.Log("🔥 Patching the %q DaemonSet to evict its pods...", AwsNodeDaemonSetName)
 				patch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"%s":"%s"}}}}}`, AwsNodeDaemonSetNodeSelectorKey, AwsNodeDaemonSetNodeSelectorValue))
