@@ -312,7 +312,7 @@ jobs:
 
       - name: Upgrade Cilium & Test (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@v1.13
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@pr/qmonnet/ipsec/disable-n2n-enc-test
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
           operation-cmd: |
@@ -327,7 +327,7 @@ jobs:
 
       - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@v1.13
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@pr/qmonnet/ipsec/disable-n2n-enc-test
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
           # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
