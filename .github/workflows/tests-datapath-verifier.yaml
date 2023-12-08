@@ -136,7 +136,7 @@ jobs:
           cmd: |
             cd /host
             mkdir datapath-verifier
-            find test/verifier -name "*.log" -o -name "*.o" -exec cp {} datapath-verifier/ \;
+            find test/verifier \( -name "*.log" -o -name "*.o" \) -exec cp -v {} datapath-verifier/ \;
 
       - name: Upload artifacts
         if: ${{ !success() }}
