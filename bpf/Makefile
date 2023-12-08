@@ -8,7 +8,6 @@ include ../Makefile.defs
 SUBDIRS = sockops custom
 
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
-BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
 BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
@@ -32,7 +31,7 @@ testdata:
 
 BUILD_PERMUTATIONS ?= ""
 
-BPF_SIMPLE_OPTIONS += \
+BPF_SIMPLE_OPTIONS ?= \
 	-DENABLE_IPV4=1 -DENABLE_IPV6=1 -DENABLE_IPSEC=1
 ifneq ("$(KERNEL)","49")
 BPF_SIMPLE_OPTIONS += -DHAVE_LPM_TRIE_MAP_TYPE -DHAVE_LRU_HASH_MAP_TYPE
