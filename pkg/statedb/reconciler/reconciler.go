@@ -100,6 +100,9 @@ func (r *reconciler[Obj]) WaitForReconciliation(ctx context.Context) error {
 			return nil
 		}
 
+		// Delay a bit to avoid querying often.
+		time.Sleep(10 * time.Millisecond)
+
 		// Wait for updates before checking again.
 		select {
 		case <-ctx.Done():
