@@ -2,7 +2,9 @@
 /* Copyright Authors of Cilium */
 
 #define DEBUG
+#ifndef TRACE_NOTIFY
 #define TRACE_NOTIFY
+#endif
 #define DROP_NOTIFY
 #define POLICY_VERDICT_NOTIFY
 #define ENABLE_CAPTURE
