@@ -69,6 +69,7 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 #ifndef SKIP_POLICY_MAP
 static __always_inline int
 l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
+		  __u32 magic __maybe_unused,
 		  const struct endpoint_info *ep, __u8 direction __maybe_unused,
 		  bool from_host __maybe_unused, bool hairpin_flow __maybe_unused,
 		  bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
@@ -94,7 +95,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
-	ctx->mark |= MARK_MAGIC_IDENTITY;
+	ctx->mark |= magic;
 	set_identity_mark(ctx, seclabel);
 
 # if defined(IS_BPF_OVERLAY) && !defined(ENABLE_NODEPORT)
@@ -130,7 +131,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
  * destination pod via a tail call.
  */
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
-					       __u32 seclabel,
+					       __u32 seclabel, __u32 magic,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
 					       bool hairpin_flow)
@@ -146,8 +147,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow,
-				 false, 0);
+	return l3_local_delivery(ctx, seclabel, magic, ep, direction, from_host,
+				 hairpin_flow, false, 0);
 }
 #endif /* ENABLE_IPV6 */
 
@@ -157,7 +158,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
  * destination pod via a tail call.
  */
 static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
-					       __u32 seclabel, struct iphdr *ip4,
+					       __u32 seclabel, __u32 magic,
+					       struct iphdr *ip4,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
 					       bool hairpin_flow, bool from_tunnel,
@@ -173,8 +175,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow,
-				 from_tunnel, cluster_id);
+	return l3_local_delivery(ctx, seclabel, magic, ep, direction, from_host,
+				 hairpin_flow, from_tunnel, cluster_id);
 }
 #endif /* SKIP_POLICY_MAP */
 

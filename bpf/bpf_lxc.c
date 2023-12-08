@@ -611,7 +611,8 @@ ct_recreate6:
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
-			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL, ep,
+			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL,
+						   MARK_MAGIC_IDENTITY, ep,
 						   METRIC_EGRESS, from_l7lb, hairpin_flow);
 		}
 	}
@@ -1082,7 +1083,8 @@ ct_recreate4:
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
-			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL, ip4,
+			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL,
+						   MARK_MAGIC_IDENTITY, ip4,
 						   ep, METRIC_EGRESS, from_l7lb,
 						   bypass_ingress_policy, false, 0);
 		}
