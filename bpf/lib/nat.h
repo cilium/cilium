@@ -1602,7 +1602,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 					    icmp6_dataun.u_echo.identifier);
 			break;
 		case ICMPV6_PKT_TOOBIG:
-			/* ICMPV6_PKT_TOOBIG does not include identifer and
+			/* ICMPV6_PKT_TOOBIG does not include identifier and
 			 * sequence in its headers.
 			 */
 			inner_l3_off = off + sizeof(struct icmp6hdr) -

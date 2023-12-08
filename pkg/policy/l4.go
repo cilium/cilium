@@ -416,7 +416,7 @@ type L4Filter struct {
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
-	// Listener is an optional fully qualified name of a Envoy Listner defined in a CiliumEnvoyConfig CRD that should be
+	// Listener is an optional fully qualified name of a Envoy Listener defined in a CiliumEnvoyConfig CRD that should be
 	// used for this traffic instead of the default listener
 	Listener string `json:"listener,omitempty"`
 	// Ingress is true if filter applies at ingress; false if it applies at egress.
@@ -850,7 +850,7 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 	l4.policy.Store(nil)
 }
 
-// attach signifies that the L4Filter is ready and reacheable for updates
+// attach signifies that the L4Filter is ready and reachable for updates
 // from SelectorCache. L4Filter (and L4Policy) is read-only after this is called,
 // multiple goroutines will be reading the fields from that point on.
 func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures {

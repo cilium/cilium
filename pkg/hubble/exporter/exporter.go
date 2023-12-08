@@ -117,7 +117,7 @@ func (e *exporter) eventToExportEvent(event *v1.Event) *observerpb.ExportEvent {
 
 func (e *exporter) Stop() error {
 	if e.writer == nil {
-		// Already stoppped
+		// Already stopped
 		return nil
 	}
 	err := e.writer.Close()

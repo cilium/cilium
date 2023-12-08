@@ -36,7 +36,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		// BGP Peering Policy resource provides the module with a stream of events for the BGPPeeringPolicy resource.
 		newBGPPeeringPolicyResource,
-		// Secret resource provides secrets in the BGP secret namepsace
+		// Secret resource provides secrets in the BGP secret namespace
 		newSecretResource,
 		// Create a slim Secret store for BGP secrets, which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*slim_core_v1.Secret],

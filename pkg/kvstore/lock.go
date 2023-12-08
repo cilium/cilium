@@ -143,7 +143,7 @@ func LockPath(ctx context.Context, backend BackendOperations, path string) (l *L
 
 // RunLockGC inspects all local kvstore locks to determine whether they have
 // been held longer than the stale lock timeout, and if so, unlocks them
-// forceably.
+// forcibly.
 func RunLockGC() {
 	kvstoreLocks.runGC()
 }

@@ -93,7 +93,7 @@ IndentCaseLabels: false
 # IndentExternBlock                         # We don't use extern blocks
 IndentGotoLabels: false
 IndentPPDirectives: AfterHash
-# IndentRequiresClause                      # We don't use equire clauses
+# IndentRequiresClause                      # We don't use require clauses
 IndentWidth: 8
 IndentWrappedFunctionNames: false
 InsertBraces: false

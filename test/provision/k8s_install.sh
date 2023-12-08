@@ -276,7 +276,7 @@ EOF
 # IPv6 only clusters can still be opted by setting IPv6 variable to 1.
 # It also sets the cgroup-driver to "cgroupfs", away from "systemd",
 # so that docker does not have to be reconfigured and restarted.
-# This difffers from V1BETA4 because as it does not contain the featureGates field:
+# This differs from V1BETA4 because as it does not contain the featureGates field:
 #  - featureGates: Invalid value: map[string]bool{"IPv6DualStack":true}: IPv6DualStack is not a valid feature name.
 KUBEADM_CONFIG_V1BETA4=$(cat <<-EOF
 apiVersion: kubeadm.k8s.io/v1beta3
@@ -335,7 +335,7 @@ EOF
 # IPv6 only clusters can still be opted by setting IPv6 variable to 1.
 # It also sets the cgroup-driver to "cgroupfs", away from "systemd",
 # so that docker does not have to be reconfigured and restarted.
-# This difffers from V1BETA4 because as it does not contain the featureGates field:
+# This differs from V1BETA4 because as it does not contain the featureGates field:
 #  - featureGates: Invalid value: map[string]bool{"IPv6DualStack":true}: IPv6DualStack is not a valid feature name.
 KUBEADM_CONFIG_V1BETA5=$(cat <<-EOF
 apiVersion: kubeadm.k8s.io/v1beta3
@@ -524,7 +524,7 @@ case $K8S_VERSION in
         # kubeadm <= 1.24 requires conntrack to be installed, we can remove this
         # once we have upgraded the VM image version.
         sudo apt-get install -y conntrack
-        # We don't need to define dthe kubernetes CNI version once we have stable
+        # We don't need to define the kubernetes CNI version once we have stable
         # releases.
         # KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"

@@ -147,7 +147,7 @@ type Manager struct {
 	reconciliationTrigger *trigger.Trigger
 
 	// reconciliationEventsCount keeps track of how many reconciliation
-	// events have occoured
+	// events have occurred
 	reconciliationEventsCount atomic.Uint64
 }
 

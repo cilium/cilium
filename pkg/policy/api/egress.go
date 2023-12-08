@@ -143,7 +143,7 @@ type EgressRule struct {
 	// for selected pods as-is (i.e. the list of IPs is not modified in any way).
 	// Note: An explicit rule to allow for DNS traffic is needed for the pods, as
 	// ToFQDN counts as an egress rule and will enforce egress policy when
-	// PolicyEnforcment=default.
+	// PolicyEnforcement=default.
 	// Note: If the resolved IPs are IPs within the kubernetes cluster, the
 	// ToFQDN rule will not apply to that IP.
 	// Note: ToFQDN cannot occur in the same policy as other To* rules.

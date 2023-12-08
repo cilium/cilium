@@ -65,7 +65,7 @@ The process is described in the [official documentation](https://docs.cilium.io/
 One should be able to build all the images locally as long as they have Docker
 installed with [`buildx` plug-in](https://docs.docker.com/buildx/working-with-buildx/).
 
-E.g. to build a version fo `runtime` image, run:
+E.g. to build a version for `runtime` image, run:
 
 ```
 make -C images runtime-image

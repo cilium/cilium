@@ -416,7 +416,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 		return fmt.Errorf("stripOrImportIngresses: %w", err)
 	}
 
-	// Attempt to satisfy this service in particular now. We do this now instread of relying on
+	// Attempt to satisfy this service in particular now. We do this now instead of relying on
 	// ipam.satisfyServices to avoid updating the service twice in quick succession.
 	if !sv.isSatisfied() {
 		modified, err := ipam.satisfyService(sv)
@@ -1493,7 +1493,7 @@ func (ipam *LBIPAM) revalidateAllServices(ctx context.Context) error {
 			return fmt.Errorf("stripOrImportIngresses: %w", err)
 		}
 
-		// Attempt to satisfy this service in particular now. We do this now instread of relying on
+		// Attempt to satisfy this service in particular now. We do this now instead of relying on
 		// ipam.satisfyServices to avoid updating the service twice in quick succession.
 		if !sv.isSatisfied() {
 			modified, err := ipam.satisfyService(sv)
@@ -1650,7 +1650,7 @@ func (ipam *LBIPAM) deleteRangeAllocations(ctx context.Context, delRange *LBRang
 			return fmt.Errorf("stripOrImportIngresses: %w", err)
 		}
 
-		// Attempt to satisfy this service in particular now. We do this now instread of relying on
+		// Attempt to satisfy this service in particular now. We do this now instead of relying on
 		// ipam.satisfyServices to avoid updating the service twice in quick succession.
 		if !sv.isSatisfied() {
 			statusModified, err := ipam.satisfyService(sv)

@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-// mapSelectorsToIPsLocked iterates through a set of FQDNSelectors and evalutes
+// mapSelectorsToIPsLocked iterates through a set of FQDNSelectors and evaluates
 // whether they match the DNS Names in the cache. If so, the set of IPs which
 // the cache maintains as mapping to each DNS Name are mapped to the matching
 // FQDNSelector.

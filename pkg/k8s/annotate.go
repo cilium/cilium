@@ -27,16 +27,16 @@ type nodeAnnotation = map[string]string
 
 var nodeAnnotationControllerGroup = controller.NewGroup("update-k8s-node-annotations")
 
-func prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint8) nodeAnnotation {
+func prepareNodeAnnotation(node nodeTypes.Node, encryptKey uint8) nodeAnnotation {
 	annotationMap := map[string]fmt.Stringer{
-		annotation.V4CIDRName:     nd.IPv4AllocCIDR,
-		annotation.V6CIDRName:     nd.IPv6AllocCIDR,
-		annotation.V4HealthName:   nd.IPv4HealthIP,
-		annotation.V6HealthName:   nd.IPv6HealthIP,
-		annotation.V4IngressName:  nd.IPv4IngressIP,
-		annotation.V6IngressName:  nd.IPv6IngressIP,
-		annotation.CiliumHostIP:   nd.GetCiliumInternalIP(false),
-		annotation.CiliumHostIPv6: nd.GetCiliumInternalIP(true),
+		annotation.V4CIDRName:     node.IPv4AllocCIDR,
+		annotation.V6CIDRName:     node.IPv6AllocCIDR,
+		annotation.V4HealthName:   node.IPv4HealthIP,
+		annotation.V6HealthName:   node.IPv6HealthIP,
+		annotation.V4IngressName:  node.IPv4IngressIP,
+		annotation.V6IngressName:  node.IPv6IngressIP,
+		annotation.CiliumHostIP:   node.GetCiliumInternalIP(false),
+		annotation.CiliumHostIPv6: node.GetCiliumInternalIP(true),
 	}
 
 	annotations := map[string]string{}

@@ -160,7 +160,7 @@ func TestStopped(t *testing.T) {
 }
 
 // This test validates that:
-//  1. A scope that is orphaned and then garbage collected, that satisifies the
+//  1. A scope that is orphaned and then garbage collected, that satisfies the
 //     constraint that it or none of its children are referenced, is removed.
 func TestUnreferencedScope(t *testing.T) {
 	assert := assert.New(t)

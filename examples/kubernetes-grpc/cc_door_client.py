@@ -47,7 +47,7 @@ def run():
     if response.success: 
         print("Successfully submitted maintenance request")
     else: 
-        print("Failed to submit maintenaince request") 
+        print("Failed to submit maintenance request") 
   elif arg1 == 'SetAccessCode':
     response = stub.SetAccessCode(cloudcity_pb2.DoorAccessCodeRequest(
             door_id=int(arg2), access_code=int(arg3)))

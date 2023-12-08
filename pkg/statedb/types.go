@@ -78,7 +78,7 @@ type RWTable[Obj any] interface {
 	//   cell.ProvidePrivate(NewMyTable), // RWTable
 	//   cell.Invoke(statedb.Register[statedb.RWTable[Foo])
 	//
-	//   // with anononymous function:
+	//   // with anonymous function:
 	//   cell.Provide(func(t statedb.RWTable[Foo]) statedb.Table[Foo] { return t })
 	//
 	//   // with ToTable:
@@ -167,7 +167,7 @@ type WriteTxn interface {
 	// WriteTxn is always also a ReadTxn
 	ReadTxn
 
-	// Abort the current transaction. All changes are disgarded.
+	// Abort the current transaction. All changes are discarded.
 	// It is safe to call Abort() after calling Commit(), e.g.
 	// the following pattern is strongly encouraged to make sure
 	// write transactions are always completed:

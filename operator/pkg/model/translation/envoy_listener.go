@@ -209,7 +209,7 @@ func NewSNIListenerWithDefaults(name string, backendsForHost map[string][]string
 }
 
 // NewSNIListener creates a new Envoy listener with the given name.
-// The listener will be configured to use SNI to determine thhe backend
+// The listener will be configured to use SNI to determine the backend
 func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 

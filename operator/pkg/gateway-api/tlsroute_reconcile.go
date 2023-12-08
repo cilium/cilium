@@ -74,7 +74,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// gateway validators
 	for _, parent := range tr.Spec.ParentRefs {
 
-		// set acceptance to okay, this wil be overwritten in checks if needed
+		// set acceptance to okay, this will be overwritten in checks if needed
 		i.SetParentCondition(parent, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionTrue,
@@ -82,7 +82,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			Message: "Accepted TLSRoute",
 		})
 
-		// set status to okay, this wil be overwritten in checks if needed
+		// set status to okay, this will be overwritten in checks if needed
 		i.SetAllParentCondition(metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionResolvedRefs),
 			Status:  metav1.ConditionTrue,

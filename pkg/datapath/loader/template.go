@@ -73,7 +73,7 @@ type templateCfg struct {
 // possible name, which would be guaranteed with a 5-digit output.
 //
 // In practice, attempts to load an endpoint with the ID 65535 will fail which
-// means that the calling code must approprately substitute the ID in the ELF
+// means that the calling code must appropriately substitute the ID in the ELF
 // prior to load, or it will fail with a relatively obvious error.
 func (t *templateCfg) GetID() uint64 {
 	return uint64(templateLxcID)

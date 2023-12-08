@@ -141,7 +141,7 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]*
 		newAdverts = append(newAdverts, advrtResp.Path)
 	}
 
-	// withdraw uneeded adverts
+	// withdraw unneeded adverts
 	for _, advrt := range toWithdraw {
 		l.Debugf("Withdrawing %s %v for policy with local ASN: %v", params.name, advrt.NLRI, params.newc.LocalASN)
 		if err := params.sc.Server.WithdrawPath(params.ctx, types.PathRequest{Path: advrt}); err != nil {

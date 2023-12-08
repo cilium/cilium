@@ -324,7 +324,7 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 
 	if iw.clusterID != 0 {
 		// Annotate IP/Prefix string with ClusterID. So that we can distinguish
-		// the two network endpoints that have the same IP adddress, but belongs
+		// the two network endpoints that have the same IP address, but belongs
 		// to the different clusters.
 		ip = cmtypes.AnnotateIPCacheKeyWithClusterID(ip, iw.clusterID)
 	}

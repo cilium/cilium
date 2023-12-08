@@ -333,7 +333,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 		},
 		{
-			name: "endpoint by cep name with interface and disabled legacy identifers",
+			name: "endpoint by cep name with interface and disabled legacy identifiers",
 			cm: apiv1.EndpointChangeRequest{
 				K8sNamespace:             "default",
 				K8sPodName:               "foo",

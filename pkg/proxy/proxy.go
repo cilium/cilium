@@ -203,7 +203,7 @@ func (p *Proxy) allocatePort(port, min, max uint16) (uint16, error) {
 	// TODO: Maybe not create a large permutation each time?
 	portRange := portRandomizer.Perm(int(max - min + 1))
 
-	// Allow reuse of previously used ports only if no ports are otherwise availeble.
+	// Allow reuse of previously used ports only if no ports are otherwise available.
 	// This allows the same port to be used again by a listener being reconfigured
 	// after deletion.
 	for _, reuse := range []bool{false, true} {

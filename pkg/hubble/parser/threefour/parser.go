@@ -434,18 +434,18 @@ func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
 }
 
 func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) (
-	sourceSecurityIdentiy, destinationSecurityIdentity uint32,
+	sourceSecurityIdentity, destinationSecurityIdentity uint32,
 ) {
 	switch {
 	case dn != nil:
-		sourceSecurityIdentiy = uint32(dn.SrcLabel)
+		sourceSecurityIdentity = uint32(dn.SrcLabel)
 		destinationSecurityIdentity = uint32(dn.DstLabel)
 	case tn != nil:
-		sourceSecurityIdentiy = uint32(tn.SrcLabel)
+		sourceSecurityIdentity = uint32(tn.SrcLabel)
 		destinationSecurityIdentity = uint32(tn.DstLabel)
 	case pvn != nil:
 		if pvn.IsTrafficIngress() {
-			sourceSecurityIdentiy = uint32(pvn.RemoteLabel)
+			sourceSecurityIdentity = uint32(pvn.RemoteLabel)
 		} else {
 			destinationSecurityIdentity = uint32(pvn.RemoteLabel)
 		}

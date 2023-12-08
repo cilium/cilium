@@ -1001,7 +1001,7 @@ func BenchmarkResource(b *testing.B) {
 }
 
 func TestResource_SkippedDonePanics(t *testing.T) {
-	t.Skip("This test can be only done manually as it tests finalizer panicing")
+	t.Skip("This test can be only done manually as it tests finalizer panicking")
 
 	var (
 		node = &corev1.Node{

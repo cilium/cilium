@@ -4,7 +4,7 @@
 # single replica etcd using host networking. Data is stored in /var/etcd on the
 # host's disk. A scheduling toleration allows it to be scheduled before the
 # cluster is ready. A scheduling anti affinity ensures that never more than one
-# instance is running per node. A NodePort service makes etcd avaiable on a
+# instance is running per node. A NodePort service makes etcd available on a
 # stable address on all nodes without requiring DNS resolution to work
 #
 # etcd address:

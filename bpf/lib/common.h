@@ -367,7 +367,7 @@ struct remote_endpoint_info {
  * Since we need to be able to wildcard 'sec_label' independently on 'protocol'
  * and 'dport' fields, we'll need to do that explicitly with a separate lookup
  * where 'sec_label' is zero. For the 'protocol' and 'port' we can use the
- * longest-prefix match by placing them at the end ot the key in this specific
+ * longest-prefix match by placing them at the end of the key in this specific
  * order, as we want to be able to wildcard those fields in a specific pattern:
  * 'protocol' can only be wildcarded if dport is also fully wildcarded.
  * 'protocol' is never partially wildcarded, so it is either fully wildcarded or

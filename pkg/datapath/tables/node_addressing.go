@@ -17,7 +17,7 @@ import (
 
 // NodeAddressingCell provides the [NodeAddressing] interface that provides
 // access to local node addressing information. This will be eventually
-// superceded by Table[NodeAddress].
+// superseded by Table[NodeAddress].
 var NodeAddressingCell = cell.Module(
 	"node-addressing",
 	"Accessors for looking up local node IP addresses",

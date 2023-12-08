@@ -8,7 +8,7 @@ import (
 	"os/exec"
 )
 
-// A commandCheck checks that a commant runs successfully.
+// A commandCheck checks that a command runs successfully.
 type commandCheck struct {
 	name             string
 	command          string

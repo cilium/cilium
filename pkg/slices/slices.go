@@ -74,7 +74,7 @@ func UniqueFunc[S ~[]T, T any, K comparable](s S, key func(i int) K) S {
 
 // SortedUnique sorts and dedup the input slice in place.
 // It uses the < operator to compare the elements in the slice and thus requires
-// the elements to satisfies contraints.Ordered.
+// the elements to satisfies constraints.Ordered.
 func SortedUnique[S ~[]T, T constraints.Ordered](s S) S {
 	if len(s) < 2 {
 		return s

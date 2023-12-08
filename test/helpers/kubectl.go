@@ -474,7 +474,7 @@ func (kub *Kubectl) DeleteResourcesInAnyNamespace(resource string, names []strin
 	for _, combinedName := range allNames {
 		parts := strings.SplitN(combinedName, "/", 2)
 		if len(parts) != 2 {
-			return fmt.Errorf("The %s idenfifier '%s' is not in the form <namespace>/<name>", resource, combinedName)
+			return fmt.Errorf("The %s identifier '%s' is not in the form <namespace>/<name>", resource, combinedName)
 		}
 		namespace, name := parts[0], parts[1]
 		if _, ok := namesMap[name]; ok {
@@ -1396,7 +1396,7 @@ func (kub *Kubectl) NamespaceLabel(namespace string, label string) *CmdRes {
 
 // WaitforPods waits up until timeout seconds have elapsed for all pods in the
 // specified namespace that match the provided JSONPath filter to have their
-// containterStatuses equal to "ready". Returns true if all pods achieve
+// containerStatuses equal to "ready". Returns true if all pods achieve
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
@@ -1412,7 +1412,7 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 
 // WaitForSinglePod waits up until timeout seconds have elapsed for a single pod
 // with name 'podname' in the specified namespace to have its
-// containterStatus equal to "ready". Returns true if the pods achieves
+// containerStatus equal to "ready". Returns true if the pods achieves
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitForSinglePod(namespace, podname string, timeout time.Duration) error {
@@ -1458,7 +1458,7 @@ func checkReady(pod v1.Pod) bool {
 
 // WaitforNPodsRunning waits up until timeout duration has elapsed for at least
 // minRequired pods in the specified namespace that match the provided JSONPath
-// filter to have their containterStatuses equal to "running".
+// filter to have their containerStatuses equal to "running".
 // Returns no error if minRequired pods achieve the aforementioned desired
 // state within timeout seconds. Returns an error if the command failed or the
 // timeout was exceeded.
@@ -1477,7 +1477,7 @@ func (kub *Kubectl) WaitforNPodsRunning(namespace string, filter string, minRequ
 
 // WaitforNPods waits up until timeout seconds have elapsed for at least
 // minRequired pods in the specified namespace that match the provided JSONPath
-// filter to have their containterStatuses equal to "ready".
+// filter to have their containerStatuses equal to "ready".
 // Returns no error if minRequired pods achieve the aforementioned desired
 // state within timeout seconds. Returns an error if the command failed or the
 // timeout was exceeded.
@@ -1996,7 +1996,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 			var err error
 			// The plumbing of Kubernetes services typically lags
 			// behind a little bit if Cilium was just restarted.
-			// Give this a thight timeout to avoid always failing.
+			// Give this a tight timeout to avoid always failing.
 			timeoutErr := RepeatUntilTrue(func() bool {
 				err = kub.validateServicePlumbingInCiliumPod(fullName, ciliumPod, serviceObj, endpointsObj)
 				if err != nil {
@@ -2322,7 +2322,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 }
 
 // WaitTerminatingPods waits until all nodes that are in `Terminating`
-// state are deleted correctly in the platform. In case of excedding the
+// state are deleted correctly in the platform. In case of exceeding the
 // given timeout (in seconds) it returns an error.
 
 func (kub *Kubectl) WaitTerminatingPods(timeout time.Duration) error {
@@ -2330,14 +2330,14 @@ func (kub *Kubectl) WaitTerminatingPods(timeout time.Duration) error {
 }
 
 // WaitTerminatingPodsInNs waits until all nodes that are in `Terminating`
-// state are deleted correctly in the platform. In case of excedding the
+// state are deleted correctly in the platform. In case of exceeding the
 // given timeout (in seconds) it returns an error.
 func (kub *Kubectl) WaitTerminatingPodsInNs(ns string, timeout time.Duration) error {
 	return kub.WaitTerminatingPodsInNsWithFilter(ns, "", timeout)
 }
 
 // WaitTerminatingPodsInNs waits until all nodes that are in `Terminating`
-// state are deleted correctly in the platform. In case of excedding the
+// state are deleted correctly in the platform. In case of exceeding the
 // given timeout (in seconds) it returns an error.
 func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout time.Duration) error {
 	var innerErr error
@@ -2907,7 +2907,7 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	var res *CmdRes
 	// Sometimes Kubectl returns 126 exit code, It use to happen in Nightly
 	// tests when a lot of exec are in place (Cgroups issue). The upstream
-	// changes did not fix the isse, and we need to make this workaround to
+	// changes did not fix the issue, and we need to make this workaround to
 	// avoid Kubectl issue.
 	// https://github.com/openshift/origin/issues/16246
 	//

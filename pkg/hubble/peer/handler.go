@@ -169,7 +169,7 @@ func nodeAddress(n types.Node, pref serviceoption.AddressFamilyPreference) strin
 // When nodeName is not provided, an empty string is returned. All Dot (.) in
 // nodeName are replaced by Hyphen (-). When clusterName is not provided, it
 // defaults to the default cluster name. All Dot (.) in clusterName are
-// replaced by Hypen (-).
+// replaced by Hyphen (-).
 func TLSServerName(nodeName, clusterName string) string {
 	if nodeName == "" {
 		return ""

@@ -628,7 +628,7 @@
             "refId": "A"
           }
         ],
-        "title": "Missing ICMP Echo Replys",
+        "title": "Missing ICMP Echo Replies",
         "type": "timeseries"
       },
       {

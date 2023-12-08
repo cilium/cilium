@@ -299,7 +299,7 @@ func (t *CNITypesSuite) TestReadCNIConfIPAMType(c *check.C) {
 }
 
 func (t *CNITypesSuite) TestReadCNIConfError(c *check.C) {
-	// Try to read errorneous CNI configuration file with MTU provided as
+	// Try to read erroneous CNI configuration file with MTU provided as
 	// string instead of int
 	errorConf := `
 {

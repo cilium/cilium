@@ -224,7 +224,7 @@ type HistogramOpts struct {
 	// zero, it is replaced by default buckets. The default buckets are
 	// DefBuckets if no buckets for a native histogram (see below) are used,
 	// otherwise the default is no buckets. (In other words, if you want to
-	// use both reguler buckets and buckets for a native histogram, you have
+	// use both regular buckets and buckets for a native histogram, you have
 	// to define the regular buckets here explicitly.)
 	Buckets []float64
 

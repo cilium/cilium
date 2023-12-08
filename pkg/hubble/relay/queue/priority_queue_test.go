@@ -32,7 +32,7 @@ func TestPriorityQueue(t *testing.T) {
 	pq.Push(resp1)
 	pq.Push(resp2)
 
-	// try poping out these 2 objects, the oldest one should pop out first
+	// try popping out these 2 objects, the oldest one should pop out first
 	event := pq.Pop()
 	assert.Equal(t, event, resp1)
 	event = pq.Pop()

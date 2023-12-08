@@ -103,7 +103,7 @@ func (e *ENISuite) TestCreateInterface(c *check.C) {
 	c.Assert(toAlloc, check.Equals, 10)
 }
 
-func (e *ENISuite) TestCandidateAndEmtpyInterfaces(c *check.C) {
+func (e *ENISuite) TestCandidateAndEmptyInterfaces(c *check.C) {
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(context.TODO())
 

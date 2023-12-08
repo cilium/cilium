@@ -701,7 +701,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	 * the redirect bypasses nf_conntrack table. This makes a
 	 * second reply from the endpoint to be MASQUERADEd or to be
 	 * DROP-ed by k8s's "--ctstate INVALID -j DROP" depending via
-	 * which interface it was inputed. With bpf_redirect_neigh()
+	 * which interface it was inputted. With bpf_redirect_neigh()
 	 * we bypass request and reply path in the host namespace and
 	 * do not run into this issue.
 	 */
@@ -815,7 +815,7 @@ skip_vtep:
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
-		 * The info == NULL test is soley to satisfy verifier requirements
+		 * The info == NULL test is solely to satisfy verifier requirements
 		 * as in Cilium case we'll always hit the 0.0.0.0/32 catch-all
 		 * entry. Therefore we need to test for WORLD_ID. It is clearly
 		 * wrong to route a ctx to cilium_host for which we don't know

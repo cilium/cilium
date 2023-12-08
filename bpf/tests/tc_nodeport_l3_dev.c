@@ -22,7 +22,7 @@
 
 /* We wanted to tail call handle_policy from bpf_lxc, but at present it's
  * impossible to #include both bpf_host.c and bpf_lxc.c at the same time.
- * Therefore, we created a stud, mock_hanle_policy, to simply check if the
+ * Therefore, we created a stud, mock_handle_policy, to simply check if the
  * our skb reaches there.
  */
 __section("mock-handle-policy")

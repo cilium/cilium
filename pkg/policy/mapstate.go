@@ -843,7 +843,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// If the new-entry is *only* superset of the iterated-deny-entry
 					// and the new-entry has a more specific port-protocol than the
 					// iterated-deny-entry then an additional copy of the iterated-deny-entry
-					// with the more specific port-porotocol of the new-entry must
+					// with the more specific port-protocol of the new-entry must
 					// be added.
 					denyKeyCpy := k
 					denyKeyCpy.DestPort = newKey.DestPort

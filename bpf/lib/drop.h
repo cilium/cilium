@@ -152,7 +152,7 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
  * We only have 8 bits here to pass either a small positive value or an errno
  * (this can be fixed by changing the layout of struct drop_notify, but for now
  * we can hack this as follows). So we pass a negative errno value as is if it
- * is >= -128, and set it 0 if it is < -128 (which actually shoudn't happen in
+ * is >= -128, and set it 0 if it is < -128 (which actually shouldn't happen in
  * our case)
  */
 #define __DROP_REASON_EXT(err, ext_err) ({ \

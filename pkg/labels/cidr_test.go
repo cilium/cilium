@@ -596,7 +596,7 @@ func BenchmarkGetCIDRLabels(b *testing.B) {
 }
 
 // This benchmarks SortedList(). We want to benchmark this specific case, as
-// it is excercised by toFQDN policies.
+// it is exercised by toFQDN policies.
 func BenchmarkLabels_SortedListCIDRIDs(b *testing.B) {
 	// clear the cache
 	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []Label](cidrLabelsCacheMaxSize, nil)

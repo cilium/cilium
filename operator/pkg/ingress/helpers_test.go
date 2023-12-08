@@ -175,7 +175,7 @@ func TestIsCiliumManagedIngress(t *testing.T) {
 			managed: false,
 		},
 		{
-			desc: "Cilium isn't IngressClass (annotation missconfigured) and Ingress has no specific class set",
+			desc: "Cilium isn't IngressClass (annotation misconfigured) and Ingress has no specific class set",
 			ingress: networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test",

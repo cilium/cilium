@@ -329,7 +329,7 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav
 	requirements := make([]slim_metav1.LabelSelectorRequirement, 0, len(n.MatchExpressions)+len(n.MatchLabels))
 	// Append already existing match expressions.
 	requirements = append(requirements, n.MatchExpressions...)
-	// Convert each MatchLables to LabelSelectorRequirement.
+	// Convert each MatchLabels to LabelSelectorRequirement.
 	for key, value := range n.MatchLabels {
 		requirementFromMatchLabels := slim_metav1.LabelSelectorRequirement{
 			Key:      key,

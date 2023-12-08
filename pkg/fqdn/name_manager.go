@@ -85,7 +85,7 @@ func (n *NameManager) Unlock() {
 }
 
 // RegisterForIPUpdatesLocked exposes this FQDNSelector so that updates to
-// IPs for names that this selector maches can be
+// IPs for names that this selector matches can be
 // propagated back to the SelectorCache via `UpdateFQDNSelector`. All DNS names
 // contained within the NameManager's cache are iterated over to see if they match
 // the FQDNSelector. All already-existing IPs which correspond to the DNS names

@@ -245,7 +245,7 @@ Apply this Kafka-aware network security policy using ``kubectl`` in the main win
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-kafka/kafka-sw-security-policy.yaml
 
-If we then again try to produce a message from outpost-9999 to *empire-annnounce*, it is denied.
+If we then again try to produce a message from outpost-9999 to *empire-announce*, it is denied.
 Type control-c and then run:
 
 .. code-block:: shell-session

@@ -31,7 +31,7 @@ type MapEvent struct {
 	// Enum: [ok insert delete]
 	DesiredAction string `json:"desired-action,omitempty"`
 
-	// Map key on which the event occured
+	// Map key on which the event occurred
 	Key string `json:"key,omitempty"`
 
 	// Last error seen while performing desired action
@@ -41,7 +41,7 @@ type MapEvent struct {
 	// Format: date-time
 	Timestamp strfmt.DateTime `json:"timestamp,omitempty"`
 
-	// Map value on which the event occured
+	// Map value on which the event occurred
 	Value string `json:"value,omitempty"`
 }
 

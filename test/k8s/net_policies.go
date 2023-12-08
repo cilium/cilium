@@ -887,7 +887,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			err := kubectl.WaitforPods(secondNS, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).To(BeNil(),
-				"testapp pods are not ready after timeout in namspace %q", secondNS)
+				"testapp pods are not ready after timeout in namespace %q", secondNS)
 
 			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).To(BeNil(),
@@ -1103,14 +1103,14 @@ var _ = SkipDescribeIf(func() bool {
 			// timeout.
 			err := kubectl.WaitforPods(firstNS, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).To(BeNil(),
-				"testapp pods are not ready after timeout in namspace %q", firstNS)
+				"testapp pods are not ready after timeout in namespace %q", firstNS)
 
 			res = kubectl.ApplyDefault(demoManifestNS2)
 			res.ExpectSuccess("unable to apply demo manifest")
 
 			err = kubectl.WaitforPods(secondNS, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).To(BeNil(),
-				"testapp pods are not ready after timeout in namspace %q", secondNS)
+				"testapp pods are not ready after timeout in namespace %q", secondNS)
 
 			appPodsFirstNS = helpers.GetAppPods(apps, firstNS, kubectl, "id")
 			appPodsSecondNS = helpers.GetAppPods(apps, secondNS, kubectl, "id")
@@ -1803,7 +1803,7 @@ func installDefaultDenyEgressPolicy(
 	)
 }
 
-// getMatcher returns a helper.CMDSucess() matcher for success or failure
+// getMatcher returns a helper.CMDSuccess() matcher for success or failure
 // situations.
 func getMatcher(val bool) types.GomegaMatcher {
 	if val {

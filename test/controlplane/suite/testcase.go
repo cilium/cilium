@@ -309,7 +309,7 @@ func (cpt *ControlPlaneTest) retry(act func() error) error {
 	end := time.Now().Add(cpt.validationTimeout)
 
 	// With validationTimeout set to 0, act will be retried without enforcing any timeout.
-	// This is useful to reduce controlplane tests flakyness in CI environment.
+	// This is useful to reduce controlplane tests flakiness in CI environment.
 	// Use WithValidationTimeout to set a custom timeout for local development.
 	for cpt.validationTimeout == 0 || time.Now().Add(wait).Before(end) {
 		time.Sleep(wait)

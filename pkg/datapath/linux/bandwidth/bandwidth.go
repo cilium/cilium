@@ -227,7 +227,7 @@ func (m *manager) init() error {
 }
 
 func setBaselineSysctls(p bandwidthManagerParams) error {
-	// Ensure interger type sysctls are no smaller than our baseline settings
+	// Ensure integer type sysctls are no smaller than our baseline settings
 	baseIntSettings := map[string]int64{
 		"net.core.netdev_max_backlog":  1000,
 		"net.core.somaxconn":           4096,

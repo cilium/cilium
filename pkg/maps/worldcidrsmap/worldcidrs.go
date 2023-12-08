@@ -28,7 +28,7 @@ type WorldCIDRVal struct {
 	Exists uint8
 }
 
-// wolrdCIDRsMap is the internal representation of a world CIDRs map.
+// worldCIDRsMap is the internal representation of a world CIDRs map.
 type worldCIDRsMap struct {
 	*ebpf.Map
 }

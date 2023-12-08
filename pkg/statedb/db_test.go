@@ -374,7 +374,7 @@ func TestDB_All(t *testing.T) {
 	select {
 	case <-watch:
 	case <-time.After(time.Second):
-		t.Fatalf("expceted All() watch channel to close after changes")
+		t.Fatalf("expected All() watch channel to close after changes")
 	}
 }
 

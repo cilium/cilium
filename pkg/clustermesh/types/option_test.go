@@ -170,7 +170,7 @@ func TestValidateRemoteConfig(t *testing.T) {
 			assertion: assert.Error,
 		},
 		{
-			name:      "Invalid config, MaxConnectedClusters mistmatch (ClusterMesh255)",
+			name:      "Invalid config, MaxConnectedClusters mismatch (ClusterMesh255)",
 			cfg:       &CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 511}},
 			mcc:       255,
 			mode:      BackwardCompatible,
@@ -184,7 +184,7 @@ func TestValidateRemoteConfig(t *testing.T) {
 			assertion: assert.NoError,
 		},
 		{
-			name:      "Invalid config, MaxConnectedClusters mistmatch (ClusterMesh511)",
+			name:      "Invalid config, MaxConnectedClusters mismatch (ClusterMesh511)",
 			cfg:       &CiliumClusterConfig{ID: 511, Capabilities: CiliumClusterConfigCapabilities{MaxConnectedClusters: 255}},
 			mcc:       511,
 			mode:      BackwardCompatible,
@@ -203,7 +203,7 @@ func TestValidateRemoteConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cinfo := ClusterInfo{MaxConnectedClusters: tt.mcc}
 			// ClusterIDMax needs to be initialized here. This is ordinarily
-			// executed during agent intialization.
+			// executed during agent initialization.
 			cinfo.InitClusterIDMax()
 			tt.assertion(t, cinfo.ValidateRemoteConfig(bool(tt.mode), tt.cfg))
 		})

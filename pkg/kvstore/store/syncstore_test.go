@@ -392,7 +392,7 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 	store.UpsertKey(ctx, NewKVPair("key2", "value2"))
 	require.Equal(t, float64(2), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 
-	// Upserting a different key shall increse the metric
+	// Upserting a different key shall increase the metric
 	store.UpsertKey(ctx, NewKVPair("key3", "value3"))
 	require.Equal(t, float64(3), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 

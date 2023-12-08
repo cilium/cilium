@@ -121,7 +121,7 @@ func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 	allocatorName := randomTestName()
 	maxID := idpool.ID(256 + c.N)
-	// FIXME: Did this previousy use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
+	// FIXME: Did this previously use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
 	backend1, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
 	c.Assert(err, IsNil)
 	c.Assert(err, IsNil)
@@ -260,7 +260,7 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 func (s *AllocatorSuite) TestGC(c *C) {
 	allocatorName := randomTestName()
 	maxID := idpool.ID(256 + c.N)
-	// FIXME: Did this previousy use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
+	// FIXME: Did this previously use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
 	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""), kvstore.Client())
 	c.Assert(err, IsNil)
 	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
@@ -308,7 +308,7 @@ func (s *AllocatorSuite) TestGC(c *C) {
 	c.Assert(key, IsNil)
 }
 
-func (s *AllocatorSuite) TestGC_ShouldSkipOutOfRangeIdentites(c *C) {
+func (s *AllocatorSuite) TestGC_ShouldSkipOutOfRangeIdentities(c *C) {
 
 	// Allocator1: allocator under test
 	backend, err := NewKVStoreBackend(randomTestName(), "a", TestAllocatorKey(""), kvstore.Client())
@@ -331,7 +331,7 @@ func (s *AllocatorSuite) TestGC_ShouldSkipOutOfRangeIdentites(c *C) {
 
 	allocator1.Release(context.Background(), shortKey1)
 
-	// Alloctor2: with a non-overlapping range compared with allocator1
+	// Allocator2: with a non-overlapping range compared with allocator1
 	backend2, err := NewKVStoreBackend(randomTestName(), "a", TestAllocatorKey(""), kvstore.Client())
 	c.Assert(err, IsNil)
 

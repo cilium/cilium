@@ -792,7 +792,7 @@ kind-debug: ## Create a local kind development environment with cilium-agent & c
 	@echo " - 23411: cilium-agent    (kind-worker)"
 	@echo " - 23511: cilium-operator (kind-worker)"
 
-precheck: logging-subsys-field ## Peform build precheck for the source code.
+precheck: logging-subsys-field ## Perform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh

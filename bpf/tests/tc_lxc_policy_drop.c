@@ -45,7 +45,7 @@ struct {
 	},
 };
 
-/* Test that a packet drop results in BPF metric counters increament.
+/* Test that a packet drop results in BPF metric counters increment.
  */
 PKTGEN("tc", "tc_lxc_policy_drop")
 int tc_lxc_policy_drop_pktgen(struct __ctx_buff *ctx)

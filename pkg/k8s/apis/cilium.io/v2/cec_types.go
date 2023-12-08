@@ -50,7 +50,7 @@ type CiliumEnvoyConfigList struct {
 type CiliumEnvoyConfigSpec struct {
 	// Services specifies Kubernetes services for which traffic is
 	// forwarded to an Envoy listener for L7 load balancing. Backends
-	// of these services are automatically synced to Envoy usign EDS.
+	// of these services are automatically synced to Envoy using EDS.
 	//
 	// +kubebuilder:validation:Optional
 	Services []*ServiceListener `json:"services,omitempty"`
@@ -148,7 +148,7 @@ func (u *XDSResource) UnmarshalJSON(b []byte) (err error) {
 	// xDS resources are not validated in K8s, recover from possible panics
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("CEC JSON decoding paniced: %v", r)
+			err = fmt.Errorf("CEC JSON decoding panicked: %v", r)
 		}
 	}()
 	u.Any = &anypb.Any{}

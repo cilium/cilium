@@ -172,7 +172,7 @@ var cniControllerGroup = controller.NewGroup("write-cni-file")
 // - write-cni-conf-when-ready=PATH -- path to write the CNI config. If blank, don't manage CNI config
 // - read-cni-conf -- A "source" CNI file to use, rather than generating one
 // - cni-chaining-mode=MODE -- The CNI configuration format to use, e.g. aws-cni, flannel.
-// - cni-exlusive -- if true, then remove other existing CNI configurations
+// - cni-exclusive -- if true, then remove other existing CNI configurations
 // - cni-log-file=PATH -- A file for the CNI plugin to use for logging
 // - debug -- Whether or not the CNI plugin binary should be verbose
 func (c *cniConfigManager) Start(hive.HookContext) error {

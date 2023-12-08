@@ -77,7 +77,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// gateway validators
 	for _, parent := range gr.Spec.ParentRefs {
-		// set acceptance to okay, this wil be overwritten in checks if needed
+		// set acceptance to okay, this will be overwritten in checks if needed
 		i.SetParentCondition(parent, metav1.Condition{
 			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionTrue,
@@ -85,7 +85,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			Message: "Accepted GRPCRoute",
 		})
 
-		// set status to okay, this wil be overwritten in checks if needed
+		// set status to okay, this will be overwritten in checks if needed
 		i.SetAllParentCondition(metav1.Condition{
 			Type:    string(gatewayv1beta1.RouteConditionResolvedRefs),
 			Status:  metav1.ConditionTrue,

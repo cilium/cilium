@@ -59,7 +59,7 @@ describe_spelling_errors() {
 }
 
 build_with_spellchecker() {
-    # The spell checker runs some Git commands to retreive the name of authors
+    # The spell checker runs some Git commands to retrieve the name of authors
     # and consider them as acceptable words.
     #
     # Recent Git versions refuse to work by default if the repository owner is
@@ -110,7 +110,7 @@ run_linter() {
         --ignore-roles "${CONF_PY_ROLES},spelling:ignore" \
         --ignore-substitutions "${CONF_PY_SUBSTITUTIONS}" \
        -r . ../README.rst 2>&1 | \
-       grep -v 'WARNING:rstcheck_core.checker:An `AttributeError` error occured. This is most probably due to a code block directive (code/code-block/sourcecode) without a specified language.'
+       grep -v 'WARNING:rstcheck_core.checker:An `AttributeError` error occurred. This is most probably due to a code block directive (code/code-block/sourcecode) without a specified language.'
 }
 
 read_all_opt=""

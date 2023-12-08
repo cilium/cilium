@@ -31,7 +31,7 @@ type CESData struct {
 	ns string
 }
 
-// Creates and intializes the new CESToCEPMapping
+// Creates and initializes the new CESToCEPMapping
 func newCESToCEPMapping() *CESToCEPMapping {
 	return &CESToCEPMapping{
 		cepNameToCESName:    make(map[CEPName]CESName),

@@ -31,7 +31,7 @@ func CreateVM(scope string) error {
 		case "not_created":
 			createCMD = "vagrant up %s --provision"
 		default:
-			// Sometimes servers are stoped and not destroyed. Destroy VM just in case
+			// Sometimes servers are stopped and not destroyed. Destroy VM just in case
 			DestroyVM(scope)
 		}
 	}

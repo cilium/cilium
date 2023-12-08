@@ -15,7 +15,7 @@ while [ $locked -ne 0 ]; do
     echo "getting kubeconfig for $cluster"
     eksctl utils write-kubeconfig $cluster --kubeconfig eks-kubeconfig -r $region
 
-    echo "aquiring cluster lock"
+    echo "acquiring cluster lock"
     set +e
     kubectl create -f lock.yaml
 

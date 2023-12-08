@@ -199,7 +199,7 @@ A ``CiliumBGPPeeringPolicy`` can apply to multiple nodes.
 
 When a ``CiliumBGPPeeringPolicy`` applies to one or more nodes each node
 will instantiate one or more BGP routers as defined by the list of
-``CiliumBGPVirutalRouter``.
+``CiliumBGPVirtualRouter``.
 
 However, there are times where fine-grained control over an instantiated
 virtual router's configuration needs to take place.

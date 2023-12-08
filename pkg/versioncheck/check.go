@@ -13,9 +13,9 @@ import (
 	"github.com/blang/semver/v4"
 )
 
-// MustCompile wraps go-version.NewConstraint, panicing when an error is
+// MustCompile wraps go-version.NewConstraint, panicking when an error is
 // returns (this occurs when the constraint cannot be parsed).
-// It is intended to be use similar to re.MustCompile, to ensure unparseable
+// It is intended to be use similar to re.MustCompile, to ensure unparsable
 // constraints are caught in testing.
 func MustCompile(constraint string) semver.Range {
 	verCheck, err := Compile(constraint)
@@ -31,7 +31,7 @@ func Compile(constraint string) (semver.Range, error) {
 	return semver.ParseRange(constraint)
 }
 
-// MustVersion wraps go-version.NewVersion, panicing when an error is
+// MustVersion wraps go-version.NewVersion, panicking when an error is
 // returns (this occurs when the version cannot be parsed).
 func MustVersion(version string) semver.Version {
 	ver, err := Version(version)
@@ -41,7 +41,7 @@ func MustVersion(version string) semver.Version {
 	return ver
 }
 
-// Version wraps go-version.NewVersion, panicing when an error is
+// Version wraps go-version.NewVersion, panicking when an error is
 // returns (this occurs when the version cannot be parsed).
 func Version(version string) (semver.Version, error) {
 	ver, err := semver.ParseTolerant(version)

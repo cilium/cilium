@@ -23,7 +23,7 @@ var kvstoreSetCmd = &cobra.Command{
 	Example: "cilium kvstore set foo=bar",
 	Run: func(cmd *cobra.Command, args []string) {
 		if key == "" {
-			Fatalf("--key attribute reqiured")
+			Fatalf("--key attribute required")
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

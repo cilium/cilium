@@ -1199,7 +1199,7 @@ skip_vtep:
 					     SECLABEL_IPV4, *dst_sec_identity, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
-		/* If not redirected noteably due to IPSEC then pass up to stack
+		/* If not redirected notably due to IPSEC then pass up to stack
 		 * for further processing.
 		 */
 		else if (ret == CTX_ACT_OK)

@@ -432,7 +432,7 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 	// This recalculates the policy for the endpoints, taking into account
 	// the latest changes from this event. Any references to new CIDRs
 	// will be processed to determine the selectors for those CIDRs and
-	// prepare the SelectorCache for the CIDR identites. However, at this
+	// prepare the SelectorCache for the CIDR identities. However, at this
 	// point the CIDR identities may not yet exist. They'll be created in
 	// ipcache.UpsertPrefixes() below, which will separately update the
 	// SelectorCache and plumb the datapath for the corresponding BPF

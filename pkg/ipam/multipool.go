@@ -250,7 +250,7 @@ func newMultiPoolManager(conf Configuration, node agentK8s.LocalCiliumNodeResour
 	// carry contexts). Before being refactored to using a resource, the event
 	// handling callbacks were called via the (now removed) CiliumNodeChain,
 	// which was in turn invoked by an informer. While we'd ideally stop this
-	// resource and it's processing if IPAM and other subsytems are being
+	// resource and it's processing if IPAM and other subsystems are being
 	// stopped, there appears to be no such signal available here. Also, don't
 	// retry events - the downstream code isn't setup to handle retries.
 	evs := node.Events(context.TODO(), resource.WithErrorHandler(resource.RetryUpTo(0)))

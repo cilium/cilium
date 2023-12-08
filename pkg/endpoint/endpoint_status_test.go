@@ -199,7 +199,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusDeepEqual(c *check.C) {
 	c.Assert(cepA, checker.DeepEquals, cepB)
 }
 
-func (s *EndpointSuite) TestGetCiliumEndpointStatusCorrectnes(c *check.C) {
+func (s *EndpointSuite) TestGetCiliumEndpointStatusCorrectness(c *check.C) {
 	e := s.newEndpoint(c, endpointGeneratorSpec{
 		fakeControllerManager:    true,
 		failingControllers:       10,

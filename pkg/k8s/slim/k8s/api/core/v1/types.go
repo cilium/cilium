@@ -1347,7 +1347,7 @@ const (
 	// BasicAuthPasswordKey is the key of the password or token for SecretTypeBasicAuth secrets
 	BasicAuthPasswordKey = "password"
 
-	// SecretTypeSSHAuth contains data needed for SSH authetication.
+	// SecretTypeSSHAuth contains data needed for SSH authentication.
 	//
 	// Required field:
 	// - Secret.Data["ssh-privatekey"] - private SSH key needed for authentication

@@ -48,7 +48,7 @@ type cesMgr struct {
 
 // cesManagerFcfs use cesMgr by design, it inherits all the methods from the base cesMgr and there is no
 // special handling required for cesManagerFcfs.
-// cesManagerFcfs indicates ciliumEndpoints are batched based on FirstComeFirtServe algorithm.
+// cesManagerFcfs indicates ciliumEndpoints are batched based on FirstComeFirstServe algorithm.
 // refer cesMgr comments for more information.
 type cesManagerFcfs struct {
 	cesMgr
@@ -64,7 +64,7 @@ type cesManagerIdentity struct {
 }
 
 // newCESManagerFcfs creates and initializes a new FirstComeFirstServe based CES
-// manager, in this mode CEPs are batched based on FirstComeFirtServe algorithm.
+// manager, in this mode CEPs are batched based on FirstComeFirstServe algorithm.
 func newCESManagerFcfs(maxCEPsInCES int, logger logrus.FieldLogger) operations {
 	return &cesManagerFcfs{
 		cesMgr{

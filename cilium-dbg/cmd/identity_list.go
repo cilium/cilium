@@ -50,7 +50,7 @@ func listIdentities(args []string) {
 		// sort identities by ID
 		im := identitymanager.IdentitiesModel(identities.Payload)
 		sort.Slice(im, im.Less)
-		printIdentitesEndpoints(identities.Payload)
+		printIdentitiesEndpoints(identities.Payload)
 	default:
 		params := identityApi.NewGetIdentityParams().WithTimeout(api.ClientTimeout)
 		if len(args) != 0 {
@@ -71,7 +71,7 @@ func listIdentities(args []string) {
 	}
 }
 
-func printIdentitesEndpoints(identities []*models.IdentityEndpoints) {
+func printIdentitiesEndpoints(identities []*models.IdentityEndpoints) {
 	if command.OutputOption() {
 		if err := command.PrintOutput(identities); err != nil {
 			Fatalf("Unable to provide %s output: %s", command.OutputOptionString(), err)

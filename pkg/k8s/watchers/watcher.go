@@ -1083,7 +1083,7 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 	}
 }
 
-// initCiliumEndpointOrSlices intializes the ciliumEndpoints or ciliumEndpointSlice
+// initCiliumEndpointOrSlices initializes the ciliumEndpoints or ciliumEndpointSlice
 func (k *K8sWatcher) initCiliumEndpointOrSlices(clientset client.Clientset, asyncControllers *sync.WaitGroup) {
 	// If CiliumEndpointSlice feature is enabled, Cilium-agent watches CiliumEndpointSlice
 	// objects instead of CiliumEndpoints. Hence, skip watching CiliumEndpoints if CiliumEndpointSlice

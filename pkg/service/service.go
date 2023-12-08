@@ -217,7 +217,7 @@ type L7LBInfo struct {
 	frontendPorts []string
 
 	// port number for L7 LB redirection. Can be zero if only backend sync
-	// hass been requested.
+	// has been requested.
 	proxyPort uint16
 }
 

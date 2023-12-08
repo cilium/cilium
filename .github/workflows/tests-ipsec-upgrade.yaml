@@ -174,7 +174,7 @@ jobs:
             # Upgrade from / downgrade to patch release.
             # In some cases we expect to fail to get the version number, do not
             # fail the workflow in such case. This includes:
-            # - on main branch where we don't have preceeding patch releases
+            # - on main branch where we don't have preceding patch releases
             # - on stable branches on top of release preparation commits, where
             #   we bump the patch version number to 90 and we can't easily
             #   derive the number of the previous patch release version from

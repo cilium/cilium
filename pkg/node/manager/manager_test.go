@@ -492,7 +492,7 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		c.Errorf("unexpected ipcache interaction %+v", event)
 	default:
 	}
 
@@ -507,7 +507,7 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		c.Errorf("unexpected ipcache interaction %+v", event)
 	default:
 	}
 }
@@ -554,7 +554,7 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		c.Errorf("unexpected ipcache interaction %+v", event)
 	default:
 	}
 
@@ -583,7 +583,7 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		c.Errorf("unexpected ipcache interaction %+v", event)
 	default:
 	}
 }
@@ -630,7 +630,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		c.Errorf("unexpected ipcache interaction %+v", event)
 	default:
 	}
 
@@ -659,7 +659,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		c.Errorf("unexpected ipcache interaction %+v", event)
 	default:
 	}
 }
@@ -706,7 +706,7 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		c.Errorf("unexpected ipcache interaction %+v", event)
 	default:
 	}
 
@@ -735,7 +735,7 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 
 	select {
 	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
+		c.Errorf("unexpected ipcache interaction %+v", event)
 	default:
 	}
 }

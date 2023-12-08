@@ -248,7 +248,7 @@ func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 	store, err := JoinSharedStore(Configuration{
 		Prefix:                  rand.String(12),
 		KeyCreator:              newTestType,
-		SynchronizationInterval: time.Hour, // ensure that periodic sync does not interfer
+		SynchronizationInterval: time.Hour, // ensure that periodic sync does not interfere
 		Observer:                &observer{},
 	})
 	c.Assert(err, IsNil)

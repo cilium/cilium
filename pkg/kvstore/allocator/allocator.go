@@ -24,7 +24,7 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kvstorebackend")
 )
 
-// kvstoreBackend is an implementaton of pkg/allocator.Backend. It store
+// kvstoreBackend is an implementation of pkg/allocator.Backend. It store
 // identities in the following format:
 //
 // Slave keys:

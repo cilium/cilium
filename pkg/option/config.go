@@ -80,7 +80,7 @@ const (
 	AllowLocalhostPolicy = "policy"
 
 	// AnnotateK8sNode enables annotating a kubernetes node while bootstrapping
-	// the daemon, which can also be disbled using this option.
+	// the daemon, which can also be disabled using this option.
 	AnnotateK8sNode = "annotate-k8s-node"
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period
@@ -519,7 +519,7 @@ const (
 	MaxInternalTimerDelay = "max-internal-timer-delay"
 
 	// MonitorAggregationName specifies the MonitorAggregationLevel on the
-	// comandline.
+	// commandline.
 	MonitorAggregationName = "monitor-aggregation"
 
 	// MonitorAggregationInterval configures interval for monitor-aggregation
@@ -645,7 +645,7 @@ const (
 	EgressGatewayPolicyMapEntriesName = "egress-gateway-policy-map-max"
 
 	// LogSystemLoadConfigName is the name of the option to enable system
-	// load loggging
+	// load logging
 	LogSystemLoadConfigName = "log-system-load"
 
 	// DisableCiliumEndpointCRDName is the name of the option to disable
@@ -924,7 +924,7 @@ const (
 	EnableLocalNodeRoute = "enable-local-node-route"
 
 	// EnableWellKnownIdentities enables the use of well-known identities.
-	// This is requires if identiy resolution is required to bring up the
+	// This is requires if identify resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities = "enable-well-known-identities"
 
@@ -1234,7 +1234,7 @@ const (
 	// HTTPRequestTimeout specifies the time in seconds after which forwarded requests time out
 	HTTPRequestTimeout = "http-request-timeout"
 
-	// HTTPIdleTimeout spcifies the time in seconds if http stream being idle after which the
+	// HTTPIdleTimeout specifies the time in seconds if http stream being idle after which the
 	// request times out
 	HTTPIdleTimeout = "http-idle-timeout"
 
@@ -1955,7 +1955,7 @@ type DaemonConfig struct {
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
 
-	// Specifies wheather to annotate the kubernetes nodes or not
+	// Specifies whether to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
 	// EnableNodePort enables k8s NodePort service implementation in BPF
@@ -2124,7 +2124,7 @@ type DaemonConfig struct {
 	AllowICMPFragNeeded bool
 
 	// EnableWellKnownIdentities enables the use of well-known identities.
-	// This is requires if identiy resolution is required to bring up the
+	// This is requires if identify resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities bool
 
@@ -2135,7 +2135,7 @@ type DaemonConfig struct {
 
 	// PolicyAuditMode enables non-drop mode for installed policies. In
 	// audit mode packets affected by policies will not be dropped.
-	// Policy related decisions can be checked via the poicy verdict messages.
+	// Policy related decisions can be checked via the policy verdict messages.
 	PolicyAuditMode bool
 
 	// EnableHubble specifies whether to enable the hubble server.

@@ -99,7 +99,7 @@ if __name__ == "__main__":
                 lambda a,
                 b: len(a) - len(b)),
             reverse=True):
-        print("{} occurences. Sample stack trace:".format(len(stack)))
+        print("{} occurrences. Sample stack trace:".format(len(stack)))
         print("\n".join(stack[0]).replace(cilium_source, source_dir))
 
     if f != sys.stdin:

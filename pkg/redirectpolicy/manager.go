@@ -495,7 +495,7 @@ func (rpm *Manager) deletePolicyService(config *LRPConfig) {
 			feM.feAddr.AddrCluster = cmtypes.AddrCluster{}
 		}
 	}
-	// Retores the svc backends if there's still such a k8s svc.
+	// Restores the svc backends if there's still such a k8s svc.
 	swg := lock.NewStoppableWaitGroup()
 	svcID := *config.serviceID
 	if restored := rpm.svcCache.EnsureService(svcID, swg); restored {

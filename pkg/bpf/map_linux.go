@@ -335,7 +335,7 @@ func (m *Map) UpdatePressureMetricWithSize(size int32) {
 
 func (m *Map) updatePressureMetric() {
 	// Skipping pressure metric gauge updates for LRU map as the cache size
-	// does not accurately represent the actual map sie.
+	// does not accurately represent the actual map size.
 	if m.spec != nil && m.spec.Type == ebpf.LRUHash {
 		return
 	}

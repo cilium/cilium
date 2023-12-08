@@ -18,7 +18,7 @@ The API server itself performs the following operations:
 
 ### K8s synchronization
 
-It performs the job of synchronizing CiliumIdentites, CiliumEndpoints,
+It performs the job of synchronizing CiliumIdentities, CiliumEndpoints,
 CiliumNodes and Kubernetes services from k8s datastore to the KVStore (etcd).
 
 ### Heartbeat update

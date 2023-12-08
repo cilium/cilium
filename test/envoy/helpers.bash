@@ -756,7 +756,7 @@ function wait_for_service_ready_cilium_pod {
 }
 
 function k8s_apply_policy {
-  declare -A currentRevison
+  declare -A currentRevision
   local i
   local pod
   check_num_params "$#" "3"
@@ -767,19 +767,19 @@ function k8s_apply_policy {
 
   for pod in $pods; do
     local rev=$(kubectl -n $namespace exec $pod -- cilium policy get | grep Revision: | awk '{print $2}')
-    currentRevison[$pod]=$rev
+    currentRevision[$pod]=$rev
   done
 
   log "Current policy revisions:"
-  for i in "${!currentRevison[@]}"
+  for i in "${!currentRevision[@]}"
   do
-    echo "  $i: ${currentRevison[$i]}"
+    echo "  $i: ${currentRevision[$i]}"
   done
 
   kubectl $action -f $policy
 
   for pod in $pods; do
-    local nextRev=$(expr ${currentRevison[$pod]} + 1)
+    local nextRev=$(expr ${currentRevision[$pod]} + 1)
     log "Waiting for agent $pod endpoints to get to revision $nextRev"
     timeout 180s kubectl -n $namespace exec $pod -- cilium policy wait $nextRev
   done

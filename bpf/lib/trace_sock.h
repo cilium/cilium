@@ -7,7 +7,7 @@
  * API:
  * void send_trace_sock_notify(ctx, xlate_point, dst_ip, dst_port)
  *
- * @ctx:	 socket address structre
+ * @ctx:	 socket address structure
  * @xlate_point: pre- or post- service translation point for load-balancing
  * @dst_ip:	 pre- or post- service translation destination ip address
  * @dst_port:	 pre- or post- service translation destination port

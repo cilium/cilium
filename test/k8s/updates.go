@@ -334,7 +334,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Expect a 403 from app1-service")
 		}
 
-		// checkNoInteruptsInSVCFlows checks whether there are no
+		// checkNoInterruptsInSVCFlows checks whether there are no
 		// interrupts in established connections to the migrate-svc service
 		// after Cilium has been upgraded / downgraded.
 		//
@@ -342,7 +342,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		// any interrupt in the flow makes a client to panic which makes the Pod
 		// to restart.
 		lastCount := -1
-		checkNoInteruptsInSVCFlows := func() {
+		checkNoInterruptsInSVCFlows := func() {
 			By("No interrupts in migrated svc flows")
 
 			filter := `{.items[*].status.containerStatuses[0].restartCount}`
@@ -389,7 +389,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		Expect(err).Should(BeNil(), "migrate-svc-client pods are not ready after timeout")
 
 		validateEndpointsConnection()
-		checkNoInteruptsInSVCFlows()
+		checkNoInterruptsInSVCFlows()
 
 		waitForUpdateImage := func(image string) func() bool {
 			return func() bool {
@@ -486,7 +486,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		ExpectCiliumOperatorReady(kubectl)
 
 		validateEndpointsConnection()
-		checkNoInteruptsInSVCFlows()
+		checkNoInterruptsInSVCFlows()
 
 		nbMissedTailCalls, err := kubectl.CountMissedTailCalls()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
@@ -504,7 +504,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-		checkNoInteruptsInSVCFlows()
+		checkNoInterruptsInSVCFlows()
 
 		By("Downgrading cilium to %s image", oldHelmChartVersion)
 		// rollback cilium 1 because it's the version that we have started
@@ -526,7 +526,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		ExpectCiliumOperatorReady(kubectl)
 
 		validateEndpointsConnection()
-		checkNoInteruptsInSVCFlows()
+		checkNoInterruptsInSVCFlows()
 
 		nbMissedTailCalls, err = kubectl.CountMissedTailCalls()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")

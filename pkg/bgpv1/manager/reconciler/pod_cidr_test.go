@@ -152,7 +152,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 
 			log.Printf("%+v %+v", podCIDRAnnouncements, tt.updated)
 
-			// ensure we see tt.updated in testSC.PodCIDRAnnoucements
+			// ensure we see tt.updated in testSC.PodCIDRAnnouncements
 			for _, cidr := range tt.updated {
 				prefix := netip.MustParsePrefix(cidr)
 				var seen bool

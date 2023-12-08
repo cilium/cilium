@@ -242,7 +242,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 							return err
 						}
 
-					// The CEP doesn't exist in k8s. This is unexpetected but may occur
+					// The CEP doesn't exist in k8s. This is unexpected but may occur
 					// if the endpoint was removed from k8s but not yet within the agent.
 					// Mark the CEP for creation on the next controller iteration. This
 					// may never occur if the controller is stopped on Endpoint delete.

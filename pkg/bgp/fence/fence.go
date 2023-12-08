@@ -16,7 +16,7 @@ import (
 // for each seen UUID (globally unique identifier for a resource producing an event.)
 type Fencer map[string]uint64
 
-// Fence evalutes the passed in meta and informs the caller
+// Fence evaluates the passed in meta and informs the caller
 // whether to not process the event (fence) or not process
 // the event (no fence)
 //

@@ -415,7 +415,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, params.LocalNodeStore, params.MTU, params.CNIConfigManager.GetCustomNetConf())
+	node := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, params.LocalNodeStore, params.MTU, params.CNIConfigManager.GetCustomNetConf())
 
 	d := Daemon{
 		ctx:               ctx,
@@ -427,7 +427,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		datapath:          params.Datapath,
 		deviceManager:     params.DeviceManager,
 		devices:           params.Devices,
-		nodeDiscovery:     nd,
+		nodeDiscovery:     node,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
 		apiLimiterSet:     params.APILimiterSet,
@@ -517,7 +517,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		params.ServiceCache,
 		d.bwManager,
 	)
-	nd.RegisterK8sGetters(d.k8sWatcher)
+	node.RegisterK8sGetters(d.k8sWatcher)
 
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		switch option.Config.IPAMMode() {
@@ -587,7 +587,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.Debugf("Registering cleanup function to unload DNS policies due to --%s", option.DNSPolicyUnloadOnShutdown)
 
 		// add to pre-cleanup funcs because this needs to run on graceful shutdown, but
-		// before the relevant subystems are being shut down.
+		// before the relevant subsystems are being shut down.
 		cleaner.preCleanupFuncs.Add(func() {
 			// Stop k8s watchers
 			log.Info("Stopping k8s service handler")
@@ -989,7 +989,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
-	// iptables rules can be updated only after d.init() intializes the iptables above.
+	// iptables rules can be updated only after d.init() initializes the iptables above.
 	err = d.updateDNSDatapathRules(d.ctx)
 	if err != nil {
 		log.WithError(err).Error("error encountered while updating DNS datapath rules.")

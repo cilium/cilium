@@ -34,19 +34,19 @@ update_release() {
               | sed 's/^.*'"$obj_regex"'.*tag\/v\('"$rem_branch_regex"'\).*$/\1/')
     old_date=$(git log -1 -s --format="%cI" v$current | sed "$REGEX_FILTER_DATE")
     new_date=$(git log -1 -s --format="%cI" $latest | sed "$REGEX_FILTER_DATE")
-    elease=$(echo $old_branch | sed 's/v//')
+    release=$(echo $old_branch | sed 's/v//')
 
     old_proj=""
     new_proj=""
-    if grep -qF "$elease" $ACTS_YAML; then
-        old_proj=$(grep -F "$elease" -A 1 $ACTS_YAML | grep projects | sort | uniq \
+    if grep -qF "$release" $ACTS_YAML; then
+        old_proj=$(grep -F "$release" -A 1 $ACTS_YAML | grep projects | sort | uniq \
                    | sed "$PROJECTS_REGEX")
         new_proj=$(git show $REMOTE/$old_branch:$ACTS_YAML | grep projects \
                    | sed "$PROJECTS_REGEX")
     fi
 
-    printf "%10s %10s %10s %10s\n" "current" "old_date" "new_date" "elease"
-    printf "%10s %10s %10s %10s\n" $current  $old_date  $new_date  $elease
+    printf "%10s %10s %10s %10s\n" "current" "old_date" "new_date" "release"
+    printf "%10s %10s %10s %10s\n" $current  $old_date  $new_date  $release
 
     echo "Updating $old_branch:"
     echo "  $current on $old_date with project $old_proj to"

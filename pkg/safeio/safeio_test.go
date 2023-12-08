@@ -14,7 +14,7 @@ func TestReadLimitExceeds(t *testing.T) {
 	r := strings.NewReader(str)
 	buf, err := ReadAllLimit(r, ByteSize(30))
 	if err != nil {
-		t.Fatalf("did not exepect error: %v", err)
+		t.Fatalf("did not expect error: %v", err)
 	}
 	if string(buf) != str {
 		t.Fatalf("returned buffer %s did not match the expected value %s", string(buf), str)
@@ -41,7 +41,7 @@ func TestReadLimitIsEqual(t *testing.T) {
 	r := strings.NewReader(str)
 	buf, err := ReadAllLimit(r, ByteSize(limit))
 	if err != nil {
-		t.Fatalf("did not exepect error: %v", err)
+		t.Fatalf("did not expect error: %v", err)
 	}
 	if string(buf) != str {
 		t.Fatalf("returned buffer %s did not match the expected value %s", string(buf), str)
@@ -54,7 +54,7 @@ func TestReadLimitExceedsLargeBuffer(t *testing.T) {
 	r := strings.NewReader(str)
 	buf, err := ReadAllLimit(r, limit)
 	if err != nil {
-		t.Fatalf("did not exepect error: %v", err)
+		t.Fatalf("did not expect error: %v", err)
 	}
 	if string(buf) != str {
 		t.Fatal("returned buffer did not match the expected value")
@@ -80,7 +80,7 @@ func TestReadLimitIsEqualLargeBuffer(t *testing.T) {
 	r := strings.NewReader(str)
 	buf, err := ReadAllLimit(r, limit)
 	if err != nil {
-		t.Fatalf("did not exepect error: %v", err)
+		t.Fatalf("did not expect error: %v", err)
 	}
 	if string(buf) != str {
 		t.Fatal("returned buffer did not match the expected value")

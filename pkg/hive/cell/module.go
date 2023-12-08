@@ -97,7 +97,7 @@ func (r *reporterHooks) Stop(ctx lifecycle.HookContext) error {
 	return nil
 }
 
-func createStructedScope(id FullModuleID, p Health, lc lifecycle.Lifecycle) Scope {
+func createStructuredScope(id FullModuleID, p Health, lc lifecycle.Lifecycle) Scope {
 	rs := rootScope(id, p.forModule(id))
 	lc.Append(&reporterHooks{rootScope: rs})
 	return rs
@@ -116,7 +116,7 @@ func (m *module) Apply(c container) error {
 
 	// Provide module scoped status reporter, used for reporting module level
 	// health status.
-	if err := scope.Provide(createStructedScope, dig.Export(false)); err != nil {
+	if err := scope.Provide(createStructuredScope, dig.Export(false)); err != nil {
 		return err
 	}
 

@@ -142,7 +142,7 @@ func (d *DeviceAddress) AsIP() net.IP {
 // load-balancing, host firewall and routing.
 //
 // The invalidated channel is closed when devices have changed and
-// should be requeried with a new transaction.
+// should be required with a new transaction.
 func SelectedDevices(tbl statedb.Table[*Device], txn statedb.ReadTxn) ([]*Device, <-chan struct{}) {
 	iter, invalidated := tbl.Get(txn, DeviceSelectedIndex.Query(true))
 	return statedb.Collect(iter), invalidated

@@ -3618,10 +3618,10 @@ definitions:
         type: string
         format: date-time
       key:
-        description: Map key on which the event occured
+        description: Map key on which the event occurred
         type: string
       value:
-        description: Map value on which the event occured
+        description: Map value on which the event occurred
         type: string
       action:
         description: Action type for event

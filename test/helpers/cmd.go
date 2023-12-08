@@ -532,7 +532,7 @@ func (res *CmdRes) WaitUntilMatchFilterLineTimeout(filter, expected string, time
 
 // WaitUntilMatchFilterLine applies the JSONPath 'filter' to each line of
 // `CmdRes.stdout` and waits until a line matches the 'expected' output.
-// If helpers.HelperTimout is reached it will return an error.
+// If helpers.HelperTimeout is reached it will return an error.
 func (res *CmdRes) WaitUntilMatchFilterLine(filter, expected string) error {
 	return res.WaitUntilMatchFilterLineTimeout(filter, expected, HelperTimeout)
 }
@@ -558,13 +558,13 @@ func (res *CmdRes) GetError() error {
 	return res.err
 }
 
-// BeSuccesfulMatcher a new Ginkgo matcher for CmdRes struct
-type BeSuccesfulMatcher struct{}
+// BeSuccessfulMatcher a new Ginkgo matcher for CmdRes struct
+type BeSuccessfulMatcher struct{}
 
 // Match validates that the given interface will be a `*CmdRes` struct and it
 // was successful. In case of not a valid CmdRes will return an error. If the
 // command was not successful it returns false.
-func (matcher *BeSuccesfulMatcher) Match(actual interface{}) (success bool, err error) {
+func (matcher *BeSuccessfulMatcher) Match(actual interface{}) (success bool, err error) {
 	res, ok := actual.(*CmdRes)
 	if !ok {
 		return false, fmt.Errorf("%q is not a valid *CmdRes type", actual)
@@ -574,7 +574,7 @@ func (matcher *BeSuccesfulMatcher) Match(actual interface{}) (success bool, err 
 
 // FailureMessage it returns a pretty printed error message in the case of the
 // command was not successful.
-func (matcher *BeSuccesfulMatcher) FailureMessage(actual interface{}) (message string) {
+func (matcher *BeSuccessfulMatcher) FailureMessage(actual interface{}) (message string) {
 	res, _ := actual.(*CmdRes)
 	return fmt.Sprintf("Expected command: %s \nTo succeed, but it failed:\n%s",
 		res.GetCmd(), res.OutputPrettyPrint())
@@ -582,7 +582,7 @@ func (matcher *BeSuccesfulMatcher) FailureMessage(actual interface{}) (message s
 
 // NegatedFailureMessage returns a pretty printed error message in case of the
 // command is tested with a negative
-func (matcher *BeSuccesfulMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+func (matcher *BeSuccessfulMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	res, _ := actual.(*CmdRes)
 	return fmt.Sprintf("Expected command: %s\nTo have failed, but it was successful:\n%s",
 		res.GetCmd(), res.OutputPrettyPrint())
@@ -590,7 +590,7 @@ func (matcher *BeSuccesfulMatcher) NegatedFailureMessage(actual interface{}) (me
 
 // CMDSuccess return a new Matcher that expects a CmdRes is a successful run command.
 func CMDSuccess() types.GomegaMatcher {
-	return &BeSuccesfulMatcher{}
+	return &BeSuccessfulMatcher{}
 }
 
 // cmdError is a implementation of error with String method to improve the debugging.

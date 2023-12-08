@@ -115,7 +115,7 @@ func WithLogger(l logrus.FieldLogger) Option {
 
 // withObserverClientBuilder sets the observerClientBuilder that is used to
 // create a new ObserverClient from a poolTypes.ClientConn. This is private as
-// it is only useful to override the default in the context of implemeting unit
+// it is only useful to override the default in the context of implementing unit
 // tests.
 func withObserverClientBuilder(b observerClientBuilder) Option {
 	return func(o *options) error {

@@ -172,7 +172,7 @@ type APILimiterParameters struct {
 	ParallelRequests int
 
 	// MaxParallelRequests is the maximum parallel requests allowed. If
-	// AutoAdjust is enabled, then the ParalelRequests will never grow
+	// AutoAdjust is enabled, then the ParallelRequests will never grow
 	// above MaxParallelRequests.
 	MaxParallelRequests int
 

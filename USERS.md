@@ -286,7 +286,7 @@ Users (Alphabetically)
       Q: @farodin91
 
     * N: IDNIC | Kadabra
-      D: IDNIC is the National Internet Registry administering IP addresses for INDONESIA, uses Cilium to powered Kadabra project runing services across multi data centers.
+      D: IDNIC is the National Internet Registry administering IP addresses for INDONESIA, uses Cilium to powered Kadabra project running services across multi data centers.
       U: Networking, Network Policies, kube-proxy Replacement, Service Load Balancing and Cluster Mesh
       L: https://ris.idnic.net/
       Q: @ardikabs

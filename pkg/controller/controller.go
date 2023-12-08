@@ -36,7 +36,7 @@ type ControllerFunc func(ctx context.Context) error
 // controller is not removed from any manager.
 // Construct one with NewExitReason("a reason")
 type ExitReason struct {
-	// This is constucted in this odd way because the type assertion in
+	// This is constructed in this odd way because the type assertion in
 	// runController didn't work otherwise.
 	error
 }

@@ -97,7 +97,7 @@ func Test_updateCEPUID(t *testing.T) {
 		// but the endpoint snapshot is lost on reboot. The endpoint UID will
 		// remain empty, but the CEP object will have a UID and a wrong nodeIP.
 		// It is to counter this case that we check the pods hostIP against the
-		// nodeIP instaed of the CEP's node IP.
+		// nodeIP instead of the CEP's node IP.
 		"take ownership of cep due to empty CiliumEndpointUID ref": {
 			ep:            epWithUID("", podWithHostIP(testIP)),
 			nodeIP:        testIP,
