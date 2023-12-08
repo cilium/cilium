@@ -162,7 +162,7 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 	}
 
 	ra, err := net.ResolveIPAddr(network, addr.IP)
-	if err != nil {
+	if err != nil || ra.String() == "" {
 		scopedLog.Debug("Unable to resolve address")
 		return "", nil
 	}
