@@ -577,6 +577,12 @@ Users (Alphabetically)
       L: https://schubergphilis.com/en
       Q: @stimmerman @shoekstra @mbaumann
 
+    * N: SI Analytics
+      D: SI Analytics uses Cilium as CNI in self-managed Kubernetes clusters in on-prem DCs. And also use Cilium as CNI in its GKE dataplane v2 based clusters.
+      U: CNI, Network Policies, Hubble
+      L: https://si-analytics.ai, https://ovision.ai
+      Q: @jholee
+
     * N: SIGHUP
       D: SIGHUP integrated Cilium as a supported CNI for KFD (Kubernetes Fury Distribution), our enterprise-grade OSS reference architecture
       U: Available supported CNI
