@@ -192,4 +192,29 @@ func (s *HealthServerTestSuite) TestProbersetNodes(c *check.C) {
 		}},
 	}
 	c.Assert(sortNodes(nodes3), checker.DeepEquals, sortNodes(expected3))
+
+	// node4 has a PrimaryAddress with IPV4 enabled but an empty IP address.
+	// It should not show up in the prober.
+	node4, _, node4HealthIP := makeHealthNodeNil(4, 4)
+	node4.PrimaryAddress = &models.NodeAddressing{
+		IPV4: &models.NodeAddressingElement{
+			IP:      "",
+			Enabled: true,
+		},
+		IPV6: &models.NodeAddressingElement{
+			Enabled: false,
+		},
+	}
+
+	newNodes4 := nodeMap{
+		ipString(node4.Name): node4,
+	}
+	prober4 := newProber(&Server{}, newNodes4)
+	nodes4 := prober4.getIPsByNode()
+	expected4 := map[string][]*net.IPAddr{
+		node4.Name: {{
+			IP: node4HealthIP,
+		}},
+	}
+	c.Assert(sortNodes(nodes4), checker.DeepEquals, sortNodes(expected4))
 }
