@@ -241,6 +241,8 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	int ret;
 	__u8 encrypt_key __maybe_unused = 0;
 	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
+	__u32 magic = from_ingress_proxy ? MARK_MAGIC_PROXY_INGRESS :
+					   MARK_MAGIC_IDENTITY;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -334,7 +336,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			l3_off += __ETH_HLEN;
 		}
 #endif
-		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
+		return ipv6_local_delivery(ctx, l3_off, secctx, magic, ep,
 					   METRIC_INGRESS, from_host, false);
 	}
 
@@ -657,6 +659,8 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	int ret;
 	__u8 encrypt_key __maybe_unused = 0;
 	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
+	__u32 magic = from_ingress_proxy ? MARK_MAGIC_PROXY_INGRESS :
+					   MARK_MAGIC_IDENTITY;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -744,7 +748,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		}
 #endif
 
-		return ipv4_local_delivery(ctx, l3_off, secctx, ip4, ep,
+		return ipv4_local_delivery(ctx, l3_off, secctx, magic, ip4, ep,
 					   METRIC_INGRESS, from_host, false,
 					   false, 0);
 	}
