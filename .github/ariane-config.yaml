@@ -64,6 +64,9 @@ triggers:
   /ci-l4lb:
     workflows:
     - tests-l4lb.yaml
+  /ci-e2e-upgrade:
+    workflows:
+    - tests-e2e-upgrade.yaml
 
 workflows:
   conformance-aks.yaml:
