@@ -37,10 +37,12 @@ runs:
       uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
       with:
         provision: 'false'
+        # Skip test node-to-node-encryption until we've solved https://github.com/cilium/cilium/issues/29351
         cmd: |
           cd /host/
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
+            --test '!node-to-node-encryption' \
             --flush-ct \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
