@@ -524,6 +524,10 @@ type UpgradeParameters struct {
 	DryRunHelmValues bool
 }
 
+func (p *UpgradeParameters) IsDryRun() bool {
+	return p.DryRun || p.DryRunHelmValues
+}
+
 // Upgrade upgrades the existing Helm release with the given Helm chart and values
 func Upgrade(
 	ctx context.Context,
@@ -544,7 +548,7 @@ func Upgrade(
 	helmClient.ReuseValues = params.ReuseValues
 	helmClient.Wait = params.Wait
 	helmClient.Timeout = params.WaitDuration
-	helmClient.DryRun = params.DryRun || params.DryRunHelmValues
+	helmClient.DryRun = params.IsDryRun()
 
 	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, params.Chart, params.Values)
 }
