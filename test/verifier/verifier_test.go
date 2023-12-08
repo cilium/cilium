@@ -140,6 +140,10 @@ func TestVerifier(t *testing.T) {
 			name:      "bpf_sock",
 			macroName: "MAX_LB_OPTIONS",
 		},
+		{
+			name:      "bpf_network",
+			macroName: "BPF_SIMPLE_OPTIONS",
+		},
 	} {
 		t.Run(bpfProgram.name, func(t *testing.T) {
 			initObjFile := path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s.o", bpfProgram.name))

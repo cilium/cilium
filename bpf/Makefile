@@ -5,13 +5,12 @@ include ../Makefile.defs
 
 SUBDIRS = custom
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
-BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
 BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
 KERNEL ?= netnext
 
-BPF_SIMPLE_OPTIONS += \
+BPF_SIMPLE_OPTIONS ?= \
 	-DENABLE_IPV4=1 -DENABLE_IPV6=1 -DENABLE_IPSEC=1
 
 # The following option combinations are compile tested
@@ -198,13 +197,13 @@ testdata:
 	-c ../pkg/alignchecker/testdata/bpf_foo.c \
 	-o ../pkg/alignchecker/testdata/bpf_foo.o
 
-$(BPF_SIMPLE_LL): $(BPF_SIMPLE_C)
+$(BPF_SIMPLE_LL): %.ll: %.c
 	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${BPF_SIMPLE_OPTIONS} ${CLANG_FLAGS} -c $(patsubst %.ll,%.c,$@) -o $@
+	$(QUIET) ${CLANG} ${BPF_SIMPLE_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
-$(BPF_SIMPLE): $(BPF_SIMPLE_LL)
+$(BPF_SIMPLE): %.o: %.ll
 	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $<
 
 # Hack to get make to replace : with a space
 null :=
