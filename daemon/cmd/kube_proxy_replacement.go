@@ -348,12 +348,11 @@ func probeKubeProxyReplacementOptions() error {
 			}
 		}
 
-		if !option.Config.EnableSocketLB {
-			option.Config.EnableSocketLBTracing = false
-		}
-		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
-			option.Config.EnableSocketLBTracing = false
-			log.Warn("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
+		if option.Config.EnableSocketLBTracing {
+			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
+				option.Config.EnableSocketLBTracing = false
+				log.Warn("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
+			}
 		}
 	} else {
 		option.Config.EnableSocketLBTracing = false
