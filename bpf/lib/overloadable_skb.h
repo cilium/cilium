@@ -76,13 +76,13 @@ get_epid(const struct __sk_buff *ctx)
  * CIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
  */
 static __always_inline __maybe_unused void
-set_identity_mark(struct __sk_buff *ctx, __u32 identity)
+set_identity_mark(struct __sk_buff *ctx, __u32 identity, __u32 magic)
 {
 	__u32 cluster_id = (identity >> IDENTITY_LEN) & CLUSTER_ID_MAX;
 	__u32 cluster_id_lower = cluster_id & 0xFF;
 	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
 
-	ctx->mark |= MARK_MAGIC_IDENTITY;
+	ctx->mark |= magic;
 	ctx->mark &= MARK_MAGIC_KEY_MASK;
 	ctx->mark |= (identity & IDENTITY_MAX) << 16 | cluster_id_lower | cluster_id_upper;
 }

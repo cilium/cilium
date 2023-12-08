@@ -705,7 +705,7 @@ pass_to_stack:
 		 * source identity can still be derived even if SNAT is
 		 * performed by a component such as portmap.
 		 */
-		set_identity_mark(ctx, SECLABEL_IPV6);
+		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 #endif
 	}
 
@@ -1263,7 +1263,7 @@ pass_to_stack:
 		 * source identity can still be derived even if SNAT is
 		 * performed by a component such as portmap.
 		 */
-		set_identity_mark(ctx, SECLABEL_IPV4);
+		set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 #endif
 	}
 
