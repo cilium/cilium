@@ -415,9 +415,6 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		     tuple->nexthdr != IPPROTO_UDP))
 		return DROP_CT_UNKNOWN_PROTO;
 
-	if (ret < 0)
-		return ret;
-
 	*l4_off = l3_off + ret;
 	return CTX_ACT_OK;
 }
