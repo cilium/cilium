@@ -390,12 +390,11 @@ ct_is_reply ## FAMILY(const void *map,						\
 }
 
 static __always_inline int
-ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-		   int *l4_off)
+ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 {
-	int ret, l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -415,7 +414,10 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		     tuple->nexthdr != IPPROTO_UDP))
 		return DROP_CT_UNKNOWN_PROTO;
 
-	*l4_off = l3_off + ret;
+	ret = l4_load_ports(ctx, ETH_HLEN + ret, &tuple->dport);
+	if (ret < 0)
+		return DROP_CT_INVALID_HDR;
+
 	return CTX_ACT_OK;
 }
 
@@ -618,12 +620,11 @@ static __always_inline int ct_lookup6(const void *map,
 }
 
 static __always_inline int
-ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-		   int *l4_off)
+ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 {
-	int l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -640,7 +641,11 @@ ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 
-	*l4_off = l3_off + ipv4_hdrlen(ip4);
+	ret = ipv4_load_l4_ports(ctx, ip4, ETH_HLEN + ipv4_hdrlen(ip4),
+				 CT_EGRESS, &tuple->dport, NULL);
+	if (ret < 0)
+		return ret;
+
 	return CTX_ACT_OK;
 }
 
