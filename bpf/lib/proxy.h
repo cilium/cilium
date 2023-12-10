@@ -268,14 +268,11 @@ ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 static __always_inline int						\
 NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
 {									\
-	int err, l4_off;						\
+	int err;							\
 									\
-	err = PREFIX ## _extract_tuple(ctx, tuple, &l4_off);		\
+	err = PREFIX ## _extract_tuple(ctx, tuple);			\
 	if (err != CTX_ACT_OK)						\
 		return err;						\
-									\
-	if (l4_load_ports(ctx, l4_off, &tuple->dport) < 0)		\
-		return DROP_CT_INVALID_HDR;				\
 									\
 	__ ## PREFIX ## _ct_tuple_reverse(tuple);			\
 									\
