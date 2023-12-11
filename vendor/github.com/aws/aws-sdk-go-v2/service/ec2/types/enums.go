@@ -10,6 +10,7 @@ const (
 	AcceleratorManufacturerAmd               AcceleratorManufacturer = "amd"
 	AcceleratorManufacturerNvidia            AcceleratorManufacturer = "nvidia"
 	AcceleratorManufacturerXilinx            AcceleratorManufacturer = "xilinx"
+	AcceleratorManufacturerHabana            AcceleratorManufacturer = "habana"
 )
 
 // Values returns all known values for AcceleratorManufacturer. Note that this can
@@ -21,6 +22,7 @@ func (AcceleratorManufacturer) Values() []AcceleratorManufacturer {
 		"amd",
 		"nvidia",
 		"xilinx",
+		"habana",
 	}
 }
 
@@ -37,6 +39,9 @@ const (
 	AcceleratorNameT4            AcceleratorName = "t4"
 	AcceleratorNameVu9p          AcceleratorName = "vu9p"
 	AcceleratorNameV100          AcceleratorName = "v100"
+	AcceleratorNameA10g          AcceleratorName = "a10g"
+	AcceleratorNameH100          AcceleratorName = "h100"
+	AcceleratorNameT4g           AcceleratorName = "t4g"
 )
 
 // Values returns all known values for AcceleratorName. Note that this can be
@@ -53,6 +58,9 @@ func (AcceleratorName) Values() []AcceleratorName {
 		"t4",
 		"vu9p",
 		"v100",
+		"a10g",
+		"h100",
+		"t4g",
 	}
 }
 
@@ -3680,6 +3688,15 @@ const (
 	InstanceTypeR7i24xlarge     InstanceType = "r7i.24xlarge"
 	InstanceTypeR7i48xlarge     InstanceType = "r7i.48xlarge"
 	InstanceTypeDl2q24xlarge    InstanceType = "dl2q.24xlarge"
+	InstanceTypeMac2M2Metal     InstanceType = "mac2-m2.metal"
+	InstanceTypeI4i12xlarge     InstanceType = "i4i.12xlarge"
+	InstanceTypeI4i24xlarge     InstanceType = "i4i.24xlarge"
+	InstanceTypeC7iMetal24xl    InstanceType = "c7i.metal-24xl"
+	InstanceTypeC7iMetal48xl    InstanceType = "c7i.metal-48xl"
+	InstanceTypeM7iMetal24xl    InstanceType = "m7i.metal-24xl"
+	InstanceTypeM7iMetal48xl    InstanceType = "m7i.metal-48xl"
+	InstanceTypeR7iMetal24xl    InstanceType = "r7i.metal-24xl"
+	InstanceTypeR7iMetal48xl    InstanceType = "r7i.metal-48xl"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4459,6 +4476,15 @@ func (InstanceType) Values() []InstanceType {
 		"r7i.24xlarge",
 		"r7i.48xlarge",
 		"dl2q.24xlarge",
+		"mac2-m2.metal",
+		"i4i.12xlarge",
+		"i4i.24xlarge",
+		"c7i.metal-24xl",
+		"c7i.metal-48xl",
+		"m7i.metal-24xl",
+		"m7i.metal-48xl",
+		"r7i.metal-24xl",
+		"r7i.metal-48xl",
 	}
 }
 

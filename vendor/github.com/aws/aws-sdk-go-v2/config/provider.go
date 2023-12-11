@@ -191,6 +191,40 @@ func getAppID(ctx context.Context, configs configs) (value string, found bool, e
 	return
 }
 
+// disableRequestCompressionProvider provides access to the DisableRequestCompression
+type disableRequestCompressionProvider interface {
+	getDisableRequestCompression(context.Context) (bool, bool, error)
+}
+
+func getDisableRequestCompression(ctx context.Context, configs configs) (value bool, found bool, err error) {
+	for _, cfg := range configs {
+		if p, ok := cfg.(disableRequestCompressionProvider); ok {
+			value, found, err = p.getDisableRequestCompression(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// requestMinCompressSizeBytesProvider provides access to the MinCompressSizeBytes
+type requestMinCompressSizeBytesProvider interface {
+	getRequestMinCompressSizeBytes(context.Context) (int64, bool, error)
+}
+
+func getRequestMinCompressSizeBytes(ctx context.Context, configs configs) (value int64, found bool, err error) {
+	for _, cfg := range configs {
+		if p, ok := cfg.(requestMinCompressSizeBytesProvider); ok {
+			value, found, err = p.getRequestMinCompressSizeBytes(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
 // ec2IMDSRegionProvider provides access to the ec2 imds region
 // configuration value
 type ec2IMDSRegionProvider interface {
