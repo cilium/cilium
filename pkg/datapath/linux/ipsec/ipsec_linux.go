@@ -1162,20 +1162,3 @@ func staleKeyReclaimer(ctx context.Context) error {
 
 	return nil
 }
-
-// We need to install xfrm state for the local router (cilium_host) early
-// in daemon init path. This is to ensure that we have the xfrm state in
-// place before we advertise the routerIP where other nodes may potentially
-// pick it up and start sending traffic to us. This was previously racing
-// and creating XfrmInNoState errors because other nodes picked up node
-// update before Xfrm config logic was in place. So special case init the
-// rule we need early in init flow.
-func Init() error {
-	outerLocalIP := node.GetInternalIPv4Router()
-	wildcardIP := net.ParseIP("0.0.0.0")
-	localCIDR := node.GetIPv4AllocRange().IPNet
-	localWildcardIP := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
-
-	_, err := UpsertIPsecEndpoint(localCIDR, localWildcardIP, outerLocalIP, wildcardIP, 0, IPSecDirIn, false)
-	return err
-}
