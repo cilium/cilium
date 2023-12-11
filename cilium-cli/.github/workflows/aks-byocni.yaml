@@ -44,6 +44,7 @@ env:
 
 jobs:
   installation-and-connectivity:
+    name: AKS BYOCNI Installation and Connectivity Test
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 45
