@@ -70,11 +70,9 @@ type Options struct {
 	// RetryMaxAttempts specifies the maximum number attempts an API client will call
 	// an operation that fails with a retryable error. A value of 0 is ignored, and
 	// will not be used to configure the API client created default retryer, or modify
-	// per operation call's retry max attempts. When creating a new API Clients this
-	// member will only be used if the Retryer Options member is nil. This value will
-	// be ignored if Retryer is not nil. If specified in an operation call's functional
-	// options with a value that is different than the constructed client's Options,
-	// the Client's Retryer will be wrapped to use the operation's specific
+	// per operation call's retry max attempts. If specified in an operation call's
+	// functional options with a value that is different than the constructed client's
+	// Options, the Client's Retryer will be wrapped to use the operation's specific
 	// RetryMaxAttempts value.
 	RetryMaxAttempts int
 
