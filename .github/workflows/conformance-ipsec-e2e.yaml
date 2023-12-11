@@ -78,41 +78,49 @@ jobs:
 
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '4.19-20231124.100406'
+            kernel: '4.19-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
             encryption: 'ipsec'
             encryption-node: 'false'
+            key-one: 'gcm(aes)'
+            key-two: 'cbc(aes)'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20231124.100406'
+            kernel: '5.4-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
+            key-one: 'cbc(aes)'
+            key-two: 'cbc(aes)'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20231124.100406'
+            kernel: '5.10-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
+            key-one: 'gcm(aes)'
+            key-two: 'gcm(aes)'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20231128.012937'
+            kernel: 'bpf-next-20231211.012942'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
+            key-one: 'cbc(aes)'
+            key-two: 'gcm(aes)'
 
     timeout-minutes: 60
     steps:
@@ -125,87 +133,35 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Get Cilium's default values
-        id: default_vars
-        uses: ./.github/actions/helm-default
-        with:
-          image-tag: ${{ inputs.SHA }}
-
       - name: Set up job variables
         id: vars
         run: |
-          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --wait \
-            --helm-set=hubble.eventBufferCapacity=65535 \
-            --helm-set=authentication.mutual.spire.enabled=true \
-            --helm-set=authentication.mutual.spire.install.enabled=true \
-            --nodes-without-cilium=kind-worker3 \
-            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
-          TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
-          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
-            TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
           fi
-          LB_MODE=""
-          if [ "${{ matrix.lb-mode }}" != "" ]; then
-            LB_MODE="--helm-set-string=loadBalancer.mode=${{ matrix.lb-mode }}"
-          fi
-          ENDPOINT_ROUTES=""
-          if [ "${{ matrix.endpoint-routes }}" == "true" ]; then
-            ENDPOINT_ROUTES="--helm-set-string=endpointRoutes.enabled=true"
-          fi
-          IPV6=""
-          if [ "${{ matrix.ipv6 }}" != "false" ]; then
-            IPV6="--helm-set=ipv6.enabled=true"
-          fi
-          MASQ=""
-          if [ "${{ matrix.kpr }}" == "true" ]; then
-            # BPF-masq requires KPR=true.
-            MASQ="--helm-set=bpf.masquerade=true"
-            if [ "${{ matrix.host-fw }}" == "true" ]; then
-              # BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-              MASQ="${MASQ} --helm-set=enableIPv6Masquerade=false"
-            fi
-          fi
-          EGRESS_GATEWAY=""
-          if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true --helm-set=debug.enabled=true"
-          fi
-          LB_ACCELERATION=""
-          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
-            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
-          fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
 
-          ENCRYPT=""
-          if [ "${{ matrix.encryption }}" != "" ]; then
-            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
-            if [ "${{ matrix.encryption-node }}" != "" ]; then
-              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
-            fi
-          fi
-
-          HOST_FW=""
-          if [ "${{ matrix.host-fw }}" == "true" ]; then
-            HOST_FW="--helm-set=hostFirewall.enabled=true"
-          fi
-
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
-          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
-
-          JUNIT=""
-          for NAME in ${{ matrix.kube-proxy }} ${{ matrix.tunnel }} ${{ matrix.lb-mode }} ${{ matrix.encryption }} ${{ matrix.endpoint-routes }}; do
-            if [[ "${NAME}" != "" ]] && [[ "${NAME}" != "disabled" ]] && [[ "${NAME}" != "none" ]]; then
-              if [[ "${JUNIT}" != "" ]]; then
-                JUNIT+="-"
-              fi
-              if [[ "${NAME}" == "true" ]];then
-                NAME="endpoint-routes"
-              fi
-              JUNIT+="${NAME}"
-            fi
-          done
-          echo junit_type="${JUNIT}" >> $GITHUB_OUTPUT
-          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+      - name: Derive Cilium installation config and junit type
+        id: cilium-config
+        uses: ./.github/actions/cilium-config
+        with:
+          image-tag: ${{ steps.vars.outputs.sha }}
+          chart-dir: './install/kubernetes/cilium'
+          tunnel: ${{ matrix.tunnel }}
+          devices: ${{ matrix.devices }}
+          endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv6: ${{ matrix.ipv6 }}
+          kpr: ${{ matrix.kpr }}
+          lb-mode: ${{ matrix.lb-mode }}
+          lb-acceleration: ${{ matrix.lb-acceleration }}
+          encryption: ${{ matrix.encryption }}
+          encryption-node: ${{ matrix.encryption-node }}
+          egress-gateway: ${{ matrix.egress-gateway }}
+          host-fw: ${{ matrix.host-fw }}
+          ingress-controller: ${{ matrix.ingress-controller }}
+          misc: ${{ matrix.misc }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -216,7 +172,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@beceead2bece1d174e2c11f36e6bfac8ce3f8e7d # v0.15.16
+        uses: cilium/cilium-cli@c1fa8afda634f0457e9905d4f638e5164c4e0fc8 # v0.15.17
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -224,16 +180,22 @@ jobs:
           binary-name: cilium-cli
           binary-dir: ./
 
-      - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+      - name: Set Kind params
+        id: kind-params
+        shell: bash
+        run: |
+          IP_FAM="dual"
+          if [ "${{ matrix.ipv6 }}" == "false" ]; then
+            IP_FAM="ipv4"
+          fi
+          echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
+
+      - name: Provision K8s on LVH VM
+        uses: cilium/cilium/.github/actions/lvh-kind@main
         with:
           test-name: e2e-conformance
-          image-version: ${{ matrix.kernel }}
-          host-mount: ./
-          cpu: 4
-          install-dependencies: 'true'
-          cmd: |
-            git config --global --add safe.directory /host
+          kernel: ${{ matrix.kernel }}
+          kind-params: "${{ steps.kind-params.outputs.params }}"
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -244,82 +206,88 @@ jobs:
           done
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+        shell: bash
+        run: |
+          kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
-            kubectl create -n kube-system secret generic cilium-ipsec-keys \
-              --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+          if [[ "${{ matrix.key-one }}" == "gcm(aes)" ]]; then
+            key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+          elif [[ "${{ matrix.key-one }}" == "cbc(aes)" ]]; then
+            key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
+          else
+            echo "Invalid key type"; exit 1
+          fi
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+            --from-literal=keys="3 ${key}"
 
-            export CILIUM_CLI_MODE=helm
-            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
-            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
-            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
+          export CILIUM_CLI_MODE=helm
+          ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
-            ./cilium-cli status --wait
-            kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
+          ./cilium-cli status --wait
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
-            mkdir -p cilium-junits
+          mkdir -p cilium-junits
 
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-              --flush-ct
+          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --flush-ct
 
       - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
         uses: cilium/cilium/.github/actions/conn-disrupt-test@main
         with:
           job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
           operation-cmd: |
-            cd /host/
+            KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
+            if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
 
-            KEYID=\$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
-            if [[ \$KEYID -ge 15 ]]; then KEYID=0; fi
-            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1))) "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
-            kubectl patch secret -n kube-system cilium-ipsec-keys -p="\$data" -v=1
+            if [[ "${{ matrix.key-two }}" == "gcm(aes)" ]]; then
+              key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+            elif [[ "${{ matrix.key-two }}" == "cbc(aes)" ]]; then
+              key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
+            else
+              echo "Invalid key type"; exit 1
+            fi
+            data="{\"stringData\":{\"keys\":\"$((($KEYID+1))) ${key}\"}}"
+            kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
 
             # Wait until key rotation starts
             while true; do
-              keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium-dbg encrypt status | awk '/Keys in use/ {print \$NF}')
-              if [[ \$keys_in_use == 2 ]]; then
+              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
+              if [[ $keys_in_use == 2 ]]; then
                 break
               fi
-              echo "Waiting until key rotation starts (seeing \$keys_in_use keys)"
+              echo "Waiting until key rotation starts (seeing $keys_in_use keys)"
               sleep 30s
             done
 
             # Wait until key rotation completes
             # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
-            sleep \$((4*60))
+            sleep $((4*60))
             while true; do
-              keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium-dbg encrypt status | awk '/Keys in use/ {print \$NF}')
-              if [[ \$keys_in_use == 1 ]]; then
+              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
+              if [[ $keys_in_use == 1 ]]; then
                 break
               fi
-              echo "Waiting until key rotation completes (seeing \$keys_in_use keys)"
+              echo "Waiting until key rotation completes (seeing $keys_in_use keys)"
               sleep 30s
             done
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host
-            kubectl get pods --all-namespaces -o wide
-            ./cilium-cli status
-            mkdir -p cilium-sysdumps
-            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-            # To debug https://github.com/cilium/cilium/issues/26062
-            head -n -0 /proc/buddyinfo /proc/pagetypeinfo
+        shell: bash
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          ./cilium-cli status
+          mkdir -p cilium-sysdumps
+          ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+          # To debug https://github.com/cilium/cilium/issues/26062
+          head -n -0 /proc/buddyinfo /proc/pagetypeinfo
 
       - name: Upload artifacts
         if: ${{ !success() }}

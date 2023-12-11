@@ -80,21 +80,21 @@ jobs:
 
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '4.19-20231124.100406'
+            kernel: '4.19-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20231124.100406'
+            kernel: '5.4-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20231124.100406'
+            kernel: '5.10-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
@@ -102,7 +102,7 @@ jobs:
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20231124.100406'
+            kernel: '5.10-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -114,7 +114,7 @@ jobs:
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20231124.100406'
+            kernel: '5.15-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -127,7 +127,7 @@ jobs:
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20231026.065108'
+            kernel: '6.1-20231128.100518'
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
@@ -139,7 +139,7 @@ jobs:
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20231128.012937'
+            kernel: 'bpf-next-20231211.012942'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -152,7 +152,7 @@ jobs:
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20231128.012937'
+            kernel: 'bpf-next-20231211.012942'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -160,7 +160,7 @@ jobs:
 
           - name: '9'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20231124.100406'
+            kernel: '5.10-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -174,7 +174,7 @@ jobs:
 
           - name: '10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20231124.100406'
+            kernel: '5.15-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -188,7 +188,7 @@ jobs:
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20231026.065108'
+            kernel: '6.1-20231128.100518'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -202,7 +202,7 @@ jobs:
 
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20231128.012937'
+            kernel: 'bpf-next-20231211.012942'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -216,11 +216,23 @@ jobs:
 
           - name: '13'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '4.19-20231124.100406'
+            kernel: '4.19-20231128.100518'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
             misc: 'policyCIDRMatchMode=nodes'
+
+          - name: '14'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.4-20231128.100518'
+            kube-proxy: 'iptables'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'vxlan'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            lb-acceleration: 'testing-only'
 
 
     timeout-minutes: 60
@@ -273,7 +285,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@beceead2bece1d174e2c11f36e6bfac8ce3f8e7d # v0.15.16
+        uses: cilium/cilium-cli@c1fa8afda634f0457e9905d4f638e5164c4e0fc8 # v0.15.17
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -292,7 +304,7 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
-        uses: ./.github/actions/lvh-kind
+        uses: cilium/cilium/.github/actions/lvh-kind@main
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}

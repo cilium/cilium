@@ -99,7 +99,10 @@ jobs:
         run: |
           cd /tmp/generated/gke
 
-          if [ "${{ github.event_name }}" == "schedule" ];then
+          # Use complete matrix in case of scheduled run
+          # main -> event_name = schedule
+          # other stable branches -> PR-number starting with v (e.g. v1.14)
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
             cp gke.json /tmp/matrix.json
           else
             jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
@@ -116,6 +119,7 @@ jobs:
     timeout-minutes: 75
     env:
       job_name: "Installation and Connectivity Test"
+      preemptible: ${{ github.event_name != 'schedule' && '--preemptible' || '' }}
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
@@ -171,7 +175,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@beceead2bece1d174e2c11f36e6bfac8ce3f8e7d # v0.15.16
+        uses: cilium/cilium-cli@c1fa8afda634f0457e9905d4f638e5164c4e0fc8 # v0.15.17
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -213,7 +217,7 @@ jobs:
             --disk-type pd-standard \
             --disk-size 20GB \
             --node-taints ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute \
-            --preemptible
+            ${{ env.preemptible }}
 
       - name: Get cluster credentials
         run: |

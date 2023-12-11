@@ -236,6 +236,9 @@ resources: {}
   #   cpu: 100m
   #   memory: 512Mi
 
+# -- resources & limits for the agent init containers
+initResources: {}
+
 securityContext:
   # -- User to run the pod with
   # runAsUser: 0
@@ -1291,6 +1294,12 @@ hubble:
       type: RollingUpdate
       rollingUpdate:
         maxUnavailable: 1
+
+    # -- Additional hubble-relay volumes.
+    extraVolumes: []
+
+    # -- Additional hubble-relay volumeMounts.
+    extraVolumeMounts: []
 
     # -- hubble-relay pod security context
     podSecurityContext:

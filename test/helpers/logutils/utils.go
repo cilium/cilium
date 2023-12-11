@@ -14,12 +14,12 @@ const (
 	selfishThresholdMsg = "Goroutine took lock for more than" // from https://github.com/cilium/cilium/pull/5268
 
 	contextDeadlineExceeded = "context deadline exceeded"
-	errorLogs               = "level=error"
-	warningLogs             = "level=warning"
+	ErrorLogs               = "level=error"
+	WarningLogs             = "level=warning"
 	aPIPanicked             = "Cilium API handler panicked"
 )
 
-var countLogsMessages = []string{contextDeadlineExceeded, errorLogs, warningLogs, aPIPanicked, selfishThresholdMsg}
+var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs, aPIPanicked, selfishThresholdMsg}
 
 // LogErrorsSummary returns error and warning summary for given logs
 func LogErrorsSummary(logs string) string {
@@ -52,10 +52,10 @@ func getErrorWarningMsgs(logs string, n int) []string {
 	errors := map[string]int{}
 	warnings := map[string]int{}
 	for _, line := range strings.Split(logs, "\n") {
-		if strings.Contains(line, errorLogs) {
+		if strings.Contains(line, ErrorLogs) {
 			msg := getMsg(line)
 			errors[msg]++
-		} else if strings.Contains(line, warningLogs) {
+		} else if strings.Contains(line, WarningLogs) {
 			msg := getMsg(line)
 			warnings[msg]++
 		}

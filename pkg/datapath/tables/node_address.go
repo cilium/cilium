@@ -60,6 +60,24 @@ func (n *NodeAddress) String() string {
 	return fmt.Sprintf("%s (%s)", n.Addr, n.DeviceName)
 }
 
+func (n NodeAddress) TableHeader() []string {
+	return []string{
+		"Address",
+		"NodePort",
+		"Primary",
+		"DeviceName",
+	}
+}
+
+func (n NodeAddress) TableRow() []string {
+	return []string{
+		n.Addr.String(),
+		fmt.Sprintf("%v", n.NodePort),
+		fmt.Sprintf("%v", n.Primary),
+		n.DeviceName,
+	}
+}
+
 type NodeAddressConfig struct {
 	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
 }

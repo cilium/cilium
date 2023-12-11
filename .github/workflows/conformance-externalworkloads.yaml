@@ -94,7 +94,10 @@ jobs:
         run: |
           cd /tmp/generated/gke
 
-          if [ "${{ github.event_name }}" == "schedule" ];then
+          # Use complete matrix in case of scheduled run
+          # main -> event_name = schedule
+          # other stable branches -> PR-number starting with v (e.g. v1.14)
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
             jq '{ "include": [ .k8s[] ] }' gke.json > /tmp/matrix.json
           else
             jq '{ "include": [ .k8s[] | select(.default) ] }' gke.json > /tmp/matrix.json
@@ -111,6 +114,7 @@ jobs:
     timeout-minutes: 45
     env:
       job_name: "Installation and Connectivity Test"
+      preemptible: ${{ github.event_name != 'schedule' && '--preemptible' || '' }}
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
@@ -169,7 +173,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@beceead2bece1d174e2c11f36e6bfac8ce3f8e7d # v0.15.16
+        uses: cilium/cilium-cli@c1fa8afda634f0457e9905d4f638e5164c4e0fc8 # v0.15.17
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -208,7 +212,7 @@ jobs:
               --machine-type e2-custom-2-4096 \
               --boot-disk-type pd-standard \
               --boot-disk-size 10GB \
-              --preemptible \
+              ${{ env.preemptible }} \
               --image-project ubuntu-os-cloud \
               --image-family ubuntu-2004-lts \
               --metadata hostname=${{ env.vmName }}-${{ matrix.vmIndex }} \
@@ -229,7 +233,7 @@ jobs:
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 20GB \
-            --preemptible
+            ${{ env.preemptible }}
 
       - name: Get cluster credentials
         run: |

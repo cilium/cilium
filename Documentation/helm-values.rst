@@ -1612,6 +1612,14 @@
      - Additional hubble-relay environment variables.
      - list
      - ``[]``
+   * - :spelling:ignore:`hubble.relay.extraVolumeMounts`
+     - Additional hubble-relay volumeMounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.relay.extraVolumes`
+     - Additional hubble-relay volumes.
+     - list
+     - ``[]``
    * - :spelling:ignore:`hubble.relay.gops.enabled`
      - Enable gops for hubble-relay
      - bool
@@ -2096,6 +2104,10 @@
      - Service type for the shared LB service
      - string
      - ``"LoadBalancer"``
+   * - :spelling:ignore:`initResources`
+     - resources & limits for the agent init containers
+     - object
+     - ``{}``
    * - :spelling:ignore:`installNoConntrackIptablesRules`
      - Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.
      - bool

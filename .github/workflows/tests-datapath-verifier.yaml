@@ -53,7 +53,7 @@ concurrency:
 env:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   # renovate: datasource=golang-version depName=go
-  go-version: 1.21.4
+  go-version: 1.21.5
 
 jobs:
   commit-status-start:
@@ -73,22 +73,22 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '4.19-20231026.065108'
+          - kernel: '4.19-20231128.100518'
             ci-kernel: '419'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.4-20231026.065108'
+          - kernel: '5.4-20231128.100518'
             ci-kernel: '54'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.10-20231026.065108'
+          - kernel: '5.10-20231128.100518'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.15-20231026.065108'
+          - kernel: '5.15-20231128.100518'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '6.1-20231026.065108'
+          - kernel: '6.1-20231128.100518'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: 'bpf-next-20231123.012848'
+          - kernel: 'bpf-next-20231211.012942'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
@@ -110,6 +110,8 @@ jobs:
           cpu: 4
           install-dependencies: 'true'
           cmd: |
+            for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
+
             git config --global --add safe.directory /host
             uname -a
             # The LVH image might ship with an arbitrary Go toolchain version,

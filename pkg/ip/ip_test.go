@@ -722,34 +722,6 @@ func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, c)
 }
 
-// TestKeepUniqueIPs tests that KeepUniqueIPs returns a slice with only the unique IPs
-func (s *IPTestSuite) TestKeepUniqueIPs(c *C) {
-	// test nil/empty handling
-	ips := KeepUniqueIPs(nil)
-	c.Assert(len(ips), Equals, 0, Commentf("Non-empty slice returned with empty input"))
-
-	// test all duplicate
-	ips = KeepUniqueIPs([]net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("1.1.1.1"), net.ParseIP("1.1.1.1")})
-	c.Assert(len(ips), Equals, 1, Commentf("Too many IPs returned for only 1 unique"))
-	c.Assert(ips[0].String(), Equals, "1.1.1.1", Commentf("Incorrect unique IP returned"))
-
-	// test all unique
-	ipSource := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"), net.ParseIP("3.3.3.3")}
-	ips = KeepUniqueIPs(ipSource)
-	c.Assert(len(ips), Equals, 3, Commentf("Too few IPs returned for only 3 uniques"))
-	for i := range ipSource {
-		c.Assert(ips[i].String(), Equals, ipSource[i].String(), Commentf("Incorrect unique IP returned"))
-	}
-
-	// test mixed
-	ipSource = []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"), net.ParseIP("3.3.3.3"), net.ParseIP("2.2.2.2")}
-	ips = KeepUniqueIPs(ipSource)
-	c.Assert(len(ips), Equals, 3, Commentf("Too few IPs returned for only 3 uniques"))
-	for i := range ipSource[:3] {
-		c.Assert(ips[i].String(), Equals, ipSource[i].String(), Commentf("Incorrect unique IP returned"))
-	}
-}
-
 func TestKeepUniqueAddrs(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -910,9 +882,6 @@ func (s *IPTestSuite) TestIPVersion(c *C) {
 func (s *IPTestSuite) TestIPListEquals(c *C) {
 	ips := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")}
 	sorted := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8"), net.ParseIP("fd00::1")}
-
-	sortedIPs := getSortedIPList(ips)
-	c.Assert(SortedIPListsAreEqual(sorted, sortedIPs), checker.Equals, true)
 
 	c.Assert(UnsortedIPListsAreEqual(ips, sorted), checker.Equals, true)
 }

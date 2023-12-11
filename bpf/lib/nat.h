@@ -501,6 +501,7 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
 static __always_inline int
 snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct ipv4_ct_tuple *tuple __maybe_unused,
+			 struct iphdr *ip4 __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv4_nat_target *target __maybe_unused)
 {
@@ -544,7 +545,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 		target->from_local_endpoint = true;
 
-		err = ct_extract_ports4(ctx, l4_off, CT_EGRESS, tuple, NULL);
+		err = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, tuple, NULL);
 		if (err < 0)
 			return err;
 
@@ -753,7 +754,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		if (ipv4_load_l4_ports(ctx, NULL, off, CT_EGRESS,
+		if (ipv4_load_l4_ports(ctx, ip4, off, CT_EGRESS,
 				       &tuple->dport, &has_l4_header) < 0)
 			return DROP_INVALID;
 

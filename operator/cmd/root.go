@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
@@ -40,7 +41,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
@@ -61,7 +61,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -321,8 +320,8 @@ func initEnv(vp *viper.Viper) {
 	option.Config.Populate(vp)
 	operatorOption.Config.Populate(vp)
 
-	// add hooks after setting up metrics in the option.Confog
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
+	// add hooks after setting up metrics in the option.Config
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug); err != nil {
@@ -375,7 +374,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 	if err != nil {
 		log.WithError(err).Fatal("Failed to get hostname when generating lease lock identity")
 	}
-	operatorID = rand.RandomStringWithPrefix(operatorID+"-", 10)
+	operatorID = fmt.Sprintf("%s-%s", operatorID, rand.String(10))
 
 	ns := option.Config.K8sNamespace
 	// If due to any reason the CILIUM_K8S_NAMESPACE is not set we assume the operator

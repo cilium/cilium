@@ -739,22 +739,6 @@ func PartitionCIDR(targetCIDR net.IPNet, excludeCIDR net.IPNet) ([]*net.IPNet, [
 	return left, excludeList, right
 }
 
-// KeepUniqueIPs transforms the provided multiset of IPs into a single set,
-// lexicographically sorted via a byte-wise comparison of the IP slices (i.e.
-// IPv4 addresses show up before IPv6).
-// The slice is manipulated in-place destructively.
-func KeepUniqueIPs(ips []net.IP) []net.IP {
-	return slices.SortedUniqueFunc(
-		ips,
-		func(i, j int) bool {
-			return bytes.Compare(ips[i], ips[j]) == -1
-		},
-		func(a, b net.IP) bool {
-			return a.Equal(b)
-		},
-	)
-}
-
 // KeepUniqueAddrs transforms the provided multiset of IP addresses into a
 // single set, lexicographically sorted via comparison of the addresses using
 // netip.Addr.Compare (i.e. IPv4 addresses show up before IPv6).
@@ -868,24 +852,6 @@ func getSortedIPList(ipList []net.IP) []net.IP {
 	return sortedIPList
 }
 
-// SortedIPListsAreEqual compares two lists of sorted IPs. If any differ it returns
-// false.
-func SortedIPListsAreEqual(a, b []net.IP) bool {
-	// The IP set is definitely different if the lengths are different.
-	if len(a) != len(b) {
-		return false
-	}
-
-	// Lengths are equal, so each member in one set must be in the other
-	// If any IPs at the same index differ the sorted IP list are not equal.
-	for i := range a {
-		if !a[i].Equal(b[i]) {
-			return false
-		}
-	}
-	return true
-}
-
 // UnsortedIPListsAreEqual returns true if the list of net.IP provided is same
 // without considering the order of the IPs in the list. The function will first
 // attempt to sort both the IP lists and then validate equality for sorted lists.
@@ -895,10 +861,17 @@ func UnsortedIPListsAreEqual(ipList1, ipList2 []net.IP) bool {
 		return false
 	}
 
-	sortedIPList1 := getSortedIPList(ipList1)
-	sortedIPList2 := getSortedIPList(ipList2)
+	a := getSortedIPList(ipList1)
+	b := getSortedIPList(ipList2)
 
-	return SortedIPListsAreEqual(sortedIPList1, sortedIPList2)
+	// Lengths are equal, so each member in one set must be in the other
+	// If any IPs at the same index differ the sorted IP list are not equal.
+	for i := range a {
+		if !a[i].Equal(b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // GetIPFromListByFamily returns a single IP address of the provided family from a list

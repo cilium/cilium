@@ -2,10 +2,10 @@
     "kind":"Service",
     "apiVersion":"v1",
     "metadata":{
-        "name":"redis-master",
+        "name":"redis-leader",
         "labels":{
             "k8s-app.guestbook":"redis",
-            "role":"master"
+            "role":"leader"
         }
     },
     "spec":{
@@ -15,7 +15,7 @@
         }],
         "selector":{
             "k8s-app.guestbook":"redis",
-            "role":"master"
+            "role":"leader"
         }
     }
 }

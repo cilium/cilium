@@ -71,7 +71,7 @@ git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} 
 cd kubernetes
 
 # renovate: datasource=golang-version depName=go
-GO_VERSION="1.21.4"
+GO_VERSION="1.21.5"
 sudo rm -fr /usr/local/go
 curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz

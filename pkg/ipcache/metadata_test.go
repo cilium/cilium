@@ -5,7 +5,6 @@ package ipcache
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"sync"
 	"testing"
@@ -328,14 +327,14 @@ func TestInjectExisting(t *testing.T) {
 	defer cancel()
 
 	// mimic fqdn policy:
-	// - identitiesForFQDNSelectorIPs calls AllocateCIDRsForIPs()
-	// - notifyOnDNSMsg calls UpsertGeneratedIdentities())
+	// - identitiesForFQDNSelectorIPs calls AllocateCIDRs()
+	// - notifyOnDNSMsg calls upsertGeneratedIdentities())
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
 	prefix := netip.MustParsePrefix("172.19.0.5/32")
-	_, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
+	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
 	assert.NoError(t, err)
 
-	IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
+	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, nil)
 
 	// sanity check: ensure the cidr is correctly in the ipcache
 	wantID := identity.IdentityScopeLocal
@@ -382,17 +381,17 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	defer cancel()
 
 	// mimic fqdn policy:
-	// - identitiesForFQDNSelectorIPs calls AllocateCIDRsForIPs()
-	// - notifyOnDNSMsg calls UpsertGeneratedIdentities())
+	// - identitiesForFQDNSelectorIPs calls AllocateCIDRs()
+	// - notifyOnDNSMsg calls upsertGeneratedIdentities())
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
 	prefix := netip.MustParsePrefix("172.19.0.5/32")
-	_, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
+	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
 	assert.NoError(t, err)
 	identityReferences := 1
 
 	wantID := newlyAllocatedIdentities[prefix].ID
 
-	IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities, nil)
+	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, nil)
 
 	// sanity check: ensure the cidr is correctly in the ipcache
 	id, ok := IPIdentityCache.LookupByIP(prefix.String())
@@ -416,9 +415,10 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	// It should only allocate once, even if we run it multiple times.
 	identityReferences++
 	for i := 0; i < 2; i++ {
-		IPIdentityCache.UpsertLabels(prefix, labels, source.CustomResource, resource)
-		// Need to wait for the label injector to finish; easiest just to remove it
-		IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+		IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
+		remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 0)
 	}
 
 	// Ensure the source is now correctly understood in the ipcache
@@ -450,8 +450,10 @@ func TestInjectWithLegacyAPIOverlap(t *testing.T) {
 	assert.Equal(t, id.ID.Uint32(), uint32(realID.ID))
 
 	// Remove the identity allocation via newer APIs
-	IPIdentityCache.RemoveLabels(prefix, labels, resource)
-	IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+	IPIdentityCache.metadata.remove(prefix, resource, labels)
+	remaining, err := IPIdentityCache.InjectLabels(context.Background(), []netip.Prefix{prefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
 	identityReferences--
 	assert.Equal(t, identityReferences, 0)
 
@@ -482,12 +484,12 @@ func TestInjectLegacySecond(t *testing.T) {
 
 	// Allocate via old APIs
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
-	currentlyAllocatedIdentities, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{prefix.Addr().AsSlice()}, newlyAllocatedIdentities)
+	currentlyAllocatedIdentities, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, newlyAllocatedIdentities)
 	assert.NoError(t, err)
 	assert.Len(t, newlyAllocatedIdentities, 0)
 	assert.Len(t, currentlyAllocatedIdentities, 1)
 	assert.Equal(t, wantID, currentlyAllocatedIdentities[0].ID)
-	IPIdentityCache.UpsertGeneratedIdentities(newlyAllocatedIdentities, currentlyAllocatedIdentities)
+	IPIdentityCache.upsertGeneratedIdentities(newlyAllocatedIdentities, currentlyAllocatedIdentities)
 
 	// Remove via new APIs
 	IPIdentityCache.metadata.remove(prefix, resource, labels)
@@ -556,7 +558,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.NotNil(t, id)
 	assert.Equal(t, 1, id.ReferenceCount)
 	// Simulate adding CIDR policy.
-	ids, err := IPIdentityCache.AllocateCIDRsForIPs([]net.IP{net.ParseIP("1.1.1.1").To4()}, nil)
+	ids, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{netip.MustParsePrefix("1.1.1.1/32")}, nil)
 	assert.Nil(t, err)
 	assert.Len(t, ids, 1)
 	assert.Equal(t, 2, id.ReferenceCount)

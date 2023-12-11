@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"sync"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -132,6 +133,10 @@ type IPCache struct {
 	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
 	// IPv6 addresses in order to optimize longest prefix match lookups.
 	prefixLengths *counter.PrefixLengthCounter
+
+	// injectionStarted is a sync.Once so we can lazily start the prefix injection controller,
+	// but only once
+	injectionStarted sync.Once
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -156,7 +161,7 @@ func NewIPCache(c *Configuration) *IPCache {
 // Shutdown cleans up asynchronous routines associated with the IPCache.
 func (ipc *IPCache) Shutdown() error {
 	ipc.deferredPrefixRelease.Shutdown()
-	return ipc.ShutdownLabelInjection()
+	return ipc.controllers.RemoveControllerAndWait(LabelInjectorName)
 }
 
 // Lock locks the IPCache's mutex.

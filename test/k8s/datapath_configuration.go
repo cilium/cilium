@@ -586,7 +586,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"encryption.ipsec.interface": privateIface,
 				"devices":                    devices,
 				"hostFirewall.enabled":       "false",
-				"kubeProxyReplacement":       "disabled",
+				"kubeProxyReplacement":       "false",
+				"bpf.masquerade":             "false",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
@@ -759,7 +760,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				options["autoDirectNodeRoutes"] = "true"
 			}
 			if helpers.RunsWithKubeProxy() {
-				options["kubeProxyReplacement"] = "disabled"
+				options["kubeProxyReplacement"] = "false"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 

@@ -280,7 +280,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	if (!map)								\
 		return drop_for_direction(ctx, DIR, DROP_CT_NO_MAP_FOUND);	\
 										\
-	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ct_buffer.l4_off,		\
+	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer.l4_off,	\
 				   DIR, ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret);		\
@@ -621,7 +621,8 @@ ct_recreate6:
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
-			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV6, ep,
+			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV6,
+						   MARK_MAGIC_IDENTITY, ep,
 						   METRIC_EGRESS, from_l7lb, false);
 		}
 	}
@@ -705,7 +706,7 @@ pass_to_stack:
 		 * source identity can still be derived even if SNAT is
 		 * performed by a component such as portmap.
 		 */
-		set_identity_mark(ctx, SECLABEL_IPV6);
+		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 #endif
 	}
 
@@ -1109,7 +1110,8 @@ ct_recreate4:
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
-			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV4, ip4,
+			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV4,
+						   MARK_MAGIC_IDENTITY, ip4,
 						   ep, METRIC_EGRESS, from_l7lb,
 						   bypass_ingress_policy, false, 0);
 		}
@@ -1263,7 +1265,7 @@ pass_to_stack:
 		 * source identity can still be derived even if SNAT is
 		 * performed by a component such as portmap.
 		 */
-		set_identity_mark(ctx, SECLABEL_IPV4);
+		set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 #endif
 	}
 

@@ -132,8 +132,8 @@ not_esp:
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_F_HOST))
-		return ipv6_local_delivery(ctx, l3_off, *identity, ep,
-					   METRIC_INGRESS, false, true);
+		return ipv6_local_delivery(ctx, l3_off, *identity, MARK_MAGIC_IDENTITY,
+					   ep, METRIC_INGRESS, false, true);
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
@@ -243,7 +243,8 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 		if (ep->flags & ENDPOINT_F_HOST)
 			return ipv4_host_delivery(ctx, ip4);
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity, ip4, ep,
+		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity,
+					   MARK_MAGIC_IDENTITY, ip4, ep,
 					   METRIC_INGRESS, false, false, true,
 					   cluster_id);
 	}
@@ -416,8 +417,8 @@ not_esp:
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep && !(ep->flags & ENDPOINT_F_HOST))
-		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep,
-					   METRIC_INGRESS, false, false, true,
+		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
+					   ip4, ep, METRIC_INGRESS, false, false, true,
 					   0);
 
 	/* A packet entering the node from the tunnel and not going to a local

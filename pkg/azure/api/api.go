@@ -18,6 +18,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/azure/types"
@@ -25,7 +26,6 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -375,7 +375,7 @@ func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetwor
 }
 
 func generateIpConfigName() string {
-	return rand.RandomStringWithPrefix("Cilium-", 8)
+	return "Cilium-" + rand.String(8)
 }
 
 // AssignPrivateIpAddressesVMSS assign a private IP to an interface attached to a VMSS instance

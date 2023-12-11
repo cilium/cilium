@@ -304,18 +304,23 @@ By configuring ``authSecretRef`` for a neighbor you can configure that a
 peer.
 
 ``authSecretRef`` should reference the name of a secret in the BGP secrets
-namespace (if using the Helm chart this is ``cilium-bgp-secrets`` by default).
-The secret should contain a key with a name of ``password``.
+namespace (if using the Helm chart this is ``kube-system`` by default). The
+secret should contain a key with a name of ``password``.
 
 BGP secrets are limited to a configured namespace to keep the permissions
-needed on each Cilium Agent instance to a minimum. The Helm chart will create
-this namespace and configure Cilium to be able to read from it by default.
+needed on each Cilium Agent instance to a minimum. The Helm chart will
+configure Cilium to be able to read from it by default.
 
 An example of creating a secret is:
 
 .. code-block:: shell-session
 
-   $ kubectl create secret generic -n cilium-bgp-secrets --type=string secretname --from-literal=password=my-secret-password
+   $ kubectl create secret generic -n kube-system --type=string secretname --from-literal=password=my-secret-password
+
+If you wish to change the namespace, you can set the
+``bgpControlPlane.secretNamespace.name`` Helm chart value. To have the
+namespace created automatically, you can set the
+``bgpControlPlane.secretNamespace.create`` Helm chart value  to ``true``.
 
 Because TCP MD5 passwords sign the header of the packet they cannot be used if
 the session will be address translated by Cilium (i.e. the Cilium Agent's pod
