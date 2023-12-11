@@ -1,5 +1,108 @@
 # Changelog
 
+## v1.14.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Adds affinity, nodeSelector, podSecurityContext and securityContext to the SPIRE agent deployment values (Backport PR #29187, Upstream PR #29077, @meyskens)
+* helm: Add missing SA automount configuration (Backport PR #29689, Upstream PR #29511, @ayuspin)
+* helm: Allow setting resources for the agent init containers (Backport PR #29689, Upstream PR #29610, @ayuspin)
+* Network policies for reserved:ingress identity are now enforced by Cilium Ingress and Gateway API. (Backport PR #29447, Upstream PR #28126, @jrajahalme)
+
+**Bugfixes:**
+* "envoy-admin" cluster is renamed as "/envoy-admin", requiring all references in CEC/CCEC to be updated. (Backport PR #29477, Upstream PR #29020, @jrajahalme)
+* Avoid missed tail calls due to inserting policy programs too early during endpoint regeneration (#29308, @ti-mo)
+* bpf: Fix drop of IPv6 reply traffic when 1) pod-originating connection is SNATed by iptables, and 2) Host Firewall is enabled. (Backport PR #29477, Upstream PR #28813, @oblazek)
+* bpf: xdp: don't support GENEVE passthrough with DSR-Hybrid (Backport PR #29187, Upstream PR #28959, @julianwiedmann)
+* ctmap: consider CT entry's .dsr flag in PurgeOrphanNATEntries() (Backport PR #29641, Upstream PR #29098, @julianwiedmann)
+* datapath: Fix ENI egress routing table for cilium_host IP (Backport PR #29390, Upstream PR #29335, @gandro)
+* Do not skip FIB lookup when running in BPF Host Routing when Endpoint Routes enabled (Backport PR #29187, Upstream PR #28264, @aspsk)
+* endpoint: fix panic in RunMetadataResolver due to send on closed channel (Backport PR #29251, Upstream PR #29615, @mhofstetter)
+* endpointmanager: unmap ip for lookup (Backport PR #29641, Upstream PR #29554, @tklauser)
+* Fix bug where deleted nodes would reappear in the cilium_node_connectivity_* metrics (Backport PR #29641, Upstream PR #29566, @christarazi)
+* Fix external workloads not working with non-default ClusterID (Backport PR #29477, Upstream PR #29378, @giorio94)
+* Fix possible disruption of long running, cross-cluster, pod to node traffic on agent restart (Backport PR #29641, Upstream PR #29613, @giorio94)
+* Fix routing delegation to AWS-VPC-CNI when using the security groups feature. (Backport PR #29641, Upstream PR #29111, @Alex-Waring)
+* Fix the Created timestamps in `cilium bpf nat list` that used to display the same values. (Backport PR #29187, Upstream PR #27062, @gentoo-root)
+* Fixed label synchronization issues in Cilium, ensuring accurate representation of endpoint labels during restoration and addressing out-of-sync problems caused by label changes while the Cilium agent is down. (Backport PR #29251, Upstream PR #29248, @aanm)
+* gateway-api: add watch for reference grant in TLSRoute reconciler (Backport PR #29187, Upstream PR #29007, @mhofstetter)
+* gateway-api: Avoid redirect loop when the same host name is used for http and https listeners (Backport PR #29442, Upstream PR #29115, @sayboras)
+* gateway: Ignore loadbalancer class for Gateway service (Backport PR #29641, Upstream PR #29547, @sayboras)
+* Handle non-AEAD IPsec keys in `cilium encrypt status`. (Backport PR #29641, Upstream PR #29182, @viktor-kurchenko)
+* ingress: fix foreground deletion of Ingress (Backport PR #29477, Upstream PR #29367, @mhofstetter)
+* Install loopback CNI atomically to protect against aborted copy (Backport PR #29641, Upstream PR #29462, @akhilles)
+* ipam: Fix bug where IP lease did not expire (Backport PR #29641, Upstream PR #29443, @gandro)
+* ipam: Fix bug where IP lease did not expire (Backport PR #29652, Upstream PR #29443, @gandro)
+* iptables: remove logic to control non-existent net.ipv6.ip_early_demux (Backport PR #29477, Upstream PR #29310, @julianwiedmann)
+* metrics: fix potential conflict on metrics registration (Backport PR #29270, Upstream PR #27007, @ysksuzuki)
+* metrics: fix potential conflict on metrics registration (Backport PR #29477, Upstream PR #27007, @ysksuzuki)
+* Replace Cilium's base image from ubuntu:22.04 with Cilium's Runtime image (also ubuntu:22.04 based). (Backport PR #29364, Upstream PR #29340, @aanm)
+* Support downgrade path for XDP attachments from Cilium 1.15 (#29104, @ti-mo)
+* When using stacked network interfaces (such as br0 -> eth0) in the egress path, ensure that BPF SNAT checks are applied on all interfaces. (Backport PR #29477, Upstream PR #29160, @julianwiedmann)
+
+**CI Changes:**
+* bpf: complexity-tests: add HAVE_FIB_NEIGH (Backport PR #29477, Upstream PR #29348, @julianwiedmann)
+* ci-ipsec-upgrade: Check for errors (Backport PR #29270, Upstream PR #29189, @brb)
+* ci-ipsec-upgrade: Check for errors (Backport PR #29477, Upstream PR #29189, @brb)
+* ci-ipsec-upgrade: Drop no-missed-tail-calls exclusion (Backport PR #29477, Upstream PR #29325, @brb)
+* ci-ipsec-upgrade: Fix upgrade/downgrade path and add missed tail calls check to upgrade (Backport PR #28876, Upstream PR #29072, @brb)
+* CI: Let actions/cilium-config use Chart.yaml-specified image by default (Backport PR #28876, Upstream PR #28016, @jschwinger233)
+* Clean up tests-ipsec-upgrade workflow (Backport PR #28876, Upstream PR #27977, @michi-covalent)
+* Test upgrade/downgrade to patch release for IPsec (Backport PR #28876, Upstream PR #28815, @qmonnet)
+* Wait for downgrade images to be ready in GHA clustermesh upgrade/downgrade test (Backport PR #29477, Upstream PR #29409, @giorio94)
+* workflows: Add debug info to IPsec key rotation test (Backport PR #29477, Upstream PR #29353, @pchaigno)
+
+**Misc Changes:**
+* .github: use GitHub workflow from the same branch (#29252, @aanm)
+* [v1.14] CI: fix broken BPF complexity tests (#29553, @lmb)
+* Add workqueue.(delayingType).waitingLoop to goleak exception list (Backport PR #29187, Upstream PR #28557, @dylandreimerink)
+* chore(deps): update actions/checkout action to v4 (v1.14) (#29595, @renovate[bot])
+* chore(deps): update actions/github-script action to v7 (v1.14) (#29149, @renovate[bot])
+* chore(deps): update actions/setup-python action to v4.8.0 (v1.14) (#29579, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (#29121, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (minor) (#29265, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (patch) (#29282, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (patch) (#29576, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.14) (patch) (#29417, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.14) (patch) (#29577, @renovate[bot])
+* chore(deps): update cilium/cilium digest to d42be92 (v1.14) (#29133, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.13 (v1.14) (#29123, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.14 (v1.14) (#29283, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.16 (v1.14) (#29465, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.17 (v1.14) (#29729, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.18.5 (v1.14) (#29578, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.20.11 docker digest to 4e4a34f (v1.14) (#29416, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.20.11 docker digest to 77e4e42 (v1.14) (#29281, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 8eab65d (v1.14) (#29575, @renovate[bot])
+* chore(deps): update go to v1.20.12 (v1.14) (patch) (#29660, @renovate[bot])
+* chore(deps): update google-github-actions/auth action to v2 (v1.14) (#29598, @renovate[bot])
+* chore(deps): update hubble cli to v0.12.3 (v1.14) (patch) (#29746, @renovate[bot])
+* chore(deps): update module github.com/go-jose/go-jose/v3 to v3.0.1 [security] (v1.14) (#29320, @renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to bpf-next-20231113.012843 (v1.14) (#29129, @renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to bpf-next-20231120.012927 (v1.14) (#29284, @renovate[bot])
+* ci-ipsec-upgrade: Do not run conn tests after installing Cilium (Backport PR #29270, Upstream PR #29178, @brb)
+* ci-ipsec-upgrade: Do not run conn tests after installing Cilium (Backport PR #29477, Upstream PR #29178, @brb)
+* Docs: Adds Webhook Limitation to EKS Install Doc (Backport PR #29641, Upstream PR #29497, @danehans)
+* docs: bump required Helm version (Backport PR #29477, Upstream PR #29273, @nebril)
+* examples: update guestbook example with new image registry (Backport PR #29641, Upstream PR #29603, @mhofstetter)
+* images: bump cni plugins to v1.4.0 (Backport PR #29724, Upstream PR #29622, @squeed)
+* ipsec: Small refactorings on key loading and state creation (Backport PR #29477, Upstream PR #29352, @pchaigno)
+
+**Other Changes:**
+* [v1.14] Author Backport of 28896 (k8s ingress & gateway api: qualify envoy clusters and their references) (#29218, @mhofstetter)
+* [v1.14] bgpv1: Fix BGP component tests using the same VirtualRouter config (#29453, @rastislavs)
+* [v1.14] bpf: Fix identity determination in bpf_overlay.c (#29606, @ysksuzuki)
+* [v1.14] bpf: use bpf_xdp_load_bytes() / bpf_xdp_store_bytes() helpers (#29719, @julianwiedmann)
+* [v1.14] ci-ipsec-upgrade: Disable Linux 5.10-based configs (#29358, @brb)
+* [v1.14] gh: datapath-verifier: also run on 6.1 kernel (#29650, @julianwiedmann)
+* envoy: Bump cilium-envoy with golang 1.21.5 (#29656, @sayboras)
+* envoy: Bump envoy container image with golang 1.21 and latest grpc package (#29383, @sayboras)
+* install: Update image digests for v1.14.4 (#29147, @thorn3r)
+* Revert "dnsproxy: Use original source address in connections to dns servers" to fix performance regression. (#29205, @thorn3r)
+* v1.14: ariane: Run ci-ipsec-upgrade when testing backports (#29225, @brb)
+
 ## v1.14.4
 
 Summary of Changes
