@@ -1088,8 +1088,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
 
-	bpf_clear_meta(ctx);
-
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
      defined ENABLE_L2_ANNOUNCEMENTS
@@ -1246,6 +1244,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		}
 	}
 
+	bpf_clear_meta(ctx);
 	ctx_skip_nodeport_clear(ctx);
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
@@ -1280,6 +1279,8 @@ drop_err:
 __section_entry
 int cil_from_host(struct __ctx_buff *ctx)
 {
+	bpf_clear_meta(ctx);
+
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
 	 */

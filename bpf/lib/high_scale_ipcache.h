@@ -90,8 +90,6 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 		memcpy(src_id, &geneve.vni, sizeof(__u32));
 
 #if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-		ctx_store_meta(ctx, CB_HSIPC_ADDR_V4, 0);
-
 		if (opt_len && opt_len >= sizeof(dsr_opt)) {
 			if (ctx_load_bytes(ctx, off + sizeof(geneve), &dsr_opt,
 					   sizeof(dsr_opt)) < 0)
