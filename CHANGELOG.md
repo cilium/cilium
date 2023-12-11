@@ -1,5 +1,64 @@
 # Changelog
 
+## v1.13.10
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* helm: Add missing SA automount configuration (Backport PR #29690, Upstream PR #29511, @ayuspin)
+* helm: Add SA to nodeinit ds (Backport PR #29690, Upstream PR #24836, @darox)
+* helm: Allow setting resources for the agent init containers (Backport PR #29690, Upstream PR #29610, @ayuspin)
+
+**Bugfixes:**
+* Avoid missed tail calls due to inserting policy programs too early during endpoint regeneration (#29309, @ti-mo)
+* ctmap: consider CT entry's .dsr flag in PurgeOrphanNATEntries() (Backport PR #29640, Upstream PR #29098, @julianwiedmann)
+* datapath: Fix ENI egress routing table for cilium_host IP (Backport PR #29391, Upstream PR #29335, @gandro)
+* Fix bug where deleted nodes would reappear in the cilium_node_connectivity_* metrics (Backport PR #29640, Upstream PR #29566, @christarazi)
+* Handle non-AEAD IPsec keys in `cilium encrypt status`. (Backport PR #29640, Upstream PR #29182, @viktor-kurchenko)
+* Replace Cilium's base image from ubuntu:22.04 with Cilium's Runtime image (also ubuntu:22.04 based). (Backport PR #29709, Upstream PR #29340, @aanm)
+* Support downgrade path for XDP attachments from Cilium 1.15 (#29105, @ti-mo)
+* When using stacked network interfaces (such as br0 -> eth0) in the egress path, ensure that BPF SNAT checks are applied on all interfaces. (Backport PR #29475, Upstream PR #29160, @julianwiedmann)
+
+**CI Changes:**
+* ci-ipsec-upgrade: Check for errors (Backport PR #29272, Upstream PR #29189, @brb)
+* ci-ipsec-upgrade: Fix upgrade/downgrade path and add missed tail calls check to upgrade (Backport PR #29003, Upstream PR #29072, @brb)
+* CI: Let actions/cilium-config use Chart.yaml-specified image by default (Backport PR #29003, Upstream PR #28016, @jschwinger233)
+* Clean up tests-ipsec-upgrade workflow (Backport PR #29003, Upstream PR #27977, @michi-covalent)
+* gha: align ci-ipsec-e2e workflow name to main (#29687, @giorio94)
+* Test upgrade/downgrade to patch release for IPsec (Backport PR #29003, Upstream PR #28815, @qmonnet)
+* Wait for downgrade images to be ready in GHA clustermesh upgrade/downgrade test (Backport PR #29475, Upstream PR #29409, @giorio94)
+* workflows: Add debug info to IPsec key rotation test (Backport PR #29475, Upstream PR #29353, @pchaigno)
+
+**Misc Changes:**
+* .github: use GitHub workflow from the same branch (#29256, @aanm)
+* chore(deps): update actions/checkout action to v4 (v1.13) (#29287, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (minor) (#29286, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (patch) (#29139, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.13) (patch) (#29150, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.13) (patch) (#29419, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.20.12 (v1.13) (#29661, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.20.11 docker digest to 77e4e42 (v1.13) (#29285, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 2b7412e (v1.13) (#29138, @renovate[bot])
+* chore(deps): update hubble cli to v0.12.3 (v1.13) (patch) (#29747, @renovate[bot])
+* chore(deps): update myrotvorets/set-commit-status-action action to v2 (v1.13) (#29289, @renovate[bot])
+* ci-ipsec-upgrade: Do not run conn tests after installing Cilium (Backport PR #29192, Upstream PR #29178, @brb)
+* Docs: Adds Webhook Limitation to EKS Install Doc (Backport PR #29640, Upstream PR #29497, @danehans)
+* examples: update guestbook example with new image registry (Backport PR #29640, Upstream PR #29603, @mhofstetter)
+* Fix bug preventing endpoint-related debug logs from being emitted (Backport PR #29700, Upstream PR #29495, @learnitall)
+* images: bump cni plugins to v1.4.0 (Backport PR #29723, Upstream PR #29622, @squeed)
+* ipsec: Small refactorings on key loading and state creation (Backport PR #29475, Upstream PR #29352, @pchaigno)
+* Update the logrus dependency to address a security issue. (#29672, @rolinh)
+
+**Other Changes:**
+* [1.13] Address selectorcache concurrent read/write (#29186, @tklauser)
+* [v1.13] Let renovatebot update Go toolchain version in a single PR (#29743, @tklauser)
+* envoy: Bump cilium-envoy with golang 1.21.5 (#29655, @sayboras)
+* envoy: Bump envoy container image with golang 1.21 and latest grpc package (#29384, @sayboras)
+* install: Update image digests for v1.13.9 (#29136, @nathanjsweet)
+* Revert "dnsproxy: Use original source address in connections to dns servers" to fix performance regression. (#29206, @thorn3r)
+* v1.13: ariane: Run ci-ipsec-upgrade when testing backports (#29227, @brb)
+
 ## v1.13.9
 
 Summary of Changes
