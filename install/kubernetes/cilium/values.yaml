@@ -967,7 +967,7 @@ certgen:
     repository: "quay.io/cilium/certgen"
     tag: "v0.1.9"
     digest: "sha256:89a0847753686444daabde9474b48340993bd19c7bea66a46e45b2974b82041f"
-    useDigest: true
+    useDigest: false
     pullPolicy: "Always"
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
@@ -1463,7 +1463,7 @@ hubble:
         repository: "quay.io/cilium/hubble-ui-backend"
         tag: "v0.12.1"
         digest: "sha256:1f86f3400827a0451e6332262467f894eeb7caf0eb8779bd951e2caa9d027cbe"
-        useDigest: true
+        useDigest: false
         pullPolicy: "Always"
 
       # -- Hubble-ui backend security context.
@@ -1502,7 +1502,7 @@ hubble:
         repository: "quay.io/cilium/hubble-ui"
         tag: "v0.12.1"
         digest: "sha256:9e5f81ee747866480ea1ac4630eb6975ff9227f9782b7c93919c081c33f38267"
-        useDigest: true
+        useDigest: false
         pullPolicy: "Always"
 
       # -- Hubble-ui frontend security context.
@@ -2067,7 +2067,7 @@ envoy:
     tag: "v1.27.2-f19708f3d0188fe39b7e024b4525b75a9eeee61f"
     pullPolicy: "Always"
     digest: "sha256:80de27c1d16ab92923cc0cd1fff90f2e7047a9abf3906fda712268d9cbc5b950"
-    useDigest: true
+    useDigest: false
 
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -2359,7 +2359,7 @@ etcd:
     repository: "quay.io/cilium/cilium-etcd-operator"
     tag: "v2.0.7"
     digest: "sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"
-    useDigest: true
+    useDigest: false
     pullPolicy: "Always"
 
   # -- The priority class to use for cilium-etcd-operator
@@ -3362,7 +3362,7 @@ authentication:
           repository: "docker.io/library/busybox"
           tag: "1.36.1"
           digest: "sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b"
-          useDigest: true
+          useDigest: false
           pullPolicy: "Always"
         # SPIRE agent configuration
         agent:
@@ -3372,7 +3372,7 @@ authentication:
             repository: "ghcr.io/spiffe/spire-agent"
             tag: "1.8.5"
             digest: "sha256:99405637647968245ff9fe215f8bd2bd0ea9807be9725f8bf19fe1b21471e52b"
-            useDigest: true
+            useDigest: false
             pullPolicy: "Always"
           # -- SPIRE agent service account
           serviceAccount:
@@ -3407,7 +3407,7 @@ authentication:
             repository: "ghcr.io/spiffe/spire-server"
             tag: "1.8.5"
             digest: "sha256:28269265882048dcf0fed32fe47663cd98613727210b8d1a55618826f9bf5428"
-            useDigest: true
+            useDigest: false
             pullPolicy: "Always"
           # -- SPIRE server service account
           serviceAccount:
