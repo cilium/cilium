@@ -23,11 +23,13 @@ import (
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -100,12 +102,19 @@ func writeConfig(c *C, header string, write writeFn) {
 		var writer datapath.ConfigWriter
 		c.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
+			statedb.Cell,
 			cell.Provide(
 				fake.NewNodeAddressing,
 				func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
 				func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },
+				tables.NewDeviceTable,
+				func(_ *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
+					return devices
+				},
+
 				NewHeaderfileWriter,
 			),
+			cell.Invoke(statedb.RegisterTable[*tables.Device]),
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
 				writer = writer_
 			}),
@@ -149,7 +158,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 		varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c.T)).ELFSubstitutions(t)
 
 		var buf bytes.Buffer
-		cfg.writeStaticData(&buf, t)
+		cfg.writeStaticData(nil, &buf, t)
 
 		return buf.Bytes(), varSub, stringSub
 	}
@@ -234,7 +243,7 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c.T)).ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
-	cfg.writeStaticData(&buf, ep)
+	cfg.writeStaticData(nil, &buf, ep)
 	b := buf.Bytes()
 	for k := range varSub {
 		for _, suffix := range []string{"_1", "_2"} {
@@ -293,38 +302,49 @@ func createVlanLink(vlanId int, mainLink *netlink.Dummy, c *C) *netlink.Vlan {
 }
 
 func (s *ConfigSuite) TestVLANBypassConfig(c *C) {
-	oldDevices := option.Config.GetDevices()
-	defer func() {
-		option.Config.SetDevices(oldDevices)
-	}()
+	var devs []*tables.Device
 
 	main1 := createMainLink("dummy0", c)
+	devs = append(devs, &tables.Device{Name: main1.Name, Index: main1.Index})
 	defer func() {
 		netlink.LinkDel(main1)
 	}()
 
+	// Define some set of vlans which we allow to allow.
+	allow := map[int]struct{}{
+		4000: {},
+		4001: {},
+		4003: {},
+	}
+
 	for i := 4000; i < 4003; i++ {
 		vlan := createVlanLink(i, main1, c)
+		if _, ok := allow[i]; ok {
+			devs = append(devs, &tables.Device{Index: vlan.Index, Name: vlan.Name})
+		}
 		defer func() {
 			netlink.LinkDel(vlan)
 		}()
 	}
 
 	main2 := createMainLink("dummy1", c)
+	devs = append(devs, &tables.Device{Name: main2.Name, Index: main2.Index})
 	defer func() {
 		netlink.LinkDel(main2)
 	}()
 
 	for i := 4003; i < 4006; i++ {
 		vlan := createVlanLink(i, main2, c)
+		if _, ok := allow[i]; ok {
+			devs = append(devs, &tables.Device{Index: vlan.Index, Name: vlan.Name})
+		}
 		defer func() {
 			netlink.LinkDel(vlan)
 		}()
 	}
 
-	option.Config.SetDevices([]string{"dummy0", "dummy0.4000", "dummy0.4001", "dummy1", "dummy1.4003"})
 	option.Config.VLANBPFBypass = []int{4004}
-	m, err := vlanFilterMacros()
+	m, err := vlanFilterMacros(devs)
 	c.Assert(err, Equals, nil)
 	c.Assert(m, Equals, fmt.Sprintf(`switch (ifindex) { \
 case %d: \
@@ -345,11 +365,11 @@ break; \
 return false;`, main1.Index, main2.Index))
 
 	option.Config.VLANBPFBypass = []int{4002, 4004, 4005}
-	_, err = vlanFilterMacros()
+	_, err = vlanFilterMacros(devs)
 	c.Assert(err, NotNil)
 
 	option.Config.VLANBPFBypass = []int{0}
-	m, err = vlanFilterMacros()
+	m, err = vlanFilterMacros(devs)
 	c.Assert(err, IsNil)
 	c.Assert(m, Equals, "return true")
 }
@@ -358,11 +378,42 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	setup(t)
 
+	var (
+		db      *statedb.DB
+		devices statedb.Table[*tables.Device]
+		na      datapath.NodeAddressing
+	)
+	h := hive.New(
+		statedb.Cell,
+		cell.Provide(
+			fake.NewNodeAddressing,
+			tables.NewDeviceTable,
+			func(_ *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
+				return devices
+			},
+		),
+		cell.Invoke(statedb.RegisterTable[*tables.Device]),
+		cell.Invoke(func(
+			db_ *statedb.DB,
+			devices_ statedb.Table[*tables.Device],
+			nodeaddressing datapath.NodeAddressing,
+		) {
+			db = db_
+			devices = devices_
+			na = nodeaddressing
+		}),
+	)
+
+	require.NoError(t, h.Start(context.TODO()))
+	t.Cleanup(func() { h.Stop(context.TODO()) })
+
 	var buffer bytes.Buffer
 
 	// Assert that configurations are propagated when all generated extra defines are valid
 	cfg, err := NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   fake.NewNodeAddressing(),
+		DB:               db,
+		Devices:          devices,
+		NodeAddressing:   na,
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
@@ -382,7 +433,9 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	// Assert that an error is returned when one extra define function returns an error
 	cfg, err = NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   fake.NewNodeAddressing(),
+		DB:               db,
+		Devices:          devices,
+		NodeAddressing:   na,
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
@@ -397,7 +450,9 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	// Assert that an error is returned when one extra define would overwrite an already existing entry
 	cfg, err = NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   fake.NewNodeAddressing(),
+		DB:               db,
+		Devices:          devices,
+		NodeAddressing:   na,
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
@@ -416,10 +471,16 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	setup(t)
 
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	require.NoError(t, err)
+
 	a := dpdef.Map{"A": "1"}
 	var buffer bytes.Buffer
 
-	_, err := NewHeaderfileWriter(WriterParams{
+	_, err = NewHeaderfileWriter(WriterParams{
+		DB:                 db,
+		Devices:            devices,
 		NodeAddressing:     fake.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
@@ -430,6 +491,8 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	require.Error(t, err, "duplicate keys should be rejected")
 
 	cfg, err := NewHeaderfileWriter(WriterParams{
+		DB:                 db,
+		Devices:            devices,
 		NodeAddressing:     fake.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
