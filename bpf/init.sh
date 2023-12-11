@@ -116,7 +116,7 @@ function setup_proxy_rules()
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 	use_from_ingress_proxy_rules=0
 
-	if [ "$ENDPOINT_ROUTES" != "true" ]; then
+	if [[ ("$IPSEC_ENCRYPTION" = "true" && "${TUNNEL_MODE}" = "<nil>") || "$ENDPOINT_ROUTES" != "true" ]]; then
 		use_from_ingress_proxy_rules=1
 	fi
 
