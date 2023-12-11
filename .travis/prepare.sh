@@ -40,10 +40,41 @@ function install_clang() {
   rm $CLANG_FILE $CLANG_FILE_SIG hans-gpg-key.asc
 }
 
+function update_docker_and_buildx() {
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+  case `uname -m` in
+    'x86_64' )
+      sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) edge"
+      ;;
+    'aarch64' )
+      sudo add-apt-repository "deb [arch=arm64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) edge"
+      ;;
+  esac
+
+  sudo apt-get update
+  sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+  mkdir -vp ~/.docker/cli-plugins/
+  
+  case `uname -m` in
+    'x86_64' )
+      curl --silent -L "https://github.com/docker/buildx/releases/download/v0.12.0/buildx-v0.12.0.linux-amd64" > ~/.docker/cli-plugins/docker-buildx
+      ;;
+    'aarch64' )
+      curl --silent -L "https://github.com/docker/buildx/releases/download/v0.12.0/buildx-v0.12.0.linux-arm64" > ~/.docker/cli-plugins/docker-buildx
+      ;;
+  esac
+
+
+  chmod a+x ~/.docker/cli-plugins/docker-buildx
+}
+
 setup_env
 install_clang
+update_docker_and_buildx
 
 export PATH="/usr/local/clang/bin:$PATH"
 
 go install github.com/mattn/goveralls@a36c7ef8f23b2952fa6e39663f52107dfc8ad69d # v0.0.11
 go install github.com/mfridman/tparse@a20c511a88b880dc2544d77d8bc2cc66a8dec507 # v0.10.3
+
