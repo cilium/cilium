@@ -22,6 +22,7 @@ env:
 
 jobs:
   installation-and-connectivity:
+    name: Kind Installation and Connectivity Test
     runs-on: ubuntu-22.04
     timeout-minutes: 50
     strategy:
@@ -212,6 +213,7 @@ jobs:
           retention-days: 5
 
   helm-upgrade-clustermesh:
+    name: Kind Helm Upgrade Clustermesh
     runs-on: ubuntu-22.04
     timeout-minutes: 50
 
