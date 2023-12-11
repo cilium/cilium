@@ -34,6 +34,7 @@ env:
 
 jobs:
   installation-and-connectivity:
+    name: EKS Installation and Connectivity Test
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
