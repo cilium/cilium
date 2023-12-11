@@ -59,11 +59,13 @@ func (n *NameManager) mapSelectorsToIPsLocked(fqdnSelectors sets.Set[api.FQDNSel
 
 			for name, ips := range lookupIPs {
 				if len(ips) > 0 {
-					log.WithFields(logrus.Fields{
-						"DNSName":      name,
-						"IPs":          ips,
-						"matchPattern": ToFQDN.MatchPattern,
-					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+					if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+						log.WithFields(logrus.Fields{
+							"DNSName":      name,
+							"IPs":          ips,
+							"matchPattern": ToFQDN.MatchPattern,
+						}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+					}
 					if ipsSelected == nil {
 						ipsSelected = ips
 					} else {
