@@ -351,22 +351,23 @@
       "matchDepNames": [
         "cilium/cilium-cli"
       ],
-      "matchBaseBranches": [
-        "main",
-        "v1.14"
-      ]
     },
     {
+      // Do not bump the minor version for Cilium <v1.14. Certain workflows
+      // are already using Cilium CLI v0.15.*, so let's enable patch versions.
+      "enabled": false,
       "groupName": "Cilium CLI",
       "groupSlug": "cilium-cli",
       "matchDepNames": [
         "cilium/cilium-cli"
       ],
-      "allowedVersions": "/^v0\\.14\\.[0-9]+$/",
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
       "matchBaseBranches": [
         "v1.13",
         "v1.12",
-        "v1.11"
       ]
     },
     {
