@@ -85,6 +85,104 @@ func TestReconcile(t *testing.T) {
 		require.Empty(t, sharedCEC.Spec.Resources)
 	})
 
+	t.Run("Reconcile of Ingress without specific IngressClassName will create resources if cilium IngressClass is the default", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(testScheme()).
+			WithObjects(
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test",
+						Name:      "test",
+					},
+					Spec: networkingv1.IngressSpec{
+						DefaultBackend: defaultBackend(),
+					},
+				},
+				&networkingv1.IngressClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cilium",
+						Annotations: map[string]string{
+							"ingressclass.kubernetes.io/is-default-class": "true",
+						},
+					},
+				},
+			).
+			Build()
+
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+
+		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "test",
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		svc := corev1.Service{}
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &svc)
+		require.NoError(t, err, "Dedicated loadbalancer service should exist")
+
+		ep := corev1.Endpoints{}
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &ep)
+		require.NoError(t, err, "Dedicated loadbalancer service endpoints should exist")
+
+		cec := ciliumv2.CiliumEnvoyConfig{}
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &cec)
+		require.NoError(t, err, "Dedicated CiliumEnvoyConfig should exist")
+
+		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
+		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will create an empty one")
+		require.Empty(t, sharedCEC.Spec.Resources)
+	})
+
+	t.Run("Reconcile of Ingress without specific IngressClassName won't create resources if cilium IngressClass is not the default", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(testScheme()).
+			WithObjects(
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test",
+						Name:      "test",
+					},
+					Spec: networkingv1.IngressSpec{
+						DefaultBackend: defaultBackend(),
+					},
+				},
+				&networkingv1.IngressClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cilium",
+						Annotations: map[string]string{
+							"ingressclass.kubernetes.io/is-default-class": "false",
+						},
+					},
+				},
+			).
+			Build()
+
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+
+		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "test",
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Service{})
+		require.True(t, k8sApiErrors.IsNotFound(err), "Service should not be created")
+
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Endpoints{})
+		require.True(t, k8sApiErrors.IsNotFound(err), "Endpoints should not be created")
+
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &ciliumv2.CiliumEnvoyConfig{})
+		require.True(t, k8sApiErrors.IsNotFound(err), "CiliumEnvoyConfig should not be created")
+	})
+
 	t.Run("Reconcile of shared Cilium Ingress will create the shared CiliumEnvoyConfig in the cilium namespace", func(t *testing.T) {
 		fakeClient := fake.NewClientBuilder().
 			WithScheme(testScheme()).
