@@ -256,6 +256,7 @@ jobs:
           binary-dir: ./
 
       - name: Set Kind params
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         id: kind-params
         shell: bash
         run: |
@@ -275,6 +276,7 @@ jobs:
           kind-image-vsn: ${k8s_version}
 
       - name: Wait for images to be available
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         timeout-minutes: 30
         shell: bash
         run: |
