@@ -34,7 +34,6 @@ import (
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -914,16 +913,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// K8s resources have been synced.
 	if err := d.allocateIPs(ctx, restoredRouterIPs); err != nil { // will log errors/fatal internally
 		return nil, nil, err
-	}
-
-	// allocateIPs got us the routerIP so now we can create ipsec endpoint
-	// we must do this before publishing the router IP otherwise remote
-	// nodes could pick up the IP and send us outer headers we do not yet
-	// have xfrm rules for.
-	if option.Config.EnableIPSec {
-		if err := ipsec.Init(); err != nil {
-			log.WithError(err).Error("IPSec init failed")
-		}
 	}
 
 	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
