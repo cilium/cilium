@@ -3,7 +3,9 @@
 
 .DEFAULT_GOAL := all
 
-include ../Makefile.defs
+ROOT_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
+
+include ${ROOT_DIR}/../Makefile.defs
 
 # Add the ability to override variables
 # ROOT_DIR changes to repo root after including Makefile.defs
