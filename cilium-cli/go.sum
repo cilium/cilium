@@ -104,8 +104,8 @@ github.com/cilium/cilium v1.15.0-pre.3 h1:HuARlBUHQxXaLp1JoCYIv/2iwKZPxcIuQ3TWtj
 github.com/cilium/cilium v1.15.0-pre.3/go.mod h1:qlZFr8L7fBVj5dY2fUj+lr47TfM/mrBSh//9g6QS/dQ=
 github.com/cilium/ebpf v0.12.3 h1:8ht6F9MquybnY97at+VDZb3eQQr8ev79RueWeVaEcG4=
 github.com/cilium/ebpf v0.12.3/go.mod h1:TctK1ivibvI3znr66ljgi4hqOT8EYQjz1KWBfb1UVgM=
-github.com/cilium/hubble v0.12.2 h1:iSKm8Ezuonjke2APgMQ7vIOmUGj0L9Be7b/sRa7FuAs=
-github.com/cilium/hubble v0.12.2/go.mod h1:eKlcKF5Lynj+GXCCvqDCgu4UW9dUE1cAnYfQbFd0Bb0=
+github.com/cilium/hubble v0.12.3 h1:6WujW20zbZehNUBvhZXr/u2LFpfxjyf8IRaHkU5Orcs=
+github.com/cilium/hubble v0.12.3/go.mod h1:eKlcKF5Lynj+GXCCvqDCgu4UW9dUE1cAnYfQbFd0Bb0=
 github.com/cilium/proxy v0.0.0-20231031145409-f19708f3d018 h1:R/QlThqx099hS6req1k2Q87fvLSRgCEicQGate9vxO4=
 github.com/cilium/proxy v0.0.0-20231031145409-f19708f3d018/go.mod h1:p044XccCmONGIUbx3bJ7qvHXK0RcrdvIvbTGiu/RjUA=
 github.com/cilium/tetragon/pkg/k8s v0.0.0-20231127174521-c97da4b42413 h1:ANbBZd5MPBK8MJGiSMVb7Dr0tRgQhA0LlXwEQqeGxds=
@@ -223,8 +223,8 @@ github.com/go-openapi/spec v0.20.6/go.mod h1:2OpW+JddWPrpXSCIX8eOx7lZ5iyuWj3RYR6
 github.com/go-openapi/spec v0.20.11 h1:J/TzFDLTt4Rcl/l1PmyErvkqlJDncGvPTMnCI39I4gY=
 github.com/go-openapi/spec v0.20.11/go.mod h1:2OpW+JddWPrpXSCIX8eOx7lZ5iyuWj3RYR6VaaBKcWA=
 github.com/go-openapi/strfmt v0.21.3/go.mod h1:k+RzNO0Da+k3FrrynSNN8F7n/peCmQQqbbXjtDfvmGg=
-github.com/go-openapi/strfmt v0.21.8 h1:VYBUoKYRLAlgKDrIxR/I0lKrztDQ0tuTDrbhLVP8Erg=
-github.com/go-openapi/strfmt v0.21.8/go.mod h1:adeGTkxE44sPyLk0JV235VQAO/ZXUr8KAzYjclFs3ew=
+github.com/go-openapi/strfmt v0.21.9 h1:LnEGOO9qyEC1v22Bzr323M98G13paIUGPU7yeJtG9Xs=
+github.com/go-openapi/strfmt v0.21.9/go.mod h1:0k3v301mglEaZRJdDDGSlN6Npq4VMVU69DE0LUyf7uA=
 github.com/go-openapi/swag v0.19.5/go.mod h1:POnQmlKehdgb5mhVOsnJFsivZCEZ/vjK9gh66Z9tfKk=
 github.com/go-openapi/swag v0.19.15/go.mod h1:QYRuS/SOXUCsnplDa677K7+DxSOj6IPNl/eQntq43wQ=
 github.com/go-openapi/swag v0.21.1/go.mod h1:QYRuS/SOXUCsnplDa677K7+DxSOj6IPNl/eQntq43wQ=
@@ -667,8 +667,8 @@ github.com/zmap/zcrypto v0.0.0-20210511125630-18f1e0152cfc/go.mod h1:FM4U1E3NzlN
 github.com/zmap/zlint/v3 v3.1.0 h1:WjVytZo79m/L1+/Mlphl09WBob6YTGljN5IGWZFpAv0=
 github.com/zmap/zlint/v3 v3.1.0/go.mod h1:L7t8s3sEKkb0A2BxGy1IWrxt1ZATa1R4QfJZaQOD3zU=
 go.mongodb.org/mongo-driver v1.10.0/go.mod h1:wsihk0Kdgv8Kqu1Anit4sfK+22vSFbUrAVEYRhCXrA8=
-go.mongodb.org/mongo-driver v1.12.0 h1:aPx33jmn/rQuJXPQLZQ8NtfPQG8CaqgLThFtqRb0PiE=
-go.mongodb.org/mongo-driver v1.12.0/go.mod h1:AZkxhPnFJUoH7kZlFkVKucV20K387miPfm7oimrSmK0=
+go.mongodb.org/mongo-driver v1.13.0 h1:67DgFFjYOCMWdtTEmKFpV3ffWlFnh+CYZ8ZS/tXWUfY=
+go.mongodb.org/mongo-driver v1.13.0/go.mod h1:/rGBTebI3XYboVmgz+Wv3Bcbl3aD0QF9zl6kDDw18rQ=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=
