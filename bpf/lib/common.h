@@ -356,6 +356,8 @@ struct remote_endpoint_info {
 	__u32		tunnel_endpoint;
 	__u16		pad;
 	__u8		key;
+	__u8		flag_skip_tunnel:1,
+			pad2:7;
 };
 
 /*
