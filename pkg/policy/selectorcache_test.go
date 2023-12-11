@@ -451,7 +451,8 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	// Add an additional IP to the selector (for which the identity exists)
 	user1.Reset()
 	wg := &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIPs, wg)
+	res := sc.UpdateFQDNSelectorsIncremental(map[api.FQDNSelector][]netip.Addr{ciliumSel: ciliumIPs[1:]}, wg)
+	c.Assert(res, Equals, UpdateResultUpdatePolicyMaps)
 	wg.Wait()
 
 	adds, deletes := user1.WaitForUpdate()
@@ -466,7 +467,8 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	// Change to a different IP that does not yet exist
 	user1.Reset()
 	wg = &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, []netip.Addr{netip.MustParseAddr("4.4.4.4")}, wg)
+	res = sc.UpdateFQDNSelector(ciliumSel, []netip.Addr{netip.MustParseAddr("4.4.4.4")}, wg)
+	c.Assert(res, Equals, UpdateResultIdentitiesNeeded|UpdateResultUpdatePolicyMaps) // should be both, as we have deleted identities as well as an unknown one
 	wg.Wait()
 
 	adds, deletes = user1.WaitForUpdate()

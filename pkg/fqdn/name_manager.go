@@ -5,10 +5,8 @@ package fqdn
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"regexp"
-	"slices"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -129,7 +127,7 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorsToIPs map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
+		config.UpdateSelectors = func(ctx context.Context, selectorsToIPs map[api.FQDNSelector][]netip.Addr, incremental bool, _ uint64) *sync.WaitGroup {
 			return &sync.WaitGroup{}
 		}
 	}
@@ -154,19 +152,10 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
-	fqdnSelectorsToUpdate, updatedDNSNames, ipcacheRevision := n.updateDNSIPs(lookupTime, updatedDNSIPs)
-	for dnsName, IPs := range updatedDNSNames {
-		log.WithFields(logrus.Fields{
-			"matchName":             dnsName,
-			"IPs":                   IPs,
-			"fqdnSelectorsToUpdate": fqdnSelectorsToUpdate,
-		}).Debug("Updated FQDN with new IPs")
-	}
-
-	selectorIPMapping := n.mapSelectorsToIPsLocked(fqdnSelectorsToUpdate)
+	selectorsToNewIPs, ipcacheRevision := n.updateDNSIPs(lookupTime, updatedDNSIPs)
 
 	// Update SelectorCache selectors and push changes down in to BPF.
-	return n.config.UpdateSelectors(ctx, selectorIPMapping, ipcacheRevision)
+	return n.config.UpdateSelectors(ctx, selectorsToNewIPs, true, ipcacheRevision)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
@@ -190,7 +179,7 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 	selectorIPMapping := n.mapSelectorsToIPsLocked(affectedFQDNSels)
 
 	// Update SelectorCache selectors and push changes down in to BPF.
-	return n.config.UpdateSelectors(ctx, selectorIPMapping, 0)
+	return n.config.UpdateSelectors(ctx, selectorIPMapping, false, 0)
 }
 
 func (n *NameManager) CompleteBootstrap() {
@@ -201,21 +190,19 @@ func (n *NameManager) CompleteBootstrap() {
 
 // updateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
 // It returns:
-// affectedSelectors: a set of all FQDNSelectors which match DNS Names whose
-// corresponding set of IPs has changed.
-// updatedNames: a map of DNS names to all the valid IPs we store for each.
+// selectorDeltas: a mapping of fqdnSelectors to the list of IPs that are new for that selector
 // ipcacheRevision: a revision number to pass to WaitForRevision()
-func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors sets.Set[api.FQDNSelector], updatedNames map[string][]net.IP, ipcacheRevision uint64) {
-	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
-	affectedSelectors = make(sets.Set[api.FQDNSelector], len(updatedDNSIPs))
+func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (selectorDeltas map[api.FQDNSelector][]netip.Addr, ipcacheRevision uint64) {
 	addrsToUpsert := sets.Set[netip.Addr]{}
+
+	deltas := map[api.FQDNSelector]sets.Set[netip.Addr]{}
 
 	for dnsName, lookupIPs := range updatedDNSIPs {
 		addrs := ip.MustAddrsFromIPs(lookupIPs.IPs)
-		updated := n.updateIPsForName(lookupTime, dnsName, addrs, lookupIPs.TTL)
+		newIPsForName := n.updateIPsForName(lookupTime, dnsName, addrs, lookupIPs.TTL)
 
 		// The IPs didn't change. No more to be done for this dnsName
-		if !updated && n.bootstrapCompleted {
+		if len(newIPsForName) == 0 && n.bootstrapCompleted {
 			log.WithFields(logrus.Fields{
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
@@ -223,10 +210,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 			continue
 		}
 
-		addrsToUpsert.Insert(addrs...)
-
-		// record the IPs that were different
-		updatedNames[dnsName] = lookupIPs.IPs
+		addrsToUpsert.Insert(newIPsForName...)
 
 		// accumulate the new selectors affected by new IPs
 		if len(n.allSelectors) == 0 {
@@ -235,10 +219,25 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 				"lookupIPs": lookupIPs,
 			}).Debug("FQDN: No selectors registered for updates")
 		}
+
 		for fqdnSel, fqdnRegex := range n.allSelectors {
 			matches := fqdnRegex.MatchString(dnsName)
 			if matches {
-				affectedSelectors.Insert(fqdnSel)
+				d, ok := deltas[fqdnSel]
+				if !ok {
+					d = sets.New[netip.Addr](newIPsForName...)
+					deltas[fqdnSel] = d
+				} else {
+					d.Insert(newIPsForName...)
+				}
+			}
+			if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+				log.WithFields(logrus.Fields{
+					"matchName":        dnsName,
+					"IPs":              addrs,
+					"newIPs":           newIPsForName,
+					logfields.Selector: fqdnSel,
+				}).Debug("Updated FQDN with new IPs")
 			}
 		}
 	}
@@ -246,37 +245,34 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 		ipcacheRevision = n.upsertMetadata(addrsToUpsert.UnsortedList())
 	}
 
-	return affectedSelectors, updatedNames, ipcacheRevision
+	selectorDeltas = make(map[api.FQDNSelector][]netip.Addr, len(deltas))
+	for k, v := range deltas {
+		selectorDeltas[k] = v.UnsortedList()
+	}
+
+	return
 }
 
-// updateIPsName will update the IPs for dnsName. It always retains a copy of
-// newIPs.
-// updated is true when the new IPs differ from the old IPs
-func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int) (updated bool) {
+// updateIPsName will update the IPs for dnsName.
+// It returns the list of IPs that are *new* to this name, if any.
+func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, ips []netip.Addr, ttl int) (newIPs []netip.Addr) {
 	oldCacheIPs := n.cache.Lookup(dnsName)
 
 	if n.config.MinTTL > ttl {
 		ttl = n.config.MinTTL
 	}
 
-	changed := n.cache.Update(lookupTime, dnsName, newIPs, ttl)
+	changed := n.cache.Update(lookupTime, dnsName, ips, ttl)
 	if !changed { // Changed may have false positives, but not false negatives
-		return false
+		return
 	}
 
 	newCacheIPs := n.cache.Lookup(dnsName) // DNSCache returns IPs unsorted
 
-	// The 0 checks below account for an unlike race condition where this
-	// function is called with already expired data and if other cache data
-	// from before also expired.
-	if len(oldCacheIPs) != len(newCacheIPs) || len(oldCacheIPs) == 0 {
-		return true
-	}
+	oldSet := sets.New[netip.Addr](oldCacheIPs...)
+	newSet := sets.New[netip.Addr](newCacheIPs...)
 
-	ip.SortAddrList(oldCacheIPs) // sorts in place
-	ip.SortAddrList(newCacheIPs)
-
-	return !slices.Equal(oldCacheIPs, newCacheIPs)
+	return newSet.Difference(oldSet).UnsortedList()
 }
 
 var ipcacheResource = ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "", "fqdn-name-manager")

@@ -178,6 +178,26 @@ func (f *fqdnSelector) setSelectorIPs(ips []netip.Addr) {
 	f.wantLabels = lbls
 }
 
+// addSelectorIPs is the same as setSelectorIPs, but preserves existing IPs.
+// returns true if the set of labels has changed
+func (f *fqdnSelector) addSelectorIPs(ips []netip.Addr) bool {
+	lbls := labels.FromSlice(f.wantLabels)
+	for _, ip := range ips {
+		l, err := labels.IPStringToLabel(ip.String())
+		if err != nil {
+			// not possible
+			continue
+		}
+		lbls[l.Key] = l
+	}
+
+	if len(lbls) == len(f.wantLabels) {
+		return false
+	}
+	f.wantLabels = lbls.LabelArray()
+	return true
+}
+
 // matches returns true if the identity contains at least one label
 // that is in wantLabels.
 // This is reasonably efficient, as it relies on both arrays being sorted.

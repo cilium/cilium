@@ -296,10 +296,28 @@ const (
 func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, ips []netip.Addr, wg *sync.WaitGroup) UpdateResult {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	return sc.updateFQDNSelector(fqdnSelec, ips, wg)
+	return sc.updateFQDNSelector(fqdnSelec, ips, false, wg)
 }
 
-func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, ips []netip.Addr, wg *sync.WaitGroup) UpdateResult {
+// UpdateFQDNSelectorsIncremental is simular to UpdateFQDNSelector, except it takes a map of FQDN selectors to newly-selected IPs.
+// Existing IPs in these selectors are preserved.
+//
+// It has the same requirements as UpdateFQDNSelector, please read the conditions there.
+//
+// Returns an UpdateResult that indicates if the caller should call UpdatePolicyMaps() and/or
+// wait for ipcache.UpsertMetadata() to finish.
+func (sc *SelectorCache) UpdateFQDNSelectorsIncremental(toAppend map[api.FQDNSelector][]netip.Addr, wg *sync.WaitGroup) UpdateResult {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	result := UpdateResultUnchanged
+	for fqdnSelec, ips := range toAppend {
+		result |= sc.updateFQDNSelector(fqdnSelec, ips, true, wg)
+	}
+	return result
+}
+
+func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, ips []netip.Addr, incremental bool, wg *sync.WaitGroup) UpdateResult {
 	key := fqdnSelec.String()
 
 	idSelector, exists := sc.selectors[key]
@@ -314,7 +332,14 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, ips []ne
 	}
 
 	// update wantLabels, then determine set of added and removed identities
-	fqdnSelect.setSelectorIPs(ips) // this updates wantLabels
+	if incremental {
+		changed := fqdnSelect.addSelectorIPs(ips)
+		if !changed {
+			return UpdateResultUnchanged
+		}
+	} else {
+		fqdnSelect.setSelectorIPs(ips) // this updates wantLabels
+	}
 
 	// Note that 'added' and 'deleted' are guaranteed to be
 	// disjoint, as one of them is left as nil, or an identity
@@ -324,11 +349,14 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, ips []ne
 	var added, deleted []identity.NumericIdentity
 
 	// Delete any non-matching entries from cachedSelections
-	for nid := range idSelector.cachedSelections {
-		identity := sc.idCache[nid]
-		if !idSelector.source.matches(identity) {
-			deleted = append(deleted, nid)
-			delete(idSelector.cachedSelections, nid)
+	// We can skip this in the incremental case.
+	if !incremental {
+		for nid := range idSelector.cachedSelections {
+			identity := sc.idCache[nid]
+			if !idSelector.source.matches(identity) {
+				deleted = append(deleted, nid)
+				delete(idSelector.cachedSelections, nid)
+			}
 		}
 	}
 

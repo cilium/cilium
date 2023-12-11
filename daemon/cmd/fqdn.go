@@ -68,9 +68,12 @@ type requestNameKey struct{}
 // First, it updates any selectors in the SelectorCache, then it triggers
 // all endpoints to push incremental updates via UpdatePolicyMaps.
 //
+// If incremental is true, then the mapping is treated as an append,
+// and these IPs are added to the selectors without removing any existing.
+//
 // returns a WaitGroup that is done when all policymaps have been updated
 // and all endpoints referencing the IPs are able to pass traffic.
-func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQDNSelector][]netip.Addr, ipcacheRevision uint64) (wg *sync.WaitGroup) {
+func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQDNSelector][]netip.Addr, incremental bool, ipcacheRevision uint64) (wg *sync.WaitGroup) {
 	// There may be nothing to update - in this case, we exit and do not need
 	// to trigger policy updates for all endpoints.
 	if len(selectors) == 0 {
@@ -84,12 +87,17 @@ func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQ
 	notifyWg := &sync.WaitGroup{}
 	updateResult := policy.UpdateResultUnchanged
 	// Update mapping of selector to set of IPs in selector cache.
-	for selector, ips := range selectors {
-		logger.WithFields(logrus.Fields{
-			"fqdnSelectorString": selector,
-			"ips":                ips}).Debug("updating FQDN selector")
-		res := d.policy.GetSelectorCache().UpdateFQDNSelector(selector, ips, notifyWg)
+	if incremental {
+		res := d.policy.GetSelectorCache().UpdateFQDNSelectorsIncremental(selectors, notifyWg)
 		updateResult |= res
+	} else {
+		for selector, ips := range selectors {
+			logger.WithFields(logrus.Fields{
+				"fqdnSelectorString": selector,
+				"ips":                ips}).Debug("updating FQDN selector")
+			res := d.policy.GetSelectorCache().UpdateFQDNSelector(selector, ips, notifyWg)
+			updateResult |= res
+		}
 	}
 
 	// UpdatePolicyMaps consumes notifyWG, and returns its own WaitGroup
