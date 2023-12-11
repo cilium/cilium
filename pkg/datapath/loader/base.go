@@ -431,12 +431,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initBPFCPU] = "<nil>"
 	args[initArgNrCPUs] = "<nil>"
-
-	if option.Config.EnableEndpointRoutes {
-		args[initArgEndpointRoutes] = "true"
-	} else {
-		args[initArgEndpointRoutes] = "false"
-	}
+	args[initArgEndpointRoutes] = "nil"
 
 	clockSource := []string{"ktime", "jiffies"}
 	log.WithFields(logrus.Fields{
