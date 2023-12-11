@@ -247,7 +247,7 @@ func (t DateTime) MarshalBSONValue() (bsontype.Type, []byte, error) {
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, uint64(i64))
 
-	return bsontype.DateTime, buf, nil
+	return bson.TypeDateTime, buf, nil
 }
 
 // UnmarshalBSONValue is an interface implemented by types that can unmarshal a
@@ -255,7 +255,7 @@ func (t DateTime) MarshalBSONValue() (bsontype.Type, []byte, error) {
 // assumed to be valid. UnmarshalBSONValue must copy the BSON value bytes if it
 // wishes to retain the data after returning.
 func (t *DateTime) UnmarshalBSONValue(tpe bsontype.Type, data []byte) error {
-	if tpe == bsontype.Null {
+	if tpe == bson.TypeNull {
 		*t = DateTime{}
 		return nil
 	}
