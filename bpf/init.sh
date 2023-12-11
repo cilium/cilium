@@ -114,10 +114,12 @@ function setup_proxy_rules()
 	use_from_ingress_proxy_rules_v4=0
 	use_from_ingress_proxy_rules_v6=0
 
-	if [ "$IPSEC_ENCRYPTION" = "true" ] && [ "$ENDPOINT_ROUTES" != "true" ] && [ "$MODE" != "tunnel" ]; then
+	if [ "$IPSEC_ENCRYPTION" = "true" ] && [ "$MODE" != "tunnel" ]; then
 		use_from_ingress_proxy_rules_v4=1
 	fi
-	if [ "$ENDPOINT_ROUTES" != "true" ]; then
+	# Minimally invasive to preserve old behaviour:
+	# with ENDPOINT_ROUTES, only install the rules if IPsec needs them.
+	if [[ ("$IPSEC_ENCRYPTION" = "true" && "$MODE" != "tunnel") || "$ENDPOINT_ROUTES" != "true" ]]; then
 		use_from_ingress_proxy_rules_v6=1
 	fi
 
