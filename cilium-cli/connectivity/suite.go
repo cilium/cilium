@@ -1232,7 +1232,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		return err
 	}
 
-	if ct.Params().IncludeUnsafeTests {
+	if versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion) || ct.Params().IncludeUnsafeTests {
 		ct.NewTest("check-log-errors").WithScenarios(tests.NoErrorsInLogs(ct.CiliumVersion))
 	}
 
