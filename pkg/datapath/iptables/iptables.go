@@ -525,6 +525,8 @@ func (m *Manager) installStaticProxyRules() error {
 	matchProxyReply := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyNoIDMask)
 	// L7 proxy upstream return traffic has Endpoint ID in the mask
 	matchL7ProxyUpstream := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
+	// match traffic from a proxy (either in forward or in return direction)
+	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
 
 	if m.sharedCfg.EnableIPv4 {
 		// No conntrack for traffic to proxy
@@ -597,8 +599,8 @@ func (m *Manager) installStaticProxyRules() error {
 		if err := ip4tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+			"-m", "mark", "--mark", matchFromProxy,
+			"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 			"-j", "ACCEPT"}); err != nil {
 			return err
 		}
@@ -671,8 +673,8 @@ func (m *Manager) installStaticProxyRules() error {
 		if err := ip6tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+			"-m", "mark", "--mark", matchFromProxy,
+			"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 			"-j", "ACCEPT"}); err != nil {
 			return err
 		}
