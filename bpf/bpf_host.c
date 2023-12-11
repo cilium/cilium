@@ -1028,6 +1028,8 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
+	enum trace_point trace = from_host ? TRACE_FROM_HOST :
+					     TRACE_FROM_NETWORK;
 	__u32 __maybe_unused identity = 0;
 	__u32 __maybe_unused ipcache_srcid = 0;
 	void __maybe_unused *data, *data_end;
@@ -1042,7 +1044,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 
 	if (from_host) {
 		__u32 magic;
-		enum trace_point trace = TRACE_FROM_HOST;
 
 		magic = inherit_identity_from_host(ctx, &identity);
 		if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
@@ -1072,15 +1073,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			return ret;
 		}
 #endif /* ENABLE_IPSEC */
-
-		send_trace_notify(ctx, trace, identity, 0, 0,
-				  ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
-	} else {
-		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
-				  ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
+
+	send_trace_notify(ctx, trace, identity, 0, 0, ctx->ingress_ifindex,
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 
 	bpf_clear_meta(ctx);
 
