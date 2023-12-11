@@ -1,5 +1,63 @@
 # Changelog
 
+## v1.12.17
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* helm: Add missing SA automount configuration (Backport PR #29692, Upstream PR #29511, @ayuspin)
+* helm: Add SA to nodeinit ds (Backport PR #29692, Upstream PR #24836, @darox)
+* helm: Allow setting resources for the agent init containers (Backport PR #29692, Upstream PR #29610, @ayuspin)
+
+**Bugfixes:**
+* datapath: Fix ENI egress routing table for cilium_host IP (Backport PR #29392, Upstream PR #29335, @gandro)
+* Fix bug where deleted nodes would reappear in the cilium_node_connectivity_* metrics (Backport PR #29639, Upstream PR #29566, @christarazi)
+* Handle non-AEAD IPsec keys in `cilium encrypt status`. (Backport PR #29639, Upstream PR #29182, @viktor-kurchenko)
+* Replace Cilium's base image from ubuntu:22.04 with Cilium's Runtime image (also ubuntu:22.04 based). (Backport PR #29708, Upstream PR #29340, @aanm)
+* When using stacked network interfaces (such as br0 -> eth0) in the egress path, ensure that BPF SNAT checks are applied on all interfaces. (Backport PR #29474, Upstream PR #29160, @julianwiedmann)
+
+**CI Changes:**
+* ci-ipsec-upgrade: Check for errors (Backport PR #29274, Upstream PR #29189, @brb)
+* ci-ipsec-upgrade: Fix upgrade/downgrade path and add missed tail calls check to upgrade (Backport PR #29005, Upstream PR #29072, @brb)
+* CI: Let actions/cilium-config use Chart.yaml-specified image by default (Backport PR #29005, Upstream PR #28016, @jschwinger233)
+* ci: remove empty github workflow file tests-nightly.yaml (#29601, @mhofstetter)
+* Clean up tests-ipsec-upgrade workflow (Backport PR #29005, Upstream PR #27977, @michi-covalent)
+* gha: align ci-ipsec-e2e workflow name to main (#29686, @giorio94)
+* Test upgrade/downgrade to patch release for IPsec (Backport PR #29005, Upstream PR #28815, @qmonnet)
+* Wait for downgrade images to be ready in GHA clustermesh upgrade/downgrade test (Backport PR #29474, Upstream PR #29409, @giorio94)
+* workflows: Add debug info to IPsec key rotation test (Backport PR #29474, Upstream PR #29353, @pchaigno)
+
+**Misc Changes:**
+* chore(deps): update actions/checkout action to v4 (v1.12) (#29296, @renovate[bot])
+* chore(deps): update actions/github-script action to v7 (v1.12) (#29297, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.12) (minor) (#29295, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.12) (patch) (#29293, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.12) (patch) (#29294, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.12) (patch) (#29421, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.20.12 (v1.12) (#29662, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to ed4a422 (v1.12) (#29292, @renovate[bot])
+* chore(deps): update docker/dockerfile docker tag to v1.6 (v1.12) (#29253, @renovate[bot])
+* chore(deps): update docker/dockerfile docker tag to v1.6 (v1.12) (#29254, @renovate[bot])
+* chore(deps): update docker/dockerfile docker tag to v1.6 (v1.12) (#29255, @renovate[bot])
+* chore(deps): update hubble cli to v0.12.3 (v1.12) (patch) (#29748, @renovate[bot])
+* chore(deps): update myrotvorets/set-commit-status-action action to v2 (v1.12) (#29298, @renovate[bot])
+* ci-ipsec-upgrade: Do not run conn tests after installing Cilium (Backport PR #29193, Upstream PR #29178, @brb)
+* endpoint: don't hold the endpoint lock while generating policy (Backport PR #29408, Upstream PR #26242, @squeed)
+* images: bump cni plugins to v1.4.0 (Backport PR #29722, Upstream PR #29622, @squeed)
+* ipsec: Small refactorings on key loading and state creation (Backport PR #29474, Upstream PR #29352, @pchaigno)
+* Update the logrus dependency to address a security issue. (#29673, @rolinh)
+
+**Other Changes:**
+* [1.12] Address selectorcache concurrent read/write (#29167, @bimmlerd)
+* [v1.12] Author Backport of 29603 (examples: update guestbook example & test with new image registry) (#29600, @mhofstetter)
+* [v1.12] ctmap: consider CT entry's .dsr flag in PurgeOrphanNATEntries() (#29683, @julianwiedmann)
+* envoy: Bump cilium-envoy with golang 1.21.5 (#29654, @sayboras)
+* envoy: Bump envoy container image with golang 1.21 and latest grpc package (#29385, @sayboras)
+* install: Update image digests for v1.12.16 (#29137, @nathanjsweet)
+* Revert "dnsproxy: Use original source address in connections to dns servers" to fix performance regression. (#29209, @thorn3r)
+* v1.12: ariane: Run ci-ipsec-upgrade when testing backports (#29228, @brb)
+
 ## v1.12.16
 
 Summary of Changes
