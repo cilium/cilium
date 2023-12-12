@@ -57,7 +57,7 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
-		Watches(&gatewayv1alpha2.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
+		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch for changes to Gateways and enqueue GRPCRoutes that reference them
 		Watches(&gatewayv1beta1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
