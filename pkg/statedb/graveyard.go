@@ -86,11 +86,12 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 			tableName := meta.Name()
 			cleaningTimes[tableName].Start()
 			for _, key := range deadObjs {
-				_, existed := txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Delete(key)
+				oldObj, existed := txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Delete(key)
 				if existed {
 					// The dead object still existed (and wasn't replaced by a create->delete),
 					// delete it from the primary index.
-					txn.mustIndexWriteTxn(tableName, GraveyardIndex).txn.Delete(key[8:])
+					key = meta.primaryIndexer().fromObject(oldObj).First()
+					txn.mustIndexWriteTxn(tableName, GraveyardIndex).txn.Delete(key)
 				}
 			}
 			cleaningTimes[tableName].End(true)

@@ -76,11 +76,13 @@ func runQuery(indexTxn indexReadTxn, lowerbound bool, queryKey []byte, onObject 
 	} else {
 		iter.SeekPrefixWatch(queryKey)
 	}
-
 	var match func([]byte) bool
-	if indexTxn.entry.unique {
+	switch {
+	case lowerbound:
+		match = func([]byte) bool { return true }
+	case indexTxn.entry.unique:
 		match = func(k []byte) bool { return len(k) == len(queryKey) }
-	} else {
+	default:
 		match = func(k []byte) bool {
 			_, secondary := decodeNonUniqueKey(k)
 			return len(secondary) == len(queryKey)
