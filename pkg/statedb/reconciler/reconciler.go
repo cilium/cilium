@@ -23,13 +23,13 @@ import (
 // Register creates a new reconciler and registers to the application
 // lifecycle. To be used with cell.Invoke when the API of the reconciler
 // is not needed.
-func Register[Obj comparable](p params[Obj]) error {
+func Register[Obj comparable](p Params[Obj]) error {
 	_, err := New(p)
 	return err
 }
 
 // New creates and registers a new reconciler.
-func New[Obj comparable](p params[Obj]) (Reconciler[Obj], error) {
+func New[Obj comparable](p Params[Obj]) (Reconciler[Obj], error) {
 	if err := p.Config.validate(); err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func New[Obj comparable](p params[Obj]) (Reconciler[Obj], error) {
 		return idx.ObjectToKey(o.(Obj))
 	}
 	r := &reconciler[Obj]{
-		params:              p,
+		Params:              p,
 		retries:             newRetries(p.Config.RetryBackoffMinDuration, p.Config.RetryBackoffMaxDuration, objectToKey),
 		externalFullTrigger: make(chan struct{}, 1),
 		labels: prometheus.Labels{
@@ -56,7 +56,7 @@ func New[Obj comparable](p params[Obj]) (Reconciler[Obj], error) {
 	return r, nil
 }
 
-type params[Obj comparable] struct {
+type Params[Obj comparable] struct {
 	cell.In
 
 	Config     Config[Obj]
@@ -72,7 +72,7 @@ type params[Obj comparable] struct {
 }
 
 type reconciler[Obj comparable] struct {
-	params[Obj]
+	Params[Obj]
 
 	retries             *retries
 	externalFullTrigger chan struct{}
