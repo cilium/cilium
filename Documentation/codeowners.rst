@@ -210,6 +210,9 @@ external software and protocols:
   Responsible for all policy logic from Kubernetes down to eBPF policymap
   entries, including all intermediate layers such as the Policy Repository,
   SelectorCache, PolicyCache, CachedSelectorPolicy, EndpointPolicy, etc.
+- `@cilium/sig-scalability <https://github.com/orgs/cilium/teams/sig-scalability>`__:
+  Maintain scalability and performance tests. Provide input on scalability
+  and performance related changes.
 - `@cilium/sig-servicemesh <https://github.com/orgs/cilium/teams/sig-servicemesh>`__:
   Provide input on the way that Service Mesh constructs such as Gateway API
   are converted into lower-level constructs backed by eBPF or Envoy
