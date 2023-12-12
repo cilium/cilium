@@ -271,8 +271,8 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
 		ct_state->rev_nat_index = entry->rev_nat_index;
+		ct_state->backend_id = entry->backend_id;
 		if (dir == CT_SERVICE) {
-			ct_state->backend_id = entry->backend_id;
 			ct_state->syn = syn;
 		} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
 #ifndef DISABLE_LOOPBACK_LB
@@ -280,6 +280,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 #endif
 			ct_state->node_port = entry->node_port;
 			ct_state->dsr = entry->dsr;
+			ct_state->dsr_external = entry->dsr_external;
 			ct_state->proxy_redirect = entry->proxy_redirect;
 			ct_state->from_l7lb = entry->from_l7lb;
 			ct_state->from_tunnel = entry->from_tunnel;
@@ -287,7 +288,8 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			ct_state->ifindex = entry->ifindex;
 #endif
 		}
-#ifdef CONNTRACK_ACCOUNTING
+#if 0
+//#ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
 		if (dir == CT_INGRESS) {
 			__sync_fetch_and_add(&entry->rx_packets, 1);
@@ -908,6 +910,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
 		entry.node_port = ct_state->node_port;
 		entry.dsr = ct_state->dsr;
+		entry.dsr_external = ct_state->dsr_external;
 #ifndef HAVE_FIB_IFINDEX
 		entry.ifindex = ct_state->ifindex;
 #endif
@@ -922,13 +925,13 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
-	if (dir == CT_INGRESS) {
-		entry.rx_packets = 1;
-		entry.rx_bytes = ctx_full_len(ctx);
-	} else if (dir == CT_EGRESS) {
-		entry.tx_packets = 1;
-		entry.tx_bytes = ctx_full_len(ctx);
-	}
+//	if (dir == CT_INGRESS) {
+//		entry.rx_packets = 1;
+//		entry.rx_bytes = ctx_full_len(ctx);
+//	} else if (dir == CT_EGRESS) {
+//		entry.tx_packets = 1;
+//		entry.tx_bytes = ctx_full_len(ctx);
+//	}
 
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
 
@@ -976,14 +979,13 @@ static __always_inline int ct_create4(const void *map_main,
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
-	if (dir == CT_SERVICE) {
-		entry.backend_id = ct_state->backend_id;
-	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
+	if (dir == CT_INGRESS || dir == CT_EGRESS) {
 #ifndef DISABLE_LOOPBACK_LB
 		entry.lb_loopback = ct_state->loopback;
 #endif
 		entry.node_port = ct_state->node_port;
 		entry.dsr = ct_state->dsr;
+		entry.dsr_external = ct_state->dsr_external;
 		entry.from_tunnel = ct_state->from_tunnel;
 #ifndef HAVE_FIB_IFINDEX
 		entry.ifindex = ct_state->ifindex;
@@ -995,17 +997,18 @@ static __always_inline int ct_create4(const void *map_main,
 		entry.from_l7lb = from_l7lb;
 	}
 
+	entry.backend_id = ct_state->backend_id;
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
-	if (dir == CT_INGRESS) {
-		entry.rx_packets = 1;
-		entry.rx_bytes = ctx_full_len(ctx);
-	} else if (dir == CT_EGRESS) {
-		entry.tx_packets = 1;
-		entry.tx_bytes = ctx_full_len(ctx);
-	}
+//	if (dir == CT_INGRESS) {
+//		entry.rx_packets = 1;
+//		entry.rx_bytes = ctx_full_len(ctx);
+//	} else if (dir == CT_EGRESS) {
+//		entry.tx_packets = 1;
+//		entry.tx_bytes = ctx_full_len(ctx);
+//	}
 
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
 		    ct_state->src_sec_id, 0);

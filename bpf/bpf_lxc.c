@@ -87,7 +87,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple, NULL);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -2055,7 +2055,7 @@ ipv4_to_endpoint_is_hairpin_flow(struct __ctx_buff *ctx, struct iphdr *ip4)
 	/* Extract the tuple from the packet so we can freely access addrs and ports.
 	 * All values are in network byte order.
 	 */
-	err = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	err = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple, NULL);
 	if (IS_ERR(err))
 		return false;
 

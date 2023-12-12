@@ -578,7 +578,7 @@ enum {
 #define DROP_CT_INVALID_HDR	-135
 #define DROP_FRAG_NEEDED	-136
 #define DROP_CT_UNKNOWN_PROTO	-137
-#define DROP_UNUSED4		-138 /* unused */
+#define DROP_READ_ERROR		-138
 #define DROP_UNKNOWN_L3		-139
 #define DROP_MISSED_TAIL_CALL	-140
 #define DROP_WRITE_ERROR	-141
@@ -924,6 +924,11 @@ struct ipv4_ct_tuple {
 	__u8		flags;
 } __packed;
 
+struct lb4_reverse_nat {
+	__be32 address;
+	__be16 port;
+} __packed;
+
 struct ct_entry {
 	__u64 rx_packets;
 	/* Previously, the rx_bytes field was not used for entries with
@@ -933,6 +938,7 @@ struct ct_entry {
 	union {
 		__u64 rx_bytes;
 		__u64 backend_id;
+		struct lb4_reverse_nat rev_dsr; /* Filled in case of dsr_external */
 	};
 	__u64 tx_packets;
 	__u64 tx_bytes;
@@ -943,12 +949,13 @@ struct ct_entry {
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
-	      proxy_redirect:1, /* Connection is redirected to a proxy */
+	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      dsr:1,
-	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
-	      reserved1:1, /* Was auth_required, not used in production anywhere */
-	      from_tunnel:1, /* Connection is over tunnel */
-	      reserved:5;
+	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
+	      reserved1:1,	/* Was auth_required, not used in production anywhere */
+	      from_tunnel:1,	/* Connection is over tunnel */
+	      dsr_external:1,	/* Connection came from external L4LB and needs DSR */
+	      reserved:4;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
@@ -1070,11 +1077,6 @@ struct lb4_health {
 	struct lb4_backend peer;
 };
 
-struct lb4_reverse_nat {
-	__be32 address;
-	__be16 port;
-} __packed;
-
 struct ipv4_revnat_tuple {
 	__sock_cookie cookie;
 	__be32 address;
@@ -1142,12 +1144,16 @@ struct ct_state {
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
-	      reserved:8;
+	      dsr_external:1,	/* Connection came from external L4LB and needs DSR */
+	      reserved:7;
 	__u32 src_sec_id;
 #ifndef HAVE_FIB_IFINDEX
 	__u16 ifindex;
 #endif
-	__u32 backend_id;	/* Backend ID in lb4_backends */
+	union {
+		__u64 backend_id;	/* Backend ID in lb4_backends */
+		struct lb4_reverse_nat rev_dsr;
+	};
 };
 
 static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)

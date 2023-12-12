@@ -2405,7 +2405,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple, NULL);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
@@ -2433,8 +2433,15 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			      CT_ENTRY_NODEPORT, &ct_state, &trace->monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
-		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
-				  &tuple, REV_NAT_F_TUPLE_SADDR, has_l4_header);
+		if (ct_state.dsr_external) {
+			ret = lb4_rev_dsr(ctx, l3_off, l4_off, &ct_state.rev_dsr,
+					  false, &tuple, REV_NAT_F_TUPLE_SADDR,
+					  has_l4_header);
+		} else {
+			ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index,
+					  false, &tuple, REV_NAT_F_TUPLE_SADDR,
+					  has_l4_header);
+		}
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -2669,7 +2676,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	}
 #endif
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple, NULL);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2758,13 +2765,14 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct ct_state ct_state_new = {};
 	__u32 cluster_id = 0;
 	__u32 monitor = 0;
+	__be32 external_vip = 0;
 	int ret, l4_off;
 
 	cilium_capture_in(ctx);
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, l3_off, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, l3_off, &l4_off, &tuple, &external_vip);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
 			is_svc_proto = false;
@@ -2785,6 +2793,15 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 		if (!lb4_src_range_ok(svc, ip4->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
+		if (external_vip) {
+			if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
+					     BPF_ADJ_ROOM_MAC,
+					     BPF_F_ADJ_ROOM_FIXED_GSO))
+				return DROP_UNSUPP_SERVICE_PROTO;
+			tuple.daddr = external_vip;
+			l4_off -= sizeof(*ip4);
+		}
+
 #if defined(ENABLE_L7_LB)
 		if (lb4_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
 			/* We cannot redirect from the XDP layer to cilium_host.
@@ -2801,7 +2818,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 								  (__be16)svc->l7_lb_proxy_port);
 		}
 #endif
-		if (lb4_to_lb6_service(svc)) {
+		if (/*lb4_to_lb6_service(svc)*/0) {
 			ret = lb4_to_lb6(ctx, ip4, l3_off);
 			if (!ret)
 				return NAT_46X64_RECIRC;
@@ -2916,6 +2933,11 @@ skip_service_lookup:
 redo:
 			ct_state_new.src_sec_id = WORLD_IPV4_ID;
 			ct_state_new.node_port = 1;
+			ct_state_new.dsr_external = !!external_vip;
+			if (ct_state_new.dsr_external) {
+				ct_state_new.rev_dsr.address = external_vip;
+				ct_state_new.rev_dsr.port = key.dport;
+			}
 #ifndef HAVE_FIB_IFINDEX
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
@@ -2986,7 +3008,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	has_l4_header = ipv4_has_l4_header(ip4);
 	is_fragment = ipv4_is_fragment(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple, NULL);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
