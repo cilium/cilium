@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -102,7 +101,7 @@ func writeConfig(c *C, header string, write writeFn) {
 		h := hive.New(
 			cell.Provide(
 				fake.NewNodeAddressing,
-				func() bandwidth.Manager { return &fake.BandwidthManager{} },
+				func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
 				NewHeaderfileWriter,
 			),
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
