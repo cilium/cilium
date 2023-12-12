@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 var (
@@ -104,6 +105,12 @@ var (
 		// DB provides an extendable in-memory database with rich transactions
 		// and multi-version concurrency control through immutable radix trees.
 		statedb.Cell,
+
+		// Reconciler provides a general utility for reconciling a statedb table
+		// with a target defined via set of operations. This cell provides the
+		// common objects used by all reconcilers such as the shared metrics.
+		reconciler.Cell,
+
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
