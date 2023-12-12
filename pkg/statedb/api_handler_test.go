@@ -48,4 +48,16 @@ func Test_runQuery(t *testing.T) {
 		assert.EqualValues(t, items[1].data.(testObject).ID, 2)
 	}
 
+	// lower-bound on revision index
+	indexTxn, err = txn.getTxn().indexReadTxn(table.Name(), RevisionIndex)
+	require.NoError(t, err)
+	items = nil
+	runQuery(indexTxn, true, index.Uint64(0), onObject)
+	if assert.Len(t, items, 4) {
+		// Items are in revision (creation) order
+		assert.EqualValues(t, items[0].data.(testObject).ID, 1)
+		assert.EqualValues(t, items[1].data.(testObject).ID, 2)
+		assert.EqualValues(t, items[2].data.(testObject).ID, 3)
+		assert.EqualValues(t, items[3].data.(testObject).ID, 4)
+	}
 }
