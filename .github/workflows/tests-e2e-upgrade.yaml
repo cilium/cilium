@@ -111,7 +111,7 @@ jobs:
             tunnel: 'vxlan'
             lb-mode: 'snat'
             endpoint-routes: 'true'
-            egress-gateway: 'true'
+            egress-gateway: 'false'
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -123,7 +123,7 @@ jobs:
             tunnel: 'disabled'
             lb-mode: 'dsr'
             endpoint-routes: 'true'
-            egress-gateway: 'true'
+            egress-gateway: 'false'
             host-fw: 'false' # enabling breaks downgrading (missed tail calls)
 
           - name: '6'
@@ -147,7 +147,7 @@ jobs:
             secondary-network: 'true'
             tunnel: 'disabled'
             lb-mode: 'snat'
-            egress-gateway: 'true'
+            egress-gateway: 'false'
             lb-acceleration: 'testing-only'
             ingress-controller: 'true'
 
@@ -224,7 +224,7 @@ jobs:
             secondary-network: 'true'
             tunnel: 'vxlan'
             lb-mode: 'snat'
-            egress-gateway: 'true'
+            egress-gateway: 'false'
             lb-acceleration: 'testing-only'
 
 
