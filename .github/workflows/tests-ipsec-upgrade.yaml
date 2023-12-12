@@ -17,9 +17,6 @@ on:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
-  # Run every 6 hours
-  schedule:
-    - cron:  '0 5/6 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -268,7 +265,7 @@ jobs:
 
       - name: Provision K8s on LVH VM
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium/.github/actions/lvh-kind@main
+        uses: cilium/cilium/.github/actions/lvh-kind@v1.15
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
@@ -314,7 +311,7 @@ jobs:
 
       - name: Upgrade Cilium & Test (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@main
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@v1.15
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
           operation-cmd: |
@@ -327,7 +324,7 @@ jobs:
 
       - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@main
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@v1.15
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
           operation-cmd: |

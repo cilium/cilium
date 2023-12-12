@@ -8,8 +8,10 @@ export RELEASE_REGISTRY ?= quay.io
 export RELEASE_ORG ?= cilium
 export CI_REGISTRY ?= quay.io
 export CI_ORG ?= cilium
+export RELEASE := yes
 
 ifeq ($(RELEASE),yes)
+    export CILIUM_BRANCH:=v1.15
     export PULL_POLICY:=IfNotPresent
     export CILIUM_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/cilium
     export CILIUM_OPERATOR_BASE_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/operator
