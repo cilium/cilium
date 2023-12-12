@@ -51,7 +51,7 @@ func New() *Router {
 // params is a slice of the Param that arranged in the order in which parameters appeared.
 // e.g. when built routing path is "/path/to/:id/:name" and given path is "/path/to/1/alice". params order is [{"id": "1"}, {"name": "alice"}], not [{"name": "alice"}, {"id": "1"}].
 func (rt *Router) Lookup(path string) (data interface{}, params Params, found bool) {
-	if data, found := rt.static[path]; found {
+	if data, found = rt.static[path]; found {
 		return data, nil, true
 	}
 	if len(rt.param.node) == 1 {
@@ -131,7 +131,8 @@ func newDoubleArray() *doubleArray {
 // baseCheck contains BASE, CHECK and Extra flags.
 // From the top, 22bits of BASE, 2bits of Extra flags and 8bits of CHECK.
 //
-//  BASE (22bit) | Extra flags (2bit) | CHECK (8bit)
+//	BASE (22bit) | Extra flags (2bit) | CHECK (8bit)
+//
 // |----------------------|--|--------|
 // 32                    10  8         0
 type baseCheck uint32
@@ -200,19 +201,19 @@ BACKTRACKING:
 	for j := len(indices) - 1; j >= 0; j-- {
 		i, idx := int(indices[j]>>32), int(indices[j]&0xffffffff)
 		if da.bc[idx].IsSingleParam() {
-			idx := nextIndex(da.bc[idx].Base(), ParamCharacter)
+			idx := nextIndex(da.bc[idx].Base(), ParamCharacter) //nolint:govet
 			if idx >= len(da.bc) {
 				break
 			}
 			next := NextSeparator(path, i)
-			params := append(params, Param{Value: path[i:next]})
-			if nd, params, found := da.lookup(path[next:], params, idx); found {
+			params := append(params, Param{Value: path[i:next]})                 //nolint:govet
+			if nd, params, found := da.lookup(path[next:], params, idx); found { //nolint:govet
 				return nd, params, true
 			}
 		}
 		if da.bc[idx].IsWildcardParam() {
-			idx := nextIndex(da.bc[idx].Base(), WildcardCharacter)
-			params := append(params, Param{Value: path[i:]})
+			idx := nextIndex(da.bc[idx].Base(), WildcardCharacter) //nolint:govet
+			params := append(params, Param{Value: path[i:]})       //nolint:govet
 			return da.node[da.bc[idx].Base()], params, true
 		}
 	}
@@ -431,7 +432,7 @@ func makeRecords(srcs []Record) (statics, params []*record) {
 	wildcardPrefix := string(SeparatorCharacter) + string(WildcardCharacter)
 	restconfPrefix := string(PathParamCharacter) + string(ParamCharacter)
 	for _, r := range srcs {
-		if strings.Contains(r.Key, paramPrefix) || strings.Contains(r.Key, wildcardPrefix) ||strings.Contains(r.Key, restconfPrefix){
+		if strings.Contains(r.Key, paramPrefix) || strings.Contains(r.Key, wildcardPrefix) || strings.Contains(r.Key, restconfPrefix) {
 			r.Key += termChar
 			params = append(params, &record{Record: r})
 		} else {

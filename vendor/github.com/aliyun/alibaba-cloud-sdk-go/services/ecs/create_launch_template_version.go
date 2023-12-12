@@ -117,6 +117,7 @@ type CreateLaunchTemplateVersionRequest struct {
 	SystemDiskDiskName             string                                         `position:"Query" name:"SystemDisk.DiskName"`
 	RamRoleName                    string                                         `position:"Query" name:"RamRoleName"`
 	AutoReleaseTime                string                                         `position:"Query" name:"AutoReleaseTime"`
+	CreditSpecification            string                                         `position:"Query" name:"CreditSpecification"`
 	SpotDuration                   requests.Integer                               `position:"Query" name:"SpotDuration"`
 	SecurityGroupIds               *[]string                                      `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
 	DataDisk                       *[]CreateLaunchTemplateVersionDataDisk         `position:"Query" name:"DataDisk"  type:"Repeated"`

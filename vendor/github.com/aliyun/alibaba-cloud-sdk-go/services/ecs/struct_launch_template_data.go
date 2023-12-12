@@ -60,6 +60,7 @@ type LaunchTemplateData struct {
 	SystemDiskBurstingEnabled      bool                                              `json:"SystemDisk.BurstingEnabled" xml:"SystemDisk.BurstingEnabled"`
 	SystemDiskEncrypted            string                                            `json:"SystemDisk.Encrypted" xml:"SystemDisk.Encrypted"`
 	DeletionProtection             bool                                              `json:"DeletionProtection" xml:"DeletionProtection"`
+	CreditSpecification            string                                            `json:"CreditSpecification" xml:"CreditSpecification"`
 	SecurityGroupIds               SecurityGroupIdsInDescribeLaunchTemplateVersions  `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	DataDisks                      DataDisks                                         `json:"DataDisks" xml:"DataDisks"`
 	NetworkInterfaces              NetworkInterfacesInDescribeLaunchTemplateVersions `json:"NetworkInterfaces" xml:"NetworkInterfaces"`

@@ -76,6 +76,7 @@ type ModifyNetworkInterfaceAttributeRequest struct {
 	SecurityGroupId      *[]string        `position:"Query" name:"SecurityGroupId"  type:"Repeated"`
 	Description          string           `position:"Query" name:"Description"`
 	NetworkInterfaceName string           `position:"Query" name:"NetworkInterfaceName"`
+	DeleteOnRelease      requests.Boolean `position:"Query" name:"DeleteOnRelease"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`

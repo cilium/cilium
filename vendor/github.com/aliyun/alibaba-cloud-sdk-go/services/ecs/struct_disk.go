@@ -55,6 +55,8 @@ type Disk struct {
 	DiskChargeType                string                        `json:"DiskChargeType" xml:"DiskChargeType"`
 	ZoneId                        string                        `json:"ZoneId" xml:"ZoneId"`
 	PerformanceLevel              string                        `json:"PerformanceLevel" xml:"PerformanceLevel"`
+	ThroughputRead                int                           `json:"ThroughputRead" xml:"ThroughputRead"`
+	ThroughputWrite               int                           `json:"ThroughputWrite" xml:"ThroughputWrite"`
 	Status                        string                        `json:"Status" xml:"Status"`
 	DiskName                      string                        `json:"DiskName" xml:"DiskName"`
 	IOPSWrite                     int                           `json:"IOPSWrite" xml:"IOPSWrite"`
