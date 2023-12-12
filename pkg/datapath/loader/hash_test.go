@@ -33,7 +33,6 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	hv := hive.New(
 		cell.Provide(
 			fake.NewNodeAddressing,
-			func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
 			func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },
 			config.NewHeaderfileWriter,
 		),

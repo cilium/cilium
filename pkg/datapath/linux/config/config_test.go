@@ -105,7 +105,6 @@ func writeConfig(c *C, header string, write writeFn) {
 			statedb.Cell,
 			cell.Provide(
 				fake.NewNodeAddressing,
-				func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
 				func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },
 				tables.NewDeviceTable,
 				func(_ *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
@@ -440,7 +439,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
 		},
-		BandwidthManager: &fake.BandwidthManager{},
 		Sysctl:           sysctl.NewTestSysctl(t),
 	})
 	require.NoError(t, err)
@@ -458,7 +456,6 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
 		},
-		BandwidthManager: &fake.BandwidthManager{},
 		Sysctl:           sysctl.NewTestSysctl(t),
 	})
 	require.NoError(t, err)
@@ -484,7 +481,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeAddressing:     fake.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
-		BandwidthManager:   &fake.BandwidthManager{},
 		Sysctl:             sysctl.NewTestSysctl(t),
 	})
 
@@ -496,7 +492,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeAddressing:     fake.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
-		BandwidthManager:   &fake.BandwidthManager{},
 		Sysctl:             sysctl.NewTestSysctl(t),
 	})
 	require.NoError(t, err)
