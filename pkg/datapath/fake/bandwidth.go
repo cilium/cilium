@@ -3,9 +3,9 @@
 
 package fake
 
-import "github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+import "github.com/cilium/cilium/pkg/datapath/types"
 
-var _ bandwidth.Manager = (*BandwidthManager)(nil)
+var _ types.BandwidthManager = (*BandwidthManager)(nil)
 
 type BandwidthManager struct{}
 
