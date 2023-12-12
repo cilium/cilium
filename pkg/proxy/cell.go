@@ -29,16 +29,16 @@ var Cell = cell.Module(
 )
 
 type ProxyConfig struct {
-	minPort, maxPort uint16
-	dnsProxyPort     uint16
+	MinPort, MaxPort uint16
+	DNSProxyPort     uint16
 }
 
 var DefaultProxyConfig = ProxyConfig{
-	minPort: 10000,
-	maxPort: 20000,
+	MinPort: 10000,
+	MaxPort: 20000,
 	// The default value for the DNS proxy port is set to 0 to allocate a random
 	// port.
-	dnsProxyPort: 0,
+	DNSProxyPort: 0,
 }
 
 type proxyParams struct {
@@ -63,7 +63,7 @@ func newProxy(params proxyParams, cfg ProxyConfig) *Proxy {
 
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
-	return createProxy(cfg.minPort, cfg.maxPort, cfg.dnsProxyPort, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
+	return createProxy(cfg.MinPort, cfg.MaxPort, cfg.DNSProxyPort, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
 }
 
 type envoyProxyIntegrationParams struct {
