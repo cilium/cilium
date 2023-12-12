@@ -133,7 +133,7 @@ jobs:
             kpr: 'strict'
             tunnel: 'vxlan'
             lb-mode: 'snat'
-            egress-gateway: 'true'
+            egress-gateway: 'false'
             host-fw: 'true'
             lb-acceleration: 'testing-only'
             ingress-controller: 'true'
