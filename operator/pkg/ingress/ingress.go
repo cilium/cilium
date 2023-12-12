@@ -409,6 +409,10 @@ func (ic *Controller) handleCiliumIngressClassDeletedEvent(event ciliumIngressCl
 
 	log.Debug("Cilium IngressClass deleted, performing cleanup")
 	// if we were the default ingress class, we need to clean up all ingresses
+
+	cleanupSharedResource := false
+	var sharedResourceIngress *slim_networkingv1.Ingress
+
 	for _, k := range ic.ingressStore.ListKeys() {
 		ing, err := ic.getByKey(k)
 		if err != nil {
@@ -418,9 +422,21 @@ func (ic *Controller) handleCiliumIngressClassDeletedEvent(event ciliumIngressCl
 		if hasEmptyIngressClass(ing) {
 			// if we are no longer the default ingress class, we need to clean up
 			// the resources that we created for the ingress
-			if err := ic.deleteResources(ing); err != nil {
-				return err
+			if ic.isEffectiveLoadbalancerModeDedicated(ing) {
+				if err := ic.deleteResources(ing); err != nil {
+					return err
+				}
+			} else {
+				cleanupSharedResource = true
+				sharedResourceIngress = ing
 			}
+		}
+	}
+
+	// Regenerate shared resources only once for all shared Ingress
+	if cleanupSharedResource {
+		if err := ic.ensureResources(sharedResourceIngress, false); err != nil {
+			return err
 		}
 	}
 
@@ -687,7 +703,6 @@ func (ic *Controller) garbageCollectOwnedResources(ing *slim_networkingv1.Ingres
 	}
 
 	return nil
-
 }
 
 // deleteObjectIfExists checks the caches to see if the object exists and if so, deletes it. It uses caches as to limit API server requests for objects may have never existed.
