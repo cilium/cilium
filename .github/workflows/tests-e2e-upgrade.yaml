@@ -464,7 +464,7 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host
-            kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
+            kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system logs  '{}'"
             kubectl get pods --all-namespaces -o wide
             ./cilium-cli status
             mkdir -p cilium-sysdumps
