@@ -150,11 +150,11 @@ func (db *DB) registerTable(table TableMeta, txn *iradix.Txn[tableEntry]) error 
 	entry.meta = table
 	entry.deleteTrackers = iradix.New[deleteTracker]()
 	indexTxn := iradix.New[indexEntry]().Txn()
-	indexTxn.Insert([]byte(table.primaryIndexer().name), indexEntry{iradix.New[object](), true})
+	indexTxn.Insert([]byte(table.primary().name), indexEntry{iradix.New[object](), true})
 	indexTxn.Insert([]byte(RevisionIndex), indexEntry{iradix.New[object](), true})
 	indexTxn.Insert([]byte(GraveyardIndex), indexEntry{iradix.New[object](), true})
 	indexTxn.Insert([]byte(GraveyardRevisionIndex), indexEntry{iradix.New[object](), true})
-	for index, indexer := range table.secondaryIndexers() {
+	for index, indexer := range table.secondary() {
 		indexTxn.Insert([]byte(index), indexEntry{iradix.New[object](), indexer.unique})
 	}
 	entry.indexes = indexTxn.CommitOnly()
