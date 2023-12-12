@@ -6,6 +6,7 @@ package loader
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -197,17 +198,33 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	}
 
 	// No interfaces is valid in tunnel disabled case
-	if len(interfaces) != 0 {
-		for _, iface := range interfaces {
-			if err := connector.DisableRpFilter(iface); err != nil {
-				log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
-			}
+	if len(interfaces) == 0 {
+		return nil
+	}
+
+	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
+	var errs error
+	for _, iface := range interfaces {
+		if err := connector.DisableRpFilter(iface); err != nil {
+			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
 		}
 
-		if err := l.replaceNetworkDatapath(ctx, interfaces); err != nil {
-			return fmt.Errorf("failed to load encryption program: %w", err)
+		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, "")
+		if err != nil {
+			log.WithField(logfields.Interface, iface).WithError(err).Error("Load encryption network failed")
+			// collect errors, but keep trying replacing other interfaces.
+			errs = errors.Join(errs, err)
+		} else {
+			log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
+			// Defer map removal until all interfaces' progs have been replaced.
+			defer finalize()
 		}
 	}
+
+	if errs != nil {
+		return fmt.Errorf("failed to load encryption program: %w", errs)
+	}
+
 	return nil
 }
 
