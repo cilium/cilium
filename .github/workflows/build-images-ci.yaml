@@ -152,7 +152,7 @@ jobs:
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
         uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 # v5.1.0
-        id: docker_build_ci_main
+        id: docker_build_ci
         with:
           provenance: false
           context: .
@@ -172,7 +172,7 @@ jobs:
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
         uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 # v5.1.0
-        id: docker_build_ci_main_detect_race_condition
+        id: docker_build_ci_detect_race_condition
         with:
           provenance: false
           context: .
@@ -195,7 +195,7 @@ jobs:
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
         uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 # v5.1.0
-        id: docker_build_ci_main_unstripped
+        id: docker_build_ci_unstripped
         with:
           provenance: false
           context: .
@@ -216,79 +216,79 @@ jobs:
       - name: Sign Container Images
         # Only sign when the event name was a GitHub push and not workflow_run (re-building cache).
         # In this case the image wasn't pushed, therefore it's not necessary to execute this step too.
-        # It would even fail because `steps.docker_build_ci_main*.outputs.digest` isn't set in case
+        # It would even fail because `steps.docker_build_ci*.outputs.digest` isn't set in case
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
         run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_main.outputs.digest }}
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_main_detect_race_condition.outputs.digest }}
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_main_unstripped.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
 
       - name: Generate SBOM
         # Only sign when the event name was a GitHub push and not workflow_run (re-building cache).
         # In this case the image wasn't pushed, therefore it's not necessary to execute this step too.
-        # It would even fail because `steps.docker_build_ci_main*.outputs.digest` isn't set in case
+        # It would even fail because `steps.docker_build_ci*.outputs.digest` isn't set in case
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
         shell: bash
         # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
         # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
-          bom generate -o sbom_ci_main_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
+          bom generate -o sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
-          bom generate -o sbom_ci_main_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
+          bom generate -o sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
-          bom generate -o sbom_ci_main_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
+          bom generate -o sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
 
       - name: Attach SBOM to Container Images
         # Only sign when the event name was a GitHub push and not workflow_run (re-building cache).
         # In this case the image wasn't pushed, therefore it's not necessary to execute this step too.
-        # It would even fail because `steps.docker_build_ci_main*.outputs.digest` isn't set in case
+        # It would even fail because `steps.docker_build_ci*.outputs.digest` isn't set in case
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
         run: |
-          cosign attach sbom --sbom sbom_ci_main_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_main.outputs.digest }}
-          cosign attach sbom --sbom sbom_ci_main_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_main_detect_race_condition.outputs.digest }}
-          cosign attach sbom --sbom sbom_ci_main_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_main_unstripped.outputs.digest }}
+          cosign attach sbom --sbom sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
+          cosign attach sbom --sbom sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
+          cosign attach sbom --sbom sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
 
       - name: Sign SBOM Images
         # Only sign when the event name was a GitHub push and not workflow_run (re-building cache).
         # In this case the image wasn't pushed, therefore it's not necessary to execute this step too.
-        # It would even fail because `steps.docker_build_ci_main*.outputs.digest` isn't set in case
+        # It would even fail because `steps.docker_build_ci*.outputs.digest` isn't set in case
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
         run: |
-          docker_build_ci_main_digest="${{ steps.docker_build_ci_main.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_main_digest/:/-}.sbom"
-          docker_build_ci_main_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_main_sbom_digest}"
+          docker_build_ci_digest="${{ steps.docker_build_ci.outputs.digest }}"
+          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_digest/:/-}.sbom"
+          docker_build_ci_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
+          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_sbom_digest}"
 
-          docker_build_ci_main_detect_race_condition_digest="${{ steps.docker_build_ci_main_detect_race_condition.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_main_detect_race_condition_digest/:/-}.sbom"
-          docker_build_ci_main_detect_race_condition_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_main_detect_race_condition_sbom_digest}"
+          docker_build_ci_detect_race_condition_digest="${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}"
+          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_detect_race_condition_digest/:/-}.sbom"
+          docker_build_ci_detect_race_condition_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
+          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_detect_race_condition_sbom_digest}"
 
-          docker_build_ci_main_unstripped_digest="${{ steps.docker_build_ci_main_unstripped.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_main_unstripped_digest/:/-}.sbom"
-          docker_build_ci_main_unstripped_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_main_unstripped_sbom_digest}"
+          docker_build_ci_unstripped_digest="${{ steps.docker_build_ci_unstripped.outputs.digest }}"
+          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_unstripped_digest/:/-}.sbom"
+          docker_build_ci_unstripped_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
+          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_unstripped_sbom_digest}"
 
       - name: CI Image Releases digests
         # Only sign when the event name was a GitHub push and not workflow_run (re-building cache).
         # In this case the image wasn't pushed, therefore it's not necessary to execute this step too.
-        # It would even fail because `steps.docker_build_ci_main*.outputs.digest` isn't set in case
+        # It would even fail because `steps.docker_build_ci*.outputs.digest` isn't set in case
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci_main.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-race@${{ steps.docker_build_ci_main_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-unstripped@${{ steps.docker_build_ci_main_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_main.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_main_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_main_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # PR or feature branch updates
       - name: CI Build ${{ matrix.name }}
