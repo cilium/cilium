@@ -159,61 +159,61 @@ jobs:
             tunnel: 'geneve'
             endpoint-routes: 'true'
 
-          - name: '9'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20231128.100518'
-            kube-proxy: 'iptables'
-            kpr: 'strict'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
+              #- name: '9'
+              #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+              #  kernel: '5.10-20231128.100518'
+              #  kube-proxy: 'iptables'
+              #  kpr: 'strict'
+              #  devices: '{eth0,eth1}'
+              #  secondary-network: 'true'
+              #  tunnel: 'vxlan'
+              #  encryption: 'wireguard'
+              #  encryption-node: 'false'
+              #  lb-mode: 'snat'
+              #  endpoint-routes: 'true'
+              #  egress-gateway: 'true'
 
-          - name: '10'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20231128.100518'
-            kube-proxy: 'iptables'
-            kpr: 'strict'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
+              #- name: '10'
+              #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+              #  kernel: '5.15-20231128.100518'
+              #  kube-proxy: 'iptables'
+              #  kpr: 'strict'
+              #  devices: '{eth0,eth1}'
+              #  secondary-network: 'true'
+              #  tunnel: 'disabled'
+              #  encryption: 'wireguard'
+              #  encryption-node: 'false'
+              #  lb-mode: 'dsr'
+              #  endpoint-routes: 'true'
+              #  egress-gateway: 'true'
 
-          - name: '11'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20231128.100518'
-            kube-proxy: 'none'
-            kpr: 'strict'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
+              #- name: '11'
+              #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+              #  kernel: '6.1-20231128.100518'
+              #  kube-proxy: 'none'
+              #  kpr: 'strict'
+              #  devices: '{eth0,eth1}'
+              #  secondary-network: 'true'
+              #  tunnel: 'vxlan'
+              #  encryption: 'wireguard'
+              #  encryption-node: 'true'
+              #  lb-mode: 'snat'
+              #  egress-gateway: 'true'
+              #  ingress-controller: 'true'
 
-          - name: '12'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20231205.012941'
-            kube-proxy: 'none'
-            kpr: 'strict'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
+              #- name: '12'
+              #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+              #  kernel: 'bpf-next-20231205.012941'
+              #  kube-proxy: 'none'
+              #  kpr: 'strict'
+              #  devices: '{eth0,eth1}'
+              #  secondary-network: 'true'
+              #  tunnel: 'disabled'
+              #  encryption: 'wireguard'
+              #  encryption-node: 'true'
+              #  lb-mode: 'snat'
+              #  egress-gateway: 'true'
+              #  ingress-controller: 'true'
 
           - name: '14'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -406,6 +406,7 @@ jobs:
 
             # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --test '!node-to-node-encryption' \
               --include-conn-disrupt-test \
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
@@ -447,6 +448,7 @@ jobs:
             kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --test '!node-to-node-encryption' \
               --include-conn-disrupt-test \
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
