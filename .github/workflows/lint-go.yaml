@@ -5,8 +5,8 @@ on:
   pull_request: {}
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.15
+      - ft/v1.15/**
   # Add this workflow to be triggered by merge queue events
   merge_group:
 

@@ -1,5 +1,5 @@
 triggers:
-  /test:
+  /test-backport-1.15:
     workflows:
     - conformance-aks.yaml
     - conformance-aws-cni.yaml

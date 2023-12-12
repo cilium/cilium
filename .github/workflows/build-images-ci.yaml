@@ -9,18 +9,8 @@ on:
       - reopened
   push:
     branches:
-      - main
-      - ft/main/**
-
-  # If the cache was cleaned we should re-build the cache with the latest commit
-  workflow_run:
-    workflows:
-     - "Image CI Cache Cleaner"
-    branches:
-     - main
-     - ft/main/**
-    types:
-     - completed
+      - v1.15
+      - ft/v1.15/**
 
 permissions:
   # To be able to access the repository with `actions/checkout`
