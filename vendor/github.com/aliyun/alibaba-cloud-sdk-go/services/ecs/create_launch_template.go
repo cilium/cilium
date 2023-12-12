@@ -118,6 +118,7 @@ type CreateLaunchTemplateRequest struct {
 	SystemDiskDiskName             string                                  `position:"Query" name:"SystemDisk.DiskName"`
 	RamRoleName                    string                                  `position:"Query" name:"RamRoleName"`
 	AutoReleaseTime                string                                  `position:"Query" name:"AutoReleaseTime"`
+	CreditSpecification            string                                  `position:"Query" name:"CreditSpecification"`
 	SpotDuration                   requests.Integer                        `position:"Query" name:"SpotDuration"`
 	SecurityGroupIds               *[]string                               `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
 	DataDisk                       *[]CreateLaunchTemplateDataDisk         `position:"Query" name:"DataDisk"  type:"Repeated"`
@@ -171,8 +172,9 @@ type CreateLaunchTemplateDataDisk struct {
 // CreateLaunchTemplateResponse is the response struct for api CreateLaunchTemplate
 type CreateLaunchTemplateResponse struct {
 	*responses.BaseResponse
-	LaunchTemplateId string `json:"LaunchTemplateId" xml:"LaunchTemplateId"`
-	RequestId        string `json:"RequestId" xml:"RequestId"`
+	LaunchTemplateId            string `json:"LaunchTemplateId" xml:"LaunchTemplateId"`
+	RequestId                   string `json:"RequestId" xml:"RequestId"`
+	LaunchTemplateVersionNumber int64  `json:"LaunchTemplateVersionNumber" xml:"LaunchTemplateVersionNumber"`
 }
 
 // CreateCreateLaunchTemplateRequest creates a request to invoke CreateLaunchTemplate API

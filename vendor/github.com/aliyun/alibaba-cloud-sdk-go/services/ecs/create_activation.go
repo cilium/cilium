@@ -73,6 +73,7 @@ type CreateActivationRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
 	Description          string                 `position:"Query" name:"Description"`
+	ResourceGroupId      string                 `position:"Query" name:"ResourceGroupId"`
 	InstanceCount        requests.Integer       `position:"Query" name:"InstanceCount"`
 	Tag                  *[]CreateActivationTag `position:"Query" name:"Tag"  type:"Repeated"`
 	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`

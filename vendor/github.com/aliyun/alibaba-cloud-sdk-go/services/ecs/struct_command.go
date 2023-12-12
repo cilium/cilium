@@ -31,6 +31,7 @@ type Command struct {
 	Latest               bool                   `json:"Latest" xml:"Latest"`
 	Name                 string                 `json:"Name" xml:"Name"`
 	EnableParameter      bool                   `json:"EnableParameter" xml:"EnableParameter"`
+	ResourceGroupId      string                 `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	ParameterNames       ParameterNames         `json:"ParameterNames" xml:"ParameterNames"`
 	ParameterDefinitions ParameterDefinitions   `json:"ParameterDefinitions" xml:"ParameterDefinitions"`
 	Tags                 TagsInDescribeCommands `json:"Tags" xml:"Tags"`

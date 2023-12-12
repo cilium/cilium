@@ -217,6 +217,8 @@ type RunInstancesNetworkInterface struct {
 	Ipv6AddressCount            string    `name:"Ipv6AddressCount"`
 	Ipv6Address                 *[]string `name:"Ipv6Address" type:"Repeated"`
 	NetworkCardIndex            string    `name:"NetworkCardIndex"`
+	DeleteOnRelease             string    `name:"DeleteOnRelease"`
+	NetworkInterfaceId          string    `name:"NetworkInterfaceId"`
 }
 
 // RunInstancesDataDisk is a repeated param struct in RunInstancesRequest
