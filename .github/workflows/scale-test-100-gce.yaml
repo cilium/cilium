@@ -112,8 +112,8 @@ jobs:
       - name: Clone ClusterLoader2
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: cilium/perf-tests
-          ref: 6f1bf283e22aa4c29d5db2a7b52501b091a0912e # master
+          repository: kubernetes/perf-tests
+          ref: 82036a7e9bdb803b5b133c2d83cfec710819f9ab # master
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
