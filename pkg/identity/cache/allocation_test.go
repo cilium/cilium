@@ -339,7 +339,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 
-	id, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
+	id, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
@@ -349,7 +349,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
 
 	// reuse the same identity
-	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
+	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, false)
@@ -358,7 +358,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(cache[id.ID], Not(IsNil))
 
 	// 1st Release, not released
-	released, err := mgr.Release(context.Background(), id, false)
+	released, err := mgr.Release(context.Background(), id, true)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, false)
 
@@ -366,7 +366,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
 
 	// 2nd Release, released
-	released, err = mgr.Release(context.Background(), id, false)
+	released, err = mgr.Release(context.Background(), id, true)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
@@ -378,13 +378,13 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	cache = mgr.GetIdentityCache()
 	c.Assert(cache[id.ID], IsNil)
 
-	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
+	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
 	c.Assert(id.ID.HasLocalScope(), Equals, true)
 
-	released, err = mgr.Release(context.Background(), id, false)
+	released, err = mgr.Release(context.Background(), id, true)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
