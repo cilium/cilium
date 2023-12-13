@@ -5,7 +5,6 @@ package linux
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -29,7 +28,7 @@ type linuxDatapath struct {
 	node           *linuxNodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
-	loader         loader.Loader
+	loader         datapath.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
 	bwmgr          bandwidth.Manager
@@ -43,7 +42,7 @@ type DatapathParams struct {
 	BWManager      bandwidth.Manager
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
-	Loader         loader.Loader
+	Loader         datapath.Loader
 }
 
 // NewDatapath creates a new Linux datapath

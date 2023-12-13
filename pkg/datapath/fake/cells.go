@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -50,7 +49,7 @@ var Cell = cell.Module(
 		func() bandwidth.Manager { return &BandwidthManager{} },
 		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
 		func() mtu.MTU { return &MTU{} },
-		func() loader.Loader { return &fakeLoader{} },
+		func() types.Loader { return &fakeLoader{} },
 
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,

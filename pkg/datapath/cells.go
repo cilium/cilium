@@ -212,5 +212,5 @@ type datapathParams struct {
 
 	TunnelConfig tunnel.Config
 
-	Loader loader.Loader
+	Loader types.Loader
 }

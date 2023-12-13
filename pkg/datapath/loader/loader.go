@@ -82,7 +82,7 @@ type loader struct {
 }
 
 // NewLoader returns a new loader.
-func NewLoader() Loader {
+func NewLoader() datapath.Loader {
 	return newLoader()
 }
 
