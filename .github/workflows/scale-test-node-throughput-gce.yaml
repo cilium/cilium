@@ -180,6 +180,7 @@ jobs:
             --enable-exec-service=false \
             --provider=gce \
             --enable-prometheus-server \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --tear-down-prometheus-server=false \
             --report-dir=./report \
             --kubeconfig=$HOME/.kube/config \

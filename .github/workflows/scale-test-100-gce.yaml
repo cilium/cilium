@@ -197,6 +197,7 @@ jobs:
             --kubeconfig=$HOME/.kube/config \
             --testoverrides=./testing/overrides/load_throughput.yaml \
             --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             2>&1 | tee cl2-output.txt
 
       - name: Get sysdump
