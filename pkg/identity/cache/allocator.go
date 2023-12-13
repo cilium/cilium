@@ -347,9 +347,9 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	// then allocate with the appropriate local allocator and return.
 	switch identity.ScopeForLabels(lbls) {
 	case identity.IdentityScopeLocal:
-		return m.localIdentities.lookupOrCreate(lbls, oldNID)
+		return m.localIdentities.lookupOrCreate(lbls, oldNID, notifyOwner)
 	case identity.IdentityScopeRemoteNode:
-		return m.localNodeIdentities.lookupOrCreate(lbls, oldNID)
+		return m.localNodeIdentities.lookupOrCreate(lbls, oldNID, notifyOwner)
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -433,9 +433,9 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 
 	switch identity.ScopeForLabels(id.Labels) {
 	case identity.IdentityScopeLocal:
-		return m.localIdentities.release(id), nil
+		return m.localIdentities.release(id, notifyOwner), nil
 	case identity.IdentityScopeRemoteNode:
-		return m.localNodeIdentities.release(id), nil
+		return m.localNodeIdentities.release(id, notifyOwner), nil
 	}
 
 	// This will block until the kvstore can be accessed and all identities

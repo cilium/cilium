@@ -107,7 +107,7 @@ func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.Num
 // A possible previously used numeric identity for these labels can be passed
 // in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
 // previous numeric identity exists. 'oldNID' will be reallocated if available.
-func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.NumericIdentity, notifyOwner bool) (*identity.Identity, bool, error) {
 	// Not converting to string saves an allocation, as byte key lookups into
 	// string maps are optimized by the compiler, see
 	// https://github.com/golang/go/issues/3512.
@@ -136,7 +136,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 	l.identitiesByLabels[string(repr)] = id
 	l.identitiesByID[numericIdentity] = id
 
-	if l.events != nil {
+	if l.events != nil && notifyOwner {
 		l.events <- allocator.AllocatorEvent{
 			Typ: kvstore.EventTypeCreate,
 			ID:  idpool.ID(id.ID),
@@ -150,7 +150,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 // release releases a local identity from the cache. true is returned when the
 // last use of the identity has been released and the identity has been
 // forgotten.
-func (l *localIdentityCache) release(id *identity.Identity) bool {
+func (l *localIdentityCache) release(id *identity.Identity, notifyOwner bool) bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -166,7 +166,7 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 			delete(l.identitiesByLabels, string(id.Labels.SortedList()))
 			delete(l.identitiesByID, id.ID)
 
-			if l.events != nil {
+			if l.events != nil && notifyOwner {
 				l.events <- allocator.AllocatorEvent{
 					Typ: kvstore.EventTypeDelete,
 					ID:  idpool.ID(id.ID),
