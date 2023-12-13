@@ -55,6 +55,27 @@ func (it *iterator[Obj]) Next() (obj Obj, revision uint64, ok bool) {
 	return
 }
 
+func Map[In, Out any, It Iterator[In]](iter It, transform func(In) Out) Iterator[Out] {
+	return &mapIterator[In, Out]{
+		iter:      iter,
+		transform: transform,
+	}
+}
+
+// mapIterator transforms the objects
+type mapIterator[In, Out any] struct {
+	iter      Iterator[In]
+	transform func(In) Out
+}
+
+func (it *mapIterator[In, Out]) Next() (out Out, revision Revision, ok bool) {
+	obj, rev, ok := it.iter.Next()
+	if ok {
+		return it.transform(obj), rev, true
+	}
+	return
+}
+
 // uniqueIterator iterates over objects in a unique index. Since
 // we find the node by prefix search, we may see a key that shares
 // the search prefix but is longer. We skip those objects.
