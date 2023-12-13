@@ -9,3 +9,9 @@ runs:
         echo "QUAY_ORGANIZATION_DEV=cilium" >> $GITHUB_ENV
         # no prod yet
         echo "QUAY_CHARTS_ORGANIZATION_DEV=cilium-charts-dev" >> $GITHUB_ENV
+        echo "EGRESS_GATEWAY_HELM_VALUES=--helm-set=egressGateway.enabled=true" >> $GITHUB_ENV
+        echo "CILIUM_CLI_RELEASE_REPO=cilium/cilium-cli" >> $GITHUB_ENV
+        # renovate: datasource=github-releases depName=cilium/cilium-cli
+        CILIUM_CLI_VERSION="v0.15.18"
+        echo "CILIUM_CLI_VERSION=$CILIUM_CLI_VERSION" >> $GITHUB_ENV
+        echo "PUSH_TO_DOCKER_HUB=true" >> $GITHUB_ENV
