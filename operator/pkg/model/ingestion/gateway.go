@@ -4,6 +4,7 @@
 package ingestion
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -105,6 +105,34 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 	return resHTTP, resTLS
 }
 
+func getBackendServiceName(namespace string, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
+	svcName := string(backendObjectReference.Name)
+
+	switch {
+	case helpers.IsService(backendObjectReference):
+		// We don't have to do anything here
+	case helpers.IsServiceImport(backendObjectReference):
+		svcImport := getServiceImport(string(backendObjectReference.Name), namespace, serviceImports)
+		if svcImport == nil {
+			return "", fmt.Errorf("Service Import %s/%s does not exists", string(backendObjectReference.Name), namespace)
+		}
+
+		var err error
+		svcName, err = helpers.GetServiceName(svcImport)
+		if err != nil {
+			return "", err
+		}
+
+	default:
+		return "", fmt.Errorf("Unsupported backend kind %s", *backendObjectReference.Kind)
+	}
+
+	if !serviceExists(svcName, namespace, services) {
+		return "", fmt.Errorf("Service %s/%s does not exist", svcName, namespace)
+	}
+	return svcName, nil
+}
+
 func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
@@ -135,38 +163,25 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute"), grants) {
 					continue
 				}
-
-				if helpers.IsService(be.BackendObjectReference) {
-					if !serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-						continue
-					}
-				} else if helpers.IsServiceImport(be.BackendObjectReference) {
-					svcImport := getServiceImport(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), serviceImports)
-					if svcImport == nil {
-						continue
-					}
-
-					// ServiceImport gateway api support is conditioned by the fact
-					// that an actual Service backs it. Other implementations of MCS API
-					// are not supported.
-					svcName, ok := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
-					if !ok || !serviceExists(svcName, helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-						continue
-					}
+				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
+				if err != nil {
+					continue
+				}
+				if svcName != string(be.Name) {
 					be = *be.DeepCopy()
 					be.BackendRef.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
 						Name:      gatewayv1beta1.ObjectName(svcName),
 						Port:      be.Port,
 						Namespace: be.Namespace,
 					}
-				} else {
-					continue
 				}
 				if be.BackendRef.Port == nil {
 					// must have port for Service reference
 					continue
 				}
-				bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
+				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
+					bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
+				}
 			}
 
 			var dr *model.DirectResponse
@@ -289,36 +304,25 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPC
 				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("GRPCRoute"), grants) {
 					continue
 				}
-				if helpers.IsService(be.BackendObjectReference) {
-					if !serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-						continue
-					}
-				} else if helpers.IsServiceImport(be.BackendObjectReference) {
-					svcImport := getServiceImport(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), serviceImports)
-					if svcImport == nil {
-						continue
-					}
-					// ServiceImport gateway api support is conditioned by the fact
-					// that an actual Service backs it. Other implementations of MCS API
-					// are not supported.
-					svcName, ok := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
-					if !ok || !serviceExists(svcName, helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-						continue
-					}
+				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
+				if err != nil {
+					continue
+				}
+				if svcName != string(be.Name) {
 					be = *be.DeepCopy()
 					be.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
 						Name:      gatewayv1beta1.ObjectName(svcName),
 						Port:      be.Port,
 						Namespace: be.Namespace,
 					}
-				} else {
-					continue
 				}
 				if be.BackendRef.Port == nil {
 					// must have port for Service reference
 					continue
 				}
-				bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
+				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
+					bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
+				}
 			}
 
 			var dr *model.DirectResponse
@@ -410,32 +414,21 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRo
 				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1alpha2.SchemeGroupVersion.WithKind("TLSRoute"), grants) {
 					continue
 				}
-				if helpers.IsService(be.BackendObjectReference) {
-					if !serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-						continue
-					}
-				} else if helpers.IsServiceImport(be.BackendObjectReference) {
-					svcImport := getServiceImport(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), serviceImports)
-					if svcImport == nil {
-						continue
-					}
-					// ServiceImport gateway api support is conditioned by the fact
-					// that an actual Service backs it. Other implementations of MCS API
-					// are not supported.
-					svcName, ok := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
-					if !ok || !serviceExists(svcName, helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
-						continue
-					}
+				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
+				if err != nil {
+					continue
+				}
+				if svcName != string(be.Name) {
 					be = *be.DeepCopy()
 					be.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
 						Name:      gatewayv1beta1.ObjectName(svcName),
 						Port:      be.Port,
 						Namespace: be.Namespace,
 					}
-				} else {
-					continue
 				}
-				bes = append(bes, backendToModelBackend(be, r.Namespace))
+				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
+					bes = append(bes, backendToModelBackend(be, r.Namespace))
+				}
 			}
 
 			tlsRoutes = append(tlsRoutes, model.TLSRoute{

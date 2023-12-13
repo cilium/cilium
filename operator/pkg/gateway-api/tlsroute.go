@@ -21,7 +21,6 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -51,30 +50,13 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			var backendServices []string
 			for _, rule := range route.Spec.Rules {
 				for _, backend := range rule.BackendRefs {
-					backendServiceName := ""
-					switch {
-					case helpers.IsService(backend.BackendObjectReference):
-						backendServiceName = string(backend.Name)
-
-					case helpers.HasServiceImportCRD() &&
-						helpers.IsServiceImport(backend.BackendObjectReference):
-						svcImport := &mcsapiv1alpha1.ServiceImport{}
-						if err := r.Client.Get(context.Background(), client.ObjectKey{
-							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
-							Name:      string(backend.Name),
-						}, svcImport); err != nil {
-							continue
-						}
-
-						// ServiceImport gateway api support is conditioned by the fact
-						// that an actual Service backs it. Other implementations of MCS API
-						// are not supported.
-						backendServiceName, ok = svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
-						if !ok {
-							continue
-						}
-
-					default:
+					namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
+					backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
+					if err != nil {
+						log.WithFields(logrus.Fields{
+							logfields.Controller: "tlsRoute",
+							logfields.Resource:   client.ObjectKeyFromObject(rawObj),
+						}).WithError(err).Error("Failed to get backend service name")
 						continue
 					}
 					backendServices = append(backendServices,
