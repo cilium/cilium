@@ -25,6 +25,12 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
+// Decoder is an interface for the parser.
+// It decodes a monitor event into a hubble event.
+type Decoder interface {
+	Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, error)
+}
+
 // Parser for all flows
 type Parser struct {
 	l34  *threefour.Parser
