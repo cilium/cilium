@@ -110,9 +110,8 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	for _, fn := range []routechecks.CheckRuleFunc{
 		routechecks.CheckAgainstCrossNamespaceBackendReferences,
 		routechecks.CheckBackend,
-		routechecks.CheckBackendIsExistingService,
 		routechecks.CheckHasServiceImportSupport,
-		routechecks.CheckBackendIsExistingServiceImport,
+		routechecks.CheckBackendIsExistingService,
 	} {
 		if continueCheck, err := fn(i); err != nil || !continueCheck {
 			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), original, gr)
