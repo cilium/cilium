@@ -1645,6 +1645,7 @@ type daemonParams struct {
 	L2Announcer          *l2announcer.L2Announcer
 	ServiceManager       service.ServiceManager
 	L7Proxy              *proxy.Proxy
+	EnvoyXdsServer       envoy.XDSServer
 	DB                   *statedb.DB
 	APILimiterSet        *rate.APILimiterSet
 	AuthManager          *auth.AuthManager
