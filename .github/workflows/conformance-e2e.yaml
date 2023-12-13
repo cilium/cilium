@@ -304,7 +304,14 @@ jobs:
           cmd: |
             cd /host/
 
+            EXTRA=()
+            if [ "${{ matrix.host-fw }}" == "true" ]; then
+              # Until https://github.com/cilium/cilium/issues/28088 is fixed
+              EXTRA+=("--expected-drop-reasons=+Missed tail call")
+            fi
+
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              "${EXTRA[@]}" \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
