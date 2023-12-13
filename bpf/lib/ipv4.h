@@ -158,7 +158,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 	/* load sport + dport into tuple */
 	ret = ctx_load_bytes(ctx, l4_off, ports, 4);
 	if (ret < 0)
-		return ret;
+		return DROP_CT_INVALID_HDR;
 
 	if (unlikely(is_fragment)) {
 		/* First logical fragment for this datagram (not necessarily the first
