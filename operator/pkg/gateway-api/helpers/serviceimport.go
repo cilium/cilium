@@ -5,10 +5,12 @@ package helpers
 
 import (
 	"context"
+	"fmt"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/types"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -42,4 +44,16 @@ func CheckServiceImportCRD(ctx context.Context, client client.Client) {
 	}
 
 	hasServiceImportCRD = false
+}
+
+func GetServiceName(svcImport *mcsapiv1alpha1.ServiceImport) (string, error) {
+	// ServiceImport gateway api support is conditioned by the fact
+	// that an actual Service backs it. Other implementations of MCS API
+	// are not supported.
+	backendServiceName, ok := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
+	if !ok {
+		return "", fmt.Errorf("%s %s/%s does not have annotation %s", svcImport.Kind, svcImport.Namespace, svcImport.Name, mcsapicontrollers.DerivedServiceAnnotation)
+	}
+
+	return backendServiceName, nil
 }
