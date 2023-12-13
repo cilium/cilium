@@ -182,17 +182,6 @@ type bgpSpeakerManager interface {
 	OnUpdateEndpoints(eps *k8s.Endpoints) error
 }
 
-type envoyConfigManager interface {
-	UpsertEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
-	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error
-	DeleteEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
-
-	// envoy.PortAllocator
-	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
-	AckProxyPort(ctx context.Context, name string) error
-	ReleaseProxyPort(name string) error
-}
-
 type cgroupManager interface {
 	OnAddPod(pod *slim_corev1.Pod)
 	OnUpdatePod(oldPod, newPod *slim_corev1.Pod)
@@ -237,7 +226,8 @@ type K8sWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	ipcache               ipcacheManager
-	envoyConfigManager    envoyConfigManager
+	proxyPortAllocator    envoy.PortAllocator
+	envoyXdsServer        envoy.XDSServer
 	cgroupManager         cgroupManager
 
 	bandwidthManager bandwidth.Manager
@@ -262,7 +252,7 @@ type K8sWatcher struct {
 	// networkPoliciesInitOnce is used to guarantee only one call to NetworkPoliciesInit is
 	// executed.
 	networkPoliciesInitOnce sync.Once
-	//networkPoliciesStoreSet is closed once the networkpolicyStore is set.
+	// networkPoliciesStoreSet is closed once the networkpolicyStore is set.
 	networkPoliciesStoreSet chan struct{}
 	networkpolicyStore      cache.Store
 
@@ -281,7 +271,8 @@ func NewK8sWatcher(
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
-	envoyConfigManager envoyConfigManager,
+	proxyPortAllocator envoy.PortAllocator,
+	envoyXdsServer envoy.XDSServer,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
@@ -307,7 +298,8 @@ func NewK8sWatcher(
 		bgpSpeakerManager:       bgpSpeakerManager,
 		cgroupManager:           cgroupManager,
 		bandwidthManager:        bandwidthManager,
-		envoyConfigManager:      envoyConfigManager,
+		proxyPortAllocator:      proxyPortAllocator,
+		envoyXdsServer:          envoyXdsServer,
 		cfg:                     cfg,
 		resources:               resources,
 	}

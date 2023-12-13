@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -112,6 +113,7 @@ type Daemon struct {
 	db               *statedb.DB
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
+	envoyXdsServer   envoy.XDSServer
 	svc              service.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
@@ -446,6 +448,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		l2announcer:          params.L2Announcer,
 		svc:                  params.ServiceManager,
 		l7Proxy:              params.L7Proxy,
+		envoyXdsServer:       params.EnvoyXdsServer,
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
@@ -509,6 +512,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
 		d.l7Proxy,
+		d.envoyXdsServer,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,
