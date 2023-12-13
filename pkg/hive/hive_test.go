@@ -232,6 +232,78 @@ func TestHiveCIDRSlice(t *testing.T) {
 	require.Equal(t, cidr.MustParseCIDR("2001:db8::/64"), cfg.Foo[1], "Config.Foo not set correctly")
 }
 
+type StringSliceConfig struct {
+	SpacesFlag, CommasFlag []string
+	SpacesMap, CommasMap   []string
+	Mixed                  []string
+	StringFlag             string
+}
+
+func (StringSliceConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice("spaces-flag", nil, "split by spaces via pflag")
+	flags.StringSlice("commas-flag", nil, "split by commas via pflag")
+	flags.StringSlice("spaces-map", nil, "split by spaces via configmap")
+	flags.StringSlice("commas-map", nil, "split by commas via configmap")
+
+	// One can also use just flags.String against a []string config field and
+	// it will be parsed the same way as via configmap.
+	flags.String("mixed", "", "mixed")
+
+	flags.String("string-flag", "", "plain string untouched")
+}
+
+func TestHiveStringSlice(t *testing.T) {
+	var cfg StringSliceConfig
+	testCell := cell.Module(
+		"test",
+		"Test Module",
+		cell.Config(StringSliceConfig{}),
+		cell.Invoke(func(c StringSliceConfig) {
+			cfg = c
+		}),
+	)
+	hive := hive.New(testCell)
+
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	hive.RegisterFlags(flags)
+
+	spaces := "foo bar baz"
+	commas := "foo,bar,baz"
+	expected := []string{"foo", "bar", "baz"}
+
+	// When the values are provided via the flags then the value given
+	// to Viper is already a []string as parsed by pflag. This will be
+	// processed by stringSliceToStringSliceHookFunc to re-split if needed.
+	flags.Set("spaces-flag", spaces)
+	flags.Set("commas-flag", commas)
+
+	// Plain string flags are not split in any way.
+	flags.Set("string-flag", "foo, bar, baz")
+
+	// If spaces and commas are mixed then commas take precedence.
+	flags.Set("mixed", "foo bar,baz")
+
+	// When the values are provided via the configmap or environment they're
+	// given to Viper as plain strings that will be processed by stringToSliceHookFunc.
+	hive.Viper().MergeConfigMap(
+		map[string]any{
+			"spaces-map": spaces,
+			"commas-map": commas,
+		})
+
+	err := hive.Start(context.TODO())
+	require.NoError(t, err, "expected Start to succeed")
+	err = hive.Stop(context.TODO())
+	require.NoError(t, err, "expected Stop to succeed")
+
+	assert.ElementsMatch(t, cfg.SpacesFlag, expected, "unexpected SpacesFlag")
+	assert.ElementsMatch(t, cfg.SpacesMap, expected, "unexpected SpacesMap")
+	assert.ElementsMatch(t, cfg.CommasFlag, expected, "unexpected CommasFlag")
+	assert.ElementsMatch(t, cfg.CommasMap, expected, "unexpected CommasMap")
+	assert.ElementsMatch(t, cfg.Mixed, []string{"foo bar", "baz"}, "unexpected Mixed")
+	assert.Equal(t, cfg.StringFlag, "foo, bar, baz", "unexpected StringFlag")
+}
+
 type SomeObject struct {
 	X int
 }
