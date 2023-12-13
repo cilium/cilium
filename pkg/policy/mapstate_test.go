@@ -1468,11 +1468,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
+		cs := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
-		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
-		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
+		c.Assert(cs.Adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
+		c.Assert(cs.Deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
 	}
 }
 
@@ -1685,11 +1685,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, policyFeatures(0), nil)
+		cs := policyMaps.consumeMapChanges(policyMapState, policyFeatures(0), nil)
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
-		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
-		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
+		c.Assert(cs.Adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
+		c.Assert(cs.Deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
 	}
 }
 
@@ -2245,12 +2245,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
-		changes = ChangeState{
-			Adds:    adds,
-			Deletes: deletes,
-			Old:     make(map[Key]MapStateEntry),
-		}
+		changes = policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
+		changes.Old = make(map[Key]MapStateEntry)
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
 		for _, arg := range tt.visArgs {

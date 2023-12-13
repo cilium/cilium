@@ -1086,7 +1086,6 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) b
 			entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
 			entry.owners = maps.Clone(entry.owners)
 			entry.dependents = maps.Clone(entry.dependents)
-
 			changes.Old[key] = entry
 			return true
 		}
@@ -1424,12 +1423,14 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 }
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
-// while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(policyMapState MapState, features policyFeatures, identities Identities) (adds, deletes Keys) {
+// while applying the changes to PolicyMapState. It returns the
+func (mc *MapChanges) consumeMapChanges(policyMapState MapState, features policyFeatures, identities Identities) ChangeState {
 	mc.mutex.Lock()
-	changes := ChangeState{
+	defer mc.mutex.Unlock()
+	cs := ChangeState{
 		Adds:    make(Keys, len(mc.changes)),
 		Deletes: make(Keys, len(mc.changes)),
+		Old:     make(map[Key]MapStateEntry, len(mc.changes)),
 	}
 
 	for i := range mc.changes {
@@ -1437,15 +1438,14 @@ func (mc *MapChanges) consumeMapChanges(policyMapState MapState, features policy
 			// insert but do not allow non-redirect entries to overwrite a redirect entry,
 			// nor allow non-deny entries to overwrite deny entries.
 			// Collect the incremental changes to the overall state in 'mc.adds' and 'mc.deletes'.
-			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, identities, features, changes)
+			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, identities, features, cs)
 		} else {
-			// Delete the contribution of this cs to the key and collect incremental changes
-			for cs := range mc.changes[i].Value.owners { // get the sole selector
-				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, changes)
+			// Delete the contribution of this owner to the key and collect incremental changes
+			for owner := range mc.changes[i].Value.owners { // get the sole selector
+				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, owner, cs)
 			}
 		}
 	}
 	mc.changes = nil
-	mc.mutex.Unlock()
-	return changes.Adds, changes.Deletes
+	return cs
 }

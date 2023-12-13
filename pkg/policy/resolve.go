@@ -257,7 +257,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, getProxyPor
 // locking the selector cache to make sure concurrent identity updates
 // have completed.
 // PolicyOwner (aka Endpoint) is also locked during this call.
-func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
+func (p *EndpointPolicy) ConsumeMapChanges() ChangeState {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features

@@ -1185,8 +1185,9 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	//  ConsumeMapChanges() applies the incremental updates to the
 	//  desired policy and only returns changes that need to be
 	//  applied to the Endpoint's bpf policy map.
-	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
-	changes := policy.ChangeState{Adds: adds}
+	cs := e.desiredPolicy.ConsumeMapChanges()
+	adds, deletes := cs.Adds, cs.Deletes
+	changes := policy.ChangeState{Adds: cs.Adds}
 
 	// Add possible visibility redirects due to incrementally added keys
 	if e.visibilityPolicy != nil {
