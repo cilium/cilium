@@ -87,7 +87,7 @@ type ProxyPort struct {
 
 // Proxy maintains state about redirects
 type Proxy struct {
-	envoy.XDSServer
+	xdsServer envoy.XDSServer
 
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
@@ -132,7 +132,7 @@ func createProxy(
 	xdsServer envoy.XDSServer,
 ) *Proxy {
 	return &Proxy{
-		XDSServer:        xdsServer,
+		xdsServer:        xdsServer,
 		rangeMin:         minPort,
 		rangeMax:         maxPort,
 		redirects:        make(map[string]*Redirect),
@@ -486,7 +486,6 @@ func getCiliumNetIPv6() (net.IP, error) {
 	}
 
 	return nil, fmt.Errorf("failed to find valid IPv6 address for cilium_net")
-
 }
 
 // ReinstallIPTablesRules is called by daemon reconfiguration to reinstall
@@ -780,6 +779,14 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (error, reve
 	})
 
 	return nil, finalizeList.Finalize, revertStack.Revert
+}
+
+func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	return p.xdsServer.UpdateNetworkPolicy(ep, vis, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
+}
+
+func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
+	p.xdsServer.RemoveNetworkPolicy(ep)
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
