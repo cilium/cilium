@@ -70,6 +70,13 @@ func (ipc *IPCache) AllocateCIDRs(
 	ipc.Unlock()
 	ipc.metadata.RUnlock()
 
+	// Insert any newly allocated identities in to the policy engine
+	addedIdentities := make(map[identity.NumericIdentity]labels.LabelArray, len(newlyAllocatedIdentities))
+	for _, id := range newlyAllocatedIdentities {
+		addedIdentities[id.ID] = id.LabelArray
+	}
+	ipc.UpdatePolicyMaps(context.TODO(), addedIdentities, nil)
+
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
 	if upsert {
@@ -176,6 +183,7 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []netip.
 	defer ipc.Unlock()
 
 	toDelete := make([]netip.Prefix, 0, len(prefixes))
+	deletedIDs := make(map[identity.NumericIdentity]labels.LabelArray, len(prefixes))
 	for _, prefix := range prefixes {
 		lbls := labels.GetCIDRLabels(prefix)
 		id := ipc.IdentityAllocator.LookupIdentity(ctx, lbls)
@@ -207,6 +215,7 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []netip.
 			}).WithError(err).Warning("Unable to release CIDR identity. Ignoring error. Identity may be leaked")
 		}
 		if released {
+			deletedIDs[id.ID] = id.LabelArray
 			toDelete = append(toDelete, prefix)
 		}
 	}
@@ -214,6 +223,8 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []netip.
 	for _, prefix := range toDelete {
 		ipc.deleteLocked(prefix.String(), source.Generated)
 	}
+	// Remove any deleted identities from the policy engine.
+	ipc.UpdatePolicyMaps(ctx, nil, deletedIDs)
 }
 
 // ReleaseCIDRIdentitiesByCIDR releases the identities of a list of CIDRs.
