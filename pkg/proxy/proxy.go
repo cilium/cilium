@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -87,8 +86,6 @@ type ProxyPort struct {
 
 // Proxy maintains state about redirects
 type Proxy struct {
-	xdsServer envoy.XDSServer
-
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
 
@@ -129,10 +126,8 @@ func createProxy(
 	datapathUpdater DatapathUpdater,
 	envoyIntegration *envoyProxyIntegration,
 	dnsIntegration *dnsProxyIntegration,
-	xdsServer envoy.XDSServer,
 ) *Proxy {
 	return &Proxy{
-		xdsServer:        xdsServer,
 		rangeMin:         minPort,
 		rangeMax:         maxPort,
 		redirects:        make(map[string]*Redirect),

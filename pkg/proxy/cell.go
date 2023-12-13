@@ -49,7 +49,6 @@ type proxyParams struct {
 	MonitorAgent          monitoragent.Agent
 	EnvoyProxyIntegration *envoyProxyIntegration
 	DNSProxyIntegration   *dnsProxyIntegration
-	XdsServer             envoy.XDSServer
 }
 
 func newProxy(params proxyParams, cfg ProxyConfig) *Proxy {
@@ -63,7 +62,7 @@ func newProxy(params proxyParams, cfg ProxyConfig) *Proxy {
 
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
-	return createProxy(cfg.MinPort, cfg.MaxPort, cfg.DNSProxyPort, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
+	return createProxy(cfg.MinPort, cfg.MaxPort, cfg.DNSProxyPort, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration)
 }
 
 type envoyProxyIntegrationParams struct {
