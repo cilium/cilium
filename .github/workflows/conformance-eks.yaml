@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -110,7 +110,7 @@ jobs:
     name: Installation and Connectivity Test
     needs: generate-matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
     env:
       job_name: "Installation and Connectivity Test"
     strategy:
@@ -159,6 +159,9 @@ jobs:
             --helm-set tls.secretsBackend=k8s \
             --helm-set=bpf.monitorAggregation=none \
             --wait=false"
+          if [[ "${{ matrix.ipsec }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
+          fi
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target amazon.com"
@@ -202,6 +205,13 @@ jobs:
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
 
+      - name: Create IPsec key
+        if: ${{ matrix.ipsec == true }}
+        shell: bash
+        run: |
+          KEYID=15
+          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${KEYID} rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+
       # This is a workaround for flake #16938.
       - name: Remove AWS-CNI
         run: |
@@ -226,13 +236,21 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@de740a64da1b12dc8488cf3af2474c60d52c349e # v0.16.3
+        with:
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+          binary-name: cilium-cli
+          binary-dir: ./
+
       - name: Install Cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium to be ready
         run: |
-          cilium status --wait
+          ./cilium-cli status --wait
           kubectl get pods -n kube-system
 
       - name: Check that AWS leftover iptables chains have been removed
@@ -248,7 +266,7 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          cilium hubble port-forward&
+          ./cilium-cli hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
@@ -258,48 +276,25 @@ jobs:
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          ./cilium-cli connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
-      - name: Clean up Cilium
-        run: |
-          pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" || test $? -eq 1
-          cilium uninstall --wait
-
-      - name: Create custom IPsec secret
-        run: |
-          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
-
-      - name: Install Cilium with encryption
-        run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set encryption.enabled=true \
-            --helm-set encryption.type=ipsec
-
-      - name: Wait for Cilium to be ready
-        run: |
-          cilium status --wait
-          kubectl get pods -n kube-system
-
-      - name: Port forward Relay
-        run: |
-          cilium hubble port-forward&
-          sleep 10s
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
-
-      - name: Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2.xml" \
-          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
+      - name: Run IPsec key rotation tests (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.ipsec == true }}
+        uses: ./.github/actions/ipsec-key-rotate
+        with:
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
+          key-algo: "gcm(aes)"
+          key-type-one: ""
+          key-type-two: ""
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
           kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final-${{ join(matrix.*, '-') }}
+          ./cilium-cli status
+          ./cilium-cli sysdump --output-filename cilium-sysdump-final-${{ join(matrix.*, '-') }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up EKS
@@ -358,7 +353,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.installation-and-connectivity.result }}
