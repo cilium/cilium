@@ -337,17 +337,22 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          EXTRA=""
+          EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA="--secondary-network-iface=eth1"
+            EXTRA+=("--secondary-network-iface=eth1")
+          fi
+
+          if [ "${{ matrix.host-fw }}" == "true" ]; then
+            # Until https://github.com/cilium/cilium/issues/28088 is fixed
+            EXTRA+=("--expected-drop-reasons=+Missed tail call")
           fi
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            "${EXTRA[@]}" \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests (${{ matrix.name }})" \
-            $EXTRA
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
