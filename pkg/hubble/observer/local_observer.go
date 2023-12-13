@@ -53,7 +53,7 @@ type LocalObserverServer struct {
 	log logrus.FieldLogger
 
 	// payloadParser decodes flowpb.Payload into flowpb.Flow
-	payloadParser *parser.Parser
+	payloadParser parser.Decoder
 
 	opts observeroption.Options
 
@@ -68,7 +68,7 @@ type LocalObserverServer struct {
 
 // NewLocalServer returns a new local observer server.
 func NewLocalServer(
-	payloadParser *parser.Parser,
+	payloadParser parser.Decoder,
 	namespaceManager NamespaceManager,
 	logger logrus.FieldLogger,
 	options ...observeroption.Option,
@@ -197,7 +197,7 @@ func (s *LocalObserverServer) GetStopped() chan struct{} {
 }
 
 // GetPayloadParser implements GRPCServer.GetPayloadParser.
-func (s *LocalObserverServer) GetPayloadParser() *parser.Parser {
+func (s *LocalObserverServer) GetPayloadParser() parser.Decoder {
 	return s.payloadParser
 }
 
