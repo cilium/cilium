@@ -264,6 +264,14 @@ func (p *EndpointPolicy) ConsumeMapChanges() ChangeState {
 	return p.policyMapChanges.consumeMapChanges(p.policyMapState, features, p.SelectorCache)
 }
 
+// ResetMapChanges
+func (p *EndpointPolicy) ResetMapChanges(cs ChangeState) {
+	p.selectorPolicy.SelectorCache.mutex.Lock()
+	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
+	p.policyMapState.RevertChanges(cs)
+	p.policyMapChanges.addChanges(cs.changes)
+}
+
 // AllowsIdentity returns whether the specified policy allows
 // ingress and egress traffic for the specified numeric security identity.
 // If the 'secID' is zero, it will check if all traffic is allowed.

@@ -479,6 +479,8 @@ type ChangeState struct {
 	Adds    Keys                  // Added or modified keys, if not nil
 	Deletes Keys                  // deleted keys, if not nil
 	Old     map[Key]MapStateEntry // Old values of all modified or deleted keys, if not nil
+
+	changes []MapChange // changes slice used to create ChangeState
 }
 
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
