@@ -357,8 +357,6 @@ jobs:
           ./cilium-cli status
           mkdir -p cilium-sysdumps
           ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-          # To debug https://github.com/cilium/cilium/issues/26062
-          head -n -0 /proc/buddyinfo /proc/pagetypeinfo
 
       - name: Upload artifacts
         if: ${{ !success() }}
