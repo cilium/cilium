@@ -33,10 +33,19 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 
 	*ext_err = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
 
-	if (*ext_err != BPF_FIB_LKUP_RET_SUCCESS && *ext_err != BPF_FIB_LKUP_RET_NO_NEIGH)
+	switch (*ext_err) {
+	case BPF_FIB_LKUP_RET_SUCCESS:
+	case BPF_FIB_LKUP_RET_NO_NEIGH:
+		if (old_oif == fib_params.l.ifindex)
+			return CTX_ACT_OK;
+		break;
+	default:
 		return DROP_NO_FIB;
+	}
 
-	if (old_oif == fib_params.l.ifindex)
+	/* Don't redirect if we can't update the L2 DMAC: */
+	if (*ext_err == BPF_FIB_LKUP_RET_NO_NEIGH &&
+	    !neigh_resolver_available())
 		return CTX_ACT_OK;
 
 	return fib_do_redirect(ctx, true, &fib_params, false, ext_err, (int *)&old_oif);
