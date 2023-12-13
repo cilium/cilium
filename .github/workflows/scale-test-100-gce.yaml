@@ -186,7 +186,7 @@ jobs:
           export CL2_SCHEDULER_THROUGHPUT_THRESHOLD=0
 
           go run ./cmd/clusterloader.go \
-            -v=4 \
+            -v=2 \
             --testconfig=./testing/load/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
