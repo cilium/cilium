@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/ip"
 )
 
 type DNSCacheTestSuite struct{}
@@ -60,6 +61,9 @@ func (ds *DNSCacheTestSuite) TestUpdateLookup(c *C) {
 	for secondsPastNow := 1; secondsPastNow <= endTimeSeconds; secondsPastNow++ {
 		ips := cache.lookupByTime(now.Add(time.Duration(secondsPastNow)*time.Second), name)
 		c.Assert(len(ips), Equals, 2*(endTimeSeconds-secondsPastNow+1), Commentf("Incorrect number of IPs returned"))
+
+		// This test expects ips sorted
+		ip.SortAddrList(ips)
 
 		// Check that we returned each 1.1.1.x entry where x={1..endTimeSeconds}
 		// These are sorted, and are in the first half of the array
@@ -276,6 +280,7 @@ func (ds *DNSCacheTestSuite) TestJSONMarshal(c *C) {
 	currentTime := now
 	for name := range names {
 		IPs := cache.lookupByTime(currentTime, name)
+		ip.SortAddrList(IPs)
 		c.Assert(len(IPs), Equals, 2, Commentf("Incorrect number of IPs returned for %s", name))
 		c.Assert(IPs[0].String(), Equals, sharedIP.String(), Commentf("Returned an IP that doesn't match %s", name))
 		c.Assert(IPs[1].String(), Equals, names[name].String(), Commentf("Returned an IP name that doesn't match %s", name))

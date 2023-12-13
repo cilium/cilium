@@ -1,3 +1,21 @@
+# v1.141.0 (2023-12-08)
+
+* **Feature**: M2 Mac instances are built on Apple M2 Mac mini computers. I4i instances are powered by 3rd generation Intel Xeon Scalable processors. C7i compute optimized, M7i general purpose and R7i memory optimized instances are powered by custom 4th Generation Intel Xeon Scalable processors.
+* **Bug Fix**: Reinstate presence of default Retryer in functional options, but still respect max attempts set therein.
+
+# v1.140.1 (2023-12-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.140.0 (2023-12-06)
+
+* **Feature**: Releasing the new cpuManufacturer attribute within the DescribeInstanceTypes API response which notifies our customers with information on who the Manufacturer is for the processor attached to the instance, for example: Intel.
+* **Bug Fix**: Restore pre-refactor auth behavior where all operations could technically be performed anonymously.
+
+# v1.139.0 (2023-12-05)
+
+* **Feature**: Adds A10G, T4G, and H100 as accelerator name options and Habana as an accelerator manufacturer option for attribute based selection
+
 # v1.138.2 (2023-12-01)
 
 * **Bug Fix**: Correct wrapping of errors in authentication workflow.

@@ -79,6 +79,7 @@ type ModifySnapshotAttributeRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	DisableInstantAccess requests.Boolean `position:"Query" name:"DisableInstantAccess"`
+	RetentionDays        requests.Integer `position:"Query" name:"RetentionDays"`
 }
 
 // ModifySnapshotAttributeResponse is the response struct for api ModifySnapshotAttribute

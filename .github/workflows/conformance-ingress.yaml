@@ -148,7 +148,10 @@ jobs:
             --helm-set=ingressController.enabled=true \
             --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
             --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
-            --helm-set=extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }}"
+            --helm-set=extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }} \
+            --helm-set=l2announcements.enabled=true \
+            --helm-set=devices='{eth0}'"
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
@@ -199,31 +202,40 @@ jobs:
           cilium status --wait
           kubectl get pods -n kube-system
 
-      - name: Install metallb for LB service
+      - name: Install Cilium LB IPPool and L2 Announcement Policy
         timeout-minutes: 10
         run: |
           KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
-          METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
-          METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
-          METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
-          
-          cat << EOF > metallb_values.yaml
-          configInline:
-            address-pools:
-            - name: default
-              protocol: layer2
-              addresses:
-              - ${METALLB_IP_RANGE}
-          psp:
-            create: false
+          LB_CIDR=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200/28@")
+
+          echo "Deploying LB-IPAM Pool..."
+          cat << EOF > pool.yaml
+          apiVersion: "cilium.io/v2alpha1"
+          kind: CiliumLoadBalancerIPPool
+          metadata:
+            name: "pool"
+          spec:
+            cidrs:
+              - cidr: "$LB_CIDR"
           EOF
+          kubectl apply -f pool.yaml
           
-          helm install --namespace metallb-system \
-            --create-namespace \
-            --repo https://metallb.github.io/metallb metallb metallb \
-            --version ${{ env.metallb_version }} \
-            --values metallb_values.yaml \
-            --wait
+          echo "Deploying L2-Announcement Policy..."
+          cat << 'EOF' > l2policy.yaml
+          apiVersion: "cilium.io/v2alpha1"
+          kind: CiliumL2AnnouncementPolicy
+          metadata:
+            name: l2policy
+          spec:
+            loadBalancerIPs: true
+            interfaces:
+              - eth0
+            nodeSelector:
+              matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+          EOF
+          kubectl apply -f l2policy.yaml
 
       - name: Create sample workload
         timeout-minutes: 5

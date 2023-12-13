@@ -31,13 +31,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
-
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/logger"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/runtime/yamlpc"
 	"github.com/go-openapi/strfmt"
+	"github.com/opentracing/opentracing-go"
+)
+
+const (
+	schemeHTTP  = "http"
+	schemeHTTPS = "https"
 )
 
 // TLSClientOptions to configure client authentication with mutual TLS
@@ -70,7 +74,7 @@ type TLSClientOptions struct {
 	LoadedCA *x509.Certificate
 
 	// LoadedCAPool specifies a pool of RootCAs to use when validating the server's TLS certificate.
-	// If set, it will be combined with the the other loaded certificates (see LoadedCA and CA).
+	// If set, it will be combined with the other loaded certificates (see LoadedCA and CA).
 	// If neither LoadedCA or CA is set, the provided pool with override the system
 	// certificate pool.
 	// The caller must not use the supplied pool after calling TLSClientAuth.
@@ -112,7 +116,9 @@ type TLSClientOptions struct {
 // TLSClientAuth creates a tls.Config for mutual auth
 func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
 	// create client tls config
-	cfg := &tls.Config{}
+	cfg := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	// load client cert if specified
 	if opts.Certificate != "" {
@@ -158,11 +164,12 @@ func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
 	// When no CA certificate is provided, default to the system cert pool
 	// that way when a request is made to a server known by the system trust store,
 	// the name is still verified
-	if opts.LoadedCA != nil {
+	switch {
+	case opts.LoadedCA != nil:
 		caCertPool := basePool(opts.LoadedCAPool)
 		caCertPool.AddCert(opts.LoadedCA)
 		cfg.RootCAs = caCertPool
-	} else if opts.CA != "" {
+	case opts.CA != "":
 		// load ca cert
 		caCert, err := os.ReadFile(opts.CA)
 		if err != nil {
@@ -171,7 +178,7 @@ func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
 		caCertPool := basePool(opts.LoadedCAPool)
 		caCertPool.AppendCertsFromPEM(caCert)
 		cfg.RootCAs = caCertPool
-	} else if opts.LoadedCAPool != nil {
+	case opts.LoadedCAPool != nil:
 		cfg.RootCAs = opts.LoadedCAPool
 	}
 
@@ -227,7 +234,7 @@ type Runtime struct {
 	Host     string
 	BasePath string
 	Formats  strfmt.Registry
-	Context  context.Context
+	Context  context.Context //nolint:containedctx  // we precisely want this type to contain the request context
 
 	Debug  bool
 	logger logger.Logger
@@ -316,7 +323,7 @@ func (r *Runtime) pickScheme(schemes []string) string {
 	if v := r.selectScheme(schemes); v != "" {
 		return v
 	}
-	return "http"
+	return schemeHTTP
 }
 
 func (r *Runtime) selectScheme(schemes []string) string {
@@ -327,9 +334,9 @@ func (r *Runtime) selectScheme(schemes []string) string {
 
 	scheme := schemes[0]
 	// prefer https, but skip when not possible
-	if scheme != "https" && schLen > 1 {
+	if scheme != schemeHTTPS && schLen > 1 {
 		for _, sch := range schemes {
-			if sch == "https" {
+			if sch == schemeHTTPS {
 				scheme = sch
 				break
 			}
@@ -368,7 +375,7 @@ func (r *Runtime) EnableConnectionReuse() {
 }
 
 // takes a client operation and creates equivalent http.Request
-func (r *Runtime) createHttpRequest(operation *runtime.ClientOperation) (*request, *http.Request, error) {
+func (r *Runtime) createHttpRequest(operation *runtime.ClientOperation) (*request, *http.Request, error) { //nolint:revive,stylecheck
 	params, _, auth := operation.Params, operation.Reader, operation.AuthInfo
 
 	request, err := newRequest(operation.Method, operation.PathPattern, params)
@@ -420,7 +427,7 @@ func (r *Runtime) createHttpRequest(operation *runtime.ClientOperation) (*reques
 	return request, req, nil
 }
 
-func (r *Runtime) CreateHttpRequest(operation *runtime.ClientOperation) (req *http.Request, err error) {
+func (r *Runtime) CreateHttpRequest(operation *runtime.ClientOperation) (req *http.Request, err error) { //nolint:revive,stylecheck
 	_, req, err = r.createHttpRequest(operation)
 	return
 }
@@ -481,7 +488,7 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 	defer res.Body.Close()
 
 	ct := res.Header.Get(runtime.HeaderContentType)
-	if ct == "" { // this should really really never occur
+	if ct == "" { // this should really never occur
 		ct = r.DefaultMediaType
 	}
 
@@ -526,7 +533,7 @@ func (r *Runtime) SetLogger(logger logger.Logger) {
 	middleware.Logger = logger
 }
 
-type ClientResponseFunc = func(*http.Response) runtime.ClientResponse
+type ClientResponseFunc = func(*http.Response) runtime.ClientResponse //nolint:revive
 
 // SetResponseReader changes the response reader implementation.
 func (r *Runtime) SetResponseReader(f ClientResponseFunc) {

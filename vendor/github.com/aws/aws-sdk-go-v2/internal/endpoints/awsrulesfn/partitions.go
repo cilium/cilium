@@ -11,7 +11,7 @@ func GetPartition(region string) *PartitionConfig {
 var partitions = []Partition{
 	{
 		ID:          "aws",
-		RegionRegex: "^(us|eu|ap|sa|ca|me|af)\\-\\w+\\-\\d+$",
+		RegionRegex: "^(us|eu|ap|sa|ca|me|af|il)\\-\\w+\\-\\d+$",
 		DefaultConfig: PartitionConfig{
 			Name:               "aws",
 			DnsSuffix:          "amazonaws.com",
@@ -90,6 +90,13 @@ var partitions = []Partition{
 				SupportsFIPS:       nil,
 				SupportsDualStack:  nil,
 			},
+			"ap-southeast-4": {
+				Name:               nil,
+				DnsSuffix:          nil,
+				DualStackDnsSuffix: nil,
+				SupportsFIPS:       nil,
+				SupportsDualStack:  nil,
+			},
 			"aws-global": {
 				Name:               nil,
 				DnsSuffix:          nil,
@@ -154,6 +161,13 @@ var partitions = []Partition{
 				SupportsDualStack:  nil,
 			},
 			"eu-west-3": {
+				Name:               nil,
+				DnsSuffix:          nil,
+				DualStackDnsSuffix: nil,
+				SupportsFIPS:       nil,
+				SupportsDualStack:  nil,
+			},
+			"il-central-1": {
 				Name:               nil,
 				DnsSuffix:          nil,
 				DualStackDnsSuffix: nil,
@@ -339,5 +353,29 @@ var partitions = []Partition{
 				SupportsDualStack:  nil,
 			},
 		},
+	},
+	{
+		ID:          "aws-iso-e",
+		RegionRegex: "^eu\\-isoe\\-\\w+\\-\\d+$",
+		DefaultConfig: PartitionConfig{
+			Name:               "aws-iso-e",
+			DnsSuffix:          "cloud.adc-e.uk",
+			DualStackDnsSuffix: "cloud.adc-e.uk",
+			SupportsFIPS:       true,
+			SupportsDualStack:  false,
+		},
+		Regions: map[string]RegionOverrides{},
+	},
+	{
+		ID:          "aws-iso-f",
+		RegionRegex: "^us\\-isof\\-\\w+\\-\\d+$",
+		DefaultConfig: PartitionConfig{
+			Name:               "aws-iso-f",
+			DnsSuffix:          "csp.hci.ic.gov",
+			DualStackDnsSuffix: "csp.hci.ic.gov",
+			SupportsFIPS:       true,
+			SupportsDualStack:  false,
+		},
+		Regions: map[string]RegionOverrides{},
 	},
 }

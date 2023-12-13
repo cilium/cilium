@@ -1,3 +1,7 @@
+# v1.7.2 (2023-12-08)
+
+* **Bug Fix**: Correct loading of [services *] sections into shared config.
+
 # v1.7.1 (2023-11-16)
 
 * **Bug Fix**: Fix recognition of trailing comments in shared config properties. # or ; separators that aren't preceded by whitespace at the end of a property value should be considered part of it.

@@ -36,6 +36,7 @@ type NetworkInterfaceSet struct {
 	ZoneId                      string                                      `json:"ZoneId" xml:"ZoneId"`
 	PrivateIpAddress            string                                      `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
 	QueueNumber                 int                                         `json:"QueueNumber" xml:"QueueNumber"`
+	DeleteOnRelease             bool                                        `json:"DeleteOnRelease" xml:"DeleteOnRelease"`
 	SecurityGroupIds            SecurityGroupIdsInDescribeNetworkInterfaces `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	AssociatedPublicIp          AssociatedPublicIp                          `json:"AssociatedPublicIp" xml:"AssociatedPublicIp"`
 	Attachment                  Attachment                                  `json:"Attachment" xml:"Attachment"`

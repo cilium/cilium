@@ -49,14 +49,6 @@ type indexReadTxn struct {
 
 var zeroTxn = txn{}
 
-func revisionKey(rev uint64, idKey []byte) []byte {
-	const sizeofUint64 = 8
-	buf := make([]byte, sizeofUint64+len(idKey))
-	binary.BigEndian.PutUint64(buf, rev)
-	copy(buf[sizeofUint64:], idKey)
-	return buf
-}
-
 // txn fulfills the ReadTxn/WriteTxn interface.
 func (txn *txn) getTxn() *txn {
 	return txn
@@ -210,19 +202,19 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 	// Update revision index
 	revIndexTxn := txn.mustIndexWriteTxn(tableName, RevisionIndex)
 	if oldExists {
-		_, ok := revIndexTxn.txn.Delete(revisionKey(oldObj.revision, idKey))
+		_, ok := revIndexTxn.txn.Delete(index.Uint64(oldObj.revision))
 		if !ok {
 			panic("BUG: Old revision index entry not found")
 		}
 
 	}
-	revIndexTxn.txn.Insert(revisionKey(revision, idKey), obj)
+	revIndexTxn.txn.Insert(index.Uint64(revision), obj)
 
 	// If it's new, possibly remove an older deleted object with the same
 	// primary key from the graveyard.
 	if !oldExists && txn.hasDeleteTrackers(tableName) {
 		if old, existed := txn.mustIndexWriteTxn(tableName, GraveyardIndex).txn.Delete(idKey); existed {
-			txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Delete(revisionKey(old.revision, idKey))
+			txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Delete(index.Uint64(old.revision))
 		}
 	}
 
@@ -326,7 +318,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 
 	// Update revision index.
 	indexTree := txn.mustIndexWriteTxn(tableName, RevisionIndex)
-	if _, ok := indexTree.txn.Delete(revisionKey(obj.revision, idKey)); !ok {
+	if _, ok := indexTree.txn.Delete(index.Uint64(obj.revision)); !ok {
 		panic("BUG: Object to be deleted not found from revision index")
 	}
 
@@ -347,7 +339,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 		if _, existed := graveyardIndex.txn.Insert(idKey, obj); existed {
 			panic("BUG: Double deletion! Deleted object already existed in graveyard")
 		}
-		txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Insert(revisionKey(revision, idKey), obj)
+		txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Insert(index.Uint64(revision), obj)
 	}
 
 	return obj.data, true, nil

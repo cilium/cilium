@@ -113,6 +113,8 @@ func (mds *fakeDiffStore[T]) GetByKey(key resource.Key) (item T, exists bool, er
 	return item, exists, nil
 }
 
+func (mds *fakeDiffStore[T]) Release() {}
+
 type fakeKeyIter struct {
 	i    int
 	keys []resource.Key

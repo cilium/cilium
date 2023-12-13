@@ -17,8 +17,10 @@ package ecs
 
 // AllocatedResource is a nested struct in ecs response
 type AllocatedResource struct {
-	TotalAmount  int    `json:"TotalAmount" xml:"TotalAmount"`
-	UsedAmount   int    `json:"UsedAmount" xml:"UsedAmount"`
-	InstanceType string `json:"InstanceType" xml:"InstanceType"`
-	ZoneId       string `json:"zoneId" xml:"zoneId"`
+	AvailableAmount           int                       `json:"AvailableAmount" xml:"AvailableAmount"`
+	TotalAmount               int                       `json:"TotalAmount" xml:"TotalAmount"`
+	UsedAmount                int                       `json:"UsedAmount" xml:"UsedAmount"`
+	InstanceType              string                    `json:"InstanceType" xml:"InstanceType"`
+	ZoneId                    string                    `json:"zoneId" xml:"zoneId"`
+	CapacityReservationUsages CapacityReservationUsages `json:"CapacityReservationUsages" xml:"CapacityReservationUsages"`
 }

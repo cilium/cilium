@@ -73,6 +73,7 @@ type DescribeSecurityGroupsRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer             `position:"Query" name:"ResourceOwnerId"`
 	FuzzyQuery           requests.Boolean             `position:"Query" name:"FuzzyQuery"`
+	ServiceManaged       requests.Boolean             `position:"Query" name:"ServiceManaged"`
 	SecurityGroupId      string                       `position:"Query" name:"SecurityGroupId"`
 	IsQueryEcsCount      requests.Boolean             `position:"Query" name:"IsQueryEcsCount"`
 	NetworkType          string                       `position:"Query" name:"NetworkType"`

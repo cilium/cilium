@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/slices"
@@ -71,7 +70,7 @@ type ipEntries map[netip.Addr]*cacheEntry
 // but the key is a DNS name.
 type nameEntries map[string]*cacheEntry
 
-// getIPs returns a sorted list of non-expired unique IPs.
+// getIPs returns an unsorted list of non-expired unique IPs.
 // This needs a read-lock
 func (s ipEntries) getIPs(now time.Time) []netip.Addr {
 	ips := make([]netip.Addr, 0, len(s)) // worst case size
@@ -80,7 +79,8 @@ func (s ipEntries) getIPs(now time.Time) []netip.Addr {
 			ips = append(ips, ip.Unmap())
 		}
 	}
-	return ippkg.KeepUniqueAddrs(ips) // sorts IPs
+
+	return ips
 }
 
 // DNSCache manages DNS data that will expire after a certain TTL. Information
@@ -397,7 +397,7 @@ func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*D
 
 // Lookup returns a set of unique IPs that are currently unexpired for name, if
 // any exist. An empty list indicates no valid records exist. The IPs are
-// returned sorted.
+// returned unsorted.
 func (c *DNSCache) Lookup(name string) (ips []netip.Addr) {
 	c.RLock()
 	defer c.RUnlock()
@@ -433,7 +433,7 @@ func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (match
 	for name, entry := range c.forward {
 		if re.MatchString(name) {
 			if ips := entry.getIPs(now); len(ips) > 0 {
-				matches[name] = append(matches[name], ips...)
+				matches[name] = ips
 			}
 		}
 	}

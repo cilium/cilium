@@ -248,9 +248,10 @@ func newEnvoyLogPiper() io.WriteCloser {
 			case "off", "critical", "error":
 				scopedLog.Error(msg)
 			case "warning":
-				// Silently drop expected warnings if flowdebug is not enabled
-				// TODO: Remove this special case when https://github.com/envoyproxy/envoy/issues/13504 is fixed.
-				if !flowdebug.Enabled() && strings.Contains(msg, "Unable to use runtime singleton for feature envoy.http.headermap.lazy_map_min_size") {
+				// Silently drop expected warnings if Envoy tracing is not enabled
+				// TODO: Remove this what at Envoy 1.28, as this warning is no
+				// longer be issued then.
+				if !tracing && strings.Contains(msg, "message 'envoy.extensions.bootstrap.internal_listener.v3.InternalListener' is contained in proto file 'envoy/extensions/bootstrap/internal_listener/v3/internal_listener.proto' marked as work-in-progress.") {
 					continue
 				}
 				scopedLog.Warn(msg)

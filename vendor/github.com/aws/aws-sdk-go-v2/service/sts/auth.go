@@ -52,6 +52,34 @@ func addSetLegacyContextSigningOptionsMiddleware(stack *middleware.Stack) error 
 	return stack.Finalize.Insert(&setLegacyContextSigningOptionsMiddleware{}, "Signing", middleware.Before)
 }
 
+type withAnonymous struct {
+	resolver AuthSchemeResolver
+}
+
+var _ AuthSchemeResolver = (*withAnonymous)(nil)
+
+func (v *withAnonymous) ResolveAuthSchemes(ctx context.Context, params *AuthResolverParameters) ([]*smithyauth.Option, error) {
+	opts, err := v.resolver.ResolveAuthSchemes(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	opts = append(opts, &smithyauth.Option{
+		SchemeID: smithyauth.SchemeIDAnonymous,
+	})
+	return opts, nil
+}
+
+func wrapWithAnonymousAuth(options *Options) {
+	if _, ok := options.AuthSchemeResolver.(*defaultAuthSchemeResolver); !ok {
+		return
+	}
+
+	options.AuthSchemeResolver = &withAnonymous{
+		resolver: options.AuthSchemeResolver,
+	}
+}
+
 // AuthResolverParameters contains the set of inputs necessary for auth scheme
 // resolution.
 type AuthResolverParameters struct {
@@ -92,34 +120,12 @@ func (*defaultAuthSchemeResolver) ResolveAuthSchemes(ctx context.Context, params
 var operationAuthOptions = map[string]func(*AuthResolverParameters) []*smithyauth.Option{
 	"AssumeRoleWithSAML": func(params *AuthResolverParameters) []*smithyauth.Option {
 		return []*smithyauth.Option{
-			{
-				SchemeID: smithyauth.SchemeIDSigV4,
-				SignerProperties: func() smithy.Properties {
-					var props smithy.Properties
-					smithyhttp.SetSigV4SigningName(&props, "sts")
-					smithyhttp.SetSigV4SigningRegion(&props, params.Region)
-
-					return props
-				}(),
-			},
-
 			{SchemeID: smithyauth.SchemeIDAnonymous},
 		}
 	},
 
 	"AssumeRoleWithWebIdentity": func(params *AuthResolverParameters) []*smithyauth.Option {
 		return []*smithyauth.Option{
-			{
-				SchemeID: smithyauth.SchemeIDSigV4,
-				SignerProperties: func() smithy.Properties {
-					var props smithy.Properties
-					smithyhttp.SetSigV4SigningName(&props, "sts")
-					smithyhttp.SetSigV4SigningRegion(&props, params.Region)
-
-					return props
-				}(),
-			},
-
 			{SchemeID: smithyauth.SchemeIDAnonymous},
 		}
 	},

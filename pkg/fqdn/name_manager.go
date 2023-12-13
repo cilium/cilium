@@ -253,19 +253,30 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 // newIPs.
 // updated is true when the new IPs differ from the old IPs
 func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int) (updated bool) {
-	cacheIPs := n.cache.Lookup(dnsName)
+	oldCacheIPs := n.cache.Lookup(dnsName)
 
 	if n.config.MinTTL > ttl {
 		ttl = n.config.MinTTL
 	}
 
-	n.cache.Update(lookupTime, dnsName, newIPs, ttl)
-	sortedNewIPs := n.cache.Lookup(dnsName) // DNSCache returns IPs sorted
+	changed := n.cache.Update(lookupTime, dnsName, newIPs, ttl)
+	if !changed { // Changed may have false positives, but not false negatives
+		return false
+	}
+
+	newCacheIPs := n.cache.Lookup(dnsName) // DNSCache returns IPs unsorted
 
 	// The 0 checks below account for an unlike race condition where this
 	// function is called with already expired data and if other cache data
 	// from before also expired.
-	return (len(cacheIPs) == 0 && len(sortedNewIPs) == 0) || !slices.Equal(sortedNewIPs, cacheIPs)
+	if len(oldCacheIPs) != len(newCacheIPs) || len(oldCacheIPs) == 0 {
+		return true
+	}
+
+	ip.SortAddrList(oldCacheIPs) // sorts in place
+	ip.SortAddrList(newCacheIPs)
+
+	return !slices.Equal(oldCacheIPs, newCacheIPs)
 }
 
 var ipcacheResource = ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "", "fqdn-name-manager")

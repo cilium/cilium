@@ -91,6 +91,7 @@ type CreateNetworkInterfaceRequest struct {
 	Description                    string                       `position:"Query" name:"Description"`
 	Ipv6PrefixCount                requests.Integer             `position:"Query" name:"Ipv6PrefixCount"`
 	InstanceType                   string                       `position:"Query" name:"InstanceType"`
+	DeleteOnRelease                requests.Boolean             `position:"Query" name:"DeleteOnRelease"`
 	ResourceOwnerAccount           string                       `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount                   string                       `position:"Query" name:"OwnerAccount"`
 	QueuePairNumber                requests.Integer             `position:"Query" name:"QueuePairNumber"`

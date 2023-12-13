@@ -71,10 +71,11 @@ func (client *Client) CreateDiagnosticReportWithCallback(request *CreateDiagnost
 // CreateDiagnosticReportRequest is the request struct for api CreateDiagnosticReport
 type CreateDiagnosticReportRequest struct {
 	*requests.RpcRequest
-	ResourceId  string `position:"Query" name:"ResourceId"`
-	MetricSetId string `position:"Query" name:"MetricSetId"`
-	EndTime     string `position:"Query" name:"EndTime"`
-	StartTime   string `position:"Query" name:"StartTime"`
+	MetricSetId       string            `position:"Query" name:"MetricSetId"`
+	StartTime         string            `position:"Query" name:"StartTime"`
+	ResourceId        string            `position:"Query" name:"ResourceId"`
+	EndTime           string            `position:"Query" name:"EndTime"`
+	AdditionalOptions map[string]string `position:"Query" name:"AdditionalOptions"  type:"Map"`
 }
 
 // CreateDiagnosticReportResponse is the response struct for api CreateDiagnosticReport

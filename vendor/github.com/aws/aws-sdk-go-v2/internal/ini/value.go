@@ -54,18 +54,7 @@ func (v Value) String() string {
 
 // MapValue returns a map value for sub properties
 func (v Value) MapValue() map[string]string {
-	newlineParts := strings.Split(string(v.str), "\n")
-	mp := make(map[string]string)
-	for _, part := range newlineParts {
-		operandParts := strings.Split(part, "=")
-		if len(operandParts) < 2 {
-			continue
-		}
-		key := strings.TrimSpace(operandParts[0])
-		val := strings.TrimSpace(operandParts[1])
-		mp[key] = val
-	}
-	return mp
+	return v.mp
 }
 
 // IntValue returns an integer value

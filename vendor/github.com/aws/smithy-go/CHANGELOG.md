@@ -1,3 +1,9 @@
+# Release (2023-12-07)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.19.0
+  * **Feature**: Support modeled request compression.
+
 # Release (2023-11-30)
 
 * No change notes available for this release.

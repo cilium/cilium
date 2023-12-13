@@ -73,6 +73,7 @@ type DescribeActivationsRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer          `position:"Query" name:"ResourceOwnerId"`
 	PageNumber           requests.Integer          `position:"Query" name:"PageNumber"`
+	ResourceGroupId      string                    `position:"Query" name:"ResourceGroupId"`
 	PageSize             requests.Integer          `position:"Query" name:"PageSize"`
 	Tag                  *[]DescribeActivationsTag `position:"Query" name:"Tag"  type:"Repeated"`
 	ResourceOwnerAccount string                    `position:"Query" name:"ResourceOwnerAccount"`
