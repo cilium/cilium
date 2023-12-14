@@ -39,6 +39,7 @@ const (
 
 	clientDeploymentName  = "client"
 	client2DeploymentName = "client2"
+	client3DeploymentName = "client3"
 	clientCPDeployment    = "client-cp"
 
 	DNSTestServerContainerName = "dns-test-server"
@@ -653,7 +654,48 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	// 3rd client scheduled on the control plane
+	if ct.params.MultiCluster == "" && !ct.params.SingleNode {
+		// 3rd client scheduled on a different node than the first 2 clients
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, client3DeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), client3DeploymentName)
+			clientDeployment := newDeployment(deploymentParameters{
+				Name:        client3DeploymentName,
+				Kind:        kindClientName,
+				NamedPort:   "http-8080",
+				Port:        8080,
+				Image:       ct.params.CurlImage,
+				Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+				Labels:      map[string]string{"other": "client-other-node"},
+				Annotations: ct.params.DeploymentAnnotations.Match(client3DeploymentName),
+				Affinity: &corev1.Affinity{
+					PodAntiAffinity: &corev1.PodAntiAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
+									},
+								},
+								TopologyKey: corev1.LabelHostname,
+							},
+						},
+					},
+				},
+				NodeSelector: ct.params.NodeSelector,
+			})
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(client3DeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s: %s", client3DeploymentName, err)
+			}
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %s", client3DeploymentName, err)
+			}
+		}
+	}
+
+	// 4th client scheduled on the control plane
 	if ct.params.K8sLocalHostTest {
 		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), clientCPDeployment)
 		clientDeployment := newDeployment(deploymentParameters{
@@ -684,6 +726,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
+
 		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying echo-other-node service...", ct.clients.dst.ClusterName())
@@ -972,6 +1015,9 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
 	if !ct.params.Perf {
 		srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
+		if ct.params.MultiCluster == "" && !ct.params.SingleNode {
+			srcList = append(srcList, client3DeploymentName)
+		}
 	} else {
 		srcList = []string{}
 		if ct.params.PerfPodNet {
@@ -1014,10 +1060,12 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, client3DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, client3DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.DeleteOptions{})
