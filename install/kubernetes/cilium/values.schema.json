@@ -1727,6 +1727,9 @@
       },
       "type": "object"
     },
+    "endpointLockdownOnMapOverflow": {
+      "type": "boolean"
+    },
     "endpointRoutes": {
       "properties": {
         "enabled": {
