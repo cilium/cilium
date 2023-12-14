@@ -54,16 +54,11 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	gr := original.DeepCopy()
-	defer func() {
-		if err := r.updateStatus(ctx, original, gr); err != nil {
-			scopedLog.WithError(err).Error("Failed to update GRPCRoute status")
-		}
-	}()
 
 	// check if the backend is allowed
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
-		return controllerruntime.Fail(fmt.Errorf("failed to retrieve reference grants: %w", err))
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to retrieve reference grants: %w", err), original, gr)
 	}
 
 	// input for the validators
@@ -103,7 +98,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		} {
 			continueCheck, err := fn(i, parent)
 			if err != nil {
-				return ctrl.Result{}, err
+				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Gateway check: %w", err), original, gr)
 			}
 
 			if !continueCheck {
@@ -118,8 +113,12 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		routechecks.CheckBackendIsExistingService,
 	} {
 		if continueCheck, err := fn(i); err != nil || !continueCheck {
-			return ctrl.Result{}, err
+			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), original, gr)
 		}
+	}
+
+	if err := r.updateStatus(ctx, original, gr); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update GRPCRoute status: %w", err)
 	}
 
 	scopedLog.Info("Successfully reconciled GRPCRoute")
@@ -135,4 +134,12 @@ func (r *grpcRouteReconciler) updateStatus(ctx context.Context, original *gatewa
 		return nil
 	}
 	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *grpcRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1alpha2.GRPCRoute, modified *gatewayv1alpha2.GRPCRoute) (ctrl.Result, error) {
+	if err := r.updateStatus(ctx, original, modified); err != nil {
+		return controllerruntime.Fail(fmt.Errorf("failed to update GRPCRoute status while handling the reconcile error %w: %w", reconcileErr, err))
+	}
+
+	return controllerruntime.Fail(reconcileErr)
 }
