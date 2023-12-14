@@ -122,6 +122,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 		k.proxyPortAllocator,
 		len(cec.Spec.Services) > 0,
 		useOriginalSourceAddress(&cec.ObjectMeta),
+		true,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig: malformed Envoy config")
@@ -130,7 +131,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err := k.envoyXdsServer.UpsertEnvoyResources(ctx, resources, k.proxyPortAllocator); err != nil {
+	if err := k.envoyXdsServer.UpsertEnvoyResources(ctx, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig")
 		return err
 	}
@@ -231,6 +232,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		k.proxyPortAllocator,
 		len(oldCEC.Spec.Services) > 0,
 		useOriginalSourceAddress(&oldCEC.ObjectMeta),
+		false,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed old Envoy config")
@@ -244,6 +246,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		k.proxyPortAllocator,
 		len(newCEC.Spec.Services) > 0,
 		useOriginalSourceAddress(&newCEC.ObjectMeta),
+		true,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed new Envoy config")
@@ -258,7 +261,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err := k.envoyXdsServer.UpdateEnvoyResources(ctx, oldResources, newResources, k.proxyPortAllocator); err != nil {
+	if err := k.envoyXdsServer.UpdateEnvoyResources(ctx, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig")
 		return err
 	}
@@ -350,6 +353,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 		k.proxyPortAllocator,
 		len(cec.Spec.Services) > 0,
 		useOriginalSourceAddress(&cec.ObjectMeta),
+		false,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyConfig: parsing rersource names failed")
@@ -364,7 +368,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err := k.envoyXdsServer.DeleteEnvoyResources(ctx, resources, k.proxyPortAllocator); err != nil {
+	if err := k.envoyXdsServer.DeleteEnvoyResources(ctx, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete Envoy resources")
 		return err
 	}
