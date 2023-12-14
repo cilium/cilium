@@ -297,12 +297,12 @@ struct {
 } VTEP_MAP __section_maps_btf;
 #endif /* ENABLE_VTEP */
 
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
 struct world_cidrs_key4 {
 	struct bpf_lpm_trie_key lpm_key;
 	__u32 ip;
 } __packed;
 
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct world_cidrs_key4);

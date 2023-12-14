@@ -85,3 +85,5 @@ add_type(struct tunnel_key);
 add_type(struct tunnel_value);
 add_type(struct auth_key);
 add_type(struct auth_info);
+add_type(struct encrypt_config);
+add_type(struct world_cidrs_key4);
