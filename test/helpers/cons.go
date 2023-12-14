@@ -248,7 +248,6 @@ const (
 	delMissingService          = "Deleting no longer present service"                                      // cf. https://github.com/cilium/cilium/issues/29679
 	failedIpcacheRestore       = "Failed to restore existing identities from the previous ipcache"         // cf. https://github.com/cilium/cilium/issues/29328
 	podCIDRUnavailable         = " PodCIDR not available"                                                  // cf. https://github.com/cilium/cilium/issues/29680
-	delMissingIdentity         = "Skipping Delete of a non-existing identity"                              // cf. https://github.com/cilium/cilium/issues/29681
 	wipEnvoyFeature            = "envoy/extensions/bootstrap/internal_listener/v3/internal_listener.proto" // cf. https://github.com/cilium/cilium/issues/29682
 	unableGetNode              = "Unable to get node resource"                                             // cf. https://github.com/cilium/cilium/issues/29710
 	disableSocketLBTracing     = "Disabling socket-LB tracing"                                             // cf. https://github.com/cilium/cilium/issues/29734
@@ -338,7 +337,7 @@ var badLogMessages = map[string][]string{
 		removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName,
 		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
 	logutils.WarningLogs: {cantEnableJIT, delMissingService, failedIpcacheRestore,
-		podCIDRUnavailable, delMissingIdentity, wipEnvoyFeature, unableGetNode,
+		podCIDRUnavailable, wipEnvoyFeature, unableGetNode,
 		disableSocketLBTracing, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
 		unsupportedSocketLookup, legacyBGPFeature, etcdTimeout, endpointRestoreFailed,
 		failedPeerSync, policyMapSyncFix, unableRestoreRouterIP, routerIPReallocated,
