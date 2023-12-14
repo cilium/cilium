@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
 )
 
@@ -149,12 +148,6 @@ func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigur
 		})
 
 	return oc
-}
-
-// NewObjectCache creates a new cache for datapath objects, basing the hash
-// upon the configuration of the datapath and the specified node configuration.
-func NewObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) *objectCache {
-	return newObjectCache(c, nodeCfg, option.Config.StateDir)
 }
 
 // Update may be called to update the base hash for configuration of datapath
