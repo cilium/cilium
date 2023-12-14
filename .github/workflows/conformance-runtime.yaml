@@ -401,7 +401,11 @@ jobs:
         if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         shell: bash
         run: |
-          tar -zcf test_results-${{ join(matrix.*, '-') }}.tar.gz ./test/test_results
+          if [ -e ./test/test_results ];then
+            tar -zcf 'test_results-${{ matrix.focus }}.tar.gz' ./test/test_results
+          else
+            echo "::warning::test results directory is not exist!"
+          fi
 
       - name: Upload artifacts
         if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
