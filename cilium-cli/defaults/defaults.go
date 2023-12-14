@@ -9,7 +9,7 @@ import (
 
 const (
 	// renovate: datasource=github-releases depName=cilium/cilium
-	Version = "v1.14.4"
+	Version = "v1.14.5"
 
 	AgentContainerName      = "cilium-agent"
 	AgentServiceAccountName = "cilium"
