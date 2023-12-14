@@ -298,6 +298,13 @@ func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 			Connected:     true,
 			OverallHealth: models.EndpointHealthStatusOK,
 		}
+	case models.EndpointStateLockingDown, models.EndpointStateFullLockdown, models.EndpointStateSoftLockdown:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusWarning,
+			Policy:        models.EndpointHealthStatusFailure,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusWarning,
+		}
 	}
 
 	return &h
