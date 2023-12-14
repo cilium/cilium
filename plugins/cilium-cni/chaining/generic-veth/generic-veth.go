@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/client"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/netns"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	"github.com/cilium/cilium/plugins/cilium-cni/lib"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -215,14 +216,26 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		logfields.ContainerID:        ep.ContainerID,
 		logfields.ContainerInterface: ep.ContainerInterfaceName,
 	})
-
-	err = cli.EndpointCreate(ep)
+	var newEp *models.Endpoint
+	newEp, err = cli.EndpointCreate(ep)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Unable to create endpoint")
 		err = fmt.Errorf("unable to create endpoint: %s", err)
 		return
 	}
-
+	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" &&
+		newEp.Status.Networking.Mac != vethLXCMac {
+		err = netns.ReplaceMacAddressWithLinkName(netNs, vethLXCName, newEp.Status.Networking.Mac)
+		if err != nil {
+			err = fmt.Errorf("unable to set MAC address on interface %s: %w", vethLXCName, err)
+			return
+		}
+		for i := range prevRes.Interfaces {
+			if prevRes.Interfaces[i].Name == vethLXCName {
+				prevRes.Interfaces[i].Mac = newEp.Status.Networking.Mac
+			}
+		}
+	}
 	scopedLog.Debug("Endpoint successfully created")
 
 	res = prevRes

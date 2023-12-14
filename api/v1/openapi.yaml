@@ -146,6 +146,8 @@ paths:
       responses:
         '201':
           description: Created
+          schema:
+            "$ref": "#/definitions/Endpoint"
         '400':
           description: Invalid endpoint in request
           x-go-name: Invalid

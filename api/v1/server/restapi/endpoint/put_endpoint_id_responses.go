@@ -25,6 +25,11 @@ PutEndpointIDCreated Created
 swagger:response putEndpointIdCreated
 */
 type PutEndpointIDCreated struct {
+
+	/*
+	  In: Body
+	*/
+	Payload *models.Endpoint `json:"body,omitempty"`
 }
 
 // NewPutEndpointIDCreated creates PutEndpointIDCreated with default headers values
@@ -33,12 +38,27 @@ func NewPutEndpointIDCreated() *PutEndpointIDCreated {
 	return &PutEndpointIDCreated{}
 }
 
+// WithPayload adds the payload to the put endpoint Id created response
+func (o *PutEndpointIDCreated) WithPayload(payload *models.Endpoint) *PutEndpointIDCreated {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the put endpoint Id created response
+func (o *PutEndpointIDCreated) SetPayload(payload *models.Endpoint) {
+	o.Payload = payload
+}
+
 // WriteResponse to the client
 func (o *PutEndpointIDCreated) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
-
 	rw.WriteHeader(201)
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
+	}
 }
 
 // PutEndpointIDInvalidCode is the HTTP code returned for type PutEndpointIDInvalid

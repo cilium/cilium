@@ -411,7 +411,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	// FIXME: Translate port mappings to RuleL4 policy elements
 
-	if err = driver.client.EndpointCreate(endpoint); err != nil {
+	if _, err = driver.client.EndpointCreate(endpoint); err != nil {
 		sendError(w, fmt.Sprintf("Error creating endpoint %s", err), http.StatusBadRequest)
 		return
 	}
