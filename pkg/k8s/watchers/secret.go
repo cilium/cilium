@@ -97,7 +97,7 @@ func (k *K8sWatcher) addK8sSecretV1(secret *slim_corev1.Secret) error {
 	resource := envoy.Resources{
 		Secrets: []*envoy_entensions_tls_v3.Secret{k8sToEnvoySecret(secret)},
 	}
-	return k.envoyXdsServer.UpsertEnvoyResources(context.TODO(), resource, k.proxyPortAllocator)
+	return k.envoyXdsServer.UpsertEnvoyResources(context.TODO(), resource)
 }
 
 // updateK8sSecretV1 performs Envoy upsert operation for updated secret (if required).
@@ -108,7 +108,7 @@ func (k *K8sWatcher) updateK8sSecretV1(oldSecret, newSecret *slim_corev1.Secret)
 	resource := envoy.Resources{
 		Secrets: []*envoy_entensions_tls_v3.Secret{k8sToEnvoySecret(newSecret)},
 	}
-	return k.envoyXdsServer.UpsertEnvoyResources(context.TODO(), resource, k.proxyPortAllocator)
+	return k.envoyXdsServer.UpsertEnvoyResources(context.TODO(), resource)
 }
 
 // deleteK8sSecretV1 makes sure the related secret values in Envoy SDS is removed.
@@ -121,7 +121,7 @@ func (k *K8sWatcher) deleteK8sSecretV1(secret *slim_corev1.Secret) error {
 			},
 		},
 	}
-	return k.envoyXdsServer.DeleteEnvoyResources(context.TODO(), resource, k.proxyPortAllocator)
+	return k.envoyXdsServer.DeleteEnvoyResources(context.TODO(), resource)
 }
 
 // k8sToEnvoySecret converts k8s secret object to envoy TLS secret object
