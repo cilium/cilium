@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -27,8 +28,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
-
-	. "github.com/cilium/checkmate"
 )
 
 type JSONSuite struct{}
@@ -195,7 +194,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -294,7 +293,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, false, portAllocator, false, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, false, portAllocator, false, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -327,7 +326,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	//
 	// Same with validation fails
 	//
-	resources, err = ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
+	resources, err = ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false, true)
 	c.Assert(err, Not(IsNil))
 }
 
@@ -374,7 +373,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -492,7 +491,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 5)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/multi-resource-listener")
@@ -653,7 +652,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 2)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, true)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, true, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address, Not(IsNil))
@@ -784,7 +783,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 2)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, true, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, true, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address, Not(IsNil))
