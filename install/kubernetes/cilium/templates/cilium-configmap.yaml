@@ -790,6 +790,7 @@ data:
 {{- if and .Values.k8sNetworkPolicy .Values.k8sNetworkPolicy.enabled }}
   enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
 {{- end }}
+  enable-policy-overflow-endpoint-lockdown: {{ .Values.endpointLockdownOnMapOverflow }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
 {{- if .Values.cni.customConf  }}
