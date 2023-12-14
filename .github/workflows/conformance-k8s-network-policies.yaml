@@ -11,7 +11,7 @@ on:
 permissions: read-all
 
 env:
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 9872c091a43ad186acb70659d8e688d0a8ddc3ff
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   KIND_VERSION: v0.20.0
   KIND_CONFIG: .github/kind-config.yaml
