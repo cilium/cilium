@@ -2254,9 +2254,6 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = k.validateInfoForConnect(aiLocal, aiRemote); err != nil {
-		return err
-	}
 
 	// Modify the clustermesh config to remove the intended cluster if any
 	localHelmValues, err := removeFromClustermeshConfig(localRelease.Config, aiRemote.ClusterName)
