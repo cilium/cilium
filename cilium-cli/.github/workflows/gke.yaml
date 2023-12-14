@@ -28,7 +28,7 @@ concurrency:
 env:
   zone: us-west2-a
   # renovate: datasource=github-releases depName=cilium/cilium
-  cilium_version: v1.14.4
+  cilium_version: v1.14.5
   kubectl_version: v1.23.6
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
