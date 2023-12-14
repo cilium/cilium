@@ -28,8 +28,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=github-releases depName=kubernetes/kops
-  kops_version: v1.28.1
   # renovate: datasource=golang-version depName=go
   go_version: 1.21.6
   # Adding k8s.local to the end makes kops happy-
@@ -95,8 +93,6 @@ jobs:
 
       - name: Install Kops
         uses: cilium/scale-tests-action/install-kops@8a522b9d71254b6f6615c296e41a70610c9615ea # main
-        with:
-          release_version: ${{ env.kops_version }}
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591 # v2.0.0
