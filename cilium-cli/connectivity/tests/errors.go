@@ -146,14 +146,13 @@ func (n *noErrorsInLogs) checkErrorsInLogs(logs string, t *check.Test) {
 		}
 	}
 	if len(uniqueFailures) > 0 {
-		failures := make([]string, 0, len(uniqueFailures))
+		var failures strings.Builder
 		for f, c := range uniqueFailures {
-			failures = append(failures, f)
-
-			t.Logf("Found %q in logs %d times\n", f, c)
+			failures.WriteRune('\n')
+			failures.WriteString(f)
+			failures.WriteString(fmt.Sprintf(" (%d occurrences)", c))
 		}
-		failureMsgs := strings.Join(failures, "\n")
-		t.Failf("Found %d logs matching list of errors that must be investigated:\n%s", len(uniqueFailures), failureMsgs)
+		t.Failf("Found %d logs matching list of errors that must be investigated:%s", len(uniqueFailures), failures.String())
 	}
 }
 
