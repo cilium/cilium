@@ -302,6 +302,40 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.16_upgrade_notes:
+
+1.16 Upgrade Notes
+------------------
+
+* To be determined during v1.16 development.
+
+Removed Options
+~~~~~~~~~~~~~~~
+
+* TBD
+
+Helm Options
+~~~~~~~~~~~~
+
+* TBD
+
+Added Metrics
+~~~~~~~~~~~~~
+
+* TBD
+
+Removed Metrics
+~~~~~~~~~~~~~~~
+
+The following deprecated metrics were removed:
+
+* TBD
+
+Changed Metrics
+~~~~~~~~~~~~~~~
+
+* TBD
+
 .. _1.15_upgrade_notes:
 
 1.15 Upgrade Notes
