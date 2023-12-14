@@ -250,7 +250,7 @@ func (elf *ELF) readOption(key string) (result uint64, err error) {
 }
 
 func (elf *ELF) readValue(offset int64, size int64) ([]byte, error) {
-	reader := io.NewSectionReader(elf.file, offset, size)
+	reader := io.NewSectionReader(elf.contents, offset, size)
 	result := make([]byte, size)
 	if err := binary.Read(reader, elf.metadata.ByteOrder, &result); err != nil {
 		return nil, err

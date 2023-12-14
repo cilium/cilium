@@ -24,7 +24,8 @@ var (
 // ELF is an in-memory representation of a BPF ELF object from the filesystem.
 type ELF struct {
 	metadata *elf.File
-	file     *os.File
+	closer   io.Closer
+	contents io.ReaderAt
 	symbols  symbols
 	log      *logrus.Entry
 
@@ -57,6 +58,7 @@ func NewELF(ra io.ReaderAt, scopedLog *logrus.Entry) (*ELF, error) {
 
 	result := &ELF{
 		metadata: ef,
+		contents: ra,
 		log:      scopedLog,
 	}
 	if err := result.symbols.extractFrom(ef); err != nil {
@@ -90,17 +92,17 @@ func Open(path string) (*ELF, error) {
 			Err:  err,
 		}
 	}
-	result.file = f
+	result.closer = f
 	return result, nil
 }
 
 // Close closes the ELF. If the File was created using NewELF directly instead
 // of Open, Close has no effect.
 func (elf *ELF) Close() (err error) {
-	if elf.file != nil {
-		err = elf.file.Close()
+	if elf.closer != nil {
+		return elf.closer.Close()
 	}
-	return err
+	return nil
 }
 
 func (elf *ELF) writeValue(w io.WriteSeeker, offset uint64, value []byte) error {
@@ -243,7 +245,7 @@ func (elf *ELF) Write(path string, intOptions map[string]uint64, strOptions map[
 		}
 	}()
 
-	reader := newReader(elf.file)
+	reader := newReader(elf.contents)
 	if err = elf.copy(f, reader, intOptions, strOptions); err != nil {
 		return &os.PathError{
 			Op:   "failed to write ELF file:",
