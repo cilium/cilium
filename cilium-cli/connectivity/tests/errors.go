@@ -10,9 +10,13 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium-cli/utils/features"
 )
 
@@ -61,17 +65,30 @@ func (n *noErrorsInLogs) Name() string {
 	return "no-errors-in-logs"
 }
 
+type podID struct{ Cluster, Namespace, Name string }
+type podInfo struct {
+	containers []string
+	client     *k8s.Client
+}
+
 func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	var since time.Time
-	ct := t.Context()
 
-	for _, pod := range ct.CiliumPods() {
-		pod := pod
-		logs, err := pod.K8sClient.CiliumLogs(ctx, pod.Pod.Namespace, pod.Pod.Name, since, nil)
-		if err != nil {
-			t.Fatalf("Error reading Cilium logs: %s", err)
+	pods, err := n.allCiliumPods(ctx, t.Context())
+	if err != nil {
+		t.Fatalf("Error retrieving Cilium pods: %s", err)
+	}
+
+	for pod, info := range pods {
+		client := info.client
+		for _, container := range info.containers {
+			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
+			logs, err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, since, sysdump.DefaultLogsLimitBytes, false)
+			if err != nil {
+				t.Fatalf("Error reading Cilium logs: %s", err)
+			}
+			n.checkErrorsInLogs(id, logs, t)
 		}
-		n.checkErrorsInLogs(logs, t)
 	}
 
 }
@@ -126,7 +143,52 @@ func computeExpectedDropReasons(defaultReasons, inputReasons []string) string {
 	return filter
 }
 
-func (n *noErrorsInLogs) checkErrorsInLogs(logs string, t *check.Test) {
+func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, ct *check.ConnectivityTest) (map[podID]podInfo, error) {
+	output := make(map[podID]podInfo)
+
+	// List all Cilium-related pods
+	for _, client := range ct.Clients() {
+		pods, err := client.ListPods(ctx, ct.Params().CiliumNamespace, metav1.ListOptions{LabelSelector: ct.Params().CiliumPodSelector})
+		if err != nil {
+			return nil, err
+		}
+
+		cluster := client.ClusterName()
+		for _, pod := range pods.Items {
+			pod := pod
+			output[podID{Cluster: cluster, Namespace: pod.Namespace, Name: pod.Name}] = podInfo{
+				client: client, containers: n.podContainers(&pod),
+			}
+		}
+	}
+
+	// Additionally add Cilium agent pods, if not already included in the previous
+	// list. This prevents missing them in case the "all cilium pods" selector does
+	// not match any pod (mainly in v1.12, as the app.kubernetes.io/part-of=cilium
+	// label was not yet present at that time).
+	for _, pod := range ct.CiliumPods() {
+		id := podID{Cluster: pod.K8sClient.ClusterName(), Namespace: pod.Namespace(), Name: pod.NameWithoutNamespace()}
+		if _, ok := output[id]; !ok {
+			output[id] = podInfo{client: pod.K8sClient, containers: n.podContainers(pod.Pod)}
+		}
+	}
+
+	return output, nil
+}
+
+func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) (containers []string) {
+	for _, container := range pod.Spec.Containers {
+		containers = append(containers, container.Name)
+	}
+
+	for _, container := range pod.Spec.InitContainers {
+		containers = append(containers, container.Name)
+	}
+
+	return containers
+}
+
+func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, t *check.Test) {
 	uniqueFailures := make(map[string]int)
 	for _, msg := range strings.Split(logs, "\n") {
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
@@ -152,7 +214,7 @@ func (n *noErrorsInLogs) checkErrorsInLogs(logs string, t *check.Test) {
 			failures.WriteString(f)
 			failures.WriteString(fmt.Sprintf(" (%d occurrences)", c))
 		}
-		t.Failf("Found %d logs matching list of errors that must be investigated:%s", len(uniqueFailures), failures.String())
+		t.Failf("Found %d logs in %s matching list of errors that must be investigated:%s", len(uniqueFailures), id, failures.String())
 	}
 }
 

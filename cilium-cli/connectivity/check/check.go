@@ -56,6 +56,7 @@ type Parameters struct {
 	DNSTestServerImage    string
 	IncludeUnsafeTests    bool
 	AgentPodSelector      string
+	CiliumPodSelector     string
 	NodeSelector          map[string]string
 	DeploymentAnnotations annotationsMap
 	NamespaceAnnotations  annotations
