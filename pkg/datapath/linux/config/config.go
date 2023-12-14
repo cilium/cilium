@@ -226,7 +226,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["WORLD_CIDRS4_MAP_SIZE"] = fmt.Sprintf("%d", worldcidrsmap.MapMaxEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["L2_RESPONSER_MAP4_SIZE"] = fmt.Sprintf("%d", l2respondermap.DefaultMaxEntries)
-	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
+
+	if option.Config.EnableIPSec {
+		cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
+	}
+
 	cDefinesMap["L2_RESPONDER_MAP4"] = l2respondermap.MapName
 	cDefinesMap["CT_CONNECTION_LIFETIME_TCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutTCP.Seconds()))
 	cDefinesMap["CT_CONNECTION_LIFETIME_NONTCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutAny.Seconds()))
