@@ -1200,6 +1200,10 @@ const (
 
 	// PolicyCIDRMatchMode defines the entities that CIDR selectors can reach
 	PolicyCIDRMatchMode = "policy-cidr-match-mode"
+
+	// EnableEndpointLockdownOnPolicyOverflow enables endpoint lockdown when an endpoint's
+	// policy map overflows.
+	EnableEndpointLockdownOnPolicyOverflow = "enable-endpoint-lockdown-on-policy-overflow"
 )
 
 // Default string arguments
@@ -2445,6 +2449,10 @@ type DaemonConfig struct {
 
 	// ServiceNoBackendResponse determines how we handle traffic to a service with no backends.
 	ServiceNoBackendResponse string
+
+	// EnableEndpointLockdownOnPolicyOverflow enables endpoint lockdown when an endpoint's
+	// policy map overflows.
+	EnableEndpointLockdownOnPolicyOverflow bool
 }
 
 var (
@@ -3570,6 +3578,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
+
+	c.EnableEndpointLockdownOnPolicyOverflow = vp.GetBool(EnableEndpointLockdownOnPolicyOverflow)
 }
 
 func (c *DaemonConfig) populateDevices(vp *viper.Viper) {

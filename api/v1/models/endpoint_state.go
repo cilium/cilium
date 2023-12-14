@@ -59,6 +59,15 @@ const (
 
 	// EndpointStateInvalid captures enum value "invalid"
 	EndpointStateInvalid EndpointState = "invalid"
+
+	// EndpointStateLockingDown captures enum value "locking-down"
+	EndpointStateLockingDown EndpointState = "locking-down"
+
+	// EndpointStateSoftLockdown captures enum value "soft-lockdown"
+	EndpointStateSoftLockdown EndpointState = "soft-lockdown"
+
+	// EndpointStateFullLockdown captures enum value "full-lockdown"
+	EndpointStateFullLockdown EndpointState = "full-lockdown"
 )
 
 // for schema
@@ -66,7 +75,7 @@ var endpointStateEnum []interface{}
 
 func init() {
 	var res []EndpointState
-	if err := json.Unmarshal([]byte(`["waiting-for-identity","not-ready","waiting-to-regenerate","regenerating","restoring","ready","disconnecting","disconnected","invalid"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["waiting-for-identity","not-ready","waiting-to-regenerate","regenerating","restoring","ready","disconnecting","disconnected","invalid","locking-down","soft-lockdown","full-lockdown"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
