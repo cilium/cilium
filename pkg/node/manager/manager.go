@@ -527,18 +527,18 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// Delete the old node IP addresses if they have changed in this node.
 		var oldNodeIPAddrs []string
 		for _, address := range oldNode.IPAddresses {
-			if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP &&
-				!slices.Contains(ipsAdded, address.IP.String()) {
-				iptables.RemoveFromNodeIpset(address.IP)
-			}
-			if skipIPCache(address) {
-				continue
-			}
 			var prefix netip.Prefix
 			if v4 := address.IP.To4(); v4 != nil {
 				prefix = ip.IPToNetPrefix(v4)
 			} else {
 				prefix = ip.IPToNetPrefix(address.IP.To16())
+			}
+			if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP &&
+				!slices.Contains(ipsAdded, prefix.String()) {
+				iptables.RemoveFromNodeIpset(address.IP)
+			}
+			if skipIPCache(address) {
+				continue
 			}
 			oldNodeIPAddrs = append(oldNodeIPAddrs, prefix.String())
 		}
