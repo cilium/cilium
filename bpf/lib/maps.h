@@ -202,14 +202,6 @@ struct {
 } IPCACHE_MAP __section_maps_btf;
 
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__type(key, __u32);
-	__type(value, struct encrypt_config);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, 1);
-} ENCRYPT_MAP __section_maps_btf;
-
-struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct node_key);
 	__type(value, __u16);
