@@ -244,17 +244,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } L2_RESPONDER_MAP4 __section_maps_btf;
 
-#ifdef ENABLE_EGRESS_GATEWAY
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct egress_gw_policy_key);
-	__type(value, struct egress_gw_policy_entry);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} EGRESS_POLICY_MAP __section_maps_btf;
-#endif /* ENABLE_EGRESS_GATEWAY */
-
 #ifdef ENABLE_SRV6
 # define SRV6_VRF_MAP(IP_FAMILY)				\
 struct {						\
