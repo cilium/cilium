@@ -85,7 +85,7 @@ func NewLoader() *Loader {
 // the LocalNodeConfiguration.
 func (l *Loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
 	l.once.Do(func() {
-		l.templateCache = NewObjectCache(dp, nodeCfg)
+		l.templateCache = newObjectCache(dp, nodeCfg, option.Config.StateDir)
 		ignorePrefixes := ignoredELFPrefixes
 		if !option.Config.EnableIPv4 {
 			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
