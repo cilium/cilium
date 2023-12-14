@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: specific-mac-address
+  annotations:
+    cni.cilium.io/mac-address: e2:9c:30:38:52:61
+  labels:
+    specific-mac-address: specific-mac-address
+spec:
+  containers:
+    - name: specific-mac-address
+      image: busybox:1.36
+      command:
+        - sleep
+        - "3600"
+      imagePullPolicy: IfNotPresent
