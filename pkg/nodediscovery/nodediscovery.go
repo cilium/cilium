@@ -177,6 +177,8 @@ func (n *NodeDiscovery) JoinCluster(nodeName string) error {
 		if resp.IPv6AllocCIDR != nil {
 			ln.IPv6AllocCIDR = resp.IPv6AllocCIDR
 		}
+
+		ln.NodeIdentity = resp.NodeIdentity
 	})
 
 	identity.SetLocalNodeID(resp.NodeIdentity)
