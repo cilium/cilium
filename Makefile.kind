@@ -89,6 +89,13 @@ kind-clustermesh-images: kind-clustermesh-ready kind-build-clustermesh-apiserver
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh1
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh2
 
+.PHONY: kind-connect-clustermesh ## Connect the ClusterMesh clusters.
+kind-connect-clustermesh: kind-clustermesh-ready
+	@echo "  CONNECT the two clusters"
+	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
+
 ENABLE_KVSTOREMESH ?= false
 $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
@@ -114,10 +121,33 @@ kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Ciliu
 		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
 		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
 
-	@echo "  CONNECT the two clusters"
-	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
-	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
-	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
+	$(MAKE) kind-connect-clustermesh
+
+.PHONY: kind-install-cilium-clustermesh-fast
+kind-install-cilium-clustermesh-fast: kind-clustermesh-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into the ClusterMesh clusters and enable ClusterMesh.
+	@echo "  INSTALL cilium on clustermesh1 cluster"
+	docker pull quay.io/cilium/cilium-ci:latest
+	kind load docker-image --name clustermesh1 quay.io/cilium/cilium-ci:latest
+	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
+	$(CILIUM_CLI) --context=kind-clustermesh1 install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
+		--values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
+	@echo "  INSTALL cilium on clustermesh2 cluster"
+	kind load docker-image --name clustermesh2 quay.io/cilium/cilium-ci:latest
+	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
+	$(KUBECTL) --context=kind-clustermesh1 get secret -n kube-system cilium-ca -o yaml | \
+		$(KUBECTL) --context=kind-clustermesh2 replace --force -f -
+	$(CILIUM_CLI) --context=kind-clustermesh2 install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
+		--values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
+	$(MAKE) kind-image-fast
+	$(MAKE) kind-connect-clustermesh
 
 KIND_CLUSTER_NAME ?= $(shell kind get clusters -q | head -n1)
 
