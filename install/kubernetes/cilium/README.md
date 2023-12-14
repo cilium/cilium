@@ -18,7 +18,7 @@ efficient and flexible.
 
 ## Prerequisites
 
-* Kubernetes: `>= 1.26.0-0`
+* Kubernetes: `>= 1.16.0-0`
 * Helm: `>= 3.0`
 
 ## Getting Started
