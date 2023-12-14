@@ -131,6 +131,7 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.HubbleServer, "hubble-server", "localhost:4245", "Address of the Hubble endpoint for flow validation")
 	cmd.Flags().StringVar(&params.AgentDaemonSetName, "agent-daemonset-name", defaults.AgentDaemonSetName, "Name of cilium agent daemonset")
 	cmd.Flags().StringVar(&params.AgentPodSelector, "agent-pod-selector", defaults.AgentPodSelector, "Label on cilium-agent pods to select with")
+	cmd.Flags().StringVar(&params.CiliumPodSelector, "cilium-pod-selector", defaults.CiliumPodSelector, "Label selector matching all cilium-related pods")
 	cmd.Flags().Var(&params.NamespaceAnnotations, "namespace-annotations", "Add annotations to the connectivity test namespace, e.g. '{\"foo\":\"bar\"}'")
 	cmd.Flags().MarkHidden("namespace-annotations")
 	cmd.Flags().MarkHidden("deployment-pod-annotations")
