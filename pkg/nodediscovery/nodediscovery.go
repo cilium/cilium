@@ -245,6 +245,12 @@ func (n *NodeDiscovery) fillLocalNode() {
 	n.localNode.Labels = node.GetLabels()
 	n.localNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
 
+	if option.Config.JoinCluster {
+		// Ensure that we propagate the identity allocated by the clustermesh-apiserver
+		// when the agent is running on an external workload.
+		n.localNode.NodeIdentity = identity.GetLocalNodeID().Uint32()
+	}
+
 	if node.GetK8sExternalIPv4() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeExternalIP,
