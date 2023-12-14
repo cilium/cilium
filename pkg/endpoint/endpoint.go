@@ -1351,6 +1351,21 @@ func (e *Endpoint) SetState(toState State, reason string) bool {
 	return e.setState(toState, reason)
 }
 
+// SetMac modifies the endpoint's mac.
+func (e *Endpoint) SetMac(mac mac.MAC) {
+	e.unconditionalLock()
+	defer e.unlock()
+	e.mac = mac
+}
+
+// GetDisableLegacyIdentifiers returns the endpoint's disableLegacyIdentifiers.
+func (e *Endpoint) GetDisableLegacyIdentifiers() bool {
+	e.unconditionalRLock()
+	defer e.runlock()
+	return e.disableLegacyIdentifiers
+
+}
+
 func (e *Endpoint) setState(toState State, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
