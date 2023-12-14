@@ -6,6 +6,7 @@ package netns
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,6 +70,24 @@ func ReplaceNetNSWithName(netNSName string) (ns.NetNS, error) {
 	}
 
 	return ns, nil
+}
+
+// ReplaceMacAddressWithLinkName replaces the MAC address of the given link
+func ReplaceMacAddressWithLinkName(netNS ns.NetNS, ifName, macAddress string) error {
+	return netNS.Do(func(_ ns.NetNS) error {
+		l, err := netlink.LinkByName(ifName)
+		if err != nil {
+			if errors.As(err, &netlink.LinkNotFoundError{}) {
+				return nil
+			}
+			return err
+		}
+		hw, err := net.ParseMAC(macAddress)
+		if err != nil {
+			return err
+		}
+		return netlink.LinkSetHardwareAddr(l, hw)
+	})
 }
 
 // RemoveNetNSWithName removes the given named network namespace.
