@@ -75,7 +75,7 @@ main() {
     logrun hub release create -d -F $version-release-summary.txt $version
     logecho "Browse to $RELEASES_URL to see the draft release"
 
-    if version_is_prerelease "$version"; then
+    if version_is_prerelease "$version" && ! version_is_rc "$version"; then
         # No digest updates for main branch for prereleases.
         return
     fi
