@@ -143,11 +143,19 @@ func getIPSecKeys(ip net.IP) *ipSecKey {
 	return key
 }
 
-func ipSecNewState() *netlink.XfrmState {
+func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 	state := netlink.XfrmState{
 		Mode:  netlink.XFRM_MODE_TUNNEL,
 		Proto: netlink.XFRM_PROTO_ESP,
 		ESN:   false,
+		Spi:   int(keys.Spi),
+		Reqid: keys.ReqID,
+	}
+	if keys.Aead != nil {
+		state.Aead = keys.Aead
+	} else {
+		state.Crypt = keys.Crypt
+		state.Auth = keys.Auth
 	}
 	return &state
 }
@@ -172,17 +180,6 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, d
 	}
 
 	policy.Tmpls = append(policy.Tmpls, tmpl)
-}
-
-func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
-	if keys.Aead != nil {
-		state.Aead = keys.Aead
-	} else {
-		state.Crypt = keys.Crypt
-		state.Auth = keys.Auth
-	}
-	state.Spi = int(keys.Spi)
-	state.Reqid = keys.ReqID
 }
 
 // xfrmStateReplace attempts to add a new XFRM state only if one doesn't
@@ -325,8 +322,7 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
-	state := ipSecNewState()
-	ipSecJoinState(state, key)
+	state := ipSecNewState(key)
 	state.Src = remoteIP
 	state.Dst = localIP
 	state.Mark = &netlink.XfrmMark{
@@ -353,8 +349,7 @@ func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
-	state := ipSecNewState()
-	ipSecJoinState(state, key)
+	state := ipSecNewState(key)
 	state.Src = localIP
 	state.Dst = remoteIP
 	state.Mark = generateEncryptMark(key.Spi, nodeID)
@@ -783,9 +778,13 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
-		var oldSpi uint8
-		var aeadKey, authKey []byte
-		offsetBase := 0
+		var (
+			oldSpi     uint8
+			aeadKey    []byte
+			authKey    []byte
+			err        error
+			offsetBase int
+		)
 
 		ipSecKey := &ipSecKey{
 			ReqID: 1,
@@ -801,21 +800,10 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spiI, err := strconv.Atoi(s[offsetSPI])
+		spi, offsetBase, err = parseSPI(s[offsetSPI])
 		if err != nil {
-			// If no version info is provided assume using key format without
-			// versioning and assign SPI.
-			log.Warning("IPsec secrets without an SPI as the first argument are deprecated and will be unsupported in v1.13.")
-			spiI = 1
-			offsetBase = -1
+			return 0, 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
-		if spiI > linux_defaults.IPsecMaxKeyVersion {
-			return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[offsetSPI])
-		}
-		if spiI == 0 {
-			return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[offsetSPI])
-		}
-		spi = uint8(spiI)
 
 		if len(s) > offsetBase+maxOffset+1 {
 			return 0, 0, fmt.Errorf("invalid format: too many fields in the IPsec secret")
@@ -890,6 +878,23 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		ipSecCurrentKeySPI = spi
 	}
 	return keyLen, spi, nil
+}
+
+func parseSPI(spiStr string) (uint8, int, error) {
+	spi, err := strconv.Atoi(spiStr)
+	if err != nil {
+		// If no version info is provided assume using key format without
+		// versioning and assign SPI.
+		log.Warning("IPsec secrets without an SPI as the first argument are deprecated and will be unsupported in v1.13.")
+		return 1, -1, nil
+	}
+	if spi > linux_defaults.IPsecMaxKeyVersion {
+		return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+	}
+	if spi == 0 {
+		return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+	}
+	return uint8(spi), 0, nil
 }
 
 func SetIPSecSPI(spi uint8) error {

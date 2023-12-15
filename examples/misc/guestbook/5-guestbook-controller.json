@@ -21,7 +21,7 @@
             "spec":{
                 "containers":[{
                     "name":"guestbook",
-                    "image":"gcr.io/google-samples/gb-frontend:v6",
+                    "image":"us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5",
                     "ports":[{
                         "name":"http-server",
                         "containerPort": 80

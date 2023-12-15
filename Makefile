@@ -41,9 +41,7 @@ SKIP_CUSTOMVET_CHECK ?= "false"
 
 JOB_BASE_NAME ?= cilium_test
 
-GO_VERSION := $(shell cat GO_VERSION)
-GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?/\1.\2/' GO_VERSION)
-GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$2 "." z}' GO_VERSION)
+GO_MAJOR_AND_MINOR_VERSION := $(shell awk '/^go/ { print $$2 }' go.mod)
 GO_INSTALLED_MAJOR_AND_MINOR_VERSION := $(shell $(GO) version | sed 's/go version go\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?.*/\1.\2/')
 
 GO_CONTAINER := $(CONTAINER_ENGINE) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) golang:$(GO_VERSION)
@@ -631,29 +629,6 @@ ifneq ($(GO_MAJOR_AND_MINOR_VERSION),$(GO_INSTALLED_MAJOR_AND_MINOR_VERSION))
 else
 	@$(ECHO_CHECK) "Installed Go version $(GO_INSTALLED_MAJOR_AND_MINOR_VERSION) matches required version $(GO_MAJOR_AND_MINOR_VERSION)"
 endif
-
-update-go-version: ## Update Go version for all the components (images, CI, dev-doctor etc.).
-	# Update dev-doctor Go version.
-	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_MAJOR_AND_MINOR_VERSION)"/' tools/dev-doctor/config.go
-	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
-	# Update Go version in GitHub action config.
-	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_IMAGE_VERSION)/g' $$fl ; done
-	@echo "Updated go version in GitHub Actions to $(GO_IMAGE_VERSION)"
-	# Update Go version in main.go.
-	$(QUIET) for fl in $(shell find .  -name main.go -not -path "./vendor/*" -print); do \
-		sed -i \
-			-e 's|^//go:build go.*|//go:build go$(GO_MAJOR_AND_MINOR_VERSION)|g' \
-			$$fl ; \
-	done
-	# Update Go version in Travis CI config.
-	$(QUIET) sed -i 's/go: ".*/go: "$(GO_VERSION)"/g' .travis.yml
-	@echo "Updated go version in .travis.yml to $(GO_VERSION)"
-	# Update Go version in test scripts.
-	$(QUIET) sed -i 's/GO_VERSION=.*/GO_VERSION="$(GO_VERSION)"/g' test/kubernetes-test.sh
-	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
-	@echo "Updated go version in test scripts to $(GO_VERSION)"
-	# Update Go version in Dockerfiles.
-	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION=$(GO_VERSION)/g' contrib/backporting/Dockerfile
 
 dev-doctor: ## Run Cilium dev-doctor to validate local development environment.
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )

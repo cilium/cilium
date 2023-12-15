@@ -1,4 +1,4 @@
-name: Cilium Conformance IPsec E2E (ci-ipsec-e2e)
+name: Conformance IPsec E2E (ci-ipsec-e2e)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -296,7 +296,7 @@ jobs:
               if [[ \$keys_in_use == 2 ]]; then
                 break
               fi
-              echo "Waiting until key rotation starts"
+              echo "Waiting until key rotation starts (seeing \$keys_in_use keys)"
               sleep 30s
             done
 
@@ -308,7 +308,7 @@ jobs:
               if [[ \$keys_in_use == 1 ]]; then
                 break
               fi
-              echo "Waiting until key rotation completes"
+              echo "Waiting until key rotation completes (seeing \$keys_in_use keys)"
               sleep 30s
             done
 
