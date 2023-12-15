@@ -422,7 +422,7 @@ jobs:
           cilium --context ${{ env.contextName2 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.clusterName2 }} \
-            --helm-set cluster.id=255 \
+            --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
             --helm-set clustermesh.apiserver.service.nodePort=32380 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
