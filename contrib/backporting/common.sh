@@ -94,3 +94,15 @@ version_is_prerelease() {
             ;;
     esac
 }
+
+# $1 - VERSION
+version_is_rc() {
+    case "$1" in
+        *rc*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
