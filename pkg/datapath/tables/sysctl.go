@@ -20,11 +20,13 @@ var (
 	}
 
 	SysctlStatusIndex = reconciler.NewStatusIndex[*Sysctl]((*Sysctl).GetStatus)
+
+	SysctlTableName = "sysctl-settings"
 )
 
 func NewSysctlTable(db *statedb.DB) (statedb.RWTable[*Sysctl], statedb.Index[*Sysctl, reconciler.StatusKind], error) {
 	tbl, err := statedb.NewTable[*Sysctl](
-		"sysctl-settings",
+		SysctlTableName,
 		SysctlNameIndex,
 		SysctlStatusIndex,
 	)

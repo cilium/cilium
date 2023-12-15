@@ -94,8 +94,9 @@ func init() {
 		statedbTableCommand[*tables.Device]("devices"),
 		statedbTableCommand[*tables.Route]("routes"),
 		statedbTableCommand[*tables.L2AnnounceEntry]("l2-announce"),
-		statedbTableCommand[tables.NodeAddress]("node-addresses"),
 		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
+		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
+		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }
