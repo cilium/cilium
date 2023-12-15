@@ -588,6 +588,23 @@ IPs to be allowed are selected via:
   * ``*`` alone matches all names, and inserts all cached DNS IPs into this
     rule.
 
+  ``**`` is allowed at the beginning of a domain as a wildcard with a number of convenience behaviors:
+
+  * ``**`` within a domain allows 0 or more valid DNS subdomains and characters, including
+    ``.`` separator. ``**.cilium.io`` will match ``sub1.cilium.io`` as well as  ``sub2.sub1.cilium.io``.
+  * ``**`` alone matches all names, and inserts all cached DNS IPs into this rule.
+
+   ``*`` and ``**`` interactions:
+
+  * Before this enhancement two or more directly adjacent asterisks meant the same - a single asterisk, eg. ``cil**.io == cil*.io``.
+  * The correct usage of the asterisk before this enhancement should be a single presence between other characters, eg. ``c*m.io``, ``*.cil*.io``.
+  * With this enhancement the correct usage of the single asterisk does not change.
+  * A double asterisk must be at the beginning of the FQDN string only, eg. ``**.cilium.io``.
+  * The single and double asterisk can be present in the same FQDN if they are separated by a dot directly or indirectly, eg. ``**.*lium.io``, ``**.cili*.io``.
+
+
+.. note::   This feature can break current configuration if a double asterisk was used inside of FQDN, eg. cil**.io.
+
 The example below allows all DNS traffic on port 53 to the DNS service and
 intercepts it via the `DNS Proxy`_. If using a non-standard DNS port for
 a DNS application behind a Kubernetes service, the port must match the backend
@@ -611,6 +628,38 @@ Example
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.json
+
+
+Another example is related to ``**``.
+So far subdomains required a definition of all subdomains by adding a chain of ``*.``.
+
+Example:
+
+.. only:: html
+
+   .. tabs::
+      .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn-cascade.yaml
+
+With the ``**`` feature enhancement with the policy can be delivered in a concise form.
+
+.. only:: html
+
+   .. tabs::
+      .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn-short.yaml
+
+``*`` and ``**`` wildcards as described above should be used with caution, 
+as they could allow outward traffic from a Cilium cluster to unexpected destinations; 
+the ``**`` and the chain of ``*.`` wildcards in particular could have far-reaching
+effects. Before implementing policies which use such wildcards, users should 
+evaluate their own threat model and the likelihood of a target domain or 
+sub-domain being configured or hijacked to exfiltrate information from the Cilium 
+deployment. In situations where users do not use security measures like 
+authentication codes to protect their DNS entries or do not have full control 
+of the target domain or sub-domain, usage of such wildcards is generally discouraged.
 
 
 Managing Short-Lived Connections & Maximum IPs per FQDN/endpoint

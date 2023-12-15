@@ -1,0 +1,36 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "to-fqdn-cascade"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: test-app
+  egress:
+    - toEndpoints:
+      - matchLabels:
+          "k8s:io.kubernetes.pod.namespace": kube-system
+          "k8s:k8s-app": kube-dns
+      toPorts:
+        - ports:
+           - port: "53"
+             protocol: ANY
+          rules:
+            dns:
+              - matchPattern: '*.cluster.local'
+              - matchPattern: '*.*.cluster.local'
+              - matchPattern: '*.*.*.cluster.local'
+              - matchPattern: '*.*.*.*.cluster.local'
+              - matchPattern: '*.*.*.*.*.cluster.local'
+              - matchPattern: '*.*.*.*.*.*.cluster.local'
+              - matchPattern: '*.*.*.*.*.*.*.cluster.local'
+              - matchPattern: '*.*.*.*.*.*.*.*.cluster.local'
+    - toFQDNs:
+        - matchPattern: '*.cilium.io'
+        - matchPattern: '*.*.cilium.io'
+        - matchPattern: '*.*.*.cilium.io'
+        - matchPattern: '*.*.*.*.cilium.io'
+        - matchPattern: '*.*.*.*.*.cilium.io'
+        - matchPattern: '*.*.*.*.*.*.cilium.io'
+        - matchPattern: '*.*.*.*.*.*.*.cilium.io'
+        - matchPattern: '*.*.*.*.*.*.*.*.cilium.io'

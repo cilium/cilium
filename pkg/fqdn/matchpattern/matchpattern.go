@@ -66,12 +66,13 @@ func Sanitize(pattern string) string {
 // validate the pattern. It also adds anchors to ensure it match the whole string.
 // It supports:
 // * to select 0 or more DNS valid characters
+// ** to select 0 or more DNS subdomains
 func ToAnchoredRegexp(pattern string) string {
 	pattern = strings.TrimSpace(pattern)
 	pattern = strings.ToLower(pattern)
 
-	// handle the * match-all case. This will filter down to the end.
-	if pattern == "*" {
+	// handle the * and ** match-all case. This will filter down to the end.
+	if pattern == "*" || pattern == "**" {
 		return "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)"
 	}
 
@@ -85,11 +86,13 @@ func ToAnchoredRegexp(pattern string) string {
 // validate the pattern. It does not add regexp anchors.
 // It supports:
 // * to select 0 or more DNS valid characters
+// ** to select 0 or more DNS subdomains
 func ToUnAnchoredRegexp(pattern string) string {
 	pattern = strings.TrimSpace(pattern)
 	pattern = strings.ToLower(pattern)
-	// handle the * match-all case. This will filter down to the end.
-	if pattern == "*" {
+
+	// handle the * and ** match-all case. This will filter down to the end.
+	if pattern == "*" || pattern == "**" {
 		return MatchAllUnAnchoredPattern
 	}
 	pattern = escapeRegexpCharacters(pattern)
@@ -100,8 +103,14 @@ func escapeRegexpCharacters(pattern string) string {
 	// base case. "." becomes a literal .
 	pattern = strings.Replace(pattern, ".", "[.]", -1)
 
+	// avoid two "." in a row
+	pattern = strings.Replace(pattern, "**[.]", "("+allowedDNSCharsREGroup+"+[.])+", -1)
+
+	// ** becomes [-a-zA-Z0-9_]+[.]*
+	pattern = strings.Replace(pattern, "**", allowedDNSCharsREGroup+"+[.]*", -1)
+
 	// base case. * becomes .*, but only for DNS valid characters
-	// NOTE: this only works because the case above does not leave the *
 	pattern = strings.Replace(pattern, "*", allowedDNSCharsREGroup+"*", -1)
+
 	return pattern
 }

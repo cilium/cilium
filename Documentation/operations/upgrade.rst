@@ -302,6 +302,23 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.16_upgrade_notes:
+
+1.16 Upgrade Notes
+------------------
+* The ** in matchpattern allows a short notation of multilevel subdomains,
+  eg. ``**.cilium.io`` matches ``a.cilium.io``, ``a.b.cilium.io``, ``a.b.c.cilium.io``, etc.
+
+  This feature can break current configuration if a double asterisk was used 
+  inside of FQDN, eg. ``cil**.io``. Before this enhancement two or more directly 
+  adjacent asterisks meant the same - a single asterisk, eg. ``cil**.io == cil*.io``
+  The correct usage of the asterisk before this enhancement should be a single 
+  presence between other characters, eg. ``c*m.io``, ``*.cil*.io``.
+  With this enhancement the correct usage of the single asterisk does not change
+  A double asterisk must be at the beginning of the FQDN string only, eg. ``**.cilium.io``
+  The single and double asterisk can be present in the same FQDN if they are 
+  separated by a dot directly or indirectly, ``eg. **.*lium.io``, ``**.cili*.io``.
+
 .. _1.15_upgrade_notes:
 
 1.15 Upgrade Notes

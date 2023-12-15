@@ -30,7 +30,8 @@ var (
 	// in the MatchPattern field in the FQDNSelector. This should be kept in-sync
 	// with the marker comment for validation. There's no way to use a Golang
 	// variable in the marker comment, so it's left up to the developer.
-	FQDNMatchPatternRegexString = `^([-a-zA-Z0-9_*]+[.]?)+$`
+	//FQDNMatchPatternRegexString = `^([-a-zA-Z0-9_*]+[.]?)+$`
+	FQDNMatchPatternRegexString = `^(\**.)?([*]?[-a-zA-Z0-9_]+([*]?[.]?)+)+$`
 )
 
 type FQDNSelector struct {
