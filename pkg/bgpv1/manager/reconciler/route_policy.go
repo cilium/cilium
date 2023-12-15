@@ -196,7 +196,11 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 	switch attrs.SelectorType {
 	case v2alpha1api.CPIPKindDefinition:
 		localPools := r.populateLocalPools(params.CiliumNode)
-		for _, pool := range r.podPoolStore.List() {
+		podPoolList, err := r.podPoolStore.List()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list pod ip pools from store: %w", err)
+		}
+		for _, pool := range podPoolList {
 			if attrs.Selector != nil && !labelSelector.Matches(labels.Set(pool.Labels)) {
 				continue
 			}
@@ -214,7 +218,11 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 			}
 		}
 	case v2alpha1api.CiliumLoadBalancerIPPoolSelectorName:
-		for _, pool := range r.lbPoolStore.List() {
+		lbPoolList, err := r.lbPoolStore.List()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list lb ip pools from store: %w", err)
+		}
+		for _, pool := range lbPoolList {
 			if pool.Spec.Disabled {
 				continue
 			}
