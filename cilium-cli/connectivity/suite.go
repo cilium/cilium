@@ -279,15 +279,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			WithScenarios(tests.FromCIDRToPod())
 	}
 
-	// Skip the nodeport-related tests in the multicluster scenario if KPR is not
-	// enabled, since global nodeport services are not supported in that case.
-	var reqs []features.Requirement
-	if ct.Params().MultiCluster != "" {
-		reqs = append(reqs, features.RequireEnabled(features.KPRNodePort))
-	}
-
 	ct.NewTest("no-policies-extra").
-		WithFeatureRequirements(reqs...).
+		WithFeatureRequirements(withKPRReqForMultiCluster(ct)...).
 		WithScenarios(
 			tests.PodToRemoteNodePort(),
 			tests.PodToLocalNodePort(),
@@ -767,7 +760,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		WithScenarios(tests.CiliumHealth())
 
 	ct.NewTest("north-south-loadbalancing").
-		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
+		WithFeatureRequirements(withKPRReqForMultiCluster(ct,
+			features.RequireEnabled(features.NodeWithoutCilium))...).
 		WithScenarios(
 			tests.OutsideToNodePort(),
 		)
@@ -833,8 +827,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	// The following tests have DNS redirect policies. They should be executed last.
 
 	ct.NewTest("north-south-loadbalancing-with-l7-policy").
-		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium),
-			features.RequireEnabled(features.L7Proxy)).
+		WithFeatureRequirements(withKPRReqForMultiCluster(ct,
+			features.RequireEnabled(features.NodeWithoutCilium),
+			features.RequireEnabled(features.L7Proxy))...).
 		WithCiliumVersion(">1.13.2").
 		WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
 		WithScenarios(
@@ -1226,4 +1221,13 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	}
 
 	return ct.Run(ctx)
+}
+
+func withKPRReqForMultiCluster(ct *check.ConnectivityTest, reqs ...features.Requirement) []features.Requirement {
+	// Skip the nodeport-related tests in the multicluster scenario if KPR is not
+	// enabled, since global nodeport services are not supported in that case.
+	if ct.Params().MultiCluster != "" {
+		reqs = append(reqs, features.RequireEnabled(features.KPRNodePort))
+	}
+	return reqs
 }
