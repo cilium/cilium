@@ -77,7 +77,7 @@ func (ops *MemoOps) Prune(ctx context.Context, txn statedb.ReadTxn, iter statedb
 }
 
 // Update a memo.
-func (ops *MemoOps) Update(ctx context.Context, txn statedb.ReadTxn, memo *Memo) (changed bool, err error) {
+func (ops *MemoOps) Update(ctx context.Context, txn statedb.ReadTxn, memo *Memo, changed *bool) error {
 	filename := path.Join(ops.directory, memo.Name)
 
 	// Read the old file to figure out if it had changed.
@@ -85,12 +85,16 @@ func (ops *MemoOps) Update(ctx context.Context, txn statedb.ReadTxn, memo *Memo)
 	// has gone out-of-sync (e.g. there has been some outside influence to it).
 	old, err := os.ReadFile(filename)
 	if err == nil && bytes.Equal(old, []byte(memo.Content)) {
+
 		// Nothing to do.
-		return false, nil
+		return nil
+	}
+	if changed != nil {
+		*changed = true
 	}
 	err = os.WriteFile(filename, []byte(memo.Content), 0644)
 	ops.log.Infof("Update(%s): %v", filename, err)
-	return true, err
+	return err
 }
 
 var _ reconciler.Operations[*Memo] = &MemoOps{}

@@ -26,7 +26,7 @@ type ops struct {
 	procFs string
 }
 
-func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysctl) (changed bool, err error) {
+func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysctl, changed *bool) error {
 	log := ops.log.WithFields(logrus.Fields{
 		logfields.SysParamName:  s.Name,
 		logfields.SysParamValue: s.Val,
@@ -35,20 +35,20 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysct
 	path, err := ParameterPath(ops.procFs, s.Name)
 	if err != nil {
 		if s.IgnoreErr {
-			return false, nil
+			return nil
 		}
-		return false, fmt.Errorf("failed to get full path of sysctl setting %s: %w", s.Name, err)
+		return fmt.Errorf("failed to get full path of sysctl setting %s: %w", s.Name, err)
 	}
 
 	val, err := ReadSysctl(ops.fs, path)
 	if err != nil {
 		if s.IgnoreErr {
-			return false, nil
+			return nil
 		}
-		return false, err
+		return err
 	}
 	if val == s.Val {
-		return false, nil
+		return nil
 	}
 
 	if err := WriteSysctl(ops.fs, path, s.Val); err != nil {
@@ -58,12 +58,16 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysct
 				warn = s.Warn
 			}
 			log.Warning(warn)
-			return false, nil
+			return nil
 		}
-		return true, fmt.Errorf("failed to write sysctl setting %s: %w", path, err)
+		return fmt.Errorf("failed to write sysctl setting %s: %w", path, err)
 	}
 
-	return true, nil
+	if changed != nil {
+		*changed = true
+	}
+
+	return nil
 }
 
 func (ops *ops) Delete(context.Context, statedb.ReadTxn, *tables.Sysctl) error {

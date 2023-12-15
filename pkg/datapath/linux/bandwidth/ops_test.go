@@ -70,13 +70,14 @@ func TestOps(t *testing.T) {
 	ctx := context.TODO()
 
 	// Initial Update()
-	changed, err := ops.Update(ctx, nil, &tables.BandwidthQDisc{
+	var changed bool
+	err = ops.Update(ctx, nil, &tables.BandwidthQDisc{
 		LinkIndex: index,
 		LinkName:  name,
 		FqHorizon: FqDefaultHorizon,
 		FqBuckets: FqDefaultBuckets,
 		Status:    reconciler.StatusPending(),
-	})
+	}, &changed)
 	require.True(t, changed, "expected changed=true for initial update")
 	require.NoError(t, err, "expected no error from initial update")
 
@@ -93,24 +94,26 @@ func TestOps(t *testing.T) {
 	}
 
 	// Second Update() should not do anything.
-	changed, err = ops.Update(ctx, nil, &tables.BandwidthQDisc{
+	changed = false
+	err = ops.Update(ctx, nil, &tables.BandwidthQDisc{
 		LinkIndex: index,
 		LinkName:  name,
 		FqHorizon: FqDefaultHorizon,
 		FqBuckets: FqDefaultBuckets,
 		Status:    reconciler.StatusPending(),
-	})
+	}, &changed)
 	require.False(t, changed, "expected changed=false for second update")
 	require.NoError(t, err, "expected no error from second update")
 
 	// Non-existing devices return an error.
-	changed, err = ops.Update(ctx, nil, &tables.BandwidthQDisc{
+	changed = false
+	err = ops.Update(ctx, nil, &tables.BandwidthQDisc{
 		LinkIndex: 1234,
 		LinkName:  name,
 		FqHorizon: FqDefaultHorizon,
 		FqBuckets: FqDefaultBuckets,
 		Status:    reconciler.StatusPending(),
-	})
+	}, &changed)
 	require.False(t, changed, "expected changed=false for update on non-existing device")
 	require.Error(t, err, "expected no error from update of non-existing device")
 }

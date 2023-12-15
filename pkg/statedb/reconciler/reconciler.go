@@ -216,7 +216,7 @@ func (r *reconciler[Obj]) incremental(
 			}
 		} else {
 			labels[LabelOperation] = OpUpdate
-			_, err = r.Operations.Update(ctx, rtxn, obj)
+			err = r.Operations.Update(ctx, rtxn, obj, nil /* changed */)
 			if err == nil {
 				updateResults[obj] = opResult{rev, StatusDone()}
 			} else {
@@ -382,7 +382,8 @@ func (r *reconciler[Obj]) full(ctx context.Context, txn statedb.ReadTxn, lastRev
 	iter, _ = r.Table.All(txn) // Grab a new iterator as Prune() may have consumed it.
 	for obj, rev, ok := iter.Next(); ok; obj, rev, ok = iter.Next() {
 		start := time.Now()
-		changed, err := r.Operations.Update(ctx, txn, obj)
+		var changed bool
+		err := r.Operations.Update(ctx, txn, obj, &changed)
 
 		labels := maps.Clone(r.labels)
 		labels[LabelOperation] = OpUpdate

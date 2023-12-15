@@ -57,8 +57,11 @@ func (mt *mockOps) Prune(ctx context.Context, txn statedb.ReadTxn, iter statedb.
 }
 
 // Update implements reconciler.Operations.
-func (mt *mockOps) Update(ctx context.Context, txn statedb.ReadTxn, obj *testObject) (changed bool, err error) {
-	return true, nil
+func (mt *mockOps) Update(ctx context.Context, txn statedb.ReadTxn, obj *testObject, changed *bool) error {
+	if changed != nil {
+		*changed = true
+	}
+	return nil
 }
 
 var _ reconciler.Operations[*testObject] = &mockOps{}

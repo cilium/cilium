@@ -38,23 +38,23 @@ func (*ops) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*tables.Ban
 }
 
 // Update implements reconciler.Operations.
-func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.BandwidthQDisc) (bool, error) {
+func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.BandwidthQDisc, changed *bool) error {
 	if !ops.isEnabled() {
 		// Probe results show that the system doesn't support BandwidthManager, so
 		// bail out.
-		return false, nil
+		return nil
 	}
 
 	link, err := netlink.LinkByIndex(q.LinkIndex)
 	if err != nil {
-		return false, fmt.Errorf("LinkByIndex: %w", err)
+		return fmt.Errorf("LinkByIndex: %w", err)
 	}
 	device := link.Attrs().Name
 
 	// Check if the qdiscs are already set up as expected.
 	qdiscs, err := netlink.QdiscList(link)
 	if err != nil {
-		return false, fmt.Errorf("QdiscList: %w", err)
+		return fmt.Errorf("QdiscList: %w", err)
 	}
 	if len(qdiscs) > 0 {
 		ok := qdiscs[0].Type() == "mq"
@@ -67,8 +67,12 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 				fq.Buckets == q.FqBuckets
 		}
 		if ok {
-			return false, nil
+			return nil
 		}
+	}
+
+	if changed != nil {
+		*changed = true
 	}
 
 	// We strictly want to avoid a down/up cycle on the device at
@@ -83,7 +87,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 		QdiscType: "noqueue",
 	}
 	if err := netlink.QdiscReplace(qdisc); err != nil {
-		return true, fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", qdisc.QdiscType, device, err)
+		return fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", qdisc.QdiscType, device, err)
 	}
 	qdisc = &netlink.GenericQdisc{
 		QdiscAttrs: netlink.QdiscAttrs{
@@ -105,7 +109,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 		// At this point there is nothing we can do about
 		// it if we fail here, so hard bail out.
 		if err = netlink.QdiscReplace(fq); err != nil {
-			return true, fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", fq.Type(), device, err)
+			return fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", fq.Type(), device, err)
 		}
 		which = "fq"
 	}
@@ -114,7 +118,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 	// Set the fq parameters
 	qdiscs, err = netlink.QdiscList(link)
 	if err != nil {
-		return false, fmt.Errorf("QdiscList: %w", err)
+		return fmt.Errorf("QdiscList: %w", err)
 	}
 	for _, qdisc := range qdiscs {
 		if qdisc.Type() == "fq" {
@@ -122,12 +126,12 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 			fq.Horizon = uint32(FqDefaultHorizon.Microseconds())
 			fq.Buckets = uint32(FqDefaultBuckets)
 			if err := netlink.QdiscReplace(qdisc); err != nil {
-				return true, fmt.Errorf("cannot set qdisc attributes: %w", err)
+				return fmt.Errorf("cannot set qdisc attributes: %w", err)
 			}
 		}
 	}
 
-	return true, nil
+	return nil
 }
 
 var _ reconciler.Operations[*tables.BandwidthQDisc] = &ops{}

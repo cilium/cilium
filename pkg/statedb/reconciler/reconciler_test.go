@@ -394,14 +394,17 @@ func (mt *mockOps) Prune(ctx context.Context, txn statedb.ReadTxn, iter statedb.
 }
 
 // Update implements reconciler.Operations.
-func (mt *mockOps) Update(ctx context.Context, txn statedb.ReadTxn, obj *testObject) (changed bool, err error) {
+func (mt *mockOps) Update(ctx context.Context, txn statedb.ReadTxn, obj *testObject, changed *bool) error {
+	if changed != nil {
+		*changed = true
+	}
 	mt.updates.incr(obj.id)
 	if mt.faulty.Load() || obj.faulty {
 		mt.history.add(opFail(opUpdate(obj.id)))
-		return true, errors.New("update fail")
+		return errors.New("update fail")
 	}
 	mt.history.add(opUpdate(obj.id))
-	return true, nil
+	return nil
 }
 
 var _ reconciler.Operations[*testObject] = &mockOps{}
