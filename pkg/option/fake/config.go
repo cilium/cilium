@@ -27,6 +27,12 @@ func (f *Config) EncryptionEnabled() bool {
 	return true
 }
 
+// NodeIpsetNeeded returns true if masquerading rules require entries to be
+// added to an ipset for this node
+func (f *Config) NodeIpsetNeeded() bool {
+	return false
+}
+
 // NodeEncryptionEnabled returns true if node encryption is enabled
 func (f *Config) NodeEncryptionEnabled() bool {
 	return true
