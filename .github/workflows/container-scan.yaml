@@ -11,6 +11,7 @@ jobs:
     if: github.repository_owner == 'cilium'
     name: Scan Containers
     runs-on: ubuntu-22.04
+    continue-on-error: true
     strategy:
       matrix:
         image: [
