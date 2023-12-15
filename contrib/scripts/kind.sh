@@ -176,6 +176,7 @@ kubeadmConfigPatches:
     metadata:
       name: config
     apiServer:
+      certSANs: [localhost, "127.0.0.1", "0.0.0.0"]
       extraArgs:
         "v": "3"
 EOF
