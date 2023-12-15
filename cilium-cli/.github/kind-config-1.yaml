@@ -13,6 +13,10 @@ nodes:
           taints: []
   - role: worker
     image: kindest/node:v1.23.6
+  - role: worker
+    image: kindest/node:v1.23.6
+    labels:
+      cilium.io/no-schedule: "true"
 networking:
   disableDefaultCNI: true
   podSubnet: "10.201.0.0/16"

@@ -256,7 +256,8 @@ jobs:
             --set bpf.monitorAggregation=none \
             --set cni.chainingMode=portmap \
             --set cluster.id=1 \
-            --set cluster.name=$CLUSTER1
+            --set cluster.name=$CLUSTER1 \
+            --nodes-without-cilium=${{ env.CLUSTER_NAME_1 }}-worker2
 
       - name: Create kind cluster 2
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
