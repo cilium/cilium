@@ -30,7 +30,7 @@ require (
 	golang.org/x/mod v0.14.0
 	google.golang.org/grpc v1.59.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	helm.sh/helm/v3 v3.13.2
+	helm.sh/helm/v3 v3.13.3
 	k8s.io/api v0.29.0-rc.1
 	k8s.io/apimachinery v0.29.0-rc.1
 	k8s.io/cli-runtime v0.29.0-rc.1
@@ -223,7 +223,7 @@ require (
 	k8s.io/apiserver v0.29.0-rc.1 // indirect
 	k8s.io/component-base v0.29.0-rc.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
-	k8s.io/kubectl v0.28.2 // indirect
+	k8s.io/kubectl v0.28.4 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	oras.land/oras-go v1.2.4 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
