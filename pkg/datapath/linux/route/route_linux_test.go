@@ -5,6 +5,7 @@ package route
 
 import (
 	"net"
+	"runtime"
 	"testing"
 	"time"
 
@@ -248,20 +249,6 @@ func testListRules6(t *testing.T) {
 }
 
 func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
-	currentNS, err := netns.Get()
-	require.Nil(t, err)
-	defer func() {
-		require.Nil(t, netns.Set(currentNS))
-	}()
-
-	networkNS, err := netns.New()
-	require.Nil(t, err)
-	defer func() {
-		require.Nil(t, networkNS.Close())
-	}()
-
-	defaultRules, _ := ListRules(family, nil)
-
 	tests := []struct {
 		name       string
 		ruleFilter *Rule
@@ -275,6 +262,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun:     func() *netlink.Rule { return nil },
 			postRun:    func(r *netlink.Rule) {},
 			setupWant: func(_ *netlink.Rule) ([]netlink.Rule, bool) {
+				defaultRules, _ := ListRules(family, nil)
 				return defaultRules, false
 			},
 		},
@@ -480,16 +468,18 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule := tt.preRun()
-			rules, err := ListRules(family, tt.ruleFilter)
-			tt.postRun(rule)
+			withFreshNetNS(t, func() {
+				rule := tt.preRun()
+				rules, err := ListRules(family, tt.ruleFilter)
+				tt.postRun(rule)
 
-			wantRules, wantErr := tt.setupWant(rule)
+				wantRules, wantErr := tt.setupWant(rule)
 
-			if diff := cmp.Diff(wantRules, rules); diff != "" {
-				t.Errorf("expected len: %d, got: %d\n%s\n", len(wantRules), len(rules), diff)
-			}
-			require.Equal(t, err != nil, wantErr)
+				if diff := cmp.Diff(wantRules, rules); diff != "" {
+					t.Errorf("expected len: %d, got: %d\n%s\n", len(wantRules), len(rules), diff)
+				}
+				require.Equal(t, err != nil, wantErr)
+			})
 		})
 	}
 }
@@ -504,4 +494,17 @@ func delRule(tb testing.TB, r *netlink.Rule) {
 	if err := netlink.RuleDel(r); err != nil {
 		tb.Logf("Unable to delete rule: %v", err)
 	}
+}
+
+func withFreshNetNS(t *testing.T, test func()) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	oldNetNS, err := netns.Get()
+	require.NoError(t, err)
+	testNetNS, err := netns.New()
+	require.NoError(t, err)
+	defer func() { require.NoError(t, testNetNS.Close()) }()
+	defer func() { require.NoError(t, netns.Set(oldNetNS)) }()
+	test()
 }
