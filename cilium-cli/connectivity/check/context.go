@@ -666,22 +666,24 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) detectPodCIDRs(ctx context.Context) error {
-	nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list nodes: %w", err)
-	}
+	for _, client := range ct.Clients() {
+		nodes, err := client.ListNodes(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list nodes: %w", err)
+		}
 
-	for _, n := range nodes.Items {
-		for _, cidr := range n.Spec.PodCIDRs {
-			f := features.GetIPFamily(ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP)
-			if strings.Contains(cidr, ":") && f == features.IPFamilyV4 {
-				// Skip if the host IP of the pod mismatches with pod CIDR.
-				// Cannot create a route with the gateway IP family
-				// mismatching the subnet.
-				continue
+		for _, n := range nodes.Items {
+			for _, cidr := range n.Spec.PodCIDRs {
+				f := features.GetIPFamily(ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP)
+				if strings.Contains(cidr, ":") && f == features.IPFamilyV4 {
+					// Skip if the host IP of the pod mismatches with pod CIDR.
+					// Cannot create a route with the gateway IP family
+					// mismatching the subnet.
+					continue
+				}
+				hostIP := ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP
+				ct.params.PodCIDRs = append(ct.params.PodCIDRs, podCIDRs{cidr, hostIP})
 			}
-			hostIP := ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP
-			ct.params.PodCIDRs = append(ct.params.PodCIDRs, podCIDRs{cidr, hostIP})
 		}
 	}
 
