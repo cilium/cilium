@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
@@ -113,42 +114,13 @@ func (n *noUnexpectedPacketDrops) Run(ctx context.Context, t *check.Test) {
 
 func computeExpectedDropReasons(defaultReasons, inputReasons []string) string {
 	filter := ""
-	if len(inputReasons) > 0 {
-		// Build final list of drop reasons based on default reasons, added
-		// reasons (+ prefix), and removed reasons (- prefix).
-		addedAllDefaults := false
-		dropReasons := map[string]bool{}
-		for _, reason := range inputReasons {
-			if reason[0] == '+' || reason[0] == '-' {
-				if !addedAllDefaults {
-					for _, r := range defaultReasons {
-						dropReasons[r] = true
-					}
-					addedAllDefaults = true
-				}
-			}
-			switch reason[0] {
-			case '+':
-				dropReasons[reason[1:]] = true
-			case '-':
-				dropReasons[reason[1:]] = false
-			default:
-				dropReasons[reason] = true
-			}
-		}
+	dropReasons := features.ComputeFailureExceptions(defaultReasons, inputReasons)
 
+	if len(dropReasons) > 0 {
 		// Build output string in form of '"reason1", "reason2"'.
-		i := 0
-		for reason, isIn := range dropReasons {
-			if !isIn {
-				continue
-			}
-			if i == 0 {
-				filter = fmt.Sprintf("%q", reason)
-			} else {
-				filter = fmt.Sprintf("%s, %q", filter, reason)
-			}
-			i++
+		filter = fmt.Sprintf("%q", dropReasons[0])
+		for _, reason := range dropReasons[1:] {
+			filter = fmt.Sprintf("%s, %q", filter, reason)
 		}
 	}
 	return filter
