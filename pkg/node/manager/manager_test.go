@@ -14,11 +14,14 @@ import (
 	"time"
 
 	check "github.com/cilium/checkmate"
+	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -41,6 +44,9 @@ type configMock struct {
 	RemoteNodeIdentity bool
 	NodeEncryption     bool
 	Encryption         bool
+
+	EnableIPv4Masquerade bool
+	EnableIPv6Masquerade bool
 }
 
 func (c *configMock) TunnelingEnabled() bool {
@@ -57,6 +63,10 @@ func (c *configMock) NodeEncryptionEnabled() bool {
 
 func (c *configMock) EncryptionEnabled() bool {
 	return c.Encryption
+}
+
+func (c *configMock) NodeIpsetNeeded() bool {
+	return !c.Tunneling && (c.EnableIPv4Masquerade || c.EnableIPv6Masquerade)
 }
 
 type nodeEvent struct {
@@ -125,14 +135,55 @@ func (i *ipcacheMock) RemoveIdentityOverride(prefix netip.Prefix, identityLabels
 	i.Delete(prefix.String(), source.CustomResource)
 }
 
-type ipsetMock struct{}
+type ipsetMock struct {
+	v4 []string
+	v6 []string
+}
 
 func newIPSetMock() *ipsetMock {
 	return &ipsetMock{}
 }
 
-func (i *ipsetMock) AddToNodeIpset(nodeIP net.IP)      {}
-func (i *ipsetMock) RemoveFromNodeIpset(nodeIP net.IP) {}
+func (i *ipsetMock) AddToNodeIpset(nodeIP net.IP) {
+	entry := nodeIP.String()
+	if ip.IsIPv6(nodeIP) {
+		if slices.Contains(i.v6, entry) {
+			return
+		}
+		i.v6 = append(i.v6, strings.ToLower(entry))
+	} else {
+		if slices.Contains(i.v4, entry) {
+			return
+		}
+		i.v4 = append(i.v4, entry)
+	}
+}
+
+func (i *ipsetMock) RemoveFromNodeIpset(nodeIP net.IP) {
+	entry := nodeIP.String()
+	if ip.IsIPv6(nodeIP) {
+		idx := slices.Index(i.v6, entry)
+		if idx != -1 {
+			i.v6 = slices.Delete(i.v6, idx, idx+1)
+		}
+	} else {
+		idx := slices.Index(i.v4, entry)
+		if idx != -1 {
+			i.v4 = slices.Delete(i.v4, idx, idx+1)
+		}
+	}
+}
+
+func ipsetContains(ipsetMgr *ipsetMock, setName string, nodeIP string) (bool, error) {
+	switch setName {
+	case iptables.CiliumNodeIpsetV4:
+		return slices.Index(ipsetMgr.v4, nodeIP) != -1, nil
+	case iptables.CiliumNodeIpsetV6:
+		return slices.Index(ipsetMgr.v6, nodeIP) != -1, nil
+	default:
+		return false, fmt.Errorf("unexpected ipset name %s", setName)
+	}
+}
 
 type signalNodeHandler struct {
 	EnableNodeAddEvent                    bool
@@ -840,4 +891,126 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	c.Assert(ok, check.Equals, true)
 	// Needs to be the same as n2
 	c.Assert(n, checker.DeepEquals, *n1V2)
+}
+
+// TestNodeIpset tests that the ipset entries on the node are updated correctly
+// when a node is updated or removed.
+// It is inspired from TestNode() in manager_test.go.
+func (s *managerTestSuite) TestNodeIpset(c *check.C) {
+	ipsetExpect := func(ipsetMgr *ipsetMock, ip string, expected bool) {
+		setName := iptables.CiliumNodeIpsetV6
+		if v4 := net.ParseIP(ip).To4(); v4 != nil {
+			setName = iptables.CiliumNodeIpsetV4
+		}
+
+		found, err := ipsetContains(ipsetMgr, setName, strings.ToLower(ip))
+		c.Assert(err, check.IsNil)
+
+		if found && !expected {
+			c.Errorf("ipset %s contains IP %s but it should not", setName, ip)
+		}
+		if !found && expected {
+			c.Errorf("ipset %s does not contain expected IP %s", setName, ip)
+		}
+	}
+
+	dp := newSignalNodeHandler()
+	dp.EnableNodeAddEvent = true
+	dp.EnableNodeUpdateEvent = true
+	dp.EnableNodeDeleteEvent = true
+	mngr, err := New(&configMock{
+		// Tunneling and EnableIPv4Masquerade are disabled and enabled,
+		// respectively, to make sure we update the ipset in the
+		// manager (see NodeIpsetNeeded()).
+		Tunneling:            false,
+		EnableIPv4Masquerade: true,
+		// RemoteNodeIdentity is enabled to make sure we don't skip the
+		// ipcache update in NodeUpdated(), and in particular, the
+		// update to nodeIpsAdded. If we skip that part, and an old
+		// node existed, then Nodeupdated() will remove the ipset entry
+		// it just added when calling removenodeFromIPCache().
+		RemoteNodeIdentity: true,
+	}, newIPcacheMock(), newIPSetMock(), NewNodeMetrics())
+	mngr.Subscribe(dp)
+	c.Assert(err, check.IsNil)
+	defer mngr.Stop(context.TODO())
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   net.ParseIP("192.0.2.1"),
+			},
+			{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   net.ParseIP("2001:DB8::1"),
+			},
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.0.0.1"),
+			},
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("2001:ABCD::1"),
+			},
+		},
+		IPv4HealthIP: net.ParseIP("192.0.2.2"),
+		IPv6HealthIP: net.ParseIP("2001:DB8::2"),
+		Source:       source.KVStore,
+	}
+	mngr.NodeUpdated(n1)
+
+	select {
+	case nodeEvent := <-dp.NodeAddEvent:
+		c.Assert(nodeEvent, checker.DeepEquals, n1)
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		c.Errorf("timeout while waiting for NodeAdd() event")
+	}
+
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:DB8::1", false)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", true)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", true)
+
+	n1.IPv4HealthIP = net.ParseIP("192.0.2.20")
+	mngr.NodeUpdated(n1)
+
+	select {
+	case nodeEvent := <-dp.NodeAddEvent:
+		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		c.Assert(nodeEvent, checker.DeepEquals, n1)
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		c.Errorf("timeout while waiting for NodeUpdate() event")
+	}
+
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:DB8::1", false)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", true)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", true)
+
+	mngr.NodeDeleted(n1)
+	select {
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		c.Assert(nodeEvent, checker.DeepEquals, n1)
+	case nodeEvent := <-dp.NodeAddEvent:
+		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		c.Errorf("timeout while waiting for NodeDelete() event")
+	}
+
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:DB8::1", false)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", false)
+	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", false)
 }
