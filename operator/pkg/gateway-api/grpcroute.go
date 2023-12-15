@@ -69,7 +69,7 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(
 				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName))))
 
-	if helpers.HasServiceImportCRD() {
+	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
 		// Watch for changes to Backend Service Imports
 		builder = builder.Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport())
 	}

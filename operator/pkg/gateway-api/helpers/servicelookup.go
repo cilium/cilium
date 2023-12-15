@@ -19,7 +19,7 @@ func GetBackendServiceName(k8sclient client.Client, namespace string, backendObj
 	case IsService(backendObjectReference):
 		return string(backendObjectReference.Name), nil
 
-	case HasServiceImportCRD() && IsServiceImport(backendObjectReference):
+	case HasServiceImportSupport(k8sclient.Scheme()) && IsServiceImport(backendObjectReference):
 		svcImport := &mcsapiv1alpha1.ServiceImport{}
 		if err := k8sclient.Get(context.Background(), client.ObjectKey{
 			Namespace: namespace,
