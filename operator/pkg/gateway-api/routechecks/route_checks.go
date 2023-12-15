@@ -77,7 +77,7 @@ func CheckHasServiceImportSupport(input Input) (bool, error) {
 				continue
 			}
 
-			if !helpers.HasServiceImportCRD() {
+			if !helpers.HasServiceImportSupport(input.GetClient().Scheme()) {
 				input.SetAllParentCondition(metav1.Condition{
 					Type:   string(gatewayv1.RouteConditionResolvedRefs),
 					Status: metav1.ConditionFalse,
