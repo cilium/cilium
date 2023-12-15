@@ -46,3 +46,5 @@ runs:
       run: |
         mkdir ~/.kube
         scp -o StrictHostKeyChecking=no -P 2222 root@localhost:/root/.kube/config ~/.kube/config
+        sed -i 's/0\.0\.0\.0/localhost/g' ~/.kube/config
+
