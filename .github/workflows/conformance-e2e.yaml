@@ -349,6 +349,7 @@ jobs:
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             "${EXTRA[@]}" \
+            --external-target asdfasdfasdfasdf.com \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
