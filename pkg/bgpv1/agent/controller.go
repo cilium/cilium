@@ -6,15 +6,16 @@ package agent
 import (
 	"context"
 	"fmt"
+	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/workerpool"
+	"k8s.io/client-go/util/workqueue"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	v2_api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -71,8 +72,6 @@ type Controller struct {
 	// BGPMgr is an implementation of the BGPRouterManager interface
 	// and provides a declarative API for configuring BGP peers.
 	BGPMgr BGPRouterManager
-
-	workerpool *workerpool.WorkerPool
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -80,6 +79,8 @@ type ControllerParams struct {
 	cell.In
 
 	Lifecycle               hive.Lifecycle
+	Scope                   cell.Scope
+	JobRegistry             job.Registry
 	Shutdowner              hive.Shutdowner
 	Sig                     *signaler.BGPCPSignaler
 	RouteMgr                BGPRouterManager
@@ -103,80 +104,63 @@ func NewController(params ControllerParams) (*Controller, error) {
 		return nil, nil
 	}
 
-	c := Controller{
+	c := &Controller{
 		Sig:                params.Sig,
 		BGPMgr:             params.RouteMgr,
 		PolicyResource:     params.PolicyResource,
 		CiliumNodeResource: params.LocalCiliumNodeResource,
 	}
 
-	params.Lifecycle.Append(&c)
+	jobGroup := params.JobRegistry.NewGroup(
+		params.Scope,
+		job.WithLogger(log),
+		job.WithPprofLabels(pprof.Labels("cell", "bgp-cp")),
+	)
 
-	return &c, nil
-}
-
-// Start is called by hive after all of our dependencies have been started.
-func (c *Controller) Start(startCtx hive.HookContext) error {
-	policyStore, err := c.PolicyResource.Store(startCtx)
-	if err != nil {
-		return fmt.Errorf("PolicyResource.Store(): %w", err)
-	}
-	c.PolicyLister = policyListerFunc(func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-		return policyStore.List(), nil
-	})
-
-	c.workerpool = workerpool.New(3)
-
-	c.workerpool.Submit("policy-observer", func(ctx context.Context) error {
-		for ev := range c.PolicyResource.Events(ctx) {
-			switch ev.Kind {
-			case resource.Upsert, resource.Delete:
-				// Signal the reconciliation logic.
-				c.Sig.Event(struct{}{})
+	jobGroup.Add(
+		job.OneShot("bgp-policy-observer", func(ctx context.Context, health cell.HealthReporter) (err error) {
+			for ev := range c.PolicyResource.Events(ctx) {
+				switch ev.Kind {
+				case resource.Upsert, resource.Delete:
+					// Signal the reconciliation logic.
+					c.Sig.Event(struct{}{})
+				}
+				ev.Done(nil)
 			}
-			ev.Done(nil)
-		}
-		return nil
-	})
+			return nil
+		}),
 
-	c.workerpool.Submit("cilium-node-observer", func(ctx context.Context) error {
-		for ev := range c.CiliumNodeResource.Events(ctx) {
-			switch ev.Kind {
-			case resource.Upsert:
-				// Set the local CiliumNode.
-				c.LocalCiliumNode = ev.Object
-				// Signal the reconciliation logic.
-				c.Sig.Event(struct{}{})
+		job.OneShot("cilium-node-observer", func(ctx context.Context, health cell.HealthReporter) (err error) {
+			for ev := range c.CiliumNodeResource.Events(ctx) {
+				switch ev.Kind {
+				case resource.Upsert:
+					// Set the local CiliumNode.
+					c.LocalCiliumNode = ev.Object
+					// Signal the reconciliation logic.
+					c.Sig.Event(struct{}{})
+				}
+				ev.Done(nil)
 			}
-			ev.Done(nil)
-		}
-		return nil
-	})
+			return nil
+		}),
 
-	c.workerpool.Submit("controller", func(ctx context.Context) error {
-		c.Run(ctx)
-		return nil
-	})
+		job.OneShot("bgp-controller", func(ctx context.Context, health cell.HealthReporter) (err error) {
+			// initialize PolicyLister used in the controller
+			policyStore, err := c.PolicyResource.Store(ctx)
+			if err != nil {
+				return fmt.Errorf("error creating CiliumBGPPeeringPolicy resource store: %w", err)
+			}
+			c.PolicyLister = policyListerFunc(func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+				return policyStore.List(), nil
+			})
+			// run the controller
+			c.Run(ctx)
+			return nil
+		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
+	)
 
-	return nil
-}
-
-// Stop is called by hive upon shutdown, after all of our dependants have been stopped.
-// We should perform a graceful shutdown and return as soon as done or when the stop context is done.
-func (c *Controller) Stop(ctx hive.HookContext) error {
-	doneChan := make(chan struct{})
-	go func() {
-		c.workerpool.Close()
-		close(doneChan)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-doneChan:
-	}
-
-	return nil
+	params.Lifecycle.Append(jobGroup)
+	return c, nil
 }
 
 // Run places the Controller into its control loop.
@@ -290,6 +274,9 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 
 	if c.LocalCiliumNode == nil {
 		return fmt.Errorf("attempted reconciliation with nil local CiliumNode")
+	}
+	if c.PolicyLister == nil {
+		return fmt.Errorf("attempted reconciliation with nil PolicyLister")
 	}
 
 	// retrieve all CiliumBGPPeeringPolicies
