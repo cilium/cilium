@@ -78,6 +78,7 @@ type Parameters struct {
 	ConnDisruptDispatchInterval   time.Duration
 
 	ExpectedDropReasons []string
+	ExpectedXFRMErrors  []string
 
 	FlushCT               bool
 	SecondaryNetworkIface string
