@@ -79,6 +79,7 @@ type Configuration interface {
 	RemoteNodeIdentitiesEnabled() bool
 	NodeEncryptionEnabled() bool
 	IsLocalRouterIP(string) bool
+	NodeIpsetNeeded() bool
 }
 
 var _ Notifier = (*manager)(nil)
@@ -476,7 +477,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix
 
 	for _, address := range n.IPAddresses {
-		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			m.ipsetMgr.AddToNodeIpset(address.IP)
 		}
 
@@ -660,7 +661,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			continue
 		}
 
-		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			m.ipsetMgr.RemoveFromNodeIpset(address.IP)
 		}
 
