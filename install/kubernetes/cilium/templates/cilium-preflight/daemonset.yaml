@@ -70,8 +70,13 @@ spec:
               - /tmp/ready
             initialDelaySeconds: 5
             periodSeconds: 5
-          {{- with .Values.preflight.extraEnv }}
           env:
+          - name: K8S_NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          {{- with .Values.preflight.extraEnv }}
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
           volumeMounts:

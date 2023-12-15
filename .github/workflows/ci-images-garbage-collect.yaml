@@ -21,6 +21,6 @@ jobs:
         uses: docker://quay.io/cilium/scruffy:v0.0.3@sha256:ca997451b739cbf03c204cb2523a671c31c61edc606aa5d20dc3560bc7f25bc7
         with:
           entrypoint: scruffy
-          args: --git-repository=./ --stable-branches=origin/main,origin/v1.12,origin/v1.13,origin/v1.14
+          args: --git-repository=./ --stable-branches=origin/main,origin/v1.12,origin/v1.13,origin/v1.14,origin/v1.15
         env:
           QUAY_TOKEN: ${{ secrets.SCRUFFY_QUAY_TOKEN }}

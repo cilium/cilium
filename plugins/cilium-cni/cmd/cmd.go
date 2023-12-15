@@ -57,11 +57,43 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-cni")
 )
 
+// Cmd provides methods for the CNI ADD, DEL and CHECK commands.
+type Cmd struct {
+	cfg EndpointConfigurator
+}
+
+// Option allows the customization of the Cmd implementation
+type Option func(cmd *Cmd)
+
+// WithEPConfigurator is used to create a Cmd instance with a custom
+// endpoint configurator. The endpoint configurator can be used to customize
+// the creation of endpoints during the CNI ADD invocation.
+// This function is exported to be accessed outside the tree.
+func WithEPConfigurator(cfg EndpointConfigurator) Option {
+	return func(cmd *Cmd) {
+		cmd.cfg = cfg
+	}
+}
+
+// NewCmd creates a new Cmd instance, whose Add, Del and Check methods can be
+// passed to skel.PluginMain
+func NewCmd(opts ...Option) *Cmd {
+	cmd := &Cmd{
+		cfg: &DefaultConfigurator{},
+	}
+	for _, opt := range opts {
+		opt(cmd)
+	}
+	return cmd
+}
+
 type CmdState struct {
 	IP6       netip.Addr
 	IP6routes []route.Route
+	IP6rules  []route.Rule
 	IP4       netip.Addr
 	IP4routes []route.Route
+	IP4rules  []route.Rule
 	HostAddr  *models.NodeAddressing
 }
 
@@ -180,7 +212,7 @@ func allocateIPsWithDelegatedPlugin(
 	return ipam, releaseFunc, nil
 }
 
-func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, ifName string) error {
+func addIPConfigToLink(ip netip.Addr, routes []route.Route, rules []route.Rule, link netlink.Link, ifName string) error {
 	log.WithFields(logrus.Fields{
 		logfields.IPAddr:    ip,
 		"netLink":           logfields.Repr(link),
@@ -206,6 +238,7 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, i
 			Scope:     netlink.SCOPE_UNIVERSE,
 			Dst:       &r.Prefix,
 			MTU:       r.MTU,
+			Table:     r.Table,
 		}
 
 		if r.Nexthop == nil {
@@ -219,6 +252,19 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, i
 				return fmt.Errorf("failed to add route '%s via %v dev %v': %w",
 					r.Prefix.String(), r.Nexthop, ifName, err)
 			}
+		}
+	}
+
+	for _, r := range rules {
+		log.WithField("rule", logfields.Repr(r)).Debug("Adding rule")
+		var err error
+		if ip.Is4() {
+			err = route.ReplaceRule(r)
+		} else {
+			err = route.ReplaceRuleIPv6(r)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to add rule '%s for dev %v': %w", r, ifName, err)
 		}
 	}
 
@@ -236,13 +282,13 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 	}
 
 	if ipv4IsEnabled(ipam) {
-		if err := addIPConfigToLink(state.IP4, state.IP4routes, l, ifName); err != nil {
+		if err := addIPConfigToLink(state.IP4, state.IP4routes, state.IP4rules, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv4: %w", err)
 		}
 	}
 
 	if ipv6IsEnabled(ipam) {
-		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
+		if err := addIPConfigToLink(state.IP6, state.IP6routes, state.IP6rules, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv6: %w", err)
 		}
 	}
@@ -288,19 +334,19 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 	if ip.Is6() {
 		state.IP6 = ip
 		if state.HostAddr != nil {
-			if state.IP6routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
+			if routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
 				return nil, nil, err
 			}
-			routes = state.IP6routes
+			state.IP6routes = append(state.IP6routes, routes...)
 			gw = connector.IPv6Gateway(state.HostAddr)
 		}
 	} else {
 		state.IP4 = ip
 		if state.HostAddr != nil {
-			if state.IP4routes, err = connector.IPv4Routes(state.HostAddr, mtu); err != nil {
+			if routes, err = connector.IPv4Routes(state.HostAddr, mtu); err != nil {
 				return nil, nil, err
 			}
-			routes = state.IP4routes
+			state.IP4routes = append(state.IP4routes, routes...)
 			gw = connector.IPv4Gateway(state.HostAddr)
 		}
 	}
@@ -347,7 +393,7 @@ func setupLogging(n *types.NetConf) error {
 	return nil
 }
 
-func Add(args *skel.CmdArgs) (err error) {
+func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return fmt.Errorf("unable to parse CNI configuration %q: %w", string(args.StdinData), err)
@@ -428,162 +474,155 @@ func Add(args *skel.CmdArgs) (err error) {
 	}
 	defer netNs.Close()
 
-	if err = netns.RemoveIfFromNetNSIfExists(netNs, args.IfName); err != nil {
-		return fmt.Errorf("failed removing interface %q from namespace %q: %w",
-			args.IfName, args.Netns, err)
-	}
-
-	var ipam *models.IPAMResponse
-	var releaseIPsFunc func(context.Context)
-	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
-		ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
-	} else {
-		ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(c, cniArgs, "")
-	}
-
-	// release addresses on failure
-	defer func() {
-		if err != nil && releaseIPsFunc != nil {
-			releaseIPsFunc(context.TODO())
-		}
-	}()
-
-	if err != nil {
-		return err
-	}
-
-	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
-		return fmt.Errorf("IP allocation addressing is insufficient: %w", err)
-	}
-
-	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
-		return errors.New("IPAM did provide neither IPv4 nor IPv6 address")
-	}
-
-	ep := &models.EndpointChangeRequest{
-		ContainerID:            args.ContainerID,
-		Labels:                 models.Labels{},
-		State:                  models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-		Addressing:             &models.AddressPair{},
-		K8sPodName:             string(cniArgs.K8S_POD_NAME),
-		K8sNamespace:           string(cniArgs.K8S_POD_NAMESPACE),
-		ContainerInterfaceName: args.IfName,
-		DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
-	}
-
-	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
-		// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
-		ep.DatapathConfiguration.ExternalIpam = true
-	}
-
 	res := &cniTypesV1.Result{}
+	configs, err := cmd.cfg.GetConfigurations(ConfigurationParams{log, conf, args, cniArgs})
+	if err != nil {
+		return fmt.Errorf("failed to determine endpoint configuration: %w", err)
+	}
 
-	switch conf.DatapathMode {
-	case datapathOption.DatapathModeVeth:
-		veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU),
-			int(conf.GROMaxSize), int(conf.GSOMaxSize),
-			int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
-		if err != nil {
-			return fmt.Errorf("unable to set up veth on host side: %w", err)
+	for _, epConf := range configs {
+		if err = netns.RemoveIfFromNetNSIfExists(netNs, epConf.IfName()); err != nil {
+			return fmt.Errorf("failed removing interface %q from namespace %q: %w",
+				epConf.IfName(), args.Netns, err)
 		}
+
+		var ipam *models.IPAMResponse
+		var releaseIPsFunc func(context.Context)
+		if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
+			ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
+		} else {
+			ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(c, cniArgs, epConf.IPAMPool())
+		}
+
+		// release addresses on failure
 		defer func() {
-			if err != nil {
-				if err2 := netlink.LinkDel(veth); err2 != nil {
-					logger.WithError(err2).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
-				}
+			if err != nil && releaseIPsFunc != nil {
+				releaseIPsFunc(context.TODO())
 			}
 		}()
 
-		res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
-			Name: veth.Attrs().Name,
-			Mac:  veth.Attrs().HardwareAddr.String(),
-		})
-
-		if err = netlink.LinkSetNsFd(peer, int(netNs.Fd())); err != nil {
-			return fmt.Errorf("unable to move veth pair %q to netns: %w", peer, err)
-		}
-
-		err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 		if err != nil {
-			return fmt.Errorf("unable to set up veth on container side: %w", err)
+			return err
 		}
-	}
 
-	state := CmdState{
-		HostAddr: ipam.HostAddressing,
-	}
+		if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
+			return fmt.Errorf("IP allocation addressing is insufficient: %w", err)
+		}
 
-	var (
-		ipConfig *cniTypesV1.IPConfig
-		routes   []*cniTypes.Route
-	)
-	if ipv6IsEnabled(ipam) {
-		ep.Addressing.IPV6 = ipam.Address.IPV6
-		ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
-		ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
+		if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
+			return errors.New("IPAM did provide neither IPv4 nor IPv6 address")
+		}
 
-		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, &state, int(conf.RouteMTU))
+		state, ep, err := epConf.PrepareEndpoint(ipam)
 		if err != nil {
-			return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV6, err)
+			return fmt.Errorf("unable to prepare endpoint configuration: %w", err)
 		}
-		// set the addresses interface index to that of the container-side veth
-		ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
-		res.IPs = append(res.IPs, ipConfig)
-		res.Routes = append(res.Routes, routes...)
-	}
 
-	if ipv4IsEnabled(ipam) {
-		ep.Addressing.IPV4 = ipam.Address.IPV4
-		ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
-		ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
+		switch conf.DatapathMode {
+		case datapathOption.DatapathModeVeth:
+			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
+			veth, peer, tmpIfName, err := connector.SetupVeth(cniID, int(conf.DeviceMTU),
+				int(conf.GROMaxSize), int(conf.GSOMaxSize),
+				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
+			if err != nil {
+				return fmt.Errorf("unable to set up veth on host side: %w", err)
+			}
+			defer func() {
+				if err != nil {
+					if err2 := netlink.LinkDel(veth); err2 != nil {
+						logger.WithError(err2).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
+					}
+				}
+			}()
 
-		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, &state, int(conf.RouteMTU))
-		if err != nil {
-			return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV4, err)
-		}
-		// set the addresses interface index to that of the container-side veth
-		ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
-		res.IPs = append(res.IPs, ipConfig)
-		res.Routes = append(res.Routes, routes...)
-	}
+			res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
+				Name: veth.Attrs().Name,
+				Mac:  veth.Attrs().HardwareAddr.String(),
+			})
 
-	switch conf.IpamMode {
-	case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
-		err = interfaceAdd(ipConfig, ipam.IPV4, conf)
-		if err != nil {
-			return fmt.Errorf("unable to setup interface datapath: %w", err)
-		}
-	}
+			if err = netlink.LinkSetNsFd(peer, int(netNs.Fd())); err != nil {
+				return fmt.Errorf("unable to move veth pair %q to netns: %w", peer, err)
+			}
 
-	var macAddrStr string
-	if err = netNs.Do(func(_ ns.NetNS) error {
-		if ipv6IsEnabled(ipam) {
-			if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
-				logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+			err = connector.SetupVethRemoteNs(netNs, tmpIfName, epConf.IfName())
+			if err != nil {
+				return fmt.Errorf("unable to set up veth on container side: %w", err)
 			}
 		}
-		macAddrStr, err = configureIface(ipam, args.IfName, &state)
-		return err
-	}); err != nil {
-		return fmt.Errorf("unable to configure interfaces in container namespace: %w", err)
+
+		var (
+			ipConfig *cniTypesV1.IPConfig
+			routes   []*cniTypes.Route
+		)
+		if ipv6IsEnabled(ipam) {
+			ep.Addressing.IPV6 = ipam.Address.IPV6
+			ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
+			ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
+
+			ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, state, int(conf.RouteMTU))
+			if err != nil {
+				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV6, err)
+			}
+			// set the addresses interface index to that of the container-side veth
+			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
+			res.IPs = append(res.IPs, ipConfig)
+			res.Routes = append(res.Routes, routes...)
+		}
+
+		if ipv4IsEnabled(ipam) {
+			ep.Addressing.IPV4 = ipam.Address.IPV4
+			ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
+			ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
+
+			ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, state, int(conf.RouteMTU))
+			if err != nil {
+				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV4, err)
+			}
+			// set the addresses interface index to that of the container-side veth
+			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
+			res.IPs = append(res.IPs, ipConfig)
+			res.Routes = append(res.Routes, routes...)
+		}
+
+		switch conf.IpamMode {
+		case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
+			err = interfaceAdd(ipConfig, ipam.IPV4, conf)
+			if err != nil {
+				return fmt.Errorf("unable to setup interface datapath: %w", err)
+			}
+		}
+
+		var macAddrStr string
+		if err = netNs.Do(func(_ ns.NetNS) error {
+			if ipv6IsEnabled(ipam) {
+				if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
+					logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+				}
+			}
+			macAddrStr, err = configureIface(ipam, epConf.IfName(), state)
+			return err
+		}); err != nil {
+			return fmt.Errorf("unable to configure interfaces in container namespace: %w", err)
+		}
+
+		res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
+			Name:    epConf.IfName(),
+			Mac:     macAddrStr,
+			Sandbox: args.Netns,
+		})
+
+		// Specify that endpoint must be regenerated synchronously. See GH-4409.
+		ep.SyncBuildEndpoint = true
+		if err = c.EndpointCreate(ep); err != nil {
+			logger.WithError(err).WithFields(logrus.Fields{
+				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
+			return fmt.Errorf("unable to create endpoint: %s", err)
+		}
+
+		logger.WithFields(logrus.Fields{
+			logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
 	}
 
-	res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
-		Name:    args.IfName,
-		Mac:     macAddrStr,
-		Sandbox: args.Netns,
-	})
-
-	// Specify that endpoint must be regenerated synchronously. See GH-4409.
-	ep.SyncBuildEndpoint = true
-	if err = c.EndpointCreate(ep); err != nil {
-		logger.WithError(err).WithFields(logrus.Fields{
-			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		return fmt.Errorf("unable to create endpoint: %s", err)
-	}
-
-	logger.WithFields(logrus.Fields{
-		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
 	return cniTypes.PrintResult(res, n.CNIVersion)
 }
 
@@ -591,7 +630,7 @@ func Add(args *skel.CmdArgs) (err error) {
 //
 // Note: ENI specific attributes do not need to be released as the ENIs and ENI
 // IPs can be reused and are not released until the node terminates.
-func Del(args *skel.CmdArgs) error {
+func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
 	// are guaranteed to be recoverable.
@@ -694,7 +733,7 @@ func Del(args *skel.CmdArgs) error {
 // Currently, it verifies that
 // - endpoint exists in the agent and is healthy
 // - the interface in the container is sane
-func Check(args *skel.CmdArgs) error {
+func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidNetworkConfig",

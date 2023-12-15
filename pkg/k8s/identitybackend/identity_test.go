@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/inctimer"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation"
@@ -93,19 +94,30 @@ func (s *K8sIdentityBackendSuite) TestSanitizeK8sLabels(c *C) {
 	}
 }
 
-type FakeHandler struct{}
+type FakeHandler struct {
+	onListDoneChan chan struct{}
+}
 
-func (f FakeHandler) OnListDone()                                       {}
-func (f FakeHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey)    {}
+func (f FakeHandler) OnListDone() {
+	if f.onListDoneChan != nil {
+		close(f.onListDoneChan)
+	}
+}
+
+func (f FakeHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey) {}
+
 func (f FakeHandler) OnModify(id idpool.ID, key allocator.AllocatorKey) {}
+
 func (f FakeHandler) OnDelete(id idpool.ID, key allocator.AllocatorKey) {}
 
 func getLabelsKey(rawMap map[string]string) allocator.AllocatorKey {
 	return &key.GlobalIdentity{LabelArray: labels.Map2Labels(rawMap, labels.LabelSourceK8s).LabelArray()}
 }
+
 func getLabelsMap(rawMap map[string]string) map[string]string {
 	return getLabelsKey(rawMap).GetAsMap()
 }
+
 func createCiliumIdentity(id int, labels map[string]string) v2.CiliumIdentity {
 	return v2.CiliumIdentity{
 		ObjectMeta: v1.ObjectMeta{
@@ -190,14 +202,22 @@ func TestGetIdentity(t *testing.T) {
 				Client:  client,
 				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
 			})
+			if err != nil {
+				t.Fatalf("Can't create CRD Backend: %s", err)
+			}
+
 			ctx := context.Background()
 			stopChan := make(chan struct{}, 1)
+			listenerReadyChan := make(chan struct{}, 1)
 			defer func() {
 				stopChan <- struct{}{}
 			}()
-			go backend.ListAndWatch(ctx, FakeHandler{}, stopChan)
-			if err != nil {
-				t.Fatalf("Can't create CRD Backend: %s", err)
+			go backend.ListAndWatch(ctx, FakeHandler{onListDoneChan: listenerReadyChan}, stopChan)
+
+			select {
+			case <-listenerReadyChan:
+			case <-inctimer.After(2 * time.Second):
+				t.Fatalf("Failed to listen for identities within 2 seconds")
 			}
 
 			for _, identity := range tc.identities {
@@ -206,6 +226,7 @@ func TestGetIdentity(t *testing.T) {
 					t.Fatalf("Can't create identity %s: %s", identity.Name, err)
 				}
 			}
+
 			// Wait for watcher to process the identities in the background
 			for i := 0; i < 10; i++ {
 				id, err := backend.Get(ctx, tc.requestedKey)

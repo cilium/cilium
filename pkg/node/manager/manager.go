@@ -79,6 +79,7 @@ type Configuration interface {
 	TunnelingEnabled() bool
 	RemoteNodeIdentitiesEnabled() bool
 	NodeEncryptionEnabled() bool
+	IsLocalRouterIP(string) bool
 }
 
 var _ Notifier = (*manager)(nil)
@@ -500,12 +501,17 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		// rest as it is the strongest source, i.e. only trigger datapath
 		// updates if the information we receive takes priority.
 		//
-		// The only exception are kube-apiserver entries. In that case,
-		// we still want to inform subscribers about changes in auxiliary
-		// data such as for example the health endpoint.
+		// There are two exceptions to the rules above:
+		// * kube-apiserver entries - in that case,
+		//   we still want to inform subscribers about changes in auxiliary
+		//   data such as for example the health endpoint.
+		// * CiliumInternal IP addresses that match configured local router IP.
+		//   In that case, we still want to inform subscribers about a new node
+		//   even when IP addresses may seem repeated across the nodes.
 		existing := m.ipcache.GetMetadataByPrefix(prefix).Source()
 		overwrite := source.AllowOverwrite(existing, n.Source)
-		if !overwrite && existing != source.KubeAPIServer {
+		if !overwrite && existing != source.KubeAPIServer &&
+			!(address.Type == addressing.NodeCiliumInternalIP && m.conf.IsLocalRouterIP(address.ToString())) {
 			dpUpdate = false
 		}
 

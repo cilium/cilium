@@ -397,7 +397,7 @@ func (m *Manager) SupportsOriginalSourceAddr() bool {
 	// Original source address use works if xt_socket match is supported, or if ip early demux
 	// is disabled, but it is not needed when tunneling is used as the tunnel header carries
 	// the source security ID.
-	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && !m.sharedCfg.TunnelingEnabled
+	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && (!m.sharedCfg.TunnelingEnabled || m.sharedCfg.EnableIPSec)
 }
 
 // removeRules removes iptables rules installed by Cilium.
@@ -526,6 +526,8 @@ func (m *Manager) installStaticProxyRules() error {
 	matchProxyReply := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyNoIDMask)
 	// L7 proxy upstream return traffic has Endpoint ID in the mask
 	matchL7ProxyUpstream := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
+	// match traffic from a proxy (either in forward or in return direction)
+	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
 
 	if m.sharedCfg.EnableIPv4 {
 		// No conntrack for traffic to proxy
@@ -598,8 +600,8 @@ func (m *Manager) installStaticProxyRules() error {
 		if err := ip4tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+			"-m", "mark", "--mark", matchFromProxy,
+			"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 			"-j", "ACCEPT"}); err != nil {
 			return err
 		}
@@ -672,8 +674,8 @@ func (m *Manager) installStaticProxyRules() error {
 		if err := ip6tables.runProg([]string{
 			"-t", "filter",
 			"-A", ciliumOutputChain,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+			"-m", "mark", "--mark", matchFromProxy,
+			"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 			"-j", "ACCEPT"}); err != nil {
 			return err
 		}

@@ -21,7 +21,7 @@ jobs:
           {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile},
           {name: operator-generic, dockerfile: ./images/operator/Dockerfile},
         ]
-        branch: [v1.12, v1.13, v1.14]
+        branch: [v1.12, v1.13, v1.14, v1.15]
         exclude:
           - image: {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile}
             branch: v1.12
