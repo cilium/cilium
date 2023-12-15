@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	. "github.com/cilium/cilium/pkg/stream"
 )
 
@@ -229,4 +231,44 @@ func TestDebounce(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected Canceled error, got %s", err)
 	}
+}
+
+func TestBuffer(t *testing.T) {
+	// Buffer range 1..8 into buckets of at most 3 items
+	bufferItem := func(buf []int, x int) []int { return append(buf, x) }
+	src := Buffer(Range(1, 9), 3, time.Millisecond, bufferItem)
+	buckets, err := ToSlice(context.TODO(), src)
+	assert.NoError(t, err, "ToSlice")
+
+	assert.True(t, len(buckets) > 2, "expected at least 3 buckets")
+
+	// Concat the buckets. Since Buffer is time-based we don't know exactly
+	// how the buckets will look like.
+	all := []int{}
+	for _, bucket := range buckets {
+		assert.True(t, len(bucket) > 0, "expected non-empty buckets")
+		all = append(all, bucket...)
+	}
+	assert.EqualValues(t, []int{1, 2, 3, 4, 5, 6, 7, 8}, all)
+
+	// Buffer empty stream
+	src = Buffer(Empty[int](), 10, time.Millisecond, bufferItem)
+	buckets, err = ToSlice(context.TODO(), src)
+	assert.NoError(t, err, "ToSlice")
+	assert.Len(t, buckets, 0, "expected no buckets with Empty")
+
+	// Buffer an errored stream
+	testError := errors.New("error")
+	src = Buffer(Error[int](testError), 10, time.Millisecond, bufferItem)
+	buckets, err = ToSlice(context.TODO(), src)
+	assert.ErrorIs(t, err, testError)
+	assert.Len(t, buckets, 0, "expected no buckets with Error")
+
+	// Buffer a cancelled stream
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	src = Buffer(Stuck[int](), 10, time.Millisecond, bufferItem)
+	buckets, err = ToSlice(ctx, src)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Len(t, buckets, 0, "expected no buckets with Stuck and canceled")
 }
