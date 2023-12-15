@@ -1055,7 +1055,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 	}
 
 	if ct.Features[features.NodeWithoutCilium].Enabled {
-		dstList = append(dstList, echoExternalNodeDeploymentName)
+		srcList = append(srcList, echoExternalNodeDeploymentName)
 	}
 
 	return srcList, dstList
