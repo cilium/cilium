@@ -267,7 +267,7 @@ jobs:
 
       - name: Provision K8s on LVH VM
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium/.github/actions/lvh-kind@main
+        uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
