@@ -68,6 +68,7 @@ type Configuration interface {
 	TunnelingEnabled() bool
 	RemoteNodeIdentitiesEnabled() bool
 	NodeEncryptionEnabled() bool
+	NodeIpsetNeeded() bool
 }
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An
@@ -419,7 +420,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			tunnelIP = nodeIP
 		}
 
-		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			iptables.AddToNodeIpset(address.IP)
 		}
 
@@ -533,7 +534,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			} else {
 				prefix = ip.IPToNetPrefix(address.IP.To16())
 			}
-			if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP &&
+			if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP &&
 				!slices.Contains(ipsAdded, prefix.String()) {
 				iptables.RemoveFromNodeIpset(address.IP)
 			}
@@ -679,7 +680,7 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 	}
 
 	for _, address := range entry.node.IPAddresses {
-		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			iptables.RemoveFromNodeIpset(address.IP)
 		}
 
