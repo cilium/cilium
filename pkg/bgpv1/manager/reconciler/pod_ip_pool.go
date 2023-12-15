@@ -131,7 +131,10 @@ func (r *PodIPPoolReconciler) fullReconciliation(ctx context.Context,
 	}
 
 	// Loop over all pod ip pools, reconcile any updates to the pool.
-	pools := r.poolStore.List()
+	pools, err := r.poolStore.List()
+	if err != nil {
+		return fmt.Errorf("failed to list ip pools from store: %w", err)
+	}
 	for _, pool := range pools {
 		if err := r.reconcilePodIPPool(ctx, sc, newc, pool, localPools); err != nil {
 			return fmt.Errorf("failed to reconcile pod ip pool: %w", err)

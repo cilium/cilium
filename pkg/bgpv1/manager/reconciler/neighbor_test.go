@@ -16,13 +16,12 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func FakeSecretStore(secrets map[string][]byte) resource.Store[*slim_corev1.Secret] {
+func FakeSecretStore(secrets map[string][]byte) store.BGPCPResourceStore[*slim_corev1.Secret] {
 	store := store.NewMockBGPCPResourceStore[*slim_corev1.Secret]()
 	for k, v := range secrets {
 		store.Upsert(&slim_corev1.Secret{
@@ -56,7 +55,7 @@ func TestNeighborReconciler(t *testing.T) {
 		// this is the resulting neighbors we expect on the BgpServer.
 		newNeighbors []v2alpha1api.CiliumBGPNeighbor
 		// secretStore passed to the test, provides a way to fetch secrets (use FakeSecretStore above).
-		secretStore resource.Store[*slim_corev1.Secret]
+		secretStore store.BGPCPResourceStore[*slim_corev1.Secret]
 		// checks validates set timer values
 		checks checkTimers
 		// expected secret if set.

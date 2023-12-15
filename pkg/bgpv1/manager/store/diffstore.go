@@ -5,25 +5,35 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"runtime/pprof"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/workqueue"
 )
 
-// DiffStore is a super set of the resource.Store. The diffStore tracks all changes made to it since the
+var ErrStoreUninitialized = errors.New("the store has not initialized yet")
+
+// DiffStore is a wrapper around the resource.Store. The diffStore tracks all changes made to it since the
 // last time the user synced up. This allows a user to get a list of just the changed objects while still being able
 // to query the full store for a full sync.
 type DiffStore[T k8sRuntime.Object] interface {
-	resource.Store[T]
-
 	// Diff returns a list of items that have been upserted(updated or inserted) and deleted since the last call to Diff.
 	Diff() (upserted []T, deleted []resource.Key, err error)
+
+	// GetByKey returns the latest version of the object with given key.
+	GetByKey(key resource.Key) (item T, exists bool, err error)
+
+	// List returns all items currently in the store.
+	List() (items []T, err error)
 }
 
 var _ DiffStore[*k8sRuntime.Unknown] = (*diffStore[*k8sRuntime.Unknown])(nil)
@@ -31,23 +41,21 @@ var _ DiffStore[*k8sRuntime.Unknown] = (*diffStore[*k8sRuntime.Unknown])(nil)
 type diffStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
-	Resource  resource.Resource[T]
-	Signaler  *signaler.BGPCPSignaler
+	Lifecycle   hive.Lifecycle
+	Scope       cell.Scope
+	JobRegistry job.Registry
+	Resource    resource.Resource[T]
+	Signaler    *signaler.BGPCPSignaler
 }
 
 // diffStore takes a resource.Resource[T] and watches for events, it stores all of the keys that have been changed.
 // diffStore can still be used as a normal store, but adds the Diff function to get a Diff of all changes.
 // The diffStore also takes in Signaler which it will signal after the initial sync and every update thereafter.
 type diffStore[T k8sRuntime.Object] struct {
-	resource.Store[T]
+	store resource.Store[T]
 
 	resource resource.Resource[T]
 	signaler *signaler.BGPCPSignaler
-
-	ctx      context.Context
-	cancel   context.CancelFunc
-	doneChan chan struct{}
 
 	initialSync bool
 
@@ -65,46 +73,28 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 		signaler: params.Signaler,
 
 		updatedKeys: make(map[resource.Key]bool),
-		doneChan:    make(chan struct{}),
 	}
-	ds.ctx, ds.cancel = context.WithCancel(context.Background())
 
-	params.Lifecycle.Append(ds)
+	jobGroup := params.JobRegistry.NewGroup(
+		params.Scope,
+		job.WithPprofLabels(pprof.Labels("cell", "bgp-cp")),
+	)
 
+	jobGroup.Add(
+		job.OneShot("diffstore-events", func(ctx context.Context, health cell.HealthReporter) (err error) {
+			ds.store, err = ds.resource.Store(ctx)
+			if err != nil {
+				return fmt.Errorf("error creating resource store: %w", err)
+			}
+			for event := range ds.resource.Events(ctx) {
+				ds.handleEvent(event)
+			}
+			return nil
+		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
+	)
+
+	params.Lifecycle.Append(jobGroup)
 	return ds
-}
-
-// Start implements hive.HookInterface
-func (ds *diffStore[T]) Start(ctx hive.HookContext) error {
-	var err error
-	ds.Store, err = ds.resource.Store(ctx)
-	if err != nil {
-		return fmt.Errorf("resource.Store(): %w", err)
-	}
-
-	go ds.run()
-	return nil
-}
-
-// Stop implements hive.HookInterface
-func (ds *diffStore[T]) Stop(stopCtx hive.HookContext) error {
-	ds.cancel()
-
-	select {
-	case <-ds.doneChan:
-	case <-stopCtx.Done():
-		return stopCtx.Err()
-	}
-
-	return nil
-}
-
-func (ds *diffStore[T]) run() {
-	defer close(ds.doneChan)
-
-	for event := range ds.resource.Events(ds.ctx) {
-		ds.handleEvent(event)
-	}
 }
 
 func (ds *diffStore[T]) handleEvent(event resource.Event[T]) {
@@ -131,18 +121,22 @@ func (ds *diffStore[T]) handleEvent(event resource.Event[T]) {
 }
 
 // Diff returns a list of items that have been upserted(updated or inserted) and deleted since the last call to Diff.
-func (sd *diffStore[T]) Diff() (upserted []T, deleted []resource.Key, err error) {
-	sd.mu.Lock()
-	defer sd.mu.Unlock()
+func (ds *diffStore[T]) Diff() (upserted []T, deleted []resource.Key, err error) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	if ds.store == nil {
+		return nil, nil, ErrStoreUninitialized
+	}
 
 	// Deleting keys doesn't shrink the memory size. So if the size of updateKeys ever reaches above this threshold
 	// we should re-create it to reduce memory usage. Below the threshold, don't bother to avoid unnecessary allocation.
 	// Note: this value is arbitrary, can be changed to tune CPU/Memory tradeoff
 	const shrinkThreshold = 64
-	shrink := len(sd.updatedKeys) > shrinkThreshold
+	shrink := len(ds.updatedKeys) > shrinkThreshold
 
-	for k := range sd.updatedKeys {
-		item, found, err := sd.GetByKey(k)
+	for k := range ds.updatedKeys {
+		item, found, err := ds.store.GetByKey(k)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -154,13 +148,38 @@ func (sd *diffStore[T]) Diff() (upserted []T, deleted []resource.Key, err error)
 		}
 
 		if !shrink {
-			delete(sd.updatedKeys, k)
+			delete(ds.updatedKeys, k)
 		}
 	}
 
 	if shrink {
-		sd.updatedKeys = make(map[resource.Key]bool, shrinkThreshold)
+		ds.updatedKeys = make(map[resource.Key]bool, shrinkThreshold)
 	}
 
 	return upserted, deleted, err
+}
+
+// GetByKey returns the latest version of the object with given key.
+func (ds *diffStore[T]) GetByKey(key resource.Key) (item T, exists bool, err error) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	if ds.store == nil {
+		var empty T
+		return empty, false, ErrStoreUninitialized
+	}
+
+	return ds.store.GetByKey(key)
+}
+
+// List returns all items currently in the store.
+func (ds *diffStore[T]) List() (items []T, err error) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	if ds.store == nil {
+		return nil, ErrStoreUninitialized
+	}
+
+	return ds.store.List(), nil
 }

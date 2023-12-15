@@ -66,7 +66,10 @@ func (r *LBServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 		return fmt.Errorf("attempted load balancer service reconciliation with nil local CiliumNode")
 	}
 
-	ls := r.populateLocalServices(p.CiliumNode.Name)
+	ls, err := r.populateLocalServices(p.CiliumNode.Name)
+	if err != nil {
+		return err
+	}
 
 	if r.requiresFullReconciliation(p) {
 		return r.fullReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls)
@@ -103,11 +106,16 @@ func (r *LBServiceReconciler) requiresFullReconciliation(p ReconcileParams) bool
 }
 
 // Populate locally available services used for externalTrafficPolicy=local handling
-func (r *LBServiceReconciler) populateLocalServices(localNodeName string) localServices {
+func (r *LBServiceReconciler) populateLocalServices(localNodeName string) (localServices, error) {
 	ls := make(localServices)
 
+	epList, err := r.epDiffStore.List()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list endpoints from diffstore: %w", err)
+	}
+
 endpointsLoop:
-	for _, eps := range r.epDiffStore.List() {
+	for _, eps := range epList {
 		svc, exists, err := r.resolveSvcFromEndpoints(eps)
 		if err != nil {
 			// Cannot resolve service from endpoints. We have nothing to do here.
@@ -138,7 +146,7 @@ endpointsLoop:
 		}
 	}
 
-	return ls
+	return ls, nil
 }
 
 func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
@@ -203,21 +211,12 @@ func (r *LBServiceReconciler) fullReconciliationServiceList(sc *instance.ServerW
 		}
 	}
 
-	// Loop over all services, find services to reconcile
-	iter := r.diffStore.IterKeys()
-	for iter.Next() {
-		svcKey := iter.Key()
-		svc, found, err := r.diffStore.GetByKey(iter.Key())
-		if err != nil {
-			return nil, nil, fmt.Errorf("diffStore.GetByKey(): %w", err)
-		}
-		if !found {
-			// edgecase: If the service was removed between the call to IterKeys() and GetByKey()
-			toWithdraw = append(toWithdraw, svcKey)
-			continue
-		}
-		toReconcile = append(toReconcile, svc)
+	// Reconcile all existing services
+	svcList, err := r.diffStore.List()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list services from diffstore: %w", err)
 	}
+	toReconcile = append(toReconcile, svcList...)
 
 	return toReconcile, toWithdraw, nil
 }
