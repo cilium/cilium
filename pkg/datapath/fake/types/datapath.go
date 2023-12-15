@@ -31,7 +31,7 @@ func NewDatapathWithNodeAddressing(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
 		node:           NewNodeHandler(),
 		nodeAddressing: na,
-		loader:         &fakeLoader{},
+		loader:         &FakeLoader{},
 		lbmap:          mockmaps.NewLBMockMap(),
 	}
 }
@@ -111,10 +111,6 @@ func (f *FakeDatapath) WireguardAgent() datapath.WireguardAgent {
 	return nil
 }
 
-func (f *FakeDatapath) Procfs() string {
-	return "/proc"
-}
-
 func (f *FakeDatapath) LBMap() datapath.LBMap {
 	return f.lbmap
 }
@@ -128,53 +124,53 @@ func (f *FakeDatapath) BandwidthManager() datapath.BandwidthManager {
 }
 
 // Loader is an interface to abstract out loading of datapath programs.
-type fakeLoader struct {
+type FakeLoader struct {
 }
 
-func (f *fakeLoader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *fakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *fakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *fakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+func (f *FakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
 	panic("implement me")
 }
 
-func (f *fakeLoader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+func (f *FakeLoader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
 	panic("implement me")
 }
 
-func (f *fakeLoader) Unload(ep datapath.Endpoint) {
+func (f *FakeLoader) Unload(ep datapath.Endpoint) {
 }
 
-func (f *fakeLoader) CallsMapPath(id uint16) string {
+func (f *FakeLoader) CallsMapPath(id uint16) string {
 	return ""
 }
 
-func (f *fakeLoader) CustomCallsMapPath(id uint16) string {
+func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
 	return ""
 }
 
 // Reinitialize does nothing.
-func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
 
-func (f *fakeLoader) HostDatapathInitialized() <-chan struct{} {
+func (f *FakeLoader) HostDatapathInitialized() <-chan struct{} {
 	return nil
 }
 
-func (f *fakeLoader) RestoreTemplates(stateDir string) error {
+func (f *FakeLoader) RestoreTemplates(stateDir string) error {
 	return nil
 }
 
-func (f *fakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
+func (f *FakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
 	return false, nil
 }
