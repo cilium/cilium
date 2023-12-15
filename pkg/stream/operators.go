@@ -245,3 +245,72 @@ func Debounce[T any](src Observable[T], duration time.Duration) Observable[T] {
 			}()
 		})
 }
+
+// Buffer collects items into a buffer using the given buffering function and
+// emits the buffer when 'waitTime' has elapsed. Buffer does not emit empty
+// buffers.
+//
+// In:  a   b      c       |->
+// Out:      [a,b]     [c] |->
+func Buffer[Buf any, T any](
+	src Observable[T],
+	bufferSize int,
+	waitTime time.Duration,
+	bufferItem func(Buf, T) Buf) Observable[Buf] {
+
+	return FuncObservable[Buf](
+		func(ctx context.Context, next func(Buf), complete func(error)) {
+			items := make(chan T, bufferSize)
+			errs := make(chan error, 1)
+			src.Observe(
+				ctx,
+				func(item T) {
+					items <- item
+				},
+				func(err error) {
+					close(items)
+					errs <- err
+					close(errs)
+				})
+			go func() {
+				ticker := time.NewTicker(waitTime)
+				defer ticker.Stop()
+
+				var (
+					emptyBuf Buf
+					buf      Buf
+				)
+				n := 0
+			loop:
+				for {
+					select {
+					case <-ticker.C:
+						if n > 0 {
+							next(buf)
+							buf = emptyBuf
+							n = 0
+						}
+
+					case item, ok := <-items:
+						if !ok {
+							break loop
+						}
+						buf = bufferItem(buf, item)
+						n++
+						if n >= bufferSize {
+							next(buf)
+							buf = emptyBuf
+							n = 0
+						}
+					}
+				}
+
+				if n > 0 {
+					next(buf)
+				}
+				complete(<-errs)
+			}()
+
+		})
+
+}
