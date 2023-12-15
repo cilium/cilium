@@ -213,7 +213,6 @@ jobs:
           # bpf.masquerade is disabled due to #23283
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=bpf.masquerade=false \
-            --helm-set=bpf.monitorAggregation=none \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
