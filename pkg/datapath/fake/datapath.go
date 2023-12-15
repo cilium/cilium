@@ -116,10 +116,6 @@ func (f *FakeDatapath) WireguardAgent() datapath.WireguardAgent {
 	return nil
 }
 
-func (f *FakeDatapath) Procfs() string {
-	return "/proc"
-}
-
 func (f *FakeDatapath) LBMap() datapath.LBMap {
 	return f.lbmap
 }
