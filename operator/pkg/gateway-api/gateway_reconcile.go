@@ -102,7 +102,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	serviceImportsList := &mcsapiv1alpha1.ServiceImportList{}
-	if helpers.HasServiceImportCRD() {
+	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
 		if err := r.Client.List(ctx, serviceImportsList); err != nil {
 			scopedLog.WithError(err).Error("Unable to list ServiceImports")
 			return controllerruntime.Fail(err)

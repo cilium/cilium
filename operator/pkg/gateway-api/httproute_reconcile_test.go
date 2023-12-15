@@ -21,7 +21,6 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 )
 
@@ -38,6 +37,58 @@ var (
 				Versions: []apiextensionsv1.CustomResourceDefinitionVersion{{
 					Name: "v1alpha1",
 				}},
+			},
+		},
+	}
+
+	httpRouteServiceImportFixture = []client.Object{
+		// Service for valid HTTPRoute
+		&mcsapiv1alpha1.ServiceImport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dummy-backend",
+				Namespace: "default",
+				Annotations: map[string]string{
+					mcsapicontrollers.DerivedServiceAnnotation: "dummy-backend",
+				},
+			},
+		},
+
+		// Service in another namespace
+		&mcsapiv1alpha1.ServiceImport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dummy-backend",
+				Namespace: "another-namespace",
+				Annotations: map[string]string{
+					mcsapicontrollers.DerivedServiceAnnotation: "dummy-backend",
+				},
+			},
+		},
+
+		// Service for reference grant in another namespace
+		&mcsapiv1alpha1.ServiceImport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dummy-backend-grant",
+				Namespace: "another-namespace",
+				Annotations: map[string]string{
+					mcsapicontrollers.DerivedServiceAnnotation: "dummy-backend-grant",
+				},
+			},
+		},
+
+		// ServiceImport with Service that doesn't exists
+		&mcsapiv1alpha1.ServiceImport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dummy-backend-no-svc",
+				Namespace: "default",
+				Annotations: map[string]string{
+					mcsapicontrollers.DerivedServiceAnnotation: "nonexistent-derived-svc",
+				},
+			},
+		},
+		&mcsapiv1alpha1.ServiceImport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dummy-backend-no-svc-annotation",
+				Namespace: "default",
 			},
 		},
 	}
@@ -102,15 +153,6 @@ var (
 				Namespace: "default",
 			},
 		},
-		&mcsapiv1alpha1.ServiceImport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "dummy-backend",
-				Namespace: "default",
-				Annotations: map[string]string{
-					mcsapicontrollers.DerivedServiceAnnotation: "dummy-backend",
-				},
-			},
-		},
 
 		// Service in another namespace
 		&corev1.Service{
@@ -119,47 +161,12 @@ var (
 				Namespace: "another-namespace",
 			},
 		},
-		&mcsapiv1alpha1.ServiceImport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "dummy-backend",
-				Namespace: "another-namespace",
-				Annotations: map[string]string{
-					mcsapicontrollers.DerivedServiceAnnotation: "dummy-backend",
-				},
-			},
-		},
 
 		// Service for reference grant in another namespace
 		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "dummy-backend-grant",
 				Namespace: "another-namespace",
-			},
-		},
-		&mcsapiv1alpha1.ServiceImport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "dummy-backend-grant",
-				Namespace: "another-namespace",
-				Annotations: map[string]string{
-					mcsapicontrollers.DerivedServiceAnnotation: "dummy-backend-grant",
-				},
-			},
-		},
-
-		// ServiceImport with Service that doesn't exists
-		&mcsapiv1alpha1.ServiceImport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "dummy-backend-no-svc",
-				Namespace: "default",
-				Annotations: map[string]string{
-					mcsapicontrollers.DerivedServiceAnnotation: "nonexistent-derived-svc",
-				},
-			},
-		},
-		&mcsapiv1alpha1.ServiceImport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "dummy-backend-no-svc-annotation",
-				Namespace: "default",
 			},
 		},
 
@@ -713,14 +720,17 @@ var (
 )
 
 func Test_httpRouteReconciler_Reconcile(t *testing.T) {
+	scheme := testScheme()
+	mcsapiv1alpha1.AddToScheme(scheme)
+
 	c := fake.NewClientBuilder().
-		WithScheme(testScheme()).
+		WithScheme(scheme).
 		WithObjects(crdsFixture...).
 		WithObjects(httpRouteFixture...).
+		WithObjects(httpRouteServiceImportFixture...).
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
 
-	helpers.CheckServiceImportCRD(context.Background(), c)
 	r := &httpRouteReconciler{Client: c}
 
 	t.Run("no http route", func(t *testing.T) {
@@ -1007,7 +1017,6 @@ func Test_httpRouteReconciler_Reconcile_NoServiceImportCRD(t *testing.T) {
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
 
-	helpers.CheckServiceImportCRD(context.Background(), c)
 	r := &httpRouteReconciler{Client: c}
 
 	t.Run("valid http route with Service", func(t *testing.T) {
