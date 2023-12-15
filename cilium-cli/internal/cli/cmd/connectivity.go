@@ -187,6 +187,8 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 
 	cmd.Flags().StringSliceVar(&params.ExpectedDropReasons, "expected-drop-reasons", defaults.ExpectedDropReasons, "List of expected drop reasons")
 	cmd.Flags().MarkHidden("expected-drop-reasons")
+	cmd.Flags().StringSliceVar(&params.ExpectedXFRMErrors, "expected-xfrm-errors", defaults.ExpectedXFRMErrors, "List of expected XFRM errors")
+	cmd.Flags().MarkHidden("expected-xfrm-errors")
 
 	cmd.Flags().BoolVar(&params.FlushCT, "flush-ct", false, "Flush conntrack of Cilium on each node")
 	cmd.Flags().MarkHidden("flush-ct")

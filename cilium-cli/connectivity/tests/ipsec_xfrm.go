@@ -9,11 +9,17 @@ import (
 	gojson "encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/utils/features"
+)
+
+const (
+	maxExpectedErrors = 10
 )
 
 type ciliumMetricsXfrmError struct {
@@ -25,11 +31,15 @@ type ciliumMetricsXfrmError struct {
 	Value uint64 `json:"value"`
 }
 
-func NoIPsecXfrmErrors() check.Scenario {
-	return &noIPsecXfrmErrors{}
+func NoIPsecXfrmErrors(expectedErrors []string) check.Scenario {
+	return &noIPsecXfrmErrors{
+		features.ComputeFailureExceptions(defaults.ExpectedXFRMErrors, expectedErrors),
+	}
 }
 
-type noIPsecXfrmErrors struct{}
+type noIPsecXfrmErrors struct {
+	expectedErrors []string
+}
 
 func (n *noIPsecXfrmErrors) Name() string {
 	return "no-ipsec-xfrm-error"
@@ -56,7 +66,6 @@ func (n *noIPsecXfrmErrors) Run(ctx context.Context, t *check.Test) {
 }
 
 func (n *noIPsecXfrmErrors) collectXfrmErrors(ctx context.Context, t *check.Test) map[string]string {
-
 	ct := t.Context()
 	xfrmErrors := map[string]string{}
 	cmd := []string{"cilium", "metrics", "list", "-ojson", "-pcilium_ipsec_xfrm_error"}
@@ -74,10 +83,12 @@ func (n *noIPsecXfrmErrors) collectXfrmErrors(ctx context.Context, t *check.Test
 			t.Fatalf("Unable to unmarshal cilium ipsec xfrm error metrics: %s", err)
 		}
 		for _, xfrmMetric := range xfrmMetrics {
+			name := fmt.Sprintf("%s_%s", xfrmMetric.Labels.Type, xfrmMetric.Labels.Error)
+			if slices.Contains(n.expectedErrors, name) && xfrmMetric.Value < maxExpectedErrors {
+				continue
+			}
 			if xfrmMetric.Value > 0 {
-				xErrors = append(xErrors,
-					fmt.Sprintf("%s_%s:%d",
-						xfrmMetric.Labels.Type, xfrmMetric.Labels.Error, xfrmMetric.Value))
+				xErrors = append(xErrors, fmt.Sprintf("%s:%d", name, xfrmMetric.Value))
 			}
 			sort.Strings(xErrors)
 			xfrmErrors[pod.Pod.Status.HostIP] = strings.Join(xErrors, ",")
