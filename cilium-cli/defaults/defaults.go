@@ -203,4 +203,9 @@ var (
 		"Unknown L3 target address",
 		"No tunnel/encapsulation endpoint (datapath BUG!)",
 	}
+
+	ExpectedXFRMErrors = []string{
+		"inbound_forward_header", // XfrmFwdHdrError
+		"inbound_other",          // XfrmInError
+	}
 )
