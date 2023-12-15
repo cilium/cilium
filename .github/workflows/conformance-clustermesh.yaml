@@ -261,10 +261,17 @@ jobs:
               --helm-set=encryption.type=${{ matrix.encryption }}"
           fi
 
+          CILIUM_INSTALL_INGRESS=""
+          if [ "${{ matrix.kube-proxy }}" == "none" ]; then
+            # The ingress controller requires KPR to be enabled.
+            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
             --flow-validation=disabled \
             --multi-cluster=${{ env.contextName2 }} \
             --external-target=google.com \
+            --include-unsafe-tests \
             --collect-sysdump-on-failure"
 
           # Skip external traffic (e.g. 1.1.1.1 and www.google.com) tests as IPv6 is not supported
@@ -276,7 +283,7 @@ jobs:
           fi
 
           echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
-            ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION}" >> $GITHUB_OUTPUT
+            ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_INGRESS}" >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
@@ -325,6 +332,11 @@ jobs:
           kubectl_version: ${{ env.k8s_version }}
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Label one of the nodes as external to the cluster
+        run: |
+          kubectl --context ${{ env.contextName1 }} label node \
+            ${{ env.clusterName1 }}-worker2 cilium.io/no-schedule=true
 
       # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
       # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
@@ -406,7 +418,8 @@ jobs:
             --helm-set clustermesh.apiserver.service.nodePort=32379 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }}
+            ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }} \
+            --nodes-without-cilium=${{ env.clusterName1 }}-worker2
 
       - name: Copy the Cilium CA secret to cluster2, as they must match
         run: |
