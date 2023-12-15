@@ -6,19 +6,27 @@ package store
 import (
 	"context"
 	"fmt"
+	"runtime/pprof"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/lock"
 
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/workqueue"
 )
 
-// BGPCPResourceStore is a super set of the resource.Store for the BGP Control Plane reconcilers usage.
+// BGPCPResourceStore is a wrapper around the resource.Store for the BGP Control Plane reconcilers usage.
 // It automatically signals the BGP Control Plane whenever an event happens on the resource.
 type BGPCPResourceStore[T k8sRuntime.Object] interface {
-	resource.Store[T]
+	// GetByKey returns the latest version of the object with given key.
+	GetByKey(key resource.Key) (item T, exists bool, err error)
+
+	// List returns all items currently in the store.
+	List() (items []T, err error)
 }
 
 var _ BGPCPResourceStore[*k8sRuntime.Unknown] = (*bgpCPResourceStore[*k8sRuntime.Unknown])(nil)
@@ -26,22 +34,22 @@ var _ BGPCPResourceStore[*k8sRuntime.Unknown] = (*bgpCPResourceStore[*k8sRuntime
 type bgpCPResourceStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
-	Resource  resource.Resource[T]
-	Signaler  *signaler.BGPCPSignaler
+	Lifecycle   hive.Lifecycle
+	Scope       cell.Scope
+	JobRegistry job.Registry
+	Resource    resource.Resource[T]
+	Signaler    *signaler.BGPCPSignaler
 }
 
 // bgpCPResourceStore takes a resource.Resource[T] and watches for events. It can still be used as a normal Store,
 // but in addition to that it will signal the BGP Control plane upon each event via the passed BGPCPSignaler.
 type bgpCPResourceStore[T k8sRuntime.Object] struct {
-	resource.Store[T]
+	store resource.Store[T]
 
 	resource resource.Resource[T]
 	signaler *signaler.BGPCPSignaler
 
-	ctx      context.Context
-	cancel   context.CancelFunc
-	doneChan chan struct{}
+	mu lock.Mutex
 }
 
 func NewBGPCPResourceStore[T k8sRuntime.Object](params bgpCPResourceStoreParams[T]) BGPCPResourceStore[T] {
@@ -52,45 +60,52 @@ func NewBGPCPResourceStore[T k8sRuntime.Object](params bgpCPResourceStoreParams[
 	s := &bgpCPResourceStore[T]{
 		resource: params.Resource,
 		signaler: params.Signaler,
-		doneChan: make(chan struct{}),
 	}
-	s.ctx, s.cancel = context.WithCancel(context.Background())
 
-	params.Lifecycle.Append(s)
+	jobGroup := params.JobRegistry.NewGroup(
+		params.Scope,
+		job.WithPprofLabels(pprof.Labels("cell", "bgp-cp")),
+	)
 
+	jobGroup.Add(
+		job.OneShot("bgpcp-resource-store-events", func(ctx context.Context, health cell.HealthReporter) (err error) {
+			s.store, err = s.resource.Store(ctx)
+			if err != nil {
+				return fmt.Errorf("error creating resource store: %w", err)
+			}
+			for event := range s.resource.Events(ctx) {
+				s.signaler.Event(struct{}{})
+				event.Done(nil)
+			}
+			return nil
+		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
+	)
+
+	params.Lifecycle.Append(jobGroup)
 	return s
 }
 
-// Start implements hive.HookInterface
-func (s *bgpCPResourceStore[T]) Start(ctx hive.HookContext) error {
-	var err error
-	s.Store, err = s.resource.Store(ctx)
-	if err != nil {
-		return fmt.Errorf("resource.Store(): %w", err)
+// List returns all items currently in the store.
+func (s *bgpCPResourceStore[T]) List() (items []T, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.store == nil {
+		return nil, ErrStoreUninitialized
 	}
 
-	go s.run()
-	return nil
+	return s.store.List(), nil
 }
 
-// Stop implements hive.HookInterface
-func (s *bgpCPResourceStore[T]) Stop(stopCtx hive.HookContext) error {
-	s.cancel()
+// GetByKey returns the latest version of the object with given key.
+func (s *bgpCPResourceStore[T]) GetByKey(key resource.Key) (item T, exists bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	select {
-	case <-s.doneChan:
-	case <-stopCtx.Done():
-		return stopCtx.Err()
+	if s.store == nil {
+		var empty T
+		return empty, false, ErrStoreUninitialized
 	}
 
-	return nil
-}
-
-func (s *bgpCPResourceStore[T]) run() {
-	defer close(s.doneChan)
-
-	for event := range s.resource.Events(s.ctx) {
-		s.signaler.Event(struct{}{})
-		event.Done(nil)
-	}
+	return s.store.GetByKey(key)
 }
