@@ -26,4 +26,5 @@ Inspect StateDB
 * [cilium-dbg statedb l2-announce](cilium-dbg_statedb_l2-announce.md)	 - Show contents of table "l2-announce"
 * [cilium-dbg statedb node-addresses](cilium-dbg_statedb_node-addresses.md)	 - Show contents of table "node-addresses"
 * [cilium-dbg statedb routes](cilium-dbg_statedb_routes.md)	 - Show contents of table "routes"
+* [cilium-dbg statedb sysctl](cilium-dbg_statedb_sysctl.md)	 - Show contents of table "sysctl"
 
