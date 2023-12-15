@@ -1311,7 +1311,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# helm.sh/helm/v3 v3.13.2
+# helm.sh/helm/v3 v3.13.3
 ## explicit; go 1.19
 helm.sh/helm/v3/internal/fileutil
 helm.sh/helm/v3/internal/ignore
@@ -1722,7 +1722,7 @@ k8s.io/kube-openapi/pkg/spec3
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/proto/validation
 k8s.io/kube-openapi/pkg/validation/spec
-# k8s.io/kubectl v0.28.2
+# k8s.io/kubectl v0.28.4
 ## explicit; go 1.20
 k8s.io/kubectl/pkg/cmd/util
 k8s.io/kubectl/pkg/scheme
