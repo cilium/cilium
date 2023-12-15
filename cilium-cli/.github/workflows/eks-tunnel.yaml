@@ -143,7 +143,7 @@ jobs:
 
       - name: Wait for job
         env:
-          timeout: 20m
+          timeout: 30m
         run: |
           # Background wait for job to complete or timeout
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
