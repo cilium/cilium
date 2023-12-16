@@ -9,7 +9,7 @@ RUN apk add --no-cache git make ca-certificates
 COPY . .
 RUN make
 
-FROM docker.io/library/busybox:stable-glibc@sha256:a4adb2ef61b2f55d0d5e5e5eca5c71dd0cb4a8c9d0ebb3cfa28966358ae27360
+FROM docker.io/library/busybox:stable-glibc@sha256:ee22a5823b1d3e7881d168f50585274611dbe0ceed4d2ba5bc8afd7cfac71d23
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /go/src/github.com/cilium/cilium-cli/cilium /usr/local/bin/cilium
