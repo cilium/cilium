@@ -239,7 +239,7 @@ func CiliumBGPPeerConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ..
 	return resource.New[*cilium_api_v2alpha1.CiliumBGPPeerConfig](lc, lw, resource.WithMetric("CiliumBGPPeerConfig")), nil
 }
 
-func EndpointsResource(lc cell.Lifecycle, cfg Config, cs client.Clientset) (resource.Resource[*Endpoints], error) {
+func EndpointsResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*Endpoints], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -248,15 +248,16 @@ func EndpointsResource(lc cell.Lifecycle, cfg Config, cs client.Clientset) (reso
 		return nil, err
 	}
 
-	endpointSliceOpsModifier, err := utils.GetEndpointSliceListOptionsModifier()
+	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier()
 	if err != nil {
 		return nil, err
 	}
+
 	lw := &endpointsListerWatcher{
-		cs:                         cs,
-		enableK8sEndpointSlice:     cfg.EnableK8sEndpointSlice,
-		endpointsOptsModifier:      endpointsOptsModifier,
-		endpointSlicesOptsModifier: endpointSliceOpsModifier,
+		cs:                          cs,
+		enableK8sEndpointSlice:      cfg.EnableK8sEndpointSlice,
+		endpointsOptsModifiers:      append(opts, endpointsOptsModifier),
+		endpointSlicesOptsModifiers: append(opts, endpointSliceOptsModifier),
 	}
 	return resource.New[*Endpoints](
 		lc,
@@ -271,11 +272,11 @@ func EndpointsResource(lc cell.Lifecycle, cfg Config, cs client.Clientset) (reso
 // performs the capability check on first call to List/Watch. This allows constructing
 // the resource before the client has been started and capabilities have been probed.
 type endpointsListerWatcher struct {
-	cs                         client.Clientset
-	enableK8sEndpointSlice     bool
-	endpointsOptsModifier      func(*metav1.ListOptions)
-	endpointSlicesOptsModifier func(*metav1.ListOptions)
-	sourceObj                  k8sRuntime.Object
+	cs                          client.Clientset
+	enableK8sEndpointSlice      bool
+	endpointsOptsModifiers      []func(*metav1.ListOptions)
+	endpointSlicesOptsModifiers []func(*metav1.ListOptions)
+	sourceObj                   k8sRuntime.Object
 
 	once                sync.Once
 	cachedListerWatcher cache.ListerWatcher
@@ -302,14 +303,14 @@ func (lw *endpointsListerWatcher) getListerWatcher() cache.ListerWatcher {
 				)
 				lw.sourceObj = &slim_discoveryv1beta1.EndpointSlice{}
 			}
-			lw.cachedListerWatcher = utils.ListerWatcherWithModifier(lw.cachedListerWatcher, lw.endpointSlicesOptsModifier)
+			lw.cachedListerWatcher = utils.ListerWatcherWithModifiers(lw.cachedListerWatcher, lw.endpointSlicesOptsModifiers...)
 		} else {
 			log.Info("Using v1.Endpoints")
 			lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](
 				lw.cs.Slim().CoreV1().Endpoints(""),
 			)
 			lw.sourceObj = &slim_corev1.Endpoints{}
-			lw.cachedListerWatcher = utils.ListerWatcherWithModifier(lw.cachedListerWatcher, lw.endpointsOptsModifier)
+			lw.cachedListerWatcher = utils.ListerWatcherWithModifiers(lw.cachedListerWatcher, lw.endpointsOptsModifiers...)
 		}
 	})
 	return lw.cachedListerWatcher

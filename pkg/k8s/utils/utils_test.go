@@ -69,7 +69,7 @@ func TestServiceProxyName(t *testing.T) {
 	}
 }
 
-func TestServiceEndpointsAndSlices(t *testing.T) {
+func TestEndpointsSlices(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	meta1 := &metav1.ObjectMeta{
 		Name:   "test-svc-1",
@@ -78,7 +78,7 @@ func TestServiceEndpointsAndSlices(t *testing.T) {
 	meta2 := &metav1.ObjectMeta{
 		Name: "test-svc-2",
 		Labels: map[string]string{
-			corev1.IsHeadlessService: "",
+			discoveryv1.LabelManagedBy: EndpointSliceMeshControllerName,
 		},
 	}
 	for _, meta := range []*metav1.ObjectMeta{meta1, meta2} {
@@ -94,20 +94,9 @@ func TestServiceEndpointsAndSlices(t *testing.T) {
 		}
 	}
 
-	// Should return only test-svc-1, since test-svc-2 is headless
-	optMod, _ := GetServiceAndEndpointListOptionsModifier("")
+	// Should return only test-svc-1, since test-svc-2 is managed by the endpoint slice mesh controller
+	optMod, _ := GetEndpointSliceListOptionsModifier()
 	options := metav1.ListOptions{}
-	optMod(&options)
-	eps, err := client.CoreV1().Endpoints("test-ns").List(context.TODO(), options)
-	if err != nil {
-		t.Fatalf("Failed to list services: %s", err)
-	}
-	if len(eps.Items) != 1 || eps.Items[0].ObjectMeta.Name != "test-svc-1" {
-		t.Fatalf("Expected test-svc-1, retrieved: %v", eps)
-	}
-
-	optMod, _ = GetEndpointSliceListOptionsModifier()
-	options = metav1.ListOptions{}
 	optMod(&options)
 	epSlices, err := client.DiscoveryV1().EndpointSlices("test-ns").List(context.TODO(), options)
 	if err != nil {
