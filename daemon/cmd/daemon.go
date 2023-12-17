@@ -688,16 +688,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			}
 		}
 
+		if err := agentK8s.WaitForNodeInformation(d.ctx, log, params.Resources.LocalNode, params.Resources.LocalCiliumNode); err != nil {
+			log.WithError(err).Error("unable to connect to get node spec from apiserver")
+			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
+		}
+
 		if option.Config.IPAM == ipamOption.IPAMClusterPool ||
 			option.Config.IPAM == ipamOption.IPAMMultiPool {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			d.nodeDiscovery.UpdateCiliumNodeResource()
-		}
-
-		if err := agentK8s.WaitForNodeInformation(d.ctx, log, params.Resources.LocalNode, params.Resources.LocalCiliumNode); err != nil {
-			log.WithError(err).Error("unable to connect to get node spec from apiserver")
-			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
 		// Kubernetes demands that the localhost can always reach local
