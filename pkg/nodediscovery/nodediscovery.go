@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/net"
 
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	alibabaCloudMetadata "github.com/cilium/cilium/pkg/alibabacloud/metadata"
@@ -42,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/source"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
@@ -412,8 +414,6 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		k8sNodeAddresses []nodeTypes.Address
 	)
 
-	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
-
 	// If we are unable to fetch the K8s Node resource and the CiliumNode does
 	// not have an OwnerReference set, then somehow we are running in an
 	// environment where only the CiliumNode exists. Do not proceed as this is
@@ -460,6 +460,27 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 	localCN := n.localNode.ToCiliumNode()
 	nodeResource.ObjectMeta.Annotations = localCN.Annotations
+
+	// This function can be called before we have restored the CiliumInternalIP.
+	// In that case, we do not want to remove the old CiliumInternalIP, as this
+	// would lead to the IP address flapping. Therefore, this code preserves any
+	// CiliumInternalIP if (and only if) the local node store does not yet
+	// include the restored CiliumInternalIP.
+	nodeResource.Spec.Addresses = slices.DeleteFunc(nodeResource.Spec.Addresses, func(address ciliumv2.NodeAddress) bool {
+		if address.Type == addressing.NodeCiliumInternalIP {
+			// Only delete a CiliumInternalIP if
+			// a) its IP family is disabled,
+			// and/or
+			// b) the LocalNode store contains an IP address which we can use instead
+			if v4 := net.ParseIPSloppy(address.IP).To4(); v4 != nil {
+				return !n.LocalConfig.EnableIPv4 || n.localNode.GetCiliumInternalIP(false) != nil
+			} else {
+				return !n.LocalConfig.EnableIPv6 || n.localNode.GetCiliumInternalIP(true) != nil
+			}
+		}
+
+		return true // delete all other node addresses
+	})
 
 	for _, k8sAddress := range k8sNodeAddresses {
 		// Do not add CiliumNodeInternalIP from the k8sNodeAddress. The source
