@@ -231,9 +231,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableRuntimeDeviceDetection, false, "Enable runtime device detection and datapath reconfiguration (experimental)")
 	option.BindEnv(vp, option.EnableRuntimeDeviceDetection)
 
-	flags.String(option.LBDevInheritIPAddr, "", fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices))
-	option.BindEnv(vp, option.LBDevInheritIPAddr)
-
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
 	option.BindEnv(vp, option.DatapathMode)
 
