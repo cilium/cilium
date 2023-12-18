@@ -626,6 +626,12 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
 	c.Assert(cachedSelectorWorld, Not(IsNil))
 
+	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
+	c.Assert(cachedSelectorWorldV4, Not(IsNil))
+
+	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
+	c.Assert(cachedSelectorWorldV6, Not(IsNil))
+
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
@@ -646,7 +652,9 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
-							cachedSelectorWorld: nil,
+							cachedSelectorWorld:   nil,
+							cachedSelectorWorldV4: nil,
+							cachedSelectorWorldV6: nil,
 							cachedSelectorTest: &PerSelectorPolicy{
 								Authentication: &api.Authentication{
 									Mode: api.AuthenticationModeDisabled,
@@ -655,8 +663,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 							},
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-							cachedSelectorWorld: {ruleLabel},
-							cachedSelectorTest:  {ruleLabel},
+							cachedSelectorWorld:   {ruleLabel},
+							cachedSelectorWorldV4: {ruleLabel},
+							cachedSelectorWorldV6: {ruleLabel},
+							cachedSelectorTest:    {ruleLabel},
 						},
 					},
 				},
@@ -671,8 +681,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		policyMapState: newMapState(map[Key]MapStateEntry{
 			{TrafficDirection: trafficdirection.Egress.Uint8()}:                              allowEgressMapStateEntry,
 			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}:     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			{Identity: uint32(identity.ReservedIdentityWorldIPv4), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			{Identity: uint32(identity.ReservedIdentityWorldIPv6), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			{Identity: uint32(identity.ReservedIdentityWorldIPv4), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld, cachedSelectorWorldV4),
+			{Identity: uint32(identity.ReservedIdentityWorldIPv6), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld, cachedSelectorWorldV6),
 			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                        rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
 			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                        rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
 		}),
