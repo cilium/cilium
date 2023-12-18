@@ -149,9 +149,9 @@ func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, 
 func (k *Service6Key) String() string {
 	kHost := k.ToHost().(*Service6Key)
 	if kHost.Scope == loadbalancer.ScopeInternal {
-		return fmt.Sprintf("[%s]:%d/i", kHost.Address, kHost.Port)
+		return fmt.Sprintf("[%s]:%d/i (%d)", kHost.Address, kHost.Port, kHost.BackendSlot)
 	} else {
-		return fmt.Sprintf("[%s]:%d", kHost.Address, kHost.Port)
+		return fmt.Sprintf("[%s]:%d (%d)", kHost.Address, kHost.Port, kHost.BackendSlot)
 	}
 }
 
