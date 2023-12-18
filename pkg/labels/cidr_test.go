@@ -13,32 +13,20 @@ import (
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestGetCIDRLabels(t *testing.T) {
 	// clear the cache
 	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []Label](cidrLabelsCacheMaxSize, nil)
 
-	// save global config and restore it at the end of the test
-	enableIPv4, enableIPv6 := option.Config.EnableIPv4, option.Config.EnableIPv6
-	t.Cleanup(func() {
-		option.Config.EnableIPv4, option.Config.EnableIPv6 = enableIPv4, enableIPv6
-	})
-
 	for _, tc := range []struct {
-		name       string
-		enableIPv4 bool
-		enableIPv6 bool
-		prefix     netip.Prefix
-		expected   LabelArray
+		name     string
+		prefix   netip.Prefix
+		expected LabelArray
 	}{
 		{
-			name:       "IPv4 /32 prefix",
-			enableIPv4: true,
-			enableIPv6: false,
-			prefix:     netip.MustParsePrefix("192.0.2.3/32"),
+			name:   "IPv4 /32 prefix",
+			prefix: netip.MustParsePrefix("192.0.2.3/32"),
 			expected: ParseLabelArray(
 				"cidr:0.0.0.0/0",
 				"cidr:128.0.0.0/1", "cidr:192.0.0.0/2", "cidr:192.0.0.0/3", "cidr:192.0.0.0/4",
@@ -49,14 +37,12 @@ func TestGetCIDRLabels(t *testing.T) {
 				"cidr:192.0.0.0/21", "cidr:192.0.0.0/22", "cidr:192.0.2.0/23", "cidr:192.0.2.0/24",
 				"cidr:192.0.2.0/25", "cidr:192.0.2.0/26", "cidr:192.0.2.0/27", "cidr:192.0.2.0/28",
 				"cidr:192.0.2.0/29", "cidr:192.0.2.0/30", "cidr:192.0.2.2/31", "cidr:192.0.2.3/32",
-				"reserved:world",
+				"reserved:world", "reserved:world-ipv4",
 			),
 		},
 		{
-			name:       "IPv4 /24 prefix",
-			enableIPv4: true,
-			enableIPv6: false,
-			prefix:     netip.MustParsePrefix("192.0.2.0/24"),
+			name:   "IPv4 /24 prefix",
+			prefix: netip.MustParsePrefix("192.0.2.0/24"),
 			expected: ParseLabelArray(
 				"cidr:0.0.0.0/0",
 				"cidr:128.0.0.0/1", "cidr:192.0.0.0/2", "cidr:192.0.0.0/3", "cidr:192.0.0.0/4",
@@ -65,37 +51,31 @@ func TestGetCIDRLabels(t *testing.T) {
 				"cidr:192.0.0.0/13", "cidr:192.0.0.0/14", "cidr:192.0.0.0/15", "cidr:192.0.0.0/16",
 				"cidr:192.0.0.0/17", "cidr:192.0.0.0/18", "cidr:192.0.0.0/19", "cidr:192.0.0.0/20",
 				"cidr:192.0.0.0/21", "cidr:192.0.0.0/22", "cidr:192.0.2.0/23", "cidr:192.0.2.0/24",
-				"reserved:world",
+				"reserved:world", "reserved:world-ipv4",
 			),
 		},
 		{
-			name:       "IPv4 /16 prefix",
-			enableIPv4: true,
-			enableIPv6: false,
-			prefix:     netip.MustParsePrefix("10.0.0.0/16"),
+			name:   "IPv4 /16 prefix",
+			prefix: netip.MustParsePrefix("10.0.0.0/16"),
 			expected: ParseLabelArray(
 				"cidr:0.0.0.0/0",
 				"cidr:0.0.0.0/1", "cidr:0.0.0.0/2", "cidr:0.0.0.0/3", "cidr:0.0.0.0/4",
 				"cidr:8.0.0.0/5", "cidr:8.0.0.0/6", "cidr:10.0.0.0/7", "cidr:10.0.0.0/8",
 				"cidr:10.0.0.0/9", "cidr:10.0.0.0/10", "cidr:10.0.0.0/11", "cidr:10.0.0.0/12",
 				"cidr:10.0.0.0/13", "cidr:10.0.0.0/14", "cidr:10.0.0.0/15", "cidr:10.0.0.0/16",
-				"reserved:world",
+				"reserved:world", "reserved:world-ipv4",
 			),
 		},
 		{
-			name:       "IPv4 zero length prefix",
-			enableIPv4: true,
-			enableIPv6: false,
-			prefix:     netip.MustParsePrefix("0.0.0.0/0"),
+			name:   "IPv4 zero length prefix",
+			prefix: netip.MustParsePrefix("0.0.0.0/0"),
 			expected: ParseLabelArray(
-				"reserved:world",
+				"reserved:world", "reserved:world-ipv4",
 			),
 		},
 		{
-			name:       "IPv6 /112 prefix",
-			enableIPv4: false,
-			enableIPv6: true,
-			prefix:     netip.MustParsePrefix("2001:db8:cafe::cab:4:b0b:0/112"),
+			name:   "IPv6 /112 prefix",
+			prefix: netip.MustParsePrefix("2001:db8:cafe::cab:4:b0b:0/112"),
 			expected: ParseLabelArray(
 				// Note that we convert the colons in IPv6 addresses into dashes when
 				// translating into labels, because endpointSelectors don't support
@@ -129,14 +109,12 @@ func TestGetCIDRLabels(t *testing.T) {
 				"cidr:2001-db8-cafe-0-cab-4-800-0/101", "cidr:2001-db8-cafe-0-cab-4-800-0/102", "cidr:2001-db8-cafe-0-cab-4-a00-0/103", "cidr:2001-db8-cafe-0-cab-4-b00-0/104",
 				"cidr:2001-db8-cafe-0-cab-4-b00-0/105", "cidr:2001-db8-cafe-0-cab-4-b00-0/106", "cidr:2001-db8-cafe-0-cab-4-b00-0/107", "cidr:2001-db8-cafe-0-cab-4-b00-0/108",
 				"cidr:2001-db8-cafe-0-cab-4-b08-0/109", "cidr:2001-db8-cafe-0-cab-4-b08-0/110", "cidr:2001-db8-cafe-0-cab-4-b0a-0/111", "cidr:2001-db8-cafe-0-cab-4-b0b-0/112",
-				"reserved:world",
+				"reserved:world", "reserved:world-ipv6",
 			),
 		},
 		{
-			name:       "IPv6 /128 prefix",
-			enableIPv4: false,
-			enableIPv6: true,
-			prefix:     netip.MustParsePrefix("2001:DB8::1/128"),
+			name:   "IPv6 /128 prefix",
+			prefix: netip.MustParsePrefix("2001:DB8::1/128"),
 			expected: ParseLabelArray(
 				"cidr:0--0/0",
 				"cidr:0--0/1", "cidr:0--0/2", "cidr:2000--0/3", "cidr:2000--0/4",
@@ -171,150 +149,11 @@ func TestGetCIDRLabels(t *testing.T) {
 				"cidr:2001-db8--0/117", "cidr:2001-db8--0/118", "cidr:2001-db8--0/119", "cidr:2001-db8--0/120",
 				"cidr:2001-db8--0/121", "cidr:2001-db8--0/122", "cidr:2001-db8--0/123", "cidr:2001-db8--0/124",
 				"cidr:2001-db8--0/125", "cidr:2001-db8--0/126", "cidr:2001-db8--0/127", "cidr:2001-db8--1/128",
-				"reserved:world",
-			),
-		},
-		{
-			name:       "IPv4 /32 prefix in dual stack mode",
-			enableIPv4: true,
-			enableIPv6: true,
-			prefix:     netip.MustParsePrefix("192.0.2.3/32"),
-			expected: ParseLabelArray(
-				"cidr:0.0.0.0/0",
-				"cidr:128.0.0.0/1", "cidr:192.0.0.0/2", "cidr:192.0.0.0/3", "cidr:192.0.0.0/4",
-				"cidr:192.0.0.0/5", "cidr:192.0.0.0/6", "cidr:192.0.0.0/7", "cidr:192.0.0.0/8",
-				"cidr:192.0.0.0/9", "cidr:192.0.0.0/10", "cidr:192.0.0.0/11", "cidr:192.0.0.0/12",
-				"cidr:192.0.0.0/13", "cidr:192.0.0.0/14", "cidr:192.0.0.0/15", "cidr:192.0.0.0/16",
-				"cidr:192.0.0.0/17", "cidr:192.0.0.0/18", "cidr:192.0.0.0/19", "cidr:192.0.0.0/20",
-				"cidr:192.0.0.0/21", "cidr:192.0.0.0/22", "cidr:192.0.2.0/23", "cidr:192.0.2.0/24",
-				"cidr:192.0.2.0/25", "cidr:192.0.2.0/26", "cidr:192.0.2.0/27", "cidr:192.0.2.0/28",
-				"cidr:192.0.2.0/29", "cidr:192.0.2.0/30", "cidr:192.0.2.2/31", "cidr:192.0.2.3/32",
-				"reserved:world-ipv4",
-			),
-		},
-		{
-			name:       "IPv4 /24 prefix in dual stack mode",
-			enableIPv4: true,
-			enableIPv6: true,
-			prefix:     netip.MustParsePrefix("192.0.2.0/24"),
-			expected: ParseLabelArray(
-				"cidr:0.0.0.0/0",
-				"cidr:128.0.0.0/1", "cidr:192.0.0.0/2", "cidr:192.0.0.0/3", "cidr:192.0.0.0/4",
-				"cidr:192.0.0.0/5", "cidr:192.0.0.0/6", "cidr:192.0.0.0/7", "cidr:192.0.0.0/8",
-				"cidr:192.0.0.0/9", "cidr:192.0.0.0/10", "cidr:192.0.0.0/11", "cidr:192.0.0.0/12",
-				"cidr:192.0.0.0/13", "cidr:192.0.0.0/14", "cidr:192.0.0.0/15", "cidr:192.0.0.0/16",
-				"cidr:192.0.0.0/17", "cidr:192.0.0.0/18", "cidr:192.0.0.0/19", "cidr:192.0.0.0/20",
-				"cidr:192.0.0.0/21", "cidr:192.0.0.0/22", "cidr:192.0.2.0/23", "cidr:192.0.2.0/24",
-				"reserved:world-ipv4",
-			),
-		},
-		{
-			name:       "IPv4 /16 prefix in dual stack mode",
-			enableIPv4: true,
-			enableIPv6: true,
-			prefix:     netip.MustParsePrefix("10.0.0.0/16"),
-			expected: ParseLabelArray(
-				"cidr:0.0.0.0/0",
-				"cidr:0.0.0.0/1", "cidr:0.0.0.0/2", "cidr:0.0.0.0/3", "cidr:0.0.0.0/4",
-				"cidr:8.0.0.0/5", "cidr:8.0.0.0/6", "cidr:10.0.0.0/7", "cidr:10.0.0.0/8",
-				"cidr:10.0.0.0/9", "cidr:10.0.0.0/10", "cidr:10.0.0.0/11", "cidr:10.0.0.0/12",
-				"cidr:10.0.0.0/13", "cidr:10.0.0.0/14", "cidr:10.0.0.0/15", "cidr:10.0.0.0/16",
-				"reserved:world-ipv4",
-			),
-		},
-		{
-			name:       "IPv4 zero length prefix in dual stack mode",
-			enableIPv4: true,
-			enableIPv6: true,
-			prefix:     netip.MustParsePrefix("0.0.0.0/0"),
-			expected: ParseLabelArray(
-				"reserved:world-ipv4",
-			),
-		},
-		{
-			name:       "IPv6 /112 prefix in dual stack mode",
-			enableIPv4: true,
-			enableIPv6: true,
-			prefix:     netip.MustParsePrefix("2001:db8:cafe::cab:4:b0b:0/112"),
-			expected: ParseLabelArray(
-				"cidr:0--0/0",
-				"cidr:0--0/1", "cidr:0--0/2", "cidr:2000--0/3", "cidr:2000--0/4",
-				"cidr:2000--0/5", "cidr:2000--0/6", "cidr:2000--0/7", "cidr:2000--0/8",
-				"cidr:2000--0/9", "cidr:2000--0/10", "cidr:2000--0/11", "cidr:2000--0/12",
-				"cidr:2000--0/13", "cidr:2000--0/14", "cidr:2000--0/15", "cidr:2001--0/16",
-				"cidr:2001--0/17", "cidr:2001--0/18", "cidr:2001--0/19", "cidr:2001--0/20",
-				"cidr:2001-800--0/21", "cidr:2001-c00--0/22", "cidr:2001-c00--0/23", "cidr:2001-d00--0/24",
-				"cidr:2001-d80--0/25", "cidr:2001-d80--0/26", "cidr:2001-da0--0/27", "cidr:2001-db0--0/28",
-				"cidr:2001-db8--0/29", "cidr:2001-db8--0/30", "cidr:2001-db8--0/31", "cidr:2001-db8--0/32",
-				"cidr:2001-db8-8000--0/33", "cidr:2001-db8-c000--0/34", "cidr:2001-db8-c000--0/35", "cidr:2001-db8-c000--0/36",
-				"cidr:2001-db8-c800--0/37", "cidr:2001-db8-c800--0/38", "cidr:2001-db8-ca00--0/39", "cidr:2001-db8-ca00--0/40",
-				"cidr:2001-db8-ca80--0/41", "cidr:2001-db8-cac0--0/42", "cidr:2001-db8-cae0--0/43", "cidr:2001-db8-caf0--0/44",
-				"cidr:2001-db8-caf8--0/45", "cidr:2001-db8-cafc--0/46", "cidr:2001-db8-cafe--0/47", "cidr:2001-db8-cafe--0/48",
-				"cidr:2001-db8-cafe--0/49", "cidr:2001-db8-cafe--0/50", "cidr:2001-db8-cafe--0/51", "cidr:2001-db8-cafe--0/52",
-				"cidr:2001-db8-cafe--0/53", "cidr:2001-db8-cafe--0/54", "cidr:2001-db8-cafe--0/55", "cidr:2001-db8-cafe--0/56",
-				"cidr:2001-db8-cafe--0/57", "cidr:2001-db8-cafe--0/58", "cidr:2001-db8-cafe--0/59", "cidr:2001-db8-cafe--0/60",
-				"cidr:2001-db8-cafe--0/61", "cidr:2001-db8-cafe--0/62", "cidr:2001-db8-cafe--0/63", "cidr:2001-db8-cafe--0/64",
-				"cidr:2001-db8-cafe--0/65", "cidr:2001-db8-cafe--0/66", "cidr:2001-db8-cafe--0/67", "cidr:2001-db8-cafe--0/68",
-				"cidr:2001-db8-cafe-0-800--0/69", "cidr:2001-db8-cafe-0-c00--0/70", "cidr:2001-db8-cafe-0-c00--0/71", "cidr:2001-db8-cafe-0-c00--0/72",
-				"cidr:2001-db8-cafe-0-c80--0/73", "cidr:2001-db8-cafe-0-c80--0/74", "cidr:2001-db8-cafe-0-ca0--0/75", "cidr:2001-db8-cafe-0-ca0--0/76",
-				"cidr:2001-db8-cafe-0-ca8--0/77", "cidr:2001-db8-cafe-0-ca8--0/78", "cidr:2001-db8-cafe-0-caa--0/79", "cidr:2001-db8-cafe-0-cab--0/80",
-				"cidr:2001-db8-cafe-0-cab--0/81", "cidr:2001-db8-cafe-0-cab--0/82", "cidr:2001-db8-cafe-0-cab--0/83", "cidr:2001-db8-cafe-0-cab--0/84",
-				"cidr:2001-db8-cafe-0-cab--0/85", "cidr:2001-db8-cafe-0-cab--0/86", "cidr:2001-db8-cafe-0-cab--0/87", "cidr:2001-db8-cafe-0-cab--0/88",
-				"cidr:2001-db8-cafe-0-cab--0/89", "cidr:2001-db8-cafe-0-cab--0/90", "cidr:2001-db8-cafe-0-cab--0/91", "cidr:2001-db8-cafe-0-cab--0/92",
-				"cidr:2001-db8-cafe-0-cab--0/93", "cidr:2001-db8-cafe-0-cab-4--0/94", "cidr:2001-db8-cafe-0-cab-4--0/95", "cidr:2001-db8-cafe-0-cab-4--0/96",
-				"cidr:2001-db8-cafe-0-cab-4--0/97", "cidr:2001-db8-cafe-0-cab-4--0/98", "cidr:2001-db8-cafe-0-cab-4--0/99", "cidr:2001-db8-cafe-0-cab-4--0/100",
-				"cidr:2001-db8-cafe-0-cab-4-800-0/101", "cidr:2001-db8-cafe-0-cab-4-800-0/102", "cidr:2001-db8-cafe-0-cab-4-a00-0/103", "cidr:2001-db8-cafe-0-cab-4-b00-0/104",
-				"cidr:2001-db8-cafe-0-cab-4-b00-0/105", "cidr:2001-db8-cafe-0-cab-4-b00-0/106", "cidr:2001-db8-cafe-0-cab-4-b00-0/107", "cidr:2001-db8-cafe-0-cab-4-b00-0/108",
-				"cidr:2001-db8-cafe-0-cab-4-b08-0/109", "cidr:2001-db8-cafe-0-cab-4-b08-0/110", "cidr:2001-db8-cafe-0-cab-4-b0a-0/111", "cidr:2001-db8-cafe-0-cab-4-b0b-0/112",
-				"reserved:world-ipv6",
-			),
-		},
-		{
-			name:       "IPv6 /128 prefix in dual stack mode",
-			enableIPv4: true,
-			enableIPv6: true,
-			prefix:     netip.MustParsePrefix("2001:DB8::1/128"),
-			expected: ParseLabelArray(
-				"cidr:0--0/0",
-				"cidr:0--0/1", "cidr:0--0/2", "cidr:2000--0/3", "cidr:2000--0/4",
-				"cidr:2000--0/5", "cidr:2000--0/6", "cidr:2000--0/7", "cidr:2000--0/8",
-				"cidr:2000--0/9", "cidr:2000--0/10", "cidr:2000--0/11", "cidr:2000--0/12",
-				"cidr:2000--0/13", "cidr:2000--0/14", "cidr:2000--0/15", "cidr:2001--0/16",
-				"cidr:2001--0/17", "cidr:2001--0/18", "cidr:2001--0/19", "cidr:2001--0/20",
-				"cidr:2001-800--0/21", "cidr:2001-c00--0/22", "cidr:2001-c00--0/23", "cidr:2001-d00--0/24",
-				"cidr:2001-d80--0/25", "cidr:2001-d80--0/26", "cidr:2001-da0--0/27", "cidr:2001-db0--0/28",
-				"cidr:2001-db8--0/29", "cidr:2001-db8--0/30", "cidr:2001-db8--0/31", "cidr:2001-db8--0/32",
-				"cidr:2001-db8--0/33", "cidr:2001-db8--0/34", "cidr:2001-db8--0/35", "cidr:2001-db8--0/36",
-				"cidr:2001-db8--0/37", "cidr:2001-db8--0/38", "cidr:2001-db8--0/39", "cidr:2001-db8--0/40",
-				"cidr:2001-db8--0/41", "cidr:2001-db8--0/42", "cidr:2001-db8--0/43", "cidr:2001-db8--0/44",
-				"cidr:2001-db8--0/45", "cidr:2001-db8--0/46", "cidr:2001-db8--0/47", "cidr:2001-db8--0/48",
-				"cidr:2001-db8--0/49", "cidr:2001-db8--0/50", "cidr:2001-db8--0/51", "cidr:2001-db8--0/52",
-				"cidr:2001-db8--0/53", "cidr:2001-db8--0/54", "cidr:2001-db8--0/55", "cidr:2001-db8--0/56",
-				"cidr:2001-db8--0/57", "cidr:2001-db8--0/58", "cidr:2001-db8--0/59", "cidr:2001-db8--0/60",
-				"cidr:2001-db8--0/61", "cidr:2001-db8--0/62", "cidr:2001-db8--0/63", "cidr:2001-db8--0/64",
-				"cidr:2001-db8--0/65", "cidr:2001-db8--0/66", "cidr:2001-db8--0/67", "cidr:2001-db8--0/68",
-				"cidr:2001-db8--0/69", "cidr:2001-db8--0/70", "cidr:2001-db8--0/71", "cidr:2001-db8--0/72",
-				"cidr:2001-db8--0/73", "cidr:2001-db8--0/74", "cidr:2001-db8--0/75", "cidr:2001-db8--0/76",
-				"cidr:2001-db8--0/77", "cidr:2001-db8--0/78", "cidr:2001-db8--0/79", "cidr:2001-db8--0/80",
-				"cidr:2001-db8--0/81", "cidr:2001-db8--0/82", "cidr:2001-db8--0/83", "cidr:2001-db8--0/84",
-				"cidr:2001-db8--0/85", "cidr:2001-db8--0/86", "cidr:2001-db8--0/87", "cidr:2001-db8--0/88",
-				"cidr:2001-db8--0/89", "cidr:2001-db8--0/90", "cidr:2001-db8--0/91", "cidr:2001-db8--0/92",
-				"cidr:2001-db8--0/93", "cidr:2001-db8--0/94", "cidr:2001-db8--0/95", "cidr:2001-db8--0/96",
-				"cidr:2001-db8--0/97", "cidr:2001-db8--0/98", "cidr:2001-db8--0/99", "cidr:2001-db8--0/100",
-				"cidr:2001-db8--0/101", "cidr:2001-db8--0/102", "cidr:2001-db8--0/103", "cidr:2001-db8--0/104",
-				"cidr:2001-db8--0/105", "cidr:2001-db8--0/106", "cidr:2001-db8--0/107", "cidr:2001-db8--0/108",
-				"cidr:2001-db8--0/109", "cidr:2001-db8--0/110", "cidr:2001-db8--0/111", "cidr:2001-db8--0/112",
-				"cidr:2001-db8--0/113", "cidr:2001-db8--0/114", "cidr:2001-db8--0/115", "cidr:2001-db8--0/116",
-				"cidr:2001-db8--0/117", "cidr:2001-db8--0/118", "cidr:2001-db8--0/119", "cidr:2001-db8--0/120",
-				"cidr:2001-db8--0/121", "cidr:2001-db8--0/122", "cidr:2001-db8--0/123", "cidr:2001-db8--0/124",
-				"cidr:2001-db8--0/125", "cidr:2001-db8--0/126", "cidr:2001-db8--0/127", "cidr:2001-db8--1/128",
-				"reserved:world-ipv6",
+				"reserved:world", "reserved:world-ipv6",
 			),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			option.Config.EnableIPv4 = tc.enableIPv4
-			option.Config.EnableIPv6 = tc.enableIPv6
 
 			lbls := GetCIDRLabels(tc.prefix)
 			lblArray := lbls.LabelArray()
@@ -330,12 +169,6 @@ func TestGetCIDRLabels(t *testing.T) {
 }
 
 func TestCIDRLabelsCache(t *testing.T) {
-	// save global config and restore it at the end of the test
-	enableIPv4, enableIPv6 := option.Config.EnableIPv4, option.Config.EnableIPv6
-	t.Cleanup(func() {
-		option.Config.EnableIPv4, option.Config.EnableIPv6 = enableIPv4, enableIPv6
-	})
-
 	prefixes := []netip.Prefix{
 		netip.MustParsePrefix("87.151.93.239/32"), netip.MustParsePrefix("87.151.93.238/31"),
 		netip.MustParsePrefix("87.151.93.236/30"), netip.MustParsePrefix("87.151.93.232/29"),
@@ -375,11 +208,11 @@ func TestCIDRLabelsCache(t *testing.T) {
 
 			var expectedLblArray LabelArray
 			if prefixes[i] == prefixes[len(prefixes)-1] { // default route "0.0.0.0/0" should become "reserved:world"
-				expectedLblArray = ParseLabelArray("reserved:world")
+				expectedLblArray = ParseLabelArray("reserved:world", "reserved:world-ipv4")
 			} else {
 				expectedLbls := make([]string, len(cidrLabels)-i)
 				copy(expectedLbls, cidrLabels[:len(cidrLabels)-i])
-				expectedLblArray = ParseLabelArray(append(expectedLbls, "reserved:world")...)
+				expectedLblArray = ParseLabelArray(append(expectedLbls, "reserved:world", "reserved:world-ipv4")...)
 			}
 
 			assert.ElementsMatch(t, lblArray, expectedLblArray)
@@ -393,18 +226,16 @@ func TestCIDRLabelsCache(t *testing.T) {
 
 			var expectedLblArray LabelArray
 			if prefixes[i] == prefixes[len(prefixes)-1] { // default route "0.0.0.0/0" should become "reserved:world"
-				expectedLblArray = ParseLabelArray("reserved:world")
+				expectedLblArray = ParseLabelArray("reserved:world", "reserved:world-ipv4")
 			} else {
 				expectedLbls := make([]string, len(cidrLabels)-i)
 				copy(expectedLbls, cidrLabels[:len(cidrLabels)-i])
-				expectedLblArray = ParseLabelArray(append(expectedLbls, "reserved:world")...)
+				expectedLblArray = ParseLabelArray(append(expectedLbls, "reserved:world", "reserved:world-ipv4")...)
 			}
 
 			assert.ElementsMatch(t, lblArray, expectedLblArray)
 		}
 	}
-
-	option.Config.EnableIPv4, option.Config.EnableIPv6 = true, false
 
 	// First, compute all the labels starting from the largest CIDR to the smaller ones.
 	// This will warm up the LRU cache. Then, do it the other way around to verify that
@@ -489,14 +320,6 @@ func TestIPStringToLabel(t *testing.T) {
 func TestCIDRLabelsCacheHeapUsageIPv4(t *testing.T) {
 	t.Skip()
 
-	// save global config and restore it at the end of the test
-	enableIPv4, enableIPv6 := option.Config.EnableIPv4, option.Config.EnableIPv6
-	t.Cleanup(func() {
-		option.Config.EnableIPv4, option.Config.EnableIPv6 = enableIPv4, enableIPv6
-	})
-
-	option.Config.EnableIPv4, option.Config.EnableIPv6 = true, false
-
 	// clear the cache
 	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []Label](cidrLabelsCacheMaxSize, nil)
 
@@ -529,14 +352,6 @@ func TestCIDRLabelsCacheHeapUsageIPv4(t *testing.T) {
 
 func TestCIDRLabelsCacheHeapUsageIPv6(t *testing.T) {
 	t.Skip()
-
-	// save global config and restore it at the end of the test
-	enableIPv4, enableIPv6 := option.Config.EnableIPv4, option.Config.EnableIPv6
-	t.Cleanup(func() {
-		option.Config.EnableIPv4, option.Config.EnableIPv6 = enableIPv4, enableIPv6
-	})
-
-	option.Config.EnableIPv4, option.Config.EnableIPv6 = true, true
 
 	// clear the cache
 	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []Label](cidrLabelsCacheMaxSize, nil)
@@ -720,6 +535,7 @@ func TestGetPrintableModel(t *testing.T) {
 			"cidr:fc00:c112::0/64",
 			"k8s:foo=bar",
 			"reserved:remote-node",
+			"reserved:world",
 			"reserved:world-ipv4",
 			"reserved:world-ipv6",
 		},

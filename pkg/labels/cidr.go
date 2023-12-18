@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // maskedIPToLabelString is the base method for serializing an IP + prefix into
@@ -134,9 +133,8 @@ var (
 const cidrLabelsCacheMaxSize = 8192
 
 func addWorldLabel(addr netip.Addr, lbls Labels) {
+	lbls[worldLabel.Key] = worldLabel
 	switch {
-	case !option.Config.IsDualStack():
-		lbls[worldLabelNonDualStack.Key] = worldLabelNonDualStack
 	case addr.Is4():
 		lbls[worldLabelV4.Key] = worldLabelV4
 	default:
@@ -147,9 +145,9 @@ func addWorldLabel(addr netip.Addr, lbls Labels) {
 var (
 	once sync.Once
 
-	worldLabelNonDualStack = Label{Key: IDNameWorld, Source: LabelSourceReserved}
-	worldLabelV4           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv4}
-	worldLabelV6           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv6}
+	worldLabel   = Label{Key: IDNameWorld, Source: LabelSourceReserved}
+	worldLabelV4 = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv4}
+	worldLabelV6 = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv6}
 )
 
 func computeCIDRLabels(cache *simplelru.LRU[netip.Prefix, []Label], lbls Labels, results []Label, addr netip.Addr, ones int) []Label {
