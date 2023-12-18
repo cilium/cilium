@@ -113,7 +113,7 @@ func Test_printSummary(t *testing.T) {
 		for scanner.Scan() {
 			// First row should match col format
 			if rows == 0 {
-				validateColFormat(t, scanner.Text())
+				validateColFormat(t, expectedColFormat, scanner.Text())
 			}
 
 			rows++
@@ -122,7 +122,7 @@ func Test_printSummary(t *testing.T) {
 	}
 }
 
-func validateColFormat(t *testing.T, output string) {
+func validateColFormat(t *testing.T, expectedFormat []string, output string) {
 	outputSlice := strings.Split(output, strings.Repeat(string(paddingChar), padding))
 
 	// clean up white spaces, and empty [""] which can come in output
@@ -138,5 +138,5 @@ func validateColFormat(t *testing.T, output string) {
 	}
 	outputSlice = outputSlice[:i]
 
-	require.Equal(t, expectedColFormat, outputSlice)
+	require.Equal(t, expectedFormat, outputSlice)
 }
