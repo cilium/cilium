@@ -135,6 +135,40 @@ jobs:
         with:
           image-tag: ${{ inputs.SHA }}
 
+      - name: Set upgrade/downgrade variables
+        id: downgrade_vars
+        if: ${{ matrix.upgrade != '' }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.upgrade }}" = "minor" ]; then
+            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
+            IMAGE_TAG=${CILIUM_DOWNGRADE_VERSION}
+          else
+            # Upgrade from / downgrade to patch release.
+            # In some cases we expect to fail to get the version number, do not
+            # fail the workflow in such case. This includes:
+            # - on main branch where we don't have preceeding patch releases
+            # - on stable branches on top of release preparation commits, where
+            #   we bump the patch version number to 90 and we can't easily
+            #   derive the number of the previous patch release version from
+            #   that.
+            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh patch || true)
+            # Pass an empty tag to the cilium-config action to fall back to the
+            # default release image, without crafting an image path with the
+            # "-ci" suffix
+            IMAGE_TAG=''
+          fi
+          echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
+          echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
+
+      - name: Get Cilium's upgrade/downgrade default values
+        id: downgrade_default_vars
+        if: ${{ matrix.upgrade != '' }}
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ steps.downgrade_vars.outputs.image_tag }}
+          chart-dir: './cilium-${{ steps.downgrade_vars.outputs.downgrade_version }}/install/kubernetes/cilium/'
+
       - name: Set up job variables
         id: vars
         run: |
@@ -144,8 +178,9 @@ jobs:
             OWNER="${{ github.ref_name }}"
             OWNER="${OWNER/./-}"
           fi
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
 
-          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+          CILIUM_INSTALL_DEFAULTS="
             --cluster-name=${{ env.clusterName }} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set loadBalancer.l7.backend=envoy \
@@ -155,13 +190,16 @@ jobs:
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
           fi
+          echo cilium_install_defaults="${{ steps.default_vars.outputs.cilium_install_defaults }} ${CILIUM_INSTALL_DEFAULTS}" >> $GITHUB_OUTPUT
+          if [[ "${{ matrix.upgrade }}" != "" ]]; then
+            echo cilium_downgrade_defaults="${{ steps.downgrade_default_vars.outputs.cilium_install_defaults }} ${CILIUM_INSTALL_DEFAULTS}" >> $GITHUB_OUTPUT
+          fi
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target amazon.com"
-          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
-          echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Install kubectl
         run: |
@@ -205,13 +243,6 @@ jobs:
           KEYID=15
           kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${KEYID} rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
 
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -219,6 +250,14 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Checkout ${{ steps.downgrade_vars.outputs.downgrade_version }} branch to get the Helm chart
+        if: ${{ steps.downgrade_vars.outputs.downgrade_version != '' }}
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          path: cilium-${{ steps.downgrade_vars.outputs.downgrade_version }}
+          ref: ${{ steps.downgrade_vars.outputs.downgrade_version }}
           persist-credentials: false
 
       - name: Install Cilium CLI
@@ -230,10 +269,23 @@ jobs:
           binary-name: cilium-cli
           binary-dir: ./
 
+      - name: Wait for images to be available
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
       - name: Install Cilium
         id: install-cilium
         run: |
-          ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+          if [ "${{ matrix.upgrade }}" == "" ]; then
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+          else
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_downgrade_defaults }}
+          fi
 
       - name: Wait for Cilium to be ready
         run: |
@@ -262,17 +314,55 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.upgrade  == '' }}
         run: |
           ./cilium-cli connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
       - name: Run IPsec key rotation tests (${{ join(matrix.*, ', ') }})
-        if: ${{ matrix.ipsec == true }}
-        uses: cilium/cilium/.github/actions/ipsec-key-rotate@main
+        if: ${{ matrix.ipsec == true }} && ${{ matrix.upgrade == '' }}
+        uses: ./.github/actions/ipsec-key-rotate
         with:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
           key-type: "gcm(aes)"
+
+
+      - name: Start conn-disrupt-test
+        if: ${{ steps.downgrade_vars.outputs.downgrade_version != '' }}
+        shell: bash
+        run: |
+          # Create pods which establish long lived connections. It will be used by
+          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+          # interruption in such flows.
+          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-dispatch-interval 0ms
+
+      - name: Upgrade Cilium & Test (${{ matrix.name }})
+        if: ${{ steps.downgrade_vars.outputs.downgrade_version != '' }}
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@main
+        with:
+          job-name: ipsec-upgrade-${{ matrix.name }}
+          operation-cmd: |
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              ${{ steps.vars.outputs.cilium_install_defaults }}
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
+
+      - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
+        if: ${{ steps.downgrade_vars.outputs.downgrade_version != '' }}
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@main
+        with:
+          job-name: ipsec-downgrade-${{ matrix.name }}
+          operation-cmd: |
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              ${{ steps.vars.outputs.cilium_downgrade_defaults }}
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
