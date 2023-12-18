@@ -30,15 +30,17 @@ func (f *fromCIDRToPod) Run(ctx context.Context, t *check.Test) {
 	i := 0
 
 	for _, pod := range t.Context().EchoPods() {
-		ep := check.HTTPEndpoint(
-			"http-endpoint",
-			// scheme://[ip:port]/path
-			pod.Scheme()+"://"+net.JoinHostPort(pod.Address(features.IPFamilyAny), strconv.FormatUint(uint64(pod.Port()), 10))+pod.Path(),
-		)
+		t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			ep := check.HTTPEndpoint(
+				"http-endpoint",
+				// scheme://[ip:port]/path
+				pod.Scheme()+"://"+net.JoinHostPort(pod.Address(ipFam), strconv.FormatUint(uint64(pod.Port()), 10))+pod.Path(),
+			)
 
-		t.NewAction(f, "host-netns-to-pod", &clientPod, pod, features.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, t.Context().CurlCommand(ep, features.IPFamilyAny))
+			t.NewAction(f, "host-netns-to-pod", &clientPod, pod, ipFam).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, t.Context().CurlCommand(ep, ipFam))
+			})
+			i++
 		})
-		i++
 	}
 }
