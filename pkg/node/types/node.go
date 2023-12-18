@@ -5,6 +5,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"path"
 	"slices"
@@ -634,6 +635,15 @@ func (n *Node) Unmarshal(_ string, data []byte) error {
 	*n = newNode
 
 	return nil
+}
+
+// LogRepr returns a representation of the node to be used for logging
+func (n *Node) LogRepr() string {
+	b, err := n.Marshal()
+	if err != nil {
+		return fmt.Sprintf("%#v", n)
+	}
+	return string(b)
 }
 
 func (n *Node) validate() error {
