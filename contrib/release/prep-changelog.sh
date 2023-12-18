@@ -45,6 +45,10 @@ handle_args() {
         usage 2>&1
         common::exit 1 "Invalid OLD-BRANCH ARG \"$3\"; Expected X.Y"
     fi
+
+    if ! gh auth status >/dev/null; then
+        common::exit 1 "Failed to authenticate with GitHub"
+    fi
 }
 
 main() {
