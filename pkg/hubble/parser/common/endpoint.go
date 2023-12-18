@@ -109,9 +109,10 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				// receiving side.
 			} else {
 				r.log.WithFields(logrus.Fields{
-					logfields.Identity:    datapathID.Uint32(),
-					logfields.OldIdentity: userspaceID.Uint32(),
-					logfields.IPAddr:      ip,
+					"datapath-identity":  datapathID.Uint32(),
+					"userspace-identity": userspaceID.Uint32(),
+					"context":            logfields.Repr(context),
+					logfields.IPAddr:     ip,
 				}).Debugf("stale identity observed")
 			}
 		}
