@@ -54,8 +54,9 @@ function update_docker_and_buildx() {
 
   sudo apt-get update
   sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+  sudo apt-get -y install ipset
   mkdir -vp ~/.docker/cli-plugins/
-  
+
   case `uname -m` in
     'x86_64' )
       curl --silent -L "https://github.com/docker/buildx/releases/download/v0.12.0/buildx-v0.12.0.linux-amd64" > ~/.docker/cli-plugins/docker-buildx
