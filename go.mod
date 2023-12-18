@@ -24,7 +24,7 @@ require (
 	github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
 	github.com/cilium/ebpf v0.12.3
 	github.com/cilium/fake v0.5.0
-	github.com/cilium/linters v0.0.0-20231128100620-d347ad992978
+	github.com/cilium/linters v0.0.0-20231212144836-da63a644e8a9
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20231031145409-f19708f3d018
 	github.com/cilium/workerpool v1.2.0
@@ -36,7 +36,7 @@ require (
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
-	github.com/go-openapi/errors v0.20.4
+	github.com/go-openapi/errors v0.21.0
 	github.com/go-openapi/loads v0.21.2
 	github.com/go-openapi/runtime v0.26.2
 	github.com/go-openapi/spec v0.20.11
@@ -49,7 +49,7 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/google/gops v0.3.27
 	github.com/google/renameio/v2 v2.0.0
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.5.0
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/consul/api v1.26.1
@@ -96,7 +96,7 @@ require (
 	go.universe.tf/metallb v0.11.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.16.0
-	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb
+	golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
 	golang.org/x/mod v0.14.0
 	golang.org/x/net v0.19.0
 	golang.org/x/sync v0.5.0
@@ -104,10 +104,10 @@ require (
 	golang.org/x/term v0.15.0
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.16.0
-	golang.zx2c4.com/wireguard v0.0.0-20231022001213-2e0774f246fb
+	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231127180814-3a041ad873d4
-	google.golang.org/grpc v1.59.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231212172506-995d672761c0
+	google.golang.org/grpc v1.60.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -251,8 +251,8 @@ require (
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto v0.0.0-20231120223509-83a465c0220f // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
+	google.golang.org/genproto v0.0.0-20231211222908-989df2bf70f3 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
