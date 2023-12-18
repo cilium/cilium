@@ -31,3 +31,16 @@ func CiliumSlimEndpointResource(lc hive.Lifecycle, cs client.Clientset, opts ...
 		}, k8s.TransformToCiliumEndpoint),
 	), nil
 }
+
+func CiliumNodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumNode](lc, lw,
+		resource.WithMetric("CiliumNode"),
+	), nil
+}

@@ -26,7 +26,7 @@ var (
 		cell.Provide(
 			k8s.ServiceResource,
 			k8s.EndpointsResource,
-			k8s.CiliumNodeResource,
+			CiliumNodeResource,
 			k8s.CiliumIdentityResource,
 			// The CiliumSlimEndpoint resource constructor in the agent depends on the
 			// LocalNodeStore to index its cache. In the clustermesh-apiserver, there is no
