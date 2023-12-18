@@ -405,7 +405,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		logfields.NodeName:    n.Name,
 	}).Info("Node updated")
 	if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-		log.Debugf("Received node update event from %s: %#v", n.Source, n)
+		log.WithField(logfields.Node, n.LogRepr()).Debugf("Received node update event from %s", n.Source)
 	}
 
 	nodeIdentifier := n.Identity()
