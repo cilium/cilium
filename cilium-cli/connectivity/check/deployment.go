@@ -89,12 +89,36 @@ type deploymentParameters struct {
 	TerminationGracePeriodSeconds *int64
 }
 
+func (p *deploymentParameters) namedPort() string {
+	if len(p.NamedPort) == 0 {
+		return fmt.Sprintf("port-%d", p.Port)
+	}
+	return p.NamedPort
+}
+
+func (p *deploymentParameters) ports() (ports []corev1.ContainerPort) {
+	if p.Port != 0 {
+		ports = append(ports, corev1.ContainerPort{
+			Name: p.namedPort(), ContainerPort: int32(p.Port), HostPort: int32(p.HostPort)})
+	}
+
+	return ports
+}
+
+func (p *deploymentParameters) envs() (envs []corev1.EnvVar) {
+	if p.Port != 0 {
+		envs = append(envs,
+			corev1.EnvVar{Name: "PORT", Value: fmt.Sprintf("%d", p.Port)},
+			corev1.EnvVar{Name: "NAMED_PORT", Value: p.namedPort()},
+		)
+	}
+
+	return envs
+}
+
 func newDeployment(p deploymentParameters) *appsv1.Deployment {
 	if p.Replicas == 0 {
 		p.Replicas = 1
-	}
-	if len(p.NamedPort) == 0 {
-		p.NamedPort = fmt.Sprintf("port-%d", p.Port)
 	}
 	replicas32 := int32(p.Replicas)
 	dep := &appsv1.Deployment{
@@ -118,14 +142,9 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name: p.Name,
-							Env: []corev1.EnvVar{
-								{Name: "PORT", Value: fmt.Sprintf("%d", p.Port)},
-								{Name: "NAMED_PORT", Value: p.NamedPort},
-							},
-							Ports: []corev1.ContainerPort{
-								{Name: p.NamedPort, ContainerPort: int32(p.Port), HostPort: int32(p.HostPort)},
-							},
+							Name:            p.Name,
+							Env:             p.envs(),
+							Ports:           p.ports(),
 							Image:           p.Image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Command:         p.Command,
@@ -213,7 +232,6 @@ type daemonSetParameters struct {
 	Kind           string
 	Image          string
 	Replicas       int
-	Port           int
 	Command        []string
 	Affinity       *corev1.Affinity
 	ReadinessProbe *corev1.Probe
@@ -472,7 +490,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Image:    "quay.io/cilium/test-connection-disruption:v0.0.13",
 				Replicas: 5,
 				Labels:   map[string]string{"app": "test-conn-disrupt-client"},
-				Port:     8000,
 				Command: []string{
 					"tcd-client",
 					"--dispatch-interval", strconv.Itoa(int(ct.params.ConnDisruptDispatchInterval.Milliseconds())),
@@ -598,8 +615,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		clientDeployment := newDeployment(deploymentParameters{
 			Name:         clientDeploymentName,
 			Kind:         kindClientName,
-			NamedPort:    "http-8080",
-			Port:         8080,
 			Image:        ct.params.CurlImage,
 			Command:      []string{"/bin/ash", "-c", "sleep 10000000"},
 			Annotations:  ct.params.DeploymentAnnotations.Match(clientDeploymentName),
@@ -622,8 +637,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		clientDeployment := newDeployment(deploymentParameters{
 			Name:        client2DeploymentName,
 			Kind:        kindClientName,
-			NamedPort:   "http-8080",
-			Port:        8080,
 			Image:       ct.params.CurlImage,
 			Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
 			Labels:      map[string]string{"other": "client"},
@@ -662,8 +675,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			clientDeployment := newDeployment(deploymentParameters{
 				Name:        client3DeploymentName,
 				Kind:        kindClientName,
-				NamedPort:   "http-8080",
-				Port:        8080,
 				Image:       ct.params.CurlImage,
 				Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
 				Labels:      map[string]string{"other": "client-other-node"},
@@ -701,8 +712,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		clientDeployment := newDeployment(deploymentParameters{
 			Name:        clientCPDeployment,
 			Kind:        kindClientName,
-			NamedPort:   "http-8080",
-			Port:        8080,
 			Image:       ct.params.CurlImage,
 			Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
 			Labels:      map[string]string{"other": "client"},
@@ -792,7 +801,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					Name:        hostNetNSDeploymentName,
 					Kind:        kindHostNetNS,
 					Image:       ct.params.CurlImage,
-					Port:        8080,
 					Labels:      map[string]string{"other": "host-netns"},
 					Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
 					HostNetwork: true,
@@ -811,7 +819,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Name:        hostNetNSDeploymentNameNonCilium,
 				Kind:        kindHostNetNS,
 				Image:       ct.params.CurlImage,
-				Port:        8080,
 				Labels:      map[string]string{"other": "host-netns"},
 				Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
 				HostNetwork: true,
