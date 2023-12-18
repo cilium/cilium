@@ -673,16 +673,30 @@ func (ct *ConnectivityTest) detectPodCIDRs(ctx context.Context) error {
 		}
 
 		for _, n := range nodes.Items {
+			if _, ok := ct.nodesWithoutCilium[n.Name]; ok {
+				// Skip the nodes where Cilium is not installed.
+				continue
+			}
+
+			pod, ok := ct.hostNetNSPodsByNode[n.Name]
+			if !ok {
+				// No host-netns pod seems to be running on this node. Skipping
+				ct.Warnf("Could not find any host-netns pod running on %s", n.Name)
+				continue
+			}
+
 			for _, cidr := range n.Spec.PodCIDRs {
-				f := features.GetIPFamily(ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP)
-				if strings.Contains(cidr, ":") && f == features.IPFamilyV4 {
-					// Skip if the host IP of the pod mismatches with pod CIDR.
-					// Cannot create a route with the gateway IP family
-					// mismatching the subnet.
-					continue
+				// PodIPs match HostIPs given that the pod is running in host network.
+				for _, ip := range pod.Pod.Status.PodIPs {
+					f := features.GetIPFamily(ip.IP)
+					if strings.Contains(cidr, ":") != (f == features.IPFamilyV6) {
+						// Skip if the host IP of the pod mismatches with pod CIDR.
+						// Cannot create a route with the gateway IP family
+						// mismatching the subnet.
+						continue
+					}
+					ct.params.PodCIDRs = append(ct.params.PodCIDRs, podCIDRs{cidr, ip.IP})
 				}
-				hostIP := ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP
-				ct.params.PodCIDRs = append(ct.params.PodCIDRs, podCIDRs{cidr, hostIP})
 			}
 		}
 	}
