@@ -1961,7 +1961,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowWorld(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, false)
 
-	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
+	c.Assert(len(filter.PerSelectorPolicies), Equals, 3)
 	l4EgressPolicy.Detach(repo.GetSelectorCache())
 }
 
