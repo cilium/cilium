@@ -28,7 +28,7 @@
 static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 {
 	/* Check for 127.0.0.0/8 range, RFC3330. */
-	return (daddr & bpf_htonl(0x7f000000)) == bpf_htonl(0x7f000000);
+	return (daddr & bpf_htonl(0xff000000)) == bpf_htonl(0x7f000000);
 }
 
 static __always_inline __maybe_unused bool is_v6_loopback(const union v6addr *daddr)
