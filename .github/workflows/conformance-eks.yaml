@@ -364,6 +364,8 @@ jobs:
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           kubectl get pods --all-namespaces -o wide
+          kubectl -n cilium-test get po -l kind=test-conn-disrupt -o name | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n cilium-test logs '{}'"
+
           ./cilium-cli status
           ./cilium-cli sysdump --output-filename cilium-sysdump-final-${{ join(matrix.*, '-') }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
