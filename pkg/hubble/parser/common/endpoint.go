@@ -71,6 +71,13 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				// When encapsulating a packet for sending via the overlay network, if the source
 				// seclabel = HOST_ID, then we reassign seclabel with LOCAL_NODE_ID and then send
 				// a trace notify.
+			} else if context.TraceObservationPoint == pb.TraceObservationPoint_TO_OVERLAY &&
+				ip == context.SrcIP && datapathID.Uint32() == context.SrcLabelID &&
+				!datapathID.IsReservedIdentity() && userspaceID == identity.ReservedIdentityHost {
+				// Ignore
+				//
+				// An IPSec encrypted packet will have the local cilium_host IP as the source
+				// address, but the datapath seclabel will be the one of the source pod.
 			} else if context.TraceObservationPoint == pb.TraceObservationPoint_FROM_ENDPOINT &&
 				ip == context.SrcIP && datapathID.Uint32() == context.SrcLabelID &&
 				(datapathID == identity.ReservedIdentityHealth || !datapathID.IsReservedIdentity()) &&
