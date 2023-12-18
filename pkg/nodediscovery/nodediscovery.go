@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/net"
 
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	alibabaCloudMetadata "github.com/cilium/cilium/pkg/alibabacloud/metadata"
@@ -31,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -371,7 +374,28 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 	nodeResource.ObjectMeta.Labels = ln.Labels
 	nodeResource.ObjectMeta.Annotations = ln.Annotations
 
-	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
+	// This function can be called before we have restored the CiliumInternalIP.
+	// In that case, we do not want to remove the old CiliumInternalIP, as this
+	// would lead to the IP address flapping. Therefore, this code preserves any
+	// CiliumInternalIP if (and only if) the local node store does not yet
+	// include the restored CiliumInternalIP.
+	nodeResource.Spec.Addresses = slices.DeleteFunc(nodeResource.Spec.Addresses, func(address ciliumv2.NodeAddress) bool {
+		if address.Type == nodeAddressing.NodeCiliumInternalIP {
+			// Only delete a CiliumInternalIP if
+			// a) its IP family is disabled,
+			// and/or
+			// b) the LocalNode store contains an IP address which we can use instead
+			switch net.IPFamilyOfString(address.IP) {
+			case net.IPv4:
+				return !n.LocalConfig.EnableIPv4 || ln.GetCiliumInternalIP(false) != nil
+			case net.IPv6:
+				return !n.LocalConfig.EnableIPv6 || ln.GetCiliumInternalIP(true) != nil
+			}
+		}
+
+		return true // delete all other node addresses
+	})
+
 	for _, address := range ln.IPAddresses {
 		ip := address.IP.String()
 		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
