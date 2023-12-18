@@ -5,6 +5,7 @@ package common
 
 import (
 	"net/netip"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -25,6 +27,7 @@ type DatapathContext struct {
 
 type EndpointResolver struct {
 	log            logrus.FieldLogger
+	logLimiter     logging.Limiter
 	endpointGetter getters.EndpointGetter
 	identityGetter getters.IdentityGetter
 	ipGetter       getters.IPGetter
@@ -38,6 +41,7 @@ func NewEndpointResolver(
 ) *EndpointResolver {
 	return &EndpointResolver{
 		log:            log,
+		logLimiter:     logging.NewLimiter(30*time.Second, 1),
 		endpointGetter: endpointGetter,
 		identityGetter: identityGetter,
 		ipGetter:       ipGetter,
@@ -61,6 +65,9 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 			return userspaceID.Uint32()
 		}
 
+		// Log any identity discrepancies, unless or this is a known case where
+		// Hubble does not have the full picture (see inline comments below each case)
+		// or we've hit the log rate limit
 		if datapathID != userspaceID {
 			if context.TraceObservationPoint == pb.TraceObservationPoint_TO_OVERLAY &&
 				ip == context.SrcIP && datapathID.Uint32() == context.SrcLabelID &&
@@ -114,7 +121,7 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				// host their source IP is that of the proxy, yet their security identity is
 				// retained from the original source pod. This is a similar case to #4, but on the
 				// receiving side.
-			} else {
+			} else if r.logLimiter.Allow() {
 				r.log.WithFields(logrus.Fields{
 					"datapath-identity":  datapathID.Uint32(),
 					"userspace-identity": userspaceID.Uint32(),
