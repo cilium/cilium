@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -157,6 +158,7 @@ var bpfLBListCmd = &cobra.Command{
 			dumpSVC(serviceList)
 		}
 
+		serviceList = mergeServerList(serviceList)
 		if command.OutputOption() {
 			if err := command.PrintOutput(serviceList); err != nil {
 				Fatalf("Unable to generate %s output: %s", command.OutputOptionString(), err)
@@ -166,6 +168,28 @@ var bpfLBListCmd = &cobra.Command{
 
 		TablePrinter(firstTitle, secondTitle, serviceList)
 	},
+}
+
+func mergeServerList(serviceList map[string][]string) map[string][]string {
+	lbMap := make(map[string][]string)
+
+	// A service for example:
+	// 10.96.0.10:9153 (1)      10.0.1.251:9153 (7) (1)
+	// 10.96.0.10:9153 (0)      0.0.0.0:0 (2) (0) [ClusterIP, non-routable]
+	// This function will merge the into:
+	// 10.96.0.10:9153          10.0.1.251:9153 (7) (1)
+	//                          0.0.0.0:0 (2) (0) [ClusterIP, non-routable]
+	for frontend, backends := range serviceList {
+		// strip the space and parentheses
+		index := strings.Index(frontend, " ")
+		if index > 0 {
+			frontend = frontend[:index]
+		}
+		if len(backends) > 0 {
+			lbMap[frontend] = append(lbMap[frontend], backends...)
+		}
+	}
+	return lbMap
 }
 
 func init() {
