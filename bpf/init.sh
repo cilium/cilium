@@ -392,6 +392,7 @@ case "${MODE}" in
 		CILIUM_IDX=$(cat "${SYSCLASSNETDIR}/${HOST_DEV1}/ifindex")
 		echo "#define CILIUM_IFINDEX $CILIUM_IDX" >> $RUNDIR/globals/node_config.h
 
+		sed -i '/^#.*EPHEMERAL_MIN.*$/d' $RUNDIR/globals/node_config.h
 		CILIUM_EPHEMERAL_MIN=$(cat "${PROCSYSNETDIR}/ipv4/ip_local_port_range" | awk '{print $1}')
 		echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
 esac
