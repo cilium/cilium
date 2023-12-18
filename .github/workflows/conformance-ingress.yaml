@@ -81,31 +81,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - name: Without XDP
+        - name: Without_XDP
           kube-proxy-replacement: true
           enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: false
-        - name: With XDP
+        - name: With_XDP
           kube-proxy-replacement: true
           enable-node-port: false
           bpf-lb-acceleration: native
           loadbalancer-mode: dedicated
           default-ingress-controller: false
-        - name: With Shared LB
+        - name: With_Shared_LB
           kube-proxy-replacement: true
           enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: shared
           default-ingress-controller: false
-        - name: With Default Ingress Controller
+        - name: With_Default_Ingress_Controller
           kube-proxy-replacement: true
           enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: true
-        - name: Without KPR
+        - name: Without_KPR
           kube-proxy-replacement: false
           enable-node-port: true
           bpf-lb-acceleration: disabled
@@ -289,15 +289,15 @@ jobs:
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --output-filename cilium-sysdump-out-${{ matrix.name }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: cilium-sysdump-out
+          path: cilium-sysdump-out-*.zip
           retention-days: 5
 
   commit-status-final:
