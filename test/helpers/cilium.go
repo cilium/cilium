@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -47,9 +48,17 @@ func (s *SSHMeta) BpfLBList(noDuplicates bool) (map[string][]string, error) {
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("cannot get bpf lb list: %s", res.CombineOutput())
 	}
-	err := res.Unmarshal(&result)
+
+	result, err := parseLBList(res)
 	if err != nil {
 		return nil, err
+	}
+
+	// Ensure consistent ordering of the backend entries, to prevent flakes
+	// during the comparison performed as part of the "validates service
+	// recovery on restart" test.
+	for _, entries := range result {
+		sort.Strings(entries)
 	}
 
 	if noDuplicates {
