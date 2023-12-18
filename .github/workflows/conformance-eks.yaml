@@ -186,13 +186,22 @@ jobs:
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
             --helm-set=bpf.monitorAggregation=none \
+            --helm-set=ipam.mode=eni \
+            --helm-set=eni.enabled=true \
             --wait=false"
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
           fi
-          echo cilium_install_defaults="${{ steps.default_vars.outputs.cilium_install_defaults }} ${CILIUM_INSTALL_DEFAULTS}" >> $GITHUB_OUTPUT
+          INSTALL="
+            ${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            ${CILIUM_INSTALL_DEFAULTS}"
+          echo cilium_install_defaults=${INSTALL} >> $GITHUB_OUTPUT
+
           if [[ "${{ matrix.upgrade }}" != "" ]]; then
-            echo cilium_downgrade_defaults="${{ steps.downgrade_default_vars.outputs.cilium_install_defaults }} ${CILIUM_INSTALL_DEFAULTS}" >> $GITHUB_OUTPUT
+            DOWNGRADE="
+              ${{ steps.downgrade_default_vars.outputs.cilium_install_defaults }} \
+              ${CILIUM_INSTALL_DEFAULTS}"
+            echo cilium_downgrade_defaults=${DOWNGRADE} >> $GITHUB_OUTPUT
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
@@ -321,44 +330,31 @@ jobs:
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
       - name: Run IPsec key rotation tests (${{ join(matrix.*, ', ') }})
-        if: ${{ matrix.ipsec == true }} && ${{ matrix.upgrade == '' }}
+        if: ${{ matrix.ipsec == true && matrix.upgrade == '' }}
         uses: ./.github/actions/ipsec-key-rotate
         with:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
           key-type: "gcm(aes)"
 
-
-      - name: Start conn-disrupt-test
-        if: ${{ steps.downgrade_vars.outputs.downgrade_version != '' }}
-        shell: bash
-        run: |
-          # Create pods which establish long lived connections. It will be used by
-          # subsequent connectivity tests with --include-conn-disrupt-test to catch any
-          # interruption in such flows.
-          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-            --conn-disrupt-dispatch-interval 0ms
-
-      - name: Upgrade Cilium & Test (${{ matrix.name }})
+      - name: Upgrade Cilium & Test (${{ join(matrix.*, ', ') }})
         if: ${{ steps.downgrade_vars.outputs.downgrade_version != '' }}
         uses: cilium/cilium/.github/actions/conn-disrupt-test@main
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
           operation-cmd: |
-            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-              ${{ steps.vars.outputs.cilium_install_defaults }}
+            ./cilium-cli upgrade ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
-      - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
+      - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ join(matrix.*, ', ') }})
         if: ${{ steps.downgrade_vars.outputs.downgrade_version != '' }}
         uses: cilium/cilium/.github/actions/conn-disrupt-test@main
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
           operation-cmd: |
-            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-              ${{ steps.vars.outputs.cilium_downgrade_defaults }}
+            ./cilium-cli upgrade ${{ steps.vars.outputs.cilium_downgrade_defaults }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
