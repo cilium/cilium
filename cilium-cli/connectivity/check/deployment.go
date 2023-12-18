@@ -616,7 +616,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Name:         clientDeploymentName,
 			Kind:         kindClientName,
 			Image:        ct.params.CurlImage,
-			Command:      []string{"/bin/ash", "-c", "sleep 10000000"},
+			Command:      []string{"/usr/bin/pause"},
 			Annotations:  ct.params.DeploymentAnnotations.Match(clientDeploymentName),
 			NodeSelector: ct.params.NodeSelector,
 		})
@@ -638,7 +638,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Name:        client2DeploymentName,
 			Kind:        kindClientName,
 			Image:       ct.params.CurlImage,
-			Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+			Command:     []string{"/usr/bin/pause"},
 			Labels:      map[string]string{"other": "client"},
 			Annotations: ct.params.DeploymentAnnotations.Match(client2DeploymentName),
 			Affinity: &corev1.Affinity{
@@ -676,7 +676,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Name:        client3DeploymentName,
 				Kind:        kindClientName,
 				Image:       ct.params.CurlImage,
-				Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+				Command:     []string{"/usr/bin/pause"},
 				Labels:      map[string]string{"other": "client-other-node"},
 				Annotations: ct.params.DeploymentAnnotations.Match(client3DeploymentName),
 				Affinity: &corev1.Affinity{
@@ -713,7 +713,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Name:        clientCPDeployment,
 			Kind:        kindClientName,
 			Image:       ct.params.CurlImage,
-			Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+			Command:     []string{"/usr/bin/pause"},
 			Labels:      map[string]string{"other": "client"},
 			Annotations: ct.params.DeploymentAnnotations.Match(client2DeploymentName),
 			NodeSelector: map[string]string{
@@ -802,7 +802,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					Kind:        kindHostNetNS,
 					Image:       ct.params.CurlImage,
 					Labels:      map[string]string{"other": "host-netns"},
-					Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+					Command:     []string{"/usr/bin/pause"},
 					HostNetwork: true,
 				})
 				_, err = client.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
@@ -820,7 +820,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Kind:        kindHostNetNS,
 				Image:       ct.params.CurlImage,
 				Labels:      map[string]string{"other": "host-netns"},
-				Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+				Command:     []string{"/usr/bin/pause"},
 				HostNetwork: true,
 				Tolerations: []corev1.Toleration{
 					{Operator: corev1.TolerationOpExists},
