@@ -1698,6 +1698,12 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
 	c.Assert(cachedSelectorWorld, Not(IsNil))
 
+	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
+	c.Assert(cachedSelectorWorldV4, Not(IsNil))
+
+	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
+	c.Assert(cachedSelectorWorldV6, Not(IsNil))
+
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": {
 			Port:     0,
@@ -1705,10 +1711,16 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			U8Proto:  0x0,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorWorld: nil,
+				cachedSelectorWorld:   nil,
+				cachedSelectorWorldV4: nil,
+				cachedSelectorWorldV6: nil,
 			},
-			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorWorld: {labelsL3}},
+			Ingress: true,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				cachedSelectorWorld:   {labelsL3},
+				cachedSelectorWorldV4: {labelsL3},
+				cachedSelectorWorldV6: {labelsL3},
+			},
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -1838,6 +1850,12 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
 	c.Assert(cachedSelectorWorld, Not(IsNil))
 
+	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
+	c.Assert(cachedSelectorWorldV4, Not(IsNil))
+
+	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
+	c.Assert(cachedSelectorWorldV6, Not(IsNil))
+
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": {
 			Port:     0,
@@ -1845,10 +1863,16 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			U8Proto:  0x0,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorWorld: nil,
+				cachedSelectorWorld:   nil,
+				cachedSelectorWorldV4: nil,
+				cachedSelectorWorldV6: nil,
 			},
-			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorWorld: {labelsL3}},
+			Ingress: false,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				cachedSelectorWorld:   {labelsL3},
+				cachedSelectorWorldV4: {labelsL3},
+				cachedSelectorWorldV6: {labelsL3},
+			},
 		},
 		"53/UDP": {
 			Port:     53,
