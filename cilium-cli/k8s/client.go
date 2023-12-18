@@ -520,6 +520,36 @@ func (c *Client) DeleteDaemonSet(ctx context.Context, namespace, name string, op
 	return c.Clientset.AppsV1().DaemonSets(namespace).Delete(ctx, name, opts)
 }
 
+func (c *Client) CheckDaemonSetStatus(ctx context.Context, namespace, deployment string) error {
+	d, err := c.GetDaemonSet(ctx, namespace, deployment, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if d == nil {
+		return fmt.Errorf("deployment is not available")
+	}
+
+	if d.Status.ObservedGeneration != d.Generation {
+		return fmt.Errorf("observed generation (%d) is older than generation of the desired state (%d)",
+			d.Status.ObservedGeneration, d.Generation)
+	}
+
+	if d.Status.CurrentNumberScheduled != d.Status.DesiredNumberScheduled {
+		return fmt.Errorf("only %d of %d replicas are scheduled", d.Status.CurrentNumberScheduled, d.Status.DesiredNumberScheduled)
+	}
+
+	if d.Status.NumberReady != d.Status.DesiredNumberScheduled {
+		return fmt.Errorf("only %d of %d replicas are ready", d.Status.NumberReady, d.Status.DesiredNumberScheduled)
+	}
+
+	if d.Status.UpdatedNumberScheduled != d.Status.DesiredNumberScheduled {
+		return fmt.Errorf("only %d of %d replicas are up-to-date", d.Status.UpdatedNumberScheduled, d.Status.DesiredNumberScheduled)
+	}
+
+	return nil
+}
+
 func (c *Client) GetStatefulSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.StatefulSet, error) {
 	return c.Clientset.AppsV1().StatefulSets(namespace).Get(ctx, name, opts)
 }

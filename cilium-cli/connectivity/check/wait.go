@@ -51,6 +51,29 @@ func WaitForDeployment(ctx context.Context, log Logger, client *k8s.Client, name
 	}
 }
 
+// WaitForDaemonSet waits until the specified daemonset becomes ready.
+func WaitForDaemonSet(ctx context.Context, log Logger, client *k8s.Client, namespace string, name string) error {
+	log.Logf("⌛ [%s] Waiting for DaemonSet %s/%s to become ready...", client.ClusterName(), namespace, name)
+
+	ctx, cancel := context.WithTimeout(ctx, LongTimeout)
+	defer cancel()
+	for {
+		err := client.CheckDaemonSetStatus(ctx, namespace, name)
+		if err == nil {
+			return nil
+		}
+
+		log.Debugf("[%s] DaemonSet %s/%s is not yet ready: %s", client.ClusterName(), namespace, name, err)
+
+		select {
+		case <-time.After(PollInterval):
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting for DaemonSet %s/%s to become ready (last error: %w)",
+				namespace, name, err)
+		}
+	}
+}
+
 // WaitForPodDNS waits until src can query the DNS server on dst successfully.
 func WaitForPodDNS(ctx context.Context, log Logger, src, dst Pod) error {
 	log.Logf("⌛ [%s] Waiting for pod %s to reach DNS server on %s pod...",
