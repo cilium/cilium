@@ -242,9 +242,13 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct endpoint_info *ep;
 	int ret;
 	__u8 encrypt_key __maybe_unused = 0;
-	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
-	__u32 magic = from_ingress_proxy ? MARK_MAGIC_PROXY_INGRESS :
-					   MARK_MAGIC_IDENTITY;
+	__u32 magic = MARK_MAGIC_IDENTITY;
+	bool from_ingress_proxy = false;
+
+	if (from_host && tc_index_from_ingress_proxy(ctx)) {
+		from_ingress_proxy = true;
+		magic = MARK_MAGIC_PROXY_INGRESS;
+	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -660,9 +664,13 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct endpoint_info *ep;
 	int ret;
 	__u8 encrypt_key __maybe_unused = 0;
-	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
-	__u32 magic = from_ingress_proxy ? MARK_MAGIC_PROXY_INGRESS :
-					   MARK_MAGIC_IDENTITY;
+	__u32 magic = MARK_MAGIC_IDENTITY;
+	bool from_ingress_proxy = false;
+
+	if (from_host && tc_index_from_ingress_proxy(ctx)) {
+		from_ingress_proxy = true;
+		magic = MARK_MAGIC_PROXY_INGRESS;
+	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
