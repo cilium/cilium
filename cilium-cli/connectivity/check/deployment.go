@@ -1328,7 +1328,16 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
+	// The host-netns-non-cilium DaemonSet is created in the source cluster only, also in case of multi-cluster tests.
+	if err := WaitForDaemonSet(ctx, ct, ct.clients.src, ct.Params().TestNamespace, hostNetNSDeploymentNameNonCilium); err != nil {
+		return err
+	}
+
 	for _, client := range ct.clients.clients() {
+		if err := WaitForDaemonSet(ctx, ct, client, ct.Params().TestNamespace, hostNetNSDeploymentName); err != nil {
+			return err
+		}
+
 		hostNetNSPods, err := client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindHostNetNS})
 		if err != nil {
 			return fmt.Errorf("unable to list host netns pods: %w", err)
