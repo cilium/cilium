@@ -30,6 +30,10 @@ func TestControllerSanity(t *testing.T) {
 			},
 		},
 	}
+
+	// Reset to false after each test case
+	fullWithdrawalObserved := false
+
 	var table = []struct {
 		// name of test case
 		name string
@@ -42,6 +46,8 @@ func TestControllerSanity(t *testing.T) {
 		configurePeers func(context.Context, *v2alpha1api.CiliumBGPPeeringPolicy, *v2api.CiliumNode) error
 		// error nil or not
 		err error
+		// expect route full withdrawal observed
+		fullWithdrawalExpected bool
 	}{
 		// test the normal control flow of a policy being selected and applied.
 		{
@@ -60,6 +66,48 @@ func TestControllerSanity(t *testing.T) {
 				return nil
 			},
 			err: nil,
+		},
+		{
+			name: "multiple policies selects node",
+			labels: map[string]string{
+				"bgp-policy": "a",
+			},
+			annotations: map[string]string{},
+			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+				p0 := wantPolicy.DeepCopy()
+				p0.Name = "policy0"
+				p1 := wantPolicy.DeepCopy()
+				p1.Name = "policy1"
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{p0, p1}, nil
+			},
+			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, n *v2api.CiliumNode) error {
+				if p == nil && n == nil {
+					fullWithdrawalObserved = true
+				}
+				return nil
+			},
+			err: errors.New(""),
+			// When multiple policies select a node, the controller should withdraw all routes
+			fullWithdrawalExpected: true,
+		},
+		{
+			name: "no policies selects node",
+			labels: map[string]string{
+				"bgp-policy": "a",
+			},
+			annotations: map[string]string{},
+			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{}, nil
+			},
+			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, n *v2api.CiliumNode) error {
+				if p == nil && n == nil {
+					fullWithdrawalObserved = true
+				}
+				return nil
+			},
+			err: nil,
+			// When no policy select a node, the controller should withdraw all routes
+			fullWithdrawalExpected: true,
 		},
 		// test policy defaulting
 		{
@@ -175,7 +223,12 @@ func TestControllerSanity(t *testing.T) {
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("want: %v, got: %v", tt.err, err)
 			}
+
+			if tt.fullWithdrawalExpected != fullWithdrawalObserved {
+				t.Fatal("full withdrawal not observed")
+			}
 		})
+		fullWithdrawalObserved = false
 	}
 }
 
