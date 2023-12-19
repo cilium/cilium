@@ -5,7 +5,7 @@ package utils
 
 import "strings"
 
-func EscapeJSONPatchString(str string) string {
+func EscapePatchString(str string) string {
 	// From https://www.rfc-editor.org/rfc/rfc6901#section-3:
 	// Because the characters '~' (%x7E) and '/' (%x2F) have special meanings in JSON Pointer,
 	// '~' needs to be encoded as '~0' and '/' needs to be encoded as '~1' when these characters
