@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -92,6 +93,7 @@ type bandwidthManagerParams struct {
 	Log          logrus.FieldLogger
 	Config       Config
 	DaemonConfig *option.DaemonConfig
+	Sysctl       sysctl.Sysctl
 }
 
 func registerReconciler(

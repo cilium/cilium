@@ -21,6 +21,7 @@ import (
 	gops "github.com/google/gops/agent"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -393,6 +394,14 @@ func setupLogging(n *types.NetConf) error {
 	return nil
 }
 
+func sysctlDisable(name, val string) error {
+	path, err := sysctl.ParameterPath("/proc", name)
+	if err != nil {
+		return err
+	}
+	return sysctl.WriteSysctl(afero.NewOsFs(), path, "0")
+}
+
 func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
@@ -523,7 +532,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
 			veth, peer, tmpIfName, err := connector.SetupVeth(cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
+				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctlDisable)
 			if err != nil {
 				return fmt.Errorf("unable to set up veth on host side: %w", err)
 			}
@@ -595,8 +604,14 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		var macAddrStr string
 		if err = netNs.Do(func(_ ns.NetNS) error {
 			if ipv6IsEnabled(ipam) {
-				if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
-					logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+				procFs, param := "/proc", "net.ipv6.conf.all.disable_ipv6"
+				path, err := sysctl.ParameterPath(procFs, param)
+				if err != nil {
+					logger.WithError(err).WithField(logfields.SysParamName, param).Warn("invalid sysctl parameter")
+				} else {
+					if err := sysctl.WriteSysctl(afero.NewOsFs(), path, "0"); err != nil {
+						logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+					}
 				}
 			}
 			macAddrStr, err = configureIface(ipam, epConf.IfName(), state)

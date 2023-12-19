@@ -69,6 +69,7 @@ type HeaderfileWriter struct {
 	nodeAddressing     datapath.NodeAddressing
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
+	sysctl             sysctl.Sysctl
 }
 
 func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
@@ -83,6 +84,7 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
 		log:                p.Log,
+		sysctl:             p.Sysctl,
 	}, nil
 }
 
@@ -708,7 +710,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HOST_IFINDEX_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
 	cDefinesMap["CILIUM_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
 
-	ephemeralMin, err := getEphemeralPortRangeMin()
+	ephemeralMin, err := getEphemeralPortRangeMin(h.sysctl)
 	if err != nil {
 		return err
 	}
@@ -786,7 +788,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	return fw.Flush()
 }
 
-func getEphemeralPortRangeMin() (int, error) {
+func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	ephemeralPortRangeStr, err := sysctl.Read("net.ipv4.ip_local_port_range")
 	if err != nil {
 		return 0, fmt.Errorf("unable to read net.ipv4.ip_local_port_range: %w", err)

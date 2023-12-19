@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -118,7 +119,8 @@ func configureHealthInterface(netNS ns.NetNS, ifName string, ip4Addr, ip6Addr *n
 			name := fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", ifName)
 			// Ignore the error; if IPv6 is completely disabled
 			// then it's okay if we can't write the sysctl.
-			_ = sysctl.Write(name, "1")
+			path, _ := sysctl.ParameterPath("/proc", name)
+			_ = sysctl.WriteSysctl(afero.NewOsFs(), path, "1")
 		} else {
 			if err = netlink.AddrAdd(link, &netlink.Addr{IPNet: ip6Addr}); err != nil {
 				return err
@@ -231,7 +233,9 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
-	routingConfig routingConfigurer) (*Client, error) {
+	routingConfig routingConfigurer,
+	sysctl sysctl.Sysctl,
+) (*Client, error) {
 
 	var (
 		cmd  = launcher.Launcher{}
@@ -276,7 +280,8 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	case datapathOption.DatapathModeVeth:
 		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
-			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), info)
+			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
+			info, sysctl.Write)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %s", err)
 		}

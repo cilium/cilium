@@ -115,6 +115,9 @@ var (
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
+
+		// Reconciler cell provides the shared metrics for all the reconcilers.
+		reconciler.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
