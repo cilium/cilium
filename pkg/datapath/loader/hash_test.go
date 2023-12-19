@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -33,6 +34,7 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 		cell.Provide(
 			fake.NewNodeAddressing,
 			func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
+			func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },
 			config.NewHeaderfileWriter,
 		),
 		cell.Invoke(func(writer_ datapath.ConfigWriter) {
