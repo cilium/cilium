@@ -10,8 +10,8 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
