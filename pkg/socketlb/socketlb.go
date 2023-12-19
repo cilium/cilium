@@ -56,7 +56,7 @@ func cgroupLinkPath() string {
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable() (err error) {
+func Enable(sysctl sysctl.Sysctl) (err error) {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}

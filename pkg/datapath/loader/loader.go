@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -74,11 +75,15 @@ type loader struct {
 
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
+
+	sysctl sysctl.Sysctl
 }
 
-// newLoader returns a new loader.
-func newLoader() *loader {
-	return &loader{hostDpInitialized: make(chan struct{})}
+func newLoader(sysctl sysctl.Sysctl) *loader {
+	return &loader{
+		hostDpInitialized: make(chan struct{}),
+		sysctl:            sysctl,
+	}
 }
 
 // Init initializes the datapath cache with base program hashes derived from

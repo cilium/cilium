@@ -20,6 +20,7 @@ import (
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -57,6 +58,9 @@ var Cell = cell.Module(
 
 	// The monitor agent, which multicasts cilium and agent events to its subscribers.
 	monitorAgent.Cell,
+
+	// The sysctl reconciler to read and write kernel sysctl parameters.
+	sysctl.Cell,
 
 	// The modules manager to search and load kernel modules.
 	modules.Cell,
@@ -126,7 +130,7 @@ var Cell = cell.Module(
 	loader.Cell,
 )
 
-func newWireguardAgent(lc cell.Lifecycle) *wg.Agent {
+func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
@@ -136,7 +140,7 @@ func newWireguardAgent(lc cell.Lifecycle) *wg.Agent {
 
 		var err error
 		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
-		wgAgent, err = wg.NewAgent(privateKeyPath)
+		wgAgent, err = wg.NewAgent(privateKeyPath, sysctl)
 		if err != nil {
 			log.Fatalf("failed to initialize WireGuard: %s", err)
 		}
@@ -158,7 +162,6 @@ func newDatapath(params datapathParams) types.Datapath {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: params.TunnelConfig.DeviceName(),
-		ProcFs:       option.Config.ProcFs,
 	}
 
 	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{
