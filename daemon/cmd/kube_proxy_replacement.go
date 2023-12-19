@@ -21,6 +21,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
-	"github.com/cilium/cilium/pkg/sysctl"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
