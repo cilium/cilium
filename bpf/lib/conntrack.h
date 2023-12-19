@@ -243,6 +243,30 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 	return false;
 }
 
+static __always_inline struct ct_entry *
+ct_lookup_entry(const void *map, struct __ctx_buff *ctx, const void *tuple,
+		enum ct_dir dir __maybe_unused, __u32 ct_entry_types,
+		bool syn __maybe_unused)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (entry) {
+		if (!ct_entry_matches_types(entry, ct_entry_types))
+			return NULL;
+
+		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
+#ifdef HAVE_LARGE_INSN_LIMIT
+		if (dir == CT_SERVICE && syn &&
+		    ct_entry_closing(entry) &&
+		    ct_entry_expired_rebalance(entry))
+			return NULL;
+#endif
+	}
+
+	return entry;
+}
+
 /* Returns CT_NEW, CT_REOPENED or CT_ESTABLISHED. */
 static __always_inline enum ct_status
 __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
@@ -255,18 +279,11 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 
 	relax_verifier();
 
-	entry = map_lookup_elem(map, tuple);
-	if (entry) {
-		if (!ct_entry_matches_types(entry, ct_entry_types))
-			goto ct_new;
-
-		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
-#ifdef HAVE_LARGE_INSN_LIMIT
-		if (dir == CT_SERVICE && syn &&
-		    ct_entry_closing(entry) &&
-		    ct_entry_expired_rebalance(entry))
-			goto ct_new;
-#endif
+	entry = ct_lookup_entry(map, ctx, tuple, dir, ct_entry_types, syn);
+	if (!entry) {
+		*monitor = TRACE_PAYLOAD_LEN;
+		return CT_NEW;
+	} else {
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
@@ -338,10 +355,6 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 
 		return CT_ESTABLISHED;
 	}
-
-ct_new: __maybe_unused;
-	*monitor = TRACE_PAYLOAD_LEN;
-	return CT_NEW;
 }
 
 static __always_inline __u8
