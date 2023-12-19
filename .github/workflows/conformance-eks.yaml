@@ -188,6 +188,7 @@ jobs:
             --helm-set=bpf.monitorAggregation=none \
             --helm-set=ipam.mode=eni \
             --helm-set=eni.enabled=true \
+             --helm-set routingMode=native --helm-set cluster.name=${{ env.clusterName }} --helm-set egressMasqueradeInterfaces=eth0 \
             --wait=false"
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
