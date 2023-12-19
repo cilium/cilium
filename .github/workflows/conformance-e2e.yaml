@@ -344,7 +344,7 @@ jobs:
 
           if [ "${{ matrix.host-fw }}" == "true" ]; then
             # Until https://github.com/cilium/cilium/issues/28088 is fixed
-            EXTRA+=("--expected-drop-reasons=+Missed tail call")
+            EXTRA+=("--expected-drop-reasons=-No tunnel/encapsulation endpoint (datapath BUG!)")
           fi
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
