@@ -90,19 +90,6 @@ type Attributes struct {
 // ASN its annotating.
 type AnnotationMap map[int64]Attributes
 
-// ErrMulti holds multiple errors and formats them sanely when printed.
-type ErrMulti struct {
-	errs []error
-}
-
-func (e ErrMulti) Error() string {
-	s := strings.Builder{}
-	for _, err := range e.errs {
-		s.WriteString(err.Error() + ",")
-	}
-	return s.String()
-}
-
 func (a AnnotationMap) ResolveRouterID(localASN int64) (string, error) {
 	if attr, ok := a[localASN]; ok && attr.RouterID != "" {
 		return attr.RouterID, nil
@@ -130,7 +117,7 @@ func NewAnnotationMap(a map[string]string) (AnnotationMap, error) {
 		am[asn] = attrs
 	}
 	if len(errs) > 0 {
-		return am, ErrMulti{errs}
+		return am, errors.Join(errs...)
 	}
 	return am, nil
 }
