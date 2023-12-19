@@ -56,6 +56,7 @@ to learn how to level up through the project.
  * [Vlad Ungureanu] (Palantir)
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
+ * [Yutaro Hayakawa] (Isovalent)
 
 ## Cilium & Hubble Emeritus Committers
 
@@ -123,4 +124,5 @@ project.
 [Vlad Ungureanu]: https://github.com/ungureanuvladvictor
 [Weilong Cui]: https://github.com/Weil0ng
 [Yongkun Gui]: https://github.com/anfernee
+[Yutaro Hayakawa]: https://github.com/YutaroHayakawa
 [Zang Li]: https://github.com/lzang
