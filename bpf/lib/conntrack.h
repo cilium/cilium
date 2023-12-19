@@ -243,6 +243,30 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 	return false;
 }
 
+static __always_inline void
+ct_fill_state(struct ct_state *state, const struct ct_entry *entry,
+	      enum ct_dir dir, bool syn)
+{
+	state->rev_nat_index = entry->rev_nat_index;
+
+	if (dir == CT_SERVICE) {
+		state->backend_id = entry->backend_id;
+		state->syn = syn;
+	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
+#ifndef DISABLE_LOOPBACK_LB
+		state->loopback = entry->lb_loopback;
+#endif
+		state->node_port = entry->node_port;
+		state->dsr = entry->dsr;
+		state->proxy_redirect = entry->proxy_redirect;
+		state->from_l7lb = entry->from_l7lb;
+		state->from_tunnel = entry->from_tunnel;
+#ifndef HAVE_FIB_IFINDEX
+		state->ifindex = entry->ifindex;
+#endif
+	}
+}
+
 static __always_inline struct ct_entry *
 ct_lookup_entry(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		enum ct_dir dir __maybe_unused, __u32 ct_entry_types,
@@ -270,8 +294,7 @@ ct_lookup_entry(const void *map, struct __ctx_buff *ctx, const void *tuple,
 static __always_inline struct ct_entry *
 __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 	    enum ct_action action, enum ct_dir dir, __u32 ct_entry_types,
-	    struct ct_state *ct_state, bool is_tcp, union tcp_flags seen_flags,
-	    __u32 *monitor)
+	    bool is_tcp, union tcp_flags seen_flags, __u32 *monitor)
 {
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 	struct ct_entry *entry;
@@ -286,23 +309,6 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
-		ct_state->rev_nat_index = entry->rev_nat_index;
-		if (dir == CT_SERVICE) {
-			ct_state->backend_id = entry->backend_id;
-			ct_state->syn = syn;
-		} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-#ifndef DISABLE_LOOPBACK_LB
-			ct_state->loopback = entry->lb_loopback;
-#endif
-			ct_state->node_port = entry->node_port;
-			ct_state->dsr = entry->dsr;
-			ct_state->proxy_redirect = entry->proxy_redirect;
-			ct_state->from_l7lb = entry->from_l7lb;
-			ct_state->from_tunnel = entry->from_tunnel;
-#ifndef HAVE_FIB_IFINDEX
-			ct_state->ifindex = entry->ifindex;
-#endif
-		}
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
 		if (dir == CT_INGRESS) {
@@ -554,12 +560,14 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 	enum ct_status ret = CT_NEW;
 	struct ct_entry *entry;
 	enum ct_action action;
+	bool syn = false;
 
 	if (is_tcp) {
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		action = ct_tcp_select_action(tcp_flags);
+		syn = tcp_flags.value & TCP_FLAG_SYN;
 	} else {
 		action = ACTION_UNSPEC;
 	}
@@ -574,7 +582,7 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 	case SCOPE_BIDIR:
 		/* Lookup in the reverse direction first: */
 		entry = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
-				    ct_state, is_tcp, tcp_flags, monitor);
+				    is_tcp, tcp_flags, monitor);
 		if (entry) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -592,7 +600,7 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 		fallthrough;
 	case SCOPE_FORWARD:
 		entry = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
-				    ct_state, is_tcp, tcp_flags, monitor);
+				    is_tcp, tcp_flags, monitor);
 		if (entry) {
 			if (action == ACTION_CREATE &&
 			    unlikely(ct_entry_closing(entry)))
@@ -603,6 +611,9 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 	}
 
 out:
+	if (entry)
+		ct_fill_state(ct_state, entry, dir, syn);
+
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret, ct_state->rev_nat_index);
 	return ret;
 }
@@ -799,6 +810,7 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 	enum ct_status ret = CT_NEW;
 	struct ct_entry *entry;
 	enum ct_action action;
+	bool syn = false;
 
 #ifdef ENABLE_IPV4_FRAGMENTS
 	if (unlikely(is_fragment))
@@ -810,6 +822,7 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 			return DROP_CT_INVALID_HDR;
 
 		action = ct_tcp_select_action(tcp_flags);
+		syn = tcp_flags.value & TCP_FLAG_SYN;
 	} else {
 		action = ACTION_UNSPEC;
 	}
@@ -826,7 +839,7 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 	case SCOPE_BIDIR:
 		/* Lookup in the reverse direction first: */
 		entry = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
-				    ct_state, is_tcp, tcp_flags, monitor);
+				    is_tcp, tcp_flags, monitor);
 		if (entry) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -844,7 +857,7 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 		fallthrough;
 	case SCOPE_FORWARD:
 		entry = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
-				    ct_state, is_tcp, tcp_flags, monitor);
+				    is_tcp, tcp_flags, monitor);
 		if (entry) {
 			if (action == ACTION_CREATE &&
 			    unlikely(ct_entry_closing(entry)))
@@ -855,6 +868,9 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 	}
 
 out:
+	if (entry)
+		ct_fill_state(ct_state, entry, dir, syn);
+
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret, ct_state->rev_nat_index);
 	return ret;
 }
