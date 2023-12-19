@@ -124,6 +124,37 @@ func TestAnnotation(t *testing.T) {
 	}
 }
 
+func TestResolveRouterID(t *testing.T) {
+	t.Run("RouterID specified", func(t *testing.T) {
+		annoMap, err := NewAnnotationMap(map[string]string{
+			"cilium.io/bgp-virtual-router.123": "router-id=127.0.0.1",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		routerID, err := annoMap.ResolveRouterID(123)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if routerID != "127.0.0.1" {
+			t.Fatalf("got: %v, want: %v", routerID, "127.0.0.1")
+		}
+	})
+
+	t.Run("RouterID unspecified", func(t *testing.T) {
+		annoMap, err := NewAnnotationMap(map[string]string{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = annoMap.ResolveRouterID(123)
+		if err == nil {
+			t.Fatal("expected error, got no error")
+		}
+	})
+}
+
 func BenchmarkErrNotVRouterAnnoError(b *testing.B) {
 	e := &ErrNotVRouterAnno{
 		a: "foo error",

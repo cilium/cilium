@@ -104,13 +104,8 @@ func (e ErrMulti) Error() string {
 }
 
 func (a AnnotationMap) ResolveRouterID(localASN int64) (string, error) {
-	if _, ok := a[localASN]; ok {
-		var err error
-		var parsed netip.Addr
-		if parsed, err = netip.ParseAddr(a[localASN].RouterID); err == nil && !parsed.IsUnspecified() {
-			return parsed.String(), nil
-		}
-		return "", fmt.Errorf("failed to parse RouterID for local ASN %v: %w", localASN, err)
+	if attr, ok := a[localASN]; ok && attr.RouterID != "" {
+		return attr.RouterID, nil
 	}
 	return "", fmt.Errorf("router id not specified by annotation, cannot resolve router id for local ASN %v", localASN)
 }
