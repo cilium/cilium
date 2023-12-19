@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 var (
@@ -107,6 +108,9 @@ var (
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
+
+		// Reconciler cell provides the shared metrics for all the reconcilers.
+		reconciler.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure

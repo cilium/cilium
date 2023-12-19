@@ -257,6 +257,7 @@ func (m *Manager) removeCiliumRules(table string, prog iptablesInterface, match 
 type Manager struct {
 	logger     logrus.FieldLogger
 	modulesMgr *modules.Manager
+	sysctl     sysctl.Sysctl
 	cfg        Config
 	sharedCfg  SharedConfig
 
@@ -280,6 +281,7 @@ type params struct {
 	Lifecycle hive.Lifecycle
 
 	ModulesMgr *modules.Manager
+	Sysctl     sysctl.Sysctl
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -289,6 +291,7 @@ func newIptablesManager(p params) *Manager {
 	iptMgr := &Manager{
 		logger:        p.Logger,
 		modulesMgr:    p.ModulesMgr,
+		sysctl:        p.Sysctl,
 		cfg:           p.Cfg,
 		sharedCfg:     p.SharedCfg,
 		haveIp6tables: true,
@@ -306,7 +309,7 @@ func (m *Manager) Start(ctx hive.HookContext) error {
 			"env var or '--prepend-iptables-chains' command line flag instead")
 	}
 
-	if err := enableIPForwarding(m.sharedCfg.EnableIPv6); err != nil {
+	if err := enableIPForwarding(m.sysctl, m.sharedCfg.EnableIPv6); err != nil {
 		m.logger.WithError(err).Warning("enabling IP forwarding via sysctl failed")
 	}
 
@@ -365,7 +368,7 @@ func (m *Manager) Start(ctx hive.HookContext) error {
 			m.logger.WithError(err).Warning("xt_socket kernel module could not be loaded")
 
 			if m.sharedCfg.EnableXTSocketFallback {
-				disabled := sysctl.Disable("net.ipv4.ip_early_demux") == nil
+				disabled := m.sysctl.Disable("net.ipv4.ip_early_demux") == nil
 
 				if disabled {
 					m.ipEarlyDemuxDisabled = true

@@ -724,9 +724,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
 	option.BindEnv(vp, option.MTUName)
 
-	flags.String(option.ProcFs, "/proc", "Root's proc filesystem path")
-	option.BindEnv(vp, option.ProcFs)
-
 	flags.Int(option.RouteMetric, 0, "Overwrite the metric used by cilium when adding routes to its 'cilium_host' device")
 	option.BindEnv(vp, option.RouteMetric)
 
@@ -1184,8 +1181,6 @@ func initEnv(vp *viper.Viper) {
 	var debugDatapath bool
 
 	option.LogRegisteredOptions(vp, log)
-
-	sysctl.SetProcfs(option.Config.ProcFs)
 
 	for _, grp := range option.Config.DebugVerbose {
 		switch grp {
@@ -1666,6 +1661,7 @@ type daemonParams struct {
 	BandwidthManager    datapath.BandwidthManager
 	IPsecKeyCustodian   datapath.IPsecKeyCustodian
 	MTU                 mtu.MTU
+	Sysctl              sysctl.Sysctl
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1872,7 +1868,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
-		d.initHealth(params.HealthAPISpec, cleaner)
+		d.initHealth(params.HealthAPISpec, cleaner, params.Sysctl)
 	}
 	bootstrapStats.healthCheck.End(true)
 

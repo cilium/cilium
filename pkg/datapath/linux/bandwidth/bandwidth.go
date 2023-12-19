@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 )
@@ -97,7 +96,7 @@ func (m *manager) probe() error {
 	if !m.params.Config.EnableBandwidthManager {
 		return nil
 	}
-	if _, err := sysctl.Read("net.core.default_qdisc"); err != nil {
+	if _, err := m.params.Sysctl.Read("net.core.default_qdisc"); err != nil {
 		m.params.Log.WithError(err).Warn("BPF bandwidth manager could not read procfs. Disabling the feature.")
 		return nil
 	}
@@ -235,7 +234,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 	}
 
 	for name, value := range baseIntSettings {
-		currentValue, err := sysctl.ReadInt(name)
+		currentValue, err := p.Sysctl.ReadInt(name)
 		if err != nil {
 			return fmt.Errorf("read sysctl %s failed: %s", name, err)
 		}
@@ -252,7 +251,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 		}
 
 		scopedLog.Info("Setting sysctl to baseline for BPF bandwidth manager")
-		if err := sysctl.WriteInt(name, value); err != nil {
+		if err := p.Sysctl.WriteInt(name, value); err != nil {
 			return fmt.Errorf("set sysctl %s=%d failed: %s", name, value, err)
 		}
 	}
@@ -274,7 +273,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 			"baselineValue":        value,
 		}).Info("Setting sysctl to baseline for BPF bandwidth manager")
 
-		if err := sysctl.Write(name, value); err != nil {
+		if err := p.Sysctl.Write(name, value); err != nil {
 			return fmt.Errorf("set sysctl %s=%s failed: %s", name, value, err)
 		}
 	}
@@ -293,7 +292,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 				"baselineValue":        value,
 			}).Info("Setting sysctl to baseline for BPF bandwidth manager")
 
-			if err := sysctl.WriteInt(name, value); err != nil {
+			if err := p.Sysctl.WriteInt(name, value); err != nil {
 				return fmt.Errorf("set sysctl %s=%d failed: %s", name, value, err)
 			}
 		}

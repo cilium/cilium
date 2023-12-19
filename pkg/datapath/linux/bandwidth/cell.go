@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -71,4 +72,5 @@ type bandwidthManagerParams struct {
 	Log          logrus.FieldLogger
 	Config       Config
 	DaemonConfig *option.DaemonConfig
+	Sysctl       sysctl.Sysctl
 }

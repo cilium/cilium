@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -320,7 +321,7 @@ func removeTCFilters(ifName string, tcDir uint32) error {
 }
 
 // enableForwarding puts the given link into the up state and enables IP forwarding.
-func enableForwarding(link netlink.Link) error {
+func enableForwarding(sysctl sysctl.Sysctl, link netlink.Link) error {
 	ifName := link.Attrs().Name
 
 	if err := netlink.LinkSetUp(link); err != nil {
@@ -328,13 +329,13 @@ func enableForwarding(link netlink.Link) error {
 		return err
 	}
 
-	sysSettings := make([]sysctl.Setting, 0, 5)
+	sysSettings := make([]tables.Sysctl, 0, 5)
 	if option.Config.EnableIPv6 {
-		sysSettings = append(sysSettings, sysctl.Setting{
+		sysSettings = append(sysSettings, tables.Sysctl{
 			Name: fmt.Sprintf("net.ipv6.conf.%s.forwarding", ifName), Val: "1", IgnoreErr: false})
 	}
 	if option.Config.EnableIPv4 {
-		sysSettings = append(sysSettings, []sysctl.Setting{
+		sysSettings = append(sysSettings, []tables.Sysctl{
 			{Name: fmt.Sprintf("net.ipv4.conf.%s.forwarding", ifName), Val: "1", IgnoreErr: false},
 			{Name: fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifName), Val: "0", IgnoreErr: false},
 			{Name: fmt.Sprintf("net.ipv4.conf.%s.accept_local", ifName), Val: "1", IgnoreErr: false},
@@ -348,7 +349,7 @@ func enableForwarding(link netlink.Link) error {
 	return nil
 }
 
-func setupVethPair(name, peerName string) error {
+func setupVethPair(sysctl sysctl.Sysctl, name, peerName string) error {
 	// Create the veth pair if it doesn't exist.
 	if _, err := netlink.LinkByName(name); err != nil {
 		hostMac, err := mac.GenerateRandMAC()
@@ -378,14 +379,14 @@ func setupVethPair(name, peerName string) error {
 	if err != nil {
 		return err
 	}
-	if err := enableForwarding(veth); err != nil {
+	if err := enableForwarding(sysctl, veth); err != nil {
 		return err
 	}
 	peer, err := netlink.LinkByName(peerName)
 	if err != nil {
 		return err
 	}
-	if err := enableForwarding(peer); err != nil {
+	if err := enableForwarding(sysctl, peer); err != nil {
 		return err
 	}
 
@@ -397,7 +398,7 @@ func setupVethPair(name, peerName string) error {
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
 func (l *loader) SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
-	if err := setupVethPair(defaults.HostDevice, defaults.SecondHostDevice); err != nil {
+	if err := setupVethPair(l.sysctl, defaults.HostDevice, defaults.SecondHostDevice); err != nil {
 		return nil, nil, err
 	}
 
@@ -541,10 +542,10 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 
 // setupTunnelDevice ensures the cilium_{mode} device is created and
 // unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(mode tunnel.Protocol, port uint16, mtu int) error {
+func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port uint16, mtu int) error {
 	switch mode {
 	case tunnel.Geneve:
-		if err := setupGeneveDevice(port, mtu); err != nil {
+		if err := setupGeneveDevice(sysctl, port, mtu); err != nil {
 			return fmt.Errorf("setting up geneve device: %w", err)
 		}
 		if err := removeDevice(defaults.VxlanDevice); err != nil {
@@ -552,7 +553,7 @@ func setupTunnelDevice(mode tunnel.Protocol, port uint16, mtu int) error {
 		}
 
 	case tunnel.VXLAN:
-		if err := setupVxlanDevice(port, mtu); err != nil {
+		if err := setupVxlanDevice(sysctl, port, mtu); err != nil {
 			return fmt.Errorf("setting up vxlan device: %w", err)
 		}
 		if err := removeDevice(defaults.GeneveDevice); err != nil {
@@ -576,7 +577,7 @@ func setupTunnelDevice(mode tunnel.Protocol, port uint16, mtu int) error {
 //
 // Changing the destination port will recreate the device. Changing the MTU will
 // modify the device without recreating it.
-func setupGeneveDevice(dport uint16, mtu int) error {
+func setupGeneveDevice(sysctl sysctl.Sysctl, dport uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return err
@@ -592,7 +593,7 @@ func setupGeneveDevice(dport uint16, mtu int) error {
 		Dport:     dport,
 	}
 
-	l, err := ensureDevice(dev)
+	l, err := ensureDevice(sysctl, dev)
 	if err != nil {
 		return fmt.Errorf("creating geneve device: %w", err)
 	}
@@ -604,7 +605,7 @@ func setupGeneveDevice(dport uint16, mtu int) error {
 		if err := netlink.LinkDel(l); err != nil {
 			return fmt.Errorf("deleting outdated geneve device: %w", err)
 		}
-		if _, err := ensureDevice(dev); err != nil {
+		if _, err := ensureDevice(sysctl, dev); err != nil {
 			return fmt.Errorf("recreating geneve device %s: %w", defaults.GeneveDevice, err)
 		}
 	}
@@ -617,7 +618,7 @@ func setupGeneveDevice(dport uint16, mtu int) error {
 //
 // Changing the port will recreate the device. Changing the MTU will modify the
 // device without recreating it.
-func setupVxlanDevice(port uint16, mtu int) error {
+func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return err
@@ -633,7 +634,7 @@ func setupVxlanDevice(port uint16, mtu int) error {
 		Port:      int(port),
 	}
 
-	l, err := ensureDevice(dev)
+	l, err := ensureDevice(sysctl, dev)
 	if err != nil {
 		return fmt.Errorf("creating vxlan device: %w", err)
 	}
@@ -645,7 +646,7 @@ func setupVxlanDevice(port uint16, mtu int) error {
 		if err := netlink.LinkDel(l); err != nil {
 			return fmt.Errorf("deleting outdated vxlan device: %w", err)
 		}
-		if _, err := ensureDevice(dev); err != nil {
+		if _, err := ensureDevice(sysctl, dev); err != nil {
 			return fmt.Errorf("recreating vxlan device %s: %w", defaults.VxlanDevice, err)
 		}
 	}
@@ -676,14 +677,14 @@ func setupVxlanDevice(port uint16, mtu int) error {
 // taken control of the encapsulation stack on the node, as it currently doesn't
 // explicitly support sharing it with other tools/CNIs. Fallback devices are left
 // unused for production traffic. Only devices that were explicitly created are used.
-func setupIPIPDevices(ipv4, ipv6 bool) error {
+func setupIPIPDevices(sysctl sysctl.Sysctl, ipv4, ipv6 bool) error {
 	// FlowBased sets IFLA_IPTUN_COLLECT_METADATA, the equivalent of 'ip link add
 	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
 	// bpf_skb_[gs]et_tunnel_key() on packets flowing through tunnels.
 
 	if ipv4 {
 		// Set up IPv4 tunnel device if requested.
-		if _, err := ensureDevice(&netlink.Iptun{
+		if _, err := ensureDevice(sysctl, &netlink.Iptun{
 			LinkAttrs: netlink.LinkAttrs{Name: defaults.IPIPv4Device},
 			FlowBased: true,
 		}); err != nil {
@@ -703,7 +704,7 @@ func setupIPIPDevices(ipv4, ipv6 bool) error {
 
 	if ipv6 {
 		// Set up IPv6 tunnel device if requested.
-		if _, err := ensureDevice(&netlink.Ip6tnl{
+		if _, err := ensureDevice(sysctl, &netlink.Ip6tnl{
 			LinkAttrs: netlink.LinkAttrs{Name: defaults.IPIPv6Device},
 			FlowBased: true,
 		}); err != nil {
@@ -731,7 +732,7 @@ func setupIPIPDevices(ipv4, ipv6 bool) error {
 //
 // The device's state is set to 'up', L3 forwarding sysctls are applied, and MTU
 // is set.
-func ensureDevice(attrs netlink.Link) (netlink.Link, error) {
+func ensureDevice(sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error) {
 	name := attrs.Attrs().Name
 
 	// Reuse existing tunnel interface created by previous runs.
@@ -748,7 +749,7 @@ func ensureDevice(attrs netlink.Link) (netlink.Link, error) {
 		}
 	}
 
-	if err := enableForwarding(l); err != nil {
+	if err := enableForwarding(sysctl, l); err != nil {
 		return nil, fmt.Errorf("setting up device %s: %w", name, err)
 	}
 
