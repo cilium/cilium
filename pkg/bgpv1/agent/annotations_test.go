@@ -26,12 +26,80 @@ func TestAnnotation(t *testing.T) {
 		error error
 	}{
 		{
-			name:  "Test parsing of router-id",
+			name:  "Invalid key prefix",
+			key:   "cilium.io/bpf-virtual-router.123",
+			attr:  Attributes{},
+			error: ErrNotVRouterAnno{"cilium.io/bpf-virtual-router.123"},
+		},
+		{
+			name:  "No ASN",
+			key:   "cilium.io/bgp-virtual-router..",
+			attr:  Attributes{},
+			error: ErrNoASNAnno{"cilium.io/bgp-virtual-router.."},
+		},
+		{
+			name:  "Over 32bit ASN",
+			key:   "cilium.io/bgp-virtual-router.4294967296",
+			attr:  Attributes{},
+			error: ErrASNAnno{"could not parse ASN as a 32bit integer", "4294967296", "cilium.io/bgp-virtual-router.4294967296"},
+		},
+		{
+			name:  "Valid router-id",
 			key:   "cilium.io/bgp-virtual-router.123",
 			value: "router-id=127.0.0.1",
 			attr: Attributes{
 				RouterID: "127.0.0.1",
 			},
+			asn:   123,
+			error: nil,
+		},
+		{
+			// This case is valid standard-wise, but we don't support it.
+			name:  "Invalid decimal router-id",
+			key:   "cilium.io/bgp-virtual-router.123",
+			value: "router-id=12345",
+			attr:  Attributes{},
+			error: ErrAttrib{"cilium.io/bgp-virtual-router.123", "router-id", "could not parse router-id as an IPv4 address"},
+		},
+		{
+			name:  "Invalid non-IPv4-ish router-id",
+			key:   "cilium.io/bgp-virtual-router.123",
+			value: "router-id=fd00::1",
+			attr:  Attributes{},
+			error: ErrAttrib{"cilium.io/bgp-virtual-router.123", "router-id", "router-id must be a valid IPv4 address"},
+		},
+		{
+			name:  "Valid local-port",
+			key:   "cilium.io/bgp-virtual-router.123",
+			value: "local-port=179",
+			attr: Attributes{
+				LocalPort: 179,
+			},
+			asn:   123,
+			error: nil,
+		},
+		{
+			name:  "Over 16bit local-port",
+			key:   "cilium.io/bgp-virtual-router.123",
+			value: "local-port=65536",
+			attr:  Attributes{},
+			error: ErrAttrib{"cilium.io/bgp-virtual-router.123", "local-port", "could not parse into port number as 16bit integer"},
+		},
+		{
+			name:  "Test parsing of router-id and local-port",
+			key:   "cilium.io/bgp-virtual-router.123",
+			value: "router-id=127.0.0.1,local-port=179",
+			attr: Attributes{
+				RouterID:  "127.0.0.1",
+				LocalPort: 179,
+			},
+			asn:   123,
+			error: nil,
+		},
+		{
+			name:  "Empty attributes is not an error",
+			key:   "cilium.io/bgp-virtual-router.123",
+			attr:  Attributes{},
 			asn:   123,
 			error: nil,
 		},
@@ -45,6 +113,9 @@ func TestAnnotation(t *testing.T) {
 			}
 			if attr.RouterID != tt.attr.RouterID {
 				t.Fatalf("got: %v, want: %v", attr.RouterID, tt.attr.RouterID)
+			}
+			if attr.LocalPort != tt.attr.LocalPort {
+				t.Fatalf("got: %v, want: %v", attr.LocalPort, tt.attr.LocalPort)
 			}
 			if !errors.Is(err, tt.error) {
 				t.Fatalf("got: %v, want: %v", err, tt.error)
