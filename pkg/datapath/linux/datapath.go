@@ -18,8 +18,6 @@ type DatapathConfiguration struct {
 
 	// TunnelDevice is the name of the tunnel device (if any).
 	TunnelDevice string
-
-	ProcFs string
 }
 
 type linuxDatapath struct {
@@ -91,10 +89,6 @@ func (l *linuxDatapath) Loader() datapath.Loader {
 
 func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {
 	return l.wgAgent
-}
-
-func (l *linuxDatapath) Procfs() string {
-	return l.config.ProcFs
 }
 
 func (l *linuxDatapath) LBMap() datapath.LBMap {

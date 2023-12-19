@@ -256,6 +256,7 @@ func (m *Manager) removeCiliumRules(table string, prog iptablesInterface, match 
 type Manager struct {
 	logger     logrus.FieldLogger
 	modulesMgr *modules.Manager
+	sysctl     sysctl.Sysctl
 	cfg        Config
 	sharedCfg  SharedConfig
 
@@ -279,6 +280,7 @@ type params struct {
 	Lifecycle cell.Lifecycle
 
 	ModulesMgr *modules.Manager
+	Sysctl     sysctl.Sysctl
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -288,6 +290,7 @@ func newIptablesManager(p params) *Manager {
 	iptMgr := &Manager{
 		logger:        p.Logger,
 		modulesMgr:    p.ModulesMgr,
+		sysctl:        p.Sysctl,
 		cfg:           p.Cfg,
 		sharedCfg:     p.SharedCfg,
 		haveIp6tables: true,
@@ -305,7 +308,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 			"env var or '--prepend-iptables-chains' command line flag instead")
 	}
 
-	if err := enableIPForwarding(m.sharedCfg.EnableIPv6); err != nil {
+	if err := enableIPForwarding(m.sysctl, m.sharedCfg.EnableIPv6); err != nil {
 		m.logger.WithError(err).Warning("enabling IP forwarding via sysctl failed")
 	}
 
@@ -391,12 +394,12 @@ func (m *Manager) DisableIPEarlyDemux() {
 		return
 	}
 
-	err := sysctl.Disable("net.ipv4.ip_early_demux")
-	if err == nil {
+	disabled := m.sysctl.Disable("net.ipv4.ip_early_demux") == nil
+	if disabled {
 		m.ipEarlyDemuxDisabled = true
-		m.logger.Info("Disabled ip_early_demux to allow proxy redirection.")
+		m.logger.Info("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
 	} else {
-		m.logger.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
+		m.logger.Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
 	}
 }
 

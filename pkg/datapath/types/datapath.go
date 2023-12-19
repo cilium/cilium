@@ -31,7 +31,5 @@ type Datapath interface {
 	// LBMap returns the load-balancer map
 	LBMap() LBMap
 
-	Procfs() string
-
 	BandwidthManager() BandwidthManager
 }
