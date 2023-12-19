@@ -7,10 +7,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/bgpv1/types"
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 )
 
 var testServerParameters = types.ServerParameters{
