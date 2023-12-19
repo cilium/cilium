@@ -56,6 +56,8 @@ const (
 	configNameRoutingMode          = "routing-mode"
 	configNameMaxConnectedClusters = "max-connected-clusters"
 
+	configNameIdentityAllocationMode = "identity-allocation-mode"
+
 	caSuffix   = ".etcd-client-ca.crt"
 	keySuffix  = ".etcd-client.key"
 	certSuffix = ".etcd-client.crt"
@@ -465,6 +467,7 @@ type K8sClusterMesh struct {
 	clusterID       string
 	imageVersion    string
 	clusterArch     string
+	externalKVStore bool
 }
 
 type Parameters struct {
@@ -534,6 +537,8 @@ func (k *K8sClusterMesh) GetClusterConfig(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
 	}
+
+	k.externalKVStore = cm.Data[configNameIdentityAllocationMode] != "crd"
 
 	clusterID := cm.Data[configNameClusterID]
 	if clusterID == "" {
@@ -1461,22 +1466,27 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 	defer cancel()
 
 	s := &Status{}
-	s.AccessInformation, err = k.statusAccessInformation(ctx, true, false)
-	if err != nil {
-		return nil, err
-	}
 
-	k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, s.AccessInformation.ServiceType)
-	k.Log("✅ Cluster access information is available:")
-	for _, ip := range s.AccessInformation.ServiceIPs {
-		k.Log("  - %s:%d", ip, s.AccessInformation.ServicePort)
-	}
+	if k.externalKVStore {
+		k.Log("✅ Cilium is configured with an external kvstore")
+	} else {
+		s.AccessInformation, err = k.statusAccessInformation(ctx, true, false)
+		if err != nil {
+			return nil, err
+		}
 
-	err = k.statusDeployment(ctx)
-	if err != nil {
-		return nil, err
+		k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, s.AccessInformation.ServiceType)
+		k.Log("✅ Cluster access information is available:")
+		for _, ip := range s.AccessInformation.ServiceIPs {
+			k.Log("  - %s:%d", ip, s.AccessInformation.ServicePort)
+		}
+
+		err = k.statusDeployment(ctx)
+		if err != nil {
+			return nil, err
+		}
+		k.Log("✅ Deployment %s is ready", defaults.ClusterMeshDeploymentName)
 	}
-	k.Log("✅ Deployment %s is ready", defaults.ClusterMeshDeploymentName)
 
 	s.Connectivity, err = k.statusConnectivity(ctx)
 
