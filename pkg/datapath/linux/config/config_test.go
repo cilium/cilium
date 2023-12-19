@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -103,6 +104,7 @@ func writeConfig(c *C, header string, write writeFn) {
 			cell.Provide(
 				fake.NewNodeAddressing,
 				func() types.BandwidthManager { return &fake.BandwidthManager{} },
+				func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },
 				NewHeaderfileWriter,
 			),
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
@@ -145,7 +147,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 
 	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint64, map[string]string) {
 		cfg := &HeaderfileWriter{}
-		varSub, stringSub := loader.NewLoader().ELFSubstitutions(t)
+		varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c.T)).ELFSubstitutions(t)
 
 		var buf bytes.Buffer
 		cfg.writeStaticData(&buf, t)
@@ -230,7 +232,7 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg
 
-	varSub, stringSub := loader.NewLoader().ELFSubstitutions(ep)
+	varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c.T)).ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
 	cfg.writeStaticData(&buf, ep)
@@ -366,7 +368,9 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 			func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
-		}})
+		},
+		Sysctl: sysctl.NewTestSysctl(t),
+	})
 	require.NoError(t, err)
 
 	buffer.Reset()
@@ -385,6 +389,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
 		},
 		BandwidthManager: &fake.BandwidthManager{},
+		Sysctl:           sysctl.NewTestSysctl(t),
 	})
 	require.NoError(t, err)
 
@@ -400,6 +405,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
 		},
 		BandwidthManager: &fake.BandwidthManager{},
+		Sysctl:           sysctl.NewTestSysctl(t),
 	})
 	require.NoError(t, err)
 
@@ -419,6 +425,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
 		BandwidthManager:   &fake.BandwidthManager{},
+		Sysctl:             sysctl.NewTestSysctl(t),
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -428,6 +435,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
 		BandwidthManager:   &fake.BandwidthManager{},
+		Sysctl:             sysctl.NewTestSysctl(t),
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))

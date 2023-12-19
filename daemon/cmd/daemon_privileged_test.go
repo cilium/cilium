@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/netns"
@@ -72,7 +73,7 @@ func Test_removeOldRouterState(t *testing.T) {
 func createDevices(t *testing.T) {
 	t.Helper()
 
-	ciliumHost, ciliumNet, err := loader.NewLoader().SetupBaseDevice(1500)
+	ciliumHost, ciliumNet, err := loader.NewLoader(sysctl.NewTestSysctl(t)).SetupBaseDevice(1500)
 	assert.NoError(t, err)
 	assert.NotNil(t, ciliumHost)
 	assert.NotNil(t, ciliumNet)
