@@ -25,7 +25,7 @@ func (g *GoBGPServer) AddNeighbor(ctx context.Context, n types.NeighborRequest) 
 		Peer: peer,
 	}
 	if err = g.server.AddPeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while adding peer %v:%v with ASN %v: %w", n.Neighbor.PeerAddress, *n.Neighbor.PeerPort, n.Neighbor.PeerASN, err)
+		return fmt.Errorf("failed while adding peer %s with ASN %d: %w", peer.Conf.NeighborAddress, peer.Conf.PeerAsn, err)
 	}
 	return nil
 }
@@ -43,12 +43,12 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborReques
 	}
 	updateRes, err := g.server.UpdatePeer(ctx, peerReq)
 	if err != nil {
-		return fmt.Errorf("failed while updating peer %v:%v with ASN %v: %w", n.Neighbor.PeerAddress, *n.Neighbor.PeerPort, n.Neighbor.PeerASN, err)
+		return fmt.Errorf("failed while updating peer %v:%v with ASN %v: %w", peer.Conf.NeighborAddress, peer.Transport.RemotePort, peer.Conf.PeerAsn, err)
 	}
 
 	// perform full / soft peer reset if necessary
 	if needsHardReset || updateRes.NeedsSoftResetIn {
-		g.logger.Infof("Resetting peer %s:%v (ASN %d) due to a config change", peer.Conf.NeighborAddress, *n.Neighbor.PeerPort, peer.Conf.PeerAsn)
+		g.logger.Infof("Resetting peer %s:%v (ASN %d) due to a config change", peer.Conf.NeighborAddress, peer.Transport.RemotePort, peer.Conf.PeerAsn)
 		resetReq := &gobgp.ResetPeerRequest{
 			Address:       peer.Conf.NeighborAddress,
 			Communication: "Peer configuration changed",
@@ -58,7 +58,7 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborReques
 			resetReq.Direction = gobgp.ResetPeerRequest_IN
 		}
 		if err = g.server.ResetPeer(ctx, resetReq); err != nil {
-			return fmt.Errorf("failed while resetting peer %v:%v in ASN %v: %w", n.Neighbor.PeerAddress, *n.Neighbor.PeerPort, n.Neighbor.PeerASN, err)
+			return fmt.Errorf("failed while resetting peer %v:%v in ASN %v: %w", peer.Conf.NeighborAddress, peer.Transport.RemotePort, peer.Conf.PeerAsn, err)
 		}
 	}
 
@@ -97,8 +97,17 @@ func convertBGPNeighborSAFI(fams []v2alpha1.CiliumBGPFamily) ([]*gobgp.AfiSafi, 
 	return out, nil
 }
 
-// getPeerConfig returns GoBGP Peer configuration for the provided CiliumBGPNeighbor.
 func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest, isUpdate bool) (peer *gobgp.Peer, needsReset bool, err error) {
+	if n.Peer != nil {
+		// Peer config is set when BGPv2 is enabled.
+		return g.getPeerConfigV2(ctx, n, isUpdate)
+	}
+
+	return g.getPeerConfigV1(ctx, n, isUpdate)
+}
+
+// getPeerConfigV1 returns GoBGP Peer configuration for the provided CiliumBGPNeighbor.
+func (g *GoBGPServer) getPeerConfigV1(ctx context.Context, n types.NeighborRequest, isUpdate bool) (peer *gobgp.Peer, needsReset bool, err error) {
 	if n.Neighbor == nil {
 		return peer, needsReset, fmt.Errorf("nil neighbor in NeighborRequest: %w", err)
 	}
@@ -113,42 +122,9 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 	peerPort := uint32(*n.Neighbor.PeerPort)
 
 	var existingPeer *gobgp.Peer
-	if isUpdate {
-		// If this is an update, try retrieving the existing Peer.
-		// This is necessary as many Peer fields are defaulted internally in GoBGP,
-		// and if they were not set, the update would always cause BGP peer reset.
-		// This will not fail if the peer is not found for whatever reason.
-		existingPeer, err = g.getExistingPeer(ctx, peerAddr, uint32(n.Neighbor.PeerASN))
-		if err != nil {
-			return peer, needsReset, fmt.Errorf("failed retrieving peer: %w", err)
-		}
-		// use only necessary parts of the existing peer struct
-		peer = &gobgp.Peer{
-			Conf:      existingPeer.Conf,
-			Transport: existingPeer.Transport,
-		}
-		// Update the peer port if needed.
-		if existingPeer.Transport.RemotePort != peerPort {
-			peer.Transport.RemotePort = peerPort
-		}
-
-		// Update the password if needed.
-		if existingPeer.Conf.AuthPassword != n.Password {
-			peer.Conf.AuthPassword = n.Password
-		}
-
-	} else {
-		// Create a new peer
-		peer = &gobgp.Peer{
-			Conf: &gobgp.PeerConf{
-				NeighborAddress: peerAddr.String(),
-				PeerAsn:         uint32(n.Neighbor.PeerASN),
-				AuthPassword:    n.Password,
-			},
-			Transport: &gobgp.Transport{
-				RemotePort: peerPort,
-			},
-		}
+	peer, existingPeer, err = g.getPeer(ctx, peerAddr, uint32(n.Neighbor.PeerASN), isUpdate)
+	if err != nil {
+		return peer, needsReset, err
 	}
 
 	peer.AfiSafis, err = convertBGPNeighborSAFI(n.Neighbor.Families)
@@ -156,51 +132,23 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 		return peer, needsReset, fmt.Errorf("failed to convert CiliumBGPNeighbor Families to gobgp AfiSafi: %w", err)
 	}
 
-	// As GoBGP defaulting of peer's Transport.LocalAddress follows different paths
-	// when calling AddPeer / UpdatePeer / ListPeer, we set it explicitly to a wildcard address
-	// based on peer's address family, to not cause unnecessary connection resets upon update.
-	if peerAddr.Is4() {
-		peer.Transport.LocalAddress = wildcardIPv4Addr
-	} else {
-		peer.Transport.LocalAddress = wildcardIPv6Addr
+	// set peer password
+	peer.Conf.AuthPassword = n.Password
+
+	// set peer transport, for local port we do not set it ( default 0 - unset )
+	g.setPeerTransport(peer, existingPeer, peerAddr, peerPort, 0)
+
+	// set peer ebgp multihop
+	if n.Neighbor.EBGPMultihopTTL != nil {
+		g.setPeerEBGPMultihopTTL(peer, uint32(n.Neighbor.PeerASN), uint32(*n.Neighbor.EBGPMultihopTTL))
 	}
 
-	// Enable multi-hop for eBGP if non-zero TTL is provided
-	if g.asn != uint32(n.Neighbor.PeerASN) && n.Neighbor.EBGPMultihopTTL != nil && *n.Neighbor.EBGPMultihopTTL > 1 {
-		peer.EbgpMultihop = &gobgp.EbgpMultihop{
-			Enabled:     true,
-			MultihopTtl: uint32(*n.Neighbor.EBGPMultihopTTL),
-		}
-	}
+	// set peer timers
+	g.setPeerTimers(peer, uint64(*n.Neighbor.ConnectRetryTimeSeconds), uint64(*n.Neighbor.HoldTimeSeconds), uint64(*n.Neighbor.KeepAliveTimeSeconds))
 
-	if peer.Timers == nil {
-		peer.Timers = &gobgp.Timers{}
-	}
-	peer.Timers.Config = &gobgp.TimersConfig{
-		ConnectRetry:           uint64(*n.Neighbor.ConnectRetryTimeSeconds),
-		HoldTime:               uint64(*n.Neighbor.HoldTimeSeconds),
-		KeepaliveInterval:      uint64(*n.Neighbor.KeepAliveTimeSeconds),
-		IdleHoldTimeAfterReset: idleHoldTimeAfterResetSeconds,
-	}
-
-	// populate graceful restart config
-	if peer.GracefulRestart == nil {
-		peer.GracefulRestart = &gobgp.GracefulRestart{}
-	}
-	if n.Neighbor.GracefulRestart != nil && n.Neighbor.GracefulRestart.Enabled {
-		peer.GracefulRestart.Enabled = true
-		peer.GracefulRestart.RestartTime = uint32(*n.Neighbor.GracefulRestart.RestartTimeSeconds)
-		peer.GracefulRestart.NotificationEnabled = true
-		peer.GracefulRestart.LocalRestarting = true
-	}
-
-	for _, afiConf := range peer.AfiSafis {
-		if afiConf.MpGracefulRestart == nil {
-			afiConf.MpGracefulRestart = &gobgp.MpGracefulRestart{}
-		}
-		afiConf.MpGracefulRestart.Config = &gobgp.MpGracefulRestartConfig{
-			Enabled: peer.GracefulRestart.Enabled,
-		}
+	// set peer graceful restart
+	if n.Neighbor.GracefulRestart != nil && n.Neighbor.GracefulRestart.RestartTimeSeconds != nil {
+		g.setPeerGracefulRestart(peer, uint32(*n.Neighbor.GracefulRestart.RestartTimeSeconds), n.Neighbor.GracefulRestart.Enabled)
 	}
 
 	if isUpdate {
@@ -214,6 +162,169 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 	}
 
 	return peer, needsReset, err
+}
+
+// getPeerConfigV2 returns GoBGP Peer configuration for the provided CiliumBGPNodePeer and CiliumBGPPeerConfigSpec.
+func (g *GoBGPServer) getPeerConfigV2(ctx context.Context, n types.NeighborRequest, isUpdate bool) (peer *gobgp.Peer, needsReset bool, err error) {
+	if n.Peer == nil || n.PeerConfig == nil {
+		return peer, needsReset, fmt.Errorf("nil peer config in NeighborRequest: %w", err)
+	}
+
+	if n.Peer.PeerASN == nil {
+		// currently peer ASN is required.
+		return peer, needsReset, fmt.Errorf("nil peer ASN")
+	}
+
+	if n.Peer.PeerAddress == nil {
+		// currently peer address is required.
+		return peer, needsReset, fmt.Errorf("nil peer address")
+	}
+
+	peerAddr, err := netip.ParseAddr(*n.Peer.PeerAddress)
+	if err != nil {
+		// unlikely, we validate this on CR write to k8s api.
+		return peer, needsReset, fmt.Errorf("failed to parse PeerAddress: %w", err)
+	}
+
+	localPort := uint32(*n.PeerConfig.Transport.LocalPort)
+	peerPort := uint32(*n.PeerConfig.Transport.PeerPort)
+
+	var existingPeer *gobgp.Peer
+	peer, existingPeer, err = g.getPeer(ctx, peerAddr, uint32(*n.Peer.PeerASN), isUpdate)
+	if err != nil {
+		return peer, needsReset, err
+	}
+
+	// set address families
+	peer.AfiSafis, err = convertBGPNeighborSAFI(n.PeerConfig.Families)
+	if err != nil {
+		return peer, needsReset, fmt.Errorf("failed to convert CiliumBGPNeighbor Families to gobgp AfiSafi: %w", err)
+	}
+
+	// set peer password
+	peer.Conf.AuthPassword = n.Password
+
+	// set peer transport
+	g.setPeerTransport(peer, existingPeer, peerAddr, peerPort, localPort)
+
+	// set peer ebgp multihop
+	if n.PeerConfig.EBGPMultihop != nil {
+		g.setPeerEBGPMultihopTTL(peer, uint32(*n.Peer.PeerASN), uint32(*n.PeerConfig.EBGPMultihop))
+	}
+
+	// set peer timers
+	if n.PeerConfig.Timers != nil {
+		g.setPeerTimers(peer, uint64(*n.PeerConfig.Timers.ConnectRetryTimeSeconds), uint64(*n.PeerConfig.Timers.HoldTimeSeconds), uint64(*n.PeerConfig.Timers.KeepAliveTimeSeconds))
+	}
+
+	// set peer graceful restart
+	if n.PeerConfig.GracefulRestart != nil && n.PeerConfig.GracefulRestart.RestartTimeSeconds != nil {
+		g.setPeerGracefulRestart(peer, uint32(*n.PeerConfig.GracefulRestart.RestartTimeSeconds), n.PeerConfig.GracefulRestart.Enabled)
+	}
+
+	if isUpdate {
+		// In some cases, we want to perform full session reset on update even if GoBGP would not perform it.
+		// An example of that is updating timer parameters that are negotiated during the session setup.
+		// As we provide declarative API (CRD), we want this config to be applied on existing sessions
+		// immediately, therefore we need full session reset.
+		needsReset = existingPeer != nil &&
+			(peer.Timers.Config.HoldTime != existingPeer.Timers.Config.HoldTime ||
+				peer.Timers.Config.KeepaliveInterval != existingPeer.Timers.Config.KeepaliveInterval)
+	}
+
+	return peer, needsReset, nil
+}
+
+func (g *GoBGPServer) setPeerTransport(peer, existingPeer *gobgp.Peer, peerAddr netip.Addr, peerPort, localPort uint32) {
+	if existingPeer != nil {
+		peer.Transport = existingPeer.Transport
+	} else {
+		peer.Transport = &gobgp.Transport{}
+	}
+
+	if localPort > 0 {
+		peer.Transport.LocalPort = localPort
+	}
+
+	if peerPort > 0 {
+		peer.Transport.RemotePort = peerPort
+	}
+
+	if peerAddr.Is4() {
+		peer.Transport.LocalAddress = wildcardIPv4Addr
+	} else {
+		peer.Transport.LocalAddress = wildcardIPv6Addr
+	}
+}
+
+func (g *GoBGPServer) setPeerEBGPMultihopTTL(peer *gobgp.Peer, peerASN, ebgpMultihopTTL uint32) {
+	if g.asn != peerASN && ebgpMultihopTTL > 1 {
+		peer.EbgpMultihop = &gobgp.EbgpMultihop{
+			Enabled:     true,
+			MultihopTtl: ebgpMultihopTTL,
+		}
+	}
+}
+
+func (g *GoBGPServer) setPeerTimers(peer *gobgp.Peer, connect, hold, keepalive uint64) {
+	if peer.Timers == nil {
+		peer.Timers = &gobgp.Timers{}
+	}
+	peer.Timers.Config = &gobgp.TimersConfig{
+		ConnectRetry:           connect,
+		HoldTime:               hold,
+		KeepaliveInterval:      keepalive,
+		IdleHoldTimeAfterReset: idleHoldTimeAfterResetSeconds,
+	}
+}
+
+func (g *GoBGPServer) setPeerGracefulRestart(peer *gobgp.Peer, restartTime uint32, enabled bool) {
+	if peer.GracefulRestart == nil {
+		peer.GracefulRestart = &gobgp.GracefulRestart{}
+	}
+
+	if enabled {
+		peer.GracefulRestart.Enabled = true
+		peer.GracefulRestart.RestartTime = restartTime
+		peer.GracefulRestart.NotificationEnabled = true
+		peer.GracefulRestart.LocalRestarting = true
+	}
+
+	for _, afiConf := range peer.AfiSafis {
+		if afiConf.MpGracefulRestart == nil {
+			afiConf.MpGracefulRestart = &gobgp.MpGracefulRestart{}
+		}
+		afiConf.MpGracefulRestart.Config = &gobgp.MpGracefulRestartConfig{
+			Enabled: peer.GracefulRestart.Enabled,
+		}
+	}
+}
+
+func (g *GoBGPServer) getPeer(ctx context.Context, peerAddr netip.Addr, peerASN uint32, isUpdate bool) (peer, existingPeer *gobgp.Peer, err error) {
+	if isUpdate {
+		// If this is an update, try retrieving the existing Peer.
+		// This is necessary as many Peer fields are defaulted internally in GoBGP,
+		// and if they were not set, the update would always cause BGP peer reset.
+		// This will not fail if the peer is not found for whatever reason.
+		existingPeer, err = g.getExistingPeer(ctx, peerAddr, peerASN)
+		if err != nil {
+			return peer, existingPeer, fmt.Errorf("failed retrieving peer: %w", err)
+		}
+		// use only necessary parts of the existing peer struct
+		peer = &gobgp.Peer{
+			Conf:      existingPeer.Conf,
+			Transport: existingPeer.Transport,
+		}
+	} else {
+		// Create a new peer
+		peer = &gobgp.Peer{
+			Conf: &gobgp.PeerConf{
+				NeighborAddress: peerAddr.String(),
+				PeerAsn:         peerASN,
+			},
+		}
+	}
+	return peer, existingPeer, nil
 }
 
 // getExistingPeer returns the existing GoBGP Peer matching provided peer address and ASN.
@@ -237,17 +348,31 @@ func (g *GoBGPServer) getExistingPeer(ctx context.Context, peerAddr netip.Addr, 
 	return res, nil
 }
 
-// RemoveNeighbor will remove the CiliumBGPNeighbor from the gobgp.BgpServer,
+// RemoveNeighbor will remove the peer from the gobgp.BgpServer,
 // disconnecting the BGP peering connection.
 func (g *GoBGPServer) RemoveNeighbor(ctx context.Context, n types.NeighborRequest) error {
-	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
-	prefix, err := netip.ParsePrefix(n.Neighbor.PeerAddress)
-	if err != nil {
-		// unlikely, we validate this on CR write to k8s api.
-		return fmt.Errorf("failed to parse PeerAddress: %w", err)
+	var address string
+	if n.Peer != nil {
+		// for BGPv2 n.Peer will set, n.Neighbor will not.
+		addr, err := netip.ParseAddr(*n.Peer.PeerAddress)
+		if err != nil {
+			return fmt.Errorf("failed to parse PeerAddress: %w", err)
+		}
+		address = addr.String()
+
+	} else {
+		// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
+		prefix, err := netip.ParsePrefix(n.Neighbor.PeerAddress)
+		if err != nil {
+			// unlikely, we validate this on CR write to k8s api.
+			return fmt.Errorf("failed to parse PeerAddress: %w", err)
+		}
+
+		address = prefix.Addr().String()
 	}
+
 	peerReq := &gobgp.DeletePeerRequest{
-		Address: prefix.Addr().String(),
+		Address: address,
 	}
 	if err := g.server.DeletePeer(ctx, peerReq); err != nil {
 		return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)

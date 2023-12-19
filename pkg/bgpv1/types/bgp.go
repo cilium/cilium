@@ -44,6 +44,9 @@ type Path struct {
 type NeighborRequest struct {
 	Neighbor *v2alpha1api.CiliumBGPNeighbor
 	VR       *v2alpha1api.CiliumBGPVirtualRouter
+
+	Peer       *v2alpha1api.CiliumBGPNodePeer
+	PeerConfig *v2alpha1api.CiliumBGPPeerConfigSpec
 	// Password is the "AuthSecret" in the Neighbor, fetched from a secret
 	Password string
 }
