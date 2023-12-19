@@ -1380,7 +1380,7 @@ func (k *K8sClusterMesh) statusConnectivity(ctx context.Context) (*ConnectivityS
 
 			if err != nil {
 				if err := w.Retry(err); err != nil {
-					return nil, err
+					return status, err
 				}
 				continue
 			}
