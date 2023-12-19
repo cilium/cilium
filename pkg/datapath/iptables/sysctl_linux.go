@@ -4,7 +4,7 @@
 package iptables
 
 import (
-	"github.com/cilium/cilium/pkg/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 )
 
 func enableIPForwarding(ipv6 bool) error {
