@@ -13,88 +13,192 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/safeio"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
+	"github.com/cilium/cilium/pkg/time"
 )
 
-const (
-	subsystem = "sysctl"
+// reconciliationTimeout is the maximum time available for reconciling
+// sysctl kernel parameters with the desired state in statedb[Sysctl].
+const reconciliationTimeout = time.Second
 
-	procFsDefault = "/proc"
-)
+type Sysctl interface {
+	// Disable disables the given sysctl parameter.
+	// It blocks until the parameter has been actually set to "0",
+	// or timeouts after reconciliationTimeout.
+	Disable(name string) error
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
+	// Enable enables the given sysctl parameter.
+	// It blocks until the parameter has been actually set to "1",
+	// or timeouts after reconciliationTimeout.
+	Enable(name string) error
 
-	// parameterElemRx matches an element of a sysctl parameter.
-	parameterElemRx = regexp.MustCompile(`\A[-0-9_a-z]+\z`)
+	// Write writes the given sysctl parameter.
+	// It blocks until the parameter has been actually set to val,
+	// or timeouts after reconciliationTimeout.
+	Write(name string, val string) error
 
-	procFsMU lock.Mutex
-	// procFsRead is mark as true if procFs changes value.
-	procFsRead bool
-	procFs     = procFsDefault
-)
+	// WriteInt writes the given integer type sysctl parameter.
+	// It blocks until the parameter has been actually set to val,
+	// or timeouts after reconciliationTimeout.
+	WriteInt(name string, val int64) error
 
-// An ErrInvalidSysctlParameter is returned when a parameter is invalid.
-type ErrInvalidSysctlParameter string
+	// ApplySettings applies all settings in sysSettings.
+	// After applying all settings, it blocks until the parameters have been
+	// reconciled, or timeouts after reconciliationTimeout.
+	ApplySettings(sysSettings []tables.Sysctl) error
 
-func (e ErrInvalidSysctlParameter) Error() string {
-	return fmt.Sprintf("invalid sysctl parameter: %q", string(e))
+	// Read reads the given sysctl parameter.
+	Read(name string) (string, error)
+
+	// ReadInt reads the given sysctl parameter, return an int64 value.
+	ReadInt(name string) (int64, error)
 }
 
-// Setting represents a sysctl setting. Its purpose it to be able to iterate
-// over a slice of settings.
-type Setting struct {
-	Name      string
-	Val       string
-	IgnoreErr bool
+// reconcilingSysctl is a Sysctl implementation that uses reconciliation to
+// ensure that the desired state is applied. It is the preffered implementation
+// for any binary with hive infrastructure.
+type reconcilingSysctl struct {
+	db       *statedb.DB
+	settings statedb.RWTable[*tables.Sysctl]
 
-	// Warn if non-empty is the alternative warning log message to use when IgnoreErr is false.
-	Warn string
+	fs     afero.Fs
+	procFs string
 }
 
-// parameterPath returns the path to the sysctl file for parameter name.
-func parameterPath(name string) (string, error) {
-	elems := strings.Split(name, ".")
-	for _, elem := range elems {
-		if !parameterElemRx.MatchString(elem) {
-			return "", ErrInvalidSysctlParameter(name)
-		}
+func newReconcilingSysctl(
+	db *statedb.DB,
+	settings statedb.RWTable[*tables.Sysctl],
+	cfg Config,
+	fs afero.Fs,
+	_ reconciler.Reconciler[*tables.Sysctl], // needed to enforce the correct hive ordering
+) Sysctl {
+	db.RegisterTable(settings)
+	return &reconcilingSysctl{db, settings, fs, cfg.ProcFs}
+}
+
+func (sysctl *reconcilingSysctl) Disable(name string) error {
+	txn := sysctl.db.WriteTxn(sysctl.settings)
+	_, _, _ = sysctl.settings.Insert(txn, &tables.Sysctl{
+		Name:   name,
+		Val:    "0",
+		Status: reconciler.StatusPending(),
+	})
+	txn.Commit()
+
+	return sysctl.waitForReconciliation(name)
+}
+
+func (sysctl *reconcilingSysctl) Enable(name string) error {
+	txn := sysctl.db.WriteTxn(sysctl.settings)
+	_, _, _ = sysctl.settings.Insert(txn, &tables.Sysctl{
+		Name:   name,
+		Val:    "1",
+		Status: reconciler.StatusPending(),
+	})
+	txn.Commit()
+
+	return sysctl.waitForReconciliation(name)
+}
+
+func (sysctl *reconcilingSysctl) Write(name string, val string) error {
+	txn := sysctl.db.WriteTxn(sysctl.settings)
+	_, _, _ = sysctl.settings.Insert(txn, &tables.Sysctl{
+		Name:   name,
+		Val:    val,
+		Status: reconciler.StatusPending(),
+	})
+	txn.Commit()
+
+	return sysctl.waitForReconciliation(name)
+}
+
+func (sysctl *reconcilingSysctl) WriteInt(name string, val int64) error {
+	txn := sysctl.db.WriteTxn(sysctl.settings)
+	_, _, _ = sysctl.settings.Insert(txn, &tables.Sysctl{
+		Name:   name,
+		Val:    strconv.FormatInt(val, 10),
+		Status: reconciler.StatusPending(),
+	})
+	txn.Commit()
+
+	return sysctl.waitForReconciliation(name)
+}
+
+func (sysctl *reconcilingSysctl) ApplySettings(sysSettings []tables.Sysctl) error {
+	txn := sysctl.db.WriteTxn(sysctl.settings)
+	for _, s := range sysSettings {
+		_, _, _ = sysctl.settings.Insert(txn, s.WithStatus(reconciler.StatusPending()))
 	}
-	return filepath.Join(append([]string{GetProcfs(), "sys"}, elems...)...), nil
-}
+	txn.Commit()
 
-// SetProcfs sets path for the root's /proc. Calling it after GetProcfs causes
-// panic.
-func SetProcfs(path string) {
-	procFsMU.Lock()
-	defer procFsMU.Unlock()
-	if procFsRead {
-		// do not change the procfs after we have gotten its value from GetProcfs
-		panic("SetProcfs called after GetProcfs")
+	var errs []error
+	for _, s := range sysSettings {
+		errs = append(errs, sysctl.waitForReconciliation(s.Name))
 	}
-	procFs = path
+
+	return errors.Join(errs...)
 }
 
-// GetProcfs returns the path set in procFs. Executing SetProcFs after GetProcfs
-// might panic depending. See SetProcfs for more info.
-func GetProcfs() string {
-	procFsMU.Lock()
-	defer procFsMU.Unlock()
-	procFsRead = true
-	return procFs
+func (sysctl *reconcilingSysctl) Read(name string) (string, error) {
+	path, err := parameterPath(sysctl.procFs, name)
+	if err != nil {
+		return "", err
+	}
+
+	val, err := readSysctl(sysctl.fs, path)
+	if err != nil {
+		return "", err
+	}
+
+	return val, nil
 }
 
-func writeSysctl(name string, value string) error {
-	path, err := parameterPath(name)
+func (sysctl *reconcilingSysctl) ReadInt(name string) (int64, error) {
+	val, err := sysctl.Read(name)
+	if err != nil {
+		return -1, err
+	}
+
+	v, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		return -1, err
+	}
+
+	return v, nil
+}
+
+type directSysctl struct {
+	fs     afero.Fs
+	procFs string
+}
+
+// NewDirectSysctl creates a Sysctl implementation that directly interacts with the given `fs`.
+// It doesn't reconcile and should only be used when using the reconciling variant is not available.
+func NewDirectSysctl(fs afero.Fs, procFs string) Sysctl {
+	return &directSysctl{fs, procFs}
+}
+
+func (ay *directSysctl) Disable(name string) error {
+	return ay.WriteInt(name, 0)
+}
+
+func (ay *directSysctl) Enable(name string) error {
+	return ay.WriteInt(name, 1)
+}
+
+func (ay *directSysctl) Write(name string, value string) error {
+	path, err := parameterPath(ay.procFs, name)
 	if err != nil {
 		return err
 	}
+
 	// Check if the value is already set to the desired value.
-	val, err := os.ReadFile(path)
+	val, err := ay.Read(name)
 	if err != nil {
 		return fmt.Errorf("could not read the sysctl file %s: %s", path, err)
 	}
@@ -102,90 +206,144 @@ func writeSysctl(name string, value string) error {
 	if strings.TrimRight(string(val), "\n") == value {
 		return nil
 	}
-	f, err := os.OpenFile(path, os.O_RDWR, 0644)
+
+	f, err := ay.fs.OpenFile(path, os.O_RDWR, 0644)
 	if err != nil {
-		return fmt.Errorf("could not open the sysctl file %s: %s",
-			path, err)
+		return fmt.Errorf("could not open the sysctl file %s: %w", path, err)
 	}
 	defer f.Close()
+
 	if _, err := io.WriteString(f, value); err != nil {
-		return fmt.Errorf("could not write to the systctl file %s: %s",
+		return fmt.Errorf("could not write to the sysctl file %s: %w",
 			path, err)
 	}
 	return nil
 }
 
-// Disable disables the given sysctl parameter.
-func Disable(name string) error {
-	return writeSysctl(name, "0")
+func (ay *directSysctl) WriteInt(name string, val int64) error {
+	return ay.Write(name, strconv.FormatInt(val, 10))
 }
 
-// Enable enables the given sysctl parameter.
-func Enable(name string) error {
-	return writeSysctl(name, "1")
+func (ay *directSysctl) ApplySettings(sysSettings []tables.Sysctl) error {
+	for _, s := range sysSettings {
+		if err := ay.Write(s.Name, s.Val); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-// Write writes the given sysctl parameter.
-func Write(name string, val string) error {
-	return writeSysctl(name, val)
-}
-
-// WriteInt writes the given integer type sysctl parameter.
-func WriteInt(name string, val int64) error {
-	return writeSysctl(name, strconv.FormatInt(val, 10))
-}
-
-// Read reads the given sysctl parameter.
-func Read(name string) (string, error) {
-	path, err := parameterPath(name)
+func (ay *directSysctl) Read(name string) (string, error) {
+	path, err := parameterPath(ay.procFs, name)
 	if err != nil {
 		return "", err
 	}
-	val, err := os.ReadFile(path)
+
+	f, err := ay.fs.Open(path)
 	if err != nil {
-		return "", fmt.Errorf("Failed to read %s: %s", path, err)
+		return "", fmt.Errorf("could not open the sysctl file %s: %w", path, err)
+	}
+	defer f.Close()
+
+	val, err := safeio.ReadAllLimit(f, safeio.KB)
+	if err != nil {
+		return "", fmt.Errorf("could not read the systctl file %s: %w", path, err)
 	}
 
 	return strings.TrimRight(string(val), "\n"), nil
 }
 
-// ReadInt reads the given sysctl parameter, return an int64 value.
-func ReadInt(name string) (int64, error) {
-	s, err := Read(name)
+func (ay *directSysctl) ReadInt(name string) (int64, error) {
+	val, err := ay.Read(name)
 	if err != nil {
 		return -1, err
 	}
 
-	i, err := strconv.ParseInt(s, 10, 64)
+	v, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		return -1, err
 	}
 
-	return i, nil
+	return v, nil
 }
 
-// ApplySettings applies all settings in sysSettings.
-func ApplySettings(sysSettings []Setting) error {
-	for _, s := range sysSettings {
-		log.WithFields(logrus.Fields{
-			logfields.SysParamName:  s.Name,
-			logfields.SysParamValue: s.Val,
-		}).Info("Setting sysctl")
-		if err := Write(s.Name, s.Val); err != nil {
-			if !s.IgnoreErr || errors.Is(err, ErrInvalidSysctlParameter("")) {
-				return fmt.Errorf("Failed to sysctl -w %s=%s: %s", s.Name, s.Val, err)
-			}
+// parameterElemRx matches an element of a sysctl parameter.
+var parameterElemRx = regexp.MustCompile(`\A[-0-9_a-z]+\z`)
 
-			warn := "Failed to sysctl -w"
-			if s.Warn != "" {
-				warn = s.Warn
-			}
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.SysParamName:  s.Name,
-				logfields.SysParamValue: s.Val,
-			}).Warning(warn)
+// parameterPath returns the path to the sysctl file for parameter name.
+//
+// It should by used directly only by binaries that do not rely on the
+// hive and cells framework, like cilium-cni and cilium-health.
+func parameterPath(procFs, name string) (string, error) {
+	elems := strings.Split(name, ".")
+	for _, elem := range elems {
+		if !parameterElemRx.MatchString(elem) {
+			return "", fmt.Errorf("invalid sysctl parameter: %q", name)
 		}
 	}
+	return filepath.Join(append([]string{procFs, "sys"}, elems...)...), nil
+}
 
+// writeSysctl writes a value in a sysctl parameter loacated at path.
+//
+// It should by used directly only by binaries that do not rely on the
+// hive and cells framework, like cilium-cni and cilium-health.
+func writeSysctl(fs afero.Fs, path, value string) error {
+	f, err := fs.OpenFile(path, os.O_RDWR, 0644)
+	if err != nil {
+		return fmt.Errorf("could not open the sysctl file %s: %w", path, err)
+	}
+	defer f.Close()
+
+	if _, err := io.WriteString(f, value); err != nil {
+		return fmt.Errorf("could not write to the sysctl file %s: %w",
+			path, err)
+	}
 	return nil
+}
+
+// readSysctl reads a value from a sysctl parameter located at path.
+//
+// It should by used directly only by binaries that do not rely on the
+// hive and cells framework, like cilium-cni and cilium-health.
+func readSysctl(fs afero.Fs, path string) (string, error) {
+	f, err := fs.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("could not open the sysctl file %s: %w", path, err)
+	}
+	defer f.Close()
+
+	val, err := safeio.ReadAllLimit(f, safeio.KB)
+	if err != nil {
+		return "", fmt.Errorf("could not read the systctl file %s: %w", path, err)
+	}
+
+	return strings.TrimRight(string(val), "\n"), nil
+}
+
+func (sysctl *reconcilingSysctl) waitForReconciliation(name string) error {
+	t := time.NewTimer(reconciliationTimeout)
+	defer t.Stop()
+
+	var err error
+	for {
+		obj, _, watch, _ := sysctl.settings.FirstWatch(sysctl.db.ReadTxn(), tables.SysctlNameIndex.Query(name))
+		if obj.Status.Kind == reconciler.StatusKindDone {
+			// already reconciled
+			return nil
+		}
+
+		select {
+		case <-t.C:
+			return fmt.Errorf("timeout waiting for parameter %s reconciliation: %w", name, err)
+		case <-watch:
+			if obj.Status.Kind == reconciler.StatusKindDone {
+				return nil
+			}
+			if obj.Status.Kind == reconciler.StatusKindError {
+				err = errors.New(obj.Status.Error)
+			}
+		}
+	}
 }

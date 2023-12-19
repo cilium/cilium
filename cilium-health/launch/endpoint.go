@@ -107,7 +107,7 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	return err
 }
 
-func configureHealthInterface(netNS ns.NetNS, ifName string, ip4Addr, ip6Addr *net.IPNet) error {
+func configureHealthInterface(netNS ns.NetNS, ifName string, ip4Addr, ip6Addr *net.IPNet, sysctl sysctl.Sysctl) error {
 	return netNS.Do(func(_ ns.NetNS) error {
 		link, err := netlink.LinkByName(ifName)
 		if err != nil {
@@ -118,7 +118,7 @@ func configureHealthInterface(netNS ns.NetNS, ifName string, ip4Addr, ip6Addr *n
 			name := fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", ifName)
 			// Ignore the error; if IPv6 is completely disabled
 			// then it's okay if we can't write the sysctl.
-			_ = sysctl.Write(name, "1")
+			_ = sysctl.Enable(name)
 		} else {
 			if err = netlink.AddrAdd(link, &netlink.Addr{IPNet: ip6Addr}); err != nil {
 				return err
@@ -231,7 +231,9 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
-	routingConfig routingConfigurer) (*Client, error) {
+	routingConfig routingConfigurer,
+	sysctl sysctl.Sysctl,
+) (*Client, error) {
 
 	var (
 		cmd  = launcher.Launcher{}
@@ -276,7 +278,8 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	case datapathOption.DatapathModeVeth:
 		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(),
 			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(),
-			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(), info)
+			bigTCPConfig.GetGROIPv4MaxSize(), bigTCPConfig.GetGSOIPv4MaxSize(),
+			info, sysctl)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %s", err)
 		}
@@ -286,7 +289,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	}
 
-	if err = configureHealthInterface(netNS, epIfaceName, ip4Address, ip6Address); err != nil {
+	if err = configureHealthInterface(netNS, epIfaceName, ip4Address, ip6Address, sysctl); err != nil {
 		return nil, fmt.Errorf("failed configure health interface %q: %s", epIfaceName, err)
 	}
 

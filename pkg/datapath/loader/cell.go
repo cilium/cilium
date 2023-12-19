@@ -8,6 +8,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -38,6 +39,6 @@ type Loader interface {
 }
 
 // NewLoader returns a new loader.
-func NewLoader() Loader {
-	return newLoader()
+func NewLoader(sc sysctl.Sysctl) Loader {
+	return newLoader(sc)
 }

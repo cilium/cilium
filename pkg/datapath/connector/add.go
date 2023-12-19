@@ -45,6 +45,6 @@ func truncateString(epID string, maxLen uint) string {
 }
 
 // DisableRpFilter tries to disable rpfilter on specified interface
-func DisableRpFilter(ifName string) error {
+func DisableRpFilter(sysctl sysctl.Sysctl, ifName string) error {
 	return sysctl.Disable(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifName))
 }

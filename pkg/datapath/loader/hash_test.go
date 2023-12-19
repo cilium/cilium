@@ -7,10 +7,12 @@ import (
 	"context"
 
 	. "github.com/cilium/checkmate"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -33,6 +35,7 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 		cell.Provide(
 			fakeTypes.NewNodeAddressing,
 			func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
+			func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
 			config.NewHeaderfileWriter,
 		),
 		cell.Invoke(func(writer_ datapath.ConfigWriter) {
