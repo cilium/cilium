@@ -301,26 +301,21 @@ func (gc *GC) createGCFilter(initialScan bool, restoredEndpoints []*endpoint.End
 			}
 		}
 
-		// Once the host firewall is enabled, we will start tracking (and
-		// potentially enforcing policies) on all connections to and from the
-		// host IP addresses. Thus, we also need to avoid GCing the host IPs.
-		if option.Config.EnableHostFirewall {
-			addrs, err := nodeAddressing.IPv4().LocalAddresses()
-			if err != nil {
-				gc.logger.WithError(err).Warning("Unable to list local IPv4 addresses")
-			}
-			addrsV6, err := nodeAddressing.IPv6().LocalAddresses()
-			if err != nil {
-				gc.logger.WithError(err).Warning("Unable to list local IPv6 addresses")
-			}
-			addrs = append(addrs, addrsV6...)
+		addrs, err := nodeAddressing.IPv4().LocalAddresses()
+		if err != nil {
+			gc.logger.WithError(err).Warning("Unable to list local IPv4 addresses")
+		}
+		addrsV6, err := nodeAddressing.IPv6().LocalAddresses()
+		if err != nil {
+			gc.logger.WithError(err).Warning("Unable to list local IPv6 addresses")
+		}
+		addrs = append(addrs, addrsV6...)
 
-			for _, ip := range addrs {
-				if option.Config.IsExcludedLocalAddress(ip) {
-					continue
-				}
-				filter.ValidIPs[iputil.MustAddrFromIP(ip)] = struct{}{}
+		for _, ip := range addrs {
+			if option.Config.IsExcludedLocalAddress(ip) {
+				continue
 			}
+			filter.ValidIPs[iputil.MustAddrFromIP(ip)] = struct{}{}
 		}
 	}
 
