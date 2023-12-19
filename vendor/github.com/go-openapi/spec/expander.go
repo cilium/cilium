@@ -102,15 +102,21 @@ const rootBase = ".root"
 
 // baseForRoot loads in the cache the root document and produces a fake ".root" base path entry
 // for further $ref resolution
-//
-// Setting the cache is optional and this parameter may safely be left to nil.
 func baseForRoot(root interface{}, cache ResolutionCache) string {
-	if root == nil {
-		return ""
-	}
-
 	// cache the root document to resolve $ref's
 	normalizedBase := normalizeBase(rootBase)
+
+	if root == nil {
+		// ensure that we never leave a nil root: always cache the root base pseudo-document
+		cachedRoot, found := cache.Get(normalizedBase)
+		if found && cachedRoot != nil {
+			// the cache is already preloaded with a root
+			return normalizedBase
+		}
+
+		root = map[string]interface{}{}
+	}
+
 	cache.Set(normalizedBase, root)
 
 	return normalizedBase
