@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
+	jsonUtils "github.com/cilium/cilium-cli/utils/json"
 )
 
 const (
@@ -753,7 +754,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	for _, nodeName := range k.params.NodesWithoutCilium {
 		k.Log("🚀 Setting label %q on node %q to prevent Cilium from being scheduled on it...", defaults.CiliumNoScheduleLabel, nodeName)
-		label := utils.EscapeJSONPatchString(defaults.CiliumNoScheduleLabel)
+		label := jsonUtils.EscapePatchString(defaults.CiliumNoScheduleLabel)
 		labelPatch := fmt.Sprintf(`[{"op":"add","path":"/metadata/labels/%s","value":"true"}]`, label)
 		_, err = k.client.PatchNode(ctx, nodeName, types.JSONPatchType, []byte(labelPatch))
 		if err != nil {

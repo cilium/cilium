@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
 	"github.com/cilium/cilium-cli/utils/features"
+	jsonUtils "github.com/cilium/cilium-cli/utils/json"
 )
 
 func (ct *ConnectivityTest) generateAgentDaemonSet() *appsv1.DaemonSet {
@@ -75,7 +76,7 @@ func (ct *ConnectivityTest) deleteCiliumPods(ctx context.Context) error {
 	ct.Debugf("Deleting Cilium pods from nodes %v", ct.params.DeleteCiliumOnNodes)
 	for _, node := range ct.params.DeleteCiliumOnNodes {
 		ct.Infof("  Deleting Cilium pod on node %s by setting label %q", node, defaults.CiliumNoScheduleLabel)
-		label := utils.EscapeJSONPatchString(defaults.CiliumNoScheduleLabel)
+		label := jsonUtils.EscapePatchString(defaults.CiliumNoScheduleLabel)
 		labelPatch := fmt.Sprintf(`[{"op":"add","path":"/metadata/labels/%s","value":"true"}]`, label)
 		_, err = ct.client.PatchNode(ctx, node, types.JSONPatchType, []byte(labelPatch))
 		if err != nil {
