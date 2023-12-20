@@ -162,7 +162,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			return hdrlen;
 
 		if (likely(nexthdr == IPPROTO_ICMPV6)) {
-			ret = icmp6_host_handle(ctx, ETH_HLEN + hdrlen, !from_host);
+			ret = icmp6_host_handle(ctx, ETH_HLEN + hdrlen, !from_host, ext_err);
 			if (ret == SKIP_HOST_FIREWALL)
 				goto skip_host_firewall;
 			if (IS_ERR(ret))
@@ -505,7 +505,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		return hdrlen;
 
 	if (likely(nexthdr == IPPROTO_ICMPV6)) {
-		ret = icmp6_host_handle(ctx, ETH_HLEN + hdrlen, false);
+		ret = icmp6_host_handle(ctx, ETH_HLEN + hdrlen, false, ext_err);
 		if (ret == SKIP_HOST_FIREWALL)
 			return CTX_ACT_OK;
 		if (IS_ERR(ret))
