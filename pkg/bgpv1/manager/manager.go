@@ -75,6 +75,9 @@ type BGPRouterManager struct {
 	lock.RWMutex
 	Servers     LocalASNMap
 	Reconcilers []ConfigReconciler
+
+	// running is set when the manager is running, and unset when it is stopped.
+	running bool
 }
 
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
@@ -93,6 +96,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 	return &BGPRouterManager{
 		Servers:     make(LocalASNMap),
 		Reconcilers: params.Reconcilers,
+		running:     true, // start with running state set
 	}
 }
 
@@ -108,6 +112,10 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 func (m *BGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy, cstate *agent.ControlPlaneState) error {
 	m.Lock()
 	defer m.Unlock()
+
+	if !m.running {
+		return fmt.Errorf("bgp router manager is not running")
+	}
 
 	l := log.WithFields(
 		logrus.Fields{
@@ -351,6 +359,10 @@ func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, err
 	m.RLock()
 	defer m.RUnlock()
 
+	if !m.running {
+		return nil, fmt.Errorf("bgp router manager is not running")
+	}
+
 	var res []*models.BgpPeer
 
 	for _, s := range m.Servers {
@@ -373,4 +385,5 @@ func (m *BGPRouterManager) Stop() {
 	}
 
 	m.Servers = make(LocalASNMap)
+	m.running = false
 }
