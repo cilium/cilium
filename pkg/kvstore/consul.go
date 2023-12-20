@@ -521,38 +521,6 @@ func (c *consulClient) Get(ctx context.Context, key string) (bv []byte, err erro
 	return pair.Value, nil
 }
 
-// GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
-func (c *consulClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
-	return c.getPrefix(ctx, prefix)
-}
-
-// GetPrefix returns the first key which matches the prefix and its value
-func (c *consulClient) GetPrefix(ctx context.Context, prefix string) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
-	return c.getPrefix(ctx, prefix)
-}
-
-func (c *consulClient) getPrefix(ctx context.Context, prefix string) (k string, bv []byte, err error) {
-	duration := spanstat.Start()
-	opts := &consulAPI.QueryOptions{}
-	pairs, _, err := c.KV().List(prefix, opts.WithContext(ctx))
-	increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
-	if err != nil {
-		return "", nil, err
-	}
-
-	if len(pairs) == 0 {
-		return "", nil, nil
-	}
-
-	return pairs[0].Key, pairs[0].Value, nil
-}
-
 // UpdateIfLocked updates a key if the client is still holding the given lock.
 func (c *consulClient) UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error {
 	return c.Update(ctx, key, value, lease)

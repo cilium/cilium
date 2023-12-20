@@ -47,84 +47,37 @@ func (s *BaseTests) TestGetSet(c *C) {
 	Client().DeletePrefix(context.TODO(), prefix)
 	defer Client().DeletePrefix(context.TODO(), prefix)
 
-	key, val, err := Client().GetPrefix(context.Background(), prefix)
+	pairs, err := Client().ListPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
-	c.Assert(val, IsNil)
-	c.Assert(key, Equals, "")
+	c.Assert(pairs, HasLen, 0)
 
 	for i := 0; i < maxID; i++ {
-		val, err = Client().Get(context.TODO(), testKey(prefix, i))
+		val, err := Client().Get(context.TODO(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
-
-		key, val, err = Client().GetPrefix(context.Background(), testKey(prefix, i))
-		c.Assert(err, IsNil)
-		c.Assert(val, IsNil)
-		c.Assert(key, Equals, "")
 
 		c.Assert(Client().Set(context.TODO(), testKey(prefix, i), []byte(testValue(i))), IsNil)
 
 		val, err = Client().Get(context.TODO(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(string(val), checker.DeepEquals, testValue(i))
-
-		key, val, err = Client().GetPrefix(context.TODO(), testKey(prefix, i))
-		c.Assert(err, IsNil)
-		c.Assert(key, checker.DeepEquals, testKey(prefix, i))
-		c.Assert(string(val), checker.DeepEquals, testValue(i))
 	}
+
+	pairs, err = Client().ListPrefix(context.Background(), prefix)
+	c.Assert(err, IsNil)
+	c.Assert(pairs, HasLen, maxID)
 
 	for i := 0; i < maxID; i++ {
 		c.Assert(Client().Delete(context.TODO(), testKey(prefix, i)), IsNil)
 
-		val, err = Client().Get(context.TODO(), testKey(prefix, i))
+		val, err := Client().Get(context.TODO(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
-
-		key, val, err = Client().GetPrefix(context.Background(), testKey(prefix, i))
-		c.Assert(err, IsNil)
-		c.Assert(val, IsNil)
-		c.Assert(key, Equals, "")
 	}
 
-	key, val, err = Client().GetPrefix(context.Background(), prefix)
+	pairs, err = Client().ListPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
-	c.Assert(val, IsNil)
-	c.Assert(key, Equals, "")
-}
-
-func (s *BaseTests) TestGetPrefix(c *C) {
-	prefix := "unit-test/"
-
-	Client().DeletePrefix(context.TODO(), prefix)
-	defer Client().DeletePrefix(context.TODO(), prefix)
-
-	key, val, err := Client().GetPrefix(context.Background(), prefix)
-	c.Assert(err, IsNil)
-	c.Assert(val, IsNil)
-	c.Assert(key, Equals, "")
-
-	// create
-	labelsLong := "foo;/;bar;"
-	labelsShort := "foo;/"
-	testKey := fmt.Sprintf("%s%s/%010d", prefix, labelsLong, 0)
-	c.Assert(Client().Update(context.Background(), testKey, []byte(testValue(0)), true), IsNil)
-
-	val, err = Client().Get(context.TODO(), testKey)
-	c.Assert(err, IsNil)
-	c.Assert(string(val), checker.DeepEquals, testValue(0))
-
-	prefixes := []string{
-		prefix,
-		fmt.Sprintf("%s%s", prefix, labelsLong),
-		fmt.Sprintf("%s%s", prefix, labelsShort),
-	}
-	for _, p := range prefixes {
-		key, val, err = Client().GetPrefix(context.Background(), p)
-		c.Assert(err, IsNil)
-		c.Assert(string(val), checker.DeepEquals, testValue(0))
-		c.Assert(key, Equals, testKey)
-	}
+	c.Assert(pairs, HasLen, 0)
 }
 
 func (s *BaseTests) BenchmarkGet(c *C) {
@@ -159,15 +112,10 @@ func (s *BaseTests) TestUpdate(c *C) {
 	Client().DeletePrefix(context.TODO(), prefix)
 	defer Client().DeletePrefix(context.TODO(), prefix)
 
-	key, val, err := Client().GetPrefix(context.Background(), prefix)
-	c.Assert(err, IsNil)
-	c.Assert(val, IsNil)
-	c.Assert(key, Equals, "")
-
 	// create
 	c.Assert(Client().Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true), IsNil)
 
-	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
+	val, err := Client().Get(context.TODO(), testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(string(val), checker.DeepEquals, testValue(0))
 
@@ -185,16 +133,11 @@ func (s *BaseTests) TestCreateOnly(c *C) {
 	Client().DeletePrefix(context.TODO(), prefix)
 	defer Client().DeletePrefix(context.TODO(), prefix)
 
-	key, val, err := Client().GetPrefix(context.Background(), prefix)
-	c.Assert(err, IsNil)
-	c.Assert(val, IsNil)
-	c.Assert(key, Equals, "")
-
 	success, err := Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(0)), false)
 	c.Assert(err, IsNil)
 	c.Assert(success, Equals, true)
 
-	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
+	val, err := Client().Get(context.TODO(), testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(string(val), checker.DeepEquals, testValue(0))
 
