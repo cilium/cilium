@@ -1138,66 +1138,6 @@ func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error)
 	return getR.Kvs[0].Value, nil
 }
 
-// GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
-func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
-	lr, err := e.limiter.Wait(ctx)
-	if err != nil {
-		return "", nil, Hint(err)
-	}
-	defer func(duration *spanstat.SpanStat) {
-		increaseMetric(prefix, metricRead, "GetPrefixLocked", duration.EndError(err).Total(), err)
-	}(spanstat.Start())
-
-	opGet := client.OpGet(prefix, client.WithPrefix(), client.WithLimit(1))
-	cmp := lock.Comparator().(client.Cmp)
-	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opGet).Commit()
-	if err == nil && !txnReply.Succeeded {
-		err = ErrLockLeaseExpired
-	}
-
-	if err != nil {
-		lr.Error(err)
-		return "", nil, Hint(err)
-	}
-	lr.Done()
-
-	getR := txnReply.Responses[0].GetResponseRange()
-
-	if getR.Count == 0 {
-		return "", nil, nil
-	}
-	return string(getR.Kvs[0].Key), getR.Kvs[0].Value, nil
-}
-
-// GetPrefix returns the first key which matches the prefix and its value
-func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
-	lr, err := e.limiter.Wait(ctx)
-	if err != nil {
-		return "", nil, Hint(err)
-	}
-	defer func(duration *spanstat.SpanStat) {
-		increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
-	}(spanstat.Start())
-
-	getR, err := e.client.Get(ctx, prefix, client.WithPrefix(), client.WithLimit(1))
-	if err != nil {
-		lr.Error(err)
-		return "", nil, Hint(err)
-	}
-	lr.Done()
-
-	if getR.Count == 0 {
-		return "", nil, nil
-	}
-	return string(getR.Kvs[0].Key), getR.Kvs[0].Value, nil
-}
-
 // Set sets value of key
 func (e *etcdClient) Set(ctx context.Context, key string, value []byte) (err error) {
 	defer func() {
