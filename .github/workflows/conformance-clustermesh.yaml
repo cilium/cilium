@@ -94,17 +94,17 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'iptables'
-            kvstoremesh: true
+            mode: 'kvstoremesh'
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'legacy'
             maxConnectedClusters: '255'
 
           - name: '2'
             tunnel: 'disabled'
-            ipfamily: 'ipv4'
+            ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'none'
-            kvstoremesh: false
+            mode: 'clustermesh'
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '511'
@@ -112,10 +112,10 @@ jobs:
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
             tunnel: 'disabled'
-            ipfamily: 'ipv4'
+            ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
-            kvstoremesh: true
+            mode: 'kvstoremesh'
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -127,7 +127,7 @@ jobs:
             ipfamily: 'ipv6'
             encryption: 'disabled'
             kube-proxy: 'none'
-            kvstoremesh: false
+            mode: 'clustermesh'
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '255'
@@ -138,8 +138,8 @@ jobs:
             ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
-            kvstoremesh: true
-            cm-auth-mode-1: 'migration'
+            mode: 'kvstoremesh'
+            cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
 
@@ -148,28 +148,28 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'none'
-            kvstoremesh: false
+            mode: 'clustermesh'
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '511'
 
           - name: '7'
             tunnel: 'geneve'
-            ipfamily: 'ipv4'
+            ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
-            kvstoremesh: true
-            cm-auth-mode-1: 'cluster'
+            mode: 'kvstoremesh'
+            cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
             tunnel: 'vxlan'
-            ipfamily: 'ipv4'
+            ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
-            kvstoremesh: false
+            mode: 'clustermesh'
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -180,7 +180,7 @@ jobs:
         #    ipfamily: 'ipv6'
         #    encryption: 'disabled'
         #    kube-proxy: 'none'
-        #    kvstoremesh: true
+        #    mode: 'kvstoremesh'
         #    cm-auth-mode-1: 'cluster'
         #    cm-auth-mode-2: 'cluster'
 
@@ -189,7 +189,7 @@ jobs:
             ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
-            kvstoremesh: false
+            mode: 'clustermesh'
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -221,7 +221,7 @@ jobs:
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=clustermesh.useAPIServer=true \
-            --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.kvstoremesh }} \
+            --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
             "
 
