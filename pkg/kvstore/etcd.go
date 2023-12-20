@@ -1538,11 +1538,6 @@ func (e *etcdClient) Close(ctx context.Context) {
 	e.lockLeaseManager.Wait()
 }
 
-// GetCapabilities returns the capabilities of the backend
-func (e *etcdClient) GetCapabilities() Capabilities {
-	return Capabilities(CapabilityCreateIfExists)
-}
-
 // Encode encodes a binary slice into a character set that the backend supports
 func (e *etcdClient) Encode(in []byte) (out string) {
 	return string(in)

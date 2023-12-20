@@ -50,10 +50,6 @@ var (
 // longer backed by at least one slave key, the garbage collector will
 // eventually release the master key and return it back to the pool.
 type kvstoreBackend struct {
-	// lockless is true if allocation can be done lockless. This depends on
-	// the underlying kvstore backend
-	lockless bool
-
 	// basePrefix is the prefix in the kvstore that all keys share which
 	// are being managed by this allocator. The basePrefix typically
 	// consists of something like: "space/project/allocatorName"
@@ -81,11 +77,6 @@ type kvstoreBackend struct {
 	keyType allocator.AllocatorKey
 }
 
-func locklessCapability(backend kvstore.BackendOperations) bool {
-	required := kvstore.CapabilityCreateIfExists | kvstore.CapabilityDeleteOnZeroCount
-	return backend.GetCapabilities()&required == required
-}
-
 func prefixMatchesKey(prefix, key string) bool {
 	// cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
 	lastSlash := strings.LastIndex(key, "/")
@@ -106,7 +97,6 @@ func NewKVStoreBackend(basePath, suffix string, typ allocator.AllocatorKey, back
 		lockPrefix:  path.Join(basePath, "locks"),
 		suffix:      suffix,
 		keyType:     typ,
-		lockless:    locklessCapability(backend),
 		backend:     backend,
 	}, nil
 }

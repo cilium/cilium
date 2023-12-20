@@ -668,11 +668,6 @@ func (c *consulClient) Close(ctx context.Context) {
 	}
 }
 
-// GetCapabilities returns the capabilities of the backend
-func (c *consulClient) GetCapabilities() Capabilities {
-	return Capabilities(0)
-}
-
 // Encode encodes a binary slice into a character set that the backend supports
 func (c *consulClient) Encode(in []byte) (out string) {
 	defer func() { Trace("Encode", nil, logrus.Fields{"in": in, "out": out}) }()
