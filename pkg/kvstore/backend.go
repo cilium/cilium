@@ -149,12 +149,6 @@ type BackendOperations interface {
 	// GetIfLocked returns value of key if the client is still holding the given lock.
 	GetIfLocked(ctx context.Context, key string, lock KVLocker) ([]byte, error)
 
-	// GetPrefix returns the first key which matches the prefix and its value
-	GetPrefix(ctx context.Context, prefix string) (string, []byte, error)
-
-	// GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
-	GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (string, []byte, error)
-
 	// Set sets value of key
 	Set(ctx context.Context, key string, value []byte) error
 
