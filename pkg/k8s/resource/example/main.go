@@ -138,7 +138,7 @@ func (ps *PrintServices) printServices(ctx context.Context) {
 
 	log.Info("Services:")
 	for _, svc := range store.List() {
-		labels := labels.Map2Labels(svc.Spec.Selector, "k8s")
+		labels := labels.Map2Labels(svc.Spec.Selector, labels.LabelSourceK8s)
 		log.Infof("  - %s/%s\ttype=%s\tselector=%s", svc.Namespace, svc.Name, svc.Spec.Type, labels)
 	}
 
@@ -195,7 +195,7 @@ func (ps *PrintServices) processLoop(ctx context.Context) error {
 				// data of pods that are not part of this set.
 			case resource.Upsert:
 				log.Infof("Pod %s updated", ev.Key)
-				podLabels[ev.Key] = labels.Map2Labels(ev.Object.Labels, "k8s")
+				podLabels[ev.Key] = labels.Map2Labels(ev.Object.Labels, labels.LabelSourceK8s)
 			case resource.Delete:
 				log.Infof("Pod %s deleted", ev.Key)
 				delete(podLabels, ev.Key)
@@ -226,7 +226,7 @@ func (ps *PrintServices) processLoop(ctx context.Context) error {
 			case resource.Upsert:
 				log.Infof("Service %s updated", ev.Key)
 				if len(ev.Object.Spec.Selector) > 0 {
-					serviceSelectors[ev.Key] = labels.Map2Labels(ev.Object.Spec.Selector, "k8s")
+					serviceSelectors[ev.Key] = labels.Map2Labels(ev.Object.Spec.Selector, labels.LabelSourceK8s)
 				}
 			case resource.Delete:
 				log.Infof("Service %s deleted", ev.Key)
