@@ -1190,16 +1190,6 @@ func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
 	return Hint(err)
 }
 
-func (e *etcdClient) createOpPut(key string, value []byte, leaseID client.LeaseID) *client.Op {
-	if leaseID != 0 {
-		op := client.OpPut(key, string(value), client.WithLease(leaseID))
-		return &op
-	}
-
-	op := client.OpPut(key, string(value))
-	return &op
-}
-
 // UpdateIfLocked updates a key if the client is still holding the given lock.
 func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (err error) {
 	defer func() {
@@ -1353,7 +1343,7 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 	}
 	duration := spanstat.Start()
 
-	req := e.createOpPut(key, value, leaseID)
+	req := client.OpPut(key, string(value), client.WithLease(leaseID))
 	cnds := []client.Cmp{
 		client.Compare(client.Version(key), "=", 0),
 		lock.Comparator().(client.Cmp),
@@ -1364,7 +1354,7 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 	opGets := []client.Op{
 		client.OpGet(key),
 	}
-	txnresp, err := e.client.Txn(ctx).If(cnds...).Then(*req).Else(opGets...).Commit()
+	txnresp, err := e.client.Txn(ctx).If(cnds...).Then(req).Else(opGets...).Commit()
 	increaseMetric(key, metricSet, "CreateOnlyLocked", duration.EndError(err).Total(), err)
 	if err != nil {
 		lr.Error(err)
@@ -1420,10 +1410,10 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 		increaseMetric(key, metricSet, "CreateOnly", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	req := e.createOpPut(key, value, leaseID)
+	req := client.OpPut(key, string(value), client.WithLease(leaseID))
 	cond := client.Compare(client.Version(key), "=", 0)
 
-	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
+	txnresp, err := e.client.Txn(ctx).If(cond).Then(req).Commit()
 
 	if err != nil {
 		lr.Error(err)
