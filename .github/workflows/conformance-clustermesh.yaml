@@ -149,7 +149,7 @@ jobs:
             mode: 'clustermesh'
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
-            maxConnectedClusters: '511'
+            maxConnectedClusters: '255'
 
           - name: '7'
             tunnel: 'geneve'
@@ -159,7 +159,7 @@ jobs:
             mode: 'kvstoremesh'
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'cluster'
-            maxConnectedClusters: '255'
+            maxConnectedClusters: '511'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
@@ -188,7 +188,7 @@ jobs:
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             mode: 'external'
-            maxConnectedClusters: '255'
+            maxConnectedClusters: '511'
 
     steps:
       - name: Checkout context ref (trusted)
