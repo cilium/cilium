@@ -138,9 +138,7 @@ jobs:
             ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
-            mode: 'kvstoremesh'
-            cm-auth-mode-1: 'cluster'
-            cm-auth-mode-2: 'cluster'
+            mode: 'external'
             maxConnectedClusters: '255'
 
           - name: '6'
@@ -189,9 +187,7 @@ jobs:
             ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
-            mode: 'clustermesh'
-            cm-auth-mode-1: 'cluster'
-            cm-auth-mode-2: 'cluster'
+            mode: 'external'
             maxConnectedClusters: '255'
 
     steps:
@@ -220,7 +216,7 @@ jobs:
             --helm-set=bpf.monitorAggregation=none \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
-            --helm-set=clustermesh.useAPIServer=true \
+            --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
             --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
             "
@@ -350,6 +346,30 @@ jobs:
           kubectl --context ${{ env.contextName1 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
           kubectl --context ${{ env.contextName2 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
+      - name: Start kvstore clusters
+        id: kvstore
+        if: matrix.mode == 'external'
+        uses: ./.github/actions/kvstore
+        with:
+          clusters: 2
+
+      - name: Create the secret containing the kvstore credentials
+        if: matrix.mode == 'external'
+        run: |
+          kubectl --context ${{ env.contextName1 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+          kubectl --context ${{ env.contextName2 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+
+      - name: Set clustermesh connection parameters
+        if: matrix.mode == 'external'
+        id: clustermesh-vars
+        run: |
+          echo "cilium_install_clustermesh= \
+            --set=clustermesh.config.enabled=true \
+            --set clustermesh.config.clusters[0].name=${{ env.clusterName1 }} \
+            --set clustermesh.config.clusters[1].name=${{ env.clusterName2 }} \
+            ${{ steps.kvstore.outputs.cilium_install_clustermesh }} \
+          " >> $GITHUB_OUTPUT
+
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
@@ -375,6 +395,8 @@ jobs:
 
       - name: Install Cilium in cluster1
         id: install-cilium-cluster1
+        env:
+          KVSTORE_ID: 1
         run: |
           # Explicitly configure the NodePort to make sure that it is different in
           # each cluster, to workaround #24692
@@ -383,7 +405,9 @@ jobs:
             --helm-set cluster.name=${{ env.clusterName1 }} \
             --helm-set cluster.id=1 \
             --helm-set clustermesh.apiserver.service.nodePort=32379 \
-            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }}
+            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }}
 
       - name: Copy the Cilium CA secret to cluster2, as they must match
         run: |
@@ -391,6 +415,8 @@ jobs:
             kubectl --context ${{ env.contextName2 }} create -f -
 
       - name: Install Cilium in cluster2
+        env:
+          KVSTORE_ID: 2
         run: |
           # Explicitly configure the NodePort to make sure that it is different in
           # each cluster, to workaround #24692
@@ -399,7 +425,9 @@ jobs:
             --helm-set cluster.name=${{ env.clusterName2 }} \
             --helm-set cluster.id=255 \
             --helm-set clustermesh.apiserver.service.nodePort=32380 \
-            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }}
+            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }}
 
       - name: Wait for cluster mesh status to be ready
         run: |
@@ -409,10 +437,12 @@ jobs:
           cilium --context ${{ env.contextName2 }} clustermesh status --wait
 
       - name: Connect clusters
+        if: matrix.mode != 'external'
         run: |
           cilium --context ${{ env.contextName1 }} clustermesh connect --destination-context ${{ env.contextName2 }}
 
       - name: Wait for cluster mesh status to be ready
+        if: matrix.mode != 'external'
         run: |
           cilium --context ${{ env.contextName1 }} status --wait
           cilium --context ${{ env.contextName2 }} status --wait
@@ -450,6 +480,14 @@ jobs:
           kubectl config use-context ${{ env.contextName2 }}
           kubectl get pods --all-namespaces -o wide
           cilium sysdump --output-filename cilium-sysdump-context2-final-${{ join(matrix.*, '-') }}
+
+          if [ "${{ matrix.mode }}" == "external" ]; then
+            for i in {1..2}; do
+              echo
+              echo "# Retrieving logs from kvstore$i docker container"
+              docker logs kvstore$i
+            done
+          fi
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
