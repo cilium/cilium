@@ -1767,15 +1767,6 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 		},
 		{
 			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				err := Client().CreateIfExists(ctx, condKey, getKey(k), []byte(value), true)
-				require.NoError(t, err)
-			},
-			name:        "CreateIfExists",
-			useKVLocker: true,
-			needCondKey: true,
-		},
-		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
 				err := Client().Delete(ctx, getKey(k))
 				require.NoError(t, err)
 			},

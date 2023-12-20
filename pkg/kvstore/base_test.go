@@ -205,20 +205,6 @@ func (s *BaseTests) TestCreateOnly(c *C) {
 	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(string(val), checker.DeepEquals, testValue(0))
-
-	// key 1 does not exist so CreateIfExists should fail
-	c.Assert(Client().CreateIfExists(context.TODO(), testKey(prefix, 1), testKey(prefix, 2), []byte(testValue(2)), false), Not(IsNil))
-
-	val, err = Client().Get(context.TODO(), testKey(prefix, 2))
-	c.Assert(err, IsNil)
-	c.Assert(val, IsNil)
-
-	// key 0 exists so CreateIfExists should succeed
-	c.Assert(Client().CreateIfExists(context.TODO(), testKey(prefix, 0), testKey(prefix, 2), []byte(testValue(2)), false), IsNil)
-
-	val, err = Client().Get(context.TODO(), testKey(prefix, 2))
-	c.Assert(err, IsNil)
-	c.Assert(string(val), checker.DeepEquals, testValue(2))
 }
 
 func expectEvent(c *C, w *Watcher, typ EventType, key string, val string) {

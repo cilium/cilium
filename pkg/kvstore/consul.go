@@ -656,49 +656,6 @@ func (c *consulClient) createOnly(ctx context.Context, key string, value []byte,
 	return success, nil
 }
 
-// createIfExists creates a key with the value only if key condKey exists
-func (c *consulClient) createIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) error {
-	// Consul does not support transactions which would allow to check for
-	// the presence of a conditional key if the key is not the key being
-	// manipulated
-	//
-	// Lock the conditional key to serialize all CreateIfExists() calls
-
-	l, err := LockPath(ctx, c, condKey)
-	if err != nil {
-		return fmt.Errorf("unable to lock condKey for CreateIfExists: %s", err)
-	}
-
-	defer l.Unlock(context.Background())
-
-	// Create the key if it does not exist
-	if _, err := c.CreateOnly(ctx, key, value, lease); err != nil {
-		return err
-	}
-
-	// Consul does not support transactions which would allow to check for
-	// the presence of another key
-	masterKey, err := c.Get(ctx, condKey)
-	if err != nil || masterKey == nil {
-		c.Delete(ctx, key)
-		return fmt.Errorf("conditional key not present")
-	}
-
-	return nil
-}
-
-// CreateIfExists creates a key with the value only if key condKey exists
-func (c *consulClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) (err error) {
-	defer func() {
-		Trace("CreateIfExists", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldCondition: condKey, fieldAttachLease: lease})
-	}()
-
-	duration := spanstat.Start()
-	err = c.createIfExists(ctx, condKey, key, value, lease)
-	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
-	return err
-}
-
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 func (c *consulClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (v KeyValuePairs, err error) {
 	defer func() { Trace("ListPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)}) }()

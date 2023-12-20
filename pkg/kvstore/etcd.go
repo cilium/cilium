@@ -1514,43 +1514,6 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 	return txnresp.Succeeded, nil
 }
 
-// CreateIfExists creates a key with the value only if key condKey exists
-func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) (err error) {
-	defer func() {
-		Trace("CreateIfExists", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldCondition: condKey, fieldAttachLease: lease})
-	}()
-	var leaseID client.LeaseID
-	if lease {
-		leaseID, err = e.leaseManager.GetLeaseID(ctx, key)
-		if err != nil {
-			return Hint(err)
-		}
-	}
-	lr, err := e.limiter.Wait(ctx)
-	if err != nil {
-		return Hint(err)
-	}
-	duration := spanstat.Start()
-
-	req := e.createOpPut(key, value, leaseID)
-	cond := client.Compare(client.Version(condKey), "!=", 0)
-	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
-
-	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
-	if err != nil {
-		lr.Error(err)
-		e.leaseManager.CancelIfExpired(err, leaseID)
-		return Hint(err)
-	}
-	lr.Done()
-
-	if !txnresp.Succeeded {
-		return fmt.Errorf("create was unsuccessful")
-	}
-
-	return nil
-}
-
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (v KeyValuePairs, err error) {
 	defer func() {
