@@ -467,17 +467,6 @@ func (c *consulClient) DeletePrefix(ctx context.Context, path string) (err error
 	return err
 }
 
-// Set sets value of key
-func (c *consulClient) Set(ctx context.Context, key string, value []byte) (err error) {
-	defer func() { Trace("Set", err, logrus.Fields{fieldKey: key, fieldValue: string(value)}) }()
-
-	duration := spanstat.Start()
-	wo := &consulAPI.WriteOptions{}
-	_, err = c.KV().Put(&consulAPI.KVPair{Key: key, Value: value}, wo.WithContext(ctx))
-	increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
-	return err
-}
-
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
 func (c *consulClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) (err error) {
 	defer func() { Trace("DeleteIfLocked", err, logrus.Fields{fieldKey: key}) }()
