@@ -69,7 +69,7 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 							Name: "rule1",
 						},
 						Spec: &api.Rule{
-							EndpointSelector: api.NewESFromLabels(labels.NewLabel("foo", "bar", "k8s")),
+							EndpointSelector: api.NewESFromLabels(labels.NewLabel("foo", "bar", labels.LabelSourceK8s)),
 						},
 					},
 				},
