@@ -31,9 +31,10 @@ func newCmdBgpPeers() *cobra.Command {
 	params := bgp.Parameters{}
 
 	cmd := &cobra.Command{
-		Use:   "peers",
-		Short: "Lists BGP peering state",
-		Long:  "This command lists the BGP state from all nodes in the cluster - requires cilium >= v1.13.2",
+		Use:     "peers",
+		Aliases: []string{"neighbors"},
+		Short:   "Lists BGP peering state",
+		Long:    "This command lists the BGP state from all nodes in the cluster - requires cilium >= v1.13.2",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.CiliumNamespace = namespace
 
