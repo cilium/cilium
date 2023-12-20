@@ -739,8 +739,8 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 	return Hint(err)
 }
 
-// Watch starts watching for changes in a prefix
-func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
+// watch starts watching for changes in a prefix
+func (e *etcdClient) watch(ctx context.Context, w *Watcher) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
@@ -1552,7 +1552,7 @@ func (e *etcdClient) Decode(in string) (out []byte, err error) {
 func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string, chanSize int) *Watcher {
 	w := newWatcher(prefix, chanSize)
 
-	go e.Watch(ctx, w)
+	go e.watch(ctx, w)
 
 	return w
 }
