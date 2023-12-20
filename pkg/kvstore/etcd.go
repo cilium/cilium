@@ -1138,25 +1138,6 @@ func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error)
 	return getR.Kvs[0].Value, nil
 }
 
-// Set sets value of key
-func (e *etcdClient) Set(ctx context.Context, key string, value []byte) (err error) {
-	defer func() {
-		Trace("Set", err, logrus.Fields{fieldKey: key, fieldValue: string(value)})
-	}()
-	lr, err := e.limiter.Wait(ctx)
-	if err != nil {
-		return Hint(err)
-	}
-	defer func(duration *spanstat.SpanStat) {
-		increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
-	}(spanstat.Start())
-
-	_, err = e.client.Put(ctx, key, string(value))
-	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
-	return Hint(err)
-}
-
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
 func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) (err error) {
 	defer func() {

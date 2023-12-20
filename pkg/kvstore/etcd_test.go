@@ -1598,13 +1598,6 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 		},
 		{
 			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				err := Client().Set(ctx, getKey(k), []byte(value))
-				require.NoError(t, err)
-			},
-			name: "Set",
-		},
-		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
 				err := Client().Update(ctx, getKey(k), []byte(value), true)
 				require.NoError(t, err)
 			},

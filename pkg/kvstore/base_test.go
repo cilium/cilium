@@ -56,7 +56,7 @@ func (s *BaseTests) TestGetSet(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		c.Assert(Client().Set(context.TODO(), testKey(prefix, i), []byte(testValue(i))), IsNil)
+		c.Assert(Client().Update(context.TODO(), testKey(prefix, i), []byte(testValue(i)), false), IsNil)
 
 		val, err = Client().Get(context.TODO(), testKey(prefix, i))
 		c.Assert(err, IsNil)
@@ -86,7 +86,7 @@ func (s *BaseTests) BenchmarkGet(c *C) {
 	defer Client().DeletePrefix(context.TODO(), prefix)
 
 	key := testKey(prefix, 1)
-	c.Assert(Client().Set(context.TODO(), key, []byte(testValue(100))), IsNil)
+	c.Assert(Client().Update(context.TODO(), key, []byte(testValue(100)), false), IsNil)
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
@@ -102,7 +102,7 @@ func (s *BaseTests) BenchmarkSet(c *C) {
 	key, val := testKey(prefix, 1), testValue(100)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		Client().Set(context.TODO(), key, []byte(val))
+		Client().Update(context.TODO(), key, []byte(val), false)
 	}
 }
 

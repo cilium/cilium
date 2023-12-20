@@ -31,7 +31,7 @@ var kvstoreSetCmd = &cobra.Command{
 
 		setupKvstore(ctx)
 
-		err := kvstore.Client().Set(ctx, key, []byte(value))
+		err := kvstore.Client().Update(ctx, key, []byte(value), false)
 		if err != nil {
 			Fatalf("Unable to set key: %s", err)
 		}
