@@ -41,6 +41,38 @@ var (
 	DefaultLabelSourceKeyPrefix = LabelSourceAny + "."
 )
 
+func TestNewFrom(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		lbls Labels
+		want Labels
+	}{
+		{
+			name: "non-empty labels",
+			lbls: lbls,
+			want: lbls,
+		},
+		{
+			name: "empty labels",
+			lbls: Labels{},
+			want: Labels{},
+		},
+		{
+			name: "nil labels",
+			lbls: nil,
+			want: Labels{},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			newLbls := NewFrom(tt.lbls)
+			// Verify that underlying maps are different
+			assert.NotSame(t, tt.lbls, newLbls)
+			// Verify that the map contents are equal
+			assert.EqualValues(t, tt.want, newLbls)
+		})
+	}
+}
+
 func (s *LabelsSuite) TestSortMap(c *C) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
@@ -396,6 +428,14 @@ func TestLabels_GetFromSource(t *testing.T) {
 				t.Errorf("Labels.GetFromSource() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func BenchmarkNewFrom(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NewFrom(lbls)
 	}
 }
 

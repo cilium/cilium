@@ -424,7 +424,7 @@ func NewSelectLabelArrayFromModel(base []string) LabelArray {
 
 // NewFrom creates a new Labels from the given labels by creating a copy.
 func NewFrom(l Labels) Labels {
-	nl := NewLabelsFromModel(nil)
+	nl := make(Labels, len(l))
 	nl.MergeLabels(l)
 	return nl
 }
