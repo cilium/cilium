@@ -184,11 +184,6 @@ type BackendOperations interface {
 	// ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 	ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (KeyValuePairs, error)
 
-	// Watch starts watching for changes in a prefix. If list is true, the
-	// current keys matching the prefix will be listed and reported as new
-	// keys first.
-	Watch(ctx context.Context, w *Watcher)
-
 	// Close closes the kvstore client
 	Close(ctx context.Context)
 
