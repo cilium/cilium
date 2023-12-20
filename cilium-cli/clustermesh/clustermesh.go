@@ -1410,7 +1410,8 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*Conn
 	var expected []string
 	for name, cfg := range config.Data {
 		// Same check as https://github.com/cilium/cilium/blob/538a18800206da0d33916f5f48853a3d4454dd81/pkg/clustermesh/internal/config.go#L68
-		if strings.Contains(string(cfg), "endpoints:") {
+		// Additionally skip the configuration of the local cluster, if present
+		if name != k.clusterName && strings.Contains(string(cfg), "endpoints:") {
 			stats.Clusters[name] = &ClusterStats{}
 			expected = append(expected, name)
 		}
