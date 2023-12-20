@@ -99,6 +99,8 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 		  __u32 src, __u32 dst, __u32 dst_id,
 		  __u32 reason, __u32 exitcode, enum metric_dir direction)
 {
+	int ret __maybe_unused;
+
 	/* These fields should be constants and fit (together) in 32 bits */
 	if (!__builtin_constant_p(exitcode) || exitcode > 0xff ||
 	    !__builtin_constant_p(file) || file > 0xff ||
@@ -116,7 +118,8 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	ctx_store_meta(ctx, 4, exitcode | file << 8 | line << 16);
 
 	update_metrics(ctx_full_len(ctx), direction, (__u8)reason);
-	ep_tail_call(ctx, CILIUM_CALL_DROP_NOTIFY);
+	ret = tail_call_internal(ctx, CILIUM_CALL_DROP_NOTIFY, NULL);
+	/* ignore the returned error, use caller-provided exitcode */
 
 	return exitcode;
 }

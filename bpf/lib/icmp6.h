@@ -293,9 +293,7 @@ static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 	ctx_store_meta(ctx, 0, nh_off);
 	ctx_store_meta(ctx, 1, direction);
 
-	ep_tail_call(ctx, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED);
-
-	return DROP_MISSED_TAIL_CALL;
+	return tail_call_internal(ctx, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED, NULL);
 }
 
 static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
@@ -359,9 +357,7 @@ static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
 	ctx_store_meta(ctx, 0, nh_off);
 	ctx_store_meta(ctx, 1, direction);
 
-	ep_tail_call(ctx, CILIUM_CALL_HANDLE_ICMP6_NS);
-
-	return DROP_MISSED_TAIL_CALL;
+	return tail_call_internal(ctx, CILIUM_CALL_HANDLE_ICMP6_NS, NULL);
 }
 
 static __always_inline bool
