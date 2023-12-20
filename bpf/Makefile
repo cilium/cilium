@@ -53,11 +53,11 @@ MAX_BASE_OPTIONS += -DENABLE_MASQUERADE_IPV4=1 -DENABLE_MASQUERADE_IPV6=1 \
 	-DENABLE_NODEPORT_ACCELERATION=1 -DENABLE_SESSION_AFFINITY=1 \
 	-DENABLE_DSR_ICMP_ERRORS=1 -DENABLE_DSR=1 -DENABLE_DSR_HYBRID=1 \
 	-DENABLE_IPV4_FRAGMENTS=1
-ifneq (,$(filter $(KERNEL),54 510 netnext))
+ifneq (,$(filter $(KERNEL),54 510 61 netnext))
 # Egress Gateway requires >= 5.2 kernels, bandwidth manager requires >= 5.1.
 MAX_BASE_OPTIONS += -DENABLE_BANDWIDTH_MANAGER=1 -DENABLE_EGRESS_GATEWAY=1 -DENABLE_VTEP=1
 endif
-ifneq (,$(filter $(KERNEL),510 netnext))
+ifneq (,$(filter $(KERNEL),510 61 netnext))
 # BPF TProxy requires 5.7, BPF Host routing 5.10, L3 devices 5.8.
 MAX_BASE_OPTIONS += -DENABLE_TPROXY=1 -DENABLE_HOST_ROUTING=1 -DETH_HLEN=0
 endif
@@ -70,7 +70,7 @@ endif
 ifndef MAX_OVERLAY_OPTIONS
 MAX_OVERLAY_OPTIONS = $(MAX_BASE_OPTIONS) -DENCAP_IFINDEX=1 -DTUNNEL_MODE=1
 MAX_OVERLAY_OPTIONS += -DLB_SELECTION=1 -DLB_SELECTION_MAGLEV=1
-ifneq (,$(filter $(KERNEL),510 netnext))
+ifneq (,$(filter $(KERNEL),510 61 netnext))
 MAX_OVERLAY_OPTIONS += -DENABLE_WIREGUARD=1
 endif
 ifeq ($(KERNEL),netnext)
@@ -103,7 +103,7 @@ HOST_OPTIONS = $(LXC_OPTIONS) \
 ifndef MAX_HOST_OPTIONS
 MAX_HOST_OPTIONS = $(MAX_BASE_OPTIONS) -DENCAP_IFINDEX=1 -DTUNNEL_MODE=1
 
-ifneq (,$(filter $(KERNEL),510 netnext))
+ifneq (,$(filter $(KERNEL),510 61 netnext))
 MAX_HOST_OPTIONS += -DENABLE_WIREGUARD=1
 endif
 ifeq ($(KERNEL),netnext)
@@ -168,7 +168,7 @@ LXC_OPTIONS = \
 ifndef MAX_LXC_OPTIONS
 MAX_LXC_OPTIONS = $(MAX_BASE_OPTIONS) -DENCAP_IFINDEX=1 -DTUNNEL_MODE=1
 
-ifneq (,$(filter $(KERNEL),510 netnext))
+ifneq (,$(filter $(KERNEL),510 61 netnext))
 MAX_LXC_OPTIONS += -DENABLE_WIREGUARD=1
 endif
 ifeq ($(KERNEL),netnext)
