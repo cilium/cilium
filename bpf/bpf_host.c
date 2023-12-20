@@ -298,8 +298,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			/* This packet is destined to an SID so we need to decapsulate it
 			 * and forward it.
 			 */
-			ep_tail_call(ctx, CILIUM_CALL_SRV6_DECAP);
-			return DROP_MISSED_TAIL_CALL;
+			return tail_call_internal(ctx, CILIUM_CALL_SRV6_DECAP, ext_err);
 		}
 	}
 #endif /* ENABLE_SRV6 */
@@ -593,8 +592,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
-				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-				return DROP_MISSED_TAIL_CALL;
+				return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
+							  ext_err);
 			}
 
 			/* nodeport_lb4() returns with TC_ACT_REDIRECT for
@@ -1041,6 +1040,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
+	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
 #ifdef ENABLE_IPSEC
@@ -1112,13 +1112,14 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_HOST);
-		} else {
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 		}
+
+		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV6_FROM_HOST :
+							  CILIUM_CALL_IPV6_FROM_NETDEV,
+					 &ext_err);
 		/* See comment below for IPv4. */
-		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
-					      CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, identity, ret, ext_err,
+						  CTX_ACT_OK, METRIC_INGRESS);
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -1141,18 +1142,19 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_HOST);
-		} else {
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 		}
+
+		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV4_FROM_HOST :
+							  CILIUM_CALL_IPV4_FROM_NETDEV,
+					 &ext_err);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
 		 *
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed.
 		 */
-		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
-					      CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, identity, ret, ext_err,
+						  CTX_ACT_OK, METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
 	default:
 #ifdef ENABLE_HOST_FIREWALL
