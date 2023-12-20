@@ -8,6 +8,7 @@
   // This ensures that the gitAuthor and gitSignOff fields match
   "gitAuthor": "renovate[bot] <bot@renovateapp.com>",
   "includePaths": [
+    ".github/actions/kvstore/**",
     ".github/actions/ginkgo/**",
     ".github/actions/set-env-variables/action.yml",
     ".github/workflows/**",
@@ -545,6 +546,15 @@
       "matchStrings": [
         "// renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+go (?<currentValue>.*)"
       ]
+    },
+    {
+      "fileMatch": [
+        ".github/actions/kvstore/action.yaml"
+      ],
+      "matchStrings": [
+        "default: (?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>.*?)\\s"
+      ],
+      "datasourceTemplate": "docker"
     }
   ]
 }
