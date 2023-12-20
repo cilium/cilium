@@ -171,6 +171,7 @@ func TestGetRoutes(t *testing.T) {
 				Servers: map[int64]*instance.ServerWithConfig{
 					int64(testRouterASN): testSC,
 				},
+				running: true,
 			}
 
 			// add a neighbor
