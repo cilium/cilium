@@ -303,8 +303,8 @@ func (c *consulClient) LockPath(ctx context.Context, path string) (KVLocker, err
 	return nil, fmt.Errorf("maximum retries (%d) reached", maxLockRetries)
 }
 
-// Watch starts watching for changes in a prefix
-func (c *consulClient) Watch(ctx context.Context, w *Watcher) {
+// watch starts watching for changes in a prefix
+func (c *consulClient) watch(ctx context.Context, w *Watcher) {
 	// Last known state of all KVPairs matching the prefix
 	localState := map[string]consulAPI.KVPair{}
 	nextIndex := uint64(0)
@@ -686,7 +686,7 @@ func (c *consulClient) ListAndWatch(ctx context.Context, prefix string, chanSize
 
 	log.WithField(fieldPrefix, prefix).Debug("Starting watcher...")
 
-	go c.Watch(ctx, w)
+	go c.watch(ctx, w)
 
 	return w
 }
