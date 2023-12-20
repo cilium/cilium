@@ -86,6 +86,12 @@ jobs:
           - name: '1'
             encryption: 'disabled'
             kube-proxy: 'iptables'
+            external-kvstore: false
+
+          - name: '2'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: true
 
     steps:
       - name: Checkout context ref (trusted)
@@ -119,6 +125,10 @@ jobs:
           # * bpf.masquerade is disabled due to #23283
           # * Hubble is disabled to avoid the performance penalty in the testing
           #   environment due to the relatively high traffic load.
+          # * We enable the clustermesh-apiserver (although with zero replicas)
+          #   also when actually connecting to an external kvstore. This is a
+          #   workaround to enable creating the clustermesh configuration secret,
+          #   that is otherwise skipped in Cilium v1.14 (and earlier).
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
             --set=bpf.masquerade=false \
@@ -128,6 +138,7 @@ jobs:
             --set=ipv4.enabled=true \
             --set=ipv6.enabled=true \
             --set=clustermesh.useAPIServer=true \
+            --set=clustermesh.apiserver.replicas=${{ matrix.external-kvstore && '0' || '1' }} \
             --set=clustermesh.config.enabled=true"
 
           # Run only a limited subset of tests to reduce the amount of time
@@ -206,17 +217,25 @@ jobs:
           kubectl --context ${{ env.contextName1 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
           kubectl --context ${{ env.contextName2 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
 
+      - name: Start kvstore clusters
+        id: kvstore
+        if: matrix.external-kvstore
+        uses: ./.github/actions/kvstore
+        with:
+          clusters: 2
+
+      - name: Create the secret containing the kvstore credentials
+        if: matrix.external-kvstore
+        run: |
+          kubectl --context ${{ env.contextName1 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+          kubectl --context ${{ env.contextName2 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+
       - name: Set clustermesh connection parameters
         id: clustermesh-vars
         run: |
           # Let's retrieve in advance the parameters to mesh the two clusters, so
           # that we don't need to do that through the CLI in a second step, as it
           # would be reset during upgrade (as we are resetting the values).
-
-          IP1=$(kubectl --context ${{ env.contextName1 }} get nodes \
-            ${{ env.clusterName1 }}-worker -o wide --no-headers | awk '{ print $6 }')
-          IP2=$(kubectl --context ${{ env.contextName2 }} get nodes \
-            ${{ env.clusterName2 }}-worker -o wide --no-headers | awk '{ print $6 }')
 
           # Explicitly configure the NodePorts to make sure that they are different
           # in each cluster, to workaround #24692
@@ -238,26 +257,47 @@ jobs:
             --set clustermesh.apiserver.tls.ca.key=$(base64 -w0 cilium-ca-key.pem) \
             --set clustermesh.config.clusters[0].tls.cert=$(base64 -w0 cm-remote-crt.pem) \
             --set clustermesh.config.clusters[0].tls.key=$(base64 -w0 cm-remote-key.pem) \
+            --set clustermesh.config.clusters[1].tls.cert=$(base64 -w0 cm-remote-crt.pem) \
+            --set clustermesh.config.clusters[1].tls.key=$(base64 -w0 cm-remote-key.pem) \
           "
 
           CILIUM_INSTALL_CLUSTER1=" \
             --set cluster.name=${{ env.clusterName1 }} \
             --set cluster.id=1 \
             --set clustermesh.apiserver.service.nodePort=$PORT1 \
-            --set clustermesh.config.clusters[0].name=${{ env.clusterName2 }} \
-            --set clustermesh.config.clusters[0].ips={$IP2} \
-            --set clustermesh.config.clusters[0].port=$PORT2"
+          "
 
           CILIUM_INSTALL_CLUSTER2=" \
             --set cluster.name=${{ env.clusterName2 }} \
             --set cluster.id=255 \
             --set clustermesh.apiserver.service.nodePort=$PORT2 \
-            --set clustermesh.config.clusters[0].name=${{ env.clusterName1 }} \
-            --set clustermesh.config.clusters[0].ips={$IP1} \
-            --set clustermesh.config.clusters[0].port=$PORT1"
+          "
 
-          echo cilium_install_cluster1="$CILIUM_INSTALL_CLUSTER1 $CILIUM_INSTALL_TLS" >> $GITHUB_OUTPUT
-          echo cilium_install_cluster2="$CILIUM_INSTALL_CLUSTER2 $CILIUM_INSTALL_TLS" >> $GITHUB_OUTPUT
+          CILIUM_INSTALL_COMMON=" \
+            --set clustermesh.config.clusters[0].name=${{ env.clusterName1 }} \
+            --set clustermesh.config.clusters[1].name=${{ env.clusterName2 }} \
+          "
+
+          if [ "${{ matrix.external-kvstore }}" == "true" ]; then
+            CILIUM_INSTALL_COMMON="$CILIUM_INSTALL_COMMON \
+              ${{ steps.kvstore.outputs.cilium_install_clustermesh }}"
+          else
+            IP1=$(kubectl --context ${{ env.contextName1 }} get nodes \
+              ${{ env.clusterName1 }}-worker -o wide --no-headers | awk '{ print $6 }')
+            IP2=$(kubectl --context ${{ env.contextName2 }} get nodes \
+              ${{ env.clusterName2 }}-worker -o wide --no-headers | awk '{ print $6 }')
+
+            CILIUM_INSTALL_COMMON="$CILIUM_INSTALL_COMMON \
+              --set clustermesh.config.clusters[0].ips={$IP1} \
+              --set clustermesh.config.clusters[0].port=$PORT1 \
+              --set clustermesh.config.clusters[1].ips={$IP2} \
+              --set clustermesh.config.clusters[1].port=$PORT2 \
+              $CILIUM_INSTALL_TLS \
+            "
+          fi
+
+          echo cilium_install_cluster1="$CILIUM_INSTALL_CLUSTER1 $CILIUM_INSTALL_COMMON" >> $GITHUB_OUTPUT
+          echo cilium_install_cluster2="$CILIUM_INSTALL_CLUSTER2 $CILIUM_INSTALL_COMMON" >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -312,17 +352,23 @@ jobs:
 
       - name: Install Cilium in cluster1
         id: install-cilium-cluster1
+        env:
+          KVSTORE_ID: 1
         run: |
           cilium --context ${{ env.contextName1 }} install \
             ${{ steps.downgrade-vars.outputs.cilium_image_settings }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
 
       - name: Install Cilium in cluster2
+        env:
+          KVSTORE_ID: 2
         run: |
           cilium --context ${{ env.contextName2 }} install \
             ${{ steps.vars.outputs.cilium_image_settings }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster2 }}
 
       - name: Wait for cluster mesh status to be ready
@@ -346,14 +392,18 @@ jobs:
 
 
       - name: Upgrade Cilium in cluster1 and enable kvstoremesh
+        env:
+          KVSTORE_ID: 1
         run: |
           cilium --context ${{ env.contextName1 }} upgrade --reset-values \
             ${{ steps.vars.outputs.cilium_image_settings }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
-            --set clustermesh.apiserver.kvstoremesh.enabled=true
+            --set clustermesh.apiserver.kvstoremesh.enabled=${{ !matrix.external-kvstore }}
 
       - name: Rollout Cilium agents in cluster2
+        if: ${{ !matrix.external-kvstore }}
         run: |
           # This makes sure that the remote agents reconnect to the new instance of the
           # clustermesh-apiserver, without waiting for the watchdog mechanism to kick in.
@@ -376,13 +426,17 @@ jobs:
 
 
       - name: Downgrade Cilium in cluster1 and disable kvstoremesh
+        env:
+          KVSTORE_ID: 1
         run: |
           cilium --context ${{ env.contextName1 }} upgrade --reset-values \
             ${{ steps.downgrade-vars.outputs.cilium_image_settings }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
 
       - name: Rollout Cilium agents in cluster2
+        if: ${{ !matrix.external-kvstore }}
         run: |
           # This makes sure that the remote agents reconnect to the new instance of the
           # clustermesh-apiserver, without waiting for the watchdog mechanism to kick in.
@@ -419,6 +473,14 @@ jobs:
           kubectl config use-context ${{ env.contextName2 }}
           kubectl get pods --all-namespaces -o wide
           cilium sysdump --output-filename cilium-sysdump-context2-final-${{ join(matrix.*, '-') }}
+
+          if [ "${{ matrix.external-kvstore }}" == "true" ]; then
+            for i in {1..2}; do
+              echo
+              echo "# Retrieving logs from kvstore$i docker container"
+              docker logs kvstore$i
+            done
+          fi
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
