@@ -445,11 +445,13 @@ tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 		if (from_host)
 			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
 						 CILIUM_CALL_IPV6_CONT_FROM_HOST,
-						 tail_handle_ipv6_cont_from_host);
+						 tail_handle_ipv6_cont_from_host,
+						 &ext_err);
 		else
 			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
 						 CILIUM_CALL_IPV6_CONT_FROM_NETDEV,
-						 tail_handle_ipv6_cont_from_netdev);
+						 tail_handle_ipv6_cont_from_netdev,
+						 &ext_err);
 	}
 
 	/* Catch errors from both handle_ipv6 and invoke_tailcall_if here. */
@@ -899,11 +901,13 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 		if (from_host)
 			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
 						 CILIUM_CALL_IPV4_CONT_FROM_HOST,
-						 tail_handle_ipv4_cont_from_host);
+						 tail_handle_ipv4_cont_from_host,
+						 &ext_err);
 		else
 			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
 						 CILIUM_CALL_IPV4_CONT_FROM_NETDEV,
-						 tail_handle_ipv4_cont_from_netdev);
+						 tail_handle_ipv4_cont_from_netdev,
+						 &ext_err);
 	}
 
 	/* Catch errors from both handle_ipv4 and invoke_tailcall_if here. */
@@ -1583,6 +1587,7 @@ static __always_inline int
 to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
+	__s8 ext_err = 0;
 	__u16 proto = 0;
 
 	if (!validate_ethertype(ctx, &proto)) {
@@ -1602,7 +1607,8 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 						    is_defined(ENABLE_IPV6)),
 					      is_defined(DEBUG)),
 					 CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
-					 tail_ipv6_host_policy_ingress);
+					 tail_ipv6_host_policy_ingress,
+					 &ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
@@ -1611,7 +1617,8 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 						    is_defined(ENABLE_IPV6)),
 					      is_defined(DEBUG)),
 					 CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
-					 tail_ipv4_host_policy_ingress);
+					 tail_ipv4_host_policy_ingress,
+					 &ext_err);
 		break;
 # endif
 	default:
@@ -1621,8 +1628,8 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
-					      METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 
