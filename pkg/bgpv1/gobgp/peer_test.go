@@ -328,14 +328,8 @@ func TestGetPeerConfigV1(t *testing.T) {
 				svr.Stop()
 			})
 
-			router := &v2alpha1.CiliumBGPVirtualRouter{
-				LocalASN:  int64(testServerParameters.Global.ASN),
-				Neighbors: []v2alpha1.CiliumBGPNeighbor{},
-			}
-
 			req := types.NeighborRequest{
 				Neighbor: tt.neighbor,
-				VR:       router,
 			}
 
 			peer, reset, err := svr.(*GoBGPServer).getPeerConfig(context.Background(), req, false)
