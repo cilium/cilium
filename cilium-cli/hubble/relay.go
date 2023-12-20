@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
+	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,7 +35,7 @@ func (k *K8sHubble) generateRelayService() (*corev1.Service, error) {
 	svcFile := k.manifests[svcFilename]
 
 	var svc corev1.Service
-	utils.MustUnmarshalYAML([]byte(svcFile), &svc)
+	yamlUtils.MustUnmarshal([]byte(svcFile), &svc)
 	return &svc, nil
 }
 
@@ -56,7 +57,7 @@ func (k *K8sHubble) generateRelayDeployment() (*appsv1.Deployment, error) {
 	deploymentFile := k.manifests[deployFilename]
 
 	var deploy appsv1.Deployment
-	utils.MustUnmarshalYAML([]byte(deploymentFile), &deploy)
+	yamlUtils.MustUnmarshal([]byte(deploymentFile), &deploy)
 	return &deploy, nil
 }
 
@@ -78,7 +79,7 @@ func (k *K8sHubble) generateRelayConfigMap() (*corev1.ConfigMap, error) {
 	cmFile := k.manifests[cmFilename]
 
 	var cm corev1.ConfigMap
-	utils.MustUnmarshalYAML([]byte(cmFile), &cm)
+	yamlUtils.MustUnmarshal([]byte(cmFile), &cm)
 	return &cm, nil
 }
 
@@ -247,7 +248,7 @@ func (k *K8sHubble) generateRelayCertificate(name string) (corev1.Secret, error)
 	relayFile := k.manifests[relaySecretFilename]
 
 	var secret corev1.Secret
-	utils.MustUnmarshalYAML([]byte(relayFile), &secret)
+	yamlUtils.MustUnmarshal([]byte(relayFile), &secret)
 	return secret, nil
 }
 

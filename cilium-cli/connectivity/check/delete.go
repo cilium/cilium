@@ -21,13 +21,14 @@ import (
 	"github.com/cilium/cilium-cli/status"
 	"github.com/cilium/cilium-cli/utils/features"
 	jsonUtils "github.com/cilium/cilium-cli/utils/json"
+	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 )
 
 func (ct *ConnectivityTest) generateAgentDaemonSet() *appsv1.DaemonSet {
 	dsFile := ct.manifests["templates/cilium-agent/daemonset.yaml"]
 
 	var ds appsv1.DaemonSet
-	utils.MustUnmarshalYAML([]byte(dsFile), &ds)
+	yamlUtils.MustUnmarshal([]byte(dsFile), &ds)
 	return &ds
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
+	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 )
 
 func (k *K8sInstaller) NewServiceAccount(name string) *corev1.ServiceAccount {
@@ -38,7 +38,7 @@ func (k *K8sInstaller) NewServiceAccount(name string) *corev1.ServiceAccount {
 	saFile := k.manifests[saFileName]
 
 	var sa corev1.ServiceAccount
-	utils.MustUnmarshalYAML([]byte(saFile), &sa)
+	yamlUtils.MustUnmarshal([]byte(saFile), &sa)
 	return &sa
 }
 
@@ -67,7 +67,7 @@ func (k *K8sInstaller) NewClusterRole(name string) *rbacv1.ClusterRole {
 	crFile := k.manifests[crFileName]
 
 	var cr rbacv1.ClusterRole
-	utils.MustUnmarshalYAML([]byte(crFile), &cr)
+	yamlUtils.MustUnmarshal([]byte(crFile), &cr)
 	return &cr
 }
 
@@ -96,7 +96,7 @@ func (k *K8sInstaller) NewClusterRoleBinding(crbName string) *rbacv1.ClusterRole
 	crbFile := k.manifests[crbFileName]
 
 	var crb rbacv1.ClusterRoleBinding
-	utils.MustUnmarshalYAML([]byte(crbFile), &crb)
+	yamlUtils.MustUnmarshal([]byte(crbFile), &crb)
 	return &crb
 }
 
@@ -120,7 +120,7 @@ func (k *K8sInstaller) NewRole(name string) []*rbacv1.Role {
 		return nil
 	}
 
-	roles := utils.MustUnmarshalYAMLMulti[*rbacv1.Role]([]byte(rFile))
+	roles := yamlUtils.MustUnmarshalMulti[*rbacv1.Role]([]byte(rFile))
 	out := []*rbacv1.Role{}
 	for _, role := range roles {
 		if role != nil {
@@ -150,7 +150,7 @@ func (k *K8sInstaller) NewRoleBinding(crbName string) []*rbacv1.RoleBinding {
 		return nil
 	}
 
-	rbs := utils.MustUnmarshalYAMLMulti[*rbacv1.RoleBinding]([]byte(rbFile))
+	rbs := yamlUtils.MustUnmarshalMulti[*rbacv1.RoleBinding]([]byte(rbFile))
 	out := []*rbacv1.RoleBinding{}
 	for _, rb := range rbs {
 		if rb != nil {

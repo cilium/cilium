@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
+	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 )
 
 type accountInfo struct {
@@ -255,7 +256,7 @@ func (k *K8sInstaller) createAKSSecrets(ctx context.Context) error {
 	secretFile := k.manifests[secretFileName]
 
 	var secret corev1.Secret
-	utils.MustUnmarshalYAML([]byte(secretFile), &secret)
+	yamlUtils.MustUnmarshal([]byte(secretFile), &secret)
 
 	k.Log("🔑 Generated AKS secret %s", defaults.AKSSecretName)
 	_, err = k.client.CreateSecret(ctx, k.params.Namespace, &secret, metav1.CreateOptions{})

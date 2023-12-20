@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
 	jsonUtils "github.com/cilium/cilium-cli/utils/json"
+	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 )
 
 const (
@@ -93,7 +94,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	dsFile := k.manifests[dsFilename]
 
 	var ds appsv1.DaemonSet
-	utils.MustUnmarshalYAML([]byte(dsFile), &ds)
+	yamlUtils.MustUnmarshal([]byte(dsFile), &ds)
 	return &ds
 }
 
@@ -112,7 +113,7 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 	deployFile := k.manifests[deployFilename]
 
 	var deploy appsv1.Deployment
-	utils.MustUnmarshalYAML([]byte(deployFile), &deploy)
+	yamlUtils.MustUnmarshal([]byte(deployFile), &deploy)
 	return &deploy
 }
 
@@ -132,7 +133,7 @@ func (k *K8sInstaller) generateIngressClass() *networkingv1.IngressClass {
 	}
 
 	var ingressClass networkingv1.IngressClass
-	utils.MustUnmarshalYAML([]byte(ingressClassFile), &ingressClass)
+	yamlUtils.MustUnmarshal([]byte(ingressClassFile), &ingressClass)
 	return &ingressClass
 }
 
@@ -152,7 +153,7 @@ func (k *K8sInstaller) generateIngressService() *corev1.Service {
 	}
 
 	var ingressService corev1.Service
-	utils.MustUnmarshalYAML([]byte(ingressServiceFile), &ingressService)
+	yamlUtils.MustUnmarshal([]byte(ingressServiceFile), &ingressService)
 	return &ingressService
 }
 
@@ -172,7 +173,7 @@ func (k *K8sInstaller) generateIngressEndpoint() *corev1.Endpoints {
 	}
 
 	// as the file templates/cilium-ingress-service.yaml is having multiple objects,
-	// using utils.MustUnmarshalYAML will only unmarshal the first object.
+	// using yamlUtils.MustUnmarshal will only unmarshal the first object.
 	// Hence, reconstructing the endpoint object here.
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
@@ -203,7 +204,7 @@ func (k *K8sInstaller) getSecretNamespace() string {
 	}
 
 	var ns corev1.Namespace
-	utils.MustUnmarshalYAML([]byte(nsFile), &ns)
+	yamlUtils.MustUnmarshal([]byte(nsFile), &ns)
 	return ns.GetName()
 }
 
@@ -513,7 +514,7 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 	cmFile := k.manifests[cmFilename]
 
 	var cm corev1.ConfigMap
-	utils.MustUnmarshalYAML([]byte(cmFile), &cm)
+	yamlUtils.MustUnmarshal([]byte(cmFile), &cm)
 	k.Log("🚀 Creating ConfigMap for Cilium version %s...", k.chartVersion)
 
 	for key, value := range k.params.configOverwrites {
@@ -558,7 +559,7 @@ func (k *K8sInstaller) generateResourceQuotas() []*corev1.ResourceQuota {
 	if !exists {
 		return nil
 	}
-	resourceQuotas := utils.MustUnmarshalYAMLMulti[*corev1.ResourceQuota]([]byte(resourceQuotasFile))
+	resourceQuotas := yamlUtils.MustUnmarshalMulti[*corev1.ResourceQuota]([]byte(resourceQuotasFile))
 	return resourceQuotas
 }
 
