@@ -361,8 +361,9 @@ skip_vtep:
 			    cluster_id_from_identity != CLUSTER_ID &&
 			    ip4->daddr == IPV4_INTER_CLUSTER_SNAT) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, *identity);
-				ep_tail_call(ctx, CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT);
-				return DROP_MISSED_TAIL_CALL;
+				return tail_call_internal(ctx,
+							  CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT,
+							  ext_err);
 			}
 		}
 #endif
@@ -550,6 +551,7 @@ __section_entry
 int cil_from_overlay(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = 0;
+	__s8 ext_err = 0;
 	bool decrypted;
 	__u16 proto;
 	int ret;
@@ -654,8 +656,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
 #ifdef ENABLE_IPV6
-		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_OVERLAY);
-		ret = DROP_MISSED_TAIL_CALL;
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_OVERLAY, &ext_err);
 #else
 		ret = DROP_UNKNOWN_L3;
 #endif
@@ -686,9 +687,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		}
 #  endif
 # endif
-
-		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY);
-		ret = DROP_MISSED_TAIL_CALL;
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY, &ext_err);
 #else
 		ret = DROP_UNKNOWN_L3;
 #endif
@@ -696,8 +695,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_VTEP
 	case bpf_htons(ETH_P_ARP):
-		ep_tail_call(ctx, CILIUM_CALL_ARP);
-		ret = DROP_MISSED_TAIL_CALL;
+		ret = tail_call_internal(ctx, CILIUM_CALL_ARP, &ext_err);
 		break;
 #endif
 
@@ -707,8 +705,9 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	}
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_sec_identity, ret,
-					      CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret,
+						  ext_err, CTX_ACT_DROP,
+						  METRIC_INGRESS);
 	return ret;
 }
 
