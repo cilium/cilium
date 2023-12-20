@@ -13,4 +13,6 @@
 
 #define is_defined(option)           __is_defined(option)
 
+#define __must_check		     __attribute__((warn_unused_result))
+
 #endif /* _H_LIB_CONFIG_H_ */
