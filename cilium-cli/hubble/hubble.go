@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
+	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
@@ -238,7 +239,7 @@ func (k *K8sHubble) generatePeerService() *corev1.Service {
 	}
 
 	var svc corev1.Service
-	utils.MustUnmarshalYAML([]byte(svcFile), &svc)
+	yamlUtils.MustUnmarshal([]byte(svcFile), &svc)
 	return &svc
 }
 
@@ -260,7 +261,7 @@ func (k *K8sHubble) generateMetricsService() *corev1.Service {
 	}
 
 	var svc corev1.Service
-	utils.MustUnmarshalYAML([]byte(svcFile), &svc)
+	yamlUtils.MustUnmarshal([]byte(svcFile), &svc)
 	return &svc
 
 }
@@ -388,7 +389,7 @@ func (k *K8sHubble) generateConfigMap() (*corev1.ConfigMap, error) {
 	cmFile := k.manifests[cmFilename]
 
 	var cm corev1.ConfigMap
-	utils.MustUnmarshalYAML([]byte(cmFile), &cm)
+	yamlUtils.MustUnmarshal([]byte(cmFile), &cm)
 	k.Log("🚀 Creating ConfigMap for Cilium version %s...", ciliumVer.String())
 
 	return &cm, nil
@@ -773,7 +774,7 @@ func (k *K8sHubble) NewServiceAccount(name string) *corev1.ServiceAccount {
 	saFile := k.manifests[saFileName]
 
 	var sa corev1.ServiceAccount
-	utils.MustUnmarshalYAML([]byte(saFile), &sa)
+	yamlUtils.MustUnmarshal([]byte(saFile), &sa)
 	return &sa
 }
 
@@ -803,7 +804,7 @@ func (k *K8sHubble) NewClusterRole(name string) *rbacv1.ClusterRole {
 	crFile := k.manifests[crFileName]
 
 	var cr rbacv1.ClusterRole
-	utils.MustUnmarshalYAML([]byte(crFile), &cr)
+	yamlUtils.MustUnmarshal([]byte(crFile), &cr)
 	return &cr
 }
 
@@ -833,7 +834,7 @@ func (k *K8sHubble) NewClusterRoleBinding(crbName string) *rbacv1.ClusterRoleBin
 	crbFile := k.manifests[crbFileName]
 
 	var crb rbacv1.ClusterRoleBinding
-	utils.MustUnmarshalYAML([]byte(crbFile), &crb)
+	yamlUtils.MustUnmarshal([]byte(crbFile), &crb)
 	return &crb
 }
 

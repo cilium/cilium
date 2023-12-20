@@ -9,8 +9,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
+	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 )
 
 func needsNodeInit(k k8s.Kind, version semver.Version) bool {
@@ -41,6 +41,6 @@ func (k *K8sInstaller) generateNodeInitDaemonSet(_ k8s.Kind) *appsv1.DaemonSet {
 	dsFile := k.manifests[dsFileName]
 
 	var ds appsv1.DaemonSet
-	utils.MustUnmarshalYAML([]byte(dsFile), &ds)
+	yamlUtils.MustUnmarshal([]byte(dsFile), &ds)
 	return &ds
 }
