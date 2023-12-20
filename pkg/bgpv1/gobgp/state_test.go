@@ -262,23 +262,13 @@ func TestGetPeerState(t *testing.T) {
 			t.Cleanup(func() {
 				testSC.Stop()
 			})
-			// create current vRouter config and add neighbors
-			router := &v2alpha1api.CiliumBGPVirtualRouter{
-				LocalASN:  int64(tt.localASN),
-				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
-			}
 
 			// add neighbours
 			for _, n := range tt.neighbors {
 				n.SetDefaults()
 
-				router.Neighbors = append(router.Neighbors, v2alpha1api.CiliumBGPNeighbor{
-					PeerAddress: n.PeerAddress,
-					PeerASN:     n.PeerASN,
-				})
 				err = testSC.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: n,
-					VR:       router,
 				})
 				if tt.errStr != "" {
 					require.EqualError(t, err, tt.errStr)
@@ -302,7 +292,6 @@ func TestGetPeerState(t *testing.T) {
 				n.SetDefaults()
 				err = testSC.UpdateNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: n,
-					VR:       router,
 				})
 				if tt.updateErrStr != "" {
 					require.EqualError(t, err, tt.updateErrStr)
@@ -385,7 +374,6 @@ func TestGetRoutes(t *testing.T) {
 
 	err = testSC.AddNeighbor(context.TODO(), types.NeighborRequest{
 		Neighbor: neighbor64125,
-		VR:       &v2alpha1api.CiliumBGPVirtualRouter{},
 	})
 	require.NoError(t, err)
 

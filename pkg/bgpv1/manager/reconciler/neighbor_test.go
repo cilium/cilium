@@ -271,7 +271,6 @@ func TestNeighborReconciler(t *testing.T) {
 				}
 				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: &n,
-					VR:       oldc,
 					Password: tcpPassword,
 				})
 			}

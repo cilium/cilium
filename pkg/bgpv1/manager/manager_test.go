@@ -182,7 +182,6 @@ func TestGetRoutes(t *testing.T) {
 			n.SetDefaults()
 			err = testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
 				Neighbor: n,
-				VR:       testSC.Config,
 			})
 			require.NoError(t, err)
 
