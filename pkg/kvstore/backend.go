@@ -192,9 +192,6 @@ type BackendOperations interface {
 	// Close closes the kvstore client
 	Close(ctx context.Context)
 
-	// GetCapabilities returns the capabilities of the backend
-	GetCapabilities() Capabilities
-
 	// Encodes a binary slice into a character set that the backend
 	// supports
 	Encode(in []byte) string
