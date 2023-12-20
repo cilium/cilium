@@ -184,9 +184,6 @@ type BackendOperations interface {
 	// CreateOnlyIfLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
 	CreateOnlyIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error)
 
-	// CreateIfExists creates a key with the value only if key condKey exists
-	CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) error
-
 	// ListPrefix returns a list of keys matching the prefix
 	ListPrefix(ctx context.Context, prefix string) (KeyValuePairs, error)
 
