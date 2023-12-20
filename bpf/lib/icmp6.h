@@ -359,18 +359,20 @@ int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
  * @ctx:	socket buffer
  * @nh_off:	offset to the IPv6 header
  * @direction:  direction of packet(ingress or egress)
+ * @ext_err:	extended error value
  *
  * Respond to ICMPv6 Neighbour Solicitation
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
 static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
-					   enum metric_dir direction)
+					   enum metric_dir direction,
+					   __s8 *ext_err)
 {
 	ctx_store_meta(ctx, 0, nh_off);
 	ctx_store_meta(ctx, 1, direction);
 
-	return tail_call_internal(ctx, CILIUM_CALL_HANDLE_ICMP6_NS, NULL);
+	return tail_call_internal(ctx, CILIUM_CALL_HANDLE_ICMP6_NS, ext_err);
 }
 
 static __always_inline bool
@@ -386,7 +388,8 @@ is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 }
 
 static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
-					    enum metric_dir direction)
+					    enum metric_dir direction,
+					    __s8 *ext_err)
 {
 	__u8 type;
 
@@ -395,7 +398,7 @@ static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 
 	cilium_dbg(ctx, DBG_ICMP6_HANDLE, type, 0);
 	if (type == ICMP6_NS_MSG_TYPE)
-		return icmp6_handle_ns(ctx, nh_off, direction);
+		return icmp6_handle_ns(ctx, nh_off, direction, ext_err);
 
 	/* All branching above will have issued a tail call, all
 	 * remaining traffic is subject to forwarding to containers.
@@ -404,7 +407,7 @@ static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 }
 
 static __always_inline int
-icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, bool handle_ns)
+icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, bool handle_ns, __s8 *ext_err)
 {
 	__u8 type;
 
@@ -412,7 +415,7 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, bool handle_ns)
 		return DROP_INVALID;
 
 	if (type == ICMP6_NS_MSG_TYPE && handle_ns)
-		return icmp6_handle_ns(ctx, ETH_HLEN, METRIC_INGRESS);
+		return icmp6_handle_ns(ctx, ETH_HLEN, METRIC_INGRESS, ext_err);
 
 #ifdef ENABLE_HOST_FIREWALL
 	/* When the host firewall is enabled, we drop and allow ICMPv6 messages
