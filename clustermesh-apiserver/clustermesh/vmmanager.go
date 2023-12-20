@@ -271,7 +271,7 @@ func (m *VMManager) OnDelete(k store.NamedKey) {
 }
 
 func (m *VMManager) AllocateNodeIdentity(n *nodeTypes.RegisterNode) *identity.Identity {
-	vmLabels := labels.Map2Labels(n.Labels, "k8s")
+	vmLabels := labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
 
 	log.Debug("Resolving identity for VM labels")
 	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
@@ -296,7 +296,7 @@ func (m *VMManager) AllocateNodeIdentity(n *nodeTypes.RegisterNode) *identity.Id
 }
 
 func (m *VMManager) LookupNodeIdentity(n *nodeTypes.RegisterNode) *identity.Identity {
-	vmLabels := labels.Map2Labels(n.Labels, "k8s")
+	vmLabels := labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
 
 	log.Debug("Looking up identity for VM labels")
 	ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
