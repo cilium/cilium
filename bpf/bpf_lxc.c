@@ -768,7 +768,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	 * are subjected to forwarding into the container.
 	 */
 	if (unlikely(is_icmp6_ndp(ctx, ip6, ETH_HLEN)))
-		return icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS);
+		return icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS, ext_err);
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
