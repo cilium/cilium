@@ -12,7 +12,7 @@ import (
 	apiyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
-func MustUnmarshalYAML(y []byte, o interface{}, opts ...yaml.JSONOpt) {
+func MustUnmarshal(y []byte, o interface{}, opts ...yaml.JSONOpt) {
 	err := yaml.Unmarshal(y, o, opts...)
 	if err != nil {
 		// Developer mistake, this shouldn't happen
@@ -20,11 +20,11 @@ func MustUnmarshalYAML(y []byte, o interface{}, opts ...yaml.JSONOpt) {
 	}
 }
 
-// MustUnmarhsalYAMLMulti unmarshals a yaml document that contains
+// MustUnmarshalMulti unmarshals a yaml document that contains
 // one or more of the same type.
 // Note that the returned list value may contain nils, due to a quirk in the
 // yaml decoder.
-func MustUnmarshalYAMLMulti[T any](y []byte) []T {
+func MustUnmarshalMulti[T any](y []byte) []T {
 	out := []T{}
 	reader := bytes.NewReader(y)
 	decoder := apiyaml.NewYAMLOrJSONDecoder(reader, 4096)
