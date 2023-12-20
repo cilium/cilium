@@ -149,9 +149,6 @@ type BackendOperations interface {
 	// GetIfLocked returns value of key if the client is still holding the given lock.
 	GetIfLocked(ctx context.Context, key string, lock KVLocker) ([]byte, error)
 
-	// Set sets value of key
-	Set(ctx context.Context, key string, value []byte) error
-
 	// Delete deletes a key. It does not return an error if the key does not exist.
 	Delete(ctx context.Context, key string) error
 

@@ -141,7 +141,7 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range tt.kvs {
-				require.NoErrorf(t, kvstore.Client().Set(ctx, key, []byte(value)), "Failed to set %s=%s", key, value)
+				require.NoErrorf(t, kvstore.Client().Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 			}
 
 			var ipc fakeIPCache
