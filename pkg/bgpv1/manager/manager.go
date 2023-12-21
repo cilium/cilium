@@ -437,30 +437,57 @@ func (m *BGPRouterManager) GetRoutes(ctx context.Context, params restapi.GetBgpR
 		return nil, fmt.Errorf("multiple virtual routers configured, router ASN must be specified")
 	}
 
-	var res []*models.BgpRoute
-	req, err := api.ToAgentGetRoutesRequest(params)
-	if err != nil {
-		return nil, err
-	}
+	// determine if we need to retrieve the routes for each peer (in case of adj-rib but no peer specified)
+	tt := types.ParseTableType(params.TableType)
+	allPeers := (tt == types.TableTypeAdjRIBIn || tt == types.TableTypeAdjRIBOut) && (params.Neighbor == nil || *params.Neighbor == "")
 
+	var res []*models.BgpRoute
 	for _, s := range m.Servers {
 		if params.RouterAsn != nil && *params.RouterAsn != s.Config.LocalASN {
 			continue // return routes matching provided router ASN only
 		}
-		rs, err := s.Server.GetRoutes(ctx, req)
-		if err != nil {
-			return nil, err
+		if allPeers {
+			// get routes for each peer of the server
+			getPeerResp, err := s.Server.GetPeerState(ctx)
+			if err != nil {
+				return nil, err
+			}
+			for _, peer := range getPeerResp.Peers {
+				params.Neighbor = &peer.PeerAddress
+				routes, err := m.getRoutesFromServer(ctx, s, params)
+				if err != nil {
+					return nil, err
+				}
+				res = append(res, routes...)
+			}
+		} else {
+			// get routes with provided params
+			routes, err := m.getRoutesFromServer(ctx, s, params)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, routes...)
 		}
-
-		routes, err := api.ToAPIRoutes(rs.Routes, s.Config.LocalASN)
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, routes...)
 	}
 
 	return res, nil
+}
+
+// getRoutesFromServer retrieves routes from the RIB of the specified server
+func (m *BGPRouterManager) getRoutesFromServer(ctx context.Context, sc *instance.ServerWithConfig, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
+	req, err := api.ToAgentGetRoutesRequest(params)
+	if err != nil {
+		return nil, err
+	}
+	rs, err := sc.Server.GetRoutes(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	neighbor := ""
+	if params.Neighbor != nil {
+		neighbor = *params.Neighbor
+	}
+	return api.ToAPIRoutes(rs.Routes, sc.Config.LocalASN, neighbor)
 }
 
 // GetRoutePolicies fetches BGP routing policies from underlying routing daemon.

@@ -4042,6 +4042,9 @@ definitions:
       router-asn:
         description: Autonomous System Number (ASN) identifying a BGP virtual router instance
         type: integer
+      neighbor:
+        description: IP address specifying a BGP neighbor if the source table type is adj-rib-in or adj-rib-out
+        type: string
       prefix:
         description: IP prefix of the route
         type: string
