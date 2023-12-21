@@ -31,6 +31,9 @@ const (
 
 	locRIBTableType    = "loc-rib"
 	adjRIBOutTableType = "adj-rib-out"
+
+	ipv4AFI     = "ipv4"
+	unicastSAFI = "unicast"
 )
 
 var BgpRoutesCmd = &cobra.Command{
@@ -51,7 +54,7 @@ var BgpRoutesCmd = &cobra.Command{
 		params := bgp.NewGetBgpRoutesParams()
 
 		// parse <available | advertised> <afi> <safi
-		params.TableType, params.Afi, params.Safi, args, err = parseBGPRoutesMandatoryArgs(args)
+		params.TableType, params.Afi, params.Safi, args, err = parseBGPRoutesMandatoryArgs(args, command.OutputOption())
 		if err != nil {
 			Fatalf("invalid argument: %s\n", err)
 		}
@@ -67,7 +70,7 @@ var BgpRoutesCmd = &cobra.Command{
 		}
 
 		// parse [peer|neighbor <address>]
-		if params.TableType == adjRIBOutTableType {
+		if params.TableType == adjRIBOutTableType && len(args) > 0 {
 			addr, err := parseBGPPeerAddr(args)
 			if err != nil {
 				Fatalf("failed to parse peer address: %s\n", err)
@@ -91,15 +94,19 @@ var BgpRoutesCmd = &cobra.Command{
 				Fatalf("failed getting output in JSON: %s\n", err)
 			}
 		} else {
-			printBGPRoutesTable(res.GetPayload())
+			// print peer addresses for `advertised` routes without specifying a peer
+			printPeer := (params.TableType == adjRIBOutTableType) && (params.Neighbor == nil || *params.Neighbor == "")
+			printBGPRoutesTable(res.GetPayload(), printPeer)
 		}
 	},
 }
 
-func parseBGPRoutesMandatoryArgs(args []string) (tableType, afi, safi string, argsOut []string, err error) {
+func parseBGPRoutesMandatoryArgs(args []string, silent bool) (tableType, afi, safi string, argsOut []string, err error) {
 	if len(args) < 1 {
-		err = fmt.Errorf("missing `available` or `advertised` parameter")
-		return
+		if !silent {
+			fmt.Printf("(Defaulting to `%s %s %s` routes, please see help for more options)\n\n", availableRoutesKW, ipv4AFI, unicastSAFI)
+		}
+		return locRIBTableType, ipv4AFI, unicastSAFI, nil, nil
 	}
 	switch args[0] {
 	case availableRoutesKW:
@@ -107,13 +114,15 @@ func parseBGPRoutesMandatoryArgs(args []string) (tableType, afi, safi string, ar
 	case advertisedRoutesKW:
 		tableType = adjRIBOutTableType
 	default:
-		err = fmt.Errorf("invalid table type discriminator `%s` (should be `available` / `advertised`)", args[0])
+		err = fmt.Errorf("invalid table type discriminator `%s` (should be `%s` / `%s`)", args[0], availableRoutesKW, advertisedRoutesKW)
 		return
 	}
 
 	if len(args) < 2 {
-		err = fmt.Errorf("missing AFI value (e.g. `ipv4`)")
-		return
+		if !silent {
+			fmt.Printf("(Defaulting to `%s %s` AFI & SAFI, please see help for more options)\n\n", ipv4AFI, unicastSAFI)
+		}
+		return tableType, ipv4AFI, unicastSAFI, nil, nil
 	}
 	if types.ParseAfi(args[1]) == types.AfiUnknown {
 		err = fmt.Errorf("unknown AFI %s", args[1])
@@ -122,8 +131,10 @@ func parseBGPRoutesMandatoryArgs(args []string) (tableType, afi, safi string, ar
 	afi = args[1]
 
 	if len(args) < 3 {
-		err = fmt.Errorf("missing SAFI value (e.g. `unicast`)")
-		return
+		if !silent {
+			fmt.Printf("(Defaulting to `%s` SAFI, please see help for more options)\n\n", unicastSAFI)
+		}
+		return tableType, afi, unicastSAFI, nil, nil
 	}
 	if types.ParseSafi(args[2]) == types.SafiUnknown {
 		err = fmt.Errorf("unknown SAFI %s", args[2])
@@ -157,10 +168,9 @@ func parseVRouterASN(args []string) (asn int64, argsOut []string, err error) {
 
 func parseBGPPeerAddr(args []string) (string, error) {
 	// also accept "neighbor" keyword as it is commonly interchanged with "peer"
-	if len(args) == 0 || (args[0] != peerKW && args[0] != neighborKW) {
+	if args[0] != peerKW && args[0] != neighborKW {
 		return "", fmt.Errorf("missing `peer` parameter")
 	}
-
 	if len(args) < 2 {
 		return "", fmt.Errorf("missing peer IP address")
 	}
@@ -172,15 +182,19 @@ func parseBGPPeerAddr(args []string) (string, error) {
 	return addr.String(), nil
 }
 
-func printBGPRoutesTable(routes []*models.BgpRoute) {
-	// sort first by ASN and then by prefix
+func printBGPRoutesTable(routes []*models.BgpRoute, printPeer bool) {
+	// sort first by ASN, then by neighbor, then by prefix
 	sort.Slice(routes, func(i, j int) bool {
-		return routes[i].RouterAsn < routes[j].RouterAsn || routes[i].Prefix < routes[j].Prefix
+		return routes[i].RouterAsn < routes[j].RouterAsn || routes[i].Neighbor < routes[j].Neighbor || routes[i].Prefix < routes[j].Prefix
 	})
 
 	// get new tab writer with predefined defaults
 	w := NewTabWriter()
-	fmt.Fprintln(w, "VRouter\tPrefix\tNextHop\tAge\tAttrs")
+	if printPeer {
+		fmt.Fprintln(w, "VRouter\tPeer\tPrefix\tNextHop\tAge\tAttrs")
+	} else {
+		fmt.Fprintln(w, "VRouter\tPrefix\tNextHop\tAge\tAttrs")
+	}
 
 	for _, route := range routes {
 		r, err := api.ToAgentRoute(route)
@@ -189,6 +203,9 @@ func printBGPRoutesTable(routes []*models.BgpRoute) {
 		}
 		for _, path := range r.Paths {
 			fmt.Fprintf(w, "%d\t", route.RouterAsn)
+			if printPeer {
+				fmt.Fprintf(w, "%s\t", route.Neighbor)
+			}
 			fmt.Fprintf(w, "%s\t", path.NLRI)
 			fmt.Fprintf(w, "%s\t", nextHopFromPathAttributes(path.PathAttributes))
 			fmt.Fprintf(w, "%s\t", time.Duration(path.AgeNanoseconds).Round(time.Second))
