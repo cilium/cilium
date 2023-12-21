@@ -86,7 +86,7 @@ func TestRetries(t *testing.T) {
 	rq.Clear(obj1) // Remove obj1, testing that it'll fix the queue correctly.
 	rq.Pop()       // Pop and remove obj2 and clear it to test that Clear doesn't mess with queue
 	rq.Clear(obj2)
-	obj, retryAt, ok = rq.Top()
+	obj, _, ok = rq.Top()
 	if assert.True(t, ok) {
 		rq.Pop()
 		rq.Clear(obj)
