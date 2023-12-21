@@ -373,230 +373,42 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 			args: args{
 				m: defaultBackendModel,
 			},
-			expectedRouteConfigs: []*envoy_config_route_v3.RouteConfiguration{
-				{
-					Name: "listener-insecure",
-					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
-						{
-							Name: "*",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchRootPath(),
-									Action: envoyRouteAction("random-namespace", "default-backend", "8080"),
-								},
-							},
-						},
-					},
-				},
-			},
+			expectedRouteConfigs: defaultBackendExpectedConfig,
 		},
 		{
 			name: "host rule",
 			args: args{
 				m: hostRulesModel,
 			},
-			expectedRouteConfigs: []*envoy_config_route_v3.RouteConfiguration{
-				{
-					Name: "listener-insecure",
-					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
-						{
-							Name: "*.foo.com",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  withAuthority(envoyRouteMatchRootPath(), "^[^.]+[.]foo[.]com$"),
-									Action: envoyRouteAction("random-namespace", "wildcard-foo-com", "8080"),
-								},
-							},
-						},
-						{
-							Name: "foo.bar.com",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchRootPath(),
-									Action: envoyRouteAction("random-namespace", "foo-bar-com", "http"),
-								},
-							},
-						},
-					},
-				},
-				{
-					Name: "listener-secure",
-					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
-						{
-							Name: "foo.bar.com",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchRootPath(),
-									Action: envoyRouteAction("random-namespace", "foo-bar-com", "http"),
-								},
-							},
-						},
-					},
-				},
-			},
+			expectedRouteConfigs: hostRulesExpectedConfig,
 		},
 		{
 			name: "path rules",
 			args: args{
 				m: pathRulesModel,
 			},
-			expectedRouteConfigs: []*envoy_config_route_v3.RouteConfiguration{
-				{
-					Name: "listener-insecure",
-					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
-						{
-							Name: "exact-path-rules",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchExactPath("/foo"),
-									Action: envoyRouteAction("random-namespace", "foo-exact", "8080"),
-								},
-							},
-						},
-						{
-							Name: "mixed-path-rules",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchExactPath("/foo"),
-									Action: envoyRouteAction("random-namespace", "foo-exact", "8080"),
-								},
-								{
-									Match:  envoyRouteMatchPrefixPath("/foo"),
-									Action: envoyRouteAction("random-namespace", "foo-prefix", "8080"),
-								},
-							},
-						},
-						{
-							Name: "prefix-path-rules",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchPrefixPath("/aaa/bbb"),
-									Action: envoyRouteAction("random-namespace", "aaa-slash-bbb-prefix", "8080"),
-								},
-								{
-									Match:  envoyRouteMatchPrefixPath("/foo"),
-									Action: envoyRouteAction("random-namespace", "foo-prefix", "8080"),
-								},
-								{
-									Match:  envoyRouteMatchPrefixPath("/aaa"),
-									Action: envoyRouteAction("random-namespace", "aaa-prefix", "8080"),
-								}},
-						},
-						{
-							Name: "trailing-slash-path-rules",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchExactPath("/foo/"),
-									Action: envoyRouteAction("random-namespace", "foo-slash-exact", "8080"),
-								},
-								{
-									Match:  envoyRouteMatchPrefixPath("/aaa/bbb"),
-									Action: envoyRouteAction("random-namespace", "aaa-slash-bbb-slash-prefix", "8080"),
-								},
-							},
-						},
-					},
-				},
-			},
+			expectedRouteConfigs: pathRulesExpectedConfig,
 		},
 		{
 			name: "complex ingress",
 			args: args{
 				m: complexIngressModel,
 			},
-			expectedRouteConfigs: []*envoy_config_route_v3.RouteConfiguration{
-				{
-					Name: "listener-insecure",
-					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
-						{
-							Name: "*",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchExactPath("/dummy-path"),
-									Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
-								},
-								{
-									Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
-									Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
-								},
-								{
-									Match:  envoyRouteMatchRootPath(),
-									Action: envoyRouteAction("dummy-namespace", "default-backend", "8080"),
-								},
-							},
-						},
-					},
-				},
-				{
-					Name: "listener-secure",
-					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
-						{
-							Name: "another-very-secure.server.com",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchExactPath("/dummy-path"),
-									Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
-								},
-								{
-									Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
-									Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
-								},
-								{
-									Match:  envoyRouteMatchRootPath(),
-									Action: envoyRouteAction("dummy-namespace", "default-backend", "8080"),
-								},
-							},
-						},
-						{
-							Name: "very-secure.server.com",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchExactPath("/dummy-path"),
-									Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
-								},
-								{
-									Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
-									Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
-								},
-								{
-									Match:  envoyRouteMatchRootPath(),
-									Action: envoyRouteAction("dummy-namespace", "default-backend", "8080"),
-								},
-							},
-						},
-					},
-				},
-			},
+			expectedRouteConfigs: complexIngressExpectedConfig,
 		},
 		{
 			name: "multiple path types in one listener",
 			args: args{
 				m: multiplePathTypesModel,
 			},
-			expectedRouteConfigs: []*envoy_config_route_v3.RouteConfiguration{
-				{
-					Name: "listener-insecure",
-					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
-						{
-							Name: "*",
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match:  envoyRouteMatchExactPath("/exact"),
-									Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
-								},
-								{
-									Match:  envoyRouteMatchImplementationSpecific("/impl"),
-									Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
-								},
-								{
-									Match:  envoyRouteMatchRootPath(),
-									Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
-								},
-							},
-						},
-					},
-				},
+			expectedRouteConfigs: multiplePathTypesExpectedConfig,
+		},
+		{
+			name: "routes with multiple hostnames in one listener",
+			args: args{
+				m: multipleRouteHostnamesModel,
 			},
+			expectedRouteConfigs: multipleRouteHostnamesExpectedConfig,
 		},
 	}
 
@@ -611,33 +423,48 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 			require.Len(t, res, len(tt.expectedRouteConfigs), "Number of Listeners did not match")
 
 			for i, rawRoute := range res {
-				listener := tt.expectedRouteConfigs[i]
-				route := &envoy_config_route_v3.RouteConfiguration{}
-				err := proto.Unmarshal(rawRoute.Value, route)
+				ttListener := tt.expectedRouteConfigs[i]
+				listener := &envoy_config_route_v3.RouteConfiguration{}
+				err := proto.Unmarshal(rawRoute.Value, listener)
 				require.NoError(t, err)
 
-				// first, check that the outermost listener name matches
-				require.Equal(t, listener.Name, route.Name, "Listener Names did not match")
-
-				require.Len(t, listener.VirtualHosts, len(route.VirtualHosts), "Number of virtualhosts did not match for %s", listener.Name)
-
-				for j, vhost := range route.VirtualHosts {
-					ttVhost := listener.VirtualHosts[j]
-					require.Equal(t, ttVhost.Name, vhost.Name, "VirtualHost name did not match for %s", listener.Name)
-
-					if len(ttVhost.Routes) != len(vhost.Routes) {
-						t.Fatalf("Length of the Routes stanzas are different for Listener %s and VirtualHost %s, want %d and have %d: %s", listener.Name, vhost.Name, len(ttVhost.Routes), len(vhost.Routes), cmp.Diff(ttVhost.Routes, vhost.Routes, protocmp.Transform()))
+				for j, vhost := range listener.VirtualHosts {
+					if j >= len(ttListener.VirtualHosts) {
+						t.Errorf("More VirtualHosts in the actual than the expected for actual Listener name %s", listener.Name)
+						continue
 					}
 
+					ttVhost := ttListener.VirtualHosts[j]
+
 					for k, route := range vhost.Routes {
+						if k >= len(ttVhost.Routes) {
+							t.Errorf("More Routes in the actual than the expected for actual VirtualHost name %s in actual Listener %s", vhost.Name, listener.Name)
+							continue
+						}
+
 						ttRoute := ttVhost.Routes[k]
 
 						diffOutput := cmp.Diff(ttRoute, route, protocmp.Transform())
 						if len(diffOutput) != 0 {
-							t.Fatalf("Routes did not match for Listener %s and VirtualHost %s, route number %d:\n%s\n", listener.Name, vhost.Name, k, diffOutput)
+							t.Errorf("Routes did not match for Listener %s and VirtualHost %s, route number %d:\n%s\n", ttListener.Name, ttVhost.Name, k, diffOutput)
+						}
+					}
+					// If there were no errors at the Route level, check for errors at the VirtualHost level
+					if !t.Failed() {
+						diffOutput := cmp.Diff(ttVhost, vhost, protocmp.Transform())
+						if len(diffOutput) != 0 {
+							t.Errorf("VirtualHosts did not match:\n %s\n", diffOutput)
 						}
 					}
 				}
+				// If there were no errors anywhere else, check for errors at the Listener level
+				if !t.Failed() {
+					diffOutput := cmp.Diff(ttListener, listener, protocmp.Transform())
+					if len(diffOutput) != 0 {
+						t.Errorf("VirtualHosts did not match:\n %s\n", diffOutput)
+					}
+				}
+
 			}
 		})
 	}
@@ -709,6 +536,14 @@ func withAuthority(match *envoy_config_route_v3.RouteMatch, regex string) *envoy
 	match.Headers = append(match.Headers, authorityHeader)
 
 	return match
+}
+
+func domainsHelper(domain string) []string {
+	if domain == "*" {
+		return []string{domain}
+	}
+
+	return []string{domain, fmt.Sprintf("%s:*", domain)}
 }
 
 func TestSharedIngressTranslator_getResources(t *testing.T) {
