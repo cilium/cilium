@@ -135,7 +135,6 @@ func NewReconcilerConfig(statusIndex statedb.Index[*Memo, reconciler.StatusKind]
 		IncrementalBatchSize:      100,
 		GetObjectStatus:           (*Memo).GetStatus,
 		WithObjectStatus:          (*Memo).WithStatus,
-		StatusIndex:               statusIndex,
 	}
 }
 

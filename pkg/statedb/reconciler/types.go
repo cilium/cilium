@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -21,11 +22,6 @@ type Reconciler[Obj any] interface {
 	// that something has gone wrong in the reconciliation target and full
 	// reconciliation is needed to recover.
 	TriggerFullReconciliation()
-
-	// WaitForReconciliation blocks until all objects have been marked
-	// done. If context is canceled the method stops waiting and returns
-	// the context error.
-	WaitForReconciliation(context.Context) error
 }
 
 type Config[Obj any] struct {
@@ -59,10 +55,6 @@ type Config[Obj any] struct {
 	// WithObjectStatus returns a COPY of the object with the status set to
 	// the given value.
 	WithObjectStatus func(Obj, Status) Obj
-
-	// StatusIndex is the index for looking of objects by StatusKind. The index
-	// is created with NewStatusIndex.
-	StatusIndex statedb.Index[Obj, StatusKind]
 }
 
 func (cfg Config[Obj]) validate() error {
@@ -71,9 +63,6 @@ func (cfg Config[Obj]) validate() error {
 	}
 	if cfg.WithObjectStatus == nil {
 		return fmt.Errorf("%T.WithObjectStatus cannot be nil", cfg)
-	}
-	if cfg.StatusIndex.Name == "" {
-		return fmt.Errorf("%T.StatusIndex needs to be defined", cfg)
 	}
 	if cfg.IncrementalBatchSize <= 0 {
 		return fmt.Errorf("%T.IncrementalBatchSize needs to be >0", cfg)
@@ -132,6 +121,20 @@ const (
 	StatusKindDone    StatusKind = "done"
 	StatusKindError   StatusKind = "error"
 )
+
+// Key implements an optimized construction of index.Key for StatusKind
+// to avoid copying and allocation.
+func (s StatusKind) Key() index.Key {
+	switch s {
+	case StatusKindPending:
+		return index.Key("P")
+	case StatusKindDone:
+		return index.Key("D")
+	case StatusKindError:
+		return index.Key("E")
+	}
+	panic("BUG: unmatched StatusKind")
+}
 
 // Status is embedded into the reconcilable object. It allows
 // inspecting per-object reconciliation status and waiting for

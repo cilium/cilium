@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -46,7 +45,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 }
 
 func newReconcilerConfig(
-	statusIndex statedb.Index[*tables.Sysctl, reconciler.StatusKind],
+	ops reconciler.Operations[*tables.Sysctl],
 ) reconciler.Config[*tables.Sysctl] {
 	return reconciler.Config[*tables.Sysctl]{
 		FullReconcilationInterval: 10 * time.Second,
@@ -55,6 +54,5 @@ func newReconcilerConfig(
 		IncrementalBatchSize:      100,
 		GetObjectStatus:           (*tables.Sysctl).GetStatus,
 		WithObjectStatus:          (*tables.Sysctl).WithStatus,
-		StatusIndex:               statusIndex,
 	}
 }

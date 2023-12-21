@@ -89,13 +89,13 @@ func (r *reconciler[Obj]) TriggerFullReconciliation() {
 
 // WaitForReconciliation blocks until all objects have been reconciled or the context
 // has cancelled.
-func (r *reconciler[Obj]) WaitForReconciliation(ctx context.Context) error {
+func WaitForReconciliation[Obj any](ctx context.Context, db *statedb.DB, table statedb.Table[Obj], statusIndex statedb.Index[Obj, StatusKind]) error {
 	for {
-		txn := r.DB.ReadTxn()
+		txn := db.ReadTxn()
 
 		// See if there are any pending or error'd objects.
-		_, _, watchPending, okPending := r.Table.FirstWatch(txn, r.Config.StatusIndex.Query(StatusKindPending))
-		_, _, watchError, okError := r.Table.FirstWatch(txn, r.Config.StatusIndex.Query(StatusKindError))
+		_, _, watchPending, okPending := table.FirstWatch(txn, statusIndex.Query(StatusKindPending))
+		_, _, watchError, okError := table.FirstWatch(txn, statusIndex.Query(StatusKindError))
 		if !okPending && !okError {
 			return nil
 		}

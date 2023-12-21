@@ -66,10 +66,6 @@ var (
 		Unique:  true,
 	}
 
-	BandwidthQDiscStatusIndex = reconciler.NewStatusIndex[*BandwidthQDisc](
-		(*BandwidthQDisc).GetStatus,
-	)
-
 	BandwidthQDiscTableName = "bandwidth-qdiscs"
 )
 
@@ -77,7 +73,6 @@ func NewBandwidthQDiscTable(db *statedb.DB) (statedb.RWTable[*BandwidthQDisc], e
 	tbl, err := statedb.NewTable[*BandwidthQDisc](
 		BandwidthQDiscTableName,
 		BandwidthQDiscIndex,
-		BandwidthQDiscStatusIndex,
 	)
 	if err == nil {
 		err = db.RegisterTable(tbl)

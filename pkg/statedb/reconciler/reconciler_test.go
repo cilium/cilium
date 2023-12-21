@@ -90,7 +90,6 @@ func TestReconciler(t *testing.T) {
 					IncrementalBatchSize:    1000,
 					GetObjectStatus:         (*testObject).GetStatus,
 					WithObjectStatus:        (*testObject).WithStatus,
-					StatusIndex:             statusIndex,
 				}
 			}),
 			cell.Provide(reconciler.New[*testObject]),
@@ -526,7 +525,8 @@ func (h testHelper) triggerFullReconciliation() {
 }
 
 func (h testHelper) waitForReconciliation() {
-	require.NoError(h.t, h.r.WaitForReconciliation(context.TODO()), "expected WaitForReconciliation to succeed")
+	err := reconciler.WaitForReconciliation[*testObject](context.TODO(), h.db, h.tbl, statusIndex)
+	require.NoError(h.t, err, "expected WaitForReconciliation to succeed")
 }
 func assertSensibleMetricDuration(t *testing.T, metrics map[string]float64, metric string) {
 	assert.Less(t, metrics[metric], 1.0, "expected metric %q to be above zero", metric)

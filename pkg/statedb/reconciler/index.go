@@ -13,11 +13,9 @@ func NewStatusIndex[Obj any](getObjectStatus func(Obj) Status) statedb.Index[Obj
 	return statedb.Index[Obj, StatusKind]{
 		Name: "status",
 		FromObject: func(obj Obj) index.KeySet {
-			return index.NewKeySet(index.String(string(getObjectStatus(obj).Kind)))
+			return index.NewKeySet(getObjectStatus(obj).Kind.Key())
 		},
-		FromKey: func(k StatusKind) index.Key {
-			return index.String(string(k))
-		},
-		Unique: false,
+		FromKey: StatusKind.Key,
+		Unique:  false,
 	}
 }

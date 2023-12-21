@@ -83,9 +83,7 @@ func TestWaitForReconciliation(t *testing.T) {
 			"sysctl-test",
 			"sysctl-test",
 
-			cell.Provide(func(db *statedb.DB) (statedb.RWTable[*tables.Sysctl], statedb.Index[*tables.Sysctl, reconciler.StatusKind], error) {
-				return tables.NewSysctlTable(db)
-			}),
+			cell.Provide(tables.NewSysctlTable),
 			cell.Invoke(func(db *statedb.DB, settings statedb.RWTable[*tables.Sysctl]) {
 				db.RegisterTable(settings)
 			}),

@@ -72,8 +72,6 @@ var idIndex = statedb.Index[*testObject, uint64]{
 	Unique:  true,
 }
 
-var statusIndex = reconciler.NewStatusIndex[*testObject]((*testObject).GetStatus)
-
 func main() {
 	flag.Parse()
 	if *cpuprofile != "" {
@@ -91,10 +89,9 @@ func main() {
 	var (
 		mt = &mockOps{}
 		db *statedb.DB
-		r  reconciler.Reconciler[**testObject]
 	)
 
-	testObjects, err := statedb.NewTable[*testObject]("test-objects", idIndex, statusIndex)
+	testObjects, err := statedb.NewTable[*testObject]("test-objects", idIndex)
 	if err != nil {
 		panic(err)
 	}
@@ -130,14 +127,9 @@ func main() {
 					IncrementalBatchSize:    *incrBatchSize,
 					GetObjectStatus:         (*testObject).GetStatus,
 					WithObjectStatus:        (*testObject).WithStatus,
-					StatusIndex:             statusIndex,
 				}
 			}),
-			cell.Provide(reconciler.New[*testObject]),
-
-			cell.Invoke(func(r_ reconciler.Reconciler[*testObject]) {
-				r = r_
-			}),
+			cell.Invoke(reconciler.Register[*testObject]),
 		),
 	)
 
@@ -167,8 +159,15 @@ func main() {
 
 	fmt.Printf("\nWaiting for reconciliation to finish ...\n")
 
-	// Wait for all to be reconciled.
-	r.WaitForReconciliation(context.TODO())
+	// Wait for all to be reconciled by waiting for the last added objects to be marked
+	// reconciled. This only works here since none of the operations fail.
+	for {
+		obj, _, watch, ok := testObjects.FirstWatch(db.ReadTxn(), idIndex.Query(id-1))
+		if ok && obj.status.Kind == reconciler.StatusKindDone {
+			break
+		}
+		<-watch
+	}
 
 	end := time.Now()
 	duration := end.Sub(start)

@@ -42,7 +42,6 @@ var Cell = cell.Module(
 				IncrementalBatchSize:      1000,
 				GetObjectStatus:           (*tables.BandwidthQDisc).GetStatus,
 				WithObjectStatus:          (*tables.BandwidthQDisc).WithStatus,
-				StatusIndex:               tables.BandwidthQDiscStatusIndex,
 			}
 		},
 	),
