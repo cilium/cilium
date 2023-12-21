@@ -115,7 +115,7 @@ func (ds *PolicyTestSuite) TearDownSuite(c *C) {
 // |Case | L3 (1, 2) match | L4 match | L7 match (1, 2) | Notes                                                |
 // +=====+=================+==========+=================+======================================================+
 // |  1A |      *, *       |  80/TCP  |      *, *       | Allow all communication on the specified port        |
-// |  1B |      *, *       |  80/TCP  |      *, *       | Same as 1A, with implicit L3 wildcards               |
+// |  1B |      -, -       |  80/TCP  |      *, *       | Deny all with an empty FromEndpoints slice           |
 // |  2A |      *, *       |  80/TCP  |   *, "GET /"    | Rule 1 shadows rule 2                                |
 // |  2B |      *, *       |  80/TCP  |   "GET /", *    | Same as 2A, but import in reverse order              |
 // |  3  |      *, *       |  80/TCP  | "GET /","GET /" | Exactly duplicate rules (HTTP)                       |
@@ -133,9 +133,9 @@ func (ds *PolicyTestSuite) TearDownSuite(c *C) {
 // | 10  | "id=a", "id=c"  |  80/TCP  | "GET /","GET /" | Allow at L7 for two distinct labels (disjoint set)   |
 // | 11  | "id=a", "id=c"  |  80/TCP  |      *, *       | Allow at L4 for two distinct labels (disjoint set)   |
 // | 12  |     "id=a",     |  80/TCP  |     "GET /"     | Configure to allow localhost traffic always          |
+// | 13  |      -, -       |  80/TCP  |      *, *       | Deny all with an empty ToEndpoints slice             |
 // +-----+-----------------+----------+-----------------+------------------------------------------------------+
 
-// Case 1: allow all at L3 in both rules, and all at L7 (duplicate rule).
 func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
 	repo := parseAndAddRules(c, api.Rules{&api.Rule{
@@ -184,7 +184,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
-	// Case1B: implicitly wildcard all endpoints.
+	// Case1B: an empty non-nil FromEndpoints does not select any identity.
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -220,15 +220,9 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Log(buffer)
 
-	filter, ok = l4IngressPolicy["80/TCP"]
-	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
-	c.Assert(filter.Ingress, Equals, true)
+	_, ok = l4IngressPolicy["80/TCP"]
+	c.Assert(ok, Equals, false)
 
-	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
-
-	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
-	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -2221,4 +2215,37 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
+}
+
+// Case 13: deny all at L3 in case of an empty non-nil toEndpoints slice.
+func (ds *PolicyTestSuite) TestEgressEmptyToEndpoints(c *C) {
+	rule := &rule{
+		Rule: api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer := new(bytes.Buffer)
+	ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+	ctxFromA.Logging = stdlog.New(buffer, "", 0)
+	c.Log(buffer)
+
+	state := traceState{}
+	res, err := rule.resolveEgressPolicy(testPolicyContext, &ctxFromA, &state, L4PolicyMap{}, nil, nil)
+
+	c.Assert(err, IsNil)
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 }

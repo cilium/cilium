@@ -110,17 +110,17 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 								if !ok {
 									break
 								}
-								pePtr.peer.Lock()
-								if &pePtr.peer.endpoint != pePtr.endpoint {
-									pePtr.peer.Unlock()
+								pePtr.peer.endpoint.Lock()
+								if &pePtr.peer.endpoint.val != pePtr.endpoint {
+									pePtr.peer.endpoint.Unlock()
 									break
 								}
-								if uint32(pePtr.peer.endpoint.(*conn.StdNetEndpoint).SrcIfidx()) == ifidx {
-									pePtr.peer.Unlock()
+								if uint32(pePtr.peer.endpoint.val.(*conn.StdNetEndpoint).SrcIfidx()) == ifidx {
+									pePtr.peer.endpoint.Unlock()
 									break
 								}
-								pePtr.peer.endpoint.(*conn.StdNetEndpoint).ClearSrc()
-								pePtr.peer.Unlock()
+								pePtr.peer.endpoint.clearSrcOnTx = true
+								pePtr.peer.endpoint.Unlock()
 							}
 							attr = attr[attrhdr.Len:]
 						}
@@ -134,18 +134,18 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 					device.peers.RLock()
 					i := uint32(1)
 					for _, peer := range device.peers.keyMap {
-						peer.RLock()
-						if peer.endpoint == nil {
-							peer.RUnlock()
+						peer.endpoint.Lock()
+						if peer.endpoint.val == nil {
+							peer.endpoint.Unlock()
 							continue
 						}
-						nativeEP, _ := peer.endpoint.(*conn.StdNetEndpoint)
+						nativeEP, _ := peer.endpoint.val.(*conn.StdNetEndpoint)
 						if nativeEP == nil {
-							peer.RUnlock()
+							peer.endpoint.Unlock()
 							continue
 						}
 						if nativeEP.DstIP().Is6() || nativeEP.SrcIfidx() == 0 {
-							peer.RUnlock()
+							peer.endpoint.Unlock()
 							break
 						}
 						nlmsg := struct {
@@ -188,10 +188,10 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 						reqPeerLock.Lock()
 						reqPeer[i] = peerEndpointPtr{
 							peer:     peer,
-							endpoint: &peer.endpoint,
+							endpoint: &peer.endpoint.val,
 						}
 						reqPeerLock.Unlock()
-						peer.RUnlock()
+						peer.endpoint.Unlock()
 						i++
 						_, err := netlinkCancel.Write((*[unsafe.Sizeof(nlmsg)]byte)(unsafe.Pointer(&nlmsg))[:])
 						if err != nil {

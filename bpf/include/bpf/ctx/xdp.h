@@ -350,6 +350,13 @@ ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
 	return -ENOTSUP;
 }
 
+#ifdef HAVE_XDP_GET_BUFF_LEN
+static __always_inline __maybe_unused __u64
+ctx_full_len(const struct xdp_md *ctx)
+{
+	return xdp_get_buff_len((struct xdp_md *)ctx);
+}
+#else
 static __always_inline __maybe_unused __u64
 ctx_full_len(const struct xdp_md *ctx)
 {
@@ -367,6 +374,7 @@ ctx_full_len(const struct xdp_md *ctx)
 		     : "r1", "r2");
 	return len;
 }
+#endif
 
 static __always_inline __maybe_unused __u32
 ctx_wire_len(const struct xdp_md *ctx)
@@ -417,6 +425,12 @@ ctx_get_protocol(const struct xdp_md *ctx)
 
 static __always_inline __maybe_unused __u32
 ctx_get_ifindex(const struct xdp_md *ctx)
+{
+	return ctx->ingress_ifindex;
+}
+
+static __always_inline __maybe_unused __u32
+ctx_get_ingress_ifindex(const struct xdp_md *ctx)
 {
 	return ctx->ingress_ifindex;
 }

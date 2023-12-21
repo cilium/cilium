@@ -26,14 +26,14 @@ import (
 // |Case | L3 (1, 2) match | L4 match | Notes                                                |
 // +=====+=================+==========+======================================================+
 // |  1A |      *, *       |  80/TCP  | Deny all communication on the specified port         |
-// |  1B |      *, *       |  80/TCP  | Same as 1A, with implicit L3 wildcards               |
+// |  1B |      -, -       |  80/TCP  | Don't select anything                                |
 // |  2A |   "id=a", *     |  80/TCP  | Rule 2 is a superset of rule 1                       |
 // |  2B |   *, "id=a"     |  80/TCP  | Same as 2A, but import in reverse order              |
 // |  3  | "id=a", "id=c"  |  80/TCP  | Deny at L4 for two distinct labels (disjoint set)    |
 // |  4A |      *, *       |  80/TCP  | Allow all communication on the specified port        |
 // |     |                 |          | and deny one endpoint selector                       |
 // |  4B |      *, *       |  80/TCP  | Same as 4A, but import in reverse order              |
-// |  5A |      *, *       |  80/TCP  | Deny all communication on a specified endpoint        |
+// |  5A |      *, *       |  80/TCP  | Deny all communication on a specified endpoint       |
 // |     |                 |          | except while wildcarding all L7 policy.              |
 // |  5B |      *, *       |  80/TCP  | Same as 5A, but import in reverse order              |
 // +-----+-----------------+----------+------------------------------------------------------+
@@ -103,7 +103,7 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressDenyPolicy.Detach(repo.GetSelectorCache())
 
-	// Case1B: implicitly deny all endpoints.
+	// Case1B: an empty non-nil FromEndpoints does not select any identity.
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		IngressDeny: []api.IngressDenyRule{
@@ -139,17 +139,9 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 
 	c.Log(buffer)
 
-	filter, ok = l4IngressDenyPolicy["80/TCP"]
-	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
-	c.Assert(filter.Ingress, Equals, true)
+	_, ok = l4IngressDenyPolicy["80/TCP"]
+	c.Assert(ok, Equals, false)
 
-	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
-	c.Assert(filter.wildcard, Not(IsNil))
-	c.Assert(filter.PerSelectorPolicies[filter.wildcard].IsDeny, Equals, true)
-
-	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
-	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressDenyPolicy.Detach(repo.GetSelectorCache())
 }
 

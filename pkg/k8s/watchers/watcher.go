@@ -1019,40 +1019,6 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
 }
 
-// GetIndexer returns an index to a k8s cache store for the given resource name.
-// Objects gotten using returned stores should *not* be mutated as they
-// are references to internal k8s watcher store state.
-func (k *K8sWatcher) GetIndexer(name string) cache.Indexer {
-	switch name {
-	case "ciliumendpointslice":
-		k.ciliumEndpointSliceIndexerMU.RLock()
-		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
-		return k.ciliumEndpointSliceIndexer
-	case "ciliumendpoint":
-		k.ciliumEndpointIndexerMU.RLock()
-		defer k.ciliumEndpointIndexerMU.RUnlock()
-		return k.ciliumEndpointIndexer
-	default:
-		panic("no such indexer: " + name)
-	}
-}
-
-// SetIndexer lets you set a named cache store, only used for testing.
-func (k *K8sWatcher) SetIndexer(name string, indexer cache.Indexer) {
-	switch name {
-	case "ciliumendpointslice":
-		k.ciliumEndpointSliceIndexerMU.Lock()
-		defer k.ciliumEndpointSliceIndexerMU.Unlock()
-		k.ciliumEndpointSliceIndexer = indexer
-	case "ciliumendpoint":
-		k.ciliumEndpointIndexerMU.Lock()
-		defer k.ciliumEndpointIndexerMU.Unlock()
-		k.ciliumEndpointIndexer = indexer
-	default:
-		panic("no such indexer: " + name)
-	}
-}
-
 // GetStore returns the k8s cache store for the given resource name.
 // It's possible for valid resource names to return nil stores if that
 // watcher is not in use.

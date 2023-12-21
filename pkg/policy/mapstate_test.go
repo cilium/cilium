@@ -1877,6 +1877,9 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
 			if v2, ok := old.Old[k]; ok {
 				if equals, _ := checker.DeepEqual(v2, v); !equals {
+					if !v.DatapathEqual(&v2) {
+						wantAdds[k] = struct{}{}
+					}
 					wantOld[k] = v2
 				}
 			} else {
@@ -2121,6 +2124,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visAdds: Keys{
 			HttpIngressKey(0): {},
+			HttpEgressKey(0):  {},
 		},
 		visOld: map[Key]MapStateEntry{
 			// Old value for the modified entry

@@ -1169,6 +1169,12 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDenyFromEntities(c *C) {
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
 	c.Assert(cachedSelectorWorld, Not(IsNil))
 
+	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
+	c.Assert(cachedSelectorWorldV4, Not(IsNil))
+
+	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
+	c.Assert(cachedSelectorWorldV6, Not(IsNil))
+
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": {
 			Port:     0,
@@ -1176,10 +1182,16 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDenyFromEntities(c *C) {
 			U8Proto:  0x0,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
+				cachedSelectorWorld:   &PerSelectorPolicy{IsDeny: true},
+				cachedSelectorWorldV4: &PerSelectorPolicy{IsDeny: true},
+				cachedSelectorWorldV6: &PerSelectorPolicy{IsDeny: true},
 			},
-			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorWorld: {labelsL3}},
+			Ingress: true,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				cachedSelectorWorld:   {labelsL3},
+				cachedSelectorWorldV4: {labelsL3},
+				cachedSelectorWorldV6: {labelsL3},
+			},
 		},
 	}
 
@@ -1224,6 +1236,12 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDenyToEntities(c *C) {
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
 	c.Assert(cachedSelectorWorld, Not(IsNil))
 
+	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
+	c.Assert(cachedSelectorWorldV4, Not(IsNil))
+
+	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
+	c.Assert(cachedSelectorWorldV6, Not(IsNil))
+
 	// We should expect an empty deny policy because the policy does not
 	// contain any rules with the label 'id=foo'.
 	expectedDenyPolicy := L4PolicyMap{
@@ -1233,10 +1251,16 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDenyToEntities(c *C) {
 			U8Proto:  0x0,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
+				cachedSelectorWorld:   &PerSelectorPolicy{IsDeny: true},
+				cachedSelectorWorldV4: &PerSelectorPolicy{IsDeny: true},
+				cachedSelectorWorldV6: &PerSelectorPolicy{IsDeny: true},
 			},
-			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorWorld: {labelsL3}},
+			Ingress: false,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				cachedSelectorWorld:   {labelsL3},
+				cachedSelectorWorldV4: {labelsL3},
+				cachedSelectorWorldV6: {labelsL3},
+			},
 		},
 	}
 

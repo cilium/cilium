@@ -119,11 +119,11 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	<-mgr.InitIdentityAllocator(nil)
 	s.mgr = mgr
 	node.SetTestLocalNodeStore()
-}
 
-func (s *EndpointSuite) TearDownTest(c *C) {
-	s.mgr.Close()
-	node.UnsetTestLocalNodeStore()
+	c.Cleanup(func() {
+		s.mgr.Close()
+		node.UnsetTestLocalNodeStore()
+	})
 }
 
 func (s *EndpointSuite) TestEndpointStatus(c *C) {

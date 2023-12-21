@@ -38,6 +38,8 @@ static int BPF_STUB(xdp_store_bytes, struct xdp_md *xdp, __u32 off,
 		    const void *from, __u32 len, __u32 flags);
 #endif
 
+static __u64 BPF_FUNC(xdp_get_buff_len, struct xdp_md *xdp_md);
+
 static int BPF_STUB(l3_csum_replace, struct xdp_md *xdp, __u32 off,
 		    __u32 from, __u32 to, __u32 flags);
 static int BPF_STUB(l4_csum_replace, struct xdp_md *xdp, __u32 off,

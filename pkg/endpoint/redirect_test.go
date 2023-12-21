@@ -322,10 +322,8 @@ var (
 	ruleL4L7Allow = api.NewRule().
 			WithLabels(lblsL4L7Allow).
 			WithIngressRules([]api.IngressRule{{
-			IngressCommonRule: api.IngressCommonRule{
-				FromEndpoints: []api.EndpointSelector{},
-			},
-			ToPorts: combineL4L7(allowPort80, allowHTTPRoot),
+			IngressCommonRule: api.IngressCommonRule{},
+			ToPorts:           combineL4L7(allowPort80, allowHTTPRoot),
 		}})
 
 	AllowAnyEgressLabels = labels.LabelArray{labels.NewLabel(policy.LabelKeyPolicyDerivedFrom,

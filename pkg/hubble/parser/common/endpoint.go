@@ -12,7 +12,9 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type DatapathContext struct {
@@ -25,6 +27,7 @@ type DatapathContext struct {
 
 type EndpointResolver struct {
 	log            logrus.FieldLogger
+	logLimiter     logging.Limiter
 	endpointGetter getters.EndpointGetter
 	identityGetter getters.IdentityGetter
 	ipGetter       getters.IPGetter
@@ -38,6 +41,7 @@ func NewEndpointResolver(
 ) *EndpointResolver {
 	return &EndpointResolver{
 		log:            log,
+		logLimiter:     logging.NewLimiter(30*time.Second, 1),
 		endpointGetter: endpointGetter,
 		identityGetter: identityGetter,
 		ipGetter:       ipGetter,
@@ -61,6 +65,9 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 			return userspaceID.Uint32()
 		}
 
+		// Log any identity discrepancies, unless or this is a known case where
+		// Hubble does not have the full picture (see inline comments below each case)
+		// or we've hit the log rate limit
 		if datapathID != userspaceID {
 			if context.TraceObservationPoint == pb.TraceObservationPoint_TO_OVERLAY &&
 				ip == context.SrcIP && datapathID.Uint32() == context.SrcLabelID &&
@@ -71,6 +78,13 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				// When encapsulating a packet for sending via the overlay network, if the source
 				// seclabel = HOST_ID, then we reassign seclabel with LOCAL_NODE_ID and then send
 				// a trace notify.
+			} else if context.TraceObservationPoint == pb.TraceObservationPoint_TO_OVERLAY &&
+				ip == context.SrcIP && datapathID.Uint32() == context.SrcLabelID &&
+				!datapathID.IsReservedIdentity() && userspaceID == identity.ReservedIdentityHost {
+				// Ignore
+				//
+				// An IPSec encrypted packet will have the local cilium_host IP as the source
+				// address, but the datapath seclabel will be the one of the source pod.
 			} else if context.TraceObservationPoint == pb.TraceObservationPoint_FROM_ENDPOINT &&
 				ip == context.SrcIP && datapathID.Uint32() == context.SrcLabelID &&
 				(datapathID == identity.ReservedIdentityHealth || !datapathID.IsReservedIdentity()) &&
@@ -107,11 +121,12 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				// host their source IP is that of the proxy, yet their security identity is
 				// retained from the original source pod. This is a similar case to #4, but on the
 				// receiving side.
-			} else {
+			} else if r.logLimiter.Allow() {
 				r.log.WithFields(logrus.Fields{
-					logfields.Identity:    datapathID.Uint32(),
-					logfields.OldIdentity: userspaceID.Uint32(),
-					logfields.IPAddr:      ip,
+					"datapath-identity":  datapathID.Uint32(),
+					"userspace-identity": userspaceID.Uint32(),
+					"context":            logfields.Repr(context),
+					logfields.IPAddr:     ip,
 				}).Debugf("stale identity observed")
 			}
 		}

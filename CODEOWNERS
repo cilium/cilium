@@ -437,6 +437,7 @@ Makefile* @cilium/build
 /pkg/egressgateway/ @cilium/egress-gateway
 /pkg/elf @cilium/sig-datapath
 /pkg/endpoint/ @cilium/endpoint
+/pkg/endpointcleanup/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
 /pkg/endpointstate/ @cilium/endpoint
 /pkg/envoy/ @cilium/envoy

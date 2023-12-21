@@ -240,9 +240,13 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct endpoint_info *ep;
 	int ret;
 	__u8 encrypt_key __maybe_unused = 0;
-	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
-	__u32 magic = from_ingress_proxy ? MARK_MAGIC_PROXY_INGRESS :
-					   MARK_MAGIC_IDENTITY;
+	__u32 magic = MARK_MAGIC_IDENTITY;
+	bool from_ingress_proxy = false;
+
+	if (from_host && tc_index_from_ingress_proxy(ctx)) {
+		from_ingress_proxy = true;
+		magic = MARK_MAGIC_PROXY_INGRESS;
+	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -658,9 +662,13 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct endpoint_info *ep;
 	int ret;
 	__u8 encrypt_key __maybe_unused = 0;
-	bool from_ingress_proxy = tc_index_from_ingress_proxy(ctx);
-	__u32 magic = from_ingress_proxy ? MARK_MAGIC_PROXY_INGRESS :
-					   MARK_MAGIC_IDENTITY;
+	__u32 magic = MARK_MAGIC_IDENTITY;
+	bool from_ingress_proxy = false;
+
+	if (from_host && tc_index_from_ingress_proxy(ctx)) {
+		from_ingress_proxy = true;
+		magic = MARK_MAGIC_PROXY_INGRESS;
+	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -946,7 +954,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_ENCRYPTED,
-		.monitor = TRACE_PAYLOAD_LEN,
+		.monitor = 0,
 	};
 	struct remote_endpoint_info *ep = NULL;
 	void *data, *data_end;
@@ -1028,27 +1036,14 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
+	enum trace_point trace = from_host ? TRACE_FROM_HOST :
+					     TRACE_FROM_NETWORK;
 	__u32 __maybe_unused identity = 0;
 	__u32 __maybe_unused ipcache_srcid = 0;
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
 	int ret;
-
-#if defined(ENABLE_L7_LB)
-	if (from_host) {
-		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-
-		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-			__u32 lxc_id = get_epid(ctx);
-
-			ctx->mark = 0;
-			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
-			return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
-						      CTX_ACT_DROP, METRIC_EGRESS);
-		}
-	}
-#endif
 
 #ifdef ENABLE_IPSEC
 	if (!from_host && !do_decrypt(ctx, proto))
@@ -1057,17 +1052,24 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 
 	if (from_host) {
 		__u32 magic;
-		enum trace_point trace = TRACE_FROM_HOST;
 
 		magic = inherit_identity_from_host(ctx, &identity);
 		if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
 			trace = TRACE_FROM_PROXY;
 
+#if defined(ENABLE_L7_LB)
+		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+			/* extracted identity is actually the endpoint ID */
+			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, identity);
+			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+						      CTX_ACT_DROP, METRIC_EGRESS);
+		}
+#endif
+
 #ifdef ENABLE_IPSEC
 		if (magic == MARK_MAGIC_ENCRYPT) {
 			send_trace_notify(ctx, TRACE_FROM_STACK, identity, 0, 0,
-					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-					  TRACE_PAYLOAD_LEN);
+					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 			ret = CTX_ACT_OK;
 # ifdef TUNNEL_MODE
 			ret = do_netdev_encrypt_encap(ctx, identity);
@@ -1078,15 +1080,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			return ret;
 		}
 #endif /* ENABLE_IPSEC */
-
-		send_trace_notify(ctx, trace, identity, 0, 0,
-				  ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
-	} else {
-		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
-				  ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
+
+	send_trace_notify(ctx, trace, identity, 0, 0, ctx->ingress_ifindex,
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 
 	bpf_clear_meta(ctx);
 

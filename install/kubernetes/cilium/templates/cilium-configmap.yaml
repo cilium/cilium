@@ -448,9 +448,15 @@ data:
   #   - vxlan (default)
   #   - geneve
 {{- if .Values.gke.enabled }}
+  {{- if ne (.Values.routingMode | default "native") "native" }}
+    {{- fail (printf "RoutingMode must be set to native when gke.enabled=true" )}}
+  {{- end }}
   routing-mode: "native"
   enable-endpoint-routes: "true"
 {{- else if .Values.aksbyocni.enabled }}
+  {{- if ne (.Values.routingMode | default "tunnel") "tunnel" }}
+    {{- fail (printf "RoutingMode must be set to tunnel when aksbyocni.enabled=true" )}}
+  {{- end }}
   routing-mode: "tunnel"
   tunnel-protocol: "vxlan"
 {{- else if .Values.routingMode }}
