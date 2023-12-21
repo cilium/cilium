@@ -197,11 +197,6 @@ jobs:
           version: ${{ matrix.version }}
           spot: ${{ github.event_name != 'schedule' }}
 
-      # This is a workaround for flake #16938.
-      - name: Remove AWS-CNI
-        run: |
-          kubectl -n kube-system delete daemonset aws-node
-
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
@@ -209,6 +204,37 @@ jobs:
           for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
+
+      - name: Make sure images available from cluster
+        run: |
+          kubectl create -f - <<EOF
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: wait-for-images
+          spec:
+            completions: 1
+            backoffLimit: 3
+            template:
+              spec:
+                containers:
+                - name: wait-for-images
+                  image: quay.io/cilium/cilium-ci:${{ steps.vars.outputs.sha }}
+                  command: ["true"]
+                tolerations:
+                - key: "node.cilium.io/agent-not-ready"
+                  operator: "Equal"
+                  value: "true"
+                  effect: "NoExecute"
+                restartPolicy: Never
+          EOF
+
+          kubectl wait --for=condition=complete --timeout=10m job/wait-for-images
+
+      # This is a workaround for flake #16938.
+      - name: Remove AWS-CNI
+        run: |
+          kubectl -n kube-system delete daemonset aws-node
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
