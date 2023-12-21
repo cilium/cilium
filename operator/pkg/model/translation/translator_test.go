@@ -360,7 +360,8 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 
 func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 	type args struct {
-		m *model.Model
+		m            *model.Model
+		enforceHTTPS bool
 	}
 
 	tests := []struct {
@@ -383,6 +384,14 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 			expectedRouteConfigs: hostRulesExpectedConfig,
 		},
 		{
+			name: "host rule with enforceHTTPS",
+			args: args{
+				m:            hostRulesModel,
+				enforceHTTPS: true,
+			},
+			expectedRouteConfigs: hostRulesExpectedConfigEnforceHTTPS,
+		},
+		{
 			name: "path rules",
 			args: args{
 				m: pathRulesModel,
@@ -395,6 +404,14 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 				m: complexIngressModel,
 			},
 			expectedRouteConfigs: complexIngressExpectedConfig,
+		},
+		{
+			name: "complex ingress with enforceHTTPS",
+			args: args{
+				m:            complexIngressModel,
+				enforceHTTPS: true,
+			},
+			expectedRouteConfigs: complexIngressExpectedConfigEnforceHTTPS,
 		},
 		{
 			name: "multiple path types in one listener",
@@ -419,6 +436,7 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			defT.enforceHTTPs = tt.args.enforceHTTPS
 			res := defT.getEnvoyHTTPRouteConfiguration(tt.args.m)
 			require.Len(t, res, len(tt.expectedRouteConfigs), "Number of Listeners did not match")
 
@@ -453,7 +471,7 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 					if !t.Failed() {
 						diffOutput := cmp.Diff(ttVhost, vhost, protocmp.Transform())
 						if len(diffOutput) != 0 {
-							t.Errorf("VirtualHosts did not match:\n %s\n", diffOutput)
+							t.Errorf("VirtualHosts did not match for Listener %s:\n %s\n", listener.Name, diffOutput)
 						}
 					}
 				}
@@ -513,6 +531,16 @@ func envoyRouteAction(namespace, backend, port string) *envoy_config_route_v3.Ro
 		Route: &envoy_config_route_v3.RouteAction{
 			ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 				Cluster: fmt.Sprintf("%s:%s:%s", namespace, backend, port),
+			},
+		},
+	}
+}
+
+func envoyHTTPSRouteRedirect() *envoy_config_route_v3.Route_Redirect {
+	return &envoy_config_route_v3.Route_Redirect{
+		Redirect: &envoy_config_route_v3.RedirectAction{
+			SchemeRewriteSpecifier: &envoy_config_route_v3.RedirectAction_HttpsRedirect{
+				HttpsRedirect: true,
 			},
 		},
 	}
