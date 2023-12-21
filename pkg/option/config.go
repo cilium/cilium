@@ -499,6 +499,9 @@ const (
 	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
 	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
 
+	// EnableTraceNotification is the name of the option to enable trace notifications
+	EnableTraceNotification = "trace-notification"
+
 	// RoutingMode is the name of the option to choose between native routing and tunneling mode
 	RoutingMode = "routing-mode"
 
@@ -1750,6 +1753,7 @@ type DaemonConfig struct {
 	EnableSocketLB                bool
 	EnableSocketLBTracing         bool
 	EnableSocketLBPeer            bool
+	EnableTraceNotifications      bool
 	EnablePolicy                  string
 	EnableTracing                 bool
 	EnableUnreachableRoutes       bool
@@ -2477,6 +2481,8 @@ var (
 		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
 		PolicyCIDRMatchMode:    defaults.PolicyCIDRMatchMode,
 		MaxConnectedClusters:   defaults.MaxConnectedClusters,
+
+		EnableTraceNotifications: defaults.EnableTraceNotification,
 	}
 )
 
@@ -3024,6 +3030,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
+	c.EnableTraceNotifications = vp.GetBool(EnableTraceNotification)
 	c.EnableRemoteNodeIdentity = vp.GetBool(EnableRemoteNodeIdentity)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
