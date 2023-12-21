@@ -14,17 +14,17 @@ func Stringer[T fmt.Stringer](s T) Key {
 }
 
 func StringSlice(ss []string) KeySet {
-	ks := KeySet{}
+	keys := make([]Key, 0, len(ss))
 	for _, s := range ss {
-		ks.Append(String(s))
+		keys = append(keys, String(s))
 	}
-	return ks
+	return NewKeySet(keys...)
 }
 
 func StringerSlice[T fmt.Stringer](ss []T) KeySet {
-	ks := KeySet{}
+	keys := make([]Key, 0, len(ss))
 	for _, s := range ss {
-		ks.Append(Stringer(s))
+		keys = append(keys, Stringer(s))
 	}
-	return ks
+	return NewKeySet(keys...)
 }

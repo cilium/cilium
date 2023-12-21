@@ -11,35 +11,19 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
-func TestKeySet_FromEmpty(t *testing.T) {
-	ks := index.NewKeySet()
-	require.Nil(t, ks.First())
-	ks.Foreach(func(_ index.Key) {
-		t.Fatalf("Foreach on NewKeySet called function")
-	})
-	require.False(t, ks.Exists(nil))
-	require.False(t, ks.Exists([]byte{1, 2, 3}))
-
-	ks.Append([]byte("foo"))
-	require.EqualValues(t, "foo", ks.First())
-	ks.Foreach(func(bs index.Key) {
-		require.EqualValues(t, "foo", bs)
-	})
-	require.True(t, ks.Exists([]byte("foo")))
-
-	ks.Append([]byte("bar"))
-	require.EqualValues(t, "foo", ks.First())
-	vs := [][]byte{}
+func TestKeySet_Single(t *testing.T) {
+	ks := index.NewKeySet([]byte("baz"))
+	require.EqualValues(t, "baz", ks.First())
+	require.True(t, ks.Exists([]byte("baz")))
+	require.False(t, ks.Exists([]byte("foo")))
+	vs := []index.Key{}
 	ks.Foreach(func(bs index.Key) {
 		vs = append(vs, bs)
 	})
-	require.ElementsMatch(t, vs, [][]byte{[]byte("foo"), []byte("bar")})
-	require.True(t, ks.Exists([]byte("foo")))
-	require.True(t, ks.Exists([]byte("bar")))
-	require.False(t, ks.Exists([]byte("baz")))
+	require.ElementsMatch(t, vs, []index.Key{index.Key("baz")})
 }
 
-func TestKeySet_FromNonEmpty(t *testing.T) {
+func TestKeySet_Multi(t *testing.T) {
 	ks := index.NewKeySet([]byte("baz"), []byte("quux"))
 	require.EqualValues(t, "baz", ks.First())
 	require.True(t, ks.Exists([]byte("baz")))
