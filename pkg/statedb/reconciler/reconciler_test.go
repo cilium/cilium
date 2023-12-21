@@ -38,8 +38,6 @@ const (
 )
 
 func TestReconciler(t *testing.T) {
-	cell.SetReporterMinTimeoutForTest(t, 10*time.Millisecond)
-
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	var (

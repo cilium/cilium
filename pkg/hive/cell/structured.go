@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"testing"
 	"text/tabwriter"
 	"time"
 
@@ -36,17 +35,7 @@ type children sets.Set[string]
 //
 // HealthReporting is not intendeds to capture high frequency events, but rather provide
 // a structured view of the health of the system.
-var reporterMinTimeout = time.Millisecond * 500
-
-// SetReporterMinTimeoutForTest sets the reporter minimum timeout to speed up validating
-// the health reporting when testing a module. Only to be used from tests.
-func SetReporterMinTimeoutForTest(t *testing.T, timeout time.Duration) {
-	old := reporterMinTimeout
-	t.Cleanup(func() {
-		reporterMinTimeout = old
-	})
-	reporterMinTimeout = timeout
-}
+var reporterMinTimeout = time.Millisecond * 50
 
 // Scope provides a node in the structured health reporter tree that is
 // serves only as a parent for other nodes (scopes or reporters), and is
