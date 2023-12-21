@@ -4,8 +4,9 @@
 package translation
 
 import (
-	"github.com/cilium/cilium/operator/pkg/model"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+
+	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 // This file contains text fixtures and expected configs for the
@@ -188,6 +189,49 @@ var hostRulesExpectedConfig = []*envoy_config_route_v3.RouteConfiguration{
 					{
 						Match:  envoyRouteMatchRootPath(),
 						Action: envoyRouteAction("random-namespace", "foo-bar-com", "http"),
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "listener-secure",
+		VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+			{
+				Name:    "foo.bar.com",
+				Domains: domainsHelper("foo.bar.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyRouteAction("random-namespace", "foo-bar-com", "http"),
+					},
+				},
+			},
+		},
+	},
+}
+
+var hostRulesExpectedConfigEnforceHTTPS = []*envoy_config_route_v3.RouteConfiguration{
+	{
+		Name: "listener-insecure",
+		VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+			{
+				Name:    "foo.bar.com",
+				Domains: domainsHelper("foo.bar.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyHTTPSRouteRedirect(),
+					},
+				},
+			},
+			{
+				Name:    "*.foo.com",
+				Domains: domainsHelper("*.foo.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  withAuthority(envoyRouteMatchRootPath(), "^[^.]+[.]foo[.]com$"),
+						Action: envoyRouteAction("random-namespace", "wildcard-foo-com", "8080"),
 					},
 				},
 			},
@@ -630,6 +674,109 @@ var complexIngressExpectedConfig = []*envoy_config_route_v3.RouteConfiguration{
 	{
 		Name: "listener-insecure",
 		VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+			{
+				Name:    "*",
+				Domains: domainsHelper("*"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchExactPath("/dummy-path"),
+						Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
+					},
+					{
+						Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
+						Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
+					},
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyRouteAction("dummy-namespace", "default-backend", "8080"),
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "listener-secure",
+		VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+			{
+				Name:    "another-very-secure.server.com",
+				Domains: domainsHelper("another-very-secure.server.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchExactPath("/dummy-path"),
+						Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
+					},
+					{
+						Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
+						Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
+					},
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyRouteAction("dummy-namespace", "default-backend", "8080"),
+					},
+				},
+			},
+			{
+				Name:    "very-secure.server.com",
+				Domains: domainsHelper("very-secure.server.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchExactPath("/dummy-path"),
+						Action: envoyRouteAction("dummy-namespace", "dummy-backend", "8080"),
+					},
+					{
+						Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
+						Action: envoyRouteAction("dummy-namespace", "another-dummy-backend", "8081"),
+					},
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyRouteAction("dummy-namespace", "default-backend", "8080"),
+					},
+				},
+			},
+		},
+	},
+}
+
+var complexIngressExpectedConfigEnforceHTTPS = []*envoy_config_route_v3.RouteConfiguration{
+	{
+		Name: "listener-insecure",
+		VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+			{
+				Name:    "another-very-secure.server.com",
+				Domains: domainsHelper("another-very-secure.server.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchExactPath("/dummy-path"),
+						Action: envoyHTTPSRouteRedirect(),
+					},
+					{
+						Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
+						Action: envoyHTTPSRouteRedirect(),
+					},
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyHTTPSRouteRedirect(),
+					},
+				},
+			},
+			{
+				Name:    "very-secure.server.com",
+				Domains: domainsHelper("very-secure.server.com"),
+				Routes: []*envoy_config_route_v3.Route{
+					{
+						Match:  envoyRouteMatchExactPath("/dummy-path"),
+						Action: envoyHTTPSRouteRedirect(),
+					},
+					{
+						Match:  envoyRouteMatchPrefixPath("/another-dummy-path"),
+						Action: envoyHTTPSRouteRedirect(),
+					},
+					{
+						Match:  envoyRouteMatchRootPath(),
+						Action: envoyHTTPSRouteRedirect(),
+					},
+				},
+			},
 			{
 				Name:    "*",
 				Domains: domainsHelper("*"),
