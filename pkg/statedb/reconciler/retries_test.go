@@ -13,7 +13,7 @@ import (
 )
 
 func TestRetries(t *testing.T) {
-	objectToKey := func(o any) []byte {
+	objectToKey := func(o any) index.Key {
 		return index.Uint64(o.(uint64))
 	}
 	rq := newRetries(time.Millisecond, 100*time.Millisecond, objectToKey)

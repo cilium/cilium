@@ -202,19 +202,19 @@ func (txn *txn) Insert(meta TableMeta, guardRevision Revision, data any) (any, b
 	// Update revision index
 	revIndexTxn := txn.mustIndexWriteTxn(tableName, RevisionIndex)
 	if oldExists {
-		_, ok := revIndexTxn.txn.Delete(index.Uint64(oldObj.revision))
+		_, ok := revIndexTxn.txn.Delete([]byte(index.Uint64(oldObj.revision)))
 		if !ok {
 			panic("BUG: Old revision index entry not found")
 		}
 
 	}
-	revIndexTxn.txn.Insert(index.Uint64(revision), obj)
+	revIndexTxn.txn.Insert([]byte(index.Uint64(revision)), obj)
 
 	// If it's new, possibly remove an older deleted object with the same
 	// primary key from the graveyard.
 	if !oldExists && txn.hasDeleteTrackers(tableName) {
 		if old, existed := txn.mustIndexWriteTxn(tableName, GraveyardIndex).txn.Delete(idKey); existed {
-			txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Delete(index.Uint64(old.revision))
+			txn.mustIndexWriteTxn(tableName, GraveyardRevisionIndex).txn.Delete([]byte(index.Uint64(old.revision)))
 		}
 	}
 
@@ -351,7 +351,7 @@ func (txn *txn) Delete(meta TableMeta, guardRevision Revision, data any) (any, b
 // This allows looking up from the non-unique index with the secondary key by doing a prefix
 // search. The length is used to safe-guard against indexers that don't terminate the key
 // properly (e.g. if secondary key is "foo", then we don't want "foobar" to match).
-func encodeNonUniqueKey(primary, secondary []byte) []byte {
+func encodeNonUniqueKey(primary, secondary index.Key) []byte {
 	key := make([]byte, 0, len(secondary)+len(primary)+2)
 	key = append(key, secondary...)
 	key = append(key, primary...)

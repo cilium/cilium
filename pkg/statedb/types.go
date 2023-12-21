@@ -193,7 +193,7 @@ type WriteTxn interface {
 
 type Query[Obj any] struct {
 	index IndexName
-	key   []byte
+	key   index.Key
 }
 
 // ByRevision constructs a revision query. Applicable to any table.
