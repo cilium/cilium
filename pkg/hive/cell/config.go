@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/pflag"
 	"go.uber.org/dig"
 
@@ -42,7 +42,7 @@ type Flagger interface {
 	// Exported fields that are not found from the viper settings will cause
 	// hive.Run() to fail. Unexported fields are ignored.
 	//
-	// See https://pkg.go.dev/github.com/mitchellh/mapstructure for more info.
+	// See https://pkg.go.dev/github.com/go-viper/mapstructure for more info.
 	Flags(*pflag.FlagSet)
 }
 
