@@ -226,10 +226,7 @@ func (r *reconciler[Obj]) incremental(
 			float64(time.Since(start)) / float64(time.Second),
 		)
 
-		if err != nil {
-			// Reconciling the object failed, so add it to be retried.
-			r.retries.Add(obj)
-		} else {
+		if err == nil {
 			// Reconciling succeeded, so clear the object.
 			r.retries.Clear(obj)
 		}
@@ -316,6 +313,12 @@ func (r *reconciler[Obj]) incremental(
 			// been updated in the meanwhile, in which case we ignore the status as the
 			// update will be picked up by next reconciliation round.
 			r.Table.CompareAndSwap(wtxn, result.rev, r.Config.WithObjectStatus(obj, result.status))
+
+			if result.status.Kind == StatusKindError {
+				// Reconciling the object failed, so add it to be retried now that it's
+				// status is updated.
+				r.retries.Add(obj)
+			}
 		}
 
 		// Delete the objects that had been successfully deleted..
