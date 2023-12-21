@@ -439,6 +439,7 @@ Makefile* @cilium/build
 /pkg/datapath/linux/node.go @cilium/sig-datapath
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
+/pkg/datapath/linux/sysctl/ @cilium/sig-datapath
 /pkg/datapath/types/ipsec.go @cilium/ipsec
 /pkg/datapath/types/loader.go @cilium/loader
 /pkg/datapath/loader/ @cilium/loader
@@ -524,7 +525,6 @@ Makefile* @cilium/build
 /pkg/status/ @cilium/sig-agent
 /pkg/statedb @cilium/sig-foundations
 /pkg/stream @cilium/sig-foundations
-/pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
 /pkg/time @cilium/sig-agent
 /pkg/tuple @cilium/sig-datapath
