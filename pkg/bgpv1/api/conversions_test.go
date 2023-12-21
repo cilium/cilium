@@ -22,7 +22,7 @@ func TestRouteConversions(t *testing.T) {
 				Paths:  []*types.Path{&tt.Path},
 			}
 
-			apiRoutes, err := ToAPIRoutes([]*types.Route{expectedRoute}, testRouterASN)
+			apiRoutes, err := ToAPIRoutes([]*types.Route{expectedRoute}, testRouterASN, "")
 			require.NoError(t, err)
 			require.NotZero(t, apiRoutes)
 
