@@ -61,7 +61,7 @@ jobs:
           credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@825196879a077b7efa50db2e88409f44de4635c2 # v2.0.0
+        uses: google-github-actions/setup-gcloud@5a5f7b85fca43e76e53463acaa9d408a03c98d3a # v2.0.1
         with:
           project_id: ${{ secrets.GCP_PR_PROJECT_ID }}
           version: "405.0.0"
