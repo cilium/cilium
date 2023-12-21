@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -35,7 +36,7 @@ func New[Obj comparable](p Params[Obj]) (Reconciler[Obj], error) {
 	}
 
 	idx := p.Table.PrimaryIndexer()
-	objectToKey := func(o any) []byte {
+	objectToKey := func(o any) index.Key {
 		return idx.ObjectToKey(o.(Obj))
 	}
 	r := &reconciler[Obj]{

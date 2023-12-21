@@ -4,14 +4,14 @@
 package reconciler
 
 import (
-	"bytes"
 	"container/heap"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func newRetries(minDuration, maxDuration time.Duration, objectToKey func(any) []byte) *retries {
+func newRetries(minDuration, maxDuration time.Duration, objectToKey func(any) index.Key) *retries {
 	return &retries{
 		backoff: backoff.Exponential{
 			Min: minDuration,
@@ -30,7 +30,7 @@ type retries struct {
 	backoff     backoff.Exponential
 	queue       retryPrioQueue
 	items       map[string]*retryItem
-	objectToKey func(any) []byte
+	objectToKey func(any) index.Key
 }
 
 type retryItem struct {
@@ -94,7 +94,7 @@ func (rq *retries) Clear(obj any) {
 	if item, ok := rq.items[string(key)]; ok {
 		// Remove the object from the queue if it is still there.
 		if item.index >= 0 && item.index < len(rq.queue) &&
-			bytes.Equal(key, rq.objectToKey(rq.queue[item.index].object)) {
+			key.Equal(rq.objectToKey(rq.queue[item.index].object)) {
 			heap.Remove(&rq.queue, item.index)
 		}
 		// Completely forget the object and its retry count.
