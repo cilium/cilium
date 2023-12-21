@@ -63,6 +63,8 @@ const (
 	EnableEnvoyConfig Feature = "enable-envoy-config"
 
 	WireguardEncapsulate Feature = "wireguard-encapsulate"
+
+	DisableEndpointCRD Feature = "disable-endpoint-crd"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -266,6 +268,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[WireguardEncapsulate] = Status{
 		Enabled: cm.Data[string(WireguardEncapsulate)] == "true",
+	}
+
+	fs[DisableEndpointCRD] = Status{
+		Enabled: cm.Data[string(DisableEndpointCRD)] == "true",
 	}
 }
 
