@@ -372,9 +372,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		struct tunnel_key key = {};
 
 		/* IPv6 lookup key: daddr/96 */
-		key.ip6.p1 = dst->p1;
-		key.ip6.p2 = dst->p2;
-		key.ip6.p3 = dst->p3;
+		ipv6_addr_copy(&key.ip6, dst);
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
