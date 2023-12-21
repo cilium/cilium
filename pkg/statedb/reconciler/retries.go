@@ -93,9 +93,8 @@ func (rq *retries) Clear(obj any) {
 	key := rq.objectToKey(obj)
 	if item, ok := rq.items[string(key)]; ok {
 		// Remove the object from the queue if it is still there.
-		key2 := rq.objectToKey(item.object)
 		if item.index >= 0 && item.index < len(rq.queue) &&
-			bytes.Equal(key, key2) {
+			bytes.Equal(key, rq.objectToKey(rq.queue[item.index].object)) {
 			heap.Remove(&rq.queue, item.index)
 		}
 		// Completely forget the object and its retry count.
