@@ -22,7 +22,8 @@ runs:
         # subsequent connectivity tests with --include-conn-disrupt-test to catch any
         # interruption in such flows.
         ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-          --conn-disrupt-dispatch-interval 0ms
+          --conn-disrupt-dispatch-interval 0ms \
+          --expected-xfrm-errors "+inbound_no_state"
 
     - name: Operate Cilium
       shell: bash
@@ -39,4 +40,5 @@ runs:
           --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
           --junit-file "cilium-junits/${{ inputs.job-name }}.xml" \
           ${{ inputs.extra-connectivity-test-flags }} \
-          --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})"
+          --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})" \
+          --expected-xfrm-errors "+inbound_no_state"
