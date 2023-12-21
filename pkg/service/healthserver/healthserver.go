@@ -200,7 +200,8 @@ func (h *httpHealthHTTPServerFactory) newHTTPHealthServer(port uint16, svc *Serv
 }
 
 func (h *httpHealthServer) loadService() *Service {
-	return h.service.Load().(*Service)
+	svc, _ := h.service.Load().(*Service)
+	return svc
 }
 
 func (h *httpHealthServer) updateService(svc *Service) {

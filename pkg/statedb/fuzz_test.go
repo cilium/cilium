@@ -252,7 +252,8 @@ func fuzzWorker(realActionLog *realActionLog, worker int, iterations int) {
 
 		for _, target := range targets {
 			act := randomAction()
-			act(log, actLog, txn, target.(statedb.RWTable[fuzzObj]))
+			fo, _ := target.(statedb.RWTable[fuzzObj])
+			act(log, actLog, txn, fo)
 			runtime.Gosched()
 		}
 		runtime.Gosched()

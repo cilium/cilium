@@ -13,7 +13,8 @@ import (
 func dumpBuffer(b *RingBuffer) []int {
 	acc := []int{}
 	b.dumpWithCallback(func(n interface{}) {
-		acc = append(acc, n.(int))
+		v, _ := n.(int)
+		acc = append(acc, v)
 	})
 	return acc
 }
@@ -22,7 +23,8 @@ func dumpFunc(b *RingBuffer) func() []int {
 	return func() []int {
 		acc := []int{}
 		b.Iterate(func(i interface{}) {
-			acc = append(acc, i.(int))
+			v, _ := i.(int)
+			acc = append(acc, v)
 		})
 		return acc
 	}
@@ -47,39 +49,48 @@ func TestRingBuffer_AddingAndIterating(t *testing.T) {
 
 	d := []int{}
 	buffer.Iterate(func(i interface{}) {
-		d = append(d, i.(int))
+		v, _ := i.(int)
+		d = append(d, v)
 	})
 	assert.IsNonDecreasing(d)
 	assert.Equal([]int{7, 8, 9, 10, 11}, d)
 	acc = []int{}
 	buffer.IterateValid(func(n interface{}) bool {
-		return n.(int) >= 9
+		v, _ := n.(int)
+		return v >= 9
 	}, func(n interface{}) {
-		acc = append(acc, n.(int))
+		v, _ := n.(int)
+		acc = append(acc, v)
 	})
 	assert.Equal([]int{9, 10, 11}, acc)
 
 	acc = []int{}
 	buffer.IterateValid(func(n interface{}) bool {
-		return n.(int) >= 0
+		v, _ := n.(int)
+		return v >= 0
 	}, func(n interface{}) {
-		acc = append(acc, n.(int))
+		v, _ := n.(int)
+		acc = append(acc, v)
 	})
 	assert.Equal([]int{7, 8, 9, 10, 11}, acc)
 
 	acc = []int{}
 	buffer.IterateValid(func(n interface{}) bool {
-		return n.(int) >= 11
+		v, _ := n.(int)
+		return v >= 11
 	}, func(n interface{}) {
-		acc = append(acc, n.(int))
+		v, _ := n.(int)
+		acc = append(acc, v)
 	})
 	assert.Equal([]int{11}, acc)
 
 	acc = []int{}
 	buffer.IterateValid(func(n interface{}) bool {
-		return n.(int) > 11
+		v, _ := n.(int)
+		return v > 11
 	}, func(n interface{}) {
-		acc = append(acc, n.(int))
+		v, _ := n.(int)
+		acc = append(acc, v)
 	})
 	assert.Empty(acc)
 
@@ -101,7 +112,8 @@ func TestEventBuffer_GC(t *testing.T) {
 			buffer.Add(i)
 		}
 		buffer.Compact(func(n interface{}) bool {
-			return n.(int) > 95
+			v, _ := n.(int)
+			return v > 95
 		})
 		df := dumpFunc(buffer)
 		assert.Equal([]int{96, 97, 98, 99, 100, 101, 102}, df())
@@ -122,15 +134,18 @@ func TestEventBuffer_GC2(t *testing.T) {
 	buffer.buffer = []interface{}{3, 1, 2}
 	buffer.next = 1
 	buffer.Compact(func(n interface{}) bool {
-		return n.(int) >= 2
+		v, _ := n.(int)
+		return v >= 2
 	})
 	assert.Equal([]int{2, 3}, df())
 	buffer.Compact(func(n interface{}) bool {
-		return n.(int) >= 2 // noop
+		v, _ := n.(int)
+		return v >= 2 // noop
 	})
 	assert.Equal([]int{2, 3}, df())
 	buffer.Compact(func(n interface{}) bool {
-		return n.(int) >= 3
+		v, _ := n.(int)
+		return v >= 3
 	})
 	assert.Equal([]int{3}, df())
 }

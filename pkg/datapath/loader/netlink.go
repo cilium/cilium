@@ -249,8 +249,8 @@ func resolveAndInsertCalls(coll *ebpf.Collection, mapName string, calls []ebpf.M
 	}
 
 	for _, v := range calls {
-		name := v.Value.(string)
-		slot := v.Key.(uint32)
+		name, _ := v.Value.(string)
+		slot, _ := v.Key.(uint32)
 
 		p, ok := coll.Programs[name]
 		if !ok {

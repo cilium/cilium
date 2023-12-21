@@ -140,11 +140,11 @@ func DumpEntriesWithTimeDiff(m NatMap, clockSource *models.ClockSource) (string,
 	}
 
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
-		key := k.(NatKey)
+		key, _ := k.(NatKey)
 		if !key.ToHost().Dump(&sb, false) {
 			return
 		}
-		val := v.(NatEntry)
+		val, _ := v.(NatEntry)
 		sb.WriteString(val.ToHost().Dump(key, toDeltaSecs))
 	}
 	err := m.DumpWithCallback(cb)
@@ -226,7 +226,7 @@ func DeleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 	key.DestAddr = addr
 	valMap, err := m.Lookup(&key)
 	if err == nil {
-		val := *(valMap.(*NatEntry4))
+		val, _ := valMap.(*NatEntry4)
 		rkey := key
 		rkey.SourceAddr = key.DestAddr
 		rkey.SourcePort = key.DestPort
@@ -250,7 +250,7 @@ func DeleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 	key.DestAddr = addr
 	valMap, err := m.Lookup(&key)
 	if err == nil {
-		val := *(valMap.(*NatEntry6))
+		val, _ := valMap.(*NatEntry6)
 		rkey := key
 		rkey.SourceAddr = key.DestAddr
 		rkey.SourcePort = key.DestPort

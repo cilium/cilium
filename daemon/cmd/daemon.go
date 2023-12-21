@@ -1085,7 +1085,7 @@ func (d *Daemon) TriggerDatapathRegen(force bool, reason string) {
 }
 
 func changedOption(key string, value option.OptionSetting, data interface{}) {
-	d := data.(*Daemon)
+	d, _ := data.(*Daemon)
 	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)
 		if d.DebugEnabled() {

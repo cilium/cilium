@@ -122,7 +122,7 @@ func parseLabelArrayFromMap(base map[string]string) labels.LabelArray {
 }
 
 func (is *identitySynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
-	identity := obj.(*ciliumv2.CiliumIdentity)
+	identity, _ := obj.(*ciliumv2.CiliumIdentity)
 	scopedLog := log.WithField(logfields.Identity, identity.Name)
 	if len(identity.SecurityLabels) == 0 {
 		scopedLog.WithError(errors.New("missing security labels")).Warning("Ignoring invalid identity")
@@ -187,7 +187,8 @@ func newNodeSynchronizer(ctx context.Context, cinfo cmtypes.ClusterInfo, backend
 }
 
 func (ns *nodeSynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
-	n := nodeTypes.ParseCiliumNode(obj.(*ciliumv2.CiliumNode))
+	cn, _ := obj.(*ciliumv2.CiliumNode)
+	n := nodeTypes.ParseCiliumNode(cn)
 	n.Cluster = ns.clusterInfo.Name
 	n.ClusterID = ns.clusterInfo.ID
 
@@ -244,7 +245,7 @@ func newEndpointSynchronizer(ctx context.Context, cinfo cmtypes.ClusterInfo, bac
 }
 
 func (es *endpointSynchronizer) upsert(ctx context.Context, key resource.Key, obj runtime.Object) error {
-	endpoint := obj.(*types.CiliumEndpoint)
+	endpoint, _ := obj.(*types.CiliumEndpoint)
 	ips := make(ipmap)
 	stale := es.cache[key.String()]
 

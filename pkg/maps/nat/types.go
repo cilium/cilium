@@ -62,8 +62,9 @@ const SizeofNatKey4 = int(unsafe.Sizeof(NatKey4{}))
 // the NatKey4 type here into a local key type in the nested
 // TupleKey4Global field.
 func (k *NatKey4) ToNetwork() NatKey {
+	tupleKey4Global, _ := k.TupleKey4Global.ToNetwork().(*tuple.TupleKey4Global)
 	return &NatKey4{
-		TupleKey4Global: *k.TupleKey4Global.ToNetwork().(*tuple.TupleKey4Global),
+		TupleKey4Global: *tupleKey4Global,
 	}
 }
 
@@ -73,8 +74,9 @@ func (k *NatKey4) ToNetwork() NatKey {
 // the NatKey4 type here into a local key type in the nested
 // TupleKey4Global field.
 func (k *NatKey4) ToHost() NatKey {
+	tupleKey4Global, _ := k.TupleKey4Global.ToHost().(*tuple.TupleKey4Global)
 	return &NatKey4{
-		TupleKey4Global: *k.TupleKey4Global.ToHost().(*tuple.TupleKey4Global),
+		TupleKey4Global: *tupleKey4Global,
 	}
 }
 
@@ -98,8 +100,9 @@ const SizeofNatKey6 = int(unsafe.Sizeof(NatKey6{}))
 // the NatKey6 type here into a local key type in the nested
 // TupleKey6Global field.
 func (k *NatKey6) ToNetwork() NatKey {
+	tupleKey6Global, _ := k.TupleKey6Global.ToNetwork().(*tuple.TupleKey6Global)
 	return &NatKey6{
-		TupleKey6Global: *k.TupleKey6Global.ToNetwork().(*tuple.TupleKey6Global),
+		TupleKey6Global: *tupleKey6Global,
 	}
 }
 
@@ -109,8 +112,9 @@ func (k *NatKey6) ToNetwork() NatKey {
 // the NatKey6 type here into a local key type in the nested
 // TupleKey6Global field.
 func (k *NatKey6) ToHost() NatKey {
+	tupleKey6Global, _ := k.TupleKey6Global.ToHost().(*tuple.TupleKey6Global)
 	return &NatKey6{
-		TupleKey6Global: *k.TupleKey6Global.ToHost().(*tuple.TupleKey6Global),
+		TupleKey6Global: *tupleKey6Global,
 	}
 }
 

@@ -987,7 +987,7 @@ func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
 	var selected bool
 	for sel, rule := range l4.PerSelectorPolicies {
 		// slow, but OK for tracing
-		idSel := sel.(*identitySelector)
+		idSel, _ := sel.(*identitySelector)
 		if lis, ok := idSel.source.(*labelIdentitySelector); ok && lis.xxxMatches(labels) {
 			isDeny := rule != nil && rule.IsDeny
 			selected = true

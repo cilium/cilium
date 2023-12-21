@@ -96,7 +96,8 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 	)
 
 	for _, metric := range mm.metrics {
-		mm.registry.MustRegister(metric.(prometheus.Collector))
+		m, _ := metric.(prometheus.Collector)
+		mm.registry.MustRegister(m)
 	}
 
 	mux := http.NewServeMux()

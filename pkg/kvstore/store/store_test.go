@@ -116,7 +116,8 @@ func (o *observer) OnUpdate(k Key) {
 }
 func (o *observer) OnDelete(k NamedKey) {
 	counterLock.Lock()
-	counter[k.(*TestType).Name].deleted++
+	tt, _ := k.(*TestType)
+	counter[tt.Name].deleted++
 	counterLock.Unlock()
 }
 

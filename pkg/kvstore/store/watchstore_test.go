@@ -69,15 +69,17 @@ func NewFakeObserver(t *testing.T) *fakeObserver {
 }
 
 func (fo *fakeObserver) OnUpdate(k Key) {
+	kvPair, _ := k.(*KVPair)
 	select {
-	case fo.updated <- k.(*KVPair):
+	case fo.updated <- kvPair:
 	case <-time.After(timeout):
 		require.Failf(fo.t, "Failed observing update event", "key: %s", k.GetKeyName())
 	}
 }
 func (fo *fakeObserver) OnDelete(k NamedKey) {
+	kvPair, _ := k.(*KVPair)
 	select {
-	case fo.deleted <- k.(*KVPair):
+	case fo.deleted <- kvPair:
 	case <-time.After(timeout):
 		require.Failf(fo.t, "Failed observing delete event", "key: %s", k.GetKeyName())
 	}

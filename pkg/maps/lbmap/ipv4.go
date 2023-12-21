@@ -177,8 +177,11 @@ func NewRevNat4Key(value uint16) *RevNat4Key {
 	return &RevNat4Key{value}
 }
 
-func (k *RevNat4Key) Map() *bpf.Map   { return RevNat4Map }
-func (k *RevNat4Key) String() string  { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
+func (k *RevNat4Key) Map() *bpf.Map { return RevNat4Map }
+func (k *RevNat4Key) String() string {
+	revNatKey, _ := k.ToHost().(*RevNat4Key)
+	return fmt.Sprintf("%d", revNatKey.Key)
+}
 func (k *RevNat4Key) New() bpf.MapKey { return &RevNat4Key{} }
 func (k *RevNat4Key) GetKey() uint16  { return k.Key }
 
@@ -216,7 +219,7 @@ func (k *RevNat4Value) ToHost() RevNatValue {
 }
 
 func (v *RevNat4Value) String() string {
-	vHost := v.ToHost().(*RevNat4Value)
+	vHost, _ := v.ToHost().(*RevNat4Value)
 	return net.JoinHostPort(vHost.Address.String(), fmt.Sprintf("%d", vHost.Port))
 }
 

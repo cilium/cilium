@@ -49,7 +49,7 @@ var bpfIPCacheGetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		v := value.([]string)
+		v, _ := value.([]string)
 		if len(v) == 0 {
 			fmt.Printf("Unable to retrieve identity for LPM entry %s\n", arg)
 			os.Exit(1)

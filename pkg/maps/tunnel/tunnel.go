@@ -175,8 +175,8 @@ func (m *Map) GetTunnelEndpoint(prefix cmtypes.AddrCluster) (net.IP, error) {
 	if err != nil {
 		return net.IP{}, err
 	}
-
-	return val.(*TunnelValue).toIP(), nil
+	tv, _ := val.(*TunnelValue)
+	return tv.toIP(), nil
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping

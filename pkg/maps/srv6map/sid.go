@@ -112,8 +112,8 @@ type SRv6SIDIterateCallback func(*SIDKey, *SIDValue)
 func (m srv6SIDMap) IterateWithCallback(cb SRv6SIDIterateCallback) error {
 	return m.Map.IterateWithCallback(&SIDKey{}, &SIDValue{},
 		func(k, v interface{}) {
-			key := k.(*SIDKey)
-			value := v.(*SIDValue)
+			key, _ := k.(*SIDKey)
+			value, _ := v.(*SIDValue)
 
 			cb(key, value)
 		})

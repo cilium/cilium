@@ -64,7 +64,7 @@ func getXfrmStats(mountPoint string) (int, map[string]int) {
 	if v.Type().Kind() == reflect.Struct {
 		for i := 0; i < v.NumField(); i++ {
 			name := v.Type().Field(i).Name
-			value := v.Field(i).Interface().(int)
+			value, _ := v.Field(i).Interface().(int)
 			if value != 0 {
 				countErrors += value
 				errorMap[name] = value

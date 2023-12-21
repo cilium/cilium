@@ -23,7 +23,7 @@ func newEventsHandler(ee ExampleEvents) HTTPHandlerOut {
 		HTTPHandler: HTTPHandler{
 			Path: "/events",
 			Handler: func(w http.ResponseWriter, req *http.Request) {
-				f := w.(http.Flusher)
+				f, _ := w.(http.Flusher)
 				w.WriteHeader(http.StatusOK)
 
 				for ev := range stream.ToChannel[ExampleEvent](req.Context(), ee) {

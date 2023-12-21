@@ -77,7 +77,8 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 
 	rawDump := dumpAndRead(metricsMap, func(maps []interface{}, args ...interface{}) {
 		for _, m := range maps {
-			listMetrics(m.(*mockmaps.MetricsMockMap))
+			mm, _ := m.(*mockmaps.MetricsMockMap)
+			listMetrics(mm)
 		}
 	}, c)
 

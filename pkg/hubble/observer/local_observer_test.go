@@ -211,7 +211,8 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
 			assert.Equal(t, response.GetNodeName(), response.GetFlow().GetNodeName())
-			output = append(output, proto.Clone(response.GetFlow()).(*flowpb.Flow))
+			flow, _ := proto.Clone(response.GetFlow()).(*flowpb.Flow)
+			output = append(output, flow)
 			i++
 			return nil
 		},

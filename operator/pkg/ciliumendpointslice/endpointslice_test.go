@@ -55,7 +55,7 @@ func createStoreEndpointSlice(name string, namespace string, endpoints []cilium_
 func TestSyncCESsInLocalCache(t *testing.T) {
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
-	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
+	m, _ := newCESManagerFcfs(2, log).(*cesManagerFcfs)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics

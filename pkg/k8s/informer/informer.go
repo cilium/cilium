@@ -102,8 +102,8 @@ func NewInformerWithStore(
 
 		Process: func(obj interface{}, isInInitialList bool) error {
 			// from oldest to newest
-			for _, d := range obj.(cache.Deltas) {
-
+			deltas, _ := obj.(cache.Deltas)
+			for _, d := range deltas {
 				var obj interface{}
 				if transformer != nil {
 					var err error

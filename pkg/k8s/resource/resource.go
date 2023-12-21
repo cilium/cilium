@@ -561,7 +561,7 @@ func (r *resource[T]) resourceName() string {
 	// For example, with resource[*cilium_api_v2.CiliumNode] new(T) returns **cilium_api_v2.CiliumNode
 	// and *new(T) is nil. So we create a new pointer using reflect.New()
 	o := *new(T)
-	sourceObj := reflect.New(reflect.TypeOf(o).Elem()).Interface().(T)
+	sourceObj, _ := reflect.New(reflect.TypeOf(o).Elem()).Interface().(T)
 
 	gvk, err := apiutil.GVKForObject(sourceObj, scheme)
 	if err != nil {
@@ -686,7 +686,8 @@ func (s *subscriber[T]) getWorkItem() (e workItem, shutdown bool) {
 	if shutdown {
 		return
 	}
-	return raw.(workItem), false
+	wI, _ := raw.(workItem)
+	return wI, false
 }
 
 func (s *subscriber[T]) enqueueSync() {
@@ -826,8 +827,8 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 			// keys in the store.
 			r.mu.RLock()
 			defer r.mu.RUnlock()
-
-			for _, d := range obj.(cache.Deltas) {
+			deltas, _ := obj.(cache.Deltas)
+			for _, d := range deltas {
 				var obj interface{}
 				if transformer != nil {
 					var err error

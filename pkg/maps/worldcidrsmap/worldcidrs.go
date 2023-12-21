@@ -132,8 +132,8 @@ type WorldCIDRsIterateCallback func(*WorldCIDRKey4, *WorldCIDRVal)
 func (m worldCIDRsMap) IterateWithCallback(cb WorldCIDRsIterateCallback) error {
 	return m.Map.IterateWithCallback(&WorldCIDRKey4{}, &WorldCIDRVal{},
 		func(k, v interface{}) {
-			key := k.(*WorldCIDRKey4)
-			value := v.(*WorldCIDRVal)
+			key, _ := k.(*WorldCIDRKey4)
+			value, _ := v.(*WorldCIDRVal)
 
 			cb(key, value)
 		})

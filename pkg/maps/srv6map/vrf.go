@@ -156,13 +156,13 @@ type SRv6VRFIterateCallback func(*VRFKey, *VRFValue)
 func (m srv6VRFMap) IterateWithCallback4(cb SRv6VRFIterateCallback) error {
 	return m.Map.IterateWithCallback(&VRFKey4{}, &VRFValue{},
 		func(k, v interface{}) {
-			key4 := k.(*VRFKey4)
+			key4, _ := k.(*VRFKey4)
 			srcIP := key4.SourceIP.IP()
 			key := VRFKey{
 				SourceIP: &srcIP,
 				DestCIDR: key4.getDestCIDR(),
 			}
-			value := v.(*VRFValue)
+			value, _ := v.(*VRFValue)
 
 			cb(&key, value)
 		})
@@ -173,13 +173,13 @@ func (m srv6VRFMap) IterateWithCallback4(cb SRv6VRFIterateCallback) error {
 func (m srv6VRFMap) IterateWithCallback6(cb SRv6VRFIterateCallback) error {
 	return m.Map.IterateWithCallback(&VRFKey6{}, &VRFValue{},
 		func(k, v interface{}) {
-			key6 := k.(*VRFKey6)
+			key6, _ := k.(*VRFKey6)
 			srcIP := key6.SourceIP.IP()
 			key := VRFKey{
 				SourceIP: &srcIP,
 				DestCIDR: key6.getDestCIDR(),
 			}
-			value := v.(*VRFValue)
+			value, _ := v.(*VRFValue)
 
 			cb(&key, value)
 		})

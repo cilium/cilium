@@ -90,14 +90,14 @@ type SRv6StateIterateCallback func(*StateKey, *StateValue)
 func (m srv6StateMap) IterateWithCallback4(cb SRv6StateIterateCallback) error {
 	return m.Map.IterateWithCallback(&StateKey4{}, &StateValue{},
 		func(k, v interface{}) {
-			key4 := k.(*StateKey4)
+			key4, _ := k.(*StateKey4)
 			srcIP := key4.InnerSrc.IP()
 			dstIP := key4.InnerDst.IP()
 			key := StateKey{
 				InnerSrc: &srcIP,
 				InnerDst: &dstIP,
 			}
-			value := v.(*StateValue)
+			value, _ := v.(*StateValue)
 
 			cb(&key, value)
 		})
@@ -108,14 +108,14 @@ func (m srv6StateMap) IterateWithCallback4(cb SRv6StateIterateCallback) error {
 func (m srv6StateMap) IterateWithCallback6(cb SRv6StateIterateCallback) error {
 	return m.Map.IterateWithCallback(&StateKey6{}, &StateValue{},
 		func(k, v interface{}) {
-			key6 := k.(*StateKey6)
+			key6, _ := k.(*StateKey6)
 			srcIP := key6.InnerSrc.IP()
 			dstIP := key6.InnerDst.IP()
 			key := StateKey{
 				InnerSrc: &srcIP,
 				InnerDst: &dstIP,
 			}
-			value := v.(*StateValue)
+			value, _ := v.(*StateValue)
 
 			cb(&key, value)
 		})

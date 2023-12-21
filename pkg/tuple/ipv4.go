@@ -121,8 +121,9 @@ func (k *TupleKey4Global) String() string {
 // the TupleKey4Global type here into a local key type in the nested
 // TupleKey4 field.
 func (k *TupleKey4Global) ToNetwork() TupleKey {
+	tupleKey4Global, _ := k.TupleKey4.ToNetwork().(*TupleKey4)
 	return &TupleKey4Global{
-		TupleKey4: *k.TupleKey4.ToNetwork().(*TupleKey4),
+		TupleKey4: *tupleKey4Global,
 	}
 }
 
@@ -132,8 +133,9 @@ func (k *TupleKey4Global) ToNetwork() TupleKey {
 // the TupleKey4Global type here into a local key type in the nested
 // TupleKey4 field.
 func (k *TupleKey4Global) ToHost() TupleKey {
+	tupleKey4, _ := k.TupleKey4.ToHost().(*TupleKey4)
 	return &TupleKey4Global{
-		TupleKey4: *k.TupleKey4.ToHost().(*TupleKey4),
+		TupleKey4: *tupleKey4,
 	}
 }
 

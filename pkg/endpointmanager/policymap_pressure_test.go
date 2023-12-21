@@ -17,14 +17,15 @@ func TestPolicyMapPressure(t *testing.T) {
 	policyMapPressureMinInterval = 0
 	p := newPolicyMapPressure()
 	p.gauge = &fakeGague{}
-	assert.Equal(float64(0), p.gauge.(*fakeGague).lastValue)
+	fakeGague, _ := p.gauge.(*fakeGague)
+	assert.Equal(float64(0), fakeGague.lastValue)
 	p.Update(endpoint.PolicyMapPressureEvent{
 		EndpointID: 1,
 		Value:      .5,
 	})
 	assertMetricEq := func(expected float64) {
 		assert.Eventually(func() bool {
-			return p.gauge.(*fakeGague).lastValue == expected
+			return fakeGague.lastValue == expected
 		}, time.Second, 1*time.Millisecond)
 	}
 	assertMetricEq(.5)

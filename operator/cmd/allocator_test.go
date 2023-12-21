@@ -108,14 +108,14 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		nodeA := nodeAInt.(*cilium_api_v2.CiliumNode)
+		nodeA, _ := nodeAInt.(*cilium_api_v2.CiliumNode)
 
 		// Get node B from the mock APIServer
 		nodeBInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-b")
 		if err != nil {
 			return false
 		}
-		nodeB := nodeBInt.(*cilium_api_v2.CiliumNode)
+		nodeB, _ := nodeBInt.(*cilium_api_v2.CiliumNode)
 
 		if len(nodeA.Spec.IPAM.PodCIDRs) != 1 {
 			return false

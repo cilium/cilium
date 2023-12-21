@@ -45,7 +45,7 @@ func (pq *PriorityQueue) Push(resp *observerpb.GetFlowsResponse) {
 // Pop removes and returns the oldest object in the queue. Pop returns nil when
 // the queue is empty.
 func (pq *PriorityQueue) Pop() *observerpb.GetFlowsResponse {
-	resp := heap.Pop(&pq.h).(*observerpb.GetFlowsResponse)
+	resp, _ := heap.Pop(&pq.h).(*observerpb.GetFlowsResponse)
 	return resp
 }
 
@@ -88,7 +88,7 @@ func (h minHeap) Swap(i, j int) {
 }
 
 func (h *minHeap) Push(x interface{}) {
-	resp := x.(*observerpb.GetFlowsResponse)
+	resp, _ := x.(*observerpb.GetFlowsResponse)
 	*h = append(*h, resp)
 }
 

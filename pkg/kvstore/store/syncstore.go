@@ -259,7 +259,8 @@ func (wss *wqSyncStore) handle(ctx context.Context, key interface{}) error {
 	}
 
 	if value, ok := wss.state.Load(key.(string)); ok {
-		return wss.handleUpsert(ctx, key.(string), value)
+		str, _ := key.(string)
+		return wss.handleUpsert(ctx, str, value)
 	}
 
 	return wss.handleDelete(ctx, key.(string))

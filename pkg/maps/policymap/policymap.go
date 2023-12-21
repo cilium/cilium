@@ -398,11 +398,12 @@ func (pm *PolicyMap) Dump() (string, error) {
 
 func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	entries := PolicyEntriesDump{}
-
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
+		k, _ := key.(*PolicyKey)
+		v, _ := value.(*PolicyEntry)
 		eDump := PolicyEntryDump{
-			Key:         *key.(*PolicyKey),
-			PolicyEntry: *value.(*PolicyEntry),
+			Key:         *k,
+			PolicyEntry: *v,
 		}
 		entries = append(entries, eDump)
 	}

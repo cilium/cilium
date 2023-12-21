@@ -110,7 +110,8 @@ func (s *BPFNatListSuite) TestDumpNat4(c *C) {
 		Key:   &nat.NatKey4{TupleKey4Global: tuple.TupleKey4Global{TupleKey4: natDump[0].Key}},
 		Value: natDump[0].Value,
 	}
-	c.Assert(natRecordDump, checker.DeepEquals, natMaps[0].(*mockmaps.NatMockMap).Entries[0])
+	mm, _ := natMaps[0].(*mockmaps.NatMockMap)
+	c.Assert(natRecordDump, checker.DeepEquals, mm.Entries[0])
 }
 
 func (s *BPFNatListSuite) TestDumpNat6(c *C) {
@@ -154,5 +155,6 @@ func (s *BPFNatListSuite) TestDumpNat6(c *C) {
 		Key:   &nat.NatKey6{TupleKey6Global: tuple.TupleKey6Global{TupleKey6: natDump[0].Key}},
 		Value: natDump[0].Value,
 	}
-	c.Assert(natRecordDump, checker.DeepEquals, natMaps[0].(*mockmaps.NatMockMap).Entries[0])
+	mm, _ := natMaps[0].(*mockmaps.NatMockMap)
+	c.Assert(natRecordDump, checker.DeepEquals, mm.Entries[0])
 }

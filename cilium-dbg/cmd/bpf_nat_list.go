@@ -61,13 +61,14 @@ func init() {
 func dumpNat(maps []interface{}, args ...interface{}) {
 	entries := make([]nat.NatMapRecord, 0)
 
-	for _, m := range maps {
-		if m == nil || reflect.ValueOf(m).IsNil() {
+	for _, _m := range maps {
+		if _m == nil || reflect.ValueOf(_m).IsNil() {
 			continue
 		}
-		path, err := m.(nat.NatMap).Path()
+		m, _ := _m.(nat.NatMap)
+		path, err := m.Path()
 		if err == nil {
-			err = m.(nat.NatMap).Open()
+			err = m.Open()
 		}
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -76,15 +77,17 @@ func dumpNat(maps []interface{}, args ...interface{}) {
 			}
 			Fatalf("Unable to open %s: %s", path, err)
 		}
-		defer m.(nat.NatMap).Close()
+		defer m.Close()
 		// Plain output prints immediately, JSON/YAML output holds until it
 		// collected values from all maps to have one consistent object
 		if command.OutputOption() {
 			callback := func(key bpf.MapKey, value bpf.MapValue) {
-				record := nat.NatMapRecord{Key: key.(nat.NatKey), Value: value.(nat.NatEntry)}
+				k, _ := key.(nat.NatKey)
+				v, _ := value.(nat.NatEntry)
+				record := nat.NatMapRecord{Key: k, Value: v}
 				entries = append(entries, record)
 			}
-			if err = m.(nat.NatMap).DumpWithCallback(callback); err != nil {
+			if err = m.DumpWithCallback(callback); err != nil {
 				Fatalf("Error while collecting BPF map entries: %s", err)
 			}
 		} else {

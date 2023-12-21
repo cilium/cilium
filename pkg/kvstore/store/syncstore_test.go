@@ -101,11 +101,13 @@ func NewFakeRateLimiter() *fakeRateLimiter {
 }
 
 func (frl *fakeRateLimiter) When(item interface{}) time.Duration {
-	frl.whenCalled <- NewKVPair(item.(string), "")
+	itm, _ := item.(string)
+	frl.whenCalled <- NewKVPair(itm, "")
 	return time.Duration(0)
 }
 func (frl *fakeRateLimiter) Forget(item interface{}) {
-	frl.forgetCalled <- NewKVPair(item.(string), "")
+	itm, _ := item.(string)
+	frl.forgetCalled <- NewKVPair(itm, "")
 }
 func (frl *fakeRateLimiter) NumRequeues(item interface{}) int { return 0 }
 

@@ -92,7 +92,8 @@ func registerMetricsManager(p params) {
 	Registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: metrics.CiliumOperatorNamespace}))
 
 	for _, metric := range mm.metrics {
-		Registry.MustRegister(metric.(prometheus.Collector))
+		m, _ := metric.(prometheus.Collector)
+		Registry.MustRegister(m)
 	}
 
 	p.Lifecycle.Append(mm)

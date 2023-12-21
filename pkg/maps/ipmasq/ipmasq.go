@@ -120,7 +120,8 @@ func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]net.IPNet,
 	if ipv4Needed {
 		if err := IPMasq4Map().DumpWithCallback(
 			func(keyIPv4 bpf.MapKey, _ bpf.MapValue) {
-				cidrs = append(cidrs, keyToIPNetIPv4(keyIPv4.(*Key4)))
+				kIP4, _ := keyIPv4.(*Key4)
+				cidrs = append(cidrs, keyToIPNetIPv4(kIP4))
 			}); err != nil {
 			return nil, err
 		}
@@ -128,7 +129,8 @@ func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]net.IPNet,
 	if ipv6Needed {
 		if err := IPMasq6Map().DumpWithCallback(
 			func(keyIPv6 bpf.MapKey, _ bpf.MapValue) {
-				cidrs = append(cidrs, keyToIPNetIPv6(keyIPv6.(*Key6)))
+				kIP6, _ := keyIPv6.(*Key6)
+				cidrs = append(cidrs, keyToIPNetIPv6(kIP6))
 			}); err != nil {
 			return nil, err
 		}

@@ -64,7 +64,7 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	clients.SlimFakeClientset = addFieldSelection(clients.SlimFakeClientset)
 	clients.CiliumFakeClientset = addFieldSelection(clients.CiliumFakeClientset)
 	clients.APIExtFakeClientset = addFieldSelection(clients.APIExtFakeClientset)
-	fd := clients.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
+	fd, _ := clients.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(k8sVersion)
 
 	resources, ok := apiResources[k8sVersion]
@@ -558,7 +558,7 @@ func addFieldSelection[T fakeWithTracker](f T) T {
 	f.PrependWatchReactor(
 		"*",
 		func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
-			w := action.(k8sTesting.WatchAction)
+			w, _ := action.(k8sTesting.WatchAction)
 			gvr := w.GetResource()
 			ns := w.GetNamespace()
 			watch, err := o.Watch(gvr, ns)

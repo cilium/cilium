@@ -42,7 +42,8 @@ func TestNewHTTPListener(t *testing.T) {
 		require.Len(t, listener.GetFilterChains(), 1)
 		require.Len(t, listener.GetFilterChains()[0].Filters, 1)
 		httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
-		err = proto.Unmarshal(listener.GetFilterChains()[0].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, httpConnectionManager)
+		filterTypeConfig, _ := listener.GetFilterChains()[0].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig)
+		err = proto.Unmarshal(filterTypeConfig.TypedConfig.Value, httpConnectionManager)
 		require.Nil(t, err)
 		// Default value is 0
 		require.Equal(t, uint32(0), httpConnectionManager.XffNumTrustedHops)
@@ -93,7 +94,8 @@ func TestNewHTTPListener(t *testing.T) {
 		require.Equal(t, []string{"dummy.anotherserver.com", "dummy.server.com"}, serverNames)
 
 		downStreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
-		err = proto.Unmarshal(listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
+		transportSocketConfig1, _ := listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig)
+		err = proto.Unmarshal(transportSocketConfig1.TypedConfig.Value, downStreamTLS)
 		require.NoError(t, err)
 
 		var secretNames []string
@@ -103,7 +105,8 @@ func TestNewHTTPListener(t *testing.T) {
 		})
 		secretNames = append(secretNames, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
 
-		err = proto.Unmarshal(listener.FilterChains[2].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
+		transportSocketConfig2, _ := listener.FilterChains[2].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig)
+		err = proto.Unmarshal(transportSocketConfig2.TypedConfig.Value, downStreamTLS)
 		require.NoError(t, err)
 
 		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)

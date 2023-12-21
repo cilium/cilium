@@ -79,7 +79,8 @@ func (d *datapathHash) Copy() (*datapathHash, error) {
 		return nil, err
 	}
 	newDatapathHash := sha256.New()
-	if err := newDatapathHash.(encoding.BinaryUnmarshaler).UnmarshalBinary(state); err != nil {
+	hashMarshaller, _ := newDatapathHash.(encoding.BinaryUnmarshaler)
+	if err := hashMarshaller.UnmarshalBinary(state); err != nil {
 		return nil, err
 	}
 	return &datapathHash{

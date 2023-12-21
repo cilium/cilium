@@ -131,7 +131,8 @@ func bindResponseUDPConnection(ipFamily ipfamily.IPFamily) (*net.IPConn, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind UDP for address %s: %w", ipFamily.Localhost, err)
 	}
-	return conn.(*net.IPConn), nil
+	ipConn, _ := conn.(*net.IPConn)
+	return ipConn, nil
 }
 
 // SetSocketOptions set's up 'conn' to be used with a SessionUDP.
@@ -154,7 +155,7 @@ func (f *sessionUDPFactory) InitPool(msgSize int) {
 
 // ReadRequest reads a single request from 'conn' and returns the request context
 func (f *sessionUDPFactory) ReadRequest(conn *net.UDPConn) ([]byte, dns.SessionUDP, error) {
-	s := f.udpPool.Get().(*sessionUDP)
+	s, _ := f.udpPool.Get().(*sessionUDP)
 	n, oobn, _, raddr, err := conn.ReadMsgUDP(s.m, s.oob)
 	if err != nil {
 		s.Discard()

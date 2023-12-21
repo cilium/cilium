@@ -56,7 +56,9 @@ func dumpRecorderEntries(maps []recorder.CaptureMap) {
 		defer m.Close()
 		if command.OutputOption() {
 			callback := func(key bpf.MapKey, value bpf.MapValue) {
-				record := recorder.MapRecord{Key: key.(recorder.RecorderKey), Value: value.(recorder.RecorderEntry)}
+				k, _ := key.(recorder.RecorderKey)
+				v, _ := value.(recorder.RecorderEntry)
+				record := recorder.MapRecord{Key: k, Value: v}
 				entries = append(entries, record)
 			}
 			if err = m.DumpWithCallback(callback); err != nil {

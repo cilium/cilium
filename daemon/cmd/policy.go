@@ -232,7 +232,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newR
 
 	res, ok := <-resChan
 	if ok {
-		pRes := res.(*PolicyAddResult)
+		pRes, _ := res.(*PolicyAddResult)
 		return pRes.newRev, pRes.err
 	}
 	return 0, fmt.Errorf("policy addition event was cancelled")
@@ -504,7 +504,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 
 	res, ok := <-resChan
 	if ok {
-		ress := res.(*PolicyDeleteResult)
+		ress, _ := res.(*PolicyDeleteResult)
 		return ress.newRev, ress.err
 	}
 	return 0, fmt.Errorf("policy deletion event cancelled")

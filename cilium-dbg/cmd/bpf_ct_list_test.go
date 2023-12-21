@@ -146,7 +146,8 @@ func (s *BPFCtListSuite) TestDumpCt4(c *C) {
 		Key:   &ctmap.CtKey4{TupleKey4: ctDump[0].Key},
 		Value: ctDump[0].Value,
 	}
-	c.Assert(ctRecordDump, checker.DeepEquals, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
+	mm, _ := ctMaps[0].(*mockmaps.CtMockMap)
+	c.Assert(ctRecordDump, checker.DeepEquals, mm.Entries[0])
 }
 
 func (s *BPFCtListSuite) TestDumpCt6(c *C) {
@@ -190,5 +191,6 @@ func (s *BPFCtListSuite) TestDumpCt6(c *C) {
 		Key:   &ctmap.CtKey6{TupleKey6: ctDump[0].Key},
 		Value: ctDump[0].Value,
 	}
-	c.Assert(ctRecordDump, checker.DeepEquals, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
+	mm, _ := ctMaps[0].(*mockmaps.CtMockMap)
+	c.Assert(ctRecordDump, checker.DeepEquals, mm.Entries[0])
 }

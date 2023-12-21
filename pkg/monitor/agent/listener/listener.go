@@ -60,6 +60,9 @@ func IsDisconnected(err error) bool {
 		return false
 	}
 
-	errn := syscerr.Err.(unix.Errno)
+	errn, ok := syscerr.Err.(unix.Errno)
+	if !ok {
+		return false
+	}
 	return errn == unix.EPIPE
 }

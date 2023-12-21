@@ -300,7 +300,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 			obj, err := res.FindResults(filter)
 			Expect(err).NotTo(HaveOccurred(), "Error occurred while finding docker bridge IP")
 			Expect(obj).To(HaveLen(1), "Unexpectedly found more than one IPAM config element for docker bridge")
-			otherHostIP = obj[0].Interface().(string)
+			otherHostIP, _ = obj[0].Interface().(string)
 			Expect(otherHostIP).To(Equal(helpers.DockerBridgeIP), "Please adjust value of DockerBridgeIP")
 			By("Using %q for world CIDR IP", otherHostIP)
 		})

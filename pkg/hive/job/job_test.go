@@ -121,7 +121,8 @@ func TestOneShot_RetryFail(t *testing.T) {
 	}
 
 	// Continue as soon as all jobs stopped
-	g.(*group).wg.Wait()
+	grp, _ := g.(*group)
+	grp.wg.Wait()
 
 	if err := h.Stop(context.Background()); err != nil {
 		t.Fatal(err)
@@ -183,7 +184,8 @@ func testOneShot_RetryBackoff() (bool, error) {
 	}
 
 	// Continue as soon as all jobs stopped
-	g.(*group).wg.Wait()
+	grp, _ := g.(*group)
+	grp.wg.Wait()
 
 	if err := h.Stop(context.Background()); err != nil {
 		return true, err

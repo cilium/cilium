@@ -58,9 +58,9 @@ func (m *Map) DumpEntries() (string, error) {
 	var sb strings.Builder
 
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
-		key := k.(RecorderKey)
+		key, _ := k.(RecorderKey)
 		key.ToHost().Dump(&sb)
-		val := v.(RecorderEntry)
+		val, _ := v.(RecorderEntry)
 		val.Dump(&sb)
 	}
 	err := m.DumpWithCallback(cb)

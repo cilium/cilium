@@ -71,8 +71,9 @@ func (s *LoggingSuite) TestSetLogFormat(c *C) {
 
 	SetLogFormat(LogFormatJSONTimestamp)
 	c.Assert(reflect.TypeOf(DefaultLogger.Formatter).String(), Equals, "*logrus.JSONFormatter")
-	c.Assert(DefaultLogger.Formatter.(*logrus.JSONFormatter).DisableTimestamp, Equals, false)
-	c.Assert(DefaultLogger.Formatter.(*logrus.JSONFormatter).TimestampFormat, Equals, time.RFC3339Nano)
+	jsonFormmater, _ := DefaultLogger.Formatter.(*logrus.JSONFormatter)
+	c.Assert(jsonFormmater.DisableTimestamp, Equals, false)
+	c.Assert(jsonFormmater.TimestampFormat, Equals, time.RFC3339Nano)
 }
 
 func (s *LoggingSuite) TestSetDefaultLogFormat(c *C) {

@@ -226,7 +226,8 @@ func TestDuplicateReporters(t *testing.T) {
 		GetHealthReporter(fooScope, "test").OK("")
 	}
 	assertOK()
-	base := fooScope.(*scope).base
+	scope, _ := fooScope.(*scope)
+	base := scope.base
 	assert.Len(base.nodes, 3, "should have root, foo and just one test")
 	assert.Len(base.idToChildren[base.rootID], 1, "root should have only one (foo)")
 	GetHealthReporter(fooScope, "test2").OK("")

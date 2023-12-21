@@ -68,13 +68,14 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
         # TYPE hubble_http_requests_total counter
 	hubble_http_requests_total{method="GET",protocol="",reporter="server"} 1
 	`
-	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).requests, strings.NewReader(requestsExpected)))
+	httpHandler, _ := handler.(*httpHandler)
+	require.NoError(t, testutil.CollectAndCompare(httpHandler.requests, strings.NewReader(requestsExpected)))
 	responsesExpected := `
        # HELP hubble_http_responses_total Count of HTTP responses
        # TYPE hubble_http_responses_total counter
        hubble_http_responses_total{method="GET",protocol="",reporter="server",status="200"} 1
 	`
-	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).responses, strings.NewReader(responsesExpected)))
+	require.NoError(t, testutil.CollectAndCompare(httpHandler.responses, strings.NewReader(responsesExpected)))
 
 	durationExpected := `
         # HELP hubble_http_request_duration_seconds Quantiles of HTTP request duration in seconds
@@ -94,7 +95,7 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
         hubble_http_request_duration_seconds_sum{method="GET",reporter="server"} 0.012345678
         hubble_http_request_duration_seconds_count{method="GET",reporter="server"} 1
 	`
-	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).duration, strings.NewReader(durationExpected)))
+	require.NoError(t, testutil.CollectAndCompare(httpHandler.duration, strings.NewReader(durationExpected)))
 }
 
 func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
@@ -177,7 +178,8 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
         # TYPE hubble_http_requests_total counter
 	      hubble_http_requests_total{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",protocol="HTTP/1.1",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod",status="200"} 1
 	`
-	assert.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).requests, strings.NewReader(requestsExpected)))
+	httpHndlr, _ := handler.(*httpHandler)
+	assert.NoError(t, testutil.CollectAndCompare(httpHndlr.requests, strings.NewReader(requestsExpected)))
 	durationExpected := `
         # HELP hubble_http_request_duration_seconds Quantiles of HTTP request duration in seconds
         # TYPE hubble_http_request_duration_seconds histogram
@@ -196,7 +198,8 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
         hubble_http_request_duration_seconds_sum{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod"} 0.012345678
         hubble_http_request_duration_seconds_count{destination="destination-ns/destination-deploy-pod",destination_pod="destination-deploy-pod",method="GET",reporter="server",source="source-ns/source-deploy-pod",source_pod="source-deploy-pod"} 1
 	`
-	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).duration, strings.NewReader(durationExpected)))
+	httpHndlr, _ = handler.(*httpHandler)
+	require.NoError(t, testutil.CollectAndCompare(httpHndlr.duration, strings.NewReader(durationExpected)))
 }
 
 func Test_httpHandler_ListMetricVec(t *testing.T) {

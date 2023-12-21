@@ -190,7 +190,8 @@ func (s *server) Ports() []int {
 		if srv.server == nil {
 			continue
 		}
-		ports = append(ports, srv.listener.Addr().(*net.TCPAddr).Port)
+		tcpAddr, _ := srv.listener.Addr().(*net.TCPAddr)
+		ports = append(ports, tcpAddr.Port)
 	}
 	return ports
 }

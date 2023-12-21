@@ -49,7 +49,7 @@ type iterator[Obj any] struct {
 func (it *iterator[Obj]) Next() (obj Obj, revision uint64, ok bool) {
 	_, iobj, ok := it.iter.Next()
 	if ok {
-		obj = iobj.data.(Obj)
+		obj, _ = iobj.data.(Obj)
 		revision = iobj.revision
 	}
 	return
@@ -73,7 +73,7 @@ func (it *uniqueIterator[Obj]) Next() (obj Obj, revision uint64, ok bool) {
 		}
 	}
 	if ok {
-		obj = iobj.data.(Obj)
+		obj, _ = iobj.data.(Obj)
 		revision = iobj.revision
 	}
 	return
@@ -107,7 +107,7 @@ func (it *nonUniqueIterator[Obj]) Next() (obj Obj, revision uint64, ok bool) {
 		// prefix, skip it.
 	}
 	if ok {
-		obj = iobj.data.(Obj)
+		obj, _ = iobj.data.(Obj)
 		revision = iobj.revision
 	}
 	return

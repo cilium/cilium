@@ -69,8 +69,10 @@ func dumpSVC(serviceList map[string][]string) {
 	backendMap := make(map[loadbalancer.BackendID]lbmap.BackendValue)
 
 	parseBackendEntry := func(key bpf.MapKey, value bpf.MapValue) {
-		id := key.(lbmap.BackendKey).GetID()
-		backendMap[id] = value.(lbmap.BackendValue).ToHost()
+		k, _ := key.(lbmap.BackendKey)
+		id := k.GetID()
+		v, _ := value.(lbmap.BackendValue)
+		backendMap[id] = v.ToHost()
 	}
 	if err := lbmap.Backend4MapV3.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv4 backends table: %s", err)
@@ -82,8 +84,9 @@ func dumpSVC(serviceList map[string][]string) {
 	parseSVCEntry := func(key bpf.MapKey, value bpf.MapValue) {
 		var entry string
 
-		svcKey := key.(lbmap.ServiceKey)
-		svcVal := value.(lbmap.ServiceValue).ToHost()
+		svcKey, _ := key.(lbmap.ServiceKey)
+		svcV, _ := value.(lbmap.ServiceValue)
+		svcVal := svcV.ToHost()
 		svc := svcKey.String()
 		svcKey = svcKey.ToHost()
 		backendSlot := svcKey.GetBackendSlot()

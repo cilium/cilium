@@ -391,7 +391,8 @@ func mapKeysToLowerCase(s map[string]interface{}) map[string]interface{} {
 	m := make(map[string]interface{})
 	for k, v := range s {
 		if reflect.ValueOf(v).Kind() == reflect.Map {
-			for i, j := range v.(map[string]interface{}) {
+			val, _ := v.(map[string]interface{})
+			for i, j := range val {
 				m[strings.ToLower(i)] = j
 			}
 		}

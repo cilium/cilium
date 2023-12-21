@@ -157,10 +157,10 @@ func doDumpEntries(m ctmap.CtMap) {
 func dumpCt(maps []interface{}, args ...interface{}) {
 	entries := make([]ctmap.CtMapRecord, 0)
 
-	t := args[0].(string)
+	t, _ := args[0].(string)
 
 	for _, m := range maps {
-		m := m.(ctmap.CtMap)
+		m, _ := m.(ctmap.CtMap)
 
 		path, err := m.Path()
 		if err == nil {
@@ -182,7 +182,9 @@ func dumpCt(maps []interface{}, args ...interface{}) {
 		// collected values from all maps to have one consistent object
 		if command.OutputOption() {
 			callback := func(key bpf.MapKey, value bpf.MapValue) {
-				record := ctmap.CtMapRecord{Key: key.(ctmap.CtKey), Value: *value.(*ctmap.CtEntry)}
+				k, _ := key.(ctmap.CtKey)
+				v, _ := value.(*ctmap.CtEntry)
+				record := ctmap.CtMapRecord{Key: k, Value: *v}
 				entries = append(entries, record)
 			}
 			if err = m.DumpWithCallback(callback); err != nil {

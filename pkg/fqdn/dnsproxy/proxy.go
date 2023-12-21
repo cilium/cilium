@@ -1127,8 +1127,8 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
 			Net: ipFamily.TCPAddress, Addr: tcpListener.Addr().String(),
 		})
-
-		bindPort = uint16(tcpListener.Addr().(*net.TCPAddr).Port)
+		tcpAddr, _ := tcpListener.Addr().(*net.TCPAddr)
+		bindPort = uint16(tcpAddr.Port)
 
 		udpConn, err := lc.ListenPacket(context.Background(), ipFamily.UDPAddress, evaluateAddress(address, port, bindPort, ipFamily))
 		if err != nil {

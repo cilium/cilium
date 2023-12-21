@@ -129,8 +129,8 @@ func (d *Daemon) restoreIPCache() error {
 	// Dump the bpf ipcache, recording any prefixes with local or ingress
 	// numeric identities.
 	err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
-		k := key.(*ipcachemap.Key)
-		v := value.(*ipcachemap.RemoteEndpointInfo)
+		k, _ := key.(*ipcachemap.Key)
+		v, _ := value.(*ipcachemap.RemoteEndpointInfo)
 		nid := identity.NumericIdentity(v.SecurityIdentity)
 
 		if isLocalIdentity(nid) {

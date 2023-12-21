@@ -470,7 +470,8 @@ func (abl availableBlockList) Less(i, j int) bool {
 
 // Push implements heap.Interface
 func (abl *availableBlockList) Push(x interface{}) {
-	*abl = append(*abl, x.(*linkedBlock))
+	lb, _ := x.(*linkedBlock)
+	*abl = append(*abl, lb)
 }
 
 // Pop implements heap.Interface
@@ -483,7 +484,7 @@ func (abl *availableBlockList) Pop() interface{} {
 
 // delete a block and patch the link pointers
 func (abl *availableBlockList) delete(idx int) {
-	elem := heap.Remove(abl, idx).(*linkedBlock)
+	elem, _ := heap.Remove(abl, idx).(*linkedBlock)
 	if elem.prev != nil {
 		elem.prev.next = elem.next
 	}

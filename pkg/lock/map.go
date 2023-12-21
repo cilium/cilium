@@ -42,7 +42,8 @@ func (m *Map[K, V]) Load(key K) (value V, ok bool) {
 // The loaded result is true if the value was loaded, false if stored.
 func (m *Map[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	val, loaded := (*sync.Map)(m).LoadOrStore(key, value)
-	return val.(V), loaded
+	v, _ := val.(V)
+	return v, loaded
 }
 
 // LoadAndDelete deletes the value for a key, returning the previous value if any
@@ -82,7 +83,9 @@ func (m *Map[K, V]) Delete(key K) {
 // false after a constant number of calls.
 func (m *Map[K, V]) Range(f func(key K, value V) bool) {
 	(*sync.Map)(m).Range(func(key, value any) bool {
-		return f(key.(K), value.(V))
+		k, _ := key.(K)
+		v, _ := value.(V)
+		return f(k, v)
 	})
 }
 
@@ -103,6 +106,6 @@ func (m *Map[K, V]) convert(value any, ok bool) (V, bool) {
 	if !ok {
 		return *new(V), false
 	}
-
-	return value.(V), true
+	v, _ := value.(V)
+	return v, true
 }

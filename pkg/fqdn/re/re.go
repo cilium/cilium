@@ -38,7 +38,12 @@ func CompileRegex(p string) (*regexp.Regexp, error) {
 	r, ok := lru.Get(p)
 	lru.Unlock()
 	if ok {
-		return r.(*regexp.Regexp), nil
+		// It is impossible for this not to be true,
+		// but if it happens we should just proceed
+		// to compilation and replace this regexp.
+		if reRet, ok := r.(*regexp.Regexp); ok {
+			return reRet, nil
+		}
 	}
 	n, err := regexp.Compile(p)
 	if err != nil {

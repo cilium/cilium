@@ -55,7 +55,7 @@ func TestFieldMask_copy_with_alloc(t *testing.T) {
 		Source:      &flowpb.Endpoint{ID: 1234, PodName: "podA", Namespace: "nsA"},
 		Destination: &flowpb.Endpoint{ID: 5678, PodName: "podB", Namespace: "nsB", Identity: 9123},
 	}
-	srcACopy := proto.Clone(srcA).(*flowpb.Flow)
+	srcACopy, _ := proto.Clone(srcA).(*flowpb.Flow)
 
 	fm.Copy(flow.ProtoReflect(), srcA.ProtoReflect())
 	// Confirm that source flow wasn't modified

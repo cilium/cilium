@@ -580,7 +580,8 @@ func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallbackOveralapping(c *C) 
 		dump := map[string]string{}
 		ds := NewDumpStats(m)
 		err := m.DumpReliablyWithCallback(func(key MapKey, value MapValue) {
-			k := key.(*TestKey).Key
+			testKey, _ := key.(*TestKey)
+			k := testKey.Key
 			if k%2 != 0 {
 				k := key.(*TestKey).Key
 				ks := dump[fmt.Sprintf("key=%d", k)]

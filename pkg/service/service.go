@@ -433,7 +433,7 @@ func (s *Service) populateBackendMapV3FromV2(ipv4, ipv6 bool) error {
 		copyBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 			if v == v4 {
 				v3Map = lbmap.Backend4MapV3
-				v1BackendVal := value.(*lbmap.Backend4Value)
+				v1BackendVal, _ := value.(*lbmap.Backend4Value)
 				addrCluster := cmtypes.AddrClusterFrom(v1BackendVal.Address.Addr(), 0)
 				v3BackendVal, err = lbmap.NewBackend4ValueV3(
 					addrCluster,
@@ -447,7 +447,7 @@ func (s *Service) populateBackendMapV3FromV2(ipv4, ipv6 bool) error {
 				}
 			} else {
 				v3Map = lbmap.Backend6MapV3
-				v1BackendVal := value.(*lbmap.Backend6Value)
+				v1BackendVal, _ := value.(*lbmap.Backend6Value)
 				addrCluster := cmtypes.AddrClusterFrom(v1BackendVal.Address.Addr(), 0)
 				v3BackendVal, err = lbmap.NewBackend6ValueV3(
 					addrCluster,

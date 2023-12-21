@@ -64,7 +64,8 @@ func TestHealthReporter(t *testing.T) {
 	assert.NoError(s.Stop(ctx))
 	assert.Equal(m*u, int(s.processed()))
 
-	for _, s := range s.(*healthProvider).moduleStatuses {
+	healthProvider, _ := s.(*healthProvider)
+	for _, s := range healthProvider.moduleStatuses {
 		assert.Equal(StatusOK, s.Update.Level())
 	}
 }

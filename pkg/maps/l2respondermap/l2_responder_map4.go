@@ -105,8 +105,8 @@ type IterateCallback func(*L2ResponderKey, *L2ResponderStats)
 func (m *l2ResponderMap) IterateWithCallback(cb IterateCallback) error {
 	return m.Map.IterateWithCallback(&L2ResponderKey{}, &L2ResponderStats{},
 		func(k, v interface{}) {
-			key := k.(*L2ResponderKey)
-			value := v.(*L2ResponderStats)
+			key, _ := k.(*L2ResponderKey)
+			value, _ := v.(*L2ResponderStats)
 			cb(key, value)
 		},
 	)

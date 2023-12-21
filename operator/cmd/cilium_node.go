@@ -329,7 +329,8 @@ func (s *ciliumNodeSynchronizer) processNextWorkItem(queue workqueue.RateLimitin
 		return true
 	}
 
-	err := syncHandler(key.(string))
+	k, _ := key.(string)
+	err := syncHandler(k)
 	if err == nil {
 		// If err is nil we can forget it from the queue, if it is not nil
 		// the queue handler will retry to process this key until it succeeds.

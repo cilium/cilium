@@ -127,7 +127,8 @@ func patchConfigHandler(d *Daemon, params PatchConfigParams) middleware.Responde
 
 	res, ok := <-resChan
 	if ok {
-		return res.(middleware.Responder)
+		r, _ := res.(middleware.Responder)
+		return r
 	}
 
 	msg := fmt.Errorf("config modify event was cancelled")

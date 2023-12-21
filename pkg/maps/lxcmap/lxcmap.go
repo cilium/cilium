@@ -192,8 +192,9 @@ func AddHostEntry(ip net.IP) error {
 // Returns boolean indicating if a new entry was added and an error.
 func SyncHostEntry(ip net.IP) (bool, error) {
 	key := NewEndpointKey(ip)
-	value, err := LXCMap().Lookup(key)
-	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
+	v, err := LXCMap().Lookup(key)
+	value, _ := v.(*EndpointInfo)
+	if err != nil && value.Flags&EndpointFlagHost == 0 {
 		err = AddHostEntry(ip)
 		if err == nil {
 			return true, nil

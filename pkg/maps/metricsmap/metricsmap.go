@@ -100,8 +100,8 @@ type Values []Value
 // passing each key/value pair to the cb callback
 func (m metricsMap) IterateWithCallback(cb IterateCallback) error {
 	return m.Map.IterateWithCallback(&Key{}, &Values{}, func(k, v interface{}) {
-		key := k.(*Key)
-		values := v.(*Values)
+		key, _ := k.(*Key)
+		values, _ := v.(*Values)
 		cb(key, values)
 	})
 }

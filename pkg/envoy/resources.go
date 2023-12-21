@@ -119,7 +119,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 
 	var npHost *envoyAPI.NetworkPolicyHosts
 	if msg != nil {
-		npHost = msg.(*envoyAPI.NetworkPolicyHosts)
+		npHost, _ = msg.(*envoyAPI.NetworkPolicyHosts)
 	}
 
 	switch modType {

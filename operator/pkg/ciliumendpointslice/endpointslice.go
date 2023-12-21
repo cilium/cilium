@@ -233,7 +233,7 @@ func (c *Controller) processNextWorkItem() bool {
 	if quit {
 		return false
 	}
-	key := cKey.(CESName)
+	key, _ := cKey.(CESName)
 	c.logger.WithFields(logrus.Fields{
 		logfields.CESName: key.string(),
 	}).Debug("Processing CES")

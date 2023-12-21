@@ -113,9 +113,9 @@ func qualifyRouteConfigurationResourceNames(namespace, name string, routeConfig 
 		}
 		for _, rt := range vhost.Routes {
 			if action := rt.GetRoute(); action != nil {
+				routeActionCluster, _ := action.GetClusterSpecifier().(*envoy_config_route.RouteAction_Cluster)
 				if clusterName := action.GetCluster(); clusterName != "" {
-					action.GetClusterSpecifier().(*envoy_config_route.RouteAction_Cluster).Cluster, nameUpdated =
-						api.ResourceQualifiedName(namespace, name, clusterName)
+					routeActionCluster.Cluster, nameUpdated = api.ResourceQualifiedName(namespace, name, clusterName)
 					if nameUpdated {
 						updated = true
 					}

@@ -95,10 +95,10 @@ func (s *server) Start(ctx hive.HookContext) error {
 		return err
 	}
 	s.listener = listener
-
+	tcpAddr, _ := s.listener.Addr().(*net.TCPAddr)
 	s.logger = s.logger.WithFields(logrus.Fields{
-		"ip":   s.listener.Addr().(*net.TCPAddr).IP,
-		"port": s.listener.Addr().(*net.TCPAddr).Port,
+		"ip":   tcpAddr.IP,
+		"port": tcpAddr.Port,
 	})
 
 	mux := http.NewServeMux()
@@ -127,5 +127,6 @@ func (s *server) Stop(ctx hive.HookContext) error {
 }
 
 func (s *server) Port() int {
-	return s.listener.Addr().(*net.TCPAddr).Port
+	tcpAddr, _ := s.listener.Addr().(*net.TCPAddr)
+	return tcpAddr.Port
 }

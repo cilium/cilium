@@ -445,7 +445,7 @@ func getRandomOpenPort(t *testing.T) int {
 		t.Fatalf("failed to get random open port: %v", err)
 	}
 	defer l.Close()
-	addr := l.Addr().(*net.TCPAddr)
+	addr, _ := l.Addr().(*net.TCPAddr)
 	return addr.Port
 }
 

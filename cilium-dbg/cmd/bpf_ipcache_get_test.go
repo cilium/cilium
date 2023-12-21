@@ -75,7 +75,7 @@ func (s *BPFIPCacheGetSuite) TestGetLPMValue(c *C) {
 		c.Assert(exists, Equals, tt.hasIdentity, Commentf("No identity was found for ip '%s': wanted '%s'", tt.ip, tt.identity))
 
 		if exists {
-			identity := v.([]string)
+			identity, _ := v.([]string)
 			c.Assert(identity, checker.DeepEquals, tt.identity, Commentf("Wrong identity was retrieved for ip %s", tt.ip))
 		}
 	}

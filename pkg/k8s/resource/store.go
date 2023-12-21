@@ -53,7 +53,8 @@ func (s *typedStore[T]) List() []T {
 	items := s.store.List()
 	result := make([]T, len(items))
 	for i := range items {
-		result[i] = items[i].(T)
+		item, _ := items[i].(T)
+		result[i] = item
 	}
 	return result
 }
@@ -70,7 +71,7 @@ func (s *typedStore[T]) GetByKey(key Key) (item T, exists bool, err error) {
 	var itemAny any
 	itemAny, exists, err = s.store.GetByKey(key.String())
 	if exists {
-		item = itemAny.(T)
+		item, _ = itemAny.(T)
 	}
 	return
 }
@@ -86,7 +87,8 @@ func (s *typedStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
 	}
 	items := make([]T, 0, len(itemsAny))
 	for _, item := range itemsAny {
-		items = append(items, item.(T))
+		itm, _ := item.(T)
+		items = append(items, itm)
 	}
 	return items, nil
 }

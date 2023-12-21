@@ -426,7 +426,7 @@ func (t *trigger) Trigger() {
 // before the configured interval has expired.
 func WithTrigger(trig Trigger) timerOpt {
 	return func(jt *jobTimer) {
-		jt.trigger = trig.(*trigger)
+		jt.trigger, _ = trig.(*trigger)
 	}
 }
 

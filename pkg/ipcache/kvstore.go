@@ -284,7 +284,7 @@ func (iw *IPIdentityWatcher) Synced() bool {
 //   - Notify the listeners.
 //   - Otherwise, do not notify listeners.
 func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
-	ipIDPair := k.(*identity.IPIdentityPair)
+	ipIDPair, _ := k.(*identity.IPIdentityPair)
 
 	ip := ipIDPair.PrefixString()
 	if ip == "<nil>" {
@@ -352,7 +352,7 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 //   - If any other deletion case, notify listeners of
 //     the deletion event.
 func (iw *IPIdentityWatcher) OnDelete(k storepkg.NamedKey) {
-	ipIDPair := k.(*identity.IPIdentityPair)
+	ipIDPair, _ := k.(*identity.IPIdentityPair)
 	ip := ipIDPair.PrefixString()
 
 	iw.log.WithField(logfields.IPAddr, ip).Debug("Observed deletion event")

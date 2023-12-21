@@ -67,7 +67,7 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, gatewayIndex,
 		func(rawObj client.Object) []string {
-			hr := rawObj.(*gatewayv1.HTTPRoute)
+			hr, _ := rawObj.(*gatewayv1.HTTPRoute)
 			var gateways []string
 			for _, parent := range hr.Spec.ParentRefs {
 				if !helpers.IsGateway(parent) {

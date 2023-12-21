@@ -156,12 +156,12 @@ type SRv6PolicyIterateCallback func(*PolicyKey, *PolicyValue)
 func (m srv6PolicyMap) IterateWithCallback4(cb SRv6PolicyIterateCallback) error {
 	return m.Map.IterateWithCallback(&PolicyKey4{}, &PolicyValue{},
 		func(k, v interface{}) {
-			key4 := k.(*PolicyKey4)
+			key4, _ := k.(*PolicyKey4)
 			key := PolicyKey{
 				VRFID:    key4.VRFID,
 				DestCIDR: key4.getDestCIDR(),
 			}
-			value := v.(*PolicyValue)
+			value, _ := v.(*PolicyValue)
 
 			cb(&key, value)
 		})
@@ -172,12 +172,12 @@ func (m srv6PolicyMap) IterateWithCallback4(cb SRv6PolicyIterateCallback) error 
 func (m srv6PolicyMap) IterateWithCallback6(cb SRv6PolicyIterateCallback) error {
 	return m.Map.IterateWithCallback(&PolicyKey6{}, &PolicyValue{},
 		func(k, v interface{}) {
-			key6 := k.(*PolicyKey6)
+			key6, _ := k.(*PolicyKey6)
 			key := PolicyKey{
 				VRFID:    key6.VRFID,
 				DestCIDR: key6.getDestCIDR(),
 			}
-			value := v.(*PolicyValue)
+			value, _ := v.(*PolicyValue)
 
 			cb(&key, value)
 		})
