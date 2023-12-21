@@ -202,6 +202,7 @@ var (
 		"Invalid source ip",
 		"Unknown L3 target address",
 		"No tunnel/encapsulation endpoint (datapath BUG!)",
+		"Host datapath not ready",
 	}
 
 	ExpectedXFRMErrors = []string{
