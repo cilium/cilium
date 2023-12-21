@@ -116,15 +116,15 @@ func TestGetRoutes(t *testing.T) {
 			expectedErr:        fmt.Errorf(""),
 		},
 		{
-			name:               "missing neighbor for adj-rib-out",
+			name:               "unspecified neighbor for adj-rib-out",
 			advertisedPrefixes: testSingleIPv4Prefix,
-			expectedPrefixes:   nil,
+			expectedPrefixes:   nil, // nil as the neighbor never goes UP
 			routerASN:          nil,
 			tableType:          tableTypeLocAdjRibOut,
 			afi:                afiIPv4,
 			safi:               safiUnicast,
 			neighbor:           nil,
-			expectedErr:        fmt.Errorf(""),
+			expectedErr:        nil,
 		},
 		{
 			name:               "valid neighbor",
