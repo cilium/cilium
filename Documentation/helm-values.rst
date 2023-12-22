@@ -1091,7 +1091,7 @@
    * - :spelling:ignore:`envoy.enabled`
      - Enable Envoy Proxy in standalone DaemonSet.
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`envoy.extraArgs`
      - Additional envoy container arguments.
      - list
