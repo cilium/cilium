@@ -6,6 +6,7 @@ package statedb
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"runtime"
 	"strings"
@@ -241,6 +242,12 @@ func (db *DB) Stop(stopCtx hive.HookContext) error {
 	case <-db.gcExited:
 	}
 	return nil
+}
+
+func (db *DB) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	db.ReadTxn().WriteJSON(w)
 }
 
 // setGCRateLimitInterval can set the graveyard GC interval before DB is started.
