@@ -306,7 +306,10 @@ Annotations:
 1.16 Upgrade Notes
 ------------------
 
-* To be determined during v1.16 development.
+* Cilium Envoy DaemonSet is now enabled by default, and existing in-container installs
+  will be changed to DaemonSet mode unless specifically opted out of. This can be done by
+  disabling it manually by setting ``envoy.enabled=false`` accordingly.
+
 
 Removed Options
 ~~~~~~~~~~~~~~~
