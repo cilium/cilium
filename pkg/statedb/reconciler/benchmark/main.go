@@ -127,9 +127,10 @@ func main() {
 
 					RetryBackoffMinDuration: time.Millisecond,
 					RetryBackoffMaxDuration: 10 * time.Millisecond,
-					IncrementalBatchSize:    *incrBatchSize,
+					IncrementalRoundSize:    *incrBatchSize,
 					GetObjectStatus:         (*testObject).GetStatus,
 					WithObjectStatus:        (*testObject).WithStatus,
+					Operations:              mt,
 				}
 			}),
 			cell.Invoke(reconciler.Register[*testObject]),

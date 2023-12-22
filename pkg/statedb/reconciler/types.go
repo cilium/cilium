@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
@@ -42,12 +43,12 @@ type Config[Obj any] struct {
 	// retrying.
 	RetryBackoffMaxDuration time.Duration
 
-	// IncrementalBatchSize is the maximum number objects to reconcile during
+	// IncrementalRoundSize is the maximum number objects to reconcile during
 	// incremental reconciliation before updating status and refreshing the
 	// statedb snapshot. This should be tuned based on the cost of each operation
 	// and the rate of expected changes so that health and per-object status
 	// updates are not delayed too much. If in doubt, use a value between 100-1000.
-	IncrementalBatchSize int
+	IncrementalRoundSize int
 
 	// GetObjectStatus returns the reconciliation status for the object.
 	GetObjectStatus func(Obj) Status
@@ -55,6 +56,17 @@ type Config[Obj any] struct {
 	// WithObjectStatus returns a COPY of the object with the status set to
 	// the given value.
 	WithObjectStatus func(Obj, Status) Obj
+
+	// RateLimiter is optional and if set will use the limiter to wait between
+	// reconciliation rounds. This allows trading latency with throughput by
+	// waiting longer to collect a batch of objects to reconcile.
+	RateLimiter *rate.Limiter
+
+	// Operations defines how an object is reconciled.
+	Operations Operations[Obj]
+
+	// BatchOperations is optional and if provided these are used instead of normal operations.
+	BatchOperations BatchOperations[Obj]
 }
 
 func (cfg Config[Obj]) validate() error {
@@ -64,7 +76,7 @@ func (cfg Config[Obj]) validate() error {
 	if cfg.WithObjectStatus == nil {
 		return fmt.Errorf("%T.WithObjectStatus cannot be nil", cfg)
 	}
-	if cfg.IncrementalBatchSize <= 0 {
+	if cfg.IncrementalRoundSize <= 0 {
 		return fmt.Errorf("%T.IncrementalBatchSize needs to be >0", cfg)
 	}
 	if cfg.FullReconcilationInterval < 0 {
@@ -75,6 +87,9 @@ func (cfg Config[Obj]) validate() error {
 	}
 	if cfg.RetryBackoffMinDuration <= 0 {
 		return fmt.Errorf("%T.RetryBackoffMinDuration must be >0", cfg)
+	}
+	if cfg.Operations == nil {
+		return fmt.Errorf("%T.Operations must be defined", cfg)
 	}
 	return nil
 }
@@ -115,6 +130,17 @@ type Operations[Obj any] interface {
 	// Unlike failed Update()'s a failed Prune() operation is not retried until
 	// the next full reconciliation round.
 	Prune(context.Context, statedb.ReadTxn, statedb.Iterator[Obj]) error
+}
+
+type BatchEntry[Obj any] struct {
+	Object   Obj
+	Revision statedb.Revision
+	Result   error
+}
+
+type BatchOperations[Obj any] interface {
+	UpdateBatch(ctx context.Context, txn statedb.ReadTxn, batch []BatchEntry[Obj])
+	DeleteBatch(context.Context, statedb.ReadTxn, []BatchEntry[Obj])
 }
 
 type StatusKind string
@@ -210,4 +236,11 @@ func StatusError(delete bool, err error) Status {
 		Delete:    delete,
 		Error:     err.Error(),
 	}
+}
+
+// opResult is the outcome from reconciling a single object
+type opResult struct {
+	rev    statedb.Revision // revision of the object
+	status Status           // the status to commit
+	delete bool             // if true delete object from the table
 }

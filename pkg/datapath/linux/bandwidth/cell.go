@@ -39,7 +39,7 @@ var Cell = cell.Module(
 				FullReconcilationInterval: 10 * time.Minute,
 				RetryBackoffMinDuration:   time.Second,
 				RetryBackoffMaxDuration:   time.Minute,
-				IncrementalBatchSize:      1000,
+				IncrementalRoundSize:      1000,
 				GetObjectStatus:           (*tables.BandwidthQDisc).GetStatus,
 				WithObjectStatus:          (*tables.BandwidthQDisc).WithStatus,
 			}

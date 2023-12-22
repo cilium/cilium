@@ -38,6 +38,14 @@ const (
 )
 
 func TestReconciler(t *testing.T) {
+	testReconciler(t, false)
+}
+
+func TestReconciler_Batch(t *testing.T) {
+	testReconciler(t, true)
+}
+
+func testReconciler(t *testing.T, batchOps bool) {
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	var (
@@ -74,23 +82,23 @@ func TestReconciler(t *testing.T) {
 				db = db_
 				return testObjects, db.RegisterTable(testObjects)
 			}),
-			cell.Provide(
-				func() (*mockOps, reconciler.Operations[*testObject]) {
-					return mt, mt
-				},
-			),
 			cell.Provide(func() reconciler.Config[*testObject] {
-				return reconciler.Config[*testObject]{
+				cfg := reconciler.Config[*testObject]{
 					// Don't run the full reconciliation via timer, but rather explicitly so that the full
 					// reconciliation operations don't mix with incremental when not expected.
 					FullReconcilationInterval: time.Hour,
 
 					RetryBackoffMinDuration: time.Millisecond,
 					RetryBackoffMaxDuration: 10 * time.Millisecond,
-					IncrementalBatchSize:    1000,
+					IncrementalRoundSize:    1000,
 					GetObjectStatus:         (*testObject).GetStatus,
 					WithObjectStatus:        (*testObject).WithStatus,
+					Operations:              mt,
 				}
+				if batchOps {
+					cfg.BatchOperations = mt
+				}
+				return cfg
 			}),
 			cell.Provide(reconciler.New[*testObject]),
 
@@ -375,6 +383,20 @@ type mockOps struct {
 	updates intMap
 }
 
+// DeleteBatch implements recogciler.BatchOperations.
+func (mt *mockOps) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, batch []reconciler.BatchEntry[*testObject]) {
+	for i := range batch {
+		batch[i].Result = mt.Delete(ctx, txn, batch[i].Object)
+	}
+}
+
+// UpdateBatch implements reconciler.BatchOperations.
+func (mt *mockOps) UpdateBatch(ctx context.Context, txn statedb.ReadTxn, batch []reconciler.BatchEntry[*testObject]) {
+	for i := range batch {
+		batch[i].Result = mt.Update(ctx, txn, batch[i].Object, nil)
+	}
+}
+
 // Delete implements reconciler.Operations.
 func (mt *mockOps) Delete(ctx context.Context, txn statedb.ReadTxn, obj *testObject) error {
 	if mt.faulty.Load() || obj.faulty {
@@ -408,6 +430,7 @@ func (mt *mockOps) Update(ctx context.Context, txn statedb.ReadTxn, obj *testObj
 }
 
 var _ reconciler.Operations[*testObject] = &mockOps{}
+var _ reconciler.BatchOperations[*testObject] = &mockOps{}
 
 // testHelper defines a sort of mini-language for writing the test steps.
 type testHelper struct {

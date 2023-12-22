@@ -127,14 +127,15 @@ var Hive = hive.New(
 	),
 )
 
-func NewReconcilerConfig(statusIndex statedb.Index[*Memo, reconciler.StatusKind]) reconciler.Config[*Memo] {
+func NewReconcilerConfig(ops reconciler.Operations[*Memo]) reconciler.Config[*Memo] {
 	return reconciler.Config[*Memo]{
 		FullReconcilationInterval: 10 * time.Second,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   5 * time.Second,
-		IncrementalBatchSize:      100,
+		IncrementalRoundSize:      100,
 		GetObjectStatus:           (*Memo).GetStatus,
 		WithObjectStatus:          (*Memo).WithStatus,
+		Operations:                ops,
 	}
 }
 
