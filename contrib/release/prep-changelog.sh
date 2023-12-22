@@ -45,6 +45,10 @@ handle_args() {
         usage 2>&1
         common::exit 1 "Invalid OLD-BRANCH ARG \"$3\"; Expected X.Y"
     fi
+
+    if ! gh auth status >/dev/null; then
+        common::exit 1 "Failed to authenticate with GitHub"
+    fi
 }
 
 main() {
@@ -54,6 +58,7 @@ main() {
     local ersion="$(echo $2 | sed 's/^v//')"
     local version="v$ersion"
     local old_branch="$(echo $3 | sed 's/^v//')"
+    local GITHUB_TOKEN=${GITHUB_TOKEN:-"$(gh auth token)"}
 
     logecho "Generating CHANGELOG.md"
     rm -f $RELNOTESCACHE

@@ -56,6 +56,10 @@ handle_args() {
         git status -s | grep -v "^??"
         common::exit 1 "Unmerged changes in tree prevent preparing release PR."
     fi
+
+    if ! gh auth status >/dev/null; then
+        common::exit 1 "Failed to authenticate with GitHub"
+    fi
 }
 
 main() {
