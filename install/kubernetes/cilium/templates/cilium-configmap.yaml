@@ -1000,6 +1000,10 @@ data:
   limit-ipam-api-qps: {{ .Values.ipam.operator.externalAPILimitQPS | quote }}
 {{- end }}
 
+{{- if .Values.nodeIPAM.enabled }}
+  enable-node-ipam: "true"
+{{- end }}
+
 {{- if .Values.apiRateLimit }}
   api-rate-limit: {{ .Values.apiRateLimit | quote }}
 {{- end }}
