@@ -628,6 +628,7 @@ contributors across the globe, there is almost always someone available to help.
 | name | string | `"cilium"` | Agent container name. |
 | nat46x64Gateway | object | `{"enabled":false}` | Configure standalone NAT46/NAT64 gateway |
 | nat46x64Gateway.enabled | bool | `false` | Enable RFC8215-prefixed translation |
+| nodeIPAM.enabled | bool | `false` | Configure Node IPAM ref: https://docs.cilium.io/en/stable/network/node-ipam/ |
 | nodePort | object | `{"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enableHealthCheckLoadBalancerIP":false,"enabled":false}` | Configure N-S k8s service loadbalancing |
 | nodePort.autoProtectPortRange | bool | `true` | Append NodePort range to ip_local_reserved_ports if clash with ephemeral ports is detected. |
 | nodePort.bindProtection | bool | `true` | Set to true to prevent applications binding to service ports. |

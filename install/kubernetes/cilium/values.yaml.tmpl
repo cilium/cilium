@@ -1711,6 +1711,11 @@ ipam:
     # @default -- `4.0`
     externalAPILimitQPS: ~
 
+nodeIPAM:
+  # -- Configure Node IPAM
+  # ref: https://docs.cilium.io/en/stable/network/node-ipam/
+  enabled: false
+
 # -- The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
 apiRateLimit: ~
 

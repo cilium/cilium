@@ -2312,6 +2312,10 @@
      - Enable RFC8215-prefixed translation
      - bool
      - ``false``
+   * - :spelling:ignore:`nodeIPAM.enabled`
+     - Configure Node IPAM ref: https://docs.cilium.io/en/stable/network/node-ipam/
+     - bool
+     - ``false``
    * - :spelling:ignore:`nodePort`
      - Configure N-S k8s service loadbalancing
      - object
