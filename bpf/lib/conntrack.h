@@ -267,8 +267,7 @@ ct_lookup_entry(const void *map, struct __ctx_buff *ctx, const void *tuple,
 	return entry;
 }
 
-/* Returns CT_NEW, CT_REOPENED or CT_ESTABLISHED. */
-static __always_inline enum ct_status
+static __always_inline struct ct_entry *
 __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 	    enum ct_action action, enum ct_dir dir, __u32 ct_entry_types,
 	    struct ct_state *ct_state, bool is_tcp, union tcp_flags seen_flags,
@@ -282,7 +281,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 	entry = ct_lookup_entry(map, ctx, tuple, dir, ct_entry_types, syn);
 	if (!entry) {
 		*monitor = TRACE_PAYLOAD_LEN;
-		return CT_NEW;
+		return NULL;
 	} else {
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
@@ -322,7 +321,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 				entry->seen_non_syn = false;
 
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
-				return CT_REOPENED;
+				return entry;
 			}
 			break;
 
@@ -353,7 +352,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			break;
 		}
 
-		return CT_ESTABLISHED;
+		return entry;
 	}
 }
 
@@ -552,8 +551,9 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
+	enum ct_status ret = CT_NEW;
+	struct ct_entry *entry;
 	enum ct_action action;
-	enum ct_status ret;
 
 	if (is_tcp) {
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
@@ -573,15 +573,14 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 	case SCOPE_REVERSE:
 	case SCOPE_BIDIR:
 		/* Lookup in the reverse direction first: */
-		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
-				  ct_state, is_tcp, tcp_flags, monitor);
-		if (ret != CT_NEW) {
-			if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
-				if (unlikely(tuple->flags & TUPLE_F_RELATED))
-					ret = CT_RELATED;
-				else
-					ret = CT_REPLY;
-			}
+		entry = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
+				    ct_state, is_tcp, tcp_flags, monitor);
+		if (entry) {
+			if (unlikely(tuple->flags & TUPLE_F_RELATED))
+				ret = CT_RELATED;
+			else
+				ret = CT_REPLY;
+
 			goto out;
 		}
 
@@ -592,8 +591,15 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 		ipv6_ct_tuple_reverse(tuple);
 		fallthrough;
 	case SCOPE_FORWARD:
-		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
-				  ct_state, is_tcp, tcp_flags, monitor);
+		entry = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
+				    ct_state, is_tcp, tcp_flags, monitor);
+		if (entry) {
+			if (action == ACTION_CREATE &&
+			    unlikely(ct_entry_closing(entry)))
+				ret = CT_REOPENED;
+			else
+				ret = CT_ESTABLISHED;
+		}
 	}
 
 out:
@@ -790,8 +796,9 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
+	enum ct_status ret = CT_NEW;
+	struct ct_entry *entry;
 	enum ct_action action;
-	enum ct_status ret;
 
 #ifdef ENABLE_IPV4_FRAGMENTS
 	if (unlikely(is_fragment))
@@ -818,15 +825,14 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 	case SCOPE_REVERSE:
 	case SCOPE_BIDIR:
 		/* Lookup in the reverse direction first: */
-		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
-				  ct_state, is_tcp, tcp_flags, monitor);
-		if (ret != CT_NEW) {
-			if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
-				if (unlikely(tuple->flags & TUPLE_F_RELATED))
-					ret = CT_RELATED;
-				else
-					ret = CT_REPLY;
-			}
+		entry = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
+				    ct_state, is_tcp, tcp_flags, monitor);
+		if (entry) {
+			if (unlikely(tuple->flags & TUPLE_F_RELATED))
+				ret = CT_RELATED;
+			else
+				ret = CT_REPLY;
+
 			goto out;
 		}
 
@@ -837,8 +843,15 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 		ipv4_ct_tuple_reverse(tuple);
 		fallthrough;
 	case SCOPE_FORWARD:
-		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
-				  ct_state, is_tcp, tcp_flags, monitor);
+		entry = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
+				    ct_state, is_tcp, tcp_flags, monitor);
+		if (entry) {
+			if (action == ACTION_CREATE &&
+			    unlikely(ct_entry_closing(entry)))
+				ret = CT_REOPENED;
+			else
+				ret = CT_ESTABLISHED;
+		}
 	}
 
 out:

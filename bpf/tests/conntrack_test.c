@@ -119,10 +119,10 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		seen_flags.value |= TCP_FLAG_SYN;
 
 		/* First packet is monitored */
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_INGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_ESTABLISHED);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_INGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(entry);
 		assert(monitor == TRACE_PAYLOAD_LEN);
 		assert(timeout_in(entry, CT_SYN_TIMEOUT));
 
@@ -130,40 +130,40 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		 * lifetime back to CT_SYN_TIMEOUT.
 		 */
 		advance_time();
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_INGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_ESTABLISHED);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_INGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(entry);
 		assert(monitor == 0);
 		assert(timeout_in(entry, CT_SYN_TIMEOUT));
 
 		/* Subsequent non-SYN packets result in a default TCP lifetime */
 		advance_time();
 		seen_flags.value &= ~TCP_FLAG_SYN;
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_INGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_ESTABLISHED);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_INGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(entry);
 		assert(monitor == 0);
 		assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
 
 		/* Monitor if the connection is closing on one side */
 		advance_time();
 		seen_flags.value |= TCP_FLAG_FIN;
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_INGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_ESTABLISHED);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_INGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(entry);
 		assert(monitor == TRACE_PAYLOAD_LEN);
 		assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
 
 		/* This doesn't automatically trigger monitor for subsequent packets */
 		advance_time();
 		seen_flags.value &= ~TCP_FLAG_FIN;
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_INGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_ESTABLISHED);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_INGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(entry);
 		assert(monitor == 0);
 		assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
 
@@ -173,10 +173,10 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		 */
 		advance_time();
 		seen_flags.value |= TCP_FLAG_FIN;
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_EGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_ESTABLISHED);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_EGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(entry);
 		assert(monitor == TRACE_PAYLOAD_LEN);
 		assert(timeout_in(entry, CT_CLOSE_TIMEOUT));
 
@@ -184,10 +184,10 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		advance_time();
 		monitor = 0;
 		seen_flags.value &= ~TCP_FLAG_FIN;
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_EGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_ESTABLISHED);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_EGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(entry);
 		assert(monitor == 0);
 		assert(timeout_in(entry, CT_CLOSE_TIMEOUT - 1));
 
@@ -195,20 +195,21 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		advance_time();
 		monitor = 0;
 		seen_flags.value = TCP_FLAG_SYN;
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_EGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_REOPENED);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_EGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(entry);
+		assert(ct_entry_closing(entry));
 		assert(monitor == TRACE_PAYLOAD_LEN);
 		assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
 
 		/* Label connection as new if the tuple wasn't previously tracked */
 		tuple.saddr = 123;
 		seen_flags.value = TCP_FLAG_SYN;
-		res = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
-				  ct_tcp_select_action(seen_flags), CT_INGRESS,
-				  CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
-		assert(res == CT_NEW);
+		entry = __ct_lookup(get_ct_map4(&tuple), &ctx, &tuple,
+				    ct_tcp_select_action(seen_flags), CT_INGRESS,
+				    CT_ENTRY_ANY, &ct_state, true, seen_flags, &monitor);
+		assert(!entry);
 		assert(monitor == TRACE_PAYLOAD_LEN);
 	});
 
