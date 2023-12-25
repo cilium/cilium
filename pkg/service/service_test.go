@@ -1495,7 +1495,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
-	c.Assert(svc.l7LBProxyPort, Equals, uint32(9090))
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
 
 	// Removing registration without redirection does not remove the proxy port
 	err = m.svc.RemoveL7LBService(echoOtherNode, resource1)
@@ -1504,7 +1504,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
-	c.Assert(svc.l7LBProxyPort, Equals, uint32(9090))
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
 
 	// removing the registration with redirection removes the proxy port
 	err = m.svc.RemoveL7LBService(echoOtherNode, resource2)
@@ -1513,7 +1513,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
-	c.Assert(svc.l7LBProxyPort, Equals, uint32(0))
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 }
 
 // Tests that services with the given backends are updated with the new backend
