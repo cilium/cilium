@@ -1,3 +1,7 @@
+# v1.142.0 (2023-12-19)
+
+* **Feature**: Provision BYOIPv4 address ranges and advertise them by specifying the network border groups option in Los Angeles, Phoenix and Dallas AWS Local Zones.
+
 # v1.141.0 (2023-12-08)
 
 * **Feature**: M2 Mac instances are built on Apple M2 Mac mini computers. I4i instances are powered by 3rd generation Intel Xeon Scalable processors. C7i compute optimized, M7i general purpose and R7i memory optimized instances are powered by custom 4th Generation Intel Xeon Scalable processors.
