@@ -158,7 +158,7 @@ type RevNatKey interface {
 	ToNetwork() RevNatKey
 
 	// Returns the key value
-	GetKey() uint16
+	GetKey() uint32
 
 	// ToHost converts fields to host byte order.
 	ToHost() RevNatKey

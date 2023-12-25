@@ -77,7 +77,7 @@ int lxc_no_backend_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_lxc_no_backend")
 int lxc_no_backend_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
+	__u32 revnat_id = 1;
 
 	union v6addr frontend_ip = {};
 

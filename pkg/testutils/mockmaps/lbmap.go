@@ -19,11 +19,11 @@ import (
 type LBMockMap struct {
 	lock.Mutex
 	BackendByID            map[lb.BackendID]*lb.Backend
-	ServiceByID            map[uint16]*lb.SVC
+	ServiceByID            map[uint32]*lb.SVC
 	AffinityMatch          datapathTypes.BackendIDByServiceIDSet
 	SourceRanges           datapathTypes.SourceRangeSetByServiceID
-	DummyMaglevTable       map[uint16]int // svcID => backends count
-	SvcActiveBackendsCount map[uint16]int
+	DummyMaglevTable       map[uint32]int // svcID => backends count
+	SvcActiveBackendsCount map[uint32]int
 	SockRevNat4            map[lbmap.SockRevNat4Key]lbmap.SockRevNat4Value
 	SockRevNat6            map[lbmap.SockRevNat6Key]lbmap.SockRevNat6Value
 }
@@ -31,11 +31,11 @@ type LBMockMap struct {
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
 		BackendByID:            map[lb.BackendID]*lb.Backend{},
-		ServiceByID:            map[uint16]*lb.SVC{},
+		ServiceByID:            map[uint32]*lb.SVC{},
 		AffinityMatch:          datapathTypes.BackendIDByServiceIDSet{},
 		SourceRanges:           datapathTypes.SourceRangeSetByServiceID{},
-		DummyMaglevTable:       map[uint16]int{},
-		SvcActiveBackendsCount: map[uint16]int{},
+		DummyMaglevTable:       map[uint32]int{},
+		SvcActiveBackendsCount: map[uint32]int{},
 		SockRevNat4:            map[lbmap.SockRevNat4Key]lbmap.SockRevNat4Value{},
 		SockRevNat6:            map[lbmap.SockRevNat6Key]lbmap.SockRevNat6Value{},
 	}
@@ -84,12 +84,12 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	return nil
 }
 
-func (m *LBMockMap) upsertMaglevLookupTable(svcID uint16, backends map[string]*lb.Backend, ipv6 bool) error {
+func (m *LBMockMap) upsertMaglevLookupTable(svcID uint32, backends map[string]*lb.Backend, ipv6 bool) error {
 	m.DummyMaglevTable[svcID] = len(backends)
 	return nil
 }
 
-func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*lb.Backend, ipv6 bool) error {
+func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint32, backends map[string]*lb.Backend, ipv6 bool) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.upsertMaglevLookupTable(svcID, backends, ipv6)
@@ -102,7 +102,7 @@ func (*LBMockMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev bool, natPolicy lb.SVCNatPolicy) error {
 	m.Lock()
 	defer m.Unlock()
-	svc, found := m.ServiceByID[uint16(addr.ID)]
+	svc, found := m.ServiceByID[uint32(addr.ID)]
 	if !found {
 		return fmt.Errorf("Service not found %+v", addr)
 	}
@@ -111,7 +111,7 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev b
 			count, backendCount)
 	}
 
-	delete(m.ServiceByID, uint16(addr.ID))
+	delete(m.ServiceByID, uint32(addr.ID))
 
 	return nil
 }
@@ -218,7 +218,7 @@ func (m *LBMockMap) DumpAffinityMatches() (datapathTypes.BackendIDByServiceIDSet
 	return m.AffinityMatch, nil
 }
 
-func (m *LBMockMap) UpdateSourceRanges(revNATID uint16, prevRanges []*cidr.CIDR,
+func (m *LBMockMap) UpdateSourceRanges(revNATID uint32, prevRanges []*cidr.CIDR,
 	ranges []*cidr.CIDR, ipv6 bool) error {
 	m.Lock()
 	defer m.Unlock()

@@ -139,7 +139,7 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_pktgen(struct __ctx_buff *ctx)
 SETUP("xdp", "nodeport_geneve_dsr_lb_xdp1_local_backend")
 int nodeport_geneve_dsr_lb_xdp1_local_backend_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
+	__u32 revnat_id = 1;
 
 	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 124,
@@ -252,7 +252,7 @@ SETUP("xdp", "nodeport_geneve_dsr_lb_xdp2_fwd")
 int nodeport_geneve_dsr_lb_xdp2_fwd_setup(struct __ctx_buff *ctx)
 {
 	__u32 backend_id = 125;
-	__u16 revnat_id = 2;
+	__u32 revnat_id = 2;
 
 	lb_v4_add_service(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, backend_id,

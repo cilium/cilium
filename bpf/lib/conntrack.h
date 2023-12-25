@@ -1046,7 +1046,7 @@ err_ct_fill_up:
 #ifndef DISABLE_LOOPBACK_LB
 static __always_inline bool
 ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
-			      __u16 *rev_nat_index)
+			      __u32 *rev_nat_index)
 {
 	__u8 flags = tuple->flags;
 	struct ct_entry *entry;
@@ -1066,7 +1066,7 @@ ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 
 static __always_inline bool
 __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
-			       __u16 *rev_nat_index, bool check_dsr)
+			       __u32 *rev_nat_index, bool check_dsr)
 {
 	if (entry->node_port) {
 		if (rev_nat_index)
@@ -1089,7 +1089,7 @@ __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
 static __always_inline bool
 ct_has_nodeport_egress_entry4(const void *map,
 			      struct ipv4_ct_tuple *ingress_tuple,
-			      __u16 *rev_nat_index, bool check_dsr)
+			      __u32 *rev_nat_index, bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
@@ -1123,7 +1123,7 @@ ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 static __always_inline bool
 ct_has_nodeport_egress_entry6(const void *map,
 			      struct ipv6_ct_tuple *ingress_tuple,
-			      __u16 *rev_nat_index, bool check_dsr)
+			      __u32 *rev_nat_index, bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
@@ -1156,7 +1156,7 @@ ct_has_dsr_egress_entry6(const void *map, struct ipv6_ct_tuple *ingress_tuple)
 
 static __always_inline void
 ct_update_svc_entry(const void *map, const void *tuple,
-		    __u32 backend_id, __u16 rev_nat_index)
+		    __u32 backend_id, __u32 rev_nat_index)
 {
 	struct ct_entry *entry;
 

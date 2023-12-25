@@ -14,15 +14,15 @@ import (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]*loadbalancer.Backend, bool) error
+	UpsertMaglevLookupTable(uint32, map[string]*loadbalancer.Backend, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(loadbalancer.L3n4AddrID, int, bool, loadbalancer.SVCNatPolicy) error
 	AddBackend(*loadbalancer.Backend, bool) error
 	UpdateBackendWithState(*loadbalancer.Backend) error
 	DeleteBackendByID(loadbalancer.BackendID) error
-	AddAffinityMatch(uint16, loadbalancer.BackendID) error
-	DeleteAffinityMatch(uint16, loadbalancer.BackendID) error
-	UpdateSourceRanges(uint16, []*cidr.CIDR, []*cidr.CIDR, bool) error
+	AddAffinityMatch(uint32, loadbalancer.BackendID) error
+	DeleteAffinityMatch(uint32, loadbalancer.BackendID) error
+	UpdateSourceRanges(uint32, []*cidr.CIDR, []*cidr.CIDR, bool) error // TODO Maybe set kisaltma for uint32
 	DumpServiceMaps() ([]*loadbalancer.SVC, []error)
 	DumpBackendMaps() ([]*loadbalancer.Backend, error)
 	DumpAffinityMatches() (BackendIDByServiceIDSet, error)
@@ -31,7 +31,7 @@ type LBMap interface {
 }
 
 type UpsertServiceParams struct {
-	ID   uint16
+	ID   uint32
 	IP   net.IP
 	Port uint16
 
@@ -104,6 +104,6 @@ func (p *UpsertServiceParams) GetOrderedBackends() []loadbalancer.BackendID {
 
 // BackendIDByServiceIDSet is the type of a set for checking whether a backend
 // belongs to a given service
-type BackendIDByServiceIDSet map[uint16]map[loadbalancer.BackendID]struct{} // svc ID => backend ID
+type BackendIDByServiceIDSet map[uint32]map[loadbalancer.BackendID]struct{} // svc ID => backend ID
 
-type SourceRangeSetByServiceID map[uint16][]*cidr.CIDR // svc ID => src range CIDRs
+type SourceRangeSetByServiceID map[uint32][]*cidr.CIDR // svc ID => src range CIDRs

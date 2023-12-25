@@ -80,7 +80,7 @@ int nodeport_no_backend_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_no_backend")
 int nodeport_no_backend_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
+	__u32 revnat_id = 1;
 
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, revnat_id);
 

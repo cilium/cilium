@@ -182,7 +182,7 @@ func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint32, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
 	table := maglev.GetLookupTable(backends, lbmap.maglevTableSize)
 	for i, id := range table {
 		lbmap.maglevBackendIDsBuffer[i] = loadbalancer.BackendID(id)
@@ -202,10 +202,10 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 
 	if ipv6 {
 		svcKey = NewService6Key(svc.AddrCluster.AsNetIP(), svc.Port, u8proto.ANY, svc.Scope, 0)
-		revNATKey = NewRevNat6Key(uint16(svc.ID))
+		revNATKey = NewRevNat6Key(uint32(svc.ID))
 	} else {
 		svcKey = NewService4Key(svc.AddrCluster.AsNetIP(), svc.Port, u8proto.ANY, svc.Scope, 0)
-		revNATKey = NewRevNat4Key(uint16(svc.ID))
+		revNATKey = NewRevNat4Key(uint32(svc.ID))
 	}
 
 	for slot := 0; slot <= backendCount; slot++ {
@@ -216,7 +216,7 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 	}
 
 	if useMaglev {
-		if err := deleteMaglevTable(ipv6, uint16(svc.ID)); err != nil {
+		if err := deleteMaglevTable(ipv6, uint32(svc.ID)); err != nil {
 			return fmt.Errorf("Unable to delete maglev lookup table %d: %s", svc.ID, err)
 		}
 	}
@@ -318,13 +318,13 @@ func (*LBBPFMap) DeleteBackendByID(id loadbalancer.BackendID) error {
 
 // DeleteAffinityMatch removes the affinity match for the given svc and backend ID
 // tuple from the BPF map
-func (*LBBPFMap) DeleteAffinityMatch(revNATID uint16, backendID loadbalancer.BackendID) error {
+func (*LBBPFMap) DeleteAffinityMatch(revNATID uint32, backendID loadbalancer.BackendID) error {
 	return AffinityMatchMap.Delete(
 		NewAffinityMatchKey(revNATID, backendID).ToNetwork())
 }
 
 // AddAffinityMatch adds the given affinity match to the BPF map.
-func (*LBBPFMap) AddAffinityMatch(revNATID uint16, backendID loadbalancer.BackendID) error {
+func (*LBBPFMap) AddAffinityMatch(revNATID uint32, backendID loadbalancer.BackendID) error {
 	return AffinityMatchMap.Update(
 		NewAffinityMatchKey(revNATID, backendID).ToNetwork(),
 		&AffinityMatchValue{})
@@ -391,7 +391,7 @@ func deleteRevNatLocked(key RevNatKey) error {
 	return key.Map().Delete(key.ToNetwork())
 }
 
-func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CIDR,
+func (*LBBPFMap) UpdateSourceRanges(revNATID uint32, prevSourceRanges []*cidr.CIDR,
 	sourceRanges []*cidr.CIDR, ipv6 bool) error {
 
 	m := SourceRange4Map

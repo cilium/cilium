@@ -81,7 +81,7 @@ struct pktgen builder;
 SETUP("tc", "tc_nodeport_no_backend")
 int nodeport_no_backend_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
+	__u32 revnat_id = 1;
 
 	union v6addr frontend_ip = {};
 

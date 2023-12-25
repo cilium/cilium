@@ -55,7 +55,7 @@ var (
 		TxBytes:          2048,
 		Lifetime:         12345,
 		Flags:            3,
-		RevNAT:           byteorder.HostToNetwork16(27),
+		RevNAT:           byteorder.HostToNetwork32(27),
 		TxFlagsSeen:      88,
 		RxFlagsSeen:      99,
 		SourceSecurityID: 6789,

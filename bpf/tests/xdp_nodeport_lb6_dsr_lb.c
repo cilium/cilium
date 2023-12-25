@@ -113,7 +113,7 @@ int nodeport_dsr_fwd_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IP;
 	union v6addr backend_ip = BACKEND_IP;
-	__u16 revnat_id = 1;
+	__u32 revnat_id = 1;
 
 	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, 1, revnat_id);
 	lb_v6_add_backend(&frontend_ip, FRONTEND_PORT, 1, 124,

@@ -480,7 +480,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 }
 
 static __always_inline struct lb6_reverse_nat *
-lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
+lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u32 index)
 {
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT_LOOKUP, index, 0);
 
@@ -495,7 +495,7 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg saddr_tuple	If set, tuple address will be updated with new source address
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-				       __u16 index, struct ipv6_ct_tuple *tuple, int flags)
+				       __u32 index, struct ipv6_ct_tuple *tuple, int flags)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -1129,7 +1129,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 }
 
 static __always_inline struct lb4_reverse_nat *
-lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
+lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u32 index)
 {
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT_LOOKUP, index, 0);
 
@@ -1145,7 +1145,7 @@ lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg tuple		tuple
  */
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-				       __u16 index, bool loopback,
+				       __u32 index, bool loopback,
 				       struct ipv4_ct_tuple *tuple, int flags, bool has_l4_header)
 {
 	struct lb4_reverse_nat *nat;

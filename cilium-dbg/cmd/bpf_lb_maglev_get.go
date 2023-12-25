@@ -29,7 +29,7 @@ var bpfMaglevGetCmd = &cobra.Command{
 		if err != nil {
 			Fatalf("Unable to parse %s: %s", args[0], err)
 		}
-		svcID := uint16(arg)
+		svcID := uint32(arg)
 
 		backends, err := getMaglevServiceBackends(svcID)
 		if err != nil {
@@ -53,7 +53,7 @@ var bpfMaglevGetCmd = &cobra.Command{
 
 // getMaglevServiceBackends queries the v4 and v6 Maglev maps for the backends
 // of the given service ID.
-func getMaglevServiceBackends(svcID uint16) (map[string][]string, error) {
+func getMaglevServiceBackends(svcID uint32) (map[string][]string, error) {
 	backends := make(map[string][]string)
 	which := ""
 	for _, mapName := range []string{lbmap.MaglevOuter4MapName, lbmap.MaglevOuter6MapName} {
@@ -79,7 +79,7 @@ func getMaglevServiceBackends(svcID uint16) (map[string][]string, error) {
 
 // dumpMaglevServiceBackends looks up the given service ID in the Maglev map
 // with the given name.
-func dumpMaglevServiceBackends(mapName string, svcID uint16) (string, error) {
+func dumpMaglevServiceBackends(mapName string, svcID uint32) (string, error) {
 	m, err := lbmap.OpenMaglevOuterMap(mapName)
 	if err != nil {
 		return "", err

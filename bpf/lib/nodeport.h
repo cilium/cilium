@@ -822,7 +822,7 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 {
 	struct ipv6_nat_entry *dsr_entry __maybe_unused;
 	struct ipv6_ct_tuple dsr_tuple __maybe_unused;
-	__u16 rev_nat_index = 0;
+	__u32 rev_nat_index = 0;
 
 	if (!ct_has_nodeport_egress_entry6(get_ct_map6(tuple), tuple,
 					   &rev_nat_index, is_defined(ENABLE_DSR)))
@@ -2346,7 +2346,7 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 {
 	struct ipv4_nat_entry *dsr_entry __maybe_unused;
 	struct ipv4_ct_tuple dsr_tuple __maybe_unused;
-	__u16 rev_nat_index = 0;
+	__u32 rev_nat_index = 0;
 
 	if (!ct_has_nodeport_egress_entry4(get_ct_map4(tuple), tuple,
 					   &rev_nat_index, is_defined(ENABLE_DSR)))

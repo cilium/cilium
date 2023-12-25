@@ -99,7 +99,7 @@ int hairpin_flow_forward_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_flow_1_forward_v4")
 int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
+	__u32 revnat_id = 1;
 
 	lb_v4_add_service(v4_svc_one, tcp_svc_one, 1, revnat_id);
 	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,

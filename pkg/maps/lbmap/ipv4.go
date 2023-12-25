@@ -170,29 +170,29 @@ var _ Backend = (*Backend4V2)(nil)
 var _ Backend = (*Backend4V3)(nil)
 
 type RevNat4Key struct {
-	Key uint16
+	Key uint32
 }
 
-func NewRevNat4Key(value uint16) *RevNat4Key {
+func NewRevNat4Key(value uint32) *RevNat4Key {
 	return &RevNat4Key{value}
 }
 
 func (k *RevNat4Key) Map() *bpf.Map   { return RevNat4Map }
 func (k *RevNat4Key) String() string  { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
 func (k *RevNat4Key) New() bpf.MapKey { return &RevNat4Key{} }
-func (k *RevNat4Key) GetKey() uint16  { return k.Key }
+func (k *RevNat4Key) GetKey() uint32  { return k.Key }
 
 // ToNetwork converts RevNat4Key to network byte order.
 func (k *RevNat4Key) ToNetwork() RevNatKey {
 	n := *k
-	n.Key = byteorder.HostToNetwork16(n.Key)
+	n.Key = byteorder.HostToNetwork32(n.Key)
 	return &n
 }
 
 // ToHost converts RevNat4Key to host byte order.
 func (k *RevNat4Key) ToHost() RevNatKey {
 	h := *k
-	h.Key = byteorder.NetworkToHost16(h.Key)
+	h.Key = byteorder.NetworkToHost32(h.Key)
 	return &h
 }
 
@@ -291,12 +291,11 @@ func (k *Service4Key) ToHost() ServiceKey {
 
 // Service4Value must match 'struct lb4_service' in "bpf/lib/common.h".
 type Service4Value struct {
-	BackendID uint32    `align:"$union0"`
-	Count     uint16    `align:"count"`
-	RevNat    uint16    `align:"rev_nat_index"`
-	Flags     uint8     `align:"flags"`
-	Flags2    uint8     `align:"flags2"`
-	Pad       pad2uint8 `align:"pad"`
+	BackendID uint32 `align:"$union0"`
+	Count     uint16 `align:"count"`
+	Flags     uint8  `align:"flags"`
+	Flags2    uint8  `align:"flags2"`
+	RevNat    uint32 `align:"rev_nat_index"`
 }
 
 func (s *Service4Value) New() bpf.MapValue { return &Service4Value{} }
@@ -308,7 +307,7 @@ func (s *Service4Value) String() string {
 
 func (s *Service4Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int        { return int(s.Count) }
-func (s *Service4Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
+func (s *Service4Value) SetRevNat(id int)     { s.RevNat = uint32(id) }
 func (s *Service4Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service4Value) RevNatKey() RevNatKey { return &RevNat4Key{s.RevNat} }
 func (s *Service4Value) SetFlags(flags uint16) {
@@ -341,14 +340,14 @@ func (s *Service4Value) GetBackendID() loadbalancer.BackendID {
 
 func (s *Service4Value) ToNetwork() ServiceValue {
 	n := *s
-	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
+	n.RevNat = byteorder.HostToNetwork32(n.RevNat)
 	return &n
 }
 
 // ToHost converts Service4Value to host byte order.
 func (s *Service4Value) ToHost() ServiceValue {
 	h := *s
-	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
+	h.RevNat = byteorder.NetworkToHost32(h.RevNat)
 	return &h
 }
 
@@ -556,7 +555,8 @@ type SockRevNat4Key struct {
 type SockRevNat4Value struct {
 	Address     types.IPv4 `align:"address"`
 	Port        int16      `align:"port"`
-	RevNatIndex uint16     `align:"rev_nat_index"`
+	Pad         uint16     `align:"pad"`
+	RevNatIndex uint32     `align:"rev_nat_index"`
 }
 
 func (k *SockRevNat4Key) Map() *bpf.Map { return SockRevNat4Map }

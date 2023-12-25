@@ -67,8 +67,8 @@ func initAffinity(params InitParams) {
 
 type AffinityMatchKey struct {
 	BackendID loadbalancer.BackendID `align:"backend_id"`
-	RevNATID  uint16                 `align:"rev_nat_id"`
-	Pad       uint16                 `align:"pad"`
+	RevNATID  uint32                 `align:"rev_nat_id"`
+	Pad       uint32                 `align:"pad"`
 }
 
 type AffinityMatchValue struct {
@@ -76,7 +76,7 @@ type AffinityMatchValue struct {
 }
 
 // NewAffinityMatchKey creates the AffinityMatch key
-func NewAffinityMatchKey(revNATID uint16, backendID loadbalancer.BackendID) *AffinityMatchKey {
+func NewAffinityMatchKey(revNATID uint32, backendID loadbalancer.BackendID) *AffinityMatchKey {
 	return &AffinityMatchKey{
 		BackendID: backendID,
 		RevNATID:  revNATID,
@@ -100,33 +100,33 @@ func (k *AffinityMatchKey) ToNetwork() *AffinityMatchKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
 	// the SVC BPF maps
-	n.RevNATID = byteorder.HostToNetwork16(n.RevNATID)
+	n.RevNATID = byteorder.HostToNetwork32(n.RevNATID)
 	return &n
 }
 
 // ToHost returns the key in the host byte order
 func (k *AffinityMatchKey) ToHost() *AffinityMatchKey {
 	h := *k
-	h.RevNATID = byteorder.NetworkToHost16(h.RevNATID)
+	h.RevNATID = byteorder.NetworkToHost32(h.RevNATID)
 	return &h
 }
 
 // Affinity4Key is the Go representation of lb4_affinity_key
 type Affinity4Key struct {
 	ClientID    uint64 `align:"client_id"`
-	RevNATID    uint16 `align:"rev_nat_id"`
+	RevNATID    uint32 `align:"rev_nat_id"`
 	NetNSCookie uint8  `align:"netns_cookie"`
 	Pad1        uint8  `align:"pad1"`
-	Pad2        uint32 `align:"pad2"`
+	Pad2        uint16 `align:"pad2"`
 }
 
 // Affinity6Key is the Go representation of lb6_affinity_key
 type Affinity6Key struct {
 	ClientID    types.IPv6 `align:"client_id"`
-	RevNATID    uint16     `align:"rev_nat_id"`
+	RevNATID    uint32     `align:"rev_nat_id"`
 	NetNSCookie uint8      `align:"netns_cookie"`
 	Pad1        uint8      `align:"pad1"`
-	Pad2        uint32     `align:"pad2"`
+	Pad2        uint16     `align:"pad2"`
 }
 
 // AffinityValue is the Go representing of lb_affinity_value
