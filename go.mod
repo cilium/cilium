@@ -10,9 +10,9 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.9.23
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.639
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.643
 	github.com/aws/aws-sdk-go-v2 v1.24.0
-	github.com/aws/aws-sdk-go-v2/config v1.26.1
+	github.com/aws/aws-sdk-go-v2/config v1.26.2
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.10
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.141.0
 	github.com/aws/smithy-go v1.19.0
@@ -37,11 +37,11 @@ require (
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-openapi/errors v0.21.0
-	github.com/go-openapi/loads v0.21.3
+	github.com/go-openapi/loads v0.21.5
 	github.com/go-openapi/runtime v0.26.2
-	github.com/go-openapi/spec v0.20.12
+	github.com/go-openapi/spec v0.20.13
 	github.com/go-openapi/strfmt v0.21.10
-	github.com/go-openapi/swag v0.22.5
+	github.com/go-openapi/swag v0.22.6
 	github.com/go-openapi/validate v0.22.4
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
@@ -79,7 +79,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	github.com/spiffe/go-spiffe/v2 v2.1.6
-	github.com/spiffe/spire-api-sdk v1.8.5
+	github.com/spiffe/spire-api-sdk v1.8.7
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.17.0
 	github.com/tidwall/sjson v1.2.5
@@ -136,7 +136,7 @@ require (
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.16.12 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.13 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.9 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.9 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.2 // indirect
@@ -144,7 +144,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.18.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.26.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.6 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -169,9 +169,9 @@ require (
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/go-openapi/analysis v0.21.5 // indirect
-	github.com/go-openapi/jsonpointer v0.20.1 // indirect
-	github.com/go-openapi/jsonreference v0.20.3 // indirect
+	github.com/go-openapi/analysis v0.22.0 // indirect
+	github.com/go-openapi/jsonpointer v0.20.2 // indirect
+	github.com/go-openapi/jsonreference v0.20.4 // indirect
 	github.com/gobuffalo/flect v1.0.2 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
