@@ -46,6 +46,25 @@ service Entry {
     // The caller must present an active agent X509-SVID. See the Agent
     // AttestAgent/RenewAgent RPCs.
     rpc GetAuthorizedEntries(GetAuthorizedEntriesRequest) returns (GetAuthorizedEntriesResponse);
+
+    // Syncs authorized entries down to the caller. The caller controls which
+    // entries the server sends down full details for. The flow is as follows:
+    // 1. Caller opens up sync stream
+    // 2. Server determines authorized entries for caller:
+    //    - If there are less entries than a server-determined page size, go to (5).
+    //    - Otherwise, go to (3).
+    // 3. Server pages entry revisions to the caller (contains the entry ID and
+    //    revision number). The "more" flag set for all pages but the last so
+    //    that the caller knows when the server is done.
+    // 4. Client determines which entries are new or updated (based on revision
+    //    number) and asks for them by sending a request with the IDs.
+    // 5. Server pages down entries to the caller for each ID identified in (4)
+    //    or every entry in (2) if the number of entries was less than the
+    //    server-determined page size. The "more" flag set for all pages but
+    //    the last so that the caller knows when the server is done.
+    // 6. Steps (4) and (5) are repeated until the caller has synced down the
+    //    details for all new/updated entries and closes the stream.
+    rpc SyncAuthorizedEntries(stream SyncAuthorizedEntriesRequest) returns (stream SyncAuthorizedEntriesResponse);
 }
 
 message CountEntriesRequest {
@@ -97,8 +116,8 @@ message GetEntryRequest {
 }
 
 message BatchCreateEntryRequest {
-    // The entries to be created. The entry ID field is output only, and will
-    // be ignored here.
+    // The entries to be created. If no entry ID is provided, one will be 
+    // generated.
     repeated spire.api.types.Entry entries = 1;
 
     // An output mask indicating the entry fields set in the response.
@@ -175,4 +194,41 @@ message GetAuthorizedEntriesRequest {
 message GetAuthorizedEntriesResponse {
     // The authorized entries.
     repeated spire.api.types.Entry entries = 1;
+}
+
+message SyncAuthorizedEntriesRequest {
+    // An output mask indicating which fields are set in the response.
+    spire.api.types.EntryMask output_mask = 1;
+
+    // IDs of the entries to fetch in full. Sent by the client in response to
+    // a sparse entry.
+    repeated string ids = 2;
+}
+
+message SyncAuthorizedEntriesResponse {
+    // The revisions of the authorized entries. This field is set when the
+    // authorized entry list meets or exceeds the server-determined page size.
+    // Callers use it to determine which entries are new/updated that they then
+    // request on the stream.
+    // See SyncAuthorizedEntries for details.
+    repeated EntryRevision entry_revisions = 1;
+   
+    // The authorized entries. This field is set either 1) on the initial
+    // response if the number of authorized entries is less than the page size
+    // or 2) in response to the caller requesting the entries after determining
+    // they need to details based on entry revisions provided in a previous
+    // response.
+    // See SyncAuthorizedEntries for details.
+    repeated spire.api.types.Entry entries = 2;
+   
+    // Whether there are more entries to sync down in this response phase.
+    bool more = 3;
+}
+
+message EntryRevision {
+    // The entry ID.
+    string id = 1;
+
+    // The entry revision number.
+    int64 revision_number = 2;
 }
