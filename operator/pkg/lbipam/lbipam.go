@@ -46,8 +46,10 @@ const (
 	ciliumPoolConflict              = "cilium.io/PoolConflict"
 
 	// The annotation LB IPAM will look for when searching for requested IPs
-	ciliumSvcLBIPSAnnotation = "io.cilium/lb-ipam-ips"
-	ciliumSvcLBISKAnnotation = "io.cilium/lb-ipam-sharing-key"
+	ciliumSvcLBIPSAnnotation   = "io.cilium/lb-ipam-ips"
+	ciliumSvcLBISKAnnotation   = "io.cilium/lb-ipam-sharing-key"
+	ciliumSvcLBISKCNAnnotation = "io.cilium/lb-ipam-sharing-cross-namespace"
+	ciliumSvcLBISKCNWildward   = "*"
 
 	// The string used in the FieldManager field on update options
 	ciliumFieldManager = "cilium-operator-lb-ipam"
@@ -455,6 +457,7 @@ func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.S
 	sv.RequestedFamilies.IPv4, sv.RequestedFamilies.IPv6 = ipam.serviceIPFamilyRequest(svc)
 	sv.RequestedIPs = getSVCRequestedIPs(ipam.logger, svc)
 	sv.SharingKey = getSVCSharingKey(ipam.logger, svc)
+	sv.SharingCrossNamespace = getSVCSharingCrossNamespace(ipam.logger, svc)
 	sv.ExternalTrafficPolicy = svc.Spec.ExternalTrafficPolicy
 	sv.Ports = make([]slim_core_v1.ServicePort, len(svc.Spec.Ports))
 	copy(sv.Ports, svc.Spec.Ports)
@@ -703,6 +706,13 @@ func getSVCSharingKey(log logrus.FieldLogger, svc *slim_core_v1.Service) string 
 		return annotation
 	}
 	return ""
+}
+
+func getSVCSharingCrossNamespace(log logrus.FieldLogger, svc *slim_core_v1.Service) []string {
+	if annotation := svc.Annotations[ciliumSvcLBISKCNAnnotation]; annotation != "" {
+		return strings.Split(annotation, ",")
+	}
+	return []string{}
 }
 
 func (ipam *LBIPAM) handleDeletedService(svc *slim_core_v1.Service) {
