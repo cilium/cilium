@@ -183,7 +183,7 @@ func (m *LBMockMap) DumpBackendMaps() ([]*lb.Backend, error) {
 	return list, nil
 }
 
-func (m *LBMockMap) AddAffinityMatch(revNATID uint16, backendID lb.BackendID) error {
+func (m *LBMockMap) AddAffinityMatch(revNATID uint32, backendID lb.BackendID) error {
 	m.Lock()
 	defer m.Unlock()
 	if _, ok := m.AffinityMatch[revNATID]; !ok {
@@ -197,7 +197,7 @@ func (m *LBMockMap) AddAffinityMatch(revNATID uint16, backendID lb.BackendID) er
 	return nil
 }
 
-func (m *LBMockMap) DeleteAffinityMatch(revNATID uint16, backendID lb.BackendID) error {
+func (m *LBMockMap) DeleteAffinityMatch(revNATID uint32, backendID lb.BackendID) error {
 	m.Lock()
 	defer m.Unlock()
 	if _, ok := m.AffinityMatch[revNATID]; !ok {
