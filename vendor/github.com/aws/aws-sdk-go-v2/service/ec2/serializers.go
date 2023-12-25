@@ -48678,6 +48678,11 @@ func awsEc2query_serializeOpDocumentAdvertiseByoipCidrInput(v *AdvertiseByoipCid
 		objectKey.Boolean(*v.DryRun)
 	}
 
+	if v.NetworkBorderGroup != nil {
+		objectKey := object.Key("NetworkBorderGroup")
+		objectKey.String(*v.NetworkBorderGroup)
+	}
+
 	return nil
 }
 
@@ -66029,6 +66034,11 @@ func awsEc2query_serializeOpDocumentProvisionByoipCidrInput(v *ProvisionByoipCid
 	if v.MultiRegion != nil {
 		objectKey := object.Key("MultiRegion")
 		objectKey.Boolean(*v.MultiRegion)
+	}
+
+	if v.NetworkBorderGroup != nil {
+		objectKey := object.Key("NetworkBorderGroup")
+		objectKey.String(*v.NetworkBorderGroup)
 	}
 
 	if v.PoolTagSpecifications != nil {
