@@ -946,6 +946,19 @@ type ByoipCidr struct {
 	// The description of the address range.
 	Description *string
 
+	// If you have Local Zones (https://docs.aws.amazon.com/local-zones/latest/ug/how-local-zones-work.html)
+	// enabled, you can choose a network border group for Local Zones when you
+	// provision and advertise a BYOIPv4 CIDR. Choose the network border group
+	// carefully as the EIP and the Amazon Web Services resource it is associated with
+	// must reside in the same network border group. You can provision BYOIP address
+	// ranges to and advertise them in the following Local Zone network border groups:
+	//   - us-east-1-dfw-2
+	//   - us-west-2-lax-1
+	//   - us-west-2-phx-2
+	// You cannot provision or advertise BYOIPv6 address ranges in Local Zones at this
+	// time.
+	NetworkBorderGroup *string
+
 	// The state of the address pool.
 	State ByoipCidrState
 
@@ -6451,7 +6464,11 @@ type InstanceNetworkInterfaceSpecification struct {
 	// a VPC. The public IP address can only be assigned to a network interface for
 	// eth0, and can only be assigned to a new network interface, not an existing one.
 	// You cannot specify more than one network interface in the request. If launching
-	// into a default subnet, the default value is true .
+	// into a default subnet, the default value is true . Starting on February 1, 2024,
+	// Amazon Web Services will charge for all public IPv4 addresses, including public
+	// IPv4 addresses associated with running instances and Elastic IP addresses. For
+	// more information, see the Public IPv4 Address tab on the Amazon VPC pricing page (http://aws.amazon.com/vpc/pricing/)
+	// .
 	AssociatePublicIpAddress *bool
 
 	// A security group connection tracking specification that enables you to set the
@@ -8988,15 +9005,16 @@ type LaunchTemplateInstanceMetadataOptions struct {
 	// Possible values: Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
 
-	// Indicates whether IMDSv2 is optional or required . optional - When IMDSv2 is
-	// optional, you can choose to retrieve instance metadata with or without a session
-	// token in your request. If you retrieve the IAM role credentials without a token,
-	// the IMDSv1 role credentials are returned. If you retrieve the IAM role
-	// credentials using a valid session token, the IMDSv2 role credentials are
-	// returned. required - When IMDSv2 is required, you must send a session token
-	// with any instance metadata retrieval requests. In this state, retrieving the IAM
-	// role credentials always returns IMDSv2 credentials; IMDSv1 credentials are not
-	// available. Default: optional
+	// Indicates whether IMDSv2 is required.
+	//   - optional - IMDSv2 is optional. You can choose whether to send a session
+	//   token in your instance metadata retrieval requests. If you retrieve IAM role
+	//   credentials without a session token, you receive the IMDSv1 role credentials. If
+	//   you retrieve IAM role credentials using a valid session token, you receive the
+	//   IMDSv2 role credentials.
+	//   - required - IMDSv2 is required. You must send a session token in your
+	//   instance metadata retrieval requests. With this option, retrieving the IAM role
+	//   credentials always returns IMDSv2 credentials; IMDSv1 credentials are not
+	//   available.
 	HttpTokens LaunchTemplateHttpTokensState
 
 	// Set to enabled to allow access to instance tags from the instance metadata. Set
@@ -9033,19 +9051,18 @@ type LaunchTemplateInstanceMetadataOptionsRequest struct {
 	// Possible values: Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
 
-	// IMDSv2 uses token-backed sessions. Set the use of HTTP tokens to optional (in
-	// other words, set the use of IMDSv2 to optional ) or required (in other words,
-	// set the use of IMDSv2 to required ).
-	//   - optional - When IMDSv2 is optional, you can choose to retrieve instance
-	//   metadata with or without a session token in your request. If you retrieve the
-	//   IAM role credentials without a token, the IMDSv1 role credentials are returned.
-	//   If you retrieve the IAM role credentials using a valid session token, the IMDSv2
-	//   role credentials are returned.
-	//   - required - When IMDSv2 is required, you must send a session token with any
-	//   instance metadata retrieval requests. In this state, retrieving the IAM role
+	// Indicates whether IMDSv2 is required.
+	//   - optional - IMDSv2 is optional. You can choose whether to send a session
+	//   token in your instance metadata retrieval requests. If you retrieve IAM role
+	//   credentials without a session token, you receive the IMDSv1 role credentials. If
+	//   you retrieve IAM role credentials using a valid session token, you receive the
+	//   IMDSv2 role credentials.
+	//   - required - IMDSv2 is required. You must send a session token in your
+	//   instance metadata retrieval requests. With this option, retrieving the IAM role
 	//   credentials always returns IMDSv2 credentials; IMDSv1 credentials are not
 	//   available.
-	// Default: optional
+	// Default: If the value of ImdsSupport for the Amazon Machine Image (AMI) for
+	// your instance is v2.0 , the default is required .
 	HttpTokens LaunchTemplateHttpTokensState
 
 	// Set to enabled to allow access to instance tags from the instance metadata. Set
@@ -9068,7 +9085,11 @@ type LaunchTemplateInstanceNetworkInterfaceSpecification struct {
 	AssociateCarrierIpAddress *bool
 
 	// Indicates whether to associate a public IPv4 address with eth0 for a new
-	// network interface.
+	// network interface. Starting on February 1, 2024, Amazon Web Services will charge
+	// for all public IPv4 addresses, including public IPv4 addresses associated with
+	// running instances and Elastic IP addresses. For more information, see the Public
+	// IPv4 Address tab on the Amazon VPC pricing page (http://aws.amazon.com/vpc/pricing/)
+	// .
 	AssociatePublicIpAddress *bool
 
 	// A security group connection tracking specification that enables you to set the
@@ -9156,6 +9177,10 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 	AssociateCarrierIpAddress *bool
 
 	// Associates a public IPv4 address with eth0 for a new network interface.
+	// Starting on February 1, 2024, Amazon Web Services will charge for all public
+	// IPv4 addresses, including public IPv4 addresses associated with running
+	// instances and Elastic IP addresses. For more information, see the Public IPv4
+	// Address tab on the Amazon VPC pricing page (http://aws.amazon.com/vpc/pricing/) .
 	AssociatePublicIpAddress *bool
 
 	// A security group connection tracking specification that enables you to set the
@@ -12454,16 +12479,8 @@ type RequestLaunchTemplateData struct {
 	// group IDs instead.
 	SecurityGroups []string
 
-	// The tags to apply to the resources that are created during instance launch. You
-	// can specify tags for the following resources only:
-	//   - Instances
-	//   - Volumes
-	//   - Elastic graphics
-	//   - Spot Instance requests
-	//   - Network interfaces
-	// To tag a resource after it has been created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html)
-	// . To tag the launch template itself, you must use the TagSpecification (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateLaunchTemplate.html)
-	// parameter.
+	// The tags to apply to the resources that are created during instance launch.
+	// These tags are not applied to the launch template.
 	TagSpecifications []LaunchTemplateTagSpecificationRequest
 
 	// The user data to make available to the instance. You must provide
