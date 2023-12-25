@@ -1464,7 +1464,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	svc, ok := m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
-	c.Assert(svc.l7LBProxyPort, Equals, uint32(0))
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
 	// registering without redirecting
 	echoOtherNode := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
@@ -1475,7 +1475,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
-	c.Assert(svc.l7LBProxyPort, Equals, uint32(0))
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
 	// registering with redirection stores the proxy port
 	resource2 := lb.ServiceName{Name: "testOwner2", Namespace: "cilium-test"}
@@ -1485,7 +1485,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
-	c.Assert(svc.l7LBProxyPort, Equals, uint32(9090))
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
 
 	// Remove with an unregistered owner name does not remove
 	resource3 := lb.ServiceName{Name: "testOwner3", Namespace: "cilium-test"}
