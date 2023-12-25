@@ -66,7 +66,8 @@ type ServiceView struct {
 	Generation int64
 	Status     *slim_core_v1.ServiceStatus
 
-	SharingKey string
+	SharingKey            string
+	SharingCrossNamespace []string
 	// These required to determine if a service conflicts with another for sharing an ip
 	ExternalTrafficPolicy slim_core_v1.ServiceExternalTrafficPolicy
 	Ports                 []slim_core_v1.ServicePort
@@ -93,8 +94,11 @@ func (sv *ServiceView) isCompatible(osv *ServiceView) bool {
 
 	// Services are namespaced, so services are only compatible if they are in the same namespace.
 	// This is for security reasons, otherwise a bad tennant could use a service in another namespace.
+	// We still allow cross-namespace sharing if specifically allowed on both services.
 	if sv.Namespace != osv.Namespace {
-		return false
+		if !slices.Contains(sv.SharingCrossNamespace, osv.Namespace) && !slices.Contains(sv.SharingCrossNamespace, ciliumSvcLBISKCNWildward) || !slices.Contains(osv.SharingCrossNamespace, sv.Namespace) && !slices.Contains(osv.SharingCrossNamespace, ciliumSvcLBISKCNWildward) {
+			return false
+		}
 	}
 
 	// Compatible services don't have any overlapping ports.

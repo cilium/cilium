@@ -477,3 +477,5 @@ Services that have the same sharing key annotation will share the same IP or set
 
 As long as the services do not have conflicting ports, they will be allocated the same IP. If the services have conflicting ports, they will be allocated different IPs, which will be added to the set of IPs belonging to the sharing key.
 If a service has a sharing key and also requests a specific IP, the service will be allocated the requested IP and it will be added to the set of IPs belonging to that sharing key.
+
+By default, sharing IPs across namespaces is not allowed. To allow sharing across a namespace, set the ``io.cilium/lb-ipam-sharing-cross-namespace`` annotation to the namespaces the service can be shared with. The value must be a comma-separated list of namespaces. The annotation must be present on both services. You can allow all namespaces with ``*``.
