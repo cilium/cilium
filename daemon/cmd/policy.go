@@ -18,6 +18,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -72,6 +74,7 @@ type policyParams struct {
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
 	CacheStatus     k8s.CacheStatus
+	ClusterInfo     cmtypes.ClusterInfo
 }
 
 type policyOut struct {
@@ -92,6 +95,11 @@ type policyOut struct {
 // The three have a circular dependency on each other and therefore require
 // special care.
 func newPolicyTrifecta(params policyParams) (policyOut, error) {
+	if option.Config.EnableWellKnownIdentities {
+		// Must be done before calling policy.NewPolicyRepository() below.
+		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
+		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
+	}
 	iao := &identityAllocatorOwner{}
 	idAlloc := cache.NewCachingIdentityAllocator(iao)
 
