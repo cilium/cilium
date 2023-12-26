@@ -20,10 +20,11 @@ import (
 )
 
 type mockEntryClient struct {
-	ListEntriesFunc      func(ctx context.Context, in *entryv1.ListEntriesRequest, opts ...grpc.CallOption) (*entryv1.ListEntriesResponse, error)
-	BatchCreateEntryFunc func(ctx context.Context, in *entryv1.BatchCreateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchCreateEntryResponse, error)
-	BatchUpdateEntryFunc func(ctx context.Context, in *entryv1.BatchUpdateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchUpdateEntryResponse, error)
-	BatchDeleteEntryFunc func(ctx context.Context, in *entryv1.BatchDeleteEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchDeleteEntryResponse, error)
+	ListEntriesFunc           func(ctx context.Context, in *entryv1.ListEntriesRequest, opts ...grpc.CallOption) (*entryv1.ListEntriesResponse, error)
+	BatchCreateEntryFunc      func(ctx context.Context, in *entryv1.BatchCreateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchCreateEntryResponse, error)
+	BatchUpdateEntryFunc      func(ctx context.Context, in *entryv1.BatchUpdateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchUpdateEntryResponse, error)
+	BatchDeleteEntryFunc      func(ctx context.Context, in *entryv1.BatchDeleteEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchDeleteEntryResponse, error)
+	SyncAuthorizedEntriesFunc func(ctx context.Context, opts ...grpc.CallOption) (entryv1.Entry_SyncAuthorizedEntriesClient, error)
 }
 
 func (m mockEntryClient) CountEntries(ctx context.Context, in *entryv1.CountEntriesRequest, opts ...grpc.CallOption) (*entryv1.CountEntriesResponse, error) {
@@ -51,6 +52,10 @@ func (m mockEntryClient) BatchDeleteEntry(ctx context.Context, in *entryv1.Batch
 }
 
 func (m mockEntryClient) GetAuthorizedEntries(ctx context.Context, in *entryv1.GetAuthorizedEntriesRequest, opts ...grpc.CallOption) (*entryv1.GetAuthorizedEntriesResponse, error) {
+	panic("implement me")
+}
+
+func (m mockEntryClient) SyncAuthorizedEntries(ctx context.Context, opts ...grpc.CallOption) (entryv1.Entry_SyncAuthorizedEntriesClient, error) {
 	panic("implement me")
 }
 
