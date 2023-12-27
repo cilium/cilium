@@ -37,7 +37,7 @@ import (
 var Debug = logger.DebugEnabled()
 var Logger logger.Logger = logger.StandardLogger{}
 
-func debugLog(format string, args ...interface{}) {
+func debugLog(format string, args ...interface{}) { //nolint:goprintffuncname
 	if Debug {
 		Logger.Printf(format, args...)
 	}
@@ -162,7 +162,7 @@ func (r *routableUntypedAPI) HandlerFor(method, path string) (http.Handler, bool
 	r.hlock.Unlock()
 	return handler, ok
 }
-func (r *routableUntypedAPI) ServeErrorFor(operationID string) func(http.ResponseWriter, *http.Request, error) {
+func (r *routableUntypedAPI) ServeErrorFor(_ string) func(http.ResponseWriter, *http.Request, error) {
 	return r.api.ServeError
 }
 func (r *routableUntypedAPI) ConsumersFor(mediaTypes []string) map[string]runtime.Consumer {
@@ -516,7 +516,7 @@ func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []st
 			prods := c.api.ProducersFor(normalizeOffers([]string{c.api.DefaultProduces()}))
 			pr, ok := prods[c.api.DefaultProduces()]
 			if !ok {
-				panic(errors.New(http.StatusInternalServerError, "can't find a producer for "+format))
+				panic(errors.New(http.StatusInternalServerError, cantFindProducer(format)))
 			}
 			prod = pr
 		}
@@ -542,14 +542,14 @@ func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []st
 	}
 
 	if route == nil || route.Operation == nil {
-		rw.WriteHeader(200)
-		if r.Method == "HEAD" {
+		rw.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodHead {
 			return
 		}
 		producers := c.api.ProducersFor(normalizeOffers(offers))
 		prod, ok := producers[format]
 		if !ok {
-			panic(errors.New(http.StatusInternalServerError, "can't find a producer for "+format))
+			panic(errors.New(http.StatusInternalServerError, cantFindProducer(format)))
 		}
 		if err := prod.Produce(rw, data); err != nil {
 			panic(err) // let the recovery middleware deal with this
@@ -559,7 +559,7 @@ func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []st
 
 	if _, code, ok := route.Operation.SuccessResponse(); ok {
 		rw.WriteHeader(code)
-		if code == 204 || r.Method == "HEAD" {
+		if code == http.StatusNoContent || r.Method == http.MethodHead {
 			return
 		}
 
@@ -570,7 +570,7 @@ func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []st
 				prods := c.api.ProducersFor(normalizeOffers([]string{c.api.DefaultProduces()}))
 				pr, ok := prods[c.api.DefaultProduces()]
 				if !ok {
-					panic(errors.New(http.StatusInternalServerError, "can't find a producer for "+format))
+					panic(errors.New(http.StatusInternalServerError, cantFindProducer(format)))
 				}
 				prod = pr
 			}
@@ -632,4 +632,8 @@ func (c *Context) RoutesHandler(builder Builder) http.Handler {
 		b = PassthroughBuilder
 	}
 	return NewRouter(c, b(NewOperationExecutor(c)))
+}
+
+func cantFindProducer(format string) string {
+	return "can't find a producer for " + format
 }
