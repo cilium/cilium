@@ -22,7 +22,6 @@ import (
 // Spec creates a middleware to serve a swagger spec.
 // This allows for altering the spec before starting the http listener.
 // This can be useful if you want to serve the swagger spec from another path than /swagger.json
-//
 func Spec(basePath string, b []byte, next http.Handler) http.Handler {
 	if basePath == "" {
 		basePath = "/"
