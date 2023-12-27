@@ -4030,6 +4030,12 @@ func (c *DaemonConfig) IsDualStack() bool {
 	return c.EnableIPv4 && c.EnableIPv6
 }
 
+// IsLocalRouterIP checks if provided IP address matches either LocalRouterIPv4
+// or LocalRouterIPv6
+func (c *DaemonConfig) IsLocalRouterIP(ip string) bool {
+	return ip != "" && (c.LocalRouterIPv4 == ip || c.LocalRouterIPv6 == ip)
+}
+
 // StoreViperInFile stores viper's configuration in a the given directory under
 // the file name 'viper-config.yaml'. If this file already exists, it is renamed
 // to 'viper-config-1.yaml', if 'viper-config-1.yaml' also exists,

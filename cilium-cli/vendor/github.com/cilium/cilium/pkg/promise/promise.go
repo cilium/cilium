@@ -130,3 +130,14 @@ func Map[A, B any](p Promise[A], transform func(A) B) Promise[B] {
 		return transform(v), nil
 	})
 }
+
+// MapError transforms the error of a rejected promise with the provided function.
+func MapError[A any](p Promise[A], transform func(error) error) Promise[A] {
+	return wrappedPromise[A](func(ctx context.Context) (out A, err error) {
+		v, err := p.Await(ctx)
+		if err != nil {
+			err = transform(err)
+		}
+		return v, err
+	})
+}

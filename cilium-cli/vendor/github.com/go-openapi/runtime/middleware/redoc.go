@@ -1,3 +1,4 @@
+//nolint:dupl
 package middleware
 
 import (
@@ -28,22 +29,21 @@ func (r *RedocOpts) EnsureDefaults() {
 		r.BasePath = "/"
 	}
 	if r.Path == "" {
-		r.Path = "docs"
+		r.Path = defaultDocsPath
 	}
 	if r.SpecURL == "" {
-		r.SpecURL = "/swagger.json"
+		r.SpecURL = defaultDocsURL
 	}
 	if r.RedocURL == "" {
 		r.RedocURL = redocLatest
 	}
 	if r.Title == "" {
-		r.Title = "API documentation"
+		r.Title = defaultDocsTitle
 	}
 }
 
 // Redoc creates a middleware to serve a documentation site for a swagger spec.
 // This allows for altering the spec before starting the http listener.
-//
 func Redoc(opts RedocOpts, next http.Handler) http.Handler {
 	opts.EnsureDefaults()
 
