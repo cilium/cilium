@@ -144,7 +144,8 @@ type Server struct {
 	channelzID *channelz.Identifier
 	czData     *channelzData
 
-	serverWorkerChannel chan func()
+	serverWorkerChannel      chan func()
+	serverWorkerChannelClose func()
 }
 
 type serverOptions struct {
@@ -623,13 +624,12 @@ func (s *Server) serverWorker() {
 // connections to reduce the time spent overall on runtime.morestack.
 func (s *Server) initServerWorkers() {
 	s.serverWorkerChannel = make(chan func())
+	s.serverWorkerChannelClose = grpcsync.OnceFunc(func() {
+		close(s.serverWorkerChannel)
+	})
 	for i := uint32(0); i < s.opts.numServerWorkers; i++ {
 		go s.serverWorker()
 	}
-}
-
-func (s *Server) stopServerWorkers() {
-	close(s.serverWorkerChannel)
 }
 
 // NewServer creates a gRPC server which has no service registered and has not
@@ -1898,14 +1898,18 @@ func (s *Server) stop(graceful bool) {
 		s.closeServerTransportsLocked()
 	}
 
-	if s.opts.numServerWorkers > 0 {
-		s.stopServerWorkers()
-	}
-
 	for len(s.conns) != 0 {
 		s.cv.Wait()
 	}
 	s.conns = nil
+
+	if s.opts.numServerWorkers > 0 {
+		// Closing the channel (only once, via grpcsync.OnceFunc) after all the
+		// connections have been closed above ensures that there are no
+		// goroutines executing the callback passed to st.HandleStreams (where
+		// the channel is written to).
+		s.serverWorkerChannelClose()
+	}
 
 	if s.events != nil {
 		s.events.Finish()
