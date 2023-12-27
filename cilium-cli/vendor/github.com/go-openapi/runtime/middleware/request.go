@@ -65,7 +65,7 @@ func (o *UntypedRequestBinder) Bind(request *http.Request, routeParams RoutePara
 		if isMap {
 			tpe := binder.Type()
 			if tpe == nil {
-				if param.Schema.Type.Contains("array") {
+				if param.Schema.Type.Contains(typeArray) {
 					tpe = reflect.TypeOf([]interface{}{})
 				} else {
 					tpe = reflect.TypeOf(map[string]interface{}{})
