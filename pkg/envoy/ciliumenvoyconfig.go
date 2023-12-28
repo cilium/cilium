@@ -240,22 +240,8 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 							}
 						}
 						if injectCiliumFilters {
-							foundCiliumL7Filter := false
-						loop:
-							for j, httpFilter := range hcmConfig.HttpFilters {
-								switch httpFilter.Name {
-								case "cilium.l7policy":
-									foundCiliumL7Filter = true
-								case "envoy.filters.http.router":
-									if !foundCiliumL7Filter {
-										// Inject Cilium HTTP filter just before the HTTP Router filter
-										hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
-										hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
-										updated = true
-									}
-									break loop
-								}
-							}
+							l7FilterUpdated := injectCiliumL7Filter(hcmConfig)
+							updated = updated || l7FilterUpdated
 						}
 						if updated {
 							filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
@@ -464,6 +450,26 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 	}
 
 	return resources, nil
+}
+
+// injectCiliumL7Filter injects the Cilium HTTP filter just before the HTTP Router filter
+func injectCiliumL7Filter(hcmConfig *envoy_config_http.HttpConnectionManager) bool {
+	foundCiliumL7Filter := false
+
+	for j, httpFilter := range hcmConfig.HttpFilters {
+		switch httpFilter.Name {
+		case "cilium.l7policy":
+			foundCiliumL7Filter = true
+		case "envoy.filters.http.router":
+			if !foundCiliumL7Filter {
+				hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
+				hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
