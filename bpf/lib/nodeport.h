@@ -2081,6 +2081,45 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 	return 0;
 }
 
+/* remove_dsr_ip_opt_v4 removes the DSR IP Option from the packet and 
+ * recalculates the IPv4 checksum.
+ */
+static __always_inline int
+remove_dsr_ip_opt_v4(struct __ctx_buff *ctx, struct iphdr *ip4) {
+	struct dsr_opt_v4 opt;
+    __u32 iph_old, iph_new, sum_l3;
+
+	/* Check for DSR IP Option */
+	if (ip4->ihl < 0x7)
+		return CTX_ACT_OK;
+	if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(struct iphdr), &opt, sizeof(opt)) < 0)
+		return DROP_INVALID;
+	if (opt.type != DSR_IPV4_OPT_TYPE)
+		return CTX_ACT_OK;
+
+	iph_old = *(__u32 *)ip4;
+	/*  Remove option */
+	ip4->ihl -= sizeof(opt) >> 2;
+    ip4->tot_len = bpf_htons(bpf_ntohs(ip4->tot_len) - sizeof(opt));
+
+	/*  Recalculate L3 checksum 
+	 * As the L4 checksum only uses the psuedo IP header information (i.e. does
+	 * not include IP Options in the checksum calculation), there is no need to
+	 * recalculate the L4 checksum.
+	 */
+	iph_new = *(__u32 *)ip4;
+	sum_l3 = csum_diff(&iph_old, 4, &iph_new, 4, 0);
+	sum_l3 = csum_diff(&opt, sizeof(opt), NULL, 0, sum_l3);
+	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check), 0, sum_l3, 0) < 0)
+		return DROP_CSUM_L3;
+
+	if (ctx_adjust_hroom(ctx, -(int)sizeof(opt), BPF_ADJ_ROOM_NET, ctx_adjust_hroom_flags())) {
+		return DROP_INVALID;
+	}
+
+	return CTX_ACT_OK;
+}
+
 static __always_inline struct ipv4_nat_entry *
 nodeport_dsr_lookup_v4_nat_entry(const struct ipv4_ct_tuple *nat_tuple)
 {

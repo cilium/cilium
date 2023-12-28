@@ -326,7 +326,7 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 				ret = -EFAULT;
 			break;
 		default:
-			__throw_build_bug();
+			ret = -EINVAL;
 		}
 	}
 	return ret;
