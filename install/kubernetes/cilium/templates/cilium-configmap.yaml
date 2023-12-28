@@ -419,6 +419,10 @@ data:
   bpf-lb-external-clusterip: {{ .Values.bpf.lbExternalClusterIP | quote }}
 {{- end }}
 
+  bpf-events-drop-enabled: {{ .Values.bpf.events.drop.enabled | quote }}
+  bpf-events-policy-verdict-enabled: {{ .Values.bpf.events.policyVerdict.enabled | quote }}
+  bpf-events-trace-enabled: {{ .Values.bpf.events.trace.enabled | quote }}
+
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;

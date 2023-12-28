@@ -216,6 +216,31 @@ In order to optimize for maximum performance, Hubble can be disabled:
              --namespace kube-system \\
              --set hubble.enabled=false
 
+You can also choose to stop exposing event types in which you
+are not interested. For instance if you are mainly interested in
+dropped traffic, you can disable "trace" events which will likely reduce
+the overall CPU consumption of the agent.
+
+.. tabs::
+
+    .. group-tab:: Cilium CLI
+
+       .. code-block:: shell-session
+
+           cilium config TraceNotification=disable
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set bpf.events.trace.enabled=false
+
+.. warning::
+
+    Suppressing one or more event types will impact ``cilium monitor`` as well as Hubble observability capabilities, metrics and exports.
+
 MTU
 ===
 
