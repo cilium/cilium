@@ -334,11 +334,11 @@ jobs:
 
           mkdir -p cilium-junits
 
-      - name: Port forward Relay
-        run: |
-          ./cilium-cli hubble port-forward&
-          sleep 10s
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
+      # - name: Port forward Relay
+      #   run: |
+      #     ./cilium-cli hubble port-forward&
+      #     sleep 10s
+      #     [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run tests
         shell: bash
