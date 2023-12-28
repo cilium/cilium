@@ -1215,7 +1215,7 @@ hubble:
 
   relay:
     # -- Enable Hubble Relay (requires hubble.enabled=true)
-    enabled: true
+    enabled: false
 
     # -- Roll out Hubble Relay pods automatically when configmap is updated.
     rollOutPods: false
