@@ -8,11 +8,6 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 )
 
-// Compare compares two interfaces and emits a unified diff as string
-func Compare(a, b interface{}) string {
-	return CompareWithNames(a, b, "a", "b")
-}
-
 // CompareWithNames compares two interfaces and emits a unified diff as string
 func CompareWithNames(a, b interface{}, nameA, nameB string) string {
 	stringA := pretty.Sprintf("%# v", a)
