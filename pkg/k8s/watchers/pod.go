@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"strings"
 	"sync"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -358,7 +358,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 
 	newK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(strippedNewLabels, labels.LabelSourceK8s))
 	newPodLabels := newK8sPodLabels.K8sStringMap()
-	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
+	labelsChanged := !maps.Equal(oldPodLabels, newPodLabels)
 
 	lrpNeedsReassign := false
 	// The relevant updates are : podIPs and label updates.
