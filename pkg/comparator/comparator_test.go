@@ -6,19 +6,10 @@ package comparator
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type ComparatorSuite struct{}
-
-var _ = Suite(&ComparatorSuite{})
-
-func (s *ComparatorSuite) TestMapStringEqualsIgnoreKeys(c *C) {
+func TestMapStringEqualsIgnoreKeys(t *testing.T) {
 	tests := []struct {
 		name         string
 		m1           map[string]string
@@ -127,6 +118,6 @@ func (s *ComparatorSuite) TestMapStringEqualsIgnoreKeys(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		c.Assert(MapStringEqualsIgnoreKeys(tt.m1, tt.m2, tt.keysToIgnore), Equals, tt.want, Commentf("%s", tt.name))
+		assert.Equal(t, tt.want, MapStringEqualsIgnoreKeys(tt.m1, tt.m2, tt.keysToIgnore), "%s", tt.name)
 	}
 }
