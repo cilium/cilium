@@ -88,6 +88,7 @@ PaaS
 Palantir
 Pepelnjak
 Pfaff
+PodCIDR
 Polytechnique
 QCon
 Qlogic
@@ -592,6 +593,7 @@ reparsing
 repo
 repos
 reproducibility
+requireIPv
 retpoline
 retransmission
 retransmissions
@@ -704,6 +706,7 @@ unsettable
 untriaged
 untrusted
 unwinded
+upgradeCompatibility
 uplink
 uprobes
 uptime
