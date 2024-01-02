@@ -142,13 +142,10 @@ bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 }
 
 static __always_inline
-bool egress_gw_reply_needs_redirect(struct iphdr *ip4 __maybe_unused,
-				    __u32 *tunnel_endpoint __maybe_unused,
-				    __u32 *dst_sec_identity __maybe_unused)
+bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry *egress_policy;
-	struct remote_endpoint_info *info;
 
 	/* Find a matching policy by looking up the reverse address tuple: */
 	egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
@@ -159,12 +156,6 @@ bool egress_gw_reply_needs_redirect(struct iphdr *ip4 __maybe_unused,
 	    egress_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
 
-	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-	if (!info || info->tunnel_endpoint == 0)
-		return false;
-
-	*tunnel_endpoint = info->tunnel_endpoint;
-	*dst_sec_identity = info->sec_identity;
 	return true;
 #else
 	return false;
@@ -200,7 +191,20 @@ static __always_inline
 bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoint,
 					 __u32 *dst_sec_identity)
 {
-	return egress_gw_reply_needs_redirect(ip4, tunnel_endpoint, dst_sec_identity);
+	if (egress_gw_reply_matches_policy(ip4)) {
+		struct remote_endpoint_info *info;
+
+		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		if (!info || info->tunnel_endpoint == 0)
+			return false;
+
+		*tunnel_endpoint = info->tunnel_endpoint;
+		*dst_sec_identity = info->sec_identity;
+
+		return true;
+	}
+
+	return false;
 }
 
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
