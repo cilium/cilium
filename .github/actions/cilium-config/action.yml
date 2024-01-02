@@ -83,6 +83,7 @@ runs:
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
+            --helm-set=hubble.relay.enabled=true \
             --helm-set=hubble.relay.image.useDigest=false"
           fi
 
