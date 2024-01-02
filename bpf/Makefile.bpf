@@ -14,7 +14,7 @@ CLANG_FLAGS += -Wdeclaration-after-statement
 CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
 CLANG_FLAGS += -Wimplicit-fallthrough
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifeq ("$(KERNEL)","netnext")
+ifneq (,$(filter $(KERNEL),510 61 netnext))
 CLANG_FLAGS += -mcpu=v3
 else
 CLANG_FLAGS += -mcpu=v2
