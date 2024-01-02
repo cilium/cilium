@@ -23,7 +23,7 @@ CLANG_FLAGS += -Wimplicit-fallthrough
 CLANG_FLAGS += -MD
 LLC_FLAGS := -march=bpf
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifeq ("$(KERNEL)","netnext")
+ifneq (,$(filter $(KERNEL),510 61 netnext))
 LLC_FLAGS += -mcpu=v3
 else
 LLC_FLAGS += -mcpu=v2
