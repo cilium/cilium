@@ -1,0 +1,39 @@
+apiVersion: v1
+items:
+- apiVersion: cilium.io/v2
+  kind: CiliumNetworkPolicy
+  metadata:
+    creationTimestamp: "2024-01-02T03:37:48Z"
+    generation: 1
+    name: allow-all-egress
+    namespace: cilium-test
+    resourceVersion: "14352"
+    uid: 9e05e4a7-6605-45fb-b723-07ce78903856
+  spec:
+    egress:
+    - toEndpoints:
+      - {}
+    - toCIDR:
+      - 0.0.0.0/0
+    endpointSelector: {}
+- apiVersion: cilium.io/v2
+  kind: CiliumNetworkPolicy
+  metadata:
+    creationTimestamp: "2024-01-02T03:37:48Z"
+    generation: 1
+    name: client-egress-to-cidr-deny
+    namespace: cilium-test
+    resourceVersion: "14353"
+    uid: 103657a3-8ed0-49fb-bb1d-f19d1acc4749
+  spec:
+    egressDeny:
+    - toCIDRSet:
+      - cidr: 1.0.0.0/8
+        except:
+        - 1.1.1.1/32
+    endpointSelector:
+      matchLabels:
+        any:kind: client
+kind: List
+metadata:
+  resourceVersion: ""

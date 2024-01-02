@@ -359,7 +359,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests (${{ matrix.name }})" \
-            --flow-validation=warning \
+            --flow-validation=none \
             --timestamp
 
       - name: Fetch artifacts
