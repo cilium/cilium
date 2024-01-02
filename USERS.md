@@ -537,6 +537,11 @@ Users (Alphabetically)
       U: CNI, Overlay networking
       Q: @Madhu CS
 
+    * N: Santa Claus & the Elves
+      D: All our infrastructure to process children's letters and wishes, toy making, and delivery, distributed over multiple clusters around the world, is now powered by Cilium.
+      U: ClusterMesh, L4LB, XDP acceleration, Bandwidth manager, Encryption, Hubble
+      L: https://qmonnet.github.io/whirl-offload/2024/01/02/santa-switches-to-cilium/
+
     * N: SAP
       D: SAP uses Cilium for multiple internal scenarios. For examples for self-hosted Kubernetes scenarios on AWS with SAP Concur and for managed Kubernetes clusters provided with Gardener Project across AWS, Azure, GCP, and OpenStack.
       U: CNI , Overlay Network, Network Policies
