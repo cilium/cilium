@@ -334,6 +334,12 @@ jobs:
 
           mkdir -p cilium-junits
 
+      - name: Port forward Relay
+        run: |
+          cilium hubble port-forward&
+          sleep 10s
+          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
+
       - name: Run tests
         shell: bash
         run: |
@@ -349,12 +355,11 @@ jobs:
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             "${EXTRA[@]}" \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-hubble-flows-count=10000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests (${{ matrix.name }})" \
             --timestamp
-            #--test=client-egress-l7-named-port \
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
