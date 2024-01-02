@@ -300,7 +300,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "<1.21",
+      "allowedVersions": "<1.22",
       "matchBaseBranches": [
         "v1.14",
         "v1.13",
