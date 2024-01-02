@@ -360,7 +360,7 @@ data:
   enable-host-legacy-routing: {{ .Values.bpf.hostLegacyRouting | quote }}
 {{- else if ne $cniChainingMode "none" }}
   # In cni chaining mode, the other chained plugin is responsible for underlying connectivity,
-  # so cilium eBPF host routing shoud not work, and let it fall back to the legacy routing mode
+  # so cilium eBPF host routing should not work, and let it fall back to the legacy routing mode
   enable-host-legacy-routing: "true"
 {{- end }}
 
@@ -437,7 +437,7 @@ data:
   cluster-name: {{ .Values.cluster.name }}
 
 {{- if hasKey .Values.cluster "id" }}
-  # Unique ID of the cluster. Must be unique across all conneted clusters and
+  # Unique ID of the cluster. Must be unique across all connected clusters and
   # in the range of 1 and 255. Only relevant when building a mesh of clusters.
   cluster-id: "{{ .Values.cluster.id }}"
 {{- end }}
