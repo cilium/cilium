@@ -248,7 +248,8 @@ func (d *Document) ResetDefinitions() *Document {
 
 // Pristine creates a new pristine document instance based on the input data
 func (d *Document) Pristine() *Document {
-	dd, _ := Analyzed(d.Raw(), d.Version())
+	raw, _ := json.Marshal(d.Spec())
+	dd, _ := Analyzed(raw, d.Version())
 	dd.pathLoader = d.pathLoader
 	dd.specFilePath = d.specFilePath
 
