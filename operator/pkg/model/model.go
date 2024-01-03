@@ -260,6 +260,8 @@ type HTTPRoute struct {
 	Method           *string         `json:"method,omitempty"`
 	// Backend is the backend handling the requests
 	Backends []Backend `json:"backends,omitempty"`
+	// BackendHTTPFilters can be used to add or remove HTTP
+	BackendHTTPFilters []*BackendHTTPFilter `json:"backend_http_filters,omitempty"`
 	// DirectResponse instructs the proxy to respond directly to the client.
 	DirectResponse *DirectResponse `json:"direct_response,omitempty"`
 
@@ -287,6 +289,18 @@ type HTTPRoute struct {
 
 	// Timeout holds the timeout configuration for a route.
 	Timeout Timeout `json:"timeout,omitempty"`
+}
+
+type BackendHTTPFilter struct {
+	// Name is the name of the Backend, the name is having the format of "namespace:name:port"
+	Name string `json:"name"`
+	// RequestHeaderFilter can be used to add or remove an HTTP
+	//header from an HTTP request before it is sent to the upstream target.
+	RequestHeaderFilter *HTTPHeaderFilter `json:"request_header_filter,omitempty"`
+
+	// ResponseHeaderModifier can be used to add or remove an HTTP
+	//header from an HTTP response before it is sent to the client.
+	ResponseHeaderModifier *HTTPHeaderFilter `json:"response_header_modifier,omitempty"`
 }
 
 // Infrastructure holds the labels and annotations configuration,

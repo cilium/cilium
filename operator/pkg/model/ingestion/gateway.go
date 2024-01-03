@@ -4,6 +4,7 @@
 package ingestion
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -125,8 +126,8 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 		if len(computedHost) == 1 && computedHost[0] == allHosts {
 			computedHost = nil
 		}
-
 		for _, rule := range r.Spec.Rules {
+			var backendHTTPFilters []*model.BackendHTTPFilter
 			bes := make([]model.Backend, 0, len(rule.BackendRefs))
 			for _, be := range rule.BackendRefs {
 				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute"), grants) {
@@ -141,6 +142,28 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 				}
 				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
 					bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
+					for _, f := range be.Filters {
+						switch f.Type {
+						case gatewayv1.HTTPRouteFilterRequestHeaderModifier:
+							backendHTTPFilters = append(backendHTTPFilters, &model.BackendHTTPFilter{
+								Name: fmt.Sprintf("%s:%s:%d", helpers.NamespaceDerefOr(be.Namespace, r.Namespace), be.Name, uint32(*be.Port)),
+								RequestHeaderFilter: &model.HTTPHeaderFilter{
+									HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
+									HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
+									HeadersToRemove: f.RequestHeaderModifier.Remove,
+								},
+							})
+						case gatewayv1.HTTPRouteFilterResponseHeaderModifier:
+							backendHTTPFilters = append(backendHTTPFilters, &model.BackendHTTPFilter{
+								Name: fmt.Sprintf("%s:%s:%d", helpers.NamespaceDerefOr(be.Namespace, r.Namespace), be.Name, uint32(*be.Port)),
+								ResponseHeaderModifier: &model.HTTPHeaderFilter{
+									HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
+									HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
+									HeadersToRemove: f.ResponseHeaderModifier.Remove,
+								},
+							})
+						}
+					}
 				}
 			}
 
@@ -184,6 +207,7 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 				httpRoutes = append(httpRoutes, model.HTTPRoute{
 					Hostnames:              computedHost,
 					Backends:               bes,
+					BackendHTTPFilters:     backendHTTPFilters,
 					DirectResponse:         dr,
 					RequestHeaderFilter:    requestHeaderFilter,
 					ResponseHeaderModifier: responseHeaderFilter,
@@ -202,6 +226,7 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 					QueryParamsMatch:       toQueryMatch(match),
 					Method:                 (*string)(match.Method),
 					Backends:               bes,
+					BackendHTTPFilters:     backendHTTPFilters,
 					DirectResponse:         dr,
 					RequestHeaderFilter:    requestHeaderFilter,
 					ResponseHeaderModifier: responseHeaderFilter,
