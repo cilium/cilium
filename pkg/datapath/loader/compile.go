@@ -200,8 +200,10 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	err = compileCmd.Run()
 
 	var maxRSS int64
-	if usage, ok := compileCmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
-		maxRSS = usage.Maxrss
+	if compileCmd.ProcessState != nil {
+		if usage, ok := compileCmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
+			maxRSS = usage.Maxrss
+		}
 	}
 
 	if err != nil {

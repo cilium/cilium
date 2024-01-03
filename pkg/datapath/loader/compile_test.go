@@ -43,3 +43,11 @@ func TestCompile(t *testing.T) {
 		})
 	}
 }
+
+func TestCompileError(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	t.Setenv("PATH", "")
+	_, err := compile(context.Background(), epProg, getDirs(t))
+	require.Error(t, err)
+}
