@@ -984,6 +984,12 @@ var requestHeaderModifierHTTPInput = Input{
 	HTTPRoutes:   requestHeaderModifierHTTPRoutes,
 	Services:     allServices,
 }
+var backendRefsRequestHeaderModifierHTTPInput = Input{
+	GatewayClass: gatewayv1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   backendRefsRequestHeaderModifierHTTPRoutes,
+	Services:     allServices,
+}
 var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 	{
 		Name: "http",
@@ -1125,6 +1131,178 @@ var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 	},
 }
 
+var backendRefsRequestHeaderModifierHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port: 80, Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Exact: "/set"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						RequestHeaderFilter: &model.HTTPHeaderFilter{
+							HeadersToSet: []model.Header{
+								{
+									Name:  "X-Header-Set",
+									Value: "set-overwrites-values",
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Exact: "/add"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						RequestHeaderFilter: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add",
+									Value: "add-appends-values",
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Exact: "/remove"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						RequestHeaderFilter: &model.HTTPHeaderFilter{
+							HeadersToRemove: []string{"X-Header-Remove"},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Exact: "/multiple-backends"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						RequestHeaderFilter: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add-1",
+									Value: "header-add-1",
+								},
+								{
+									Name:  "X-Header-Add-2",
+									Value: "header-add-2",
+								},
+							},
+						},
+					},
+					{
+						Name: "gateway-conformance-infra:infra-backend-v2:8080",
+						RequestHeaderFilter: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add-3",
+									Value: "header-add-3",
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Exact: "/multiple-backends-with-some-not"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v2:8080",
+						RequestHeaderFilter: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add",
+									Value: "header-add",
+								},
+							},
+							HeadersToSet: []model.Header{
+								{
+									Name:  "X-Header-Set",
+									Value: "header-set",
+								},
+							},
+							HeadersToRemove: []string{
+								"X-Header-Remove",
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
 var simpleSameNamespaceHTTPInput = Input{
 	GatewayClass: gatewayv1.GatewayClass{},
 	Gateway:      sameNamespaceGateway,
@@ -1425,6 +1603,281 @@ var responseHeaderModifierHTTPListeners = []model.HTTPListener{
 					},
 					HeadersToRemove: []string{
 						"X-Header-Remove",
+					},
+				},
+			},
+		},
+	},
+}
+var backendRefsResponseHeaderModifierHTTPInput = Input{
+	GatewayClass: gatewayv1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   backendRefsResponseHeaderModifierHTTPRoutes,
+	Services:     allServices,
+}
+var backendRefsResponseHeaderModifierHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port: 80, Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/set"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						ResponseHeaderModifier: &model.HTTPHeaderFilter{
+							HeadersToSet: []model.Header{
+								{
+									Name:  "X-Header-Set",
+									Value: "set-overwrites-values",
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/add"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						ResponseHeaderModifier: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add",
+									Value: "add-appends-values",
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/remove"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						ResponseHeaderModifier: &model.HTTPHeaderFilter{
+							HeadersToRemove: []string{"X-Header-Remove"},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/multiple"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						ResponseHeaderModifier: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add-1",
+									Value: "header-add-1",
+								},
+								{
+									Name:  "X-Header-Add-2",
+									Value: "header-add-2",
+								},
+								{
+									Name:  "X-Header-Add-3",
+									Value: "header-add-3",
+								},
+							},
+							HeadersToSet: []model.Header{
+								{
+									Name:  "X-Header-Set-1",
+									Value: "header-set-1",
+								},
+								{
+									Name:  "X-Header-Set-2",
+									Value: "header-set-2",
+								},
+							},
+							HeadersToRemove: []string{
+								"X-Header-Remove-1",
+								"X-Header-Remove-2",
+							},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/multiple-backends"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+					{
+						Name:      "infra-backend-v3",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						ResponseHeaderModifier: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add-1",
+									Value: "header-add-1",
+								},
+							},
+							HeadersToSet: []model.Header{
+								{
+									Name:  "X-Header-Set-1",
+									Value: "header-set-1",
+								},
+							},
+							HeadersToRemove: []string{
+								"X-Header-Remove-1",
+							},
+						},
+					},
+					{
+						Name: "gateway-conformance-infra:infra-backend-v2:8080",
+						ResponseHeaderModifier: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add-2",
+									Value: "header-add-2",
+								},
+							},
+							HeadersToSet: []model.Header{
+								{
+									Name:  "X-Header-Set-2",
+									Value: "header-set-2",
+								},
+							},
+							HeadersToRemove: []string{
+								"X-Header-Remove-2",
+							},
+						},
+					},
+					{
+						Name: "gateway-conformance-infra:infra-backend-v3:8080",
+						ResponseHeaderModifier: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add-3",
+									Value: "header-add-3",
+								},
+							},
+							HeadersToSet: []model.Header{
+								{
+									Name:  "X-Header-Set-3",
+									Value: "header-set-3",
+								},
+							},
+							HeadersToRemove: []string{
+								"X-Header-Remove-3",
+							},
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/case-insensitivity"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				BackendHTTPFilters: []*model.BackendHTTPFilter{
+					{
+						Name: "gateway-conformance-infra:infra-backend-v1:8080",
+						ResponseHeaderModifier: &model.HTTPHeaderFilter{
+							HeadersToAdd: []model.Header{
+								{
+									Name:  "X-Header-Add",
+									Value: "header-add",
+								},
+								{
+									Name:  "x-lowercase-add",
+									Value: "lowercase-add",
+								},
+								{
+									Name:  "x-Mixedcase-ADD-1",
+									Value: "mixedcase-add-1",
+								},
+								{
+									Name:  "X-mixeDcase-add-2",
+									Value: "mixedcase-add-2",
+								},
+								{
+									Name:  "X-UPPERCASE-ADD",
+									Value: "uppercase-add",
+								},
+							},
+							HeadersToSet: []model.Header{
+								{
+									Name:  "X-Header-Set",
+									Value: "header-set",
+								},
+							},
+							HeadersToRemove: []string{
+								"X-Header-Remove",
+							},
+						},
 					},
 				},
 			},
@@ -1826,6 +2279,10 @@ func TestHTTPGatewayAPI(t *testing.T) {
 			input: requestHeaderModifierHTTPInput,
 			want:  requestHeaderModifierHTTPListeners,
 		},
+		"Conformance/HTTPRouteBackendRefsRequestHeaderModifier": {
+			input: backendRefsRequestHeaderModifierHTTPInput,
+			want:  backendRefsRequestHeaderModifierHTTPListeners,
+		},
 		"Conformance/HTTPRouteRequestRedirect": {
 			input: requestRedirectHTTPInput,
 			want:  requestRedirectHTTPListeners,
@@ -1833,6 +2290,10 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"Conformance/HTTPRouteResponseHeaderModifier": {
 			input: responseHeaderModifierHTTPInput,
 			want:  responseHeaderModifierHTTPListeners,
+		},
+		"Conformance/HTTPRouteBackendRefsResponseHeaderModifier": {
+			input: backendRefsResponseHeaderModifierHTTPInput,
+			want:  backendRefsResponseHeaderModifierHTTPListeners,
 		},
 		"Conformance/HTTPRouteRewriteHost": {
 			input: rewriteHostHTTPInput,

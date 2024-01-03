@@ -224,7 +224,16 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		if hRoutes[0].RequestRedirect != nil {
 			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect, listenerPort)
 		} else {
-			route.Action = getRouteAction(&r, backends, r.Rewrite, r.RequestMirrors)
+			route.Action = getRouteAction(&r, backends, r.BackendHTTPFilters, r.Rewrite, r.RequestMirrors)
+		}
+		// If there is only one backend, we can add the header filter to the route
+		if len(backends) == 1 {
+			for _, fn := range hRoutes[0].BackendHTTPFilters {
+				route.RequestHeadersToAdd = append(route.RequestHeadersToAdd, getHeadersToAdd(fn.RequestHeaderFilter)...)
+				route.RequestHeadersToRemove = append(route.RequestHeadersToRemove, getHeadersToRemove(fn.RequestHeaderFilter)...)
+				route.ResponseHeadersToAdd = append(route.ResponseHeadersToAdd, getHeadersToAdd(fn.ResponseHeaderModifier)...)
+				route.ResponseHeadersToRemove = append(route.ResponseHeadersToRemove, getHeadersToRemove(fn.ResponseHeaderModifier)...)
+			}
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, r.GetMatchKey())
@@ -322,7 +331,7 @@ func timeoutMutation(backend *time.Duration, request *time.Duration) routeAction
 	}
 }
 
-func getRouteAction(route *model.HTTPRoute, backends []model.Backend, rewrite *model.HTTPURLRewriteFilter, mirrors []*model.HTTPRequestMirror) *envoy_config_route_v3.Route_Route {
+func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTTPFilter []*model.BackendHTTPFilter, rewrite *model.HTTPURLRewriteFilter, mirrors []*model.HTTPRequestMirror) *envoy_config_route_v3.Route_Route {
 	var routeAction *envoy_config_route_v3.Route_Route
 
 	mutators := []routeActionMutation{
@@ -347,17 +356,28 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, rewrite *m
 		}
 		return r
 	}
-
+	backendFilter := make(map[string]*model.BackendHTTPFilter)
+	for _, f := range backendHTTPFilter {
+		backendFilter[f.Name] = f
+	}
 	weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(backends))
 	for _, be := range backends {
 		var weight int32 = 1
 		if be.Weight != nil {
 			weight = *be.Weight
 		}
-		weightedClusters = append(weightedClusters, &envoy_config_route_v3.WeightedCluster_ClusterWeight{
+		clusterWeight := &envoy_config_route_v3.WeightedCluster_ClusterWeight{
 			Name:   getClusterName(be.Namespace, be.Name, be.Port.GetPort()),
 			Weight: wrapperspb.UInt32(uint32(weight)),
-		})
+		}
+		// If their two or more backends, we need to add the header filter to the clusterWeight level.
+		if fn, ok := backendFilter[getClusterName(be.Namespace, be.Name, be.Port.GetPort())]; ok {
+			clusterWeight.RequestHeadersToAdd = append(clusterWeight.RequestHeadersToAdd, getHeadersToAdd(fn.RequestHeaderFilter)...)
+			clusterWeight.RequestHeadersToRemove = append(clusterWeight.RequestHeadersToRemove, getHeadersToRemove(fn.RequestHeaderFilter)...)
+			clusterWeight.ResponseHeadersToAdd = append(clusterWeight.ResponseHeadersToAdd, getHeadersToAdd(fn.ResponseHeaderModifier)...)
+			clusterWeight.ResponseHeadersToRemove = append(clusterWeight.ResponseHeadersToRemove, getHeadersToRemove(fn.ResponseHeaderModifier)...)
+		}
+		weightedClusters = append(weightedClusters, clusterWeight)
 	}
 	routeAction = &envoy_config_route_v3.Route_Route{
 		Route: &envoy_config_route_v3.RouteAction{

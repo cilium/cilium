@@ -142,6 +142,15 @@ func Test_translator_Translate(t *testing.T) {
 			want: requestHeaderModifierHTTPListenersCiliumEnvoyConfig,
 		},
 		{
+			name: "Conformance/HTTPRouteBackendRefsRequestHeaderModifier",
+			args: args{
+				m: &model.Model{
+					HTTP: backendRefsRequestHeaderModifierHTTPListeners,
+				},
+			},
+			want: backendRefsRequestHeaderModifierHTTPListenersCiliumEnvoyConfig,
+		},
+		{
 			name: "Conformance/HTTPRouteRequestRedirect",
 			args: args{
 				m: &model.Model{
@@ -158,6 +167,15 @@ func Test_translator_Translate(t *testing.T) {
 				},
 			},
 			want: responseHeaderModifierHTTPListenersCiliumEnvoyConfig,
+		},
+		{
+			name: "Conformance/HTTPRouteBackendRefsResponseHeaderModifier",
+			args: args{
+				m: &model.Model{
+					HTTP: backendRefsResponseHeaderModifierHTTPListeners,
+				},
+			},
+			want: backendRefsResponseHeaderModifierHTTPListenersCiliumEnvoyConfig,
 		},
 		{
 			name: "Conformance/HTTPRouteRewriteHost",
