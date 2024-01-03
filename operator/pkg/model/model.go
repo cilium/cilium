@@ -15,6 +15,7 @@ import (
 type Model struct {
 	HTTP []HTTPListener `json:"http,omitempty"`
 	TLS  []TLSListener  `json:"tls,omitempty"`
+	TCP  []TCPListener  `json:"tcp,omitempty"`
 }
 
 func (m *Model) GetListeners() []Listener {
@@ -28,6 +29,9 @@ func (m *Model) GetListeners() []Listener {
 		listeners = append(listeners, &m.TLS[i])
 	}
 
+	for i := range m.TCP {
+		listeners = append(listeners, &m.TCP[i])
+	}
 	return listeners
 }
 
@@ -121,6 +125,52 @@ type TLSListener struct {
 	Service *Service `json:"service,omitempty"`
 	// Infrastructure configuration
 	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
+}
+
+// TCPListener holds configuration for any listener that proxies TCP
+// Each holds the configuration info for one distinct TLS listener, by
+//   - Address
+//   - Port
+type TCPListener struct {
+	// Name of the TLSListener
+	Name string `json:"name,omitempty"`
+	// Sources is a slice of fully qualified resources this TLSListener is sourced
+	// from.
+	Sources []FullyQualifiedResource `json:"sources,omitempty"`
+	// IPAddress that the listener should listen on.
+	// The string must be parseable as an IP address.
+	Address string `json:"address,omitempty"`
+	// Port on which the service can be expected to be accessed by clients.
+	Port uint32 `json:"port,omitempty"`
+	// Routes associated with traffic to the service.
+	// An empty list means that traffic will not be routed.
+	Routes []TCPRoute `json:"routes,omitempty"`
+	// Service configuration
+	Service *Service `json:"service,omitempty"`
+	// Infrastructure configuration
+	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
+}
+
+func (l *TCPListener) GetSources() []FullyQualifiedResource {
+	return l.Sources
+}
+
+func (l *TCPListener) GetPort() uint32 {
+	return l.Port
+}
+
+func (l *TCPListener) GetAnnotations() map[string]string {
+	if l.Infrastructure != nil {
+		return l.Infrastructure.Annotations
+	}
+	return nil
+}
+
+func (l *TCPListener) GetLabels() map[string]string {
+	if l.Infrastructure != nil {
+		return l.Infrastructure.Labels
+	}
+	return nil
 }
 
 func (l *TLSListener) GetAnnotations() map[string]string {
@@ -339,6 +389,13 @@ type TLSRoute struct {
 	Name string `json:"name,omitempty"`
 	// Hostnames that the route should match
 	Hostnames []string `json:"hostnames,omitempty"`
+	// Backend is the backend handling the requests
+	Backends []Backend `json:"backends,omitempty"`
+}
+
+// TCPRoute holds all the details needed to route TCP traffic to a backend.
+type TCPRoute struct {
+	Name string `json:"name,omitempty"`
 	// Backend is the backend handling the requests
 	Backends []Backend `json:"backends,omitempty"`
 }

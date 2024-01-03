@@ -26,6 +26,7 @@ type Input struct {
 	Gateway         gatewayv1.Gateway
 	HTTPRoutes      []gatewayv1.HTTPRoute
 	TLSRoutes       []gatewayv1alpha2.TLSRoute
+	TCPRoutes       []gatewayv1alpha2.TCPRoute
 	GRPCRoutes      []gatewayv1alpha2.GRPCRoute
 	ReferenceGrants []gatewayv1beta1.ReferenceGrant
 	Services        []corev1.Service
@@ -33,9 +34,10 @@ type Input struct {
 
 // GatewayAPI translates Gateway API resources into a model.
 // TODO(tam): Support GatewayClass
-func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
+func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener, []model.TCPListener) {
 	var resHTTP []model.HTTPListener
 	var resTLS []model.TLSListener
+	var resTCP []model.TCPListener
 
 	var labels, annotations map[string]string
 	if input.Gateway.Spec.Infrastructure != nil {
@@ -54,7 +56,8 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 	for _, l := range input.Gateway.Spec.Listeners {
 		if l.Protocol != gatewayv1.HTTPProtocolType &&
 			l.Protocol != gatewayv1.HTTPSProtocolType &&
-			l.Protocol != gatewayv1.TLSProtocolType {
+			l.Protocol != gatewayv1.TLSProtocolType &&
+			l.Protocol != gatewayv1.TCPProtocolType {
 			continue
 		}
 
@@ -97,9 +100,26 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			Routes:         toTLSRoutes(l, input.TLSRoutes, input.Services, input.ReferenceGrants),
 			Infrastructure: infra,
 		})
+
+		resTCP = append(resTCP, model.TCPListener{
+			Name: string(l.Name),
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      input.Gateway.GetName(),
+					Namespace: input.Gateway.GetNamespace(),
+					Group:     input.Gateway.GroupVersionKind().Group,
+					Version:   input.Gateway.GroupVersionKind().Version,
+					Kind:      input.Gateway.GroupVersionKind().Kind,
+					UID:       string(input.Gateway.GetUID()),
+				},
+			},
+			Port:           uint32(l.Port),
+			Routes:         toTCPRoutes(l, input.TCPRoutes, input.Services, input.ReferenceGrants),
+			Infrastructure: infra,
+		})
 	}
 
-	return resHTTP, resTLS
+	return resHTTP, resTLS, resTCP
 }
 
 func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, services []corev1.Service, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
@@ -381,6 +401,43 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRo
 		}
 	}
 	return tlsRoutes
+}
+
+func toTCPRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TCPRoute, services []corev1.Service, grants []gatewayv1beta1.ReferenceGrant) []model.TCPRoute {
+	var tcpRoutes []model.TCPRoute
+	for _, r := range input {
+		isListener := false
+		for _, parent := range r.Spec.ParentRefs {
+			if parent.SectionName == nil || *parent.SectionName == listener.Name {
+				isListener = true
+				break
+			}
+		}
+		if !isListener {
+			continue
+		}
+
+		for _, rule := range r.Spec.Rules {
+			bes := make([]model.Backend, 0, len(rule.BackendRefs))
+			for _, be := range rule.BackendRefs {
+				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1alpha2.SchemeGroupVersion.WithKind("TCPRoute"), grants) {
+					continue
+				}
+				if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
+					continue
+				}
+				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
+					bes = append(bes, backendToModelBackend(be, r.Namespace))
+				}
+			}
+
+			tcpRoutes = append(tcpRoutes, model.TCPRoute{
+				Backends: bes,
+			})
+
+		}
+	}
+	return tcpRoutes
 }
 
 func toHTTPRequestRedirectFilter(redirect *gatewayv1.HTTPRequestRedirectFilter) *model.HTTPRequestRedirectFilter {

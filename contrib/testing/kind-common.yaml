@@ -7,7 +7,7 @@ operator:
 ipam:
   mode: kubernetes
 ipv6:
-  enabled: true
+  enabled: false
 ipv4:
   enabled: true
 bpf:
@@ -18,3 +18,6 @@ readinessProbe:
   failureThreshold: 9999
 startupProbe:
   failureThreshold: 9999
+gatewayAPI:
+  enabled: true
+kubeProxyReplacement: true

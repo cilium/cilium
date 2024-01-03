@@ -230,7 +230,95 @@ var simpleSameNamespaceTLSListeners = []model.TLSListener{
 		},
 	},
 }
+var basicTCP = Input{
+	GatewayClass: gatewayv1.GatewayClass{},
+	Gateway: gatewayv1.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Gateway",
+			APIVersion: "gateway.networking.k8s.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-gateway",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			Listeners: []gatewayv1.Listener{
+				{
+					Name:     "prod-web-gw",
+					Port:     8080,
+					Protocol: "TCP",
+				},
+			},
+		},
+	},
+	TCPRoutes: []gatewayv1alpha2.TCPRoute{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "tcp-app-1",
+				Namespace: "default",
+			},
+			Spec: gatewayv1alpha2.TCPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{
+							Name: "my-gateway",
+						},
+					},
+				},
+				Rules: []gatewayv1alpha2.TCPRouteRule{
+					{
+						BackendRefs: []gatewayv1.BackendRef{
+							{
+								BackendObjectReference: gatewayv1alpha2.BackendObjectReference{
+									Name: "my-service",
+									Port: model.AddressOf[gatewayv1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+	Services: []corev1.Service{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-service",
+				Namespace: "default",
+			},
+		},
+	},
+}
 
+var basicTCPListeners = []model.TCPListener{
+	{
+		Name: "prod-web-gw",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "my-gateway",
+				Namespace: "default",
+				Group:     "gateway.networking.k8s.io",
+				Version:   "v1",
+				Kind:      "Gateway",
+			},
+		},
+		Address: "",
+		Port:    8080,
+		Routes: []model.TCPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "my-service",
+						Namespace: "default",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
 var basicTLSListeners = []model.TLSListener{
 	{
 		Name: "prod-web-gw",
@@ -1784,7 +1872,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			listeners, _ := GatewayAPI(tc.input)
+			listeners, _, _ := GatewayAPI(tc.input)
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")
 		})
 	}
@@ -1807,7 +1895,7 @@ func TestTLSGatewayAPI(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, listeners := GatewayAPI(tc.input)
+			_, listeners, _ := GatewayAPI(tc.input)
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")
 		})
 	}
@@ -1826,7 +1914,26 @@ func TestGRPCGatewayAPI(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			listeners, _ := GatewayAPI(tc.input)
+			listeners, _, _ := GatewayAPI(tc.input)
+			assert.Equal(t, tc.want, listeners, "Listeners did not match")
+		})
+	}
+}
+
+func TestTCPGatewayAPI(t *testing.T) {
+	tests := map[string]struct {
+		input Input
+		want  []model.TCPListener
+	}{
+		"basic tcp": {
+			input: basicTCP,
+			want:  basicTCPListeners,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, _, listeners := GatewayAPI(tc.input)
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")
 		})
 	}

@@ -73,6 +73,11 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.HTTPRoute{},
 			r.enqueueRequestForOwningHTTPRoute(),
 			builder.WithPredicates(onlyStatusChanged())).
+		// Watch TCP Route status changes, there is one assumption that any change in spec will
+		// always update status always at least for observedGeneration value.
+		Watches(&gatewayv1alpha2.TCPRoute{},
+			r.enqueueRequestForOwningTCPRoute(),
+			builder.WithPredicates(onlyStatusChanged())).
 		// Watch TLS Route status changes, there is one assumption that any change in spec will
 		// always update status always at least for observedGeneration value.
 		Watches(&gatewayv1alpha2.TLSRoute{},
@@ -176,6 +181,19 @@ func (r *gatewayReconciler) enqueueRequestForOwningHTTPRoute() handler.EventHand
 func (r *gatewayReconciler) enqueueRequestForOwningTLSRoute() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
 		hr, ok := a.(*gatewayv1alpha2.TLSRoute)
+		if !ok {
+			return nil
+		}
+
+		return getReconcileRequestsForRoute(context.Background(), r.Client, a, hr.Spec.CommonRouteSpec)
+	})
+}
+
+// enqueueRequestForOwningTLSRoute returns an event handler for any changes with TCP Routes
+// belonging to the given Gateway
+func (r *gatewayReconciler) enqueueRequestForOwningTCPRoute() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		hr, ok := a.(*gatewayv1alpha2.TCPRoute)
 		if !ok {
 			return nil
 		}
