@@ -229,6 +229,13 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
+      - name: Deploy Pwru
+        uses: jschwinger233/pwru/actions/pwru-run@gray/action
+        with:
+          pwru-flags: --output-tuple --output-meta --filter-track-skb
+          pwru-pcap-filter: 'tcp[tcpflags]=tcp-syn and dst port 8080'
+          nodename: kind-worker
+
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
