@@ -5,7 +5,6 @@ package service
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 )
@@ -21,11 +20,10 @@ var Cell = cell.Module(
 type serviceManagerParams struct {
 	cell.In
 
-	EnvoyXdsServer envoy.XDSServer
-	Datapath       types.Datapath
-	MonitorAgent   monitorAgent.Agent
+	Datapath     types.Datapath
+	MonitorAgent monitorAgent.Agent
 }
 
 func newServiceManager(params serviceManagerParams) ServiceManager {
-	return NewService(params.MonitorAgent, params.EnvoyXdsServer, params.Datapath.LBMap())
+	return NewService(params.MonitorAgent, params.Datapath.LBMap())
 }
