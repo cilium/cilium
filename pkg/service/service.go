@@ -35,6 +35,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
+	"github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -203,22 +204,36 @@ func (svc *svcInfo) useMaglev() bool {
 type L7LBInfo struct {
 	// Names of the CEC resources that need this service's backends to be
 	// synced to to Envoy.
-	envoyBackendRefs map[lb.ServiceName]struct{}
+	envoyBackendRefs map[lb.ServiceName]L7LBSyncInfo
 
 	// Name of the CEC resource that needs this service to be forwarded to an
 	// L7 LB specified in that resource.
 	// Only one CEC may do this for any given service.
 	envoyListenerRef lb.ServiceName
 
+	// port number for L7 LB redirection. Can be zero if only backend sync
+	// has been requested.
+	proxyPort uint16
+}
+
+// AllFrontendPorts returns all frontend ports of the service
+// that are referenced by all envoy backend references (CEC).
+func (r *L7LBInfo) AllFrontendPorts() []string {
+	allPorts := []string{}
+
+	for _, info := range r.envoyBackendRefs {
+		allPorts = append(allPorts, info.frontendPorts...)
+	}
+
+	return slices.SortedUnique(allPorts)
+}
+
+type L7LBSyncInfo struct {
 	// List of front-end ports of upstream service/cluster, which will be used for
 	// filtering applicable endpoints.
 	//
 	// If nil, all the available backends will be used.
 	frontendPorts []string
-
-	// port number for L7 LB redirection. Can be zero if only backend sync
-	// hass been requested.
-	proxyPort uint16
 }
 
 func (svc *svcInfo) checkLBSourceRange() bool {
@@ -332,10 +347,11 @@ func (s *Service) registerL7LBService(serviceName, resourceName lb.ServiceName, 
 
 	// Register for sync of backends to Envoy
 	if info.envoyBackendRefs == nil {
-		info.envoyBackendRefs = make(map[lb.ServiceName]struct{}, 1)
+		info.envoyBackendRefs = make(map[lb.ServiceName]L7LBSyncInfo, 1)
 	}
-	info.envoyBackendRefs[resourceName] = struct{}{}
-	info.frontendPorts = frontendPorts
+	info.envoyBackendRefs[resourceName] = L7LBSyncInfo{
+		frontendPorts: frontendPorts,
+	}
 
 	s.l7lbSvcs[serviceName] = info
 	return nil
@@ -380,7 +396,6 @@ func (s *Service) removeL7LBService(serviceName, resourceName lb.ServiceName) bo
 	if info.envoyListenerRef == resourceName {
 		info.envoyListenerRef = empty
 		info.proxyPort = 0
-		info.frontendPorts = nil
 	}
 
 	if info.envoyBackendRefs != nil {
@@ -571,7 +586,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	l7lbInfo, exists := s.l7lbSvcs[params.Name]
 	if exists && l7lbInfo.envoyListenerRef != empty {
 		params.L7LBProxyPort = l7lbInfo.proxyPort
-		params.L7LBFrontendPorts = l7lbInfo.frontendPorts
+		params.L7LBFrontendPorts = l7lbInfo.AllFrontendPorts()
 	} else {
 		params.L7LBProxyPort = 0
 		params.L7LBFrontendPorts = nil
@@ -705,7 +720,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	if l7lbInfo != nil && l7lbInfo.envoyBackendRefs != nil && s.envoyCache != nil {
 		// Filter backend based on list of port numbers, then upsert backends
 		// as Envoy endpoints
-		be := filterServiceBackends(svc, l7lbInfo.frontendPorts)
+		be := filterServiceBackends(svc, l7lbInfo.AllFrontendPorts())
 		if debugLogsEnabled {
 			getScopedLog().WithField("filteredBackends", be).Debug("Upsert envoy endpoints")
 		}
