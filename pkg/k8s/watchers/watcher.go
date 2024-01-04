@@ -160,9 +160,10 @@ type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
-	RegisterL7LBService(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, proxyPort uint16) error
-	RegisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, ports []string) error
-	RemoveL7LBService(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error
+	RegisterL7LBServiceRedirect(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, proxyPort uint16) error
+	DeregisterL7LBServiceRedirect(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error
+	RegisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, backendSyncRegistration service.BackendSyncer) error
+	DeregisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, backendSyncRegistration service.BackendSyncer) error
 }
 
 type redirectPolicyManager interface {
@@ -219,16 +220,17 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager   nodeDiscoverManager
-	policyManager         policyManager
-	policyRepository      policyRepository
-	svcManager            svcManager
-	redirectPolicyManager redirectPolicyManager
-	bgpSpeakerManager     bgpSpeakerManager
-	ipcache               ipcacheManager
-	proxyPortAllocator    envoy.PortAllocator
-	envoyXdsServer        envoy.XDSServer
-	cgroupManager         cgroupManager
+	nodeDiscoverManager       nodeDiscoverManager
+	policyManager             policyManager
+	policyRepository          policyRepository
+	svcManager                svcManager
+	redirectPolicyManager     redirectPolicyManager
+	bgpSpeakerManager         bgpSpeakerManager
+	ipcache                   ipcacheManager
+	proxyPortAllocator        envoy.PortAllocator
+	envoyXdsServer            envoy.XDSServer
+	envoyServiceBackendSyncer *EnvoyServiceBackendSyncer
+	cgroupManager             cgroupManager
 
 	bandwidthManager bandwidth.Manager
 
@@ -281,27 +283,28 @@ func NewK8sWatcher(
 	bandwidthManager bandwidth.Manager,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		clientset:               clientset,
-		K8sSvcCache:             serviceCache,
-		endpointManager:         endpointManager,
-		nodeDiscoverManager:     nodeDiscoverManager,
-		policyManager:           policyManager,
-		policyRepository:        policyRepository,
-		svcManager:              svcManager,
-		ipcache:                 ipcache,
-		controllersStarted:      make(chan struct{}),
-		stop:                    make(chan struct{}),
-		podStoreSet:             make(chan struct{}),
-		networkPoliciesStoreSet: make(chan struct{}),
-		datapath:                datapath,
-		redirectPolicyManager:   redirectPolicyManager,
-		bgpSpeakerManager:       bgpSpeakerManager,
-		cgroupManager:           cgroupManager,
-		bandwidthManager:        bandwidthManager,
-		proxyPortAllocator:      proxyPortAllocator,
-		envoyXdsServer:          envoyXdsServer,
-		cfg:                     cfg,
-		resources:               resources,
+		clientset:                 clientset,
+		K8sSvcCache:               serviceCache,
+		endpointManager:           endpointManager,
+		nodeDiscoverManager:       nodeDiscoverManager,
+		policyManager:             policyManager,
+		policyRepository:          policyRepository,
+		svcManager:                svcManager,
+		ipcache:                   ipcache,
+		controllersStarted:        make(chan struct{}),
+		stop:                      make(chan struct{}),
+		podStoreSet:               make(chan struct{}),
+		networkPoliciesStoreSet:   make(chan struct{}),
+		datapath:                  datapath,
+		redirectPolicyManager:     redirectPolicyManager,
+		bgpSpeakerManager:         bgpSpeakerManager,
+		cgroupManager:             cgroupManager,
+		bandwidthManager:          bandwidthManager,
+		proxyPortAllocator:        proxyPortAllocator,
+		envoyXdsServer:            envoyXdsServer,
+		envoyServiceBackendSyncer: NewEnvoyServiceBackendSyncer(envoyXdsServer),
+		cfg:                       cfg,
+		resources:                 resources,
 	}
 }
 
