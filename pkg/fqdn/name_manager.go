@@ -5,6 +5,7 @@ package fqdn
 
 import (
 	"context"
+	"hash/fnv"
 	"net"
 	"net/netip"
 	"regexp"
@@ -20,6 +21,7 @@ import (
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -49,6 +51,10 @@ type NameManager struct {
 	bootstrapCompleted bool
 
 	manager *controller.Manager
+
+	// list of locks used as coordination points for name updates
+	// see LockName() for details.
+	nameLocks []*lock.Mutex
 }
 
 // GetModel returns the API model of the NameManager.
@@ -139,12 +145,19 @@ func NewNameManager(config Config) *NameManager {
 		}
 	}
 
-	return &NameManager{
+	n := &NameManager{
 		config:       config,
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		cache:        config.Cache,
 		manager:      controller.NewManager(),
+		nameLocks:    make([]*lock.Mutex, option.Config.DNSProxyLockCount),
 	}
+
+	for i := range n.nameLocks {
+		n.nameLocks[i] = &lock.Mutex{}
+	}
+
+	return n
 }
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
@@ -310,4 +323,35 @@ func (n *NameManager) maybeRemoveMetadata(maybeRemoved sets.Set[netip.Addr]) {
 
 	log.WithField(logfields.Prefix, prefixes).Debug("Removing fqdn entry from ipcache metadata layer")
 	n.config.IPCache.RemovePrefixes(prefixes, source.Generated, ipcacheResource)
+}
+
+// LockName is used to serialize  parallel end-to-end updates to the same name.
+//
+// It is needed due to some subtleties around NameManager locks and
+// policy updates. Specifically, we unlock the NameManager after updates
+// are queued to endpoints, but *before* changes are pushed to policy maps.
+// So, if a second request comes in during this state, it may encounter
+// policy drops until the policy updates are complete.
+//
+// Serializing on names prevents this.
+//
+// Rather than having a potentially unbounded set of per-name locks, this
+// buckets names in to a set of locks. The lock count is configurable.
+func (n *NameManager) LockName(name string) {
+	idx := nameLockIndex(name, option.Config.DNSProxyLockCount)
+	n.nameLocks[idx].Lock()
+}
+
+// UnlockName releases a lock previously acquired by LockName()
+func (n *NameManager) UnlockName(name string) {
+	idx := nameLockIndex(name, option.Config.DNSProxyLockCount)
+	n.nameLocks[idx].Unlock()
+}
+
+// nameLockIndex hashes the DNS name to a uint32, then returns that
+// mod the bucket count.
+func nameLockIndex(name string, cnt int) uint32 {
+	h := fnv.New32()
+	_, _ = h.Write([]byte(name)) // cannot return error
+	return h.Sum32() % uint32(cnt)
 }
