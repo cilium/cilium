@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -151,6 +152,8 @@ func (vs Values) Bytes() uint64 {
 
 // metricsMapCollector implements Prometheus Collector interface
 type metricsmapCollector struct {
+	mutex lock.Mutex
+
 	droppedCountDesc *prometheus.Desc
 	droppedByteDesc  *prometheus.Desc
 	forwardCountDesc *prometheus.Desc
@@ -226,6 +229,9 @@ func (p promMetrics[k]) upsert(labels k, values *Values) {
 }
 
 func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
+	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
+
 	err := Metrics.IterateWithCallback(func(key *Key, values *Values) {
 		if key.IsDrop() {
 			labelSet := dropLabels{
