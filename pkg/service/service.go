@@ -202,14 +202,14 @@ func (svc *svcInfo) useMaglev() bool {
 }
 
 type L7LBInfo struct {
-	// Names of the CEC resources that need this service's backends to be
-	// synced to to Envoy.
-	envoyBackendRefs map[lb.ServiceName]L7LBSyncInfo
+	// Names of the L7 LB resources (e.g. CEC) that need this service's backends to be
+	// synced to to an L7 Loadbalancer.
+	backendRefs map[L7LBResourceName]L7LBSyncInfo
 
-	// Name of the CEC resource that needs this service to be forwarded to an
-	// L7 LB specified in that resource.
-	// Only one CEC may do this for any given service.
-	envoyListenerRef lb.ServiceName
+	// Name of the L7 LB resource (e.g. CEC) that needs this service to be forwarded to an
+	// L7 Loadbalancer specified in that resource.
+	// Only one resource may do this for any given service.
+	ownerRef L7LBResourceName
 
 	// port number for L7 LB redirection. Can be zero if only backend sync
 	// has been requested.
@@ -221,7 +221,7 @@ type L7LBInfo struct {
 func (r *L7LBInfo) AllFrontendPorts() []string {
 	allPorts := []string{}
 
-	for _, info := range r.envoyBackendRefs {
+	for _, info := range r.backendRefs {
 		allPorts = append(allPorts, info.frontendPorts...)
 	}
 
@@ -234,6 +234,11 @@ type L7LBSyncInfo struct {
 	//
 	// If nil, all the available backends will be used.
 	frontendPorts []string
+}
+
+type L7LBResourceName struct {
+	Namespace string
+	Name      string
 }
 
 func (svc *svcInfo) checkLBSourceRange() bool {
@@ -297,7 +302,7 @@ func NewService(monitorAgent monitorAgent.Agent, envoyCache envoyCache, lbmap da
 
 // RegisterL7LBService makes the given service to be locally forwarded to the
 // given proxy port.
-func (s *Service) RegisterL7LBService(serviceName, resourceName lb.ServiceName, proxyPort uint16) error {
+func (s *Service) RegisterL7LBService(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16) error {
 	if proxyPort == 0 {
 		return errors.New("proxy port for L7 LB redirection must be nonzero")
 	}
@@ -330,19 +335,19 @@ func (s *Service) RegisterL7LBService(serviceName, resourceName lb.ServiceName, 
 }
 
 // 's' must be locked
-func (s *Service) registerL7LBService(serviceName, resourceName lb.ServiceName, proxyPort uint16) error {
+func (s *Service) registerL7LBService(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16) error {
 	info := s.l7lbSvcs[serviceName]
 	if info == nil {
 		info = &L7LBInfo{}
 	}
 
 	// Only one CEC resource for a given service may request L7 LB redirection at a time.
-	empty := lb.ServiceName{}
-	if info.envoyListenerRef != empty && info.envoyListenerRef != resourceName {
-		return fmt.Errorf("Service %q already registered for L7 LB redirection via CiliumEnvoyConfig %q", serviceName, info.envoyListenerRef)
+	empty := L7LBResourceName{}
+	if info.ownerRef != empty && info.ownerRef != resourceName {
+		return fmt.Errorf("Service %q already registered for L7 LB redirection via CiliumEnvoyConfig %q", serviceName, info.ownerRef)
 	}
 
-	info.envoyListenerRef = resourceName
+	info.ownerRef = resourceName
 	info.proxyPort = proxyPort
 
 	s.l7lbSvcs[serviceName] = info
@@ -351,7 +356,7 @@ func (s *Service) registerL7LBService(serviceName, resourceName lb.ServiceName, 
 }
 
 // RegisterL7LBServiceBackendSync synchronizes the backends of a service to Envoy.
-func (s *Service) RegisterL7LBServiceBackendSync(serviceName, resourceName lb.ServiceName, ports []string) error {
+func (s *Service) RegisterL7LBServiceBackendSync(serviceName lb.ServiceName, resourceName L7LBResourceName, ports []string) error {
 	s.Lock()
 	s.registerL7LBServiceBackendSync(serviceName, resourceName, ports)
 	s.Unlock()
@@ -378,23 +383,23 @@ func (s *Service) RegisterL7LBServiceBackendSync(serviceName, resourceName lb.Se
 }
 
 // 's' must be locked
-func (s *Service) registerL7LBServiceBackendSync(serviceName lb.ServiceName, resourceName lb.ServiceName, frontendPorts []string) {
+func (s *Service) registerL7LBServiceBackendSync(serviceName lb.ServiceName, resourceName L7LBResourceName, frontendPorts []string) {
 	info := s.l7lbSvcs[serviceName]
 	if info == nil {
 		info = &L7LBInfo{}
 	}
 
-	if info.envoyBackendRefs == nil {
-		info.envoyBackendRefs = make(map[lb.ServiceName]L7LBSyncInfo, 1)
+	if info.backendRefs == nil {
+		info.backendRefs = make(map[L7LBResourceName]L7LBSyncInfo, 1)
 	}
-	info.envoyBackendRefs[resourceName] = L7LBSyncInfo{
+	info.backendRefs[resourceName] = L7LBSyncInfo{
 		frontendPorts: frontendPorts,
 	}
 
 	s.l7lbSvcs[serviceName] = info
 }
 
-func (s *Service) RemoveL7LBService(serviceName, resourceName lb.ServiceName) error {
+func (s *Service) RemoveL7LBService(serviceName lb.ServiceName, resourceName L7LBResourceName) error {
 	s.Lock()
 	changed := s.removeL7LBService(serviceName, resourceName)
 	s.Unlock()
@@ -417,27 +422,27 @@ func (s *Service) RemoveL7LBService(serviceName, resourceName lb.ServiceName) er
 	return nil
 }
 
-func (s *Service) removeL7LBService(serviceName, resourceName lb.ServiceName) bool {
+func (s *Service) removeL7LBService(serviceName lb.ServiceName, resourceName L7LBResourceName) bool {
 	info, found := s.l7lbSvcs[serviceName]
 	if !found {
 		return false
 	}
 
-	empty := lb.ServiceName{}
+	empty := L7LBResourceName{}
 
-	if info.envoyListenerRef == resourceName {
-		info.envoyListenerRef = empty
+	if info.ownerRef == resourceName {
+		info.ownerRef = empty
 		info.proxyPort = 0
 	}
 
-	if info.envoyBackendRefs != nil {
-		delete(info.envoyBackendRefs, resourceName)
-		if len(info.envoyBackendRefs) == 0 {
-			info.envoyBackendRefs = nil
+	if info.backendRefs != nil {
+		delete(info.backendRefs, resourceName)
+		if len(info.backendRefs) == 0 {
+			info.backendRefs = nil
 		}
 	}
 
-	if len(info.envoyBackendRefs) == 0 && info.envoyListenerRef == empty {
+	if len(info.backendRefs) == 0 && info.ownerRef == empty {
 		delete(s.l7lbSvcs, serviceName)
 	}
 	return true
@@ -612,11 +617,11 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 }
 
 func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
-	empty := lb.ServiceName{}
+	empty := L7LBResourceName{}
 
 	// Set L7 LB for this service if registered.
 	l7lbInfo, exists := s.l7lbSvcs[params.Name]
-	if exists && l7lbInfo.envoyListenerRef != empty {
+	if exists && l7lbInfo.ownerRef != empty {
 		params.L7LBProxyPort = l7lbInfo.proxyPort
 		params.L7LBFrontendPorts = l7lbInfo.AllFrontendPorts()
 	} else {
@@ -747,7 +752,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 		return false, lb.ID(0), err
 	}
 
-	if l7lbInfo != nil && l7lbInfo.envoyBackendRefs != nil && s.envoyCache != nil {
+	if l7lbInfo != nil && l7lbInfo.backendRefs != nil && s.envoyCache != nil {
 		// Filter backend based on list of port numbers, then upsert backends
 		// as Envoy endpoints
 		be := filterServiceBackends(svc, l7lbInfo.AllFrontendPorts())
