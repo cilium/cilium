@@ -329,6 +329,7 @@ jobs:
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
           ./cilium-cli status --wait
+          ./cilium-cli status --wait --wait-duration=1m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
@@ -360,6 +361,7 @@ jobs:
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests (${{ matrix.name }})" \
             --flow-validation=disabled \
+            --request-timeout=30s \
             --timestamp
 
       - name: Fetch artifacts
