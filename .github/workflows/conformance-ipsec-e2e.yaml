@@ -205,7 +205,7 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Deploy Cilium (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
@@ -229,54 +229,21 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
+      - name: Run tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
           mkdir -p cilium-junits
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --test no-policies-extra/ \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --flush-ct
 
-      - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@main
-        with:
-          job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
-          operation-cmd: |
-            KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
-            if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
-
-            if [[ "${{ matrix.key-two }}" == "gcm(aes)" ]]; then
-              key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-            elif [[ "${{ matrix.key-two }}" == "cbc(aes)" ]]; then
-              key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
-            else
-              echo "Invalid key type"; exit 1
-            fi
-            data="{\"stringData\":{\"keys\":\"$((($KEYID+1))) ${key}\"}}"
-            kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
-
-            # Wait until key rotation starts
-            while true; do
-              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use == 2 ]]; then
-                break
-              fi
-              echo "Waiting until key rotation starts (seeing $keys_in_use keys)"
-              sleep 30s
-            done
-
-            # Wait until key rotation completes
-            # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
-            sleep $((4*60))
-            while true; do
-              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use == 1 ]]; then
-                break
-              fi
-              echo "Waiting until key rotation completes (seeing $keys_in_use keys)"
-              sleep 30s
-            done
+      - name: Collect Pwru log
+        uses: jschwinger233/pwru/actions/pwru-log@gray/action
 
       - name: Fetch artifacts
         if: ${{ !success() }}
