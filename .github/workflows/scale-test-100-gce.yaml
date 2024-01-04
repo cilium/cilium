@@ -181,6 +181,9 @@ jobs:
           export CL2_ALLOWED_SLOW_API_CALLS=1
           export CL2_SCHEDULER_THROUGHPUT_THRESHOLD=0
 
+          # CL2 needs ssh access to control plane nodes
+          gcloud compute config-ssh
+
           go run ./cmd/clusterloader.go \
             -v=2 \
             --testconfig=./testing/load/config.yaml \
