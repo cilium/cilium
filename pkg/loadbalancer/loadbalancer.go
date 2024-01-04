@@ -398,8 +398,7 @@ type SVC struct {
 	HealthCheckNodePort       uint16      // Service health check node port
 	Name                      ServiceName // Fully qualified service name
 	LoadBalancerSourceRanges  []*cidr.CIDR
-	L7LBProxyPort             uint16   // Non-zero for L7 LB services
-	L7LBFrontendPorts         []string // Non-zero for L7 LB frontend service ports
+	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 	LoopbackHostport          bool
 }
 
