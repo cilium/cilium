@@ -1469,7 +1469,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	// registering without redirecting
 	echoOtherNode := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
 	resource1 := lb.ServiceName{Name: "testOwner1", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBServiceBackendSync(echoOtherNode, resource1, nil)
+	err = m.svc.RegisterL7LBService(echoOtherNode, resource1, nil, 0)
 	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
@@ -1477,15 +1477,31 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
-	// registering with redirection stores the proxy port
+	// Registering backend sync for resource1 on a set of ports shouldn't be reflected in the l7LBBFrontendPorts
+	// if there's no active L7 proxy forwarding for this service.
+	err = m.svc.RegisterL7LBServiceBackendSync(echoOtherNode, resource1, []string{"8080", "9090", "10000"})
+	c.Assert(err, IsNil)
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
+	c.Assert(svc.l7LBFrontendPorts, IsNil) // No forward active
+
+	// Registering with redirection stores the proxy port.
+	// In addition, the set of ports should be merged with the ports
+	// of the existing backend sync registrations. This is important
+	// in cases where multiple CiliumEnvoyConfigs are referencing the
+	// same Service on different ports.
 	resource2 := lb.ServiceName{Name: "testOwner2", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBService(echoOtherNode, resource2, nil, uint16(9090))
+	err = m.svc.RegisterL7LBService(echoOtherNode, resource2, []string{"8080", "9090", "11000"}, uint16(9090))
 	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
+	c.Assert(svc.l7LBFrontendPorts, checker.DeepEquals, []string{"10000", "11000", "8080", "9090"})
 
 	// Remove with an unregistered owner name does not remove
 	resource3 := lb.ServiceName{Name: "testOwner3", Namespace: "cilium-test"}
@@ -1500,6 +1516,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	// Removing registration without redirection does not remove the proxy port
 	err = m.svc.RemoveL7LBService(echoOtherNode, resource1)
 	c.Assert(err, IsNil)
+	c.Assert(svc.l7LBFrontendPorts, checker.DeepEquals, []string{"11000", "8080", "9090"})
 
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
