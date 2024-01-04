@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -2080,7 +2079,7 @@ func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb
 
 // SyncServicesOnDeviceChange finds and adds missing load-balancing entries for
 // new devices.
-func (s *Service) SyncServicesOnDeviceChange(nodeAddressing types.NodeAddressing) {
+func (s *Service) SyncServicesOnDeviceChange(nodeAddressing datapathTypes.NodeAddressing) {
 	// Collect all frontend addresses
 	frontendAddrs := make(map[string]net.IP)
 
