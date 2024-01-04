@@ -160,9 +160,9 @@ type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
-	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, proxyPort uint16) error
-	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
-	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
+	RegisterL7LBService(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, proxyPort uint16) error
+	RegisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, ports []string) error
+	RemoveL7LBService(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error
 }
 
 type redirectPolicyManager interface {

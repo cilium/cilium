@@ -45,13 +45,13 @@ type ServiceManager interface {
 	InitMaps(ipv6, ipv4, sockMaps, restore bool) error
 
 	// RegisterL7LBService makes the given service to be locally forwarded to th given proxy port.
-	RegisterL7LBService(serviceName, resourceName lb.ServiceName, proxyPort uint16) error
+	RegisterL7LBService(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16) error
 
 	// RegisterL7LBServiceBackendSync synchronizes the backends of a service to Envoy.
-	RegisterL7LBServiceBackendSync(serviceName, resourceName lb.ServiceName, ports []string) error
+	RegisterL7LBServiceBackendSync(serviceName lb.ServiceName, resourceName L7LBResourceName, ports []string) error
 
 	// RemoveL7LBService removes a service from L7 load balancing.
-	RemoveL7LBService(serviceName, resourceName lb.ServiceName) error
+	RemoveL7LBService(serviceName lb.ServiceName, resourceName L7LBResourceName) error
 
 	// RestoreServices restores services from BPF maps.
 	RestoreServices() error

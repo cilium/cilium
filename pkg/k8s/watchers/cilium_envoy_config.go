@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/service"
 )
 
 func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient client.Clientset) {
@@ -136,7 +137,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 		return err
 	}
 
-	name := loadbalancer.ServiceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
+	name := service.L7LBResourceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
 	if err := k.addK8sServiceRedirects(name, &cec.Spec, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to redirect K8s services to Envoy")
 		return err
@@ -155,7 +156,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 }
 
 // getServiceName enforces namespacing for service references in Cilium Envoy Configs
-func getServiceName(resourceName loadbalancer.ServiceName, name, namespace string, isFrontend bool) loadbalancer.ServiceName {
+func getServiceName(resourceName service.L7LBResourceName, name, namespace string, isFrontend bool) loadbalancer.ServiceName {
 	if resourceName.Namespace == "" {
 		// nonNamespaced Cilium Clusterwide Envoy Config, default service references to
 		// "default" namespace.
@@ -173,7 +174,7 @@ func getServiceName(resourceName loadbalancer.ServiceName, name, namespace strin
 	return loadbalancer.ServiceName{Name: name, Namespace: namespace}
 }
 
-func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceName, spec *cilium_v2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
+func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.L7LBResourceName, spec *cilium_v2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
 	// Redirect k8s services to an Envoy listener
 	for _, svc := range spec.Services {
 		svcListener := ""
@@ -252,7 +253,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		return err
 	}
 
-	name := loadbalancer.ServiceName{Name: oldCEC.ObjectMeta.Name, Namespace: oldCEC.ObjectMeta.Namespace}
+	name := service.L7LBResourceName{Name: oldCEC.ObjectMeta.Name, Namespace: oldCEC.ObjectMeta.Namespace}
 	if err = k.removeK8sServiceRedirects(name, &oldCEC.Spec, &newCEC.Spec, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update K8s service redirections")
 		return err
@@ -278,7 +279,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 	return nil
 }
 
-func (k *K8sWatcher) removeK8sServiceRedirects(resourceName loadbalancer.ServiceName, oldSpec, newSpec *cilium_v2.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
+func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.L7LBResourceName, oldSpec, newSpec *cilium_v2.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
 	removedServices := []*cilium_v2.ServiceListener{}
 	for _, oldSvc := range oldSpec.Services {
 		found := false
@@ -359,7 +360,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 		return err
 	}
 
-	name := loadbalancer.ServiceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
+	name := service.L7LBResourceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
 	if err = k.deleteK8sServiceRedirects(name, &cec.Spec); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete K8s service redirections")
 		return err
@@ -380,7 +381,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 	return nil
 }
 
-func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName loadbalancer.ServiceName, spec *cilium_v2.CiliumEnvoyConfigSpec) error {
+func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName service.L7LBResourceName, spec *cilium_v2.CiliumEnvoyConfigSpec) error {
 	for _, svc := range spec.Services {
 		// Tell service manager to remove old service redirection
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
