@@ -24,7 +24,7 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1beta1.Paren
 
 		return false, nil
 	}
-
+	hasNamespaceRestriction := false
 	for _, listener := range gw.Spec.Listeners {
 
 		if listener.AllowedRoutes == nil {
@@ -34,10 +34,12 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1beta1.Paren
 		if listener.AllowedRoutes.Namespaces == nil {
 			continue
 		}
-
+		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
+			continue
+		}
 		// if gateway allows all namespaces, we do not need to check anything here
 		if *listener.AllowedRoutes.Namespaces.From == gatewayv1beta1.NamespacesFromAll {
-			continue
+			return true, nil
 		}
 
 		if *listener.AllowedRoutes.Namespaces.From == gatewayv1beta1.NamespacesFromSelector {
@@ -63,22 +65,25 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1beta1.Paren
 
 				return false, nil
 			}
+			return true, nil
 		}
 
 		// check if the gateway allows the same namespace as the route
 		if *listener.AllowedRoutes.Namespaces.From == gatewayv1beta1.NamespacesFromSame &&
-			input.GetNamespace() != gw.GetNamespace() {
-			input.SetParentCondition(parentRef, metav1.Condition{
-				Type:    "Accepted",
-				Status:  metav1.ConditionFalse,
-				Reason:  string(gatewayv1beta1.RouteReasonNotAllowedByListeners),
-				Message: input.GetGVK().Kind + " is not allowed to attach to this Gateway due to namespace restrictions",
-			})
-
-			return false, nil
+			input.GetNamespace() == gw.GetNamespace() {
+			return true, nil
 		}
+		hasNamespaceRestriction = true
 	}
-
+	if hasNamespaceRestriction {
+		input.SetParentCondition(parentRef, metav1.Condition{
+			Type:    "Accepted",
+			Status:  metav1.ConditionFalse,
+			Reason:  string(gatewayv1beta1.RouteReasonNotAllowedByListeners),
+			Message: input.GetGVK().Kind + " is not allowed to attach to this Gateway due to namespace restrictions",
+		})
+		return false, nil
+	}
 	return true, nil
 }
 
