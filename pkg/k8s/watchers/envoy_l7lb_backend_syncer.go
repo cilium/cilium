@@ -4,8 +4,12 @@
 package watchers
 
 import (
+	"context"
 	"fmt"
 	"strconv"
+
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -14,6 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/slices"
 )
+
+const anyPort = "*"
 
 // EnvoyServiceBackendSyncer syncs the backends of a Service as Endpoints to the Envoy L7 proxy.
 type EnvoyServiceBackendSyncer struct {
@@ -53,7 +59,7 @@ func (r *EnvoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
 		WithField("filteredBackends", be).
 		WithField(logfields.L7LBFrontendPorts, l7lbInfo.GetAllFrontendPorts()).
 		Debug("Upsert envoy endpoints")
-	if err := r.envoyXdsServer.UpsertEnvoyEndpoints(svc.Name, be); err != nil {
+	if err := r.upsertEnvoyEndpoints(svc.Name, be); err != nil {
 		return fmt.Errorf("failed to update backends in Envoy: %w", err)
 	}
 
@@ -104,6 +110,72 @@ func (r *EnvoyServiceBackendSyncer) DeregisterServiceUsageInCEC(svcName loadbala
 	r.l7lbSvcs[svcName] = l7lbInfo
 
 	return false
+}
+
+func (r *EnvoyServiceBackendSyncer) upsertEnvoyEndpoints(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) error {
+	var resources envoy.Resources
+
+	resources.Endpoints = getEndpointsForLBBackends(serviceName, backendMap)
+
+	// Using context.TODO() is fine as we do not upsert listener resources here - the
+	// context ends up being used only if listener(s) are included in 'resources'.
+	return r.envoyXdsServer.UpsertEnvoyResources(context.TODO(), resources)
+}
+
+func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) []*envoy_config_endpoint.ClusterLoadAssignment {
+	var endpoints []*envoy_config_endpoint.ClusterLoadAssignment
+
+	for port, bes := range backendMap {
+		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
+		for _, be := range bes {
+			if be.Protocol != loadbalancer.TCP {
+				// Only TCP services supported with Envoy for now
+				continue
+			}
+
+			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
+				HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
+					Endpoint: &envoy_config_endpoint.Endpoint{
+						Address: &envoy_config_core.Address{
+							Address: &envoy_config_core.Address_SocketAddress{
+								SocketAddress: &envoy_config_core.SocketAddress{
+									Address: be.L3n4Addr.AddrCluster.String(),
+									PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
+										PortValue: uint32(be.L3n4Addr.L4Addr.Port),
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+		}
+
+		endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
+			ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
+			Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
+				{
+					LbEndpoints: lbEndpoints,
+				},
+			},
+		}
+		endpoints = append(endpoints, endpoint)
+
+		// for backward compatibility, if any port is allowed, publish one more
+		// endpoint having cluster name as service name.
+		if port == anyPort {
+			endpoints = append(endpoints, &envoy_config_endpoint.ClusterLoadAssignment{
+				ClusterName: serviceName.String(),
+				Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
+					{
+						LbEndpoints: lbEndpoints,
+					},
+				},
+			})
+		}
+	}
+
+	return endpoints
 }
 
 // filterServiceBackends returns the list of backends based on given front end ports.
