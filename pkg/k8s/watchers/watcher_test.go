@@ -121,15 +121,19 @@ func (f *fakeSvcManager) UpsertService(p *loadbalancer.SVC) (bool, loadbalancer.
 	panic("OnUpsertService() was called and is not set!")
 }
 
-func (f *fakeSvcManager) RegisterL7LBService(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, proxyPort uint16) error {
+func (f *fakeSvcManager) RegisterL7LBServiceRedirect(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, proxyPort uint16) error {
 	return nil
 }
 
-func (f *fakeSvcManager) RegisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, ports []string) error {
+func (f *fakeSvcManager) DeregisterL7LBServiceRedirect(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error {
 	return nil
 }
 
-func (f *fakeSvcManager) RemoveL7LBService(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error {
+func (f *fakeSvcManager) RegisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, backendSyncRegistration service.BackendSyncer) error {
+	return nil
+}
+
+func (f *fakeSvcManager) DeregisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, backendSyncRegistration service.BackendSyncer) error {
 	return nil
 }
 
