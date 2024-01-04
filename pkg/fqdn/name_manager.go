@@ -116,6 +116,11 @@ func (n *NameManager) RegisterForIPUpdatesLocked(selector api.FQDNSelector) []ne
 	}
 
 	selectorIPMapping := n.mapSelectorsToIPsLocked(sets.New(selector))
+
+	// We may have skipped inserting these IPs in to the ipcache earlier, if they
+	// were not previously selected. Upsert them now.
+	n.upsertMetadata(selectorIPMapping[selector])
+
 	return selectorIPMapping[selector]
 }
 
@@ -255,7 +260,13 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 			}
 		}
 	}
-	if len(addrsToUpsert) > 0 {
+
+	// If new IPs were detected, and these IPs are selected by selectors,
+	// then ensure they have an identity allocated to them via the ipcache.
+	//
+	// If no selectors care about this name, then skip this step. If any selectors
+	// are added later, ipcache insertion will happen then.
+	if len(addrsToUpsert) > 0 && affectedSelectors.Len() > 0 {
 		ipcacheRevision = n.upsertMetadata(addrsToUpsert.UnsortedList())
 	}
 
