@@ -649,7 +649,33 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
 	})
 
-	t.Run("http route with cross namespace backend", func(t *testing.T) {
+	t.Run("http route with cross namespace listener", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "http-route-with-cross-namespace-listener",
+			Namespace: "another-namespace",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err, "Error reconciling httpRoute")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		route := &gatewayv1beta1.HTTPRoute{}
+		err = c.Get(context.Background(), key, route)
+
+		require.NoError(t, err)
+		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
+		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+
+		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+
+		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
+	})
+
+	t.Run("http route with cross namespace backend with reference grant", func(t *testing.T) {
 		key := types.NamespacedName{
 			Name:      "http-route-with-cross-namespace-backend",
 			Namespace: "default",
