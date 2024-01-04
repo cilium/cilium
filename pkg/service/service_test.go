@@ -984,7 +984,6 @@ func (m *ManagerTestSuite) TestHealthCheckLoadBalancerIP(c *C) {
 	c.Assert(err, IsNil)
 
 	option.Config.EnableHealthCheckLoadBalancerIP = false
-
 }
 
 func (m *ManagerTestSuite) TestHealthCheckNodePortDisabled(c *C) {
@@ -1466,11 +1465,11 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
-	// registering without redirecting
+	// registering redirection with proxy port 0 should result in an error
 	echoOtherNode := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
 	resource1 := lb.ServiceName{Name: "testOwner1", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBService(echoOtherNode, resource1, nil, 0)
-	c.Assert(err, IsNil)
+	err = m.svc.RegisterL7LBService(echoOtherNode, resource1, 0)
+	c.Assert(err, NotNil)
 
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
@@ -1489,23 +1488,24 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(svc.l7LBFrontendPorts, IsNil) // No forward active
 
 	// Registering with redirection stores the proxy port.
-	// In addition, the set of ports should be merged with the ports
-	// of the existing backend sync registrations. This is important
-	// in cases where multiple CiliumEnvoyConfigs are referencing the
-	// same Service on different ports.
 	resource2 := lb.ServiceName{Name: "testOwner2", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBService(echoOtherNode, resource2, []string{"8080", "9090", "11000"}, uint16(9090))
+	err = m.svc.RegisterL7LBService(echoOtherNode, resource2, 9090)
 	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
-	c.Assert(svc.l7LBFrontendPorts, checker.DeepEquals, []string{"10000", "11000", "8080", "9090"})
+
+	// registering redirection for a Service that already has a redirect registration
+	// should result in an error.
+	resource3 := lb.ServiceName{Name: "testOwner3", Namespace: "cilium-test"}
+	err = m.svc.RegisterL7LBService(echoOtherNode, resource3, 10000)
+	c.Assert(err, NotNil)
 
 	// Remove with an unregistered owner name does not remove
-	resource3 := lb.ServiceName{Name: "testOwner3", Namespace: "cilium-test"}
-	err = m.svc.RemoveL7LBService(echoOtherNode, resource3)
+	resource4 := lb.ServiceName{Name: "testOwner4", Namespace: "cilium-test"}
+	err = m.svc.RemoveL7LBService(echoOtherNode, resource4)
 	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
@@ -1516,7 +1516,6 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	// Removing registration without redirection does not remove the proxy port
 	err = m.svc.RemoveL7LBService(echoOtherNode, resource1)
 	c.Assert(err, IsNil)
-	c.Assert(svc.l7LBFrontendPorts, checker.DeepEquals, []string{"11000", "8080", "9090"})
 
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
@@ -1989,13 +1988,18 @@ type mockNodeAddressingFamily struct {
 	ips []net.IP
 }
 
-func (n *mockNodeAddressingFamily) Router() net.IP                    { panic("Not implemented") }
-func (n *mockNodeAddressingFamily) PrimaryExternal() net.IP           { panic("Not implemented") }
-func (n *mockNodeAddressingFamily) AllocationCIDR() *cidr.CIDR        { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) Router() net.IP { panic("Not implemented") }
+
+func (n *mockNodeAddressingFamily) PrimaryExternal() net.IP { panic("Not implemented") }
+
+func (n *mockNodeAddressingFamily) AllocationCIDR() *cidr.CIDR { panic("Not implemented") }
+
 func (n *mockNodeAddressingFamily) LocalAddresses() ([]net.IP, error) { panic("Not implemented") }
+
 func (n *mockNodeAddressingFamily) LoadBalancerNodeAddresses() []net.IP {
 	return n.ips
 }
+
 func (n *mockNodeAddressingFamily) DirectRouting() (int, net.IP, bool) {
 	return -1, nil, false
 }
@@ -2008,6 +2012,7 @@ type mockNodeAddressing struct {
 func (na *mockNodeAddressing) IPv4() datapathTypes.NodeAddressingFamily {
 	return na.ip4
 }
+
 func (na *mockNodeAddressing) IPv6() datapathTypes.NodeAddressingFamily {
 	return na.ip6
 }
@@ -2062,7 +2067,6 @@ func (m *ManagerTestSuite) TestSyncServices(c *C) {
 	c.Assert(found, Equals, true)
 	_, _, found = m.svc.GetServiceNameByAddr(frontend3.L3n4Addr)
 	c.Assert(found, Equals, true)
-
 }
 
 func (m *ManagerTestSuite) TestTrafficPolicy(c *C) {

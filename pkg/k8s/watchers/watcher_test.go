@@ -120,7 +120,7 @@ func (f *fakeSvcManager) UpsertService(p *loadbalancer.SVC) (bool, loadbalancer.
 	panic("OnUpsertService() was called and is not set!")
 }
 
-func (f *fakeSvcManager) RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error {
+func (f *fakeSvcManager) RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, proxyPort uint16) error {
 	return nil
 }
 

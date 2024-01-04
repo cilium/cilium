@@ -198,8 +198,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceNam
 
 		// Tell service manager to redirect the service to the port
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
-		err := k.svcManager.RegisterL7LBService(serviceName, resourceName, nil, proxyPort)
-		if err != nil {
+		if err := k.svcManager.RegisterL7LBService(serviceName, resourceName, proxyPort); err != nil {
 			return err
 		}
 	}

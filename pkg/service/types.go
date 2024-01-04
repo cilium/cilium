@@ -45,7 +45,7 @@ type ServiceManager interface {
 	InitMaps(ipv6, ipv4, sockMaps, restore bool) error
 
 	// RegisterL7LBService makes the given service to be locally forwarded to th given proxy port.
-	RegisterL7LBService(serviceName, resourceName lb.ServiceName, ports []string, proxyPort uint16) error
+	RegisterL7LBService(serviceName, resourceName lb.ServiceName, proxyPort uint16) error
 
 	// RegisterL7LBServiceBackendSync synchronizes the backends of a service to Envoy.
 	RegisterL7LBServiceBackendSync(serviceName, resourceName lb.ServiceName, ports []string) error
