@@ -23,13 +23,10 @@ import (
 	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-const anyPort = "*"
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
 type Resources struct {
@@ -840,72 +837,6 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 		return err
 	}
 	return nil
-}
-
-func (s *xdsServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) error {
-	var resources Resources
-
-	resources.Endpoints = getEndpointsForLBBackends(serviceName, backendMap)
-
-	// Using context.TODO() is fine as we do not upsert listener resources here - the
-	// context ends up being used only if listener(s) are included in 'resources'.
-	return s.UpsertEnvoyResources(context.TODO(), resources)
-}
-
-func getEndpointsForLBBackends(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) []*envoy_config_endpoint.ClusterLoadAssignment {
-	var endpoints []*envoy_config_endpoint.ClusterLoadAssignment
-
-	for port, bes := range backendMap {
-		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
-		for _, be := range bes {
-			if be.Protocol != lb.TCP {
-				// Only TCP services supported with Envoy for now
-				continue
-			}
-
-			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
-				HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
-					Endpoint: &envoy_config_endpoint.Endpoint{
-						Address: &envoy_config_core.Address{
-							Address: &envoy_config_core.Address_SocketAddress{
-								SocketAddress: &envoy_config_core.SocketAddress{
-									Address: be.L3n4Addr.AddrCluster.String(),
-									PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
-										PortValue: uint32(be.L3n4Addr.L4Addr.Port),
-									},
-								},
-							},
-						},
-					},
-				},
-			})
-		}
-
-		endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
-			ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
-			Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
-				{
-					LbEndpoints: lbEndpoints,
-				},
-			},
-		}
-		endpoints = append(endpoints, endpoint)
-
-		// for backward compatibility, if any port is allowed, publish one more
-		// endpoint having cluster name as service name.
-		if port == anyPort {
-			endpoints = append(endpoints, &envoy_config_endpoint.ClusterLoadAssignment{
-				ClusterName: serviceName.String(),
-				Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
-					{
-						LbEndpoints: lbEndpoints,
-					},
-				},
-			})
-		}
-	}
-
-	return endpoints
 }
 
 func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_tls.CommonTlsContext) (updated bool) {
