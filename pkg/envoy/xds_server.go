@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/envoy/xds"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -107,8 +106,6 @@ type XDSServer interface {
 	UpdateEnvoyResources(ctx context.Context, old, new Resources) error
 	// DeleteEnvoyResources deletes all Envoy resources in 'resources'.
 	DeleteEnvoyResources(ctx context.Context, resources Resources) error
-
-	UpsertEnvoyEndpoints(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) error
 
 	// GetNetworkPolicies returns the current version of the network policies with the given names.
 	// If resourceNames is empty, all resources are returned.
