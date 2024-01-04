@@ -1081,12 +1081,6 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 		// manager (see NodeIpsetNeeded()).
 		Tunneling:            false,
 		EnableIPv4Masquerade: true,
-		// RemoteNodeIdentity is enabled to make sure we don't skip the
-		// ipcache update in NodeUpdated(), and in particular, the
-		// update to nodeIpsAdded. If we skip that part, and an old
-		// node existed, then Nodeupdated() will remove the ipset entry
-		// it just added when calling removenodeFromIPCache().
-		RemoteNodeIdentity: true,
 	}, newIPcacheMock(), newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	mngr.Subscribe(dp)
 	c.Assert(err, check.IsNil)
