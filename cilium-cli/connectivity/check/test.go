@@ -482,8 +482,8 @@ type CiliumEgressGatewayPolicyParams struct {
 	// PodSelectorKind is used to select the client pods. The parameter is used to select pods with a matching "kind" label
 	PodSelectorKind string
 
-	// ExcludedCIDRs controls how the ExcludedCIDRs property should be configured
-	ExcludedCIDRs ExcludedCIDRsKind
+	// ExcludedCIDRsConf controls how the ExcludedCIDRsConf property should be configured
+	ExcludedCIDRsConf ExcludedCIDRsKind
 }
 
 // WithCiliumEgressGatewayPolicy takes a string containing a YAML policy
@@ -529,7 +529,7 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 		// Set the excluded CIDRs
 		pl[i].Spec.ExcludedCIDRs = []v2.IPv4CIDR{}
 
-		switch params.ExcludedCIDRs {
+		switch params.ExcludedCIDRsConf {
 		case ExternalNodeExcludedCIDRs:
 			for _, nodeWithoutCiliumIP := range t.Context().params.NodesWithoutCiliumIPs {
 				if parsedIP := net.ParseIP(nodeWithoutCiliumIP.IP); parsedIP.To4() == nil {
