@@ -220,17 +220,17 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager       nodeDiscoverManager
-	policyManager             policyManager
-	policyRepository          policyRepository
-	svcManager                svcManager
-	redirectPolicyManager     redirectPolicyManager
-	bgpSpeakerManager         bgpSpeakerManager
-	ipcache                   ipcacheManager
-	proxyPortAllocator        envoy.PortAllocator
-	envoyXdsServer            envoy.XDSServer
-	envoyServiceBackendSyncer *envoy.EnvoyServiceBackendSyncer
-	cgroupManager             cgroupManager
+	nodeDiscoverManager    nodeDiscoverManager
+	policyManager          policyManager
+	policyRepository       policyRepository
+	svcManager             svcManager
+	redirectPolicyManager  redirectPolicyManager
+	bgpSpeakerManager      bgpSpeakerManager
+	ipcache                ipcacheManager
+	proxyPortAllocator     envoy.PortAllocator
+	envoyXdsServer         envoy.XDSServer
+	envoyL7LBBackendSyncer *envoy.EnvoyServiceBackendSyncer
+	cgroupManager          cgroupManager
 
 	bandwidthManager bandwidth.Manager
 
@@ -275,6 +275,7 @@ func NewK8sWatcher(
 	bgpSpeakerManager bgpSpeakerManager,
 	proxyPortAllocator envoy.PortAllocator,
 	envoyXdsServer envoy.XDSServer,
+	envoyL7LBBackendSyncer *envoy.EnvoyServiceBackendSyncer,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
@@ -283,28 +284,28 @@ func NewK8sWatcher(
 	bandwidthManager bandwidth.Manager,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		clientset:                 clientset,
-		K8sSvcCache:               serviceCache,
-		endpointManager:           endpointManager,
-		nodeDiscoverManager:       nodeDiscoverManager,
-		policyManager:             policyManager,
-		policyRepository:          policyRepository,
-		svcManager:                svcManager,
-		ipcache:                   ipcache,
-		controllersStarted:        make(chan struct{}),
-		stop:                      make(chan struct{}),
-		podStoreSet:               make(chan struct{}),
-		networkPoliciesStoreSet:   make(chan struct{}),
-		datapath:                  datapath,
-		redirectPolicyManager:     redirectPolicyManager,
-		bgpSpeakerManager:         bgpSpeakerManager,
-		cgroupManager:             cgroupManager,
-		bandwidthManager:          bandwidthManager,
-		proxyPortAllocator:        proxyPortAllocator,
-		envoyXdsServer:            envoyXdsServer,
-		envoyServiceBackendSyncer: envoy.NewEnvoyServiceBackendSyncer(envoyXdsServer),
-		cfg:                       cfg,
-		resources:                 resources,
+		clientset:               clientset,
+		K8sSvcCache:             serviceCache,
+		endpointManager:         endpointManager,
+		nodeDiscoverManager:     nodeDiscoverManager,
+		policyManager:           policyManager,
+		policyRepository:        policyRepository,
+		svcManager:              svcManager,
+		ipcache:                 ipcache,
+		controllersStarted:      make(chan struct{}),
+		stop:                    make(chan struct{}),
+		podStoreSet:             make(chan struct{}),
+		networkPoliciesStoreSet: make(chan struct{}),
+		datapath:                datapath,
+		redirectPolicyManager:   redirectPolicyManager,
+		bgpSpeakerManager:       bgpSpeakerManager,
+		cgroupManager:           cgroupManager,
+		bandwidthManager:        bandwidthManager,
+		proxyPortAllocator:      proxyPortAllocator,
+		envoyXdsServer:          envoyXdsServer,
+		envoyL7LBBackendSyncer:  envoyL7LBBackendSyncer,
+		cfg:                     cfg,
+		resources:               resources,
 	}
 }
 

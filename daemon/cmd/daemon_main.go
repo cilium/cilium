@@ -1558,7 +1558,7 @@ func (d *Daemon) initKVStore() {
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
 	}
 
-	var cg = controller.NewGroup("kvstore-locks-gc")
+	cg := controller.NewGroup("kvstore-locks-gc")
 	controller.NewManager().UpdateController("kvstore-locks-gc",
 		controller.ControllerParams{
 			Group: cg,
@@ -1650,6 +1650,7 @@ type daemonParams struct {
 	ServiceManager       service.ServiceManager
 	L7Proxy              *proxy.Proxy
 	EnvoyXdsServer       envoy.XDSServer
+	EnvoyBackendSyncer   *envoy.EnvoyServiceBackendSyncer
 	DB                   *statedb.DB
 	APILimiterSet        *rate.APILimiterSet
 	AuthManager          *auth.AuthManager

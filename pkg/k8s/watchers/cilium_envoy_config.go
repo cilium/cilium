@@ -418,11 +418,11 @@ func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName service.L7LBResource
 
 func (k *K8sWatcher) registerServiceSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, ports []string) error {
 	// Register service usage in Envoy backend sync
-	k.envoyServiceBackendSyncer.RegisterServiceUsageInCEC(serviceName, resourceName, ports)
+	k.envoyL7LBBackendSyncer.RegisterServiceUsageInCEC(serviceName, resourceName, ports)
 
 	// Register Envoy Backend Sync for the specific service in the service manager.
 	// A re-registration will trigger an implicit re-synchronization.
-	if err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, k.envoyServiceBackendSyncer); err != nil {
+	if err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, k.envoyL7LBBackendSyncer); err != nil {
 		return err
 	}
 
@@ -431,11 +431,11 @@ func (k *K8sWatcher) registerServiceSync(serviceName loadbalancer.ServiceName, r
 
 func (k *K8sWatcher) deregisterServiceSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error {
 	// Deregister usage of Service from Envoy Backend Sync
-	isLastDeregistration := k.envoyServiceBackendSyncer.DeregisterServiceUsageInCEC(serviceName, resourceName)
+	isLastDeregistration := k.envoyL7LBBackendSyncer.DeregisterServiceUsageInCEC(serviceName, resourceName)
 
 	if isLastDeregistration {
 		// Tell service manager to remove backend sync for this service
-		if err := k.svcManager.DeregisterL7LBServiceBackendSync(serviceName, k.envoyServiceBackendSyncer); err != nil {
+		if err := k.svcManager.DeregisterL7LBServiceBackendSync(serviceName, k.envoyL7LBBackendSyncer); err != nil {
 			return err
 		}
 
@@ -444,7 +444,7 @@ func (k *K8sWatcher) deregisterServiceSync(serviceName loadbalancer.ServiceName,
 
 	// There are other CECs using the same service as backend.
 	// Re-Register the backend-sync to enforce a synchronization.
-	if err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, k.envoyServiceBackendSyncer); err != nil {
+	if err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, k.envoyL7LBBackendSyncer); err != nil {
 		return err
 	}
 
