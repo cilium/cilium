@@ -34,7 +34,7 @@ func (*EnvoyServiceBackendSyncer) ProxyName() string {
 	return "Envoy"
 }
 
-func NewEnvoyServiceBackendSyncer(envoyXdsServer XDSServer) *EnvoyServiceBackendSyncer {
+func newEnvoyServiceBackendSyncer(envoyXdsServer XDSServer) *EnvoyServiceBackendSyncer {
 	return &EnvoyServiceBackendSyncer{
 		envoyXdsServer: envoyXdsServer,
 		l7lbSvcs:       map[loadbalancer.ServiceName]*backendSyncInfo{},
