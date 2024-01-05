@@ -414,8 +414,13 @@ not_esp:
 				return ret;
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
-			return egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
-								 daddr, ext_err);
+			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
+								daddr, ext_err);
+			if (ret != CTX_ACT_OK)
+				return ret;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
