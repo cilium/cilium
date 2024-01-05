@@ -229,7 +229,7 @@ type K8sWatcher struct {
 	ipcache                   ipcacheManager
 	proxyPortAllocator        envoy.PortAllocator
 	envoyXdsServer            envoy.XDSServer
-	envoyServiceBackendSyncer *EnvoyServiceBackendSyncer
+	envoyServiceBackendSyncer *envoy.EnvoyServiceBackendSyncer
 	cgroupManager             cgroupManager
 
 	bandwidthManager bandwidth.Manager
@@ -302,7 +302,7 @@ func NewK8sWatcher(
 		bandwidthManager:          bandwidthManager,
 		proxyPortAllocator:        proxyPortAllocator,
 		envoyXdsServer:            envoyXdsServer,
-		envoyServiceBackendSyncer: NewEnvoyServiceBackendSyncer(envoyXdsServer),
+		envoyServiceBackendSyncer: envoy.NewEnvoyServiceBackendSyncer(envoyXdsServer),
 		cfg:                       cfg,
 		resources:                 resources,
 	}
