@@ -1005,6 +1005,7 @@ here.
 | IGMP_HANDLED | 199 |  |
 | IGMP_SUBSCRIBED | 200 |  |
 | MULTICAST_HANDLED | 201 |  |
+| DROP_HOST_NOT_READY | 202 | A BPF program wants to tail call into bpf_host, but the host datapath hasn&#39;t been loaded yet. |
 
 
 

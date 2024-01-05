@@ -404,6 +404,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	}
 
 	l.hostDpInitializedOnce.Do(func() {
+		log.Debug("Initialized host datapath")
 		close(l.hostDpInitialized)
 	})
 
