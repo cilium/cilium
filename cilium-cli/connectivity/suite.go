@@ -809,9 +809,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	if versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion) {
 		ct.NewTest("egress-gateway-excluded-cidrs").
 			WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
-				Name:            "cegp-sample-client",
-				PodSelectorKind: "client",
-				ExcludedCIDRs:   check.ExternalNodeExcludedCIDRs,
+				Name:              "cegp-sample-client",
+				PodSelectorKind:   "client",
+				ExcludedCIDRsConf: check.ExternalNodeExcludedCIDRs,
 			}).
 			WithFeatureRequirements(features.RequireEnabled(features.EgressGateway),
 				features.RequireEnabled(features.NodeWithoutCilium)).
