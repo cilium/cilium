@@ -144,6 +144,23 @@ for i in $(seq 1 10); do
     fi
 done
 
+docker exec -t lb-node docker exec -t cilium-lb \
+    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --backend-weights "1" --k8s-node-port
+
+curl -o /dev/null "${LB_VIP}:80" -m1 || (echo "Failed $i"; exit -1)
+
+# Restart cilium-agent and issue 50 requests to LB
+docker exec -d lb-node docker restart cilium-lb
+
+# Requests should not timeout when agent is starting up
+for i in $(seq 1 50); do
+    curl -o /dev/null "${LB_VIP}:80" -m1
+    if [ "$?" -eq 28 ]; then
+        exit -1
+    fi
+    sleep 0.2
+done
+
 # Cleanup
 docker rm -f lb-node
 docker rm -f nginx
