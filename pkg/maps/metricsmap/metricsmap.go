@@ -165,17 +165,14 @@ type metricsmapCollector struct {
 	// Since we do not have "reason" label on forwarded metrics, we would end up collecting
 	// same forwarded metric multiple times which is not allowed by prometheus client.
 	// See https://github.com/prometheus/client_golang/issues/242
-	//
-	// promMetrics is a generic map used to sum all values by desired set of labels
-	// for both forwarded and dropped metrics
 	forwardedMetricsMap promMetrics[forwardLabels]
 	droppedMetricsMap   promMetrics[dropLabels]
 }
 
 func newMetricsMapCollector() prometheus.Collector {
 	return &metricsmapCollector{
-		droppedMetricsMap:   make(map[dropLabels]metricValues),
-		forwardedMetricsMap: make(map[forwardLabels]metricValues),
+		droppedMetricsMap:   promMetrics[dropLabels]{metrics: make(map[dropLabels]metricValues)},
+		forwardedMetricsMap: promMetrics[forwardLabels]{metrics: make(map[forwardLabels]metricValues)},
 		droppedByteDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "drop_bytes_total"),
 			"Total dropped bytes, tagged by drop reason and ingress/egress direction",
@@ -215,14 +212,24 @@ type metricValues struct {
 
 type labels comparable
 
-type promMetrics[k labels] map[k]metricValues
+// promMetrics is a generic struct that contains metrics map used to sum
+// all values by desired set of labels for both forwarded and dropped metrics
+// RWMutex is used to synchronize concurrent writes to metrics map.
+// Concurrent access to metrics map may happen in case when multiple
+// Prometheus instances are scraping same Cilium agent at the same time.
+type promMetrics[k labels] struct {
+	lock.RWMutex
+	metrics map[k]metricValues
+}
 
-func (p promMetrics[k]) upsert(labels k, values *Values) {
-	if v, ok := p[labels]; ok {
+func (p *promMetrics[k]) upsert(labels k, values *Values) {
+	p.Lock()
+	defer p.Unlock()
+	if v, ok := p.metrics[labels]; ok {
 		v.bytes = float64(values.Bytes())
 		v.count = float64(values.Count())
 	}
-	p[labels] = metricValues{
+	p.metrics[labels] = metricValues{
 		bytes: float64(values.Bytes()),
 		count: float64(values.Count()),
 	}
@@ -252,15 +259,19 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	for labels, value := range mc.forwardedMetricsMap {
+	mc.forwardedMetricsMap.RLock()
+	for labels, value := range mc.forwardedMetricsMap.metrics {
 		mc.updateCounterMetric(mc.forwardCountDesc, ch, value.count, labels.direction)
 		mc.updateCounterMetric(mc.forwardByteDesc, ch, value.bytes, labels.direction)
 	}
+	mc.forwardedMetricsMap.RUnlock()
 
-	for labels, value := range mc.droppedMetricsMap {
+	mc.droppedMetricsMap.RLock()
+	for labels, value := range mc.droppedMetricsMap.metrics {
 		mc.updateCounterMetric(mc.droppedCountDesc, ch, value.count, labels.reason, labels.direction)
 		mc.updateCounterMetric(mc.droppedByteDesc, ch, value.bytes, labels.reason, labels.direction)
 	}
+	mc.droppedMetricsMap.RUnlock()
 }
 
 func (mc *metricsmapCollector) updateCounterMetric(desc *prometheus.Desc, metricsChan chan<- prometheus.Metric, value float64, labelValues ...string) {
