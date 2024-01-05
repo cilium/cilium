@@ -340,22 +340,20 @@ func getPreviousIP(ip net.IP) net.IP {
 	previousIP := make(net.IP, len(ip))
 	copy(previousIP, ip)
 
-	var overflow bool
-	var lowerByteBound int
+	lowerByteBound := 0
 	if ip.To4() != nil {
 		lowerByteBound = net.IPv6len - net.IPv4len
-	} else {
-		lowerByteBound = 0
 	}
+
+	var overflow bool
 	for i := len(ip) - 1; i >= lowerByteBound; i-- {
 		if overflow || i == len(ip)-1 {
 			previousIP[i]--
 		}
 		// Track if we have overflowed and thus need to continue subtracting.
+		overflow = false
 		if ip[i] == 0 && previousIP[i] == 255 {
 			overflow = true
-		} else {
-			overflow = false
 		}
 	}
 	return previousIP
@@ -468,33 +466,33 @@ func mergeAdjacentCIDRs(ranges []*netWithRange) []*netWithRange {
 		// to it in the list. If the previous IP of the current network we are
 		// processing overlaps with the last IP of the previous network in the
 		// list, then we can merge the two ranges together.
-		if bytes.Compare(first1, *ranges[i-1].Last) <= 0 {
-			// Pick the minimum of the first two IPs to represent the start
-			// of the new range.
-			var minFirstIP *net.IP
-			if bytes.Compare(*ranges[i-1].First, *ranges[i].First) < 0 {
-				minFirstIP = ranges[i-1].First
-			} else {
-				minFirstIP = ranges[i].First
-			}
-
-			// Always take the last IP of the ith IP.
-			newRangeLast := make(net.IP, len(*ranges[i].Last))
-			copy(newRangeLast, *ranges[i].Last)
-
-			newRangeFirst := make(net.IP, len(*minFirstIP))
-			copy(newRangeFirst, *minFirstIP)
-
-			// Can't set the network field because since we are combining a
-			// range of IPs, and we don't yet know what CIDR prefix(es) represent
-			// the new range.
-			ranges[i-1] = &netWithRange{First: &newRangeFirst, Last: &newRangeLast, Network: nil}
-
-			// Since we have combined ranges[i] with the preceding item in the
-			// ranges list, we can delete ranges[i] from the slice.
-			ranges = append(ranges[:i], ranges[i+1:]...)
+		if bytes.Compare(first1, *ranges[i-1].Last) > 0 {
+			continue
 		}
+
+		// Pick the minimum of the first two IPs to represent the start
+		// of the new range.
+		minFirstIP := ranges[i].First
+		if bytes.Compare(*ranges[i-1].First, *ranges[i].First) < 0 {
+			minFirstIP = ranges[i-1].First
+		}
+		newRangeFirst := make(net.IP, len(*minFirstIP))
+		copy(newRangeFirst, *minFirstIP)
+
+		// Always take the last IP of the ith IP.
+		newRangeLast := make(net.IP, len(*ranges[i].Last))
+		copy(newRangeLast, *ranges[i].Last)
+
+		// Can't set the network field because since we are combining a
+		// range of IPs, and we don't yet know what CIDR prefix(es) represent
+		// the new range.
+		ranges[i-1] = &netWithRange{First: &newRangeFirst, Last: &newRangeLast, Network: nil}
+
+		// Since we have combined ranges[i] with the preceding item in the
+		// ranges list, we can delete ranges[i] from the slice.
+		ranges = append(ranges[:i], ranges[i+1:]...)
 	}
+
 	return ranges
 }
 
