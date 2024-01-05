@@ -134,6 +134,13 @@ func (s *K8sSuite) TestGetAnnotationTopologyAwareHints(c *check.C) {
 	}}
 	c.Assert(getAnnotationTopologyAwareHints(svc), check.Equals, true)
 
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
+		Annotations: map[string]string{
+			corev1.AnnotationTopologyMode: "PreferZone",
+		},
+	}}
+	c.Assert(getAnnotationTopologyAwareHints(svc), check.Equals, true)
+
 	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{

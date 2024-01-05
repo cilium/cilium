@@ -74,7 +74,7 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 	if !ok {
 		value = svc.ObjectMeta.Annotations[v1.AnnotationTopologyMode]
 	}
-	return strings.ToLower(value) == "auto"
+	return !(value == "" || value == "disabled" || value == "Disabled")
 }
 
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
