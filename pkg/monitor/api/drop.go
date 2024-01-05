@@ -97,6 +97,7 @@ var errors = map[uint8]string{
 	199: "IGMP handled",
 	200: "IGMP subscribed",
 	201: "Multicast handled",
+	202: "Host datapath not ready",
 }
 
 func extendedReason(reason uint8, extError int8) string {
