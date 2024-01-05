@@ -957,6 +957,7 @@ here.
 | NO_EGRESS_GATEWAY | 194 |  |
 | TTL_EXCEEDED | 196 |  |
 | NO_NODE_ID | 197 |  |
+| DROP_HOST_NOT_READY | 202 | A BPF program wants to tail call into bpf_host, but the host datapath hasn&#39;t been loaded yet. |
 
 
 
