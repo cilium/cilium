@@ -600,7 +600,7 @@ ct_recreate6:
 	if (*dst_sec_identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
-		return DROP_MISSED_TAIL_CALL;
+		return DROP_HOST_NOT_READY;
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
@@ -1061,11 +1061,13 @@ ct_recreate4:
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, jump to the bpf_host program to enforce ingress host policies.
+	 * Note that bpf_lxc can be loaded before bpf_host, so bpf_host's policy
+	 * program may not yet be present at this time.
 	 */
 	if (*dst_sec_identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
-		return DROP_MISSED_TAIL_CALL;
+		return DROP_HOST_NOT_READY;
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
@@ -2409,7 +2411,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
 		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
-					DROP_MISSED_TAIL_CALL, CTX_ACT_DROP,
+					DROP_HOST_NOT_READY, CTX_ACT_DROP,
 					METRIC_INGRESS);
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
