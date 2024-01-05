@@ -343,8 +343,10 @@ jobs:
           fi
 
           if [ "${{ matrix.host-fw }}" == "true" ]; then
-            # Until https://github.com/cilium/cilium/issues/28088 is fixed
-            EXTRA+=("--expected-drop-reasons=+Missed tail call")
+            # Missed tail calls until https://github.com/cilium/cilium/issues/28088 is fixed,
+            # host datapath once cilium-cli is upgraded to a version that includes 
+            # https://github.com/cilium/cilium-cli/pull/2206.
+            EXTRA+=("--expected-drop-reasons=+Missed tail call,+Host datapath not ready")
           fi
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
