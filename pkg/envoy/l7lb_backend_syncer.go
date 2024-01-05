@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package envoy
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 
-	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -23,7 +22,7 @@ const anyPort = "*"
 
 // EnvoyServiceBackendSyncer syncs the backends of a Service as Endpoints to the Envoy L7 proxy.
 type EnvoyServiceBackendSyncer struct {
-	envoyXdsServer envoy.XDSServer
+	envoyXdsServer XDSServer
 
 	l7lbSvcsMutex lock.RWMutex
 	l7lbSvcs      map[loadbalancer.ServiceName]*backendSyncInfo
@@ -35,7 +34,7 @@ func (*EnvoyServiceBackendSyncer) ProxyName() string {
 	return "Envoy"
 }
 
-func NewEnvoyServiceBackendSyncer(envoyXdsServer envoy.XDSServer) *EnvoyServiceBackendSyncer {
+func NewEnvoyServiceBackendSyncer(envoyXdsServer XDSServer) *EnvoyServiceBackendSyncer {
 	return &EnvoyServiceBackendSyncer{
 		envoyXdsServer: envoyXdsServer,
 		l7lbSvcs:       map[loadbalancer.ServiceName]*backendSyncInfo{},
@@ -113,7 +112,7 @@ func (r *EnvoyServiceBackendSyncer) DeregisterServiceUsageInCEC(svcName loadbala
 }
 
 func (r *EnvoyServiceBackendSyncer) upsertEnvoyEndpoints(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) error {
-	var resources envoy.Resources
+	var resources Resources
 
 	resources.Endpoints = getEndpointsForLBBackends(serviceName, backendMap)
 
