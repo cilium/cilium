@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -36,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -255,11 +255,13 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath,
 
 	opts, strings := l.ELFSubstitutions(ep)
 
-	// The NODE_MAC value is specific to each attachment interface.
-	mac, err := link.GetHardwareAddr(ifName)
+	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return err
 	}
+
+	// The NODE_MAC value is specific to each attachment interface.
+	mac := mac.MAC(iface.Attrs().HardwareAddr)
 	if mac == nil {
 		// L2-less device
 		mac = make([]byte, 6)
@@ -268,10 +270,7 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath,
 	opts["NODE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
 	opts["NODE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
 
-	ifIndex, err := link.GetIfIndex(ifName)
-	if err != nil {
-		return err
-	}
+	ifIndex := uint32(iface.Attrs().Index)
 
 	if !option.Config.EnableHostLegacyRouting {
 		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheEnabled)
