@@ -397,9 +397,6 @@ const (
 	// Restore restores state, if possible, from previous daemon
 	Restore = "restore"
 
-	// SidecarIstioProxyImage regular expression matching compatible Istio sidecar istio-proxy container image names
-	SidecarIstioProxyImage = "sidecar-istio-proxy-image"
-
 	// SocketPath sets daemon's socket path to listen for connections
 	SocketPath = "socket-path"
 
@@ -3128,7 +3125,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.RouteMetric = vp.GetInt(RouteMetric)
 	c.RunDir = vp.GetString(StateDir)
 	c.ExternalEnvoyProxy = vp.GetBool(ExternalEnvoyProxy)
-	c.SidecarIstioProxyImage = vp.GetString(SidecarIstioProxyImage)
 	c.SocketPath = vp.GetString(SocketPath)
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
 	c.Version = vp.GetString(Version)

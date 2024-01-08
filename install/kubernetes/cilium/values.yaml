@@ -1756,11 +1756,6 @@ dashboards:
   namespace: ~
   labelValue: "1"
   annotations: {}
-# -- Configure Istio proxy options.
-proxy:
-  # -- Regular expression matching compatible Istio sidecar istio-proxy
-  # container image names
-  sidecarImageRegex: "cilium/istio_proxy"
 # Configure Cilium Envoy options.
 envoy:
   # -- Enable Envoy Proxy in standalone DaemonSet.

@@ -1592,22 +1592,9 @@ func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy,
 // return the Envoy proxy node IDs that need to ACK the policy.
 func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 	nodeIDs := make([]string, 0, 1)
-	if ep.HasSidecarProxy() {
-		// Istio sidecars have the Cilium bpf metadata filter
-		// statically configured running the NPDS client, so
-		// we may unconditionally wait for ACKs from the
-		// sidecars.
-		// Sidecar's IPv4 address is used as the node ID.
-		ipv4 := ep.GetIPv4Address()
-		if ipv4 == "" {
-			log.Error("Envoy: Sidecar proxy has no IPv4 address")
-		} else {
-			nodeIDs = append(nodeIDs, ipv4)
-		}
-	} else {
-		// Host proxy uses "127.0.0.1" as the nodeID
-		nodeIDs = append(nodeIDs, "127.0.0.1")
-	}
+
+	// Host proxy uses "127.0.0.1" as the nodeID
+	nodeIDs = append(nodeIDs, "127.0.0.1")
 	// Require additional ACK from proxylib if policy has proxylib redirects
 	// Note that if a previous policy had a proxylib redirect and this one does not,
 	// we only wait for the ACK from the main Envoy node ID.
@@ -1656,10 +1643,8 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
-	if !ep.HasSidecarProxy() {
-		if s.proxyListeners == 0 {
-			wg = nil
-		}
+	if s.proxyListeners == 0 {
+		wg = nil
 	}
 
 	// When successful, push policy into the cache.
