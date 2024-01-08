@@ -292,10 +292,12 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	output = nil
 	i = 0
 	// testing getting subset of fields with field mask
+	fmPaths := []string{"trace_observation_point", "ethernet.source"}
 	req = &observerpb.GetFlowsRequest{
-		Number: uint64(10),
+		Number:    uint64(10),
+		FieldMask: &fieldmaskpb.FieldMask{Paths: fmPaths},
 		Experimental: &observerpb.GetFlowsRequest_Experimental{
-			FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"trace_observation_point", "ethernet.source"}},
+			FieldMask: &fieldmaskpb.FieldMask{Paths: fmPaths},
 		},
 	}
 	err = s.GetFlows(req, fakeServer)
@@ -317,7 +319,8 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	i = 0
 	// testing getting all fields with field mask
 	req = &observerpb.GetFlowsRequest{
-		Number: uint64(10),
+		Number:    uint64(10),
+		FieldMask: &fieldmaskpb.FieldMask{Paths: []string{""}},
 		Experimental: &observerpb.GetFlowsRequest_Experimental{
 			FieldMask: &fieldmaskpb.FieldMask{Paths: []string{""}},
 		},
