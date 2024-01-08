@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"golang.org/x/exp/slices"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
@@ -47,29 +46,6 @@ func WaitForDeployment(ctx context.Context, log Logger, client *k8s.Client, name
 		case <-time.After(PollInterval):
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for deployment %s/%s to become ready (last error: %w)",
-				namespace, name, err)
-		}
-	}
-}
-
-// WaitForCiliumEndpoint waits until the specified cilium endpoint gets created.
-func WaitForCiliumEndpoint(ctx context.Context, log Logger, client *k8s.Client, namespace, name string) error {
-	log.Logf("⌛ [%s] Waiting for CiliumEndpoint for pod %s/%s to appear...", client.ClusterName(), namespace, name)
-
-	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
-	defer cancel()
-	for {
-		_, err := client.GetCiliumEndpoint(ctx, namespace, name, metav1.GetOptions{})
-		if err == nil {
-			return nil
-		}
-
-		log.Debugf("[%s] Error retrieving CiliumEndpoint for pod %s/%s: %s", client.ClusterName(), namespace, name, err)
-
-		select {
-		case <-time.After(PollInterval):
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for CiliumEndpoint %s/%s to appear (last error: %w)",
 				namespace, name, err)
 		}
 	}
