@@ -78,6 +78,11 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1alpha2.TLSRoute{},
 			r.enqueueRequestForOwningTLSRoute(),
 			builder.WithPredicates(onlyStatusChanged())).
+		// Watch GRPCRoute status changes, there is one assumption that any change in spec will
+		// always update status always at least for observedGeneration value.
+		Watches(&gatewayv1alpha2.GRPCRoute{},
+			r.enqueueRequestForOwningGRPCRoute(),
+			builder.WithPredicates(onlyStatusChanged())).
 		// Watch related secrets used to configure TLS
 		Watches(&corev1.Secret{},
 			r.enqueueRequestForTLSSecret(),
@@ -181,6 +186,19 @@ func (r *gatewayReconciler) enqueueRequestForOwningTLSRoute() handler.EventHandl
 		}
 
 		return getReconcileRequestsForRoute(context.Background(), r.Client, a, hr.Spec.CommonRouteSpec)
+	})
+}
+
+// enqueueRequestForOwningGRPCRoute returns an event handler for any changes with GRPC Routes
+// belonging to the given Gateway
+func (r *gatewayReconciler) enqueueRequestForOwningGRPCRoute() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		gr, ok := a.(*gatewayv1alpha2.GRPCRoute)
+		if !ok {
+			return nil
+		}
+
+		return getReconcileRequestsForRoute(ctx, r.Client, a, gr.Spec.CommonRouteSpec)
 	})
 }
 
