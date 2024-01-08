@@ -2203,12 +2203,16 @@ envoy:
   # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
   dnsPolicy: ~
 
+  # -- Configure Cilium Envoy Prometheus options.
+  # Note that some of these apply to either cilium-agent or cilium-envoy.
   prometheus:
     # -- Enable prometheus metrics for cilium-envoy
     enabled: true
     serviceMonitor:
       # -- Enable service monitors.
       # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      # Note that this setting applies to both cilium-envoy _and_ cilium-agent
+      # with Envoy enabled.
       enabled: false
       # -- Labels to add to ServiceMonitor cilium-envoy
       labels: {}
@@ -2220,12 +2224,14 @@ envoy:
       # service monitors configured.
       # namespace: ""
       # -- Relabeling configs for the ServiceMonitor cilium-envoy
+      # or for cilium-agent with Envoy configured.
       relabelings:
         - sourceLabels:
             - __meta_kubernetes_pod_node_name
           targetLabel: node
           replacement: ${1}
       # -- Metrics relabeling configs for the ServiceMonitor cilium-envoy
+      # or for cilium-agent with Envoy configured.
       metricRelabelings: ~
     # -- Serve prometheus metrics for cilium-envoy on the configured port
     port: "9964"
