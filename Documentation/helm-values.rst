@@ -2788,14 +2788,6 @@
      - Set to ``true`` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
      - bool
      - ``false``
-   * - :spelling:ignore:`proxy`
-     - Configure Istio proxy options.
-     - object
-     - ``{"sidecarImageRegex":"cilium/istio_proxy"}``
-   * - :spelling:ignore:`proxy.sidecarImageRegex`
-     - Regular expression matching compatible Istio sidecar istio-proxy container image names
-     - string
-     - ``"cilium/istio_proxy"``
    * - :spelling:ignore:`rbac.create`
      - Enable creation of Resource-Based Access Control configuration.
      - bool

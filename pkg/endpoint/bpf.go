@@ -244,28 +244,21 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 				var redirectPort uint16
 
-				// Only create a redirect if the proxy is NOT running in a sidecar container
-				// with an HTTP parser. If running in a sidecar container and the parser
-				// is HTTP, just allow traffic to the port at L4 by setting the proxy port
-				// to 0.
-				if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
-
-					pp := e.newProxyPolicy(l4, v, dstPort)
-					proxyPort, err, finalizeFunc, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
-					if err != nil {
-						// Skip redirects that can not be created or updated.  This
-						// can happen when a listener is missing, for example when
-						// restarting and k8s delivers the CNP before the related
-						// CEC.
-						// Policy is regenerated when listeners are added or removed
-						// to fix this condition when the listener is available.
-						e.getLogger().WithField(logfields.Listener, pp.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
-						continue
-					}
-					redirectPort = proxyPort
-					finalizeList.Append(finalizeFunc)
-					revertStack.Push(revertFunc)
+				pp := e.newProxyPolicy(l4, v, dstPort)
+				proxyPort, err, finalizeFunc, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
+				if err != nil {
+					// Skip redirects that can not be created or updated.  This
+					// can happen when a listener is missing, for example when
+					// restarting and k8s delivers the CNP before the related
+					// CEC.
+					// Policy is regenerated when listeners are added or removed
+					// to fix this condition when the listener is available.
+					e.getLogger().WithField(logfields.Listener, pp.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
+					continue
 				}
+				redirectPort = proxyPort
+				finalizeList.Append(finalizeFunc)
+				revertStack.Push(revertFunc)
 				desiredRedirects[proxyID] = redirectPort
 
 				// Update the endpoint API model to report that Cilium manages a
@@ -323,11 +316,6 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 
 	updatedStats := make([]*models.ProxyStatistics, 0, len(visPolicy))
 	for _, visMeta := range visPolicy {
-		// Create a redirect for every entry in the visibility policy.
-		// Sidecar already sees all HTTP traffic
-		if e.hasSidecarProxy && visMeta.Parser == policy.ParserTypeHTTP {
-			continue
-		}
 		var (
 			redirectPort uint16
 			err          error

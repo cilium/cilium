@@ -73,53 +73,6 @@ func TestGetPodMetadata(t *testing.T) {
 			require.Equal(t, expectedLabels, labels)
 		})
 	})
-
-	t.Run("istio sidecar label", func(t *testing.T) {
-		t.Run("with istio sidecar label", func(t *testing.T) {
-			pod := pod.DeepCopy()
-			pod.Labels["io.cilium.k8s.policy.istiosidecarproxy"] = "true"
-
-			_, labels, _, err := GetPodMetadata(ns, pod)
-
-			require.NoError(t, err)
-			require.Equal(t, map[string]string{
-				"app":                          "test",
-				"io.cilium.k8s.policy.cluster": "",
-				"io.kubernetes.pod.namespace":  "default",
-				"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "default",
-				"io.cilium.k8s.namespace.labels.namespace-level-key":         "namespace-level-value",
-				"io.cilium.k8s.policy.istiosidecarproxy":                     "true",
-			}, labels)
-		})
-
-		t.Run("with istio sidecar injection", func(t *testing.T) {
-			pod := pod.DeepCopy()
-			pod.Annotations["sidecar.istio.io/status"] = "true"
-			pod.Spec.Containers = []slim_corev1.Container{
-				{
-					Name:  "istio-proxy",
-					Image: "cilium/istio_proxy:1.0.0",
-					VolumeMounts: []slim_corev1.VolumeMount{
-						{
-							MountPath: "/var/run/cilium",
-						},
-					},
-				},
-			}
-
-			_, labels, _, err := GetPodMetadata(ns, pod)
-
-			require.NoError(t, err)
-			require.Equal(t, map[string]string{
-				"app":                          "test",
-				"io.cilium.k8s.policy.cluster": "",
-				"io.kubernetes.pod.namespace":  "default",
-				"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "default",
-				"io.cilium.k8s.namespace.labels.namespace-level-key":         "namespace-level-value",
-				"io.cilium.k8s.policy.istiosidecarproxy":                     "true",
-			}, labels)
-		})
-	})
 }
 
 func Test_filterPodLabels(t *testing.T) {
@@ -161,15 +114,14 @@ func Test_filterPodLabels(t *testing.T) {
 			name: "having cilium owned policy labels",
 			args: args{
 				labels: map[string]string{
-					"app":                                    "test",
-					"io.kubernetes.pod.namespace":            "default",
-					"io.cilium.k8s.policy.name":              "admin",
-					"io.cilium.k8s.policy.cluster":           "admin-cluster",
-					"io.cilium.k8s.policy.derived-from":      "admin",
-					"io.cilium.k8s.policy.namespace":         "kube-system",
-					"io.cilium.k8s.policy.istiosidecarproxy": "false",
-					"io.cilium.k8s.policy.serviceaccount":    "admin-serviceaccount",
-					"io.cilium.k8s.policy.uuid":              "6eadee3e-0121-11ed-b58d-fc3497a92ef6",
+					"app":                                 "test",
+					"io.kubernetes.pod.namespace":         "default",
+					"io.cilium.k8s.policy.name":           "admin",
+					"io.cilium.k8s.policy.cluster":        "admin-cluster",
+					"io.cilium.k8s.policy.derived-from":   "admin",
+					"io.cilium.k8s.policy.namespace":      "kube-system",
+					"io.cilium.k8s.policy.serviceaccount": "admin-serviceaccount",
+					"io.cilium.k8s.policy.uuid":           "6eadee3e-0121-11ed-b58d-fc3497a92ef6",
 				},
 			},
 			want: map[string]string{
