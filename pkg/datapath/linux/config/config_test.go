@@ -162,9 +162,11 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 		cfg := &HeaderfileWriter{}
 		varSub, stringSub := loader.NewLoader(
 			loader.LoaderParams{
-				Sysctl:  sysctl.NewTestSysctl(c),
-				DB:      db,
-				Devices: devices,
+				Config:    loader.DefaultConfig,
+				Sysctl:    sysctl.NewTestSysctl(c),
+				DB:        db,
+				Devices:   devices,
+				NodeAddrs: nil,
 			}).ELFSubstitutions(t)
 
 		var buf bytes.Buffer
@@ -257,9 +259,11 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	}
 	varSub, stringSub := loader.NewLoader(
 		loader.LoaderParams{
-			Sysctl:  sysctl.NewTestSysctl(c.T),
-			DB:      db,
-			Devices: devices,
+			Config:    loader.DefaultConfig,
+			Sysctl:    sysctl.NewTestSysctl(c.T),
+			DB:        db,
+			Devices:   devices,
+			NodeAddrs: nil,
 		}).ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
