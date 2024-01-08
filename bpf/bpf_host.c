@@ -48,7 +48,7 @@
 #include "lib/eps.h"
 #include "lib/host_firewall.h"
 #include "lib/egress_gateway.h"
-#include "lib/egress_policies.h"
+#include "lib/srv6.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"

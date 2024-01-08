@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_EGRESS_POLICIES_H_
-#define __LIB_EGRESS_POLICIES_H_
+#ifndef __LIB_SRV6_H_
+#define __LIB_SRV6_H_
 
 #include "lib/common.h"
 #include "lib/fib.h"
@@ -529,4 +529,4 @@ int tail_srv6_reply(struct __ctx_buff *ctx)
 }
 # endif /* SKIP_SRV6_HANDLING */
 #endif /* ENABLE_SRV6 */
-#endif /* __LIB_EGRESS_POLICIES_H_ */
+#endif /* __LIB_SRV6_H_ */
