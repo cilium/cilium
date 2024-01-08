@@ -181,41 +181,20 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
 
-	find := func(iter statedb.Iterator[tables.NodeAddress]) bool {
-		for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
-			if !addr.Primary {
-				continue
-			}
-			if addr.Addr.Is4() && !masq4.IsValid() {
-				masq4 = addr.Addr
-			} else if addr.Addr.Is6() && !masq6.IsValid() {
-				masq6 = addr.Addr
-			}
-			done := (!option.Config.EnableIPv4Masquerade || masq4.IsValid()) &&
-				(!option.Config.EnableIPv6Masquerade || masq6.IsValid())
-			if done {
-				return true
-			}
-		}
-		return false
-	}
-
-	// Try to find suitable masquerade address first from the given interface.
-	txn := l.db.ReadTxn()
 	iter, _ := l.nodeAddrs.Get(
-		txn,
+		l.db.ReadTxn(),
 		tables.NodeAddressDeviceNameIndex.Query(ifName),
 	)
-	if !find(iter) {
-		// No suitable masquerade addresses were found for this device. Try the fallback
-		// addresses.
-		iter, _ = l.nodeAddrs.Get(
-			txn,
-			tables.NodeAddressDeviceNameIndex.Query(tables.WildcardDeviceName),
-		)
-		find(iter)
+	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+		if !addr.Primary {
+			continue
+		}
+		if addr.Addr.Is4() && masq4.IsUnspecified() {
+			masq4 = addr.Addr
+		} else if addr.Addr.Is6() && masq6.IsUnspecified() {
+			masq6 = addr.Addr
+		}
 	}
-
 	return
 }
 
@@ -261,7 +240,7 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath,
 	if option.Config.EnableNodePort {
 		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
 	}
-	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
+	if option.Config.EnableBPFMasquerade {
 		ipv4, ipv6 := l.bpfMasqAddrs(ifName)
 
 		if option.Config.EnableIPv4Masquerade && ipv4.IsValid() {
