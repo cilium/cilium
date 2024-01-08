@@ -34,6 +34,20 @@ spec:
     metricRelabelings:
     {{- toYaml . | nindent 4 }}
     {{- end }}
+  {{- if .Values.envoy.prometheus.serviceMonitor.enabled }}
+  - port: envoy-metrics
+    interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}
+    honorLabels: true
+    path: /metrics
+    {{- with .Values.envoy.prometheus.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.envoy.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
   targetLabels:
   - k8s-app
 {{- end }}
