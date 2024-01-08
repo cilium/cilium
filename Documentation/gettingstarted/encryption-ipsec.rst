@@ -206,15 +206,20 @@ Troubleshooting
        $ cilium encrypt status
        Encryption: IPsec
        Decryption interface(s): eth0, eth1, eth2
-       Keys in use: 1
+       Keys in use: 4
        Max Seq. Number: 0x1e3/0xffffffff
        Errors: 0
 
    If the error counter is non-zero, additional information will be displayed
    with the specific errors the kernel encountered. If the sequence number
-   reaches its maximum value, it will also result in errors. The number of
-   keys in use should be 2 during a key rotation and always 1 otherwise. The
-   list of decryption interfaces should have all native devices that may
+   reaches its maximum value, it will also result in errors.
+
+   The number of keys in use should be 2 per remote node per enabled IP family.
+   During a key rotation, it can double to 4 per remote node per IP family. For
+   example, in a 3-nodes cluster, if both IPv4 and IPv6 are enabled and no key
+   rotation is ongoing, there should be 8 keys in use on each node.
+
+   The list of decryption interfaces should have all native devices that may
    receive pod traffic (for example, ENI interfaces).
 
  * All XFRM errors correspond to a packet drop in the kernel. Except for
