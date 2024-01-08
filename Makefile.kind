@@ -19,8 +19,8 @@ kind-down: ## Destroy a kind cluster for Cilium development.
 .PHONY: kind-clustermesh
 kind-clustermesh: ## Create two kind clusters for clustermesh development.
 	@echo " If you have problems with too many open file, check https://kind.sigs.k8s.io/docs/user/known-issues/#pod-errors-due-to-too-many-open-files"
-	$(QUIET) CLUSTER_NAME=clustermesh1 IPFAMILY=ipv4 PODSUBNET=10.1.0.0/16 SERVICESUBNET=172.20.1.0/24 ./contrib/scripts/kind.sh
-	$(QUIET) CLUSTER_NAME=clustermesh2 AGENTPORTPREFIX=236 OPERATORPORTPREFIX=237 IPFAMILY=ipv4 PODSUBNET=10.2.0.0/16 SERVICESUBNET=172.20.2.0/24 ./contrib/scripts/kind.sh
+	$(QUIET) CLUSTER_NAME=clustermesh1 IPFAMILY=dual PODSUBNET=10.1.0.0/16,fd00:10:1::/48 SERVICESUBNET=172.20.1.0/24,fd00:10:f1::/112 ./contrib/scripts/kind.sh
+	$(QUIET) CLUSTER_NAME=clustermesh2 AGENTPORTPREFIX=236 OPERATORPORTPREFIX=237 IPFAMILY=dual PODSUBNET=10.2.0.0/16,fd00:10:2::/48 SERVICESUBNET=172.20.2.0/24,fd00:10:f2::/112 ./contrib/scripts/kind.sh
 
 .PHONY: kind-clustermesh-down
 kind-clustermesh-down: ## Destroy kind clusters for clustermesh development.
