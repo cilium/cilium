@@ -12,13 +12,11 @@ FLAGS_CLANG += -Wno-gnu-variable-sized-type-not-at-end
 FLAGS_CLANG += -Wdeclaration-after-statement
 FLAGS_CLANG += -g
 
-BPF_CC_FLAGS := ${FLAGS} --target=bpf -std=gnu89 -nostdinc -emit-llvm
-BPF_LLC_FLAGS := -march=bpf -mcpu=probe -filetype=obj
+BPF_CC_FLAGS := ${FLAGS} --target=bpf -mcpu=probe -std=gnu89 -nostdinc
 
 LIB := $(shell find ../../bpf/ -name '*.h')
 
 CLANG ?= clang
-LLC ?= llc
 
 BPF_TARGETS := elf-demo.o
 ALL_TESTS := unit-test
@@ -28,7 +26,7 @@ all: $(TARGETS) unit-tests
 
 elf-demo.o: elf-demo.c
 	@$(ECHO_CC)
-	$(QUIET) $(CLANG) ${FLAGS_CLANG} ${BPF_CC_FLAGS} -c $< -o - | $(LLC) ${BPF_LLC_FLAGS} -o $@
+	$(QUIET) $(CLANG) ${FLAGS_CLANG} ${BPF_CC_FLAGS} -c $< -o $@
 
 %: %.c $(LIB)
 	@$(ECHO_CC)
