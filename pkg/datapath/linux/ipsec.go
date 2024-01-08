@@ -122,7 +122,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 			}
 
 			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirOut, zeroMark)
 				upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi, nodeID)
 
 				/* Insert wildcard policy rules for traffic skipping back through host */
@@ -130,17 +130,17 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 					log.WithError(err).Warning("egress unable to replace policy fwd:")
 				}
 
-				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, ipsec.IPSecDirIn, zeroMark)
+				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, zeroMark)
 				upsertIPsecLog(err, "in CiliumInternalIPv4", wildcardCIDR, cidr, spi, nodeID)
 
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, remoteNodeInternalIP, nodeID, ipsec.IPSecDirIn, zeroMark)
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, remoteNodeInternalIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, zeroMark)
 				upsertIPsecLog(err, "in NodeInternalIPv4", wildcardCIDR, cidr, spi, nodeID)
 			}
 		} else {
 			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
 			remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(remoteCIDR)
-			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirOut, false)
 			upsertIPsecLog(err, "out IPv4", wildcardCIDR, remoteCIDR, spi, nodeID)
 
 			/* Insert wildcard policy rules for traffic skipping back through host */
@@ -148,7 +148,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 				log.WithError(err).Warning("egress unable to replace policy fwd:")
 			}
 
-			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirIn, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi, nodeID)
 		}
 	}
@@ -198,23 +198,23 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 			}
 
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirOut, zeroMark)
 				upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi, nodeID)
 
-				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, ipsec.IPSecDirIn, zeroMark)
+				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, zeroMark)
 				upsertIPsecLog(err, "in CiliumInternalIPv6", wildcardCIDR, cidr, spi, nodeID)
 
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, remoteNodeInternalIP, nodeID, ipsec.IPSecDirIn, zeroMark)
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, remoteNodeInternalIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, zeroMark)
 				upsertIPsecLog(err, "in NodeInternalIPv6", wildcardCIDR, cidr, spi, nodeID)
 			}
 		} else {
 			localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
 			remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(remoteCIDR)
-			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
+			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirOut, false)
 			upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi, nodeID)
 
-			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirIn, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "in IPv6", localCIDR, wildcardCIDR, spi, nodeID)
 		}
 	}
