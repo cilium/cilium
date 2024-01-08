@@ -13,13 +13,11 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
-	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -139,7 +137,7 @@ func (s *LoaderTestSuite) testCompileAndLoad(c *C, ep *testutils.TestEndpoint) {
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
-	l := newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+	l := NewLoaderForTest(c)
 	err := l.compileAndLoad(ctx, ep, getDirs(c), stats)
 	c.Assert(err, IsNil)
 }
@@ -207,7 +205,7 @@ func (s *LoaderTestSuite) testCompileFailure(c *C, ep *testutils.TestEndpoint) {
 		}
 	}()
 
-	l := newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+	l := NewLoaderForTest(c)
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	stats := &metrics.SpanStat{}
@@ -251,7 +249,7 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
-	l := newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+	l := NewLoaderForTest(b)
 	dirInfo := getDirs(b)
 
 	b.ResetTimer()
@@ -329,7 +327,7 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 	}
 	defer os.RemoveAll(epDir)
 
-	l := newLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+	l := NewLoaderForTest(b)
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
 	if err := l.CompileOrLoad(ctx, &ep, nil); err != nil {
 		log.Warningf("Failure in %s: %s", tmpDir, err)
