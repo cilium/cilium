@@ -280,16 +280,23 @@ jobs:
           operation-cmd: |
             cd /host/
 
-            KEYID=\$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
+            KEYID=\$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
             if [[ \$KEYID -ge 15 ]]; then KEYID=0; fi
-            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1))) "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
+            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1)))+ "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
             kubectl patch secret -n kube-system cilium-ipsec-keys -p="\$data" -v=1
 
+            # If IPv6 is disabled, we expect one key per remote node.
+            # Otherwise, we expect two.
+            exp_num_keys=4
+            if [ "${{ matrix.ipv6 }}" != "false" ]; then
+              exp_num_keys=8
+            fi
+
             # Wait until key rotation starts
-            # We expect twice the amount of keys in use during rotation.
+            # We expect the amount of keys in use to grow during rotation.
             while true; do
               keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print \$NF}')
-              if [[ \$keys_in_use == 16 ]]; then
+              if [[ \$keys_in_use > \$exp_num_keys ]]; then
                 break
               fi
               echo "Waiting until key rotation starts (seeing \$keys_in_use keys)"
@@ -297,12 +304,12 @@ jobs:
             done
 
             # Wait until key rotation completes
-            # We expect 2 keys per remote node.
+            # We expect double the number of keys per remote node.
             # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
             sleep \$((4*60))
             while true; do
               keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print \$NF}')
-              if [[ \$keys_in_use == 8 ]]; then
+              if [[ \$keys_in_use == \$exp_num_keys ]]; then
                 break
               fi
               echo "Waiting until key rotation completes (seeing \$keys_in_use keys)"
