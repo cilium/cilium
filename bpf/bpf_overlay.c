@@ -41,6 +41,8 @@
 #include "lib/eps.h"
 #endif /* ENABLE_VTEP */
 
+#define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
+
 #ifdef ENABLE_IPV6
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
@@ -276,6 +278,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	struct endpoint_info *ep;
 	bool decrypted;
 	bool __maybe_unused is_dsr = false;
+	int ret;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
@@ -301,7 +304,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, ext_err, &is_dsr);
+		ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, ext_err, &is_dsr);
 		/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 		 * traffic to L7 LB. Policy enforcement needs to take
 		 * place after L7 LB has processed the packet, so we
@@ -406,7 +409,6 @@ not_esp:
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
 		__be32 snat_addr, daddr;
-		int ret;
 
 		daddr = ip4->daddr;
 		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr)) {
@@ -432,6 +434,10 @@ not_esp:
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
 					   ip4, ep, METRIC_INGRESS, false, false, true,
 					   0);
+
+	ret = overlay_ingress_policy_hook(ctx, ip4, *identity, ext_err);
+	if (ret != CTX_ACT_OK)
+		return ret;
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
