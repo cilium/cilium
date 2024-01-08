@@ -47,7 +47,7 @@
 #include "lib/trace.h"
 #include "lib/csum.h"
 #include "lib/egress_gateway.h"
-#include "lib/egress_policies.h"
+#include "lib/srv6.h"
 #include "lib/encap.h"
 #include "lib/eps.h"
 #include "lib/nat.h"
