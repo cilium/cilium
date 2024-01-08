@@ -141,7 +141,8 @@ int test1_check(struct __ctx_buff *ctx)
 				   redir_neigh_recorder.plen);
 
 		if (redir_neigh_recorder.flags != 0)
-			test_fatal("expected flags 0, got %d", flags);
+			test_fatal("expected flags 0, got %d",
+				   redir_neigh_recorder.flags);
 
 		reset_redir_neigh_recorder(&redir_neigh_recorder);
 	});
@@ -173,7 +174,8 @@ int test1_check(struct __ctx_buff *ctx)
 			test_fatal("expected plen to be 0");
 
 		if (redir_neigh_recorder.flags != 0)
-			test_fatal("expected flags 0, got %d", flags);
+			test_fatal("expected flags 0, got %d",
+				   redir_neigh_recorder.flags);
 
 		reset_redir_neigh_recorder(&redir_neigh_recorder);
 	});
