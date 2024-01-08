@@ -57,7 +57,7 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
 	c.Assert(err, NotNil)
 }
 
@@ -127,7 +127,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -145,7 +145,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -174,7 +174,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -193,11 +193,11 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	// Assert additional rule when tunneling is enabled is inserted
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 	toProxyPolicy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
 		Src: remote,
@@ -223,7 +223,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
 	c.Assert(err, ErrorMatches, "unable to replace local state: IPSec key missing")
 
 	cleanIPSecStatesAndPolicies(c)
