@@ -73,8 +73,9 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	/* Lookup the source in the ipcache. After decryption this will be the
-	 * inner source IP to get the source security identity.
+	/* Lookup the source in the ipcache. Before decryption this will be the
+	 * outer source IP to get the source node ID. After decryption this
+	 * will be the inner source IP to get the source security identity.
 	 */
 	info = ipcache_lookup6(&IPCACHE_MAP, (union v6addr *)&ip6->saddr,
 			       V6_CACHE_KEY_LEN);
@@ -107,6 +108,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_IPSEC
 	if (!decrypted) {
+		__u16 node_id;
+
 		/* IPSec is not currently enforce (feature coming soon)
 		 * so for now just handle normally
 		 */
@@ -116,8 +119,10 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			goto not_esp;
 		}
 
-		/* Decrypt "key" is determined by SPI */
-		ctx->mark = MARK_MAGIC_DECRYPT;
+		node_id = lookup_ip6_node_id((union v6addr *)&ip6->saddr);
+		if (!node_id)
+			return DROP_NO_NODE_ID;
+		set_ipsec_decrypt_mark(ctx, node_id);
 
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
@@ -195,6 +200,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 {
 	struct remote_endpoint_info *info;
+	int ret __maybe_unused;
 	void *data_end, *data;
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
@@ -216,7 +222,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, *identity);
+		ret = nodeport_lb4(ctx, *identity);
 		/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 		 * traffic to L7 LB. Policy enforcement needs to take
 		 * place after L7 LB has processed the packet, so we
@@ -230,8 +236,9 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	/* Lookup the source in the ipcache. After decryption this will be the
-	 * inner source IP to get the source security identity.
+	/* Lookup the source in the ipcache. Before decryption this will be the
+	 * outer source IP to get the source node ID. After decryption this
+	 * will be the inner source IP to get the source security identity.
 	 */
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
 
@@ -273,6 +280,8 @@ skip_vtep:
 
 #ifdef ENABLE_IPSEC
 	if (!decrypted) {
+		__u16 node_id;
+
 		/* IPSec is not currently enforce (feature coming soon)
 		 * so for now just handle normally
 		 */
@@ -282,7 +291,10 @@ skip_vtep:
 			goto not_esp;
 		}
 
-		ctx->mark = MARK_MAGIC_DECRYPT;
+		node_id = lookup_ip4_node_id(ip4->saddr);
+		if (!node_id)
+			return DROP_NO_NODE_ID;
+		set_ipsec_decrypt_mark(ctx, node_id);
 
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
@@ -322,7 +334,6 @@ to_host:
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
-		int ret;
 
 		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
 			      (__u8 *)&host_mac.addr, ip4);
