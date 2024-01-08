@@ -141,7 +141,7 @@ func (s *LoaderTestSuite) testCompileAndLoad(c *C, ep *testutils.TestEndpoint) {
 	stats := &metrics.SpanStat{}
 
 	db, dev := dbAndDevices(c)
-	l := newLoader(sysctl.NewTestSysctl(c.T), db, dev)
+	l := newLoader(DefaultConfig, sysctl.NewTestSysctl(c.T), db, dev, nil)
 	err := l.compileAndLoad(ctx, ep, getDirs(c), stats)
 	c.Assert(err, IsNil)
 }
@@ -210,7 +210,7 @@ func (s *LoaderTestSuite) testCompileFailure(c *C, ep *testutils.TestEndpoint) {
 	}()
 
 	db, dev := dbAndDevices(c)
-	l := newLoader(sysctl.NewTestSysctl(c.T), db, dev)
+	l := newLoader(DefaultConfig, sysctl.NewTestSysctl(c.T), db, dev, nil)
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	stats := &metrics.SpanStat{}
@@ -255,7 +255,7 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 	defer cancel()
 
 	db, dev := dbAndDevices(b)
-	l := newLoader(sysctl.NewTestSysctl(b), db, dev)
+	l := newLoader(DefaultConfig, sysctl.NewTestSysctl(b), db, dev, nil)
 	dirInfo := getDirs(b)
 
 	b.ResetTimer()
@@ -334,7 +334,7 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 	defer os.RemoveAll(epDir)
 
 	db, dev := dbAndDevices(b)
-	l := newLoader(sysctl.NewTestSysctl(b), db, dev)
+	l := newLoader(DefaultConfig, sysctl.NewTestSysctl(b), db, dev, nil)
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
 	if err := l.CompileOrLoad(ctx, &ep, nil); err != nil {
 		log.Warningf("Failure in %s: %s", tmpDir, err)

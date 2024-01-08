@@ -82,6 +82,7 @@ func createDevices(t *testing.T) {
 	}
 	ciliumHost, ciliumNet, err := loader.NewLoader(
 		loader.LoaderParams{
+			Config:  loader.DefaultConfig,
 			Sysctl:  sysctl.NewTestSysctl(t),
 			DB:      db,
 			Devices: devices,
