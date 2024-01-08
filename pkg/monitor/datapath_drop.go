@@ -56,7 +56,7 @@ var sourceFileNames = map[int]string{
 	// header files from bpf/lib/
 	101: "arp.h",
 	102: "drop.h",
-	103: "egress_policies.h",
+	103: "srv6.h",
 	104: "icmp6.h",
 	105: "nodeport.h",
 	//end
