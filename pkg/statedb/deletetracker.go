@@ -118,3 +118,33 @@ func (dt *DeleteTracker[Obj]) Process(txn ReadTxn, minRevision Revision, process
 	dt.Mark(upTo)
 	return upTo + 1, watch, nil
 }
+
+// TODO: Might make sense to have a count-limit for Iterate() since we don't want to process too
+// big of a batch of changes at a time as that would adversely impact latency.
+
+func (dt *DeleteTracker[Obj]) Iterate(txn ReadTxn, iterFn func(obj Obj, deleted bool, rev Revision)) <-chan struct{} {
+	lastRevision := dt.revision.Load()
+	newRevision := dt.table.Revision(txn)
+
+	// Get all new and updated objects with revision number higher than last round.
+	// The returned watch channel watches the whole table and thus
+	// is closed when either insert or delete happens.
+	updatedIter, watch := dt.table.LowerBound(txn, ByRevision[Obj](lastRevision+1))
+
+	// Get objects that were deleted since the last round
+	deletedIter := dt.Deleted(txn.getTxn(), lastRevision+1)
+
+	// Combine the iterators into one. This can be done as insert and delete
+	// both assign the object a new fresh monotonically increasing revision
+	// number.
+	iter := NewDualIterator[Obj](deletedIter, updatedIter)
+
+	for obj, rev, isDeleted, ok := iter.Next(); ok; obj, rev, isDeleted, ok = iter.Next() {
+		iterFn(obj, isDeleted, rev)
+	}
+
+	// Fully processed up to latest table revision. GC deleted objects
+	// and return the next revision.
+	dt.Mark(newRevision)
+	return watch
+}

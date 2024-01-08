@@ -40,6 +40,11 @@ type Table[Obj any] interface {
 	// channel that is closed when the table changes.
 	All(ReadTxn) (Iterator[Obj], <-chan struct{})
 
+	// AllReverse returns an iterator for all objects in the table that
+	// iterates over the object in reverse using the primary key and a watch
+	// channel that is closed when the table changes.
+	AllReverse(ReadTxn) (Iterator[Obj], <-chan struct{})
+
 	// Get returns an iterator for all objects matching the given query
 	// and a watch channel that is closed if the query results are
 	// invalidated by a write to the table.

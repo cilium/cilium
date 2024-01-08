@@ -49,7 +49,8 @@ func New[Obj comparable](p Params[Obj]) (Reconciler[Obj], error) {
 
 	g := p.Jobs.NewGroup(p.Scope)
 
-	g.Add(job.OneShot("reconciler-loop", r.loop))
+	var obj Obj
+	g.Add(job.OneShot(fmt.Sprintf("reconciler[%T].loop", obj), r.loop))
 	p.Lifecycle.Append(g)
 
 	return r, nil

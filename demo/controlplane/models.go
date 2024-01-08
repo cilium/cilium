@@ -1,4 +1,4 @@
-package main
+package controlplane
 
 import (
 	"net/netip"
@@ -19,7 +19,10 @@ type Service struct {
 	Source      Source
 	ServiceType ServiceType
 	ClusterIP   netip.Addr
-	Ports       []int
+
+	// For sake of example we only do one port&protocol
+	Port     uint16
+	Protocol string
 }
 
 func parseService(obj any) (*Service, bool) {
@@ -27,41 +30,52 @@ func parseService(obj any) (*Service, bool) {
 	if !ok {
 		return nil, false
 	}
+	if len(s.Spec.Ports) == 0 {
+		return nil, false
+	}
+	// For sake of example we only do one port&protocol
+	port := s.Spec.Ports[0]
+	proto := string(port.Protocol)
+	if proto == "" {
+		proto = "TCP"
+	}
+
 	return &Service{
 		Source:      SourceK8s,
+		Name:        s.Namespace + "/" + s.Name,
 		ServiceType: ServiceType(s.Spec.Type),
 		ClusterIP:   netip.MustParseAddr(s.Spec.ClusterIP),
-		Ports:       parsePorts(s.Spec.Ports),
+		Port:        uint16(port.Port),
+		Protocol:    proto,
 	}, true
 }
 
-func parsePorts(ports []v1.ServicePort) (out []int) {
-	for _, p := range ports {
-		out = append(out, int(p.Port))
-	}
-	return out
+type PortAndProtocol struct {
+	Port     uint16
+	Protocol string
 }
 
-type Backend struct {
-	Source  Source
-	Service string
-	Addrs   []netip.Addr
-	Ports   []int
+type Endpoint struct {
+	Source   Source
+	Service  string
+	Addrs    []netip.Addr
+	Ports    []PortAndProtocol
+	Protocol string
 }
 
-func parseEndpoints(obj any) (*Backend, bool) {
+func parseEndpoints(obj any) (*Endpoint, bool) {
 	ep, ok := obj.(*v1.Endpoints)
 	if !ok {
 		return nil, false
 	}
 
-	be := &Backend{
+	be := &Endpoint{
 		Source:  SourceK8s,
 		Service: ep.Namespace + "/" + ep.Name,
 	}
 	for _, subset := range ep.Subsets {
 		for _, port := range subset.Ports {
-			be.Ports = append(be.Ports, int(port.Port))
+			be.Ports = append(be.Ports, PortAndProtocol{uint16(port.Port), string(port.Protocol)})
 		}
 
 		for _, addr := range subset.Addresses {

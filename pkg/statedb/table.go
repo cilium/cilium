@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	iradix "github.com/hashicorp/go-immutable-radix/v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -222,6 +223,22 @@ func (t *genTable[Obj]) All(txn ReadTxn) (Iterator[Obj], <-chan struct{}) {
 	// Grab the watch channel for the root node
 	watchCh, _, _ := root.GetWatch(nil)
 	return &iterator[Obj]{root.Iterator()}, watchCh
+}
+
+type reverseIteratorAdaptor struct {
+	*iradix.ReverseIterator[object]
+}
+
+func (r reverseIteratorAdaptor) Next() ([]byte, object, bool) {
+	return r.Previous()
+}
+
+func (t *genTable[Obj]) AllReverse(txn ReadTxn) (Iterator[Obj], <-chan struct{}) {
+	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, t.primaryAnyIndexer.name)
+	root := indexTxn.txn.Root()
+	// Grab the watch channel for the root node
+	watchCh, _, _ := root.GetWatch(nil)
+	return &iterator[Obj]{reverseIteratorAdaptor{root.ReverseIterator()}}, watchCh
 }
 
 func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {

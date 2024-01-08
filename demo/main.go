@@ -1,22 +1,21 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
-	"time"
 
+	"github.com/cilium/cilium/demo/controlplane"
+	"github.com/cilium/cilium/demo/datapath"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
-	"github.com/cilium/cilium/pkg/statedb/reflector"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -42,99 +41,55 @@ var Demo = cell.Module(
 	"demo",
 	"Demo for statedb and reconcilers",
 
-	client.Cell,
+	client.Cell, // client.Clientset for accessing K8s
 	cell.Invoke(func(cs client.Clientset) error {
 		if !cs.IsEnabled() {
 			return errors.New("Please provide --k8s-kubeconfig-path")
 		}
 		return nil
 	}),
+	statedb.Cell,    // statedb.DB
+	job.Cell,        // job.Registry for background jobs
+	reconciler.Cell, // the shared reconciler metrics
 
-	statedb.Cell,
-	job.Cell,
+	// Control-plane of the demo application pulls Service and Endpoints objects
+	// from the Kubernetes API server and compute from it the desired datapath state for
+	// frontends and backends.
+	controlplane.Cell,
 
-	KubernetesTables,
+	// Datapath for the demo defines the models and tables for the desired state,
+	// BPF maps (frontends and backends) and instantiates reconcilers to reconcile
+	// the desired state tables to the BPF maps.
+	datapath.Cell,
 
 	cell.Invoke(registerHTTPServer),
 )
 
-var KubernetesTables = cell.Module(
-	"kubernetes-tables",
-	"Tables of Kubernetes objects",
-
-	cell.ProvidePrivate(servicesTable, servicesConfig),
-	cell.Provide(statedb.RWTable[*v1.Service].ToTable), // Provide Table[*Service]
-	reflector.KubernetesCell[*Service](),
-
-	cell.ProvidePrivate(backendsTable, endpointsConfig),
-	cell.Provide(statedb.RWTable[*v1.Endpoints].ToTable), // Provide Table[*Backend]
-	reflector.KubernetesCell[*Backend](),
-)
-
-var ServicesNameIndex = statedb.Index[*Service, string]{
-	Name: "name",
-	FromObject: func(s *Service) index.KeySet {
-		return index.NewKeySet(index.String(s.Name))
-	},
-	FromKey: index.String,
-	Unique:  true,
-}
-
-func servicesTable(db *statedb.DB) (statedb.RWTable[*Service], error) {
-	table, err := statedb.NewTable[*Service]("services", ServicesNameIndex)
-	if err == nil {
-		return table, db.RegisterTable(table)
-	}
-	return nil, err
-}
-
-func servicesConfig(cs client.Clientset, t statedb.RWTable[*Service]) reflector.KubernetesConfig[*Service] {
-	return reflector.KubernetesConfig[*Service]{
-		BufferSize:     100,
-		BufferWaitTime: 100 * time.Millisecond,
-		ListerWatcher:  utils.ListerWatcherFromTyped[*v1.ServiceList](cs.CoreV1().Services("")),
-		Table:          t,
-		Transform:      parseService,
-	}
-}
-
-var BackendsNameIndex = statedb.Index[*Backend, string]{
-	Name: "name",
-	FromObject: func(b *Backend) index.KeySet {
-		return index.NewKeySet(index.String(b.Service))
-	},
-	FromKey: index.String,
-	Unique:  true,
-}
-
-func backendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
-	table, err := statedb.NewTable[*Backend]("backends", BackendsNameIndex)
-	if err == nil {
-		return table, db.RegisterTable(table)
-	}
-	return nil, err
-}
-
-func endpointsConfig(cs client.Clientset, t statedb.RWTable[*Backend]) reflector.KubernetesConfig[*Backend] {
-	return reflector.KubernetesConfig[*Backend]{
-		BufferSize:     100,
-		BufferWaitTime: 100 * time.Millisecond,
-		ListerWatcher:  utils.ListerWatcherFromTyped[*v1.EndpointsList](cs.CoreV1().Endpoints("")),
-		Table:          t,
-		Transform:      parseEndpoints,
-	}
-}
-
 func registerHTTPServer(
 	lc hive.Lifecycle,
 	log logrus.FieldLogger,
-	db *statedb.DB) {
+	db *statedb.DB,
+	health cell.Health) {
 
 	mux := http.NewServeMux()
 
 	// For dumping the database:
-	// curl -s http://localhost:8080/statedb | jq .
+	// curl -s localhost:8080/statedb | jq .
 	mux.Handle("/statedb", db)
+
+	healthHandler := func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		b, err := json.Marshal(health.All())
+		if err != nil {
+			w.WriteHeader(500)
+		} else {
+			w.WriteHeader(200)
+			w.Write(b)
+		}
+	}
+	// For dumping module health status:
+	// curl -s localhost:8080/health | jq
+	mux.HandleFunc("/health", healthHandler)
 
 	server := http.Server{
 		Addr:    "127.0.0.1:8080",

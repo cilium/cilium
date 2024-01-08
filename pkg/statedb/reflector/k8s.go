@@ -69,7 +69,8 @@ func Kubernetes[Obj any](p KubernetesParams[Obj]) Reflector[Obj] {
 		db:               p.DB,
 	}
 	g := p.Jobs.NewGroup(p.Scope)
-	g.Add(job.OneShot("run", tr.run))
+	var obj Obj
+	g.Add(job.OneShot(fmt.Sprintf("kubernetes-reflector[%T].run", obj), tr.run))
 	return g
 }
 
