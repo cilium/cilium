@@ -15,6 +15,7 @@ import (
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -249,6 +250,57 @@ func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFun
 		listener = fn(listener)
 	}
 
+	listenerBytes, err := proto.Marshal(listener)
+	if err != nil {
+		return ciliumv2.XDSResource{}, err
+	}
+	return ciliumv2.XDSResource{
+		Any: &anypb.Any{
+			TypeUrl: envoy.ListenerTypeURL,
+			Value:   listenerBytes,
+		},
+	}, nil
+}
+
+// NewTCPListenerWithDefaults same as NewTCPListener but with default mutators applied.
+func NewTCPListenerWithDefaults(name string, backends sets.Set[string], mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+	fns := append(mutatorFunc,
+		WithSocketOption(
+			defaultTCPKeepAlive,
+			defaultTCPKeepAliveIdleTimeInSeconds,
+			defaultTCPKeepAliveProbeIntervalInSeconds,
+			defaultTCPKeepAliveMaxFailures),
+	)
+	return NewTCPListener(name, backends, fns...)
+}
+
+// NewTCPListener creates a new Envoy listener with the given name.
+func NewTCPListener(name string, backends sets.Set[string], mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+	var filterChains []*envoy_config_listener.FilterChain
+	for _, backend := range sets.List[string](backends) {
+		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+			Filters: []*envoy_config_listener.Filter{
+				{
+					Name: tcpProxyType,
+					ConfigType: &envoy_config_listener.Filter_TypedConfig{
+						TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
+							StatPrefix: backend,
+							ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
+								Cluster: backend,
+							},
+						}),
+					},
+				},
+			},
+		})
+	}
+	listener := &envoy_config_listener.Listener{
+		Name:         name,
+		FilterChains: filterChains,
+	}
+	for _, fn := range mutatorFunc {
+		listener = fn(listener)
+	}
 	listenerBytes, err := proto.Marshal(listener)
 	if err != nil {
 		return ciliumv2.XDSResource{}, err

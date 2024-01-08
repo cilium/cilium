@@ -154,6 +154,7 @@ func registerReconcilers(mgr ctrlRuntime.Manager, secretsNamespace string, idleT
 		newHTTPRouteReconciler(mgr),
 		newGRPCRouteReconciler(mgr),
 		newTLSRouteReconciler(mgr),
+		newTCPRouteReconciler(mgr),
 	}
 
 	for _, r := range reconcilers {

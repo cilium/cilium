@@ -14,6 +14,7 @@ import (
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -149,6 +150,20 @@ func TestNewSNIListener(t *testing.T) {
 		}
 		slices.Sort(listenerNames)
 		require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
+		require.Len(t, listener.GetFilterChains(), 1)
+		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
+	})
+}
+
+func TestNewTCPListener(t *testing.T) {
+	t.Run("normal TCP listener", func(t *testing.T) {
+		res, err := NewTCPListener("dummy-name", sets.New("dummy-namespace:dummy-service:443"))
+		require.Nil(t, err)
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+		require.Equal(t, "dummy-name", listener.Name)
+		require.Len(t, listener.GetListenerFilters(), 1)
 		require.Len(t, listener.GetFilterChains(), 1)
 		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
 	})

@@ -98,6 +98,12 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
+	tcpRouteList := &gatewayv1alpha2.TCPRouteList{}
+	if err := r.Client.List(ctx, tcpRouteList); err != nil {
+		scopedLog.WithError(err).Error("Unable to list TCPRoutes")
+		return controllerruntime.Fail(err)
+	}
+
 	// TODO(tam): Only list the services used by accepted Routes
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
@@ -111,11 +117,12 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
-	httpListeners, tlsListeners := ingestion.GatewayAPI(ingestion.Input{
+	httpListeners, tlsListeners, tcpListeners := ingestion.GatewayAPI(ingestion.Input{
 		GatewayClass:    *gwc,
 		Gateway:         *gw,
 		HTTPRoutes:      r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
 		TLSRoutes:       r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
+		TCPRoutes:       r.filterTCPRoutesByGateway(ctx, gw, tcpRouteList.Items),
 		GRPCRoutes:      r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
 		Services:        servicesList.Items,
 		ReferenceGrants: grants.Items,
@@ -129,7 +136,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled")
 
 	// Step 3: Translate the listeners into Cilium model
-	cec, svc, ep, err := translation.NewTranslator(r.SecretsNamespace, r.IdleTimeoutSeconds).Translate(&model.Model{HTTP: httpListeners, TLS: tlsListeners})
+	cec, svc, ep, err := translation.NewTranslator(r.SecretsNamespace, r.IdleTimeoutSeconds).Translate(&model.Model{HTTP: httpListeners, TLS: tlsListeners, TCP: tcpListeners})
 	if err != nil {
 		scopedLog.WithError(err).Error("Unable to translate resources")
 		setGatewayAccepted(gw, false, "Unable to translate resources")
@@ -268,6 +275,16 @@ func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *ga
 	var filtered []gatewayv1alpha2.TLSRoute
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *gatewayReconciler) filterTCPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.TCPRoute) []gatewayv1alpha2.TCPRoute {
+	var filtered []gatewayv1alpha2.TCPRoute
+	for _, route := range routes {
+		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) {
 			filtered = append(filtered, route)
 		}
 	}

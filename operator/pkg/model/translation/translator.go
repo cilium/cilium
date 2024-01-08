@@ -11,6 +11,7 @@ import (
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -120,6 +121,7 @@ func (i *defaultTranslator) getResources(m *model.Model) []ciliumv2.XDSResource 
 
 	res = append(res, i.getHTTPRouteListener(m)...)
 	res = append(res, i.getTLSRouteListener(m)...)
+	res = append(res, i.getTCPRouteListener(m)...)
 	res = append(res, i.getEnvoyHTTPRouteConfiguration(m)...)
 	res = append(res, i.getClusters(m)...)
 
@@ -173,6 +175,30 @@ func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSRe
 		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
 	}
 	l, _ := NewSNIListenerWithDefaults("listener", backendsMap, mutatorFuncs...)
+	return []ciliumv2.XDSResource{l}
+}
+
+// getTCPRouteListener returns the listener for the given model with TCPRoute.
+// it will set up filters for tcp proxy by default.
+func (i *defaultTranslator) getTCPRouteListener(m *model.Model) []ciliumv2.XDSResource {
+	if len(m.TCP) == 0 {
+		return nil
+	}
+	backends := sets.New[string]()
+	for _, h := range m.TCP {
+		for _, route := range h.Routes {
+			for _, backend := range route.Backends {
+				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
+				backends.Insert(key)
+			}
+		}
+	}
+
+	if backends.Len() == 0 {
+		return nil
+	}
+	mutatorFuncs := []ListenerMutator{}
+	l, _ := NewTCPListenerWithDefaults("listener", backends, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
@@ -303,7 +329,16 @@ func (i *defaultTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 			}
 		}
 	}
-
+	for ns, v := range getNamespaceNamePortsMapForTCP(m) {
+		for name, ports := range v {
+			for _, port := range ports {
+				clusterName := getClusterName(ns, name, port)
+				clusterServiceName := getClusterServiceName(ns, name, port)
+				sortedClusterNames = append(sortedClusterNames, clusterName)
+				envoyClusters[clusterName], _ = NewTCPClusterWithDefaults(clusterName, clusterServiceName)
+			}
+		}
+	}
 	sort.Strings(sortedClusterNames)
 	res := make([]ciliumv2.XDSResource, len(sortedClusterNames))
 	for i, name := range sortedClusterNames {
@@ -332,7 +367,7 @@ func isGRPCService(m *model.Model, ns string, name string, port string) bool {
 }
 
 // getNamespaceNamePortsMap returns a map of namespace -> name -> ports.
-// it gets all HTTP and TLS routes.
+// it gets all HTTP, TLS and TCP routes.
 // The ports are sorted and unique.
 func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 	namespaceNamePortMap := map[string]map[string][]string{}
@@ -365,7 +400,11 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}
 	}
-
+	for _, l := range m.TCP {
+		for _, r := range l.Routes {
+			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+		}
+	}
 	return namespaceNamePortMap
 }
 
@@ -392,6 +431,18 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 func getNamespaceNamePortsMapForTLS(m *model.Model) map[string]map[string][]string {
 	namespaceNamePortMap := map[string]map[string][]string{}
 	for _, l := range m.TLS {
+		for _, r := range l.Routes {
+			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+		}
+	}
+	return namespaceNamePortMap
+}
+
+// getNamespaceNamePortsMapForTCP returns a map of namespace -> name -> ports.
+// The ports are sorted and unique.
+func getNamespaceNamePortsMapForTCP(m *model.Model) map[string]map[string][]string {
+	namespaceNamePortMap := map[string]map[string][]string{}
+	for _, l := range m.TCP {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}
