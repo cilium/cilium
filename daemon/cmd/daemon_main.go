@@ -730,10 +730,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.Restore, true, "Restores state, if possible, from previous daemon")
 	option.BindEnv(vp, option.Restore)
 
-	flags.String(option.SidecarIstioProxyImage, k8s.DefaultSidecarIstioProxyImageRegexp,
-		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
-	option.BindEnv(vp, option.SidecarIstioProxyImage)
-
 	flags.String(option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	option.BindEnv(vp, option.SocketPath)
 
@@ -1444,12 +1440,6 @@ func initEnv(vp *viper.Viper) {
 			log.Warn("The kernel does not support --service-no-backend-response=reject, falling back to --service-no-backend-response=drop")
 			option.Config.ServiceNoBackendResponse = option.ServiceNoBackendResponseDrop
 		}
-	}
-
-	k8s.SidecarIstioProxyImageRegexp, err = regexp.Compile(option.Config.SidecarIstioProxyImage)
-	if err != nil {
-		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
-		return
 	}
 
 	if option.Config.EnableIPv4FragmentsTracking {

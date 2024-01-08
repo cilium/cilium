@@ -428,10 +428,6 @@ data:
   # 1.4 or later, then it may cause one-time disruptions during the upgrade.
   preallocate-bpf-maps: "{{ .Values.bpf.preallocateMaps }}"
 
-  # Regular expression matching compatible Istio sidecar istio-proxy
-  # container image names
-  sidecar-istio-proxy-image: "{{ .Values.proxy.sidecarImageRegex }}"
-
   # Name of the cluster. Only relevant when building a mesh of clusters.
   cluster-name: {{ .Values.cluster.name }}
 

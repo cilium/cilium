@@ -232,13 +232,6 @@ type Endpoint struct {
 	// the endpoint's labels.
 	SecurityIdentity *identity.Identity `json:"SecLabel"`
 
-	// hasSidecarProxy indicates whether the endpoint has been injected by
-	// Istio with a Cilium-compatible sidecar proxy. If true, the sidecar proxy
-	// will be used to apply L7 policy rules. Otherwise, Cilium's node-wide
-	// proxy will be used.
-	// TODO: Currently this applies only to HTTP L7 rules. Kafka L7 rules are still enforced by Cilium's node-wide Kafka proxy.
-	hasSidecarProxy bool
-
 	// policyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
 	policyMap *policymap.PolicyMap
@@ -496,17 +489,6 @@ func (e *Endpoint) closeBPFProgramChannel() {
 	}
 }
 
-// bpfProgramInstalled returns whether a BPF program has been generated for this
-// endpoint.
-func (e *Endpoint) bpfProgramInstalled() bool {
-	select {
-	case <-e.hasBPFProgram:
-		return true
-	default:
-		return false
-	}
-}
-
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
 func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
@@ -718,10 +700,6 @@ func (e *Endpoint) IPv6Address() netip.Addr {
 // GetNodeMAC returns the MAC address of the node from this endpoint's perspective.
 func (e *Endpoint) GetNodeMAC() mac.MAC {
 	return e.nodeMAC
-}
-
-func (e *Endpoint) HasSidecarProxy() bool {
-	return e.hasSidecarProxy
 }
 
 // ConntrackName returns the name suffix for the endpoint-specific bpf
@@ -2564,15 +2542,7 @@ func (e *Endpoint) WaitForFirstRegeneration(ctx context.Context) error {
 			if err := e.rlockAlive(); err != nil {
 				return fmt.Errorf("endpoint was deleted while waiting for initial endpoint generation to complete")
 			}
-			hasSidecarProxy := e.HasSidecarProxy()
 			e.runlock()
-			if hasSidecarProxy && e.bpfProgramInstalled() {
-				// If the endpoint is determined to have a sidecar proxy,
-				// return immediately to let the sidecar container start,
-				// in case it is required to enforce L7 rules.
-				e.getLogger().Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
-				return nil
-			}
 		}
 
 		if ctx.Err() != nil {

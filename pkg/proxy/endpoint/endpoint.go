@@ -14,7 +14,6 @@ type EndpointInfoSource interface {
 	GetID() uint64
 	GetIPv4Address() string
 	GetIPv6Address() string
-	HasSidecarProxy() bool
 	ConntrackNameLocked() string
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
 }
