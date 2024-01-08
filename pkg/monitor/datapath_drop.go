@@ -59,6 +59,7 @@ var sourceFileNames = map[int]string{
 	103: "srv6.h",
 	104: "icmp6.h",
 	105: "nodeport.h",
+	106: "encrypt.h",
 	//end
 }
 
