@@ -1099,13 +1099,8 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 
 // validateDeployment checks if the Deployments we created have the expected Pods in them.
 func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
-	ct.Debug("Validating Deployments...")
 
-	disableEndpointCRD := false
-	if status, ok := ct.Feature(features.DisableEndpointCRD); ok && status.Enabled {
-		disableEndpointCRD = true
-		ct.Info("CiliumEndpoint CRD check disabled")
-	}
+	ct.Debug("Validating Deployments...")
 
 	srcDeployments, dstDeployments := ct.deploymentList()
 	for _, name := range srcDeployments {
@@ -1126,12 +1121,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return fmt.Errorf("unable to list perf pods: %w", err)
 		}
 		for _, perfPod := range perfPods.Items {
-			// Individual endpoints will not be created for pods using node's network stack
-			if !perfPod.Spec.HostNetwork && !disableEndpointCRD {
-				if err := WaitForCiliumEndpoint(ctx, ct, ct.clients.src, ct.Params().TestNamespace, perfPod.Name); err != nil {
-					return err
-				}
-			}
 			_, hasLabel := perfPod.GetLabels()["server"]
 			if hasLabel {
 				ct.perfServerPod = append(ct.perfServerPod, Pod{
@@ -1162,12 +1151,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	for _, pod := range clientPods.Items {
-		if !disableEndpointCRD {
-			if err := WaitForCiliumEndpoint(ctx, ct, ct.clients.src, ct.Params().TestNamespace, pod.Name); err != nil {
-				return err
-			}
-		}
-
 		if strings.Contains(pod.Name, clientCPDeployment) {
 			ct.clientCPPods[pod.Name] = Pod{
 				K8sClient: ct.client,
@@ -1251,12 +1234,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return fmt.Errorf("unable to list echo pods: %w", err)
 		}
 		for _, echoPod := range echoPods.Items {
-			if !disableEndpointCRD {
-				if err := WaitForCiliumEndpoint(ctx, ct, client, echoPod.GetNamespace(), echoPod.GetName()); err != nil {
-					return err
-				}
-			}
-
 			ct.echoPods[echoPod.Name] = Pod{
 				K8sClient: client,
 				Pod:       echoPod.DeepCopy(),
