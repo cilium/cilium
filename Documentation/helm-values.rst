@@ -1096,6 +1096,10 @@
      - The priority class to use for cilium-envoy.
      - string
      - ``nil``
+   * - :spelling:ignore:`envoy.prometheus`
+     - Configure Cilium Envoy Prometheus options. Note that some of these apply to either cilium-agent or cilium-envoy.
+     - object
+     - ``{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}}``
    * - :spelling:ignore:`envoy.prometheus.enabled`
      - Enable prometheus metrics for cilium-envoy
      - bool
@@ -1109,7 +1113,7 @@
      - object
      - ``{}``
    * - :spelling:ignore:`envoy.prometheus.serviceMonitor.enabled`
-     - Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+     - Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) Note that this setting applies to both cilium-envoy *and* cilium-agent with Envoy enabled.
      - bool
      - ``false``
    * - :spelling:ignore:`envoy.prometheus.serviceMonitor.interval`
@@ -1121,11 +1125,11 @@
      - object
      - ``{}``
    * - :spelling:ignore:`envoy.prometheus.serviceMonitor.metricRelabelings`
-     - Metrics relabeling configs for the ServiceMonitor cilium-envoy
+     - Metrics relabeling configs for the ServiceMonitor cilium-envoy or for cilium-agent with Envoy configured.
      - string
      - ``nil``
    * - :spelling:ignore:`envoy.prometheus.serviceMonitor.relabelings`
-     - Relabeling configs for the ServiceMonitor cilium-envoy
+     - Relabeling configs for the ServiceMonitor cilium-envoy or for cilium-agent with Envoy configured.
      - list
      - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
    * - :spelling:ignore:`envoy.readinessProbe.failureThreshold`
