@@ -18,7 +18,7 @@
 #include "signal.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
-#include "egress_policies.h"
+#include "srv6.h"
 #include "icmp6.h"
 #include "nat_46x64.h"
 #include "stubs.h"
