@@ -164,6 +164,7 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 	nodeKey := &ipSecKey{
 		Spi:   globalKey.Spi,
 		ReqID: globalKey.ReqID,
+		ESN:   globalKey.ESN,
 	}
 
 	if globalKey.Aead != nil {
@@ -201,6 +202,9 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID
 	if globalKey == nil {
 		return nil
 	}
+	if !globalKey.ESN {
+		return globalKey
+	}
 
 	if dir == netlink.XFRM_DIR_OUT {
 		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, localBootID, remoteBootID)
@@ -210,12 +214,14 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 	state := netlink.XfrmState{
-		Mode:         netlink.XFRM_MODE_TUNNEL,
-		Proto:        netlink.XFRM_PROTO_ESP,
-		ESN:          true,
-		ReplayWindow: 1024,
-		Spi:          int(keys.Spi),
-		Reqid:        keys.ReqID,
+		Mode:  netlink.XFRM_MODE_TUNNEL,
+		Proto: netlink.XFRM_PROTO_ESP,
+		ESN:   keys.ESN,
+		Spi:   int(keys.Spi),
+		Reqid: keys.ReqID,
+	}
+	if keys.ESN {
+		state.ReplayWindow = 1024
 	}
 	if keys.Aead != nil {
 		state.Aead = keys.Aead
