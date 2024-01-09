@@ -463,11 +463,16 @@ jobs:
 
       # Perform an additional "stress" test, scaling the clustermesh-apiservers in both clusters
       # to zero replicas, and restarting all agents. Existing connections should not be disrupted.
+      # One exception to this is represented by Cilium being in charge of handling NodePort
+      # traffic, as the simultaneous restart of the clustermesh-apiserver pods in both clusters
+      # after rolling out all agents can lead to a circular dependency (#30156).
       - name: Scale the clustermesh-apiserver replicas to 0
         if: ${{ !matrix.external-kvstore }}
         run: |
           kubectl --context ${{ env.contextName1 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
-          kubectl --context ${{ env.contextName2 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
+          if [ ${{ matrix.kube-proxy }} != "none" ]; then
+            kubectl --context ${{ env.contextName2 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
+          fi
 
       - name: Rollout Cilium agents in both clusters
         run: |
