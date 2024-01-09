@@ -134,6 +134,9 @@ spec:
                 required:
                 - nodeSelector
                 type: object
+                x-kubernetes-validations:
+                - message: Egress Gateway cannot contain both egressIP and interface
+                  rule: '!((has(self.egressIP)) && (has(self.interface)))'
               excludedCIDRs:
                 description: ExcludedCIDRs is a list of destination CIDRs that will
                   be excluded from the egress gateway redirection and SNAT logic.
