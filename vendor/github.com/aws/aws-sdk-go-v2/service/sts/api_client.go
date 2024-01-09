@@ -552,6 +552,12 @@ func (c presignConverter) convertToPresignMiddleware(stack *middleware.Stack, op
 	if _, ok := stack.Finalize.Get((*acceptencodingcust.DisableGzip)(nil).ID()); ok {
 		stack.Finalize.Remove((*acceptencodingcust.DisableGzip)(nil).ID())
 	}
+	if _, ok := stack.Finalize.Get((*retry.Attempt)(nil).ID()); ok {
+		stack.Finalize.Remove((*retry.Attempt)(nil).ID())
+	}
+	if _, ok := stack.Finalize.Get((*retry.MetricsHeader)(nil).ID()); ok {
+		stack.Finalize.Remove((*retry.MetricsHeader)(nil).ID())
+	}
 	stack.Deserialize.Clear()
 	stack.Build.Remove((*awsmiddleware.ClientRequestID)(nil).ID())
 	stack.Build.Remove("UserAgent")

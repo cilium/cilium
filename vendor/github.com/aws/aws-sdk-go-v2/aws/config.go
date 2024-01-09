@@ -170,8 +170,7 @@ func NewConfig() *Config {
 	return &Config{}
 }
 
-// Copy will return a shallow copy of the Config object. If any additional
-// configurations are provided they will be merged into the new config returned.
+// Copy will return a shallow copy of the Config object.
 func (c Config) Copy() Config {
 	cp := c
 	return cp

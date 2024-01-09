@@ -50,6 +50,9 @@
       "ca-central-1" : {
         "description" : "Canada (Central)"
       },
+      "ca-west-1" : {
+        "description" : "Canada West (Calgary)"
+      },
       "eu-central-1" : {
         "description" : "Europe (Frankfurt)"
       },

@@ -101,6 +101,7 @@ func (c *Client) GetCredentials(ctx context.Context, params *GetCredentialsInput
 	stack.Serialize.Add(&serializeOpGetCredential{}, smithymiddleware.After)
 	stack.Build.Add(&buildEndpoint{Endpoint: options.Endpoint}, smithymiddleware.After)
 	stack.Deserialize.Add(&deserializeOpGetCredential{}, smithymiddleware.After)
+	addProtocolFinalizerMiddlewares(stack, options, "GetCredentials")
 	retry.AddRetryMiddlewares(stack, retry.AddRetryMiddlewaresOptions{Retryer: options.Retryer})
 	middleware.AddSDKAgentKey(middleware.FeatureMetadata, ServiceID)
 	smithyhttp.AddErrorCloseResponseBodyMiddleware(stack)

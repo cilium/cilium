@@ -146,3 +146,19 @@ func stof(code int) smithy.ErrorFault {
 	}
 	return smithy.FaultClient
 }
+
+func addProtocolFinalizerMiddlewares(stack *smithymiddleware.Stack, options Options, operation string) error {
+	if err := stack.Finalize.Add(&resolveAuthSchemeMiddleware{operation: operation, options: options}, smithymiddleware.Before); err != nil {
+		return fmt.Errorf("add ResolveAuthScheme: %w", err)
+	}
+	if err := stack.Finalize.Insert(&getIdentityMiddleware{options: options}, "ResolveAuthScheme", smithymiddleware.After); err != nil {
+		return fmt.Errorf("add GetIdentity: %w", err)
+	}
+	if err := stack.Finalize.Insert(&resolveEndpointV2Middleware{options: options}, "GetIdentity", smithymiddleware.After); err != nil {
+		return fmt.Errorf("add ResolveEndpointV2: %w", err)
+	}
+	if err := stack.Finalize.Insert(&signRequestMiddleware{}, "ResolveEndpointV2", smithymiddleware.After); err != nil {
+		return fmt.Errorf("add Signing: %w", err)
+	}
+	return nil
+}
