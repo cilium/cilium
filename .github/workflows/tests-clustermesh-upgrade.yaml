@@ -158,7 +158,7 @@ jobs:
             --set=ipv6.enabled=true \
             --set=clustermesh.useAPIServer=${{ !matrix.external-kvstore }} \
             --set=clustermesh.config.enabled=true \
-            --set=extraConfig.clustermesh-ip-identities-sync-timeout=5m"
+            --set=extraConfig.clustermesh-ip-identities-sync-timeout=10m"
 
           # Run only a limited subset of tests to reduce the amount of time
           # required. The full suite is run in conformance-clustermesh.
