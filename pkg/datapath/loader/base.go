@@ -75,7 +75,7 @@ func (l *loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 }
 
 // Must be called with option.Config.EnablePolicyMU locked.
-func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
+func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string, devices []string) error {
 	headerPath := filepath.Join(dir, preFilterHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
@@ -87,7 +87,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.GetDevices(), " "))
+	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(devices, " "))
 	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.NodePortAcceleration)
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
@@ -139,8 +139,8 @@ func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
 	return retSettings, nil
 }
 
-func cleanIngressQdisc() error {
-	for _, iface := range option.Config.GetDevices() {
+func cleanIngressQdisc(devices []string) error {
+	for _, iface := range devices {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
@@ -259,12 +259,12 @@ func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 	return nil
 }
 
-func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode, bpf.CiliumPath())
+func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string) error {
+	maybeUnloadObsoleteXDPPrograms(devices, option.Config.XDPMode, bpf.CiliumPath())
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
-	for _, dev := range option.Config.GetDevices() {
+	for _, dev := range devices {
 		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
@@ -288,9 +288,13 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
 func (l *loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+	// TODO: react to changes (using the currently ignored watch channel)
+	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
+	devices := tables.DeviceNames(nativeDevices)
+
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
-	return l.reinitializeXDPLocked(ctx, extraCArgs)
+	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
 }
 
 // Reinitialize (re-)configures the base datapath configuration including global
@@ -365,7 +369,10 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
 	}
 
-	if err := cleanIngressQdisc(); err != nil {
+	// TODO: react to changes (using the currently ignored watch channel)
+	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
+	devices := tables.DeviceNames(nativeDevices)
+	if err := cleanIngressQdisc(devices); err != nil {
 		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
 		return err
 	}
@@ -381,7 +388,7 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if option.Config.EnableXDPPrefilter {
-		scopedLog := log.WithField(logfields.Devices, option.Config.GetDevices())
+		scopedLog := log.WithField(logfields.Devices, devices)
 
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
@@ -389,7 +396,7 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			return err
 		}
 
-		if err := writePreFilterHeader(preFilter, "./"); err != nil {
+		if err := writePreFilterHeader(preFilter, "./", devices); err != nil {
 			scopedLog.WithError(err).Warn("Unable to write prefilter header")
 			return err
 		}
@@ -415,7 +422,7 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := l.reinitializeXDPLocked(ctx, extraArgs); err != nil {
+	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")
 	}
 

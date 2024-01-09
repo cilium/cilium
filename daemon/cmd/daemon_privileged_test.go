@@ -13,8 +13,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -73,7 +75,12 @@ func Test_removeOldRouterState(t *testing.T) {
 func createDevices(t *testing.T) {
 	t.Helper()
 
-	ciliumHost, ciliumNet, err := loader.NewLoader(sysctl.NewTestSysctl(t)).SetupBaseDevice(1500)
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		t.Fatalf("failed to create statedb: %v", err)
+	}
+	ciliumHost, ciliumNet, err := loader.NewLoader(sysctl.NewTestSysctl(t), db, devices).SetupBaseDevice(1500)
 	assert.NoError(t, err)
 	assert.NotNil(t, ciliumHost)
 	assert.NotNil(t, ciliumNet)

@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
@@ -32,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -81,18 +83,22 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
-	sysctl sysctl.Sysctl
+	sysctl  sysctl.Sysctl
+	db      *statedb.DB
+	devices statedb.Table[*tables.Device]
 }
 
 // NewLoader returns a new loader.
-func NewLoader(sysctl sysctl.Sysctl) datapath.Loader {
-	return newLoader(sysctl)
+func NewLoader(sysctl sysctl.Sysctl, db *statedb.DB, devices statedb.Table[*tables.Device]) datapath.Loader {
+	return newLoader(sysctl, db, devices)
 }
 
-func newLoader(sysctl sysctl.Sysctl) *loader {
+func newLoader(sysctl sysctl.Sysctl, db *statedb.DB, devices statedb.Table[*tables.Device]) *loader {
 	return &loader{
 		hostDpInitialized: make(chan struct{}),
 		sysctl:            sysctl,
+		db:                db,
+		devices:           devices,
 	}
 }
 
@@ -220,7 +226,7 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath,
 	return hostObj.Write(dstPath, opts, strings)
 }
 
-func isObsoleteDev(dev string) bool {
+func isObsoleteDev(dev string, devices []string) bool {
 	// exclude devices we never attach to/from_netdev to.
 	for _, prefix := range defaults.ExcludedDevicePrefixes {
 		if strings.HasPrefix(dev, prefix) {
@@ -229,7 +235,7 @@ func isObsoleteDev(dev string) bool {
 	}
 
 	// exclude devices that will still be managed going forward.
-	for _, d := range option.Config.GetDevices() {
+	for _, d := range devices {
 		if dev == d {
 			return false
 		}
@@ -240,7 +246,7 @@ func isObsoleteDev(dev string) bool {
 
 // removeObsoleteNetdevPrograms removes cil_to_netdev and cil_from_netdev from devices
 // that cilium potentially doesn't manage anymore after a restart, e.g. if the set of
-// devices in option.Config.GetDevices() changes between restarts.
+// devices changes between restarts.
 //
 // This code assumes that the agent was upgraded from a prior version while maintaining
 // the same list of managed physical devices. This ensures that all tc bpf filters get
@@ -248,7 +254,7 @@ func isObsoleteDev(dev string) bool {
 // before 1.13, most filters were named e.g. bpf_host.o:[to-host], to be changed to
 // cilium-<device> in 1.13, then to cil_to_host-<device> in 1.14. As a result, this
 // function only cleans up filters following the current naming scheme.
-func removeObsoleteNetdevPrograms() error {
+func removeObsoleteNetdevPrograms(devices []string) error {
 	links, err := netlink.LinkList()
 	if err != nil {
 		return fmt.Errorf("retrieving all netlink devices: %w", err)
@@ -258,7 +264,7 @@ func removeObsoleteNetdevPrograms() error {
 	ingressDevs := []netlink.Link{}
 	egressDevs := []netlink.Link{}
 	for _, l := range links {
-		if !isObsoleteDev(l.Attrs().Name) {
+		if !isObsoleteDev(l.Attrs().Name, devices) {
 			continue
 		}
 
@@ -308,7 +314,7 @@ func removeObsoleteNetdevPrograms() error {
 // - cilium_host: ingress and egress
 // - cilium_net: ingress
 // - native devices: ingress and (optionally) egress if certain features require it
-func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string) error {
+func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string, devices []string) error {
 	// Warning: here be dragons. There used to be a single loop over
 	// interfaces+objs+progs here from the iproute2 days, but this was never
 	// correct to begin with. Tail call maps were always reused when possible,
@@ -371,7 +377,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	defer finalize()
 
 	// Replace programs on physical devices.
-	for _, device := range option.Config.GetDevices() {
+	for _, device := range devices {
 		if _, err := netlink.LinkByName(device); err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")
 			continue
@@ -419,7 +425,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	// call at the end of the function so that we can easily detect if this removes necessary
 	// programs that have just been attached.
-	if err := removeObsoleteNetdevPrograms(); err != nil {
+	if err := removeObsoleteNetdevPrograms(devices); err != nil {
 		log.WithError(err).Error("Failed to remove obsolete netdev programs")
 	}
 
@@ -436,8 +442,12 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	objPath := path.Join(dirs.Output, endpointObj)
 
 	if ep.IsHost() {
+		// TODO: react to changes (using the currently ignored watch channel)
+		nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
+		devices := tables.DeviceNames(nativeDevices)
+	
 		objPath = path.Join(dirs.Output, hostEndpointObj)
-		if err := l.reloadHostDatapath(ctx, ep, objPath); err != nil {
+		if err := l.reloadHostDatapath(ctx, ep, objPath, devices); err != nil {
 			return err
 		}
 	} else {

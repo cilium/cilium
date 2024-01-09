@@ -20,11 +20,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -138,7 +140,8 @@ func (s *LoaderTestSuite) testCompileAndLoad(c *C, ep *testutils.TestEndpoint) {
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
-	l := newLoader(sysctl.NewTestSysctl(c.T))
+	db, dev := dbAndDevices(c)
+	l := newLoader(sysctl.NewTestSysctl(c.T), db, dev)
 	err := l.compileAndLoad(ctx, ep, getDirs(c), stats)
 	c.Assert(err, IsNil)
 }
@@ -206,7 +209,8 @@ func (s *LoaderTestSuite) testCompileFailure(c *C, ep *testutils.TestEndpoint) {
 		}
 	}()
 
-	l := newLoader(sysctl.NewTestSysctl(c.T))
+	db, dev := dbAndDevices(c)
+	l := newLoader(sysctl.NewTestSysctl(c.T), db, dev)
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	stats := &metrics.SpanStat{}
@@ -250,7 +254,8 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
-	l := newLoader(sysctl.NewTestSysctl(b))
+	db, dev := dbAndDevices(b)
+	l := newLoader(sysctl.NewTestSysctl(b), db, dev)
 	dirInfo := getDirs(b)
 
 	b.ResetTimer()
@@ -328,7 +333,8 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 	}
 	defer os.RemoveAll(epDir)
 
-	l := newLoader(sysctl.NewTestSysctl(b))
+	db, dev := dbAndDevices(b)
+	l := newLoader(sysctl.NewTestSysctl(b), db, dev)
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
 	if err := l.CompileOrLoad(ctx, &ep, nil); err != nil {
 		log.Warningf("Failure in %s: %s", tmpDir, err)
@@ -341,4 +347,13 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func dbAndDevices(tb testing.TB) (*statedb.DB, statedb.Table[*tables.Device]) {
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		tb.Fatalf("failed to create statedb: %v", err)
+	}
+	return db, devices
 }

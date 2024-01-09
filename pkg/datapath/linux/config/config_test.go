@@ -153,8 +153,14 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 	}()
 
 	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint64, map[string]string) {
+		devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+		db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+		if err != nil {
+			c.Fatalf("failed to create statedb: %v", err)
+		}
+
 		cfg := &HeaderfileWriter{}
-		varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c.T)).ELFSubstitutions(t)
+		varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c), db, devices).ELFSubstitutions(t)
 
 		var buf bytes.Buffer
 		cfg.writeStaticData(nil, &buf, t)
@@ -239,7 +245,12 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg
 
-	varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c.T)).ELFSubstitutions(ep)
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		c.Fatalf("failed to create statedb: %v", err)
+	}
+	varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c.T), db, devices).ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
 	cfg.writeStaticData(nil, &buf, ep)

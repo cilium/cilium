@@ -12,6 +12,9 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -23,7 +26,21 @@ func (s *LoaderTestSuite) TestobjectCache(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	cache := newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		c.Fatalf("failed to create statedb: %v", err)
+	}
+	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
+		DB: db,
+		Devices: devices,
+		Sysctl: sysctl.NewTestSysctl(c),
+	})
+	if err != nil {
+		c.Fatalf("failed to create header file writer: %v", err)
+	}
+
+	cache := newObjectCache(cfg, nil, tmpDir)
 	realEP := testutils.NewTestEndpoint()
 
 	// First run should compile and generate the object.
@@ -102,7 +119,20 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 		c.Logf("  %s", t.description)
 
 		results := make(chan buildResult, t.builds)
-		cache := newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
+		devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+		db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+		if err != nil {
+			c.Fatalf("failed to create statedb: %v", err)
+		}
+		cfg, err := config.NewHeaderfileWriter(config.WriterParams{
+			DB:      db,
+			Devices: devices,
+			Sysctl:  sysctl.NewTestSysctl(c),
+		})
+		if err != nil {
+			c.Fatalf("failed to create header file writer: %v", err)
+		}
+		cache := newObjectCache(cfg, nil, tmpDir)
 		for i := 0; i < t.builds; i++ {
 			go func(i int) {
 				ep := testutils.NewTestEndpoint()
