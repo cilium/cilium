@@ -664,7 +664,7 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 #endif
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
-			  TRACE_REASON_UNKNOWN, 0);
+			  TRACE_REASON_SRV6_ENCAP, 0);
 
 	return ret;
 }
@@ -683,7 +683,7 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 		goto error_drop;
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
-			  TRACE_REASON_UNKNOWN, 0);
+			  TRACE_REASON_SRV6_DECAP, 0);
 	return CTX_ACT_OK;
 error_drop:
 		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
