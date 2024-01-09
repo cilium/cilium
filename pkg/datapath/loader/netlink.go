@@ -200,7 +200,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	for _, prog := range progs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
 		scopedLog.Debug("Attaching program to interface")
-		if err := attachProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction), xdpModeToFlag(xdpMode)); err != nil {
+		if err := attachProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction), xdpConfigModeToFlag(xdpMode)); err != nil {
 			revert()
 			return nil, fmt.Errorf("program %s: %w", prog.progName, err)
 		}
