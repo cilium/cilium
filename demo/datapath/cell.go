@@ -25,24 +25,32 @@ var (
 	)
 
 	reconcilers = cell.Group(
-		cell.ProvidePrivate(
-			// Provide read-write access to the Frontend and Backend tables
-			// for the reconciler.
-			func(fes Frontends) statedb.RWTable[*Frontend] {
-				return fes.rw
-			},
-			func(bes Backends) statedb.RWTable[*Backend] {
-				return bes.rw
-			},
+		// TODO: Currently the reconciler metrics are reported for particular module.
+		// Might want to rethink that and pass some metric label as part of reconciler.Config.
+		cell.Module(
+			"frontend-reconciler",
+			"Frontends BPF reconciler",
 
-			newFrontendsReconcilerConfig,
-			newBackendsReconcilerConfig,
+			cell.ProvidePrivate(
+				func(fes Frontends) statedb.RWTable[*Frontend] {
+					return fes.rw
+				},
+				newFrontendsReconcilerConfig,
+			),
+			cell.Invoke(reconciler.Register[*Frontend]),
 		),
 
-		// Create and register reconcilers for the BPF maps
-		cell.Invoke(
-			reconciler.Register[*Frontend],
-			reconciler.Register[*Backend],
+		cell.Module(
+			"backend-reconciler",
+			"Backends BPF reconciler",
+
+			cell.ProvidePrivate(
+				func(bes Backends) statedb.RWTable[*Backend] {
+					return bes.rw
+				},
+				newBackendsReconcilerConfig,
+			),
+			cell.Invoke(reconciler.Register[*Backend]),
 		),
 	)
 )

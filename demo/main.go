@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/sirupsen/logrus"
@@ -48,6 +50,17 @@ var Demo = cell.Module(
 		}
 		return nil
 	}),
+
+	// Serve metrics over localhost:9962/metrics.
+	cell.Group(
+		// TODO: Clean up use of modular metrics outside the agent.
+		cell.ProvidePrivate(func() *option.DaemonConfig {
+			return option.Config
+		}),
+		cell.Config(metrics.RegistryConfig{PrometheusServeAddr: ":9962"}),
+		cell.Provide(metrics.NewRegistry),
+		cell.Invoke(func(*metrics.Registry) {}),
+	),
 	statedb.Cell,    // statedb.DB
 	job.Cell,        // job.Registry for background jobs
 	reconciler.Cell, // the shared reconciler metrics
