@@ -79,6 +79,7 @@ cilium-agent hive dot-graph [flags]
       --prepend-iptables-chains                                   Prepend custom iptables chains instead of appending (default true)
       --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --read-cni-conf string                                      CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
+      --skip-iptables-modules                                     Skip loading the iptables kernel modules
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready

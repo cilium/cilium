@@ -312,6 +312,7 @@ cilium-agent [flags]
       --routing-mode string                                       Routing mode ("native" or "tunnel") (default "tunnel")
       --service-no-backend-response string                        Response to traffic for a service without backends (default "reject")
       --sidecar-istio-proxy-image string                          Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
+      --skip-iptables-modules                                     Skip loading the iptables kernel modules
       --socket-path string                                        Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                                          Directory path to store runtime state (default "/var/run/cilium")
       --tofqdns-dns-reject-response-code string                   DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")

@@ -59,11 +59,15 @@ type Config struct {
 
 	// PrependIptablesChains, when enabled, prepends custom iptables chains instead of appending.
 	PrependIptablesChains bool
+
+	// SkipIPTablesModules specifies to skip loading the corresponding kernel modules
+	SkipIPTablesModules bool
 }
 
 var defaultConfig = Config{
 	IPTablesLockTimeout:   5 * time.Second,
 	PrependIptablesChains: true,
+	SkipIPTablesModules:   false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -71,6 +75,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice("disable-iptables-feeder-rules", def.DisableIptablesFeederRules, "Chains to ignore when installing feeder rules.")
 	flags.Bool("iptables-random-fully", def.IPTablesRandomFully, "Set iptables flag random-fully on masquerading rules")
 	flags.Bool("prepend-iptables-chains", def.PrependIptablesChains, "Prepend custom iptables chains instead of appending")
+	flags.Bool("skip-iptables-modules", def.SkipIPTablesModules, "Skip loading the iptables kernel modules")
 }
 
 type SharedConfig struct {

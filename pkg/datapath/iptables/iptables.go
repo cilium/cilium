@@ -313,39 +313,43 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		m.DisableIPEarlyDemux()
 	}
 
-	if err := m.modulesMgr.FindOrLoadModules(
-		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw", "iptable_filter",
-	); err != nil {
-		m.logger.WithError(err).Warning(
-			"iptables modules could not be initialized. It probably means that iptables is not available on this system")
-	}
-
-	if err := m.modulesMgr.FindOrLoadModules(
-		"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter",
-	); err != nil {
-		if m.sharedCfg.EnableIPv6 {
-			return fmt.Errorf(
-				"IPv6 is enabled and ip6tables modules initialization failed: %w "+
-					"(try disabling IPv6 in Cilium or loading ip6_tables, ip6table_mangle, ip6table_raw and ip6table_filter kernel modules)", err)
-		}
-		m.logger.WithError(err).Debug(
-			"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
-		m.haveIp6tables = false
+	if m.cfg.PrependIptablesChains {
+		log.Info("skip loading iptables kernel modules")
 	} else {
-		ipv6Disabled, err := os.ReadFile("/sys/module/ipv6/parameters/disable")
-		if err != nil {
+		if err := m.modulesMgr.FindOrLoadModules(
+			"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw", "iptable_filter",
+		); err != nil {
+			m.logger.WithError(err).Warning(
+				"iptables modules could not be initialized. It probably means that iptables is not available on this system")
+		}
+
+		if err := m.modulesMgr.FindOrLoadModules(
+			"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter",
+		); err != nil {
 			if m.sharedCfg.EnableIPv6 {
 				return fmt.Errorf(
-					"IPv6 is enabled but IPv6 kernel support probing failed with: %w", err)
+					"IPv6 is enabled and ip6tables modules initialization failed: %w "+
+						"(try disabling IPv6 in Cilium or loading ip6_tables, ip6table_mangle, ip6table_raw and ip6table_filter kernel modules)", err)
 			}
-			m.logger.WithError(err).Warning(
-				"Unable to read /sys/module/ipv6/parameters/disable, disabling IPv6 iptables support")
-			m.haveIp6tables = false
-		} else if strings.TrimSuffix(string(ipv6Disabled), "\n") == "1" {
-			m.logger.Debug(
-				"Kernel does not support IPv6, disabling IPv6 iptables support")
+			m.logger.WithError(err).Debug(
+				"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
 			m.haveIp6tables = false
 		}
+	}
+
+	ipv6Disabled, err := os.ReadFile("/sys/module/ipv6/parameters/disable")
+	if err != nil {
+		if m.sharedCfg.EnableIPv6 {
+			return fmt.Errorf(
+				"IPv6 is enabled but IPv6 kernel support probing failed with: %w", err)
+		}
+		m.logger.WithError(err).Warning(
+			"Unable to read /sys/module/ipv6/parameters/disable, disabling IPv6 iptables support")
+		m.haveIp6tables = false
+	} else if strings.TrimSuffix(string(ipv6Disabled), "\n") == "1" {
+		m.logger.Debug(
+			"Kernel does not support IPv6, disabling IPv6 iptables support")
+		m.haveIp6tables = false
 	}
 
 	if err := m.modulesMgr.FindOrLoadModules("xt_socket"); err != nil {
