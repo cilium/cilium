@@ -24,11 +24,32 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func xdpModeToFlag(xdpMode string) link.XDPAttachFlags {
+func xdpConfigModeToFlag(xdpMode string) link.XDPAttachFlags {
 	switch xdpMode {
 	case option.XDPModeNative, option.XDPModeLinkDriver, option.XDPModeBestEffort:
 		return link.XDPDriverMode
 	case option.XDPModeGeneric, option.XDPModeLinkGeneric:
+		return link.XDPGenericMode
+	}
+	return 0
+}
+
+// These constant values are returned by the kernel when querying the XDP program attach mode.
+// Important: they differ from constants that are used when attaching an XDP program to a netlink device.
+const (
+	XDPAttachedNone uint32 = iota
+	XDPAttachedDriver
+	XDPAttachedGeneric
+)
+
+// xdpAttachedModeToFlag maps the attach mode that is returned in the metadata when
+// querying netlink devices to the attach flags that were used to configure the
+// xdp program attachement.
+func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
+	switch mode {
+	case XDPAttachedDriver:
+		return link.XDPDriverMode
+	case XDPAttachedGeneric:
 		return link.XDPGenericMode
 	}
 	return 0
@@ -59,7 +80,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string)
 		used := false
 		for _, xdpDev := range xdpDevs {
 			if link.Attrs().Name == xdpDev &&
-				linkxdp.AttachMode == uint32(xdpModeToFlag(xdpMode)) {
+				xdpAttachedModeToFlag(linkxdp.AttachMode) == xdpConfigModeToFlag(xdpMode) {
 				// XDP mode matches; don't unload, otherwise we might introduce
 				// intermittent connectivity problems
 				used = true
