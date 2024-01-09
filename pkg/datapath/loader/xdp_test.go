@@ -65,13 +65,13 @@ func TestMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 
 		prog := mustXDPProgram(t)
 
-		err = attachProgram(veth0, prog, "test", 0, xdpModeToFlag(option.XDPModeLinkGeneric))
+		err = attachProgram(veth0, prog, "test", 0, xdpConfigModeToFlag(option.XDPModeLinkDriver))
 		require.NoError(t, err)
 
-		err = attachProgram(veth1, prog, "test", 0, xdpModeToFlag(option.XDPModeLinkGeneric))
+		err = attachProgram(veth1, prog, "test", 0, xdpConfigModeToFlag(option.XDPModeLinkDriver))
 		require.NoError(t, err)
 
-		maybeUnloadObsoleteXDPPrograms([]string{"veth0"}, option.XDPModeLinkGeneric)
+		maybeUnloadObsoleteXDPPrograms([]string{"veth0"}, option.XDPModeLinkDriver)
 
 		v0, err := netlink.LinkByName("veth0")
 		require.NoError(t, err)
