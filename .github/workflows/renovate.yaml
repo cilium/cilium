@@ -9,7 +9,8 @@ on:
       renovate_log_level_debug:
         type: boolean
         default: true
-
+  pull_request:
+    
 jobs:
   renovate:
     runs-on: ubuntu-latest
