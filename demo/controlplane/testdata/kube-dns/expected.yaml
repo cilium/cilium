@@ -1,0 +1,92 @@
+frontends:
+    - id: 1
+      name: kube-system/kube-dns
+      addr: 10.96.0.10
+      protocol: UDP
+      port: 53
+      type: ClusterIP
+      backends:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""
+backends:
+    - backendkey:
+        addr: 10.244.0.140
+        protocol: TCP
+        port: 53
+      id: 1
+      refs:
+        - kube-system/kube-dns
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""
+    - backendkey:
+        addr: 10.244.0.140
+        protocol: UDP
+        port: 53
+      id: 2
+      refs:
+        - kube-system/kube-dns
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""
+    - backendkey:
+        addr: 10.244.0.140
+        protocol: TCP
+        port: 9153
+      id: 3
+      refs:
+        - kube-system/kube-dns
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""
+    - backendkey:
+        addr: 10.244.0.190
+        protocol: TCP
+        port: 53
+      id: 4
+      refs:
+        - kube-system/kube-dns
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""
+    - backendkey:
+        addr: 10.244.0.190
+        protocol: UDP
+        port: 53
+      id: 5
+      refs:
+        - kube-system/kube-dns
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""
+    - backendkey:
+        addr: 10.244.0.190
+        protocol: TCP
+        port: 9153
+      id: 6
+      refs:
+        - kube-system/kube-dns
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""

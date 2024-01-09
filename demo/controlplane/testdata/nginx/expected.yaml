@@ -1,0 +1,27 @@
+frontends:
+    - id: 1
+      name: default/nginx
+      addr: 10.96.114.107
+      protocol: TCP
+      port: 12345
+      type: ClusterIP
+      backends:
+        - 1
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""
+backends:
+    - backendkey:
+        addr: 10.244.1.68
+        protocol: TCP
+        port: 12345
+      id: 1
+      refs:
+        - default/nginx
+      status:
+        kind: pending
+        delete: false
+        updatedat: 0001-01-01T00:00:00Z
+        error: ""

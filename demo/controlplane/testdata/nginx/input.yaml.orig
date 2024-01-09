@@ -1,0 +1,53 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2024-01-09T12:05:16Z"
+    name: nginx
+    namespace: default
+    resourceVersion: "7357441"
+    uid: abd0147a-4b97-4f27-bcd6-22d29c4da682
+  spec:
+    clusterIP: 10.96.237.220
+    clusterIPs:
+    - 10.96.237.220
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 12345
+      protocol: TCP
+      targetPort: 12345
+    selector:
+      run: nginx
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2024-01-09T12:05:19Z"
+    creationTimestamp: "2024-01-09T12:05:16Z"
+    name: nginx
+    namespace: default
+    resourceVersion: "7357457"
+    uid: a14b1394-47e8-4b3f-80c1-f8a04e784de6
+  subsets:
+  - addresses:
+    - ip: 10.244.1.100
+      nodeName: kind-worker
+      targetRef:
+        kind: Pod
+        name: nginx
+        namespace: default
+        uid: 7f812d1f-9350-4b67-bfe0-91989221f97c
+    ports:
+    - port: 12345
+      protocol: TCP
+kind: List
+metadata:
+  resourceVersion: ""

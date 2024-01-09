@@ -16,8 +16,8 @@ var tablesCell = cell.Module(
 	"Demo datapath tables",
 
 	cell.Provide(
-		newFrontends,
-		newBackends,
+		NewFrontends,
+		NewBackends,
 	),
 )
 
@@ -115,10 +115,15 @@ func (bes Backends) Release(txn statedb.WriteTxn, id BackendID, ref string) {
 	}
 	be = be.Clone()
 	be.Refs = be.Refs.Delete(ref)
-	bes.rw.Insert(txn, be)
+
+	if len(be.Refs) == 0 {
+		bes.rw.Delete(txn, be)
+	} else {
+		bes.rw.Insert(txn, be)
+	}
 }
 
-func newFrontends(db *statedb.DB, bes Backends) (Frontends, statedb.Table[*Frontend], error) {
+func NewFrontends(db *statedb.DB, bes Backends) (Frontends, statedb.Table[*Frontend], error) {
 	tbl, err := statedb.NewTable[*Frontend](
 		"frontends",
 		FrontendIDIndex,
@@ -131,7 +136,7 @@ func newFrontends(db *statedb.DB, bes Backends) (Frontends, statedb.Table[*Front
 	return Frontends{tbl, tbl, bes}, tbl, db.RegisterTable(tbl)
 }
 
-func newBackends(db *statedb.DB) (Backends, statedb.Table[*Backend], error) {
+func NewBackends(db *statedb.DB) (Backends, statedb.Table[*Backend], error) {
 	tbl, err := statedb.NewTable[*Backend](
 		"backends",
 		BackendIDIndex,

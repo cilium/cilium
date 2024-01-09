@@ -20,7 +20,7 @@ var tablesCell = cell.Module(
 	cell.Provide(statedb.RWTable[*Service].ToTable), // Provide Table[*Service]
 	reflector.KubernetesCell[*Service](),
 
-	cell.ProvidePrivate(backendsTable, endpointsConfig),
+	cell.ProvidePrivate(endpointsTable, endpointsConfig),
 	cell.Provide(statedb.RWTable[*Endpoint].ToTable), // Provide Table[*Endpoint]
 	reflector.KubernetesCell[*Endpoint](),
 )
@@ -61,7 +61,7 @@ var EndpointsNameIndex = statedb.Index[*Endpoint, string]{
 	Unique:  true,
 }
 
-func backendsTable(db *statedb.DB) (statedb.RWTable[*Endpoint], error) {
+func endpointsTable(db *statedb.DB) (statedb.RWTable[*Endpoint], error) {
 	table, err := statedb.NewTable[*Endpoint]("endpoints", EndpointsNameIndex)
 	if err == nil {
 		return table, db.RegisterTable(table)
