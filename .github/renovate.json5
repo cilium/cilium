@@ -211,7 +211,27 @@
     {
       "groupName": "spire-images",
       "matchFiles": [
-        "install/kubernetes/cilium/values.yaml.tmpl"
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/spiffe/spire-agent",
+        "ghcr.io/spiffe/spire-server"
+      ],
+      "matchBaseBranches": [
+        "main"
+      ],
+      "allowedVersions": ">1.6",
+      // generate files for helm chart
+      "postUpgradeTasks": {
+        "commands": ["make -C install/kubernetes"],
+        "fileFilters": ["**/**"],
+        "executionMode": "branch"
+      }
+    },
+    {
+      "groupName": "spire-images",
+      "matchFiles": [
+        "install/kubernetes/Makefile.values"
       ],
       "matchPackageNames": [
         "ghcr.io/spiffe/spire-agent",
@@ -220,7 +240,13 @@
       "matchBaseBranches": [
         "v1.14"
       ],
-      "allowedVersions": "<1.7"
+      "allowedVersions": "<1.7",
+      // generate files for helm chart
+      "postUpgradeTasks": {
+        "commands": ["make -C install/kubernetes"],
+        "fileFilters": ["**/**"],
+        "executionMode": "branch"
+      }
     },
     {
       "matchPackageNames": [
