@@ -1,8 +1,10 @@
 name: Renovate
 on:
-  # running every two hours from 9h to 19h UTC on every working day
+  # running every hour every working day
+  # running every two hours outside of those hours
   schedule:
-    - cron: '0 9-19/2 * * 1-5'
+    - cron: '0 * * * 1-5'
+    - cron: '0 */2 * * 6-7'
   # allow to manually trigger this workflow
   workflow_dispatch:
     inputs:
