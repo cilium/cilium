@@ -141,7 +141,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 		if ((__u32)oif == fib_params->l.ifindex)
 			return CTX_ACT_OK;
 
-		return fib_do_redirect(ctx, true, fib_params, ext_err, &oif);
+		return fib_do_redirect(ctx, true, fib_params, true, ext_err, &oif);
 	default:
 		return DROP_NO_FIB;
 	}
@@ -761,7 +761,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			       (union v6addr *)&ip6->daddr);
 	}
 
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -868,7 +868,7 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v6(ctx, l3_off, ip6, false, &ext_err, &oif);
+	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -899,7 +899,7 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, l3_off, ip4, false, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -1023,7 +1023,7 @@ fib_ipv4:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, true, ext_err, &ifindex);
 }
 
 declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
@@ -1256,7 +1256,7 @@ fib_ipv4:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -2272,7 +2272,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -2486,7 +2486,7 @@ redirect:
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, true, ext_err, &ifindex);
 }
 
 declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
@@ -2728,7 +2728,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
