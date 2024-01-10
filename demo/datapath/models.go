@@ -10,23 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
-type L4Proto string
-
-func (l4 L4Proto) MarshalBinary() ([]byte, error) {
-	switch l4 {
-	case TCP:
-		return []byte{0}, nil
-	case UDP:
-		return []byte{1}, nil
-	}
-	return nil, fmt.Errorf("unknown proto: %q", l4)
-}
-
-const (
-	TCP = L4Proto("TCP")
-	UDP = L4Proto("UDP")
-)
-
 type ID uint64
 
 const IDSize = 8
@@ -39,13 +22,18 @@ func (id ID) MarshalBinary() ([]byte, error) {
 
 type FrontendID = ID
 
-type Frontend struct {
-	ID       FrontendID
+type FrontendMeta struct {
 	Name     string
 	Addr     netip.Addr
 	Protocol L4Proto
 	Port     uint16
 	Type     string
+}
+
+type Frontend struct {
+	FrontendMeta
+
+	ID FrontendID
 
 	// TODO: In the real implementation we have one frontend/service entry per backend.
 	// This would lead to quite large table/indexes. One way to avoid that would be to
@@ -82,7 +70,8 @@ func (fe *Frontend) Value() encoding.BinaryMarshaler {
 }
 
 const (
-	maxFrontendSize = 16 /* addr */ + 1 /* proto */ + 1 /* len backends */ + 256*backendSize
+	maxBackends     = 16
+	maxFrontendSize = 16 /* addr */ + 1 /* proto */ + 1 /* len backends */ + 16*backendSize
 	backendSize     = 16 /* addr */ + 1 /* proto */ + 2 /* port */
 )
 
@@ -153,3 +142,20 @@ func (be *Backend) Key() encoding.BinaryMarshaler {
 func (be *Backend) Value() encoding.BinaryMarshaler {
 	return be
 }
+
+type L4Proto string
+
+func (l4 L4Proto) MarshalBinary() ([]byte, error) {
+	switch l4 {
+	case TCP:
+		return []byte{0}, nil
+	case UDP:
+		return []byte{1}, nil
+	}
+	return nil, fmt.Errorf("unknown proto: %q", l4)
+}
+
+const (
+	TCP = L4Proto("TCP")
+	UDP = L4Proto("UDP")
+)

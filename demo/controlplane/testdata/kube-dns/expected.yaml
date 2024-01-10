@@ -1,10 +1,11 @@
 frontends:
-    - id: 1
-      name: kube-system/kube-dns
-      addr: 10.96.0.10
-      protocol: UDP
-      port: 53
-      type: ClusterIP
+    - frontendmeta:
+        name: kube-system/kube-dns
+        addr: 10.96.0.10
+        protocol: UDP
+        port: 53
+        type: ClusterIP
+      id: 1
       backends:
         - 1
         - 2

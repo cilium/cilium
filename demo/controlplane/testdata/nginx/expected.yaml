@@ -1,10 +1,11 @@
 frontends:
-    - id: 1
-      name: default/nginx
-      addr: 10.96.114.107
-      protocol: TCP
-      port: 12345
-      type: ClusterIP
+    - frontendmeta:
+        name: default/nginx
+        addr: 10.96.114.107
+        protocol: TCP
+        port: 12345
+        type: ClusterIP
+      id: 1
       backends:
         - 1
       status:

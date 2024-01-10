@@ -2,13 +2,11 @@ package controlplane
 
 import (
 	"context"
-	"time"
 
 	"github.com/cilium/cilium/demo/datapath"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
-	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/sirupsen/logrus"
 )
@@ -17,6 +15,8 @@ var controllersCell = cell.Module(
 	"controlplane-controllers",
 	"Demo controllers",
 
+	// Register a controller to compute the desired frontends and backends
+	// from K8s's Services and Endpoints.
 	cell.Invoke(registerServicesController),
 )
 
@@ -51,7 +51,8 @@ type servicesController struct {
 }
 
 func (s *servicesController) process(ctx context.Context, health cell.HealthReporter) error {
-	// Start tracking deletions of services and endpoints
+	// Start tracking deletions of services and endpoints. This informs statedb
+	// to keep a deleted object around until we can observe it.
 	wtxn := s.DB.WriteTxn(s.Services, s.Endpoints)
 	defer wtxn.Abort()
 	endpointsTracker, err := s.Endpoints.DeleteTracker(wtxn, "servicesController")
@@ -69,7 +70,6 @@ func (s *servicesController) process(ctx context.Context, health cell.HealthRepo
 	var (
 		endpointsWatch <-chan struct{}
 		servicesWatch  <-chan struct{}
-		limiter        = rate.NewLimiter(50*time.Millisecond, 3)
 	)
 
 	for {
@@ -90,10 +90,6 @@ func (s *servicesController) process(ctx context.Context, health cell.HealthRepo
 		// oN when the control loop has last run and how long it took.
 		health.OK("OK")
 
-		// Apply rate-limiting in order to process bigger batches of changes at a time
-		// for increased throughput.
-		limiter.Wait(ctx)
-
 		select {
 		case <-ctx.Done():
 			return nil
@@ -105,22 +101,11 @@ func (s *servicesController) process(ctx context.Context, health cell.HealthRepo
 
 func (s *servicesController) endpointChanged(ep *Endpoint, deleted bool, rev statedb.Revision) {
 	if deleted {
-		s.deleteEndpoint(ep)
-	} else {
-		s.upsertEndpoint(ep)
+		s.Backends.ReleaseAll(s.wtxn, ep.Service)
+		return
 	}
-}
 
-func (s *servicesController) deleteEndpoint(ep *Endpoint) {
-	fe, _, ok := s.Frontends.First(s.wtxn, datapath.FrontendNameIndex.Query(ep.Service))
-	if ok {
-		s.Frontends.Upsert(s.wtxn, fe.WithBackends(nil))
-	}
-}
-
-func (s *servicesController) upsertEndpoint(ep *Endpoint) {
-	// Allocate the new backends
-	newIDs := datapath.ImmSet[datapath.BackendID]{}
+	newIDs := datapath.NewImmSet[datapath.ID]()
 	for _, addr := range ep.Addrs {
 		for _, portAndProto := range ep.Ports {
 			beKey := datapath.BackendKey{
@@ -128,48 +113,34 @@ func (s *servicesController) upsertEndpoint(ep *Endpoint) {
 				Protocol: datapath.L4Proto(portAndProto.Protocol),
 				Port:     portAndProto.Port,
 			}
-			s.Log.Infof("Inserted backend %v", beKey)
 			id := s.Backends.Upsert(
 				s.wtxn,
 				ep.Service,
 				beKey,
 			)
 			newIDs = newIDs.Insert(id)
+			s.Log.Infof("Inserted backend %v", beKey)
 		}
 	}
 
-	// Look up the frontend whose backends we're updating. It may
-	// have not yet been created in which case the backend update
-	// will be done when the frontend is created.
-	fe, _, ok := s.Frontends.First(s.wtxn, datapath.FrontendNameIndex.Query(ep.Service))
-	if ok {
-		s.Frontends.Upsert(s.wtxn, fe.WithBackends(newIDs))
-	}
+	// Update the frontend to refer to the new backends.
+	s.Frontends.UpdateBackends(s.wtxn, ep.Service, newIDs)
 }
 
 func (s *servicesController) serviceChanged(svc *Service, deleted bool, rev statedb.Revision) {
 	if deleted {
 		s.Frontends.Delete(s.wtxn, svc.Name)
 	} else {
-		s.upsertService(svc)
-	}
-}
 
-func (s *servicesController) upsertService(svc *Service) {
-	fe, _, ok := s.Frontends.First(s.wtxn, datapath.FrontendNameIndex.Query(svc.Name))
-	if ok {
-		fe = fe.Clone()
-	} else {
-		fe = &datapath.Frontend{
+		meta := datapath.FrontendMeta{
 			Name:     svc.Name,
-			Backends: s.Backends.ReferencedBy(s.wtxn, svc.Name),
+			Addr:     svc.ClusterIP,
+			Protocol: datapath.L4Proto(svc.Protocol),
+			Port:     svc.Port,
+			Type:     string(svc.ServiceType),
 		}
-	}
-	fe.Addr = svc.ClusterIP
-	fe.Type = string(svc.ServiceType)
-	fe.Port = svc.Port
-	fe.Protocol = datapath.L4Proto(svc.Protocol)
 
-	s.Log.Infof("Inserted frontend %q", fe.Name)
-	s.Frontends.Upsert(s.wtxn, fe)
+		s.Log.Infof("Inserted frontend %q", meta.Name)
+		s.Frontends.Upsert(s.wtxn, meta)
+	}
 }

@@ -47,7 +47,7 @@ func (f FullModuleID) append(m ModuleID) FullModuleID {
 
 var (
 	idRegex    = regexp.MustCompile(`^[a-z][a-z0-9_\-]{1,30}$`)
-	titleRegex = regexp.MustCompile(`^[a-zA-Z0-9_\- ]{1,80}$`)
+	titleRegex = regexp.MustCompile(`^[a-zA-Z0-9,_\- ]{1,80}$`)
 )
 
 func validateIDAndTitle(id, title string) {
