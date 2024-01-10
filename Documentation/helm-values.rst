@@ -13,7 +13,7 @@
      - Type
      - Default
    * - :spelling:ignore:`MTU`
-     - Configure the underlying network MTU to overwrite auto-detected MTU.
+     - Configure the underlying network MTU to overwrite auto-detected MTU.  This value doesn't change the host network interface MTU i.e. eth0 or ens0. It changes the MTU for cilium_net@cilium_host, cilium_host@cilium_net, cilium_vxlan and lxc_health interfaces.
      - int
      - ``0``
    * - :spelling:ignore:`affinity`
