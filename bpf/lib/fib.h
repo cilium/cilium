@@ -79,11 +79,6 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		const struct bpf_fib_lookup_padded *fib_params,
 		bool allow_neigh_map, __s8 *fib_ret, int *oif)
 {
-	struct bpf_redir_neigh nh_params;
-	struct bpf_redir_neigh *nh = NULL;
-	union macaddr *dmac = 0;
-	int ret;
-
 	/* sanity check, we only enter this function with these two fib lookup
 	 * return codes.
 	 */
@@ -110,6 +105,7 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	/* determine if we need to append layer 2 header */
 	if (needs_l2_check) {
 		bool l2_hdr_required = true;
+		int ret;
 
 		ret = maybe_add_l2_hdr(ctx, *oif, &l2_hdr_required);
 		if (ret != 0)
@@ -127,43 +123,37 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			return DROP_WRITE_ERROR;
 		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		/* previous fib lookup was performed, we can fillout both
-		 * a bpf_redir_neigh and a dmac.
-		 *
-		 * the former is used if we have access to redirect_neigh
-		 * the latter is used if we don't and have to use the eBPF
-		 * neighbor map.
-		 */
-		if (fib_params) {
-			nh_params.nh_family = fib_params->l.family;
-			__bpf_memcpy_builtin(&nh_params.ipv6_nh,
-					     &fib_params->l.ipv6_dst,
-					     sizeof(nh_params.ipv6_nh));
-			nh = &nh_params;
-
-			if (!neigh_resolver_available() && allow_neigh_map) {
-				/* The neigh_record_ip{4,6} locations are mainly from
-				 * inbound client traffic on the load-balancer where we
-				 * know that replies need to go back to them.
-				 */
-				dmac = fib_params->l.family == AF_INET ?
-				neigh_lookup_ip4(&fib_params->l.ipv4_dst) :
-				neigh_lookup_ip6((void *)&fib_params->l.ipv6_dst);
-			}
-		}
-
 		/* If we are able to resolve neighbors on demand, always
 		 * prefer that over the BPF neighbor map since the latter
 		 * might be less accurate in some asymmetric corner cases.
 		 */
 		if (neigh_resolver_available()) {
-			if (nh)
+			if (fib_params) {
+				struct bpf_redir_neigh nh_params;
+
+				nh_params.nh_family = fib_params->l.family;
+				__bpf_memcpy_builtin(&nh_params.ipv6_nh,
+						     &fib_params->l.ipv6_dst,
+						     sizeof(nh_params.ipv6_nh));
+
 				return redirect_neigh(*oif, &nh_params,
 						sizeof(nh_params), 0);
-			else
-				return redirect_neigh(*oif, NULL, 0, 0);
+			}
+
+			return redirect_neigh(*oif, NULL, 0, 0);
 		} else {
 			union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
+			union macaddr *dmac = NULL;
+
+			if (allow_neigh_map) {
+				/* The neigh_record_ip{4,6} locations are mainly from
+				 * inbound client traffic on the load-balancer where we
+				 * know that replies need to go back to them.
+				 */
+				dmac = fib_params->l.family == AF_INET ?
+					neigh_lookup_ip4(&fib_params->l.ipv4_dst) :
+					neigh_lookup_ip6((void *)&fib_params->l.ipv6_dst);
+			}
 
 			if (!dmac) {
 				*fib_ret = BPF_FIB_MAP_NO_NEIGH;
