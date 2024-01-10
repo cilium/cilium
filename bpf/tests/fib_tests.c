@@ -90,7 +90,7 @@ int test1_check(struct __ctx_buff *ctx)
 
 		params.l.ifindex = ifindex_good;
 
-		ret = fib_do_redirect(ctx, false, &params, &flags,
+		ret = fib_do_redirect(ctx, false, &params, true, &flags,
 				      (int *)&ifindex_bad);
 		if (ret != CTX_REDIRECT_ENTERED)
 			test_fatal("did not enter ctx_redirect");
@@ -124,7 +124,7 @@ int test1_check(struct __ctx_buff *ctx)
 		if (!neigh_resolver_available())
 			test_fatal("expected neigh_resolver_available true");
 
-		ret = fib_do_redirect(ctx, false, &params, &flags, (int *)&ifindex_bad);
+		ret = fib_do_redirect(ctx, false, &params, true, &flags, (int *)&ifindex_bad);
 		if (ret != REDIR_NEIGH_ENTERED)
 			test_fatal("did not enter redirect_neigh");
 
@@ -158,7 +158,7 @@ int test1_check(struct __ctx_buff *ctx)
 		if (!neigh_resolver_available())
 			test_fatal("expected neigh_resolver_available true");
 
-		ret = fib_do_redirect(ctx, false, NULL, &flags, (int *)&ifindex_good);
+		ret = fib_do_redirect(ctx, false, NULL, true, &flags, (int *)&ifindex_good);
 		if (ret != REDIR_NEIGH_ENTERED)
 			test_fatal("did not enter redirect_neigh");
 
@@ -193,7 +193,7 @@ int test2_check(__maybe_unused struct __ctx_buff *ctx)
 			if (flag == BPF_FIB_LKUP_RET_NO_NEIGH)
 				continue;
 
-			if (fib_do_redirect(NULL, false, NULL, &flag, NULL) != DROP_NO_FIB)
+			if (fib_do_redirect(NULL, false, NULL, true, &flag, NULL) != DROP_NO_FIB)
 				test_fatal("expected DROP_NO_FIB with flag %d", flag);
 		}
 	});
