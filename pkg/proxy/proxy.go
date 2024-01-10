@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -49,13 +48,6 @@ const (
 type DatapathUpdater interface {
 	InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error
 	SupportsOriginalSourceAddr() bool
-}
-
-type IPCacheManager interface {
-	// AddListener is required for envoy.StartXDSServer()
-	AddListener(ipcache.IPIdentityMappingListener)
-
-	LookupByIP(IP string) (ipcache.Identity, bool)
 }
 
 type ProxyPort struct {
