@@ -726,7 +726,7 @@ ingressController:
   enableProxyProtocol: false
 
   # -- IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service
-  ingressLBAnnotationPrefixes: ['service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
+  ingressLBAnnotationPrefixes: ['io.cilium', 'cilium.io', 'service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
 
   # -- Default secret namespace for ingresses without .spec.tls[].secretName set.
   defaultSecretNamespace:
