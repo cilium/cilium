@@ -615,7 +615,7 @@ srv6_refib(struct __ctx_buff *ctx, int *ext_err)
 		 * rewrite the layer 2 and continue processing.
 		 */
 		if (old_oif != params.l.ifindex)
-			return fib_do_redirect(ctx, true, &params,
+			return fib_do_redirect(ctx, true, &params, false,
 					      (__s8 *)ext_err, (int *)&old_oif);
 
 		if (eth_store_daddr(ctx, params.l.dmac, 0) < 0)
@@ -630,7 +630,7 @@ srv6_refib(struct __ctx_buff *ctx, int *ext_err)
 		 * or redirect.
 		 */
 		if (old_oif != params.l.ifindex)
-			return fib_do_redirect(ctx, true, &params,
+			return fib_do_redirect(ctx, true, &params, false,
 					      (__s8 *)ext_err, (int *)&old_oif);
 		break;
 	default:

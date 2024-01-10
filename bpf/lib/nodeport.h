@@ -141,7 +141,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 		if ((__u32)oif == fib_params->l.ifindex)
 			return CTX_ACT_OK;
 
-		return fib_do_redirect(ctx, true, fib_params, ext_err, &oif);
+		return fib_do_redirect(ctx, true, fib_params, true, ext_err, &oif);
 	default:
 		return DROP_NO_FIB;
 	}

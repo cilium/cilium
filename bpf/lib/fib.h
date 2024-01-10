@@ -41,6 +41,17 @@ static __always_inline bool fib_ok(int ret)
 }
 
  /* fib_do_redirect will redirect the ctx to a particular output interface.
+  * @arg ctx			packet
+  * @arg needs_l2_check		check for L3 -> L2 redirect
+  * @arg fib_params		FIB lookup parameters
+  * @arg allow_neigh_map	fallback to neighbour map for DMAC
+  * @arg fib_ret		result of a preceding FIB lookup
+  * @arg oif			egress interface index
+  *
+  * Returns:
+  *   - result of BPF redirect
+  *   - DROP_NO_FIB when DMAC couldn't be resolved
+  *   - other DROP reasons
   *
   * the redirect can occur with or without a previous call to fib_lookup.
   *
@@ -66,8 +77,8 @@ static __always_inline bool fib_ok(int ret)
   */
 static __always_inline int
 fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
-		const struct bpf_fib_lookup_padded *fib_params, __s8 *fib_ret,
-		int *oif)
+		const struct bpf_fib_lookup_padded *fib_params,
+		bool allow_neigh_map, __s8 *fib_ret, int *oif)
 {
 	struct bpf_redir_neigh nh_params;
 	struct bpf_redir_neigh *nh = NULL;
@@ -131,7 +142,7 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 					     sizeof(nh_params.ipv6_nh));
 			nh = &nh_params;
 
-			if (!neigh_resolver_available()) {
+			if (!neigh_resolver_available() && allow_neigh_map) {
 				/* The neigh_record_ip{4,6} locations are mainly from
 				 * inbound client traffic on the load-balancer where we
 				 * know that replies need to go back to them.
