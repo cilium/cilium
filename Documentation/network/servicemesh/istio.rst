@@ -26,8 +26,9 @@ Disruptions can happen when you enable Cilium's ``kubeProxyReplacement`` feature
 which enables socket based load balancing inside a Pod.
 
 
-To ensure that Cilium does not interfere with Istio, Cilium must be deployed
-with the ``--set socketLB.hostNamespaceOnly=true`` cilium CLI flag, or with the ``socketLB.hostNamespaceOnly`` Helm value.
+To ensure that Cilium does not interfere with Istio, it is important to set the
+``bpf-lb-sock-hostns-only`` parameter in the Cilium ConfigMap to ``true``. This can be achieved by using the
+``--set`` flag with the ``socketLB.hostNamespaceOnly`` Helm value set to ``true``.
 You can confirm the result with the following command:
 
 .. code-block:: shell-session
