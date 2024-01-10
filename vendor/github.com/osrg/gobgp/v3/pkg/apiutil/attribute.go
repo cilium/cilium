@@ -1352,6 +1352,12 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 			if err != nil {
 				return nil, err
 			}
+			var sal uint32
+			var sa string
+			if r.SourceAddressLength > 0 && r.SourceAddress != nil {
+				sal = uint32(r.SourceAddressLength)
+				sa = r.SourceAddress.String()
+			}
 			nlri = &api.MUPType1SessionTransformedRoute{
 				Rd:                    rd,
 				Prefix:                r.Prefix.String(),
@@ -1359,6 +1365,8 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 				Qfi:                   uint32(r.QFI),
 				EndpointAddressLength: uint32(r.EndpointAddressLength),
 				EndpointAddress:       r.EndpointAddress.String(),
+				SourceAddressLength:   sal,
+				SourceAddress:         sa,
 			}
 		case *bgp.MUPType2SessionTransformedRoute:
 			rd, err := MarshalRD(r.RD)
@@ -1581,7 +1589,15 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 		if !ok {
 			return nil, fmt.Errorf("invalid teid: %x", v.Teid)
 		}
-		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea)
+		var sa *netip.Addr
+		if v.SourceAddressLength > 0 && v.SourceAddress != "" {
+			a, err := netip.ParseAddr(v.SourceAddress)
+			if err != nil {
+				return nil, err
+			}
+			sa = &a
+		}
+		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea, sa)
 	case *api.MUPType2SessionTransformedRoute:
 		rd, err := UnmarshalRD(v.Rd)
 		if err != nil {

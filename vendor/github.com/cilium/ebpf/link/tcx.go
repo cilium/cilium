@@ -55,6 +55,9 @@ func AttachTCX(opts TCXOptions) (Link, error) {
 	runtime.KeepAlive(opts.Program)
 	runtime.KeepAlive(opts.Anchor)
 	if err != nil {
+		if haveFeatErr := haveTCX(); haveFeatErr != nil {
+			return nil, haveFeatErr
+		}
 		return nil, fmt.Errorf("attach tcx link: %w", err)
 	}
 

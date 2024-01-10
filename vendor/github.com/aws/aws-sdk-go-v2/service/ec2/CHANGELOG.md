@@ -1,3 +1,7 @@
+# v1.143.0 (2024-01-08)
+
+* **Feature**: Amazon EC2 R7iz bare metal instances are powered by custom 4th generation Intel Xeon Scalable processors.
+
 # v1.142.1 (2024-01-04)
 
 * **Dependency Update**: Updated to the latest SDK module versions

@@ -57,6 +57,10 @@ type Table struct {
 	routeFamily  bgp.RouteFamily
 	destinations map[string]*Destination
 	logger       log.Logger
+	// index of route distinguishers with paths to a specific MAC
+	// this is a map[MAC address]map[RD]struct{}
+	// this holds a map for a set of RD.
+	macIndex map[string]map[string]struct{}
 }
 
 func NewTable(logger log.Logger, rf bgp.RouteFamily, dsts ...*Destination) *Table {
@@ -64,6 +68,7 @@ func NewTable(logger log.Logger, rf bgp.RouteFamily, dsts ...*Destination) *Tabl
 		routeFamily:  rf,
 		destinations: make(map[string]*Destination),
 		logger:       logger,
+		macIndex:     make(map[string]map[string]struct{}),
 	}
 	for _, dst := range dsts {
 		t.setDestination(dst)
@@ -137,6 +142,20 @@ func (t *Table) deleteDest(dest *Destination) {
 	delete(destinations, t.tableKey(dest.GetNlri()))
 	if len(destinations) == 0 {
 		t.destinations = make(map[string]*Destination)
+	}
+
+	if nlri, ok := dest.nlri.(*bgp.EVPNNLRI); ok {
+		if macadv, ok := nlri.RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute); ok {
+			mac := *(*string)(unsafe.Pointer(&macadv.MacAddress))
+			serializedRD, _ := macadv.RD.Serialize()
+			rd := *(*string)(unsafe.Pointer(&serializedRD))
+			if rds, ok := t.macIndex[mac]; ok {
+				delete(rds, rd)
+				if len(rds) == 0 {
+					delete(t.macIndex, mac)
+				}
+			}
+		}
 	}
 }
 
@@ -375,6 +394,19 @@ func (t *Table) GetMUPDestinationsWithRouteType(p string) ([]*Destination, error
 
 func (t *Table) setDestination(dst *Destination) {
 	t.destinations[t.tableKey(dst.nlri)] = dst
+
+	if nlri, ok := dst.nlri.(*bgp.EVPNNLRI); ok {
+		if macadv, ok := nlri.RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute); ok {
+			mac := *(*string)(unsafe.Pointer(&macadv.MacAddress))
+			serializedRD, _ := macadv.RD.Serialize()
+			rd := *(*string)(unsafe.Pointer(&serializedRD))
+			if rds, ok := t.macIndex[mac]; ok {
+				rds[rd] = struct{}{}
+			} else {
+				t.macIndex[mac] = map[string]struct{}{rd: {}}
+			}
+		}
+	}
 }
 
 func (t *Table) tableKey(nlri bgp.AddrPrefixInterface) string {
@@ -403,6 +435,17 @@ func (t *Table) tableKey(nlri bgp.AddrPrefixInterface) string {
 		copy(b[8:24], T.Prefix.To16())
 		b[24] = T.Length
 		return *(*string)(unsafe.Pointer(&b))
+	// we need fast lookup to routes for a specific mac address for evpn mac mobility
+	case *bgp.EVPNNLRI:
+		switch U := T.RouteTypeData.(type) {
+		case *bgp.EVPNMacIPAdvertisementRoute:
+			b := make([]byte, 15)
+			serializedRD, _ := U.RD.Serialize()
+			copy(b, serializedRD)
+			b[8] = bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT
+			copy(b[9:15], U.MacAddress)
+			return *(*string)(unsafe.Pointer(&b))
+		}
 	}
 	return nlri.String()
 }
@@ -437,6 +480,23 @@ func (t *Table) GetKnownPathList(id string, as uint32) []*Path {
 	return paths
 }
 
+func (t *Table) GetKnownPathListWithMac(id string, as uint32, mac net.HardwareAddr) []*Path {
+	var paths []*Path
+	if rds, ok := t.macIndex[*(*string)(unsafe.Pointer(&mac))]; ok {
+		for rd := range rds {
+			b := make([]byte, 15)
+			copy(b, rd)
+			b[8] = bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT
+			copy(b[9:15], mac)
+			key := *(*string)(unsafe.Pointer(&b))
+			if dst, ok := t.destinations[key]; ok {
+				paths = append(paths, dst.GetKnownPathList(id, as)...)
+			}
+		}
+	}
+	return paths
+}
+
 func (t *Table) Select(option ...TableSelectOption) (*Table, error) {
 	id := GLOBAL_RIB_NAME
 	var vrf *Vrf
@@ -462,6 +522,7 @@ func (t *Table) Select(option ...TableSelectOption) (*Table, error) {
 	r := &Table{
 		routeFamily:  t.routeFamily,
 		destinations: make(map[string]*Destination),
+		macIndex:     make(map[string]map[string]struct{}),
 	}
 
 	if len(prefixes) != 0 {

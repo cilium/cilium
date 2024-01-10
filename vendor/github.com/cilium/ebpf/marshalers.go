@@ -10,6 +10,8 @@ import (
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/sysenc"
+
+	"golang.org/x/exp/slices"
 )
 
 // marshalMapSyscallInput converts an arbitrary value into a pointer suitable
@@ -43,42 +45,88 @@ func makeMapSyscallOutput(dst any, length int) sysenc.Buffer {
 	return sysenc.SyscallOutput(dst, length)
 }
 
-// marshalPerCPUValue encodes a slice containing one value per
+// appendPerCPUSlice encodes a slice containing one value per
 // possible CPU into a buffer of bytes.
 //
 // Values are initialized to zero if the slice has less elements than CPUs.
-func marshalPerCPUValue(slice any, elemLength int) (sys.Pointer, error) {
+func appendPerCPUSlice(buf []byte, slice any, possibleCPUs, elemLength, alignedElemLength int) ([]byte, error) {
 	sliceType := reflect.TypeOf(slice)
 	if sliceType.Kind() != reflect.Slice {
-		return sys.Pointer{}, errors.New("per-CPU value requires slice")
-	}
-
-	possibleCPUs, err := PossibleCPU()
-	if err != nil {
-		return sys.Pointer{}, err
+		return nil, errors.New("per-CPU value requires slice")
 	}
 
 	sliceValue := reflect.ValueOf(slice)
 	sliceLen := sliceValue.Len()
 	if sliceLen > possibleCPUs {
-		return sys.Pointer{}, fmt.Errorf("per-CPU value exceeds number of CPUs")
+		return nil, fmt.Errorf("per-CPU value greater than number of CPUs")
 	}
 
-	alignedElemLength := internal.Align(elemLength, 8)
-	buf := make([]byte, alignedElemLength*possibleCPUs)
-
+	// Grow increases the slice's capacity, _if_necessary_
+	buf = slices.Grow(buf, alignedElemLength*possibleCPUs)
 	for i := 0; i < sliceLen; i++ {
 		elem := sliceValue.Index(i).Interface()
 		elemBytes, err := sysenc.Marshal(elem, elemLength)
 		if err != nil {
-			return sys.Pointer{}, err
+			return nil, err
 		}
 
-		offset := i * alignedElemLength
-		elemBytes.CopyTo(buf[offset : offset+elemLength])
+		buf = elemBytes.AppendTo(buf)
+		buf = append(buf, make([]byte, alignedElemLength-elemLength)...)
+	}
+
+	// Ensure buf is zero-padded full size.
+	buf = append(buf, make([]byte, (possibleCPUs-sliceLen)*alignedElemLength)...)
+
+	return buf, nil
+}
+
+// marshalPerCPUValue encodes a slice containing one value per
+// possible CPU into a buffer of bytes.
+//
+// Values are initialized to zero if the slice has less elements than CPUs.
+func marshalPerCPUValue(slice any, elemLength int) (sys.Pointer, error) {
+	possibleCPUs, err := PossibleCPU()
+	if err != nil {
+		return sys.Pointer{}, err
+	}
+
+	alignedElemLength := internal.Align(elemLength, 8)
+	buf := make([]byte, 0, alignedElemLength*possibleCPUs)
+	buf, err = appendPerCPUSlice(buf, slice, possibleCPUs, elemLength, alignedElemLength)
+	if err != nil {
+		return sys.Pointer{}, err
 	}
 
 	return sys.NewSlicePointer(buf), nil
+}
+
+// marshalBatchPerCPUValue encodes a batch-sized slice of slices containing
+// one value per possible CPU into a buffer of bytes.
+func marshalBatchPerCPUValue(slice any, batchLen, elemLength int) ([]byte, error) {
+	sliceType := reflect.TypeOf(slice)
+	if sliceType.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("batch value requires a slice")
+	}
+	sliceValue := reflect.ValueOf(slice)
+
+	possibleCPUs, err := PossibleCPU()
+	if err != nil {
+		return nil, err
+	}
+	if sliceValue.Len() != batchLen*possibleCPUs {
+		return nil, fmt.Errorf("per-CPU slice has incorrect length, expected %d, got %d",
+			batchLen*possibleCPUs, sliceValue.Len())
+	}
+	alignedElemLength := internal.Align(elemLength, 8)
+	buf := make([]byte, 0, batchLen*alignedElemLength*possibleCPUs)
+	for i := 0; i < batchLen; i++ {
+		batch := sliceValue.Slice(i*possibleCPUs, (i+1)*possibleCPUs).Interface()
+		buf, err = appendPerCPUSlice(buf, batch, possibleCPUs, elemLength, alignedElemLength)
+		if err != nil {
+			return nil, fmt.Errorf("batch %d: %w", i, err)
+		}
+	}
+	return buf, nil
 }
 
 // unmarshalPerCPUValue decodes a buffer into a slice containing one value per
@@ -123,6 +171,41 @@ func unmarshalPerCPUValue(slice any, elemLength int, buf []byte) error {
 
 		buf = buf[stride:]
 	}
+	return nil
+}
 
+// unmarshalBatchPerCPUValue decodes a buffer into a batch-sized slice
+// containing one value per possible CPU.
+//
+// slice must have length batchLen * PossibleCPUs().
+func unmarshalBatchPerCPUValue(slice any, batchLen, elemLength int, buf []byte) error {
+	sliceType := reflect.TypeOf(slice)
+	if sliceType.Kind() != reflect.Slice {
+		return fmt.Errorf("batch requires a slice")
+	}
+
+	sliceValue := reflect.ValueOf(slice)
+	possibleCPUs, err := PossibleCPU()
+	if err != nil {
+		return err
+	}
+	if sliceValue.Len() != batchLen*possibleCPUs {
+		return fmt.Errorf("per-CPU slice has incorrect length, expected %d, got %d",
+			sliceValue.Len(), batchLen*possibleCPUs)
+	}
+
+	fullValueSize := possibleCPUs * internal.Align(elemLength, 8)
+	if len(buf) != batchLen*fullValueSize {
+		return fmt.Errorf("input buffer has incorrect length, expected %d, got %d",
+			len(buf), batchLen*fullValueSize)
+	}
+
+	for i := 0; i < batchLen; i++ {
+		elem := sliceValue.Slice(i*possibleCPUs, (i+1)*possibleCPUs).Interface()
+		if err := unmarshalPerCPUValue(elem, elemLength, buf[:fullValueSize]); err != nil {
+			return fmt.Errorf("batch %d: %w", i, err)
+		}
+		buf = buf[fullValueSize:]
+	}
 	return nil
 }

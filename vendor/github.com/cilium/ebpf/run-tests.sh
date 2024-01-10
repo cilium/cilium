@@ -14,6 +14,8 @@ set -euo pipefail
 script="$(realpath "$0")"
 readonly script
 
+source "$(dirname "$script")/testdata/sh/lib.sh"
+
 quote_env() {
   for var in "$@"; do
     if [ -v "$var" ]; then
@@ -96,8 +98,8 @@ elif [[ "${1:-}" = "--exec-test" ]]; then
   mount -t bpf bpf /sys/fs/bpf
   mount -t tracefs tracefs /sys/kernel/debug/tracing
 
-  if [[ -d "/run/input/bpf" ]]; then
-    export KERNEL_SELFTESTS="/run/input/bpf"
+  if [[ -d "/run/input/usr/src/linux/tools/testing/selftests/bpf" ]]; then
+    export KERNEL_SELFTESTS="/run/input/usr/src/linux/tools/testing/selftests/bpf"
   fi
 
   if [[ -d "/run/input/lib/modules" ]]; then
@@ -117,48 +119,21 @@ if [[ -z "${1:-}" ]]; then
   exit 1
 fi
 
-readonly input="$(mktemp -d)"
-readonly tmp_dir="${TMPDIR:-/tmp}"
-
-fetch() {
-    echo Fetching "${1}"
-    pushd "${tmp_dir}" > /dev/null
-    curl --no-progress-meter -L -O --fail --etag-compare "${1}.etag" --etag-save "${1}.etag" "https://github.com/cilium/ci-kernels/raw/${BRANCH:-master}/${1}"
-    local ret=$?
-    popd > /dev/null
-    return $ret
-}
-
-machine="$(uname -m)"
-readonly machine
+input="$(mktemp -d)"
+readonly input
 
 if [[ -f "${1}" ]]; then
+  # First argument is a local file.
   readonly kernel="${1}"
-  cp "${1}" "${input}/bzImage"
+  cp "${1}" "${input}/boot/vmlinuz"
 else
-# LINUX_VERSION_CODE test compares this to discovered value.
+  readonly kernel="${1}"
+
+  # LINUX_VERSION_CODE test compares this to discovered value.
   export KERNEL_VERSION="${1}"
 
-  if [ "${machine}" = "x86_64" ]; then
-    readonly kernel="linux-${1}-amd64.tgz"
-    readonly selftests="linux-${1}-amd64-selftests-bpf.tgz"
-  elif [ "${machine}" = "aarch64" ]; then
-    readonly kernel="linux-${1}-arm64.tgz"
-    readonly selftests=""
-  else
-    echo "Arch ${machine} is not supported"
-    exit 1
-  fi
-
-  fetch "${kernel}"
-  tar xf "${tmp_dir}/${kernel}" -C "${input}"
-
-  if [ -n "${selftests}" ] && fetch "${selftests}"; then
-    echo "Decompressing selftests"
-    mkdir "${input}/bpf"
-    tar --strip-components=5 -xf "${tmp_dir}/${selftests}" -C "${input}/bpf"
-  else
-    echo "No selftests found, disabling"
+  if ! extract_oci_image "ghcr.io/cilium/ci-kernels:${kernel}-selftests" "${input}"; then
+    extract_oci_image "ghcr.io/cilium/ci-kernels:${kernel}" "${input}"
   fi
 fi
 shift

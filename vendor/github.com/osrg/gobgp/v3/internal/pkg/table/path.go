@@ -618,7 +618,6 @@ func (path *Path) GetAsList() []uint32 {
 
 func (path *Path) GetAsSeqList() []uint32 {
 	return path.getAsListOfSpecificType(true, false)
-
 }
 
 func (path *Path) getAsListOfSpecificType(getAsSeq, getAsSet bool) []uint32 {
@@ -1164,7 +1163,7 @@ func (p *Path) ToGlobal(vrf *Vrf) *Path {
 			nlri = bgp.NewMUPDirectSegmentDiscoveryRoute(vrf.Rd, old.Address)
 		case bgp.MUP_ROUTE_TYPE_TYPE_1_SESSION_TRANSFORMED:
 			old := n.RouteTypeData.(*bgp.MUPType1SessionTransformedRoute)
-			nlri = bgp.NewMUPType1SessionTransformedRoute(vrf.Rd, old.Prefix, old.TEID, old.QFI, old.EndpointAddress)
+			nlri = bgp.NewMUPType1SessionTransformedRoute(vrf.Rd, old.Prefix, old.TEID, old.QFI, old.EndpointAddress, old.SourceAddress)
 		case bgp.MUP_ROUTE_TYPE_TYPE_2_SESSION_TRANSFORMED:
 			old := n.RouteTypeData.(*bgp.MUPType2SessionTransformedRoute)
 			nlri = bgp.NewMUPType2SessionTransformedRoute(vrf.Rd, old.EndpointAddressLength, old.EndpointAddress, old.TEID)

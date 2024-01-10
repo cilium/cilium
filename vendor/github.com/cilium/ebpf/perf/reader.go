@@ -231,11 +231,12 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 			pauseFds = append(pauseFds, -1)
 			continue
 		}
-		bufferSize = ring.size()
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to create perf ring for CPU %d: %v", i, err)
 		}
+
+		bufferSize = ring.size()
 		rings = append(rings, ring)
 		pauseFds = append(pauseFds, ring.fd)
 

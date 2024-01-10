@@ -239,24 +239,26 @@ func (manager *TableManager) handleMacMobility(path *Path) []*Path {
 	if path.IsWithdraw || path.IsLocal() || nlri.RouteType != bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT {
 		return nil
 	}
-	for _, path2 := range manager.GetPathList(GLOBAL_RIB_NAME, 0, []bgp.RouteFamily{bgp.RF_EVPN}) {
+
+	f := func(p *Path) (bgp.EthernetSegmentIdentifier, uint32, net.HardwareAddr, int, net.IP) {
+		nlri := p.GetNlri().(*bgp.EVPNNLRI)
+		d := nlri.RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute)
+		ecs := p.GetExtCommunities()
+		seq := -1
+		for _, ec := range ecs {
+			if t, st := ec.GetTypes(); t == bgp.EC_TYPE_EVPN && st == bgp.EC_SUBTYPE_MAC_MOBILITY {
+				seq = int(ec.(*bgp.MacMobilityExtended).Sequence)
+				break
+			}
+		}
+		return d.ESI, d.ETag, d.MacAddress, seq, p.GetSource().Address
+	}
+	e1, et1, m1, s1, i1 := f(path)
+
+	for _, path2 := range manager.GetPathListWithMac(GLOBAL_RIB_NAME, 0, []bgp.RouteFamily{bgp.RF_EVPN}, m1) {
 		if !path2.IsLocal() || path2.GetNlri().(*bgp.EVPNNLRI).RouteType != bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT {
 			continue
 		}
-		f := func(p *Path) (bgp.EthernetSegmentIdentifier, uint32, net.HardwareAddr, int, net.IP) {
-			nlri := p.GetNlri().(*bgp.EVPNNLRI)
-			d := nlri.RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute)
-			ecs := p.GetExtCommunities()
-			seq := -1
-			for _, ec := range ecs {
-				if t, st := ec.GetTypes(); t == bgp.EC_TYPE_EVPN && st == bgp.EC_SUBTYPE_MAC_MOBILITY {
-					seq = int(ec.(*bgp.MacMobilityExtended).Sequence)
-					break
-				}
-			}
-			return d.ESI, d.ETag, d.MacAddress, seq, p.GetSource().Address
-		}
-		e1, et1, m1, s1, i1 := f(path)
 		e2, et2, m2, s2, i2 := f(path2)
 		if et1 == et2 && bytes.Equal(m1, m2) && !bytes.Equal(e1.Value, e2.Value) {
 			if s1 > s2 || s1 == s2 && bytes.Compare(i1, i2) < 0 {
@@ -320,6 +322,14 @@ func (manager *TableManager) GetPathList(id string, as uint32, rfList []bgp.Rout
 	paths := make([]*Path, 0, manager.getDestinationCount(rfList))
 	for _, t := range manager.tables(rfList...) {
 		paths = append(paths, t.GetKnownPathList(id, as)...)
+	}
+	return paths
+}
+
+func (manager *TableManager) GetPathListWithMac(id string, as uint32, rfList []bgp.RouteFamily, mac net.HardwareAddr) []*Path {
+	var paths []*Path
+	for _, t := range manager.tables(rfList...) {
+		paths = append(paths, t.GetKnownPathListWithMac(id, as, mac)...)
 	}
 	return paths
 }
