@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.24.1
 	github.com/aws/aws-sdk-go-v2/config v1.26.3
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.11
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.142.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.143.0
 	github.com/aws/smithy-go v1.19.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bombsimon/logrusr/v4 v4.1.0
@@ -22,7 +22,7 @@ require (
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
 	github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
-	github.com/cilium/ebpf v0.12.4-0.20231206140356-b89a4cb96b72
+	github.com/cilium/ebpf v0.12.4-0.20240108171828-839118d43a4c
 	github.com/cilium/fake v0.6.1
 	github.com/cilium/linters v0.0.0-20231219142606-aea5ed8db47a
 	github.com/cilium/lumberjack/v2 v2.3.0
@@ -40,7 +40,7 @@ require (
 	github.com/go-openapi/loads v0.21.5
 	github.com/go-openapi/runtime v0.26.2
 	github.com/go-openapi/spec v0.20.14
-	github.com/go-openapi/strfmt v0.21.10
+	github.com/go-openapi/strfmt v0.22.0
 	github.com/go-openapi/swag v0.22.7
 	github.com/go-openapi/validate v0.22.6
 	github.com/gogo/protobuf v1.3.2
@@ -64,9 +64,9 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.30.0
-	github.com/osrg/gobgp/v3 v3.21.0
+	github.com/osrg/gobgp/v3 v3.22.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
-	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/procfs v0.12.0
 	github.com/russross/blackfriday/v2 v2.1.0
@@ -95,18 +95,18 @@ require (
 	go.uber.org/zap v1.26.0
 	go.universe.tf/metallb v0.11.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
-	golang.org/x/crypto v0.17.0
-	golang.org/x/exp v0.0.0-20231219180239-dc181d75b848
+	golang.org/x/crypto v0.18.0
+	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc
 	golang.org/x/mod v0.14.0
-	golang.org/x/net v0.19.0
-	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.15.0
-	golang.org/x/term v0.15.0
+	golang.org/x/net v0.20.0
+	golang.org/x/sync v0.6.0
+	golang.org/x/sys v0.16.0
+	golang.org/x/term v0.16.0
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.16.1
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231212172506-995d672761c0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240108191215-35c7eff3a6b1
 	google.golang.org/grpc v1.60.1
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/ini.v1 v1.67.0
@@ -251,8 +251,8 @@ require (
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto v0.0.0-20231211222908-989df2bf70f3 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
+	google.golang.org/genproto v0.0.0-20240102182953-50ed04b92917 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20231212172506-995d672761c0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

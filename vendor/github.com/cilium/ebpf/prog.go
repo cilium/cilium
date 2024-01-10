@@ -721,10 +721,6 @@ func (p *Program) run(opts *RunOptions) (uint32, time.Duration, error) {
 		Cpu:         opts.CPU,
 	}
 
-	if attr.Repeat == 0 {
-		attr.Repeat = 1
-	}
-
 retry:
 	for {
 		err := sys.ProgRun(&attr)
@@ -733,7 +729,7 @@ retry:
 		}
 
 		if errors.Is(err, unix.EINTR) {
-			if attr.Repeat == 1 {
+			if attr.Repeat <= 1 {
 				// Older kernels check whether enough repetitions have been
 				// executed only after checking for pending signals.
 				//

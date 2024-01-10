@@ -1005,6 +1005,53 @@ type BatchCursor struct {
 }
 
 func (m *Map) batchLookup(cmd sys.Cmd, cursor *BatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
+	if m.typ.hasPerCPUValue() {
+		return m.batchLookupPerCPU(cmd, cursor, keysOut, valuesOut, opts)
+	}
+
+	count, err := batchCount(keysOut, valuesOut)
+	if err != nil {
+		return 0, err
+	}
+
+	valueBuf := sysenc.SyscallOutput(valuesOut, count*int(m.fullValueSize))
+
+	n, err := m.batchLookupCmd(cmd, cursor, count, keysOut, valueBuf.Pointer(), opts)
+	if err != nil {
+		return n, err
+	}
+
+	err = valueBuf.Unmarshal(valuesOut)
+	if err != nil {
+		return 0, err
+	}
+
+	return n, nil
+}
+
+func (m *Map) batchLookupPerCPU(cmd sys.Cmd, cursor *BatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
+	count, err := sliceLen(keysOut)
+	if err != nil {
+		return 0, fmt.Errorf("keys: %w", err)
+	}
+
+	valueBuf := make([]byte, count*int(m.fullValueSize))
+	valuePtr := sys.NewSlicePointer(valueBuf)
+
+	n, sysErr := m.batchLookupCmd(cmd, cursor, count, keysOut, valuePtr, opts)
+	if sysErr != nil && !errors.Is(sysErr, unix.ENOENT) {
+		return 0, err
+	}
+
+	err = unmarshalBatchPerCPUValue(valuesOut, count, int(m.valueSize), valueBuf)
+	if err != nil {
+		return 0, err
+	}
+
+	return n, sysErr
+}
+
+func (m *Map) batchLookupCmd(cmd sys.Cmd, cursor *BatchCursor, count int, keysOut any, valuePtr sys.Pointer, opts *BatchOptions) (int, error) {
 	cursorLen := int(m.keySize)
 	if cursorLen < 4 {
 		// * generic_map_lookup_batch requires that batch_out is key_size bytes.
@@ -1033,29 +1080,13 @@ func (m *Map) batchLookup(cmd sys.Cmd, cursor *BatchCursor, keysOut, valuesOut i
 	if err := haveBatchAPI(); err != nil {
 		return 0, err
 	}
-	if m.typ.hasPerCPUValue() {
-		return 0, ErrNotSupported
-	}
-	keysValue := reflect.ValueOf(keysOut)
-	if keysValue.Kind() != reflect.Slice {
-		return 0, fmt.Errorf("keys must be a slice")
-	}
-	valuesValue := reflect.ValueOf(valuesOut)
-	if valuesValue.Kind() != reflect.Slice {
-		return 0, fmt.Errorf("valuesOut must be a slice")
-	}
-	count := keysValue.Len()
-	if count != valuesValue.Len() {
-		return 0, fmt.Errorf("keysOut and valuesOut must be the same length")
-	}
 
 	keyBuf := sysenc.SyscallOutput(keysOut, count*int(m.keySize))
-	valueBuf := sysenc.SyscallOutput(valuesOut, count*int(m.fullValueSize))
 
 	attr := sys.MapLookupBatchAttr{
 		MapFd:    m.fd.Uint(),
 		Keys:     keyBuf.Pointer(),
-		Values:   valueBuf.Pointer(),
+		Values:   valuePtr,
 		Count:    uint32(count),
 		InBatch:  sys.NewSlicePointer(inBatch),
 		OutBatch: sys.NewSlicePointer(cursor.opaque),
@@ -1075,9 +1106,6 @@ func (m *Map) batchLookup(cmd sys.Cmd, cursor *BatchCursor, keysOut, valuesOut i
 	if err := keyBuf.Unmarshal(keysOut); err != nil {
 		return 0, err
 	}
-	if err := valueBuf.Unmarshal(valuesOut); err != nil {
-		return 0, err
-	}
 
 	return int(attr.Count), sysErr
 }
@@ -1088,29 +1116,24 @@ func (m *Map) batchLookup(cmd sys.Cmd, cursor *BatchCursor, keysOut, valuesOut i
 // to a slice or buffer will not work.
 func (m *Map) BatchUpdate(keys, values interface{}, opts *BatchOptions) (int, error) {
 	if m.typ.hasPerCPUValue() {
-		return 0, ErrNotSupported
+		return m.batchUpdatePerCPU(keys, values, opts)
 	}
-	keysValue := reflect.ValueOf(keys)
-	if keysValue.Kind() != reflect.Slice {
-		return 0, fmt.Errorf("keys must be a slice")
-	}
-	valuesValue := reflect.ValueOf(values)
-	if valuesValue.Kind() != reflect.Slice {
-		return 0, fmt.Errorf("values must be a slice")
-	}
-	var (
-		count    = keysValue.Len()
-		valuePtr sys.Pointer
-		err      error
-	)
-	if count != valuesValue.Len() {
-		return 0, fmt.Errorf("keys and values must be the same length")
-	}
-	keyPtr, err := marshalMapSyscallInput(keys, count*int(m.keySize))
+
+	count, err := batchCount(keys, values)
 	if err != nil {
 		return 0, err
 	}
-	valuePtr, err = marshalMapSyscallInput(values, count*int(m.valueSize))
+
+	valuePtr, err := marshalMapSyscallInput(values, count*int(m.valueSize))
+	if err != nil {
+		return 0, err
+	}
+
+	return m.batchUpdate(count, keys, valuePtr, opts)
+}
+
+func (m *Map) batchUpdate(count int, keys any, valuePtr sys.Pointer, opts *BatchOptions) (int, error) {
+	keyPtr, err := marshalMapSyscallInput(keys, count*int(m.keySize))
 	if err != nil {
 		return 0, err
 	}
@@ -1137,17 +1160,28 @@ func (m *Map) BatchUpdate(keys, values interface{}, opts *BatchOptions) (int, er
 	return int(attr.Count), nil
 }
 
+func (m *Map) batchUpdatePerCPU(keys, values any, opts *BatchOptions) (int, error) {
+	count, err := sliceLen(keys)
+	if err != nil {
+		return 0, fmt.Errorf("keys: %w", err)
+	}
+
+	valueBuf, err := marshalBatchPerCPUValue(values, count, int(m.valueSize))
+	if err != nil {
+		return 0, err
+	}
+
+	return m.batchUpdate(count, keys, sys.NewSlicePointer(valueBuf), opts)
+}
+
 // BatchDelete batch deletes entries in the map by keys.
 // "keys" must be of type slice, a pointer to a slice or buffer will not work.
 func (m *Map) BatchDelete(keys interface{}, opts *BatchOptions) (int, error) {
-	if m.typ.hasPerCPUValue() {
-		return 0, ErrNotSupported
+	count, err := sliceLen(keys)
+	if err != nil {
+		return 0, fmt.Errorf("keys: %w", err)
 	}
-	keysValue := reflect.ValueOf(keys)
-	if keysValue.Kind() != reflect.Slice {
-		return 0, fmt.Errorf("keys must be a slice")
-	}
-	count := keysValue.Len()
+
 	keyPtr, err := marshalMapSyscallInput(keys, count*int(m.keySize))
 	if err != nil {
 		return 0, fmt.Errorf("cannot marshal keys: %v", err)
@@ -1172,6 +1206,24 @@ func (m *Map) BatchDelete(keys interface{}, opts *BatchOptions) (int, error) {
 	}
 
 	return int(attr.Count), nil
+}
+
+func batchCount(keys, values any) (int, error) {
+	keysLen, err := sliceLen(keys)
+	if err != nil {
+		return 0, fmt.Errorf("keys: %w", err)
+	}
+
+	valuesLen, err := sliceLen(values)
+	if err != nil {
+		return 0, fmt.Errorf("values: %w", err)
+	}
+
+	if keysLen != valuesLen {
+		return 0, fmt.Errorf("keys and values must have the same length")
+	}
+
+	return keysLen, nil
 }
 
 // Iterate traverses a map.
@@ -1551,4 +1603,13 @@ func NewMapFromID(id MapID) (*Map, error) {
 	}
 
 	return newMapFromFD(fd)
+}
+
+// sliceLen returns the length if the value is a slice or an error otherwise.
+func sliceLen(slice any) (int, error) {
+	sliceValue := reflect.ValueOf(slice)
+	if sliceValue.Kind() != reflect.Slice {
+		return 0, fmt.Errorf("%T is not a slice", slice)
+	}
+	return sliceValue.Len(), nil
 }

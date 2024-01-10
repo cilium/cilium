@@ -54,6 +54,11 @@ func (b Buffer) CopyTo(dst []byte) int {
 	return copy(dst, b.unsafeBytes())
 }
 
+// AppendTo appends the buffer onto dst.
+func (b Buffer) AppendTo(dst []byte) []byte {
+	return append(dst, b.unsafeBytes()...)
+}
+
 // Pointer returns the location where a syscall should write.
 func (b Buffer) Pointer() sys.Pointer {
 	// NB: This deliberately ignores b.length to support zero-copy
