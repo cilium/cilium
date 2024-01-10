@@ -5,6 +5,7 @@ package identitybackend
 
 import (
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -96,6 +97,7 @@ func (s *K8sIdentityBackendSuite) TestSanitizeK8sLabels(c *C) {
 
 type FakeHandler struct {
 	onListDoneChan chan struct{}
+	onAddFunc      func()
 }
 
 func (f FakeHandler) OnListDone() {
@@ -104,7 +106,11 @@ func (f FakeHandler) OnListDone() {
 	}
 }
 
-func (f FakeHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey) {}
+func (f FakeHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey) {
+	if f.onAddFunc != nil {
+		f.onAddFunc()
+	}
+}
 
 func (f FakeHandler) OnModify(id idpool.ID, key allocator.AllocatorKey) {}
 
@@ -212,7 +218,11 @@ func TestGetIdentity(t *testing.T) {
 			defer func() {
 				stopChan <- struct{}{}
 			}()
-			go backend.ListAndWatch(ctx, FakeHandler{onListDoneChan: listenerReadyChan}, stopChan)
+
+			addWaitGroup := sync.WaitGroup{}
+			addWaitGroup.Add(len(tc.identities))
+
+			go backend.ListAndWatch(ctx, FakeHandler{onListDoneChan: listenerReadyChan, onAddFunc: func() { addWaitGroup.Done() }}, stopChan)
 
 			select {
 			case <-listenerReadyChan:
@@ -228,23 +238,19 @@ func TestGetIdentity(t *testing.T) {
 			}
 
 			// Wait for watcher to process the identities in the background
-			for i := 0; i < 10; i++ {
-				id, err := backend.Get(ctx, tc.requestedKey)
-				if err != nil {
-					t.Fatalf("Can't get identity by key %s: %s", tc.requestedKey.GetKey(), err)
-				}
-				if id == idpool.NoID {
-					time.Sleep(25 * time.Millisecond)
-					continue
-				}
-				if id.String() != tc.expectedId {
-					t.Errorf("Expected key %s, got %s", tc.expectedId, id.String())
-				} else {
-					return
-				}
+			addWaitGroup.Wait()
+
+			id, err := backend.Get(ctx, tc.requestedKey)
+			if err != nil {
+				t.Fatalf("Can't get identity by key %s: %s", tc.requestedKey.GetKey(), err)
 			}
-			if tc.expectedId != idpool.NoID.String() {
+
+			if id == idpool.NoID && tc.expectedId != idpool.NoID.String() {
 				t.Errorf("Identity not found in the store")
+			}
+
+			if id.String() != tc.expectedId {
+				t.Errorf("Expected key %s, got %s", tc.expectedId, id.String())
 			}
 		})
 	}
