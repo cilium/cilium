@@ -1,0 +1,17 @@
+name: Code Review GPT
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  run_code_review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Code Review GPT
+        uses: mattzcarey/code-review-gpt@v0.1.4-alpha
+        with:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MODEL: 'gpt-3.5-turbo'
+          GITHUB_TOKEN: ${{ github.token }}
