@@ -8,11 +8,17 @@
 
 #if defined(__bpf__)
 static __always_inline __maybe_unused void
-tail_call_static(const struct __ctx_buff *ctx, const void *map,
+tail_call_common(const struct __ctx_buff *ctx, const void *map,
 		 const __u32 slot)
 {
-	if (!__builtin_constant_p(slot))
-		__throw_build_bug();
+	if (!__builtin_constant_p(slot)) {
+		/* Only for the case where slot is not known at compilation time,
+		* we give LLVM a free pass to optimize since we cannot do much
+		* here anyway as x86-64 JIT will emit a retpoline for this case.
+		*/
+		tail_call((void *)ctx, map, slot);
+		return;
+	}
 
 	/* Don't gamble, but _guarantee_ that LLVM won't optimize setting
 	 * r2 and r3 from different paths ending up at the same call insn as
@@ -33,16 +39,16 @@ tail_call_static(const struct __ctx_buff *ctx, const void *map,
 }
 
 static __always_inline __maybe_unused void
-tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)
+tail_call_static(const struct __ctx_buff *ctx, const void *map,
+		 const __u32 slot)
 {
-	if (__builtin_constant_p(slot))
-		__throw_build_bug();
+	tail_call_common(ctx, map, slot);
+}
 
-	/* Only for the case where slot is not known at compilation time,
-	 * we give LLVM a free pass to optimize since we cannot do much
-	 * here anyway as x86-64 JIT will emit a retpoline for this case.
-	 */
-	tail_call(ctx, map, slot);
+static __always_inline __maybe_unused void
+tail_call_dynamic(const struct __ctx_buff *ctx, const void *map, __u32 slot)
+{
+	tail_call_common(ctx, map, slot);
 }
 #else
 /* BPF unit tests compile some BPF code under their native arch. Tail calls
