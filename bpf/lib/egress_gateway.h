@@ -39,7 +39,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	if (old_oif == fib_params.l.ifindex)
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, ext_err, (int *)&old_oif);
+	return fib_do_redirect(ctx, true, &fib_params, false, ext_err, (int *)&old_oif);
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY
