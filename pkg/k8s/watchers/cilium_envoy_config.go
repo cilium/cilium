@@ -194,7 +194,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 			}
 		}
 		if proxyPort == 0 {
-			return fmt.Errorf("Listener %q not found in resources", svc.Listener)
+			return fmt.Errorf("listener %q not found in resources", svc.Listener)
 		}
 
 		// Tell service manager to redirect the service to the port
