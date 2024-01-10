@@ -2575,6 +2575,10 @@ func init() {
     "EncryptionStatus": {
       "description": "Status of transparent encryption\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "ipsec": {
+          "description": "Status of the IPsec agent",
+          "$ref": "#/definitions/IPsecStatus"
+        },
         "mode": {
           "type": "string",
           "enum": [
@@ -2584,7 +2588,7 @@ func init() {
           ]
         },
         "msg": {
-          "description": "Human readable status/error/warning message",
+          "description": "Human readable error/warning message",
           "type": "string"
         },
         "wireguard": {
@@ -3350,6 +3354,37 @@ func init() {
         "maxGSO": {
           "description": "Maximum IPv6 GSO size",
           "type": "integer"
+        }
+      }
+    },
+    "IPsecStatus": {
+      "description": "Status of the IPsec agent\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "decrypt-interfaces": {
+          "description": "IPsec decryption interfaces",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error-count": {
+          "description": "IPsec error count",
+          "type": "integer"
+        },
+        "keys-in-use": {
+          "description": "IPsec keys in use",
+          "type": "integer"
+        },
+        "max-seq-number": {
+          "description": "IPsec max sequence number",
+          "type": "string"
+        },
+        "xfrm-errors": {
+          "description": "IPsec XFRM errors",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
         }
       }
     },
@@ -7934,6 +7969,10 @@ func init() {
     "EncryptionStatus": {
       "description": "Status of transparent encryption\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "ipsec": {
+          "description": "Status of the IPsec agent",
+          "$ref": "#/definitions/IPsecStatus"
+        },
         "mode": {
           "type": "string",
           "enum": [
@@ -7943,7 +7982,7 @@ func init() {
           ]
         },
         "msg": {
-          "description": "Human readable status/error/warning message",
+          "description": "Human readable error/warning message",
           "type": "string"
         },
         "wireguard": {
@@ -8748,6 +8787,37 @@ func init() {
         "maxGSO": {
           "description": "Maximum IPv6 GSO size",
           "type": "integer"
+        }
+      }
+    },
+    "IPsecStatus": {
+      "description": "Status of the IPsec agent\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "decrypt-interfaces": {
+          "description": "IPsec decryption interfaces",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error-count": {
+          "description": "IPsec error count",
+          "type": "integer"
+        },
+        "keys-in-use": {
+          "description": "IPsec keys in use",
+          "type": "integer"
+        },
+        "max-seq-number": {
+          "description": "IPsec max sequence number",
+          "type": "string"
+        },
+        "xfrm-errors": {
+          "description": "IPsec XFRM errors",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
         }
       }
     },
