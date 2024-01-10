@@ -13,6 +13,7 @@ import (
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -179,7 +180,7 @@ func TestSharedServiceUpdatedSharingKey(t *testing.T) {
 			Namespace: "default",
 			UID:       serviceAUID,
 			Annotations: map[string]string{
-				ciliumSvcLBISKAnnotation: "key-1",
+				annotation.LBIPAMSharingKeyAlias: "key-1",
 			},
 		},
 		Spec: slim_core_v1.ServiceSpec{
@@ -200,7 +201,7 @@ func TestSharedServiceUpdatedSharingKey(t *testing.T) {
 			Namespace: "default",
 			UID:       serviceAUID,
 			Annotations: map[string]string{
-				ciliumSvcLBISKAnnotation: "key-1",
+				annotation.LBIPAMSharingKeyAlias: "key-1",
 			},
 		},
 		Spec: slim_core_v1.ServiceSpec{
@@ -222,7 +223,7 @@ func TestSharedServiceUpdatedSharingKey(t *testing.T) {
 		t.Fatal("IPs should be the same")
 	}
 
-	svcB.Annotations[ciliumSvcLBISKAnnotation] = "key-2"
+	svcB.Annotations[annotation.LBIPAMSharingKeyAlias] = "key-2"
 	fixture.UpsertSvc(t, svcB)
 	svcB = fixture.GetSvc("default", "service-b")
 
@@ -248,7 +249,7 @@ func TestSharedServiceUpdatedPorts(t *testing.T) {
 			Namespace: "default",
 			UID:       serviceAUID,
 			Annotations: map[string]string{
-				ciliumSvcLBISKAnnotation: "key-1",
+				annotation.LBIPAMSharingKeyAlias: "key-1",
 			},
 		},
 		Spec: slim_core_v1.ServiceSpec{
@@ -269,7 +270,7 @@ func TestSharedServiceUpdatedPorts(t *testing.T) {
 			Namespace: "default",
 			UID:       serviceAUID,
 			Annotations: map[string]string{
-				ciliumSvcLBISKAnnotation: "key-1",
+				annotation.LBIPAMSharingKeyAlias: "key-1",
 			},
 		},
 		Spec: slim_core_v1.ServiceSpec{
@@ -1216,7 +1217,7 @@ func TestRequestIPs(t *testing.T) {
 			Namespace: "default",
 			UID:       serviceBUID,
 			Annotations: map[string]string{
-				ciliumSvcLBIPSAnnotation: "10.0.10.22,10.0.10.23",
+				annotation.LBIPAMIPKeyAlias: "10.0.10.22,10.0.10.23",
 			},
 		},
 		Spec: slim_core_v1.ServiceSpec{

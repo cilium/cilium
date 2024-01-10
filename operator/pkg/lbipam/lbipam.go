@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipalloc"
@@ -45,11 +46,7 @@ const (
 	ciliumPoolIPsUsedCondition      = "cilium.io/IPsUsed"
 	ciliumPoolConflict              = "cilium.io/PoolConflict"
 
-	// The annotation LB IPAM will look for when searching for requested IPs
-	ciliumSvcLBIPSAnnotation   = "io.cilium/lb-ipam-ips"
-	ciliumSvcLBISKAnnotation   = "io.cilium/lb-ipam-sharing-key"
-	ciliumSvcLBISKCNAnnotation = "io.cilium/lb-ipam-sharing-cross-namespace"
-	ciliumSvcLBISKCNWildward   = "*"
+	ciliumSvcLBISKCNWildward = "*"
 
 	// The string used in the FieldManager field on update options
 	ciliumFieldManager = "cilium-operator-lb-ipam"
@@ -685,8 +682,8 @@ func getSVCRequestedIPs(log logrus.FieldLogger, svc *slim_core_v1.Service) []net
 		}
 	}
 
-	if annotation := svc.Annotations[ciliumSvcLBIPSAnnotation]; annotation != "" {
-		for _, ipStr := range strings.Split(annotation, ",") {
+	if value, _ := annotation.Get(svc, annotation.LBIPAMIPsKey, annotation.LBIPAMIPKeyAlias); value != "" {
+		for _, ipStr := range strings.Split(value, ",") {
 			ip, err := netip.ParseAddr(strings.TrimSpace(ipStr))
 			if err == nil {
 				ips = append(ips, ip)
@@ -702,15 +699,15 @@ func getSVCRequestedIPs(log logrus.FieldLogger, svc *slim_core_v1.Service) []net
 }
 
 func getSVCSharingKey(log logrus.FieldLogger, svc *slim_core_v1.Service) string {
-	if annotation := svc.Annotations[ciliumSvcLBISKAnnotation]; annotation != "" {
-		return annotation
+	if val, _ := annotation.Get(svc, annotation.LBIPAMSharingKey, annotation.LBIPAMSharingKeyAlias); val != "" {
+		return val
 	}
 	return ""
 }
 
 func getSVCSharingCrossNamespace(log logrus.FieldLogger, svc *slim_core_v1.Service) []string {
-	if annotation := svc.Annotations[ciliumSvcLBISKCNAnnotation]; annotation != "" {
-		return strings.Split(annotation, ",")
+	if val, _ := annotation.Get(svc, annotation.LBIPAMSharingAcrossNamespace, annotation.LBIPAMSharingAcrossNamespaceAlias); val != "" {
+		return strings.Split(val, ",")
 	}
 	return []string{}
 }
