@@ -184,19 +184,24 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	     struct bpf_fib_lookup_padded *fib_params __maybe_unused,
 	     bool use_neigh_map, __s8 *fib_err __maybe_unused, int *oif)
 {
-#ifndef ENABLE_SKIP_FIB
-	int ret;
-	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
-	*fib_err = (__s8)ret;
-	return fib_do_redirect(ctx, needs_l2_check, fib_params, use_neigh_map,
-			       fib_err, oif);
-#else
-	__s8 skip_fib = BPF_FIB_LKUP_RET_NO_NEIGH;
-	*fib_err = skip_fib;
+#ifdef ENABLE_SKIP_FIB
 	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+#endif
+
+	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
+		int ret;
+
+		ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
+		*fib_err = (__s8)ret;
+
+		return fib_do_redirect(ctx, needs_l2_check, fib_params, use_neigh_map,
+				       fib_err, oif);
+	}
+
+	*fib_err = BPF_FIB_LKUP_RET_NO_NEIGH;
+
 	return fib_do_redirect(ctx, needs_l2_check, NULL, use_neigh_map,
 			       fib_err, oif);
-#endif
 }
 
 #ifdef ENABLE_IPV6
@@ -228,30 +233,32 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		bool allow_neigh_map, __s8 *fib_err __maybe_unused, int *oif)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
-	__s8 skip_fib __maybe_unused = BPF_FIB_LKUP_RET_NO_NEIGH;
 	int ret;
 
-#ifndef ENABLE_SKIP_FIB
-	ret = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, 0);
-	*fib_err = (__s8)ret;
-
-	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-
-	return fib_do_redirect(ctx, needs_l2_check, &fib_params, allow_neigh_map,
-			       fib_err, oif);
-#else
-	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-
-	*fib_err = skip_fib;
-
+#ifdef ENABLE_SKIP_FIB
 	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+#endif
+
+	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
+		ret = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, 0);
+		*fib_err = (__s8)ret;
+
+		ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
+		if (unlikely(ret != CTX_ACT_OK))
+			return ret;
+
+		return fib_do_redirect(ctx, needs_l2_check, &fib_params, allow_neigh_map,
+				       fib_err, oif);
+	}
+
+	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
+	if (unlikely(ret != CTX_ACT_OK))
+		return ret;
+
+	*fib_err = BPF_FIB_LKUP_RET_NO_NEIGH;
+
 	return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
 			       fib_err, oif);
-#endif
 }
 #endif /* ENABLE_IPV6 */
 
@@ -279,31 +286,32 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		bool allow_neigh_map, __s8 *fib_err __maybe_unused, int *oif)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
-	__s8 skip_fib __maybe_unused = BPF_FIB_LKUP_RET_NO_NEIGH;
 	int ret;
 
-#ifndef ENABLE_SKIP_FIB
-	ret = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, 0);
-	*fib_err = (__s8)ret;
-
-	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-
-	return fib_do_redirect(ctx, needs_l2_check, &fib_params, allow_neigh_map,
-			       fib_err, oif);
-#else
-	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-
-	*fib_err = skip_fib;
-
+#ifdef ENABLE_SKIP_FIB
 	*oif = DIRECT_ROUTING_DEV_IFINDEX;
-	return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
-			       fib_err, oif);
 #endif
 
+	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
+		ret = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, 0);
+		*fib_err = (__s8)ret;
+
+		ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
+		if (unlikely(ret != CTX_ACT_OK))
+			return ret;
+
+		return fib_do_redirect(ctx, needs_l2_check, &fib_params, allow_neigh_map,
+				       fib_err, oif);
+	}
+
+	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
+	if (unlikely(ret != CTX_ACT_OK))
+		return ret;
+
+	*fib_err = BPF_FIB_LKUP_RET_NO_NEIGH;
+
+	return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
+			       fib_err, oif);
 }
 #endif /* ENABLE_IPV4 */
 #endif /* __LIB_FIB_H_ */
