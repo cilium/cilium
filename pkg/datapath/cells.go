@@ -119,14 +119,6 @@ var Cell = cell.Module(
 
 	// DevicesController manages the devices and routes tables
 	linuxdatapath.DevicesControllerCell,
-	cell.Provide(func(cfg *option.DaemonConfig) linuxdatapath.DevicesConfig {
-		// Provide the configured devices to the devices controller.
-		// This is temporary until DevicesController takes ownership of the
-		// device-related configuration options.
-		return linuxdatapath.DevicesConfig{
-			Devices: cfg.GetDevices(),
-		}
-	}),
 
 	// Synchronizes the userspace ipcache with the corresponding BPF map.
 	ipcache.Cell,
