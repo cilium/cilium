@@ -36,6 +36,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -523,6 +524,14 @@ func filterList(obj k8sRuntime.Object, restrictions k8sTesting.ListRestrictions)
 		obj.Items = items
 	case *slim_corev1.PodList:
 		items := make([]slim_corev1.Pod, 0, len(obj.Items))
+		for i := range obj.Items {
+			if matchFieldSelector(&obj.Items[i], selector) {
+				items = append(items, obj.Items[i])
+			}
+		}
+		obj.Items = items
+	case *v2.CiliumNodeList:
+		items := make([]v2.CiliumNode, 0, len(obj.Items))
 		for i := range obj.Items {
 			if matchFieldSelector(&obj.Items[i], selector) {
 				items = append(items, obj.Items[i])
