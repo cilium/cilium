@@ -28,25 +28,8 @@ const (
 )
 
 var (
-	countErrors int
-	regex       = regexp.MustCompile("oseq[[:blank:]]0[xX]([[:xdigit:]]+)")
+	regex = regexp.MustCompile("oseq[[:blank:]]0[xX]([[:xdigit:]]+)")
 )
-
-type encryptStatus struct {
-	EncryptionType      string               `json:"encryption-type,omitempty"`
-	IPsecDecryptInts    []string             `json:"ipsec-decrypt-interfaces-type,omitempty"`
-	IPsecMaxSeqNum      string               `json:"ipsec-max-seq-number,omitempty"`
-	IPsecKeysInUse      int                  `json:"ipsec-keys-in-use,omitempty"`
-	IPsecErrCount       int                  `json:"ipsec-errors-count,omitempty"`
-	XfrmErrors          map[string]int       `json:"xfrm-errors,omitempty"`
-	WireguardInterfaces []wireguardInterface `json:"wireguard-interfaces,omitempty"`
-}
-
-type wireguardInterface struct {
-	Interface string `json:"interface-name,omitempty"`
-	PublicKey string `json:"public-key,omitempty"`
-	PeerCount int64  `json:"peer-count,omitempty"`
-}
 
 var encryptStatusCmd = &cobra.Command{
 	Use:   "status",
@@ -72,22 +55,22 @@ func init() {
 	command.AddOutputOption(encryptStatusCmd)
 }
 
-func getEncryptionMode() (encryptStatus, error) {
+func getEncryptionMode() (models.EncryptionStatus, error) {
 	params := daemon.NewGetHealthzParamsWithTimeout(timeout)
 	params.SetBrief(&brief)
 	resp, err := client.Daemon.GetHealthz(params)
 	if err != nil {
-		return encryptStatus{}, err
+		return models.EncryptionStatus{}, err
 	}
 
 	enc := resp.Payload.Encryption
-	status := encryptStatus{
-		EncryptionType: enc.Mode,
+	status := models.EncryptionStatus{
+		Mode: enc.Mode,
 	}
 	switch enc.Mode {
 	case models.EncryptionStatusModeIPsec:
 		if err := dumpIPsecStatus(&status); err != nil {
-			return encryptStatus{}, err
+			return models.EncryptionStatus{}, err
 		}
 	case models.EncryptionStatusModeWireguard:
 		dumpWireGuardStatus(enc, &status)
@@ -95,7 +78,8 @@ func getEncryptionMode() (encryptStatus, error) {
 	return status, nil
 }
 
-func dumpIPsecStatus(status *encryptStatus) error {
+func dumpIPsecStatus(status *models.EncryptionStatus) error {
+	status.Ipsec = &models.IPsecStatus{}
 	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		return fmt.Errorf("cannot get xfrm state: %s", err)
@@ -104,38 +88,40 @@ func dumpIPsecStatus(status *encryptStatus) error {
 	if err != nil {
 		return fmt.Errorf("error counting IPsec keys: %s\n", err)
 	}
-	status.IPsecKeysInUse = keys
+	status.Ipsec.KeysInUse = int64(keys)
 	decryptInts, err := getDecryptionInterfaces()
 	if err != nil {
 		return fmt.Errorf("error getting IPsec decryption interfaces: %s\n", err)
 	}
-	status.IPsecDecryptInts = decryptInts
+	status.Ipsec.DecryptInterfaces = decryptInts
 	seqNum, err := maxSequenceNumber()
 	if err != nil {
 		return fmt.Errorf("error getting IPsec max sequence number: %s\n", err)
 	}
-	status.IPsecMaxSeqNum = seqNum
+	status.Ipsec.MaxSeqNumber = seqNum
 	errCount, errMap, err := getXfrmStats("")
 	if err != nil {
 		return fmt.Errorf("error getting xfrm stats: %s\n", err)
 	}
-	status.IPsecErrCount = errCount
-	status.XfrmErrors = errMap
+	status.Ipsec.ErrorCount = errCount
+	status.Ipsec.XfrmErrors = errMap
 	return nil
 }
 
-func dumpWireGuardStatus(p *models.EncryptionStatus, status *encryptStatus) {
-	status.WireguardInterfaces = make([]wireguardInterface, 0, len(p.Wireguard.Interfaces))
+func dumpWireGuardStatus(p *models.EncryptionStatus, status *models.EncryptionStatus) {
+	status.Wireguard = &models.WireguardStatus{
+		Interfaces: make([]*models.WireguardInterface, 0),
+	}
 	for _, wg := range p.Wireguard.Interfaces {
-		status.WireguardInterfaces = append(status.WireguardInterfaces, wireguardInterface{
-			Interface: wg.Name,
+		status.Wireguard.Interfaces = append(status.Wireguard.Interfaces, &models.WireguardInterface{
+			Name:      wg.Name,
 			PublicKey: wg.PublicKey,
 			PeerCount: wg.PeerCount,
 		})
 	}
 }
 
-func getXfrmStats(mountPoint string) (int, map[string]int, error) {
+func getXfrmStats(mountPoint string) (int64, map[string]int64, error) {
 	fs, err := procfs.NewDefaultFS()
 	if mountPoint != "" {
 		fs, err = procfs.NewFS(mountPoint)
@@ -148,14 +134,15 @@ func getXfrmStats(mountPoint string) (int, map[string]int, error) {
 		return 0, nil, fmt.Errorf("failed to read xfrm statistics: %s", err)
 	}
 	v := reflect.ValueOf(stats)
-	errorMap := make(map[string]int)
+	countErrors := int64(0)
+	errorMap := make(map[string]int64)
 	if v.Type().Kind() == reflect.Struct {
 		for i := 0; i < v.NumField(); i++ {
 			name := v.Type().Field(i).Name
 			value := v.Field(i).Interface().(int)
 			if value != 0 {
-				countErrors += value
-				errorMap[name] = value
+				countErrors += int64(value)
+				errorMap[name] = int64(value)
 			}
 		}
 	}
@@ -232,22 +219,20 @@ func getDecryptionInterfaces() ([]string, error) {
 	return decryptionIfaces, nil
 }
 
-func printEncryptionStatus(status encryptStatus) {
-	fmt.Printf("Encryption: %-26s\n", status.EncryptionType)
-	switch status.EncryptionType {
+func printEncryptionStatus(status models.EncryptionStatus) {
+	fmt.Printf("Encryption: %-26s\n", status.Mode)
+	switch status.Mode {
 	case models.EncryptionStatusModeIPsec:
-		fmt.Printf("Decryption interface(s): %s\n", strings.Join(status.IPsecDecryptInts, ", "))
-		fmt.Printf("Keys in use: %-26d\n", status.IPsecKeysInUse)
-		fmt.Printf("Max Seq. Number: %s\n", status.IPsecMaxSeqNum)
-		fmt.Printf("Errors: %-26d\n", status.IPsecErrCount)
-		if status.IPsecErrCount != 0 {
-			for k, v := range status.XfrmErrors {
-				fmt.Printf("\t%s: %-26d\n", k, v)
-			}
+		fmt.Printf("Decryption interface(s): %s\n", strings.Join(status.Ipsec.DecryptInterfaces, ", "))
+		fmt.Printf("Keys in use: %-26d\n", status.Ipsec.KeysInUse)
+		fmt.Printf("Max Seq. Number: %s\n", status.Ipsec.MaxSeqNumber)
+		fmt.Printf("Errors: %-26d\n", status.Ipsec.ErrorCount)
+		for k, v := range status.Ipsec.XfrmErrors {
+			fmt.Printf("\t%s: %-26d\n", k, v)
 		}
 	case models.EncryptionStatusModeWireguard:
-		for _, s := range status.WireguardInterfaces {
-			fmt.Printf("Interface: %s\n", s.Interface)
+		for _, s := range status.Wireguard.Interfaces {
+			fmt.Printf("Interface: %s\n", s.Name)
 			fmt.Printf("\tPublic key: %s\n", s.PublicKey)
 			fmt.Printf("\tNumber of peers: %d\n", s.PeerCount)
 		}

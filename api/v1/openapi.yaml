@@ -3849,7 +3849,10 @@ definitions:
           - Wireguard
       msg:
         type: string
-        description: Human readable status/error/warning message
+        description: Human readable error/warning message
+      ipsec:
+        description: Status of the IPsec agent
+        "$ref": "#/definitions/IPsecStatus"
       wireguard:
         description: Status of the WireGuard agent
         "$ref": "#/definitions/WireguardStatus"
@@ -3867,6 +3870,31 @@ definitions:
           - flannel
           - generic-veth
           - portmap
+  IPsecStatus:
+    description: |-
+      Status of the IPsec agent
+
+      +k8s:deepcopy-gen=true
+    properties:
+      decrypt-interfaces:
+        description: IPsec decryption interfaces
+        type: array
+        items:
+          type: string
+      max-seq-number:
+        description: IPsec max sequence number
+        type: string
+      keys-in-use:
+        description: IPsec keys in use
+        type: integer
+      error-count:
+        description: IPsec error count
+        type: integer
+      xfrm-errors:
+        description: IPsec XFRM errors
+        type: object
+        additionalProperties:
+          type: integer
   WireguardStatus:
     description: |-
       Status of the WireGuard agent
