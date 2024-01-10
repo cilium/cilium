@@ -221,6 +221,7 @@
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
 * @cilium/tophat
+/.github/workflows/*perf*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /api/ @cilium/api
 /api/v1/Makefile @cilium/sig-hubble-api
