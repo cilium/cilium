@@ -303,12 +303,6 @@ func TestDevicesController(t *testing.T) {
 				return makeNetlinkFuncs()
 			}),
 
-			cell.Provide(func() DevicesConfig {
-				return DevicesConfig{
-					Devices: []string{},
-				}
-			}),
-
 			cell.Invoke(func(db_ *statedb.DB, devicesTable_ statedb.Table[*tables.Device], routesTable_ statedb.Table[*tables.Route]) {
 				db = db_
 				devicesTable = devicesTable_
@@ -379,16 +373,14 @@ func TestDevicesController_Wildcards(t *testing.T) {
 		h := hive.New(
 			statedb.Cell,
 			DevicesControllerCell,
-			cell.Provide(func() DevicesConfig {
-				return DevicesConfig{
-					Devices: []string{"dummy+"},
-				}
-			}),
 			cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs() }),
 			cell.Invoke(func(db_ *statedb.DB, devicesTable_ statedb.Table[*tables.Device]) {
 				db = db_
 				devicesTable = devicesTable_
 			}))
+		hive.AddConfigOverride(h, func(c *DevicesConfig) {
+			c.Devices = []string{"dummy+"}
+		})
 
 		err := h.Start(ctx)
 		require.NoError(t, err)
@@ -530,7 +522,6 @@ func TestDevicesController_Restarts(t *testing.T) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Provide(func() *netlinkFuncs { return &funcs }),
 		cell.Invoke(func(db_ *statedb.DB, devicesTable_ statedb.Table[*tables.Device]) {
 			db = db_

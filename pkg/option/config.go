@@ -3054,7 +3054,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 
 	c.populateLoadBalancerSettings(vp)
-	c.populateDevices(vp)
 	c.EnableRuntimeDeviceDetection = vp.GetBool(EnableRuntimeDeviceDetection)
 	c.EgressMultiHomeIPRuleCompat = vp.GetBool(EgressMultiHomeIPRuleCompat)
 
@@ -3419,23 +3418,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			continue
 		}
 		c.ExcludeNodeLabelPatterns = append(c.ExcludeNodeLabelPatterns, r)
-	}
-}
-
-func (c *DaemonConfig) populateDevices(vp *viper.Viper) {
-	c.devices = vp.GetStringSlice(Devices)
-
-	// Make sure that devices are unique
-	if len(c.devices) <= 1 {
-		return
-	}
-	devSet := map[string]struct{}{}
-	for _, dev := range c.devices {
-		devSet[dev] = struct{}{}
-	}
-	c.devices = make([]string, 0, len(devSet))
-	for dev := range devSet {
-		c.devices = append(c.devices, dev)
 	}
 }
 

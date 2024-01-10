@@ -92,7 +92,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 		devices, err := dm.Detect(false)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string(nil))
+		c.Assert(devices, checker.DeepEquals, []string{})
 		dm.Stop()
 
 		// 2. Nodeport, detection is performed:
@@ -116,7 +116,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
 		option.Config.SetDevices([]string{"dummy0"})
 
-		dm, err = newDeviceManagerForTests()
+		dm, err = newDeviceManagerForTests("dummy0")
 		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
@@ -250,34 +250,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		sort.Strings(devices)
 		c.Assert(devices, checker.DeepEquals, []string{"bond0", "dummy0", "dummy1", "dummy_v6", "veth0"})
 		option.Config.SetDevices([]string{})
-		dm.Stop()
-	})
-}
-
-func (s *DevicesSuite) TestExpandDevices(c *C) {
-	s.withFixture(c, func() {
-		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
-		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
-		c.Assert(createDummy("other0", "192.168.2.3/24", false), IsNil)
-		c.Assert(createDummy("other1", "192.168.3.4/24", false), IsNil)
-		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
-
-		// 1. Check expansion works and non-matching prefixes are ignored
-		option.Config.SetDevices([]string{"dummy+", "missing+", "other0+" /* duplicates: */, "dum+", "other0", "other1"})
-		option.Config.DirectRoutingDevice = "dummy0"
-		dm, err := newDeviceManagerForTests()
-		c.Assert(err, IsNil)
-		devs, err := dm.Detect(true)
-		c.Assert(err, IsNil)
-		c.Assert(devs, checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
-		dm.Stop()
-
-		// 2. Check that expansion fails if devices are specified but yields empty expansion
-		option.Config.SetDevices([]string{"none+"})
-		dm, err = newDeviceManagerForTests()
-		c.Assert(err, IsNil)
-		_, err = dm.Detect(true)
-		c.Assert(err, NotNil)
 		dm.Stop()
 	})
 }
@@ -546,7 +518,7 @@ func delRoutes(iface string) error {
 	return nil
 }
 
-func newDeviceManagerForTests() (dm *DeviceManager, err error) {
+func newDeviceManagerForTests(devs ...string) (dm *DeviceManager, err error) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
@@ -557,6 +529,9 @@ func newDeviceManagerForTests() (dm *DeviceManager, err error) {
 		cell.Invoke(func(dm_ *DeviceManager) {
 			dm = dm_
 		}))
+	hive.AddConfigOverride(h, func(c *DevicesConfig) {
+		c.Devices = devs
+	})
 	err = h.Start(context.TODO())
 	dm.hive = h
 	return
