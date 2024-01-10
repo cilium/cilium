@@ -184,13 +184,6 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-out --hubble-flows-count 10000
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Unlabel nodes
-        run: |
-          IFS=',' read -ra nodes <<< "$NODES_WITHOUT_CILIUM"
-          for node in "${nodes[@]}"; do
-            kubectl label nodes "${node}" cilium.io/no-schedule-
-          done
-
       - name: Upload sysdump
         if: ${{ !success() }}
         uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # v4.0.0
