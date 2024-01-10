@@ -25,11 +25,14 @@ import (
 // swagger:model EncryptionStatus
 type EncryptionStatus struct {
 
+	// Status of the IPsec agent
+	Ipsec *IPsecStatus `json:"ipsec,omitempty"`
+
 	// mode
 	// Enum: [Disabled IPsec Wireguard]
 	Mode string `json:"mode,omitempty"`
 
-	// Human readable status/error/warning message
+	// Human readable error/warning message
 	Msg string `json:"msg,omitempty"`
 
 	// Status of the WireGuard agent
@@ -39,6 +42,10 @@ type EncryptionStatus struct {
 // Validate validates this encryption status
 func (m *EncryptionStatus) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateIpsec(formats); err != nil {
+		res = append(res, err)
+	}
 
 	if err := m.validateMode(formats); err != nil {
 		res = append(res, err)
@@ -51,6 +58,25 @@ func (m *EncryptionStatus) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *EncryptionStatus) validateIpsec(formats strfmt.Registry) error {
+	if swag.IsZero(m.Ipsec) { // not required
+		return nil
+	}
+
+	if m.Ipsec != nil {
+		if err := m.Ipsec.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipsec")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipsec")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -122,6 +148,10 @@ func (m *EncryptionStatus) validateWireguard(formats strfmt.Registry) error {
 func (m *EncryptionStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateIpsec(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateWireguard(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -129,6 +159,22 @@ func (m *EncryptionStatus) ContextValidate(ctx context.Context, formats strfmt.R
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *EncryptionStatus) contextValidateIpsec(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Ipsec != nil {
+		if err := m.Ipsec.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipsec")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipsec")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 

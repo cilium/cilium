@@ -16,7 +16,7 @@ const procTestFixtures = "fixtures/proc"
 func (s *EncryptStatusSuite) TestGetXfrmStats(c *C) {
 	errCount, m, err := getXfrmStats(procTestFixtures)
 	c.Assert(err, Equals, nil)
-	currentCount := 0
+	currentCount := int64(0)
 	testCases := []struct {
 		name string
 		want int64
