@@ -52,6 +52,7 @@ var (
 			},
 			Endpoints: []discoveryv1.Endpoint{
 				{NodeName: stringPtr("node-1")},
+				{NodeName: stringPtr("node-2"), Conditions: discoveryv1.EndpointConditions{Ready: boolPtr(false)}},
 			},
 		},
 		&corev1.Service{
@@ -212,6 +213,9 @@ var (
 
 func stringPtr(str string) *string {
 	return &str
+}
+func boolPtr(boolean bool) *bool {
+	return &boolean
 }
 
 func Test_httpRouteReconciler_Reconcile(t *testing.T) {
