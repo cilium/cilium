@@ -174,9 +174,14 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 
 	for _, item := range epSliceList.Items {
 		for _, endpoint := range item.Endpoints {
-			if endpoint.NodeName != nil {
-				selectedNodes.Insert(*endpoint.NodeName)
+			if endpoint.Conditions.Ready != nil && !*endpoint.Conditions.Ready {
+				continue
 			}
+			if endpoint.NodeName == nil {
+				continue
+			}
+
+			selectedNodes.Insert(*endpoint.NodeName)
 		}
 	}
 
