@@ -16,11 +16,12 @@ var _ = Suite(&EncryptStatusSuite{})
 const procTestFixtures = "fixtures/proc"
 
 func (s *EncryptStatusSuite) TestGetXfrmStats(c *C) {
-	errCount, m := getXfrmStats(procTestFixtures)
+	errCount, m, err := getXfrmStats(procTestFixtures)
+	c.Assert(err, Equals, nil)
 	currentCount := 0
 	testCases := []struct {
 		name string
-		want int
+		want int64
 	}{
 		{name: "XfrmInError", want: 2},
 		{name: "XfrmInBufferError", want: 0},
@@ -82,7 +83,8 @@ src 10.84.1.32 dst 10.84.2.145
 	anti-replay context: seq 0x0, oseq 0x13e0, bitmap 0x00000000
 	sel src 0.0.0.0/0 dst 0.0.0.0/0`
 
-	maxSeqNumber := extractMaxSequenceNumber(ipOutput)
+	maxSeqNumber, err := extractMaxSequenceNumber(ipOutput)
+	c.Assert(err, Equals, nil)
 	c.Assert(maxSeqNumber, Equals, int64(0x1410))
 }
 
@@ -95,6 +97,7 @@ func (s *EncryptStatusSuite) TestExtractMaxSequenceNumberError(c *C) {
 	aead rfc4106(gcm(aes)) 0x64ad37a9d8a8f20fb2e74ef6000f9d580898719f 128
 	anti-replay context: seq 0x0, oseq 0x`
 
-	maxSeqNumber := extractMaxSequenceNumber(ipOutput)
+	maxSeqNumber, err := extractMaxSequenceNumber(ipOutput)
+	c.Assert(err, Equals, nil)
 	c.Assert(maxSeqNumber, Equals, int64(0))
 }
