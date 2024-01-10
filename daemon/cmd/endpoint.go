@@ -376,6 +376,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		"sync-build":                 epTemplate.SyncBuildEndpoint,
 	}).Info("Create endpoint request")
 
+	// We don't need to create the endpoint with the labels. This might cause
+	// the endpoint regeneration to not be triggered further down, with the
+	// ep.UpdateLabels or the ep.RunMetadataResolver, because the regeneration
+	// is only triggered in case the labels are changed, which they might not
+	// change because NewEndpointFromChangeModel would contain the
+	// epTemplate.Labels, the same labels we would be calling ep.UpdateLabels or
+	// the ep.RunMetadataResolver.
+	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
+	epTemplate.Labels = nil
+
 	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
@@ -414,7 +424,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return invalidDataError(ep, err)
 	}
 
-	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
 	infoLabels := labels.NewLabelsFromModel([]string{})
 
 	if len(apiLabels) > 0 {
