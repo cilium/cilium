@@ -1,0 +1,41 @@
+name: Renovate
+on:
+  # running every two hours from 9h to 19h UTC on every working day
+  schedule:
+    - cron: '0 9-19/2 * * 1-5'
+  # allow to manually trigger this workflow
+  workflow_dispatch:
+    inputs:
+      renovate_log_level_debug:
+        type: boolean
+        default: true
+
+jobs:
+  renovate:
+    name: Run self-hosted Renovate
+    runs-on: ubuntu-latest
+    steps:
+      # we need special permission to be able to operate renovate (view, list,
+      # create issues, PR, etc.) and we use a GitHub application with fine
+      # grained permissions installed in the repository for that.
+      - name: Get token
+        id: get_token
+        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
+        with:
+          APP_PEM: ${{ secrets.CILIUM_RENOVATE_PEM }}
+          APP_ID: ${{ secrets.CILIUM_RENOVATE_APP_ID }}
+
+      # renovate clones the repository again in its container fs but it needs
+      # the renovate configuration to start.
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Self-hosted Renovate
+        uses: renovatebot/github-action@f9c81dddc9b589e4e6ae0326d1e36f6bc415d230 # v39.2.4
+        env:
+          # default to DEBUG log level, this is always useful
+          LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
+        with:
+          configurationFile: .github/renovate.json5
+          token: '${{ steps.get_token.outputs.app_token }}'
+          mount-docker-socket: true
