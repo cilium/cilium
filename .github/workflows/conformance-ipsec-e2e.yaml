@@ -135,7 +135,7 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="--wait \
-            --chart-directory=./install/kubernetes/cilium \
+            --chart-directory=./untrusted/install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
@@ -224,6 +224,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium CLI-cli
         uses: cilium/cilium-cli@4aa6347c532075df28027772fa1e4ec2f7415341 # v0.15.20
@@ -244,7 +247,7 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
-        uses: cilium/cilium/.github/actions/lvh-kind@v1.14
+        uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
@@ -284,7 +287,7 @@ jobs:
             --flush-ct
 
       - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@v1.14
+        uses: ./.github/actions/conn-disrupt-test
         with:
           job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
           operation-cmd: |
