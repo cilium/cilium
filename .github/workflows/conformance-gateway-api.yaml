@@ -112,6 +112,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set image tag
         id: vars
@@ -141,6 +142,10 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+            examples
 
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -229,7 +234,7 @@ jobs:
       - name: Run simple Gateway API GRPCRoute test (temporary till upstream conformance tests)
         timeout-minutes: 10
         run: |
-          kubectl apply -f examples/kubernetes/gateway/grpc-route.yaml
+          kubectl apply -f untrusted/examples/kubernetes/gateway/grpc-route.yaml
           # Install grpcurl binary
           go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
           
