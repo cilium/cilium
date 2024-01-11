@@ -201,7 +201,7 @@ github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
 ## explicit; go 1.18
 github.com/cilium/dns
-# github.com/cilium/ebpf v0.12.4-0.20240108171828-839118d43a4c
+# github.com/cilium/ebpf v0.12.4-0.20240110182413-87531ae5ba83
 ## explicit; go 1.20
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
@@ -1293,7 +1293,7 @@ golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc
+# golang.org/x/exp v0.0.0-20240110193028-0dcbfd608b1e
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
