@@ -122,7 +122,7 @@ func RepinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 		log.WithFields(logrus.Fields{
 			logfields.BPFMapName: name,
 			logfields.BPFMapPath: dest,
-		}).Warn("Removed pending pinned map, did the agent die unexpectedly?")
+		}).Info("Removed pending pinned map, did the agent die unexpectedly?")
 	}
 
 	// Atomically re-pin the map to its new path.
