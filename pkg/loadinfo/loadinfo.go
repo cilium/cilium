@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/load"
+	"github.com/mackerelio/go-osstat/loadavg"
 	"github.com/mackerelio/go-osstat/memory"
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/sirupsen/logrus"
@@ -43,10 +43,10 @@ func toPercent(part uint64, total uint64) float64 {
 // LogCurrentSystemLoad logs the current system load and lists all processes
 // consuming more than cpuWatermark of the CPU
 func LogCurrentSystemLoad(logFunc LogFunc) {
-	loadInfo, err := load.Avg()
+	loadInfo, err := loadavg.Get()
 	if err == nil {
 		logFunc("Load 1-min: %.2f 5-min: %.2f 15min: %.2f",
-			loadInfo.Load1, loadInfo.Load5, loadInfo.Load15)
+			loadInfo.Loadavg1, loadInfo.Loadavg5, loadInfo.Loadavg15)
 	}
 
 	memInfo, err := memory.Get()
