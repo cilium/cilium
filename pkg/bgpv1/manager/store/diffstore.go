@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/vitals/health"
 
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
@@ -42,7 +43,7 @@ type diffStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
 	Lifecycle   hive.Lifecycle
-	Scope       cell.Scope
+	Scope       health.Scope
 	JobRegistry job.Registry
 	Resource    resource.Resource[T]
 	Signaler    *signaler.BGPCPSignaler
@@ -81,7 +82,7 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 	)
 
 	jobGroup.Add(
-		job.OneShot("diffstore-events", func(ctx context.Context, health cell.HealthReporter) (err error) {
+		job.OneShot("diffstore-events", func(ctx context.Context, health health.HealthReporter) (err error) {
 			ds.store, err = ds.resource.Store(ctx)
 			if err != nil {
 				return fmt.Errorf("error creating resource store: %w", err)

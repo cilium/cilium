@@ -18,7 +18,6 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -31,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 var (
@@ -44,7 +44,7 @@ var (
 // endpointManager is a structure designed for containing state about the
 // collection of locally running endpoints.
 type endpointManager struct {
-	reporterScope cell.Scope
+	reporterScope health.Scope
 
 	// mutex protects endpoints and endpointsAux
 	mutex lock.RWMutex
@@ -95,7 +95,7 @@ type endpointManager struct {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, reporterScope cell.Scope) *endpointManager {
+func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, reporterScope health.Scope) *endpointManager {
 	mgr := endpointManager{
 		reporterScope:                reporterScope,
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
@@ -121,7 +121,7 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 			DoFunc:         mgr.markAndSweep,
 			RunInterval:    interval,
 			Context:        ctx,
-			HealthReporter: cell.GetHealthReporter(mgr.reporterScope, "endpoint-gc"),
+			HealthReporter: health.GetHealthReporter(mgr.reporterScope, "endpoint-gc"),
 		})
 	return mgr
 }

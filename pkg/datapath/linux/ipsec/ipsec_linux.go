@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fswatcher"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -36,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 type IPSecDir string
@@ -962,7 +962,7 @@ func DeleteIPsecEncryptRoute() {
 	}
 }
 
-func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler datapath.NodeHandler, health cell.HealthReporter) error {
+func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler datapath.NodeHandler, health health.HealthReporter) error {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1019,7 +1019,7 @@ func StartKeyfileWatcher(group job.Group, keyfilePath string, nodeHandler datapa
 		return err
 	}
 
-	group.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.HealthReporter) error {
+	group.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health health.HealthReporter) error {
 		return keyfileWatcher(ctx, watcher, keyfilePath, nodeHandler, health)
 	}))
 

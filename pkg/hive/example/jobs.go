@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/stream"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 // This example shows a number of use cases in one cell. The cell starts by requesting the job.Registry
@@ -51,7 +52,7 @@ func newExampleCell(
 	lifecycle hive.Lifecycle,
 	logger logrus.FieldLogger,
 	registry job.Registry,
-	scope cell.Scope,
+	scope health.Scope,
 ) *exampleCell {
 	ex := exampleCell{
 		jobGroup: registry.NewGroup(
@@ -81,7 +82,7 @@ func newExampleCell(
 	return &ex
 }
 
-func (ex *exampleCell) sync(ctx context.Context, health cell.HealthReporter) error {
+func (ex *exampleCell) sync(ctx context.Context, health health.HealthReporter) error {
 	for i := 0; i < 3; i++ {
 		if err := ex.doSomeWork(); err != nil {
 			return fmt.Errorf("doSomeWork: %w", err)
@@ -91,7 +92,7 @@ func (ex *exampleCell) sync(ctx context.Context, health cell.HealthReporter) err
 	return nil
 }
 
-func (ex *exampleCell) daemon(ctx context.Context, health cell.HealthReporter) error {
+func (ex *exampleCell) daemon(ctx context.Context, health health.HealthReporter) error {
 	for {
 		randomTimeout := time.NewTimer(time.Duration(rand.Intn(3000)) * time.Millisecond)
 		select {
@@ -122,7 +123,7 @@ func (ex *exampleCell) observer(ctx context.Context, event struct{}) error {
 }
 
 func (ex *exampleCell) HeavyLifting() {
-	ex.jobGroup.Add(job.OneShot("long-running-job", func(ctx context.Context, health cell.HealthReporter) error {
+	ex.jobGroup.Add(job.OneShot("long-running-job", func(ctx context.Context, health health.HealthReporter) error {
 		for i := 0; i < 1_000_000; i++ {
 			// Do some heavy lifting
 		}

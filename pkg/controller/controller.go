@@ -11,11 +11,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 const (
@@ -66,7 +66,7 @@ type ControllerParams struct {
 	// resource identifier in order to limit metrics cardinality.
 	Group Group
 
-	HealthReporter cell.HealthReporter
+	HealthReporter health.HealthReporter
 
 	// DoFunc is the function that will be run until it succeeds and/or
 	// using the interval RunInterval if not 0.
@@ -369,7 +369,7 @@ func (c *controller) getLogger() *logrus.Entry {
 
 // recordError updates all statistic collection variables on error
 // c.mutex must be held.
-func (c *controller) recordError(err error, hr cell.HealthReporter) {
+func (c *controller) recordError(err error, hr health.HealthReporter) {
 	if hr != nil {
 		hr.Degraded(c.name, err)
 	}
@@ -387,7 +387,7 @@ func (c *controller) recordError(err error, hr cell.HealthReporter) {
 
 // recordSuccess updates all statistic collection variables on success
 // c.mutex must be held.
-func (c *controller) recordSuccess(hr cell.HealthReporter) {
+func (c *controller) recordSuccess(hr health.HealthReporter) {
 	if hr != nil {
 		hr.OK(c.name)
 	}

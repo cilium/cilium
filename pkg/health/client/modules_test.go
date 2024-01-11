@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/health/client"
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 func TestGetAndFormatModulesHealth(t *testing.T) {
@@ -83,14 +83,14 @@ func (m *testMHappy) GetHealth(params *daemon.GetHealthParams, opts ...daemon.Cl
 			Modules: []*models.ModuleHealth{
 				{
 					ModuleID:    "m1",
-					Level:       string(cell.StatusOK),
+					Level:       string(health.StatusOK),
 					Message:     makeSimpleMsg(t1),
 					LastOk:      "3s",
 					LastUpdated: "2s",
 				},
 				{
 					ModuleID:    "a.b.c",
-					Level:       string(cell.StatusDegraded),
+					Level:       string(health.StatusDegraded),
 					Message:     makeComplexMsg(t2),
 					LastOk:      "5m30s",
 					LastUpdated: "20s",
@@ -101,9 +101,9 @@ func (m *testMHappy) GetHealth(params *daemon.GetHealthParams, opts ...daemon.Cl
 }
 
 func makeSimpleMsg(t time.Time) string {
-	s := cell.StatusNode{
+	s := health.StatusNode{
 		Name:            "m1",
-		LastLevel:       cell.StatusOK,
+		LastLevel:       health.StatusOK,
 		UpdateTimestamp: t,
 		Message:         "status nominal",
 	}
@@ -113,26 +113,26 @@ func makeSimpleMsg(t time.Time) string {
 }
 
 func makeComplexMsg(t time.Time) string {
-	s := cell.StatusNode{
+	s := health.StatusNode{
 		Name:      "a.b.c",
-		LastLevel: cell.StatusOK,
+		LastLevel: health.StatusOK,
 		Count:     1,
-		SubStatuses: []*cell.StatusNode{
+		SubStatuses: []*health.StatusNode{
 			{
 				Name:      "fred",
-				LastLevel: cell.StatusOK,
+				LastLevel: health.StatusOK,
 				Count:     1,
-				SubStatuses: []*cell.StatusNode{
+				SubStatuses: []*health.StatusNode{
 					{
 						Name:            "blee",
-						LastLevel:       cell.StatusOK,
+						LastLevel:       health.StatusOK,
 						Message:         "doh",
 						UpdateTimestamp: t,
 						Count:           1,
 					},
 					{
 						Name:            "fred",
-						LastLevel:       cell.StatusOK,
+						LastLevel:       health.StatusOK,
 						Message:         "yo",
 						UpdateTimestamp: t,
 						Count:           1,
@@ -141,7 +141,7 @@ func makeComplexMsg(t time.Time) string {
 			},
 			{
 				Name:            "dork",
-				LastLevel:       cell.StatusDegraded,
+				LastLevel:       health.StatusDegraded,
 				Message:         "bozo",
 				Count:           1,
 				Error:           fmt.Errorf("BOOM!").Error(),

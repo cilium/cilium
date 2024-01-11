@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 var (
@@ -79,7 +80,7 @@ type ControllerParams struct {
 	cell.In
 
 	Lifecycle               hive.Lifecycle
-	Scope                   cell.Scope
+	Scope                   health.Scope
 	JobRegistry             job.Registry
 	Shutdowner              hive.Shutdowner
 	Sig                     *signaler.BGPCPSignaler
@@ -118,7 +119,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 	)
 
 	jobGroup.Add(
-		job.OneShot("bgp-policy-observer", func(ctx context.Context, health cell.HealthReporter) (err error) {
+		job.OneShot("bgp-policy-observer", func(ctx context.Context, health health.HealthReporter) (err error) {
 			for ev := range c.PolicyResource.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert, resource.Delete:
@@ -130,7 +131,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 			return nil
 		}),
 
-		job.OneShot("cilium-node-observer", func(ctx context.Context, health cell.HealthReporter) (err error) {
+		job.OneShot("cilium-node-observer", func(ctx context.Context, health health.HealthReporter) (err error) {
 			for ev := range c.CiliumNodeResource.Events(ctx) {
 				switch ev.Kind {
 				case resource.Upsert:
@@ -144,7 +145,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 			return nil
 		}),
 
-		job.OneShot("bgp-controller", func(ctx context.Context, health cell.HealthReporter) (err error) {
+		job.OneShot("bgp-controller", func(ctx context.Context, health health.HealthReporter) (err error) {
 			// initialize PolicyLister used in the controller
 			policyStore, err := c.PolicyResource.Store(ctx)
 			if err != nil {

@@ -98,6 +98,7 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/vitals/health"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
@@ -1600,6 +1601,7 @@ var daemonCell = cell.Module(
 	"daemon",
 	"Legacy Daemon",
 
+	health.ProvideHealthScope(),
 	cell.Provide(newDaemonPromise),
 	cell.Provide(newRestorerPromise),
 	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
@@ -1645,8 +1647,8 @@ type daemonParams struct {
 	APILimiterSet        *rate.APILimiterSet
 	AuthManager          *auth.AuthManager
 	Settings             cellSettings
-	HealthProvider       cell.Health
-	HealthScope          cell.Scope
+	HealthProvider       health.Health
+	HealthScope          health.Scope
 	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
 	Devices              statedb.Table[*datapathTables.Device]
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.

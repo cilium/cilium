@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cell
+package health
 
 import (
 	"context"
@@ -10,8 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/stream"
+	"github.com/sirupsen/logrus"
 
 	"golang.org/x/exp/maps"
 )
@@ -67,7 +69,7 @@ type Update interface {
 	String() string
 
 	// JSON returns a JSON representation of the update, this is used by the agent
-	// health CLI to unmarshal health status into cell.StatusNode.
+	// health CLI to unmarshal health status into health.StatusNode.
 	JSON() ([]byte, error)
 
 	Timestamp() time.Time
@@ -86,7 +88,7 @@ type Health interface {
 
 	// Get returns a copy of a modules status, by module ID.
 	// This includes unknown status for modules that have not reported a status yet.
-	Get(FullModuleID) (Status, error)
+	Get(cell.FullModuleID) (Status, error)
 
 	// Stats returns a map of the number of module statuses reported by level.
 	Stats() map[Level]uint64
@@ -98,7 +100,7 @@ type Health interface {
 	Subscribe(context.Context, func(Update), func(error))
 
 	// forModule creates a moduleID scoped reporter handle.
-	forModule(FullModuleID) statusNodeReporter
+	forModule(cell.FullModuleID) statusNodeReporter
 
 	// processed returns the number of updates processed.
 	processed() uint64
@@ -106,7 +108,7 @@ type Health interface {
 
 type StatusResult struct {
 	Update
-	FullModuleID FullModuleID
+	FullModuleID cell.FullModuleID
 	Stopped      bool
 }
 
@@ -115,7 +117,7 @@ type Status struct {
 	// Update is the last reported update for a module.
 	Update
 
-	FullModuleID FullModuleID
+	FullModuleID cell.FullModuleID
 
 	// Stopped is true when a module has been completed, thus it contains
 	// its last reporter status. New updates will not be processed.
@@ -184,7 +186,7 @@ func (p *healthProvider) updateMetricsLocked(prev Update, curr Level) {
 	}
 }
 
-func (p *healthProvider) process(id FullModuleID, u Update) {
+func (p *healthProvider) process(id cell.FullModuleID, u Update) {
 	prev := func() Status {
 		p.mu.Lock()
 		defer p.mu.Unlock()
@@ -223,6 +225,8 @@ func (p *healthProvider) process(id FullModuleID, u Update) {
 	}
 }
 
+var log = logrus.New().WithField("subsys", "health-vitals")
+
 // Finish stops the status provider, and waits for all updates to be processed or
 // returns an error if the context is cancelled first.
 func (p *healthProvider) Stop(ctx context.Context) error {
@@ -237,7 +241,7 @@ var NoStatus = &StatusNode{Message: "No status reported", LastLevel: StatusUnkno
 
 // forModule returns a module scoped status reporter handle for emitting status updates.
 // This is used to automatically provide declared modules with a status reported.
-func (p *healthProvider) forModule(moduleID FullModuleID) statusNodeReporter {
+func (p *healthProvider) forModule(moduleID cell.FullModuleID) statusNodeReporter {
 	p.mu.Lock()
 	p.moduleStatuses[moduleID.String()] = Status{
 		FullModuleID: moduleID,
@@ -264,7 +268,7 @@ func (p *healthProvider) All() []Status {
 }
 
 // Get returns the latest status for a module, by module ID.
-func (p *healthProvider) Get(moduleID FullModuleID) (Status, error) {
+func (p *healthProvider) Get(moduleID cell.FullModuleID) (Status, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	s, ok := p.moduleStatuses[moduleID.String()]
@@ -298,8 +302,8 @@ type healthProvider struct {
 
 // reporter is a handle for emitting status updates.
 type reporter struct {
-	moduleID FullModuleID
-	process  func(FullModuleID, Update)
+	moduleID cell.FullModuleID
+	process  func(cell.FullModuleID, Update)
 }
 
 // Degraded reports a degraded status update, should be used when a module encounters a

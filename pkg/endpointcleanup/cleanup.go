@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 type localEndpointCache interface {
@@ -43,7 +44,7 @@ type params struct {
 	Logger              logrus.FieldLogger
 	Lifecycle           hive.Lifecycle
 	JobRegistry         job.Registry
-	Scope               cell.Scope
+	Scope               health.Scope
 	CiliumEndpoint      resource.Resource[*types.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	Clientset           k8sClient.Clientset
@@ -86,7 +87,7 @@ func registerCleanup(p params) {
 	)
 
 	jobGroup.Add(
-		job.OneShot("endpoint-cleanup", func(ctx context.Context, health cell.HealthReporter) error {
+		job.OneShot("endpoint-cleanup", func(ctx context.Context, health health.HealthReporter) error {
 			return cleanup.run(ctx)
 		}),
 	)

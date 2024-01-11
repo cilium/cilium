@@ -93,32 +93,6 @@ func New(cells ...cell.Cell) *Hive {
 		log.WithError(err).Fatal("Failed to apply Hive metrics cell")
 	}
 
-	// Use a single health provider for all cells, which is used to create
-	// module scoped health reporters.
-	if err := h.container.Provide(func(healthMetrics *metrics.HealthMetrics, lc Lifecycle) cell.Health {
-		hp := cell.NewHealthProvider()
-		updateStats := func() {
-			for l, c := range hp.Stats() {
-				healthMetrics.HealthStatusGauge.WithLabelValues(strings.ToLower(string(l))).Set(float64(c))
-			}
-		}
-		lc.Append(Hook{
-			OnStart: func(ctx HookContext) error {
-				updateStats()
-				hp.Subscribe(ctx, func(u cell.Update) {
-					updateStats()
-				}, func(err error) {})
-				return nil
-			},
-			OnStop: func(ctx HookContext) error {
-				return hp.Stop(ctx)
-			},
-		})
-		return hp
-	}); err != nil {
-		log.WithError(err).Fatal("Failed to provide health provider")
-	}
-
 	// Apply all cells to the container. This registers all constructors
 	// and adds all config flags. Invokes are delayed until Start() is
 	// called.

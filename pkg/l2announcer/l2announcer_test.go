@@ -24,6 +24,7 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/vitals/health"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -49,14 +50,14 @@ func newFixture() *fixture {
 		tbl statedb.RWTable[*tables.L2AnnounceEntry]
 		db  *statedb.DB
 		jr  job.Registry
-		sk  cell.Scope
+		sk  health.Scope
 	)
 
 	hive.New(
 		statedb.Cell,
 		job.Cell,
 		cell.Provide(tables.NewL2AnnounceTable),
-		cell.Module("test", "test", cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], s cell.Scope, j job.Registry) {
+		cell.Module("test", "test", cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], s health.Scope, j job.Registry) {
 			d.RegisterTable(t)
 			db = d
 			tbl = t

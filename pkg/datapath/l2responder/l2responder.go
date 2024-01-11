@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/vitals/health"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -55,7 +56,7 @@ type params struct {
 	L2ResponderMap      l2respondermap.Map
 	NetLink             linkByNamer
 	JobRegistry         job.Registry
-	Scope               cell.Scope
+	Scope               health.Scope
 }
 
 type linkByNamer interface {
@@ -86,7 +87,7 @@ func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 	return &reconciler
 }
 
-func (p *l2ResponderReconciler) run(ctx context.Context, health cell.HealthReporter) error {
+func (p *l2ResponderReconciler) run(ctx context.Context, health health.HealthReporter) error {
 	log := p.params.Logger
 
 	// This timer triggers full reconciliation once in a while, in case partial reconciliation

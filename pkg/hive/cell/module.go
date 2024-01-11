@@ -10,9 +10,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	"go.uber.org/dig"
 
-	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -83,26 +81,6 @@ func (m *module) fullModuleID(parent FullModuleID) FullModuleID {
 	return parent.append(m.moduleID())
 }
 
-type reporterHooks struct {
-	rootScope *scope
-}
-
-func (r *reporterHooks) Start(ctx lifecycle.HookContext) error {
-	r.rootScope.start()
-	return nil
-}
-
-func (r *reporterHooks) Stop(ctx lifecycle.HookContext) error {
-	flushAndClose(r.rootScope, "Hive shutting down")
-	return nil
-}
-
-func createStructedScope(id FullModuleID, p Health, lc lifecycle.Lifecycle) Scope {
-	rs := rootScope(id, p.forModule(id))
-	lc.Append(&reporterHooks{rootScope: rs})
-	return rs
-}
-
 func (m *module) Apply(c container) error {
 	scope := c.Scope(m.id)
 
@@ -111,12 +89,6 @@ func (m *module) Apply(c container) error {
 		return err
 	}
 	if err := scope.Decorate(m.fullModuleID); err != nil {
-		return err
-	}
-
-	// Provide module scoped status reporter, used for reporting module level
-	// health status.
-	if err := scope.Provide(createStructedScope, dig.Export(false)); err != nil {
 		return err
 	}
 

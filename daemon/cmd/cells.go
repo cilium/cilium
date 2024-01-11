@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/vitals"
 )
 
 var (
@@ -108,6 +109,8 @@ var (
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
+
+		vitals.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure

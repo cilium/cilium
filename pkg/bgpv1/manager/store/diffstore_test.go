@@ -18,6 +18,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 type DiffStoreFixture struct {
@@ -63,7 +64,7 @@ func newDiffStoreFixture() *DiffStoreFixture {
 		cell.Provide(NewDiffStore[*slimv1.Service]),
 
 		job.Cell,
-		cell.Provide(func() cell.Scope {
+		cell.Provide(func() health.Scope {
 			return cell.TestScope()
 		}),
 	)

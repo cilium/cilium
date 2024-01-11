@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 // Cell provides the NodeManager, which manages information about Cilium nodes
@@ -80,7 +81,7 @@ func newAllNodeManager(
 	ipCache *ipcache.IPCache,
 	ipsetMgr ipsetManager,
 	nodeMetrics *nodeMetrics,
-	healthScope cell.Scope,
+	healthScope health.Scope,
 ) (NodeManager, error) {
 	mngr, err := New(option.Config, ipCache, ipsetMgr, nodeMetrics, healthScope)
 	if err != nil {

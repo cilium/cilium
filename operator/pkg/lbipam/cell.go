@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 var Cell = cell.Module(
@@ -37,7 +38,7 @@ type lbipamCellParams struct {
 
 	LC          hive.Lifecycle
 	JobRegistry job.Registry
-	Scope       cell.Scope
+	Scope       health.Scope
 
 	Clientset    k8sClient.Clientset
 	PoolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
@@ -82,7 +83,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 	})
 
 	jobGroup.Add(
-		job.OneShot("lbipam main", func(ctx context.Context, health cell.HealthReporter) error {
+		job.OneShot("lbipam main", func(ctx context.Context, health health.HealthReporter) error {
 			lbIPAM.Run(ctx, health)
 			return nil
 		}),

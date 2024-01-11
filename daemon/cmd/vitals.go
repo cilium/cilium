@@ -12,7 +12,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/health/client"
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 type getHealth struct {
@@ -49,7 +49,7 @@ func (d *Daemon) getHealthReport() (models.ModulesHealth, error) {
 
 // Helpers...
 
-func toModuleHealth(m cell.Status) (*models.ModuleHealth, error) {
+func toModuleHealth(m health.Status) (*models.ModuleHealth, error) {
 	d, err := m.JSON()
 	if err != nil {
 		return nil, err

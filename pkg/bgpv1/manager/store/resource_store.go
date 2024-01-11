@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/vitals/health"
 
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
@@ -35,7 +36,7 @@ type bgpCPResourceStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
 	Lifecycle   hive.Lifecycle
-	Scope       cell.Scope
+	Scope       health.Scope
 	JobRegistry job.Registry
 	Resource    resource.Resource[T]
 	Signaler    *signaler.BGPCPSignaler
@@ -68,7 +69,7 @@ func NewBGPCPResourceStore[T k8sRuntime.Object](params bgpCPResourceStoreParams[
 	)
 
 	jobGroup.Add(
-		job.OneShot("bgpcp-resource-store-events", func(ctx context.Context, health cell.HealthReporter) (err error) {
+		job.OneShot("bgpcp-resource-store-events", func(ctx context.Context, health health.HealthReporter) (err error) {
 			s.store, err = s.resource.Store(ctx)
 			if err != nil {
 				return fmt.Errorf("error creating resource store: %w", err)

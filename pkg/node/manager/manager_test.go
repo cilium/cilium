@@ -30,6 +30,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 func Test(t *testing.T) {
@@ -893,11 +894,11 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	go func() {
 		<-nh1.NodeValidateImplementationEvent
 		u := <-update
-		assert.Equal(u.Level(), cell.StatusDegraded)
+		assert.Equal(u.Level(), health.StatusDegraded)
 		nh1.NodeValidateImplementationEventError = nil
 		<-nh1.NodeValidateImplementationEvent
 		u = <-update
-		assert.Equal(u.Level(), cell.StatusOK)
+		assert.Equal(u.Level(), health.StatusOK)
 		close(done)
 	}()
 	// Start the manager

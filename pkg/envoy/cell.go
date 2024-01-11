@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 // Cell initializes and manages the Envoy proxy and its control-plane components like xDS- and accesslog server.
@@ -126,7 +127,7 @@ type versionCheckParams struct {
 	Lifecycle        hive.Lifecycle
 	Logger           logrus.FieldLogger
 	JobRegistry      job.Registry
-	Scope            cell.Scope
+	Scope            health.Scope
 	EnvoyAdminClient *EnvoyAdminClient
 }
 

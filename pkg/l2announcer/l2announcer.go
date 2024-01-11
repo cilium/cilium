@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -76,7 +77,7 @@ type l2AnnouncerParams struct {
 	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB              *statedb.DB
 	JobRegistry          job.Registry
-	Scope                cell.Scope
+	Scope                health.Scope
 }
 
 // L2Announcer takes all L2 announcement policies and filters down to those that match the labels of the local node. It
@@ -156,7 +157,7 @@ func (l2a *L2Announcer) DevicesChanged(devices []string) {
 	}
 }
 
-func (l2a *L2Announcer) run(ctx context.Context, health cell.HealthReporter) error {
+func (l2a *L2Announcer) run(ctx context.Context, health health.HealthReporter) error {
 	var err error
 	l2a.svcStore, err = l2a.params.Services.Store(ctx)
 	if err != nil {
@@ -241,7 +242,7 @@ loop:
 
 // Called periodically to garbage collect any leases which are no longer held by any agent.
 // This is needed since agents do not track leases for services that we no longer select.
-func (l2a *L2Announcer) leaseGC(ctx context.Context, health cell.HealthReporter) error {
+func (l2a *L2Announcer) leaseGC(ctx context.Context, health health.HealthReporter) error {
 	leaseClient := l2a.params.Clientset.CoordinationV1().Leases(l2a.leaseNamespace())
 	list, err := leaseClient.List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -1094,7 +1095,7 @@ type selectedService struct {
 	done   chan struct{}
 }
 
-func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cell.HealthReporter) error {
+func (ss *selectedService) serviceLeaderElection(ctx context.Context, health health.HealthReporter) error {
 	defer close(ss.done)
 
 	ss.ctx, ss.cancel = context.WithCancel(ctx)

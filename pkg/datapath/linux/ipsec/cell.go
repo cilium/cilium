@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 // The IPsec key custodian handles key-related initialisation tasks for the
@@ -32,7 +33,7 @@ type custodianParameters struct {
 	cell.In
 
 	Logger         logrus.FieldLogger
-	Scope          cell.Scope
+	Scope          health.Scope
 	JobRegistry    job.Registry
 	LocalNodeStore *node.LocalNodeStore
 }

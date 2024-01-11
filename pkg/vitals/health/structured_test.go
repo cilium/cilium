@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cell
+package health
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -22,7 +23,7 @@ func init() {
 }
 
 func createRoot(hr statusNodeReporter) (Scope, func()) {
-	s := rootScope(FullModuleID{"root.foo"}, hr)
+	s := rootScope(cell.FullModuleID{"root.foo"}, hr)
 	s.start()
 	return s, func() {
 		flushAndClose(s, "test is done")

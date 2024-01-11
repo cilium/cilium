@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 var Hive = hive.New(
@@ -43,7 +44,7 @@ func main() {
 	}
 }
 
-func reportHealth(health cell.Health, log logrus.FieldLogger, scope cell.Scope, jobs job.Registry, lc hive.Lifecycle) {
+func reportHealth(health health.Health, log logrus.FieldLogger, scope health.Scope, jobs job.Registry, lc hive.Lifecycle) {
 	g := jobs.NewGroup(scope)
 	reportHealth := func(ctx context.Context) error {
 		for _, status := range health.All() {

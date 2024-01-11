@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 var reconcilerCell = cell.Module(
@@ -34,8 +35,8 @@ type reconcilerParams struct {
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger
 	Registry  job.Registry
-	Scope     cell.Scope
-	Reporter  cell.HealthReporter
+	Scope     health.Scope
+	Reporter  health.HealthReporter
 }
 
 func registerReconciler(p reconcilerParams) {
@@ -54,7 +55,7 @@ type reconciler struct {
 	handle *backendsHandle
 }
 
-func (r *reconciler) reconcileLoop(ctx context.Context, health cell.HealthReporter) error {
+func (r *reconciler) reconcileLoop(ctx context.Context, health health.HealthReporter) error {
 	defer r.Reporter.Stopped("Stopped")
 
 	wtxn := r.DB.WriteTxn(r.Backends)

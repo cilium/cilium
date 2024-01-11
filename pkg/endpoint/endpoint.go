@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -58,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 const (
@@ -386,16 +386,16 @@ type Endpoint struct {
 	ciliumEndpointUID k8sTypes.UID
 
 	// Root scope for all of this endpoints reporters.
-	reporterScope       cell.Scope
+	reporterScope       health.Scope
 	closeHealthReporter func()
 }
 
-func (e *Endpoint) GetReporter(name string) cell.HealthReporter {
-	return cell.GetHealthReporter(e.reporterScope, name)
+func (e *Endpoint) GetReporter(name string) health.HealthReporter {
+	return health.GetHealthReporter(e.reporterScope, name)
 }
 
-func (e *Endpoint) InitEndpointScope(parent cell.Scope) {
-	s := cell.GetSubScope(parent, fmt.Sprintf("cilium-endpoint-%d (%s)", e.ID, e.GetK8sNamespaceAndPodName()))
+func (e *Endpoint) InitEndpointScope(parent health.Scope) {
+	s := health.GetSubScope(parent, fmt.Sprintf("cilium-endpoint-%d (%s)", e.ID, e.GetK8sNamespaceAndPodName()))
 	if s != nil {
 		e.closeHealthReporter = s.Close
 		e.reporterScope = s

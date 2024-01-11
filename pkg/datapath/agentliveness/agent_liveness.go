@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -45,7 +46,7 @@ func newAgentLivenessUpdater(
 	logger logrus.FieldLogger,
 	lifecycle hive.Lifecycle,
 	jobRegistry job.Registry,
-	scope cell.Scope,
+	scope health.Scope,
 	configMap configmap.Map,
 	agentLivenessConfig agentLivenessConfig,
 ) {

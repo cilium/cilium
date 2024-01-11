@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 // Cell provides AuthManager which is responsible for request authentication.
@@ -75,7 +76,7 @@ type authManagerParams struct {
 	Logger      logrus.FieldLogger
 	Lifecycle   hive.Lifecycle
 	JobRegistry job.Registry
-	Scope       cell.Scope
+	Scope       health.Scope
 
 	Config       config
 	AuthMap      authmap.Map

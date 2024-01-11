@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 const (
@@ -48,7 +48,7 @@ func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
 			return resp.Payload.Modules[i].ModuleID < resp.Payload.Modules[j].ModuleID
 		})
 		for _, m := range resp.Payload.Modules {
-			if m.Level == string(cell.StatusUnknown) {
+			if m.Level == string(health.StatusUnknown) {
 				continue
 			}
 			if err := buildTree(r, m.Message); err != nil {
@@ -58,24 +58,24 @@ func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
 		fmt.Fprintln(w, "\n"+r.String())
 		return
 	}
-	tally := make(map[cell.Level]int, 4)
+	tally := make(map[health.Level]int, 4)
 	for _, m := range resp.Payload.Modules {
-		tally[cell.Level(m.Level)] += 1
+		tally[health.Level(m.Level)] += 1
 	}
 	fmt.Fprintf(w, "\t%s(%d) %s(%d) %s(%d) %s(%d)\n",
-		cell.StatusStopped,
-		tally[cell.StatusStopped],
-		cell.StatusDegraded,
-		tally[cell.StatusDegraded],
-		cell.StatusOK,
-		tally[cell.StatusOK],
-		cell.StatusUnknown,
-		tally[cell.StatusUnknown],
+		health.StatusStopped,
+		tally[health.StatusStopped],
+		health.StatusDegraded,
+		tally[health.StatusDegraded],
+		health.StatusOK,
+		tally[health.StatusOK],
+		health.StatusUnknown,
+		tally[health.StatusUnknown],
 	)
 }
 
 func buildTree(n *node, raw string) error {
-	var sn cell.StatusNode
+	var sn health.StatusNode
 	if err := json.Unmarshal([]byte(raw), &sn); err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func ensurePath(n *node, pp []string) *node {
 	return current
 }
 
-func build(n *node, sn *cell.StatusNode) {
+func build(n *node, sn *health.StatusNode) {
 	meta := fmt.Sprintf("[%s] %s", strings.ToUpper(string(sn.LastLevel)), sn.Message)
 	if sn.Error != "" {
 		meta += " -- " + sn.Error

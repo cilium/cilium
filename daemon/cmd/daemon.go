@@ -49,7 +49,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -91,6 +90,7 @@ import (
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
+	vitalsHealth "github.com/cilium/cilium/pkg/vitals/health"
 )
 
 const (
@@ -216,7 +216,7 @@ type Daemon struct {
 	settings cellSettings
 
 	// enable modules health support
-	healthProvider cell.Health
+	healthProvider vitalsHealth.Health
 
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config

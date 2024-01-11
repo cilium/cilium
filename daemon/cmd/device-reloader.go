@@ -16,13 +16,14 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 type deviceReloaderParams struct {
 	cell.In
 
 	Jobs          job.Registry
-	Scope         cell.Scope
+	Scope         health.Scope
 	DB            *statedb.DB
 	Daemon        promise.Promise[*Daemon]
 	Config        *option.DaemonConfig

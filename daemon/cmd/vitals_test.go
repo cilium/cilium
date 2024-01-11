@@ -12,11 +12,12 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 func TestVitalsToModuleHealth(t *testing.T) {
 	uu := map[string]struct {
-		s cell.Status
+		s health.Status
 		e *models.ModuleHealth
 	}{
 		"empty": {
@@ -25,12 +26,12 @@ func TestVitalsToModuleHealth(t *testing.T) {
 				LastUpdated: "n/a",
 				Level:       "Unknown",
 			},
-			s: cell.Status{},
+			s: health.Status{},
 		},
 		"happy": {
-			s: cell.Status{
+			s: health.Status{
 				FullModuleID: cell.FullModuleID{"fred"},
-				Update:       mockUpdate{"blee", cell.StatusOK},
+				Update:       mockUpdate{"blee", health.StatusOK},
 				Stopped:      true,
 			},
 			e: &models.ModuleHealth{

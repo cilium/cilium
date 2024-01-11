@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/stream"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 // Cell provides job.Registry which constructs job.Group-s. Job groups automate a lot of the logic involved with
@@ -39,9 +40,9 @@ var Cell = cell.Module(
 // centralized like metrics.
 type Registry interface {
 	// NewGroup creates a new group of jobs which can be started and stopped together as part of the cells lifecycle.
-	// The provided scope is used to report health status of the jobs. A `cell.Scope` can be obtained via injection
+	// The provided scope is used to report health status of the jobs. A `health.Scope` can be obtained via injection
 	// an object with the correct scope is provided by the closest `cell.Module`.
-	NewGroup(scope cell.Scope, opts ...groupOpt) Group
+	NewGroup(scope health.Scope, opts ...groupOpt) Group
 }
 
 type registry struct {
@@ -68,7 +69,7 @@ func newRegistry(
 
 // NewGroup creates a new Group with the given `opts` options, which allows you to customize the behavior for the
 // group as a whole. For example by allowing you to add pprof labels to the group or by customizing the logger.
-func (c *registry) NewGroup(scope cell.Scope, opts ...groupOpt) Group {
+func (c *registry) NewGroup(scope health.Scope, opts ...groupOpt) Group {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -106,7 +107,7 @@ type Group interface {
 // Job in an interface that describes a unit of work which can be added to a Group. This interface contains unexported
 // methods and thus can only be implemented by functions in this package such as OneShot, Timer, or Observer.
 type Job interface {
-	start(ctx context.Context, wg *sync.WaitGroup, scope cell.Scope, options options)
+	start(ctx context.Context, wg *sync.WaitGroup, scope health.Scope, options options)
 }
 
 type group struct {
@@ -119,7 +120,7 @@ type group struct {
 	cancel     context.CancelFunc
 	queuedJobs []Job
 
-	scope cell.Scope
+	scope health.Scope
 }
 
 type options struct {
@@ -194,7 +195,7 @@ func (jg *group) Add(jobs ...Job) {
 	jg.add(jg.scope, jobs...)
 }
 
-func (jg *group) add(scope cell.Scope, jobs ...Job) {
+func (jg *group) add(scope health.Scope, jobs ...Job) {
 	jg.mu.Lock()
 	defer jg.mu.Unlock()
 
@@ -216,7 +217,7 @@ func (jg *group) add(scope cell.Scope, jobs ...Job) {
 func (jg *group) Scoped(name string) ScopedGroup {
 	return &scopedGroup{
 		group: jg,
-		scope: cell.GetSubScope(jg.scope, name),
+		scope: health.GetSubScope(jg.scope, name),
 	}
 }
 
@@ -226,7 +227,7 @@ type ScopedGroup interface {
 
 type scopedGroup struct {
 	group *group
-	scope cell.Scope
+	scope health.Scope
 }
 
 func (sg *scopedGroup) Add(jobs ...Job) {
@@ -284,14 +285,14 @@ func WithMetrics() jobOneShotOpt {
 
 // OneShotFunc is the function type which is invoked by a one shot job. The given function is expected to exit as soon
 // as the context given to it expires, this is especially important for blocking or long running jobs.
-type OneShotFunc func(ctx context.Context, health cell.HealthReporter) error
+type OneShotFunc func(ctx context.Context, health health.HealthReporter) error
 
 type jobOneShot struct {
 	name string
 	fn   OneShotFunc
 	opts []jobOneShotOpt
 
-	health cell.HealthReporter
+	health health.HealthReporter
 
 	// If retry > 0, retry on error x times.
 	retry           int
@@ -300,14 +301,14 @@ type jobOneShot struct {
 	metrics         bool
 }
 
-func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, scope cell.Scope, options options) {
+func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, scope health.Scope, options options) {
 	defer wg.Done()
 
 	for _, opt := range jos.opts {
 		opt(jos)
 	}
 
-	jos.health = cell.GetHealthReporter(scope, "job-"+jos.name)
+	jos.health = health.GetHealthReporter(scope, "job-"+jos.name)
 	defer jos.health.Stopped("one-shot job done")
 
 	l := options.logger.WithFields(logrus.Fields{
@@ -435,7 +436,7 @@ type jobTimer struct {
 	fn   TimerFunc
 	opts []timerOpt
 
-	health cell.HealthReporter
+	health health.HealthReporter
 
 	interval time.Duration
 	trigger  *trigger
@@ -444,14 +445,14 @@ type jobTimer struct {
 	shutdown hive.Shutdowner
 }
 
-func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, scope cell.Scope, options options) {
+func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, scope health.Scope, options options) {
 	defer wg.Done()
 
 	for _, opt := range jt.opts {
 		opt(jt)
 	}
 
-	jt.health = cell.GetHealthReporter(scope, "timer-job-"+jt.name)
+	jt.health = health.GetHealthReporter(scope, "timer-job-"+jt.name)
 
 	l := options.logger.WithFields(logrus.Fields{
 		"name": jt.name,
@@ -540,7 +541,7 @@ type jobObserver[T any] struct {
 	fn   ObserverFunc[T]
 	opts []observerOpt[T]
 
-	health cell.HealthReporter
+	health health.HealthReporter `optional:"true"` // TODO: <-- try this without this
 
 	observable stream.Observable[T]
 
@@ -548,14 +549,14 @@ type jobObserver[T any] struct {
 	shutdown hive.Shutdowner
 }
 
-func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, scope cell.Scope, options options) {
+func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, scope health.Scope, options options) {
 	defer wg.Done()
 
 	for _, opt := range jo.opts {
 		opt(jo)
 	}
 
-	jo.health = cell.GetHealthReporter(scope, "observer-job-"+jo.name)
+	jo.health = health.GetHealthReporter(scope, "observer-job-"+jo.name)
 	reportTicker := time.NewTicker(10 * time.Second)
 	defer reportTicker.Stop()
 

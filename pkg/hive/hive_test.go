@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 type Config struct {
@@ -372,8 +373,8 @@ func TestProvideHealthReporter(t *testing.T) {
 	testCell := cell.Module(
 		"test",
 		"Test Module",
-		cell.Invoke(func(s cell.Scope) {
-			hr := cell.GetHealthReporter(s, "test")
+		cell.Invoke(func(s health.Scope) {
+			hr := health.GetHealthReporter(s, "test")
 			hr.OK("all good")
 			hr.Stopped("stopped")
 		}),
@@ -381,23 +382,23 @@ func TestProvideHealthReporter(t *testing.T) {
 	testCell2 := cell.Module(
 		"test2",
 		"Test Module 2",
-		cell.Invoke(func(s cell.Scope) {
-			hr := cell.GetHealthReporter(s, "test")
+		cell.Invoke(func(s health.Scope) {
+			hr := health.GetHealthReporter(s, "test")
 			hr.Degraded("degraded", nil)
 		}),
 	)
 	unknown := cell.Module(
 		"unknown",
 		"Reports no status",
-		cell.Invoke(func(s cell.Scope) {}),
+		cell.Invoke(func(s health.Scope) {}),
 	)
 
-	var chp cell.Health
+	var chp health.Health
 	h := hive.New(
 		testCell,
 		testCell2,
 		unknown,
-		cell.Invoke(func(lc hive.Lifecycle, _ hive.Shutdowner, hp cell.Health) {
+		cell.Invoke(func(lc hive.Lifecycle, _ hive.Shutdowner, hp health.Health) {
 			lc.Append(hive.Hook{
 				OnStop: func(hive.HookContext) error {
 					chp = hp
@@ -415,12 +416,12 @@ func TestProvideHealthReporter(t *testing.T) {
 	s3, err := chp.Get(cell.FullModuleID{"unknown"})
 	assert.NoError(t, err)
 	assert.Len(t, chp.All(), 3, "expected two health reports")
-	assert.Equal(t, cell.StatusOK, s1.Level())
+	assert.Equal(t, health.StatusOK, s1.Level())
 
 	//assert.Equal(t, s1.FullModuleID, cell.FullModuleID{"test"})
-	assert.Equal(t, cell.StatusDegraded, s2.Level())
+	assert.Equal(t, health.StatusDegraded, s2.Level())
 	//assert.Equal(t, s2.FullModuleID, cell.FullModuleID{"test2"})
-	assert.Equal(t, cell.StatusUnknown, s3.Level())
+	assert.Equal(t, health.StatusUnknown, s3.Level())
 }
 
 func TestGroup(t *testing.T) {

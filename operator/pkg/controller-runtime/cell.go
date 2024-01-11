@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 // Cell integrates the components of the controller-runtime library into Hive.
@@ -55,7 +56,7 @@ type managerParams struct {
 	Logger      logrus.FieldLogger
 	Lifecycle   hive.Lifecycle
 	JobRegistry job.Registry
-	Scope       cell.Scope
+	Scope       health.Scope
 
 	K8sClient client.Clientset
 	Scheme    *runtime.Scheme
@@ -92,7 +93,7 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		job.WithPprofLabels(pprof.Labels("cell", "controller-runtime")),
 	)
 
-	jobGroup.Add(job.OneShot("manager", func(ctx context.Context, health cell.HealthReporter) error {
+	jobGroup.Add(job.OneShot("manager", func(ctx context.Context, health health.HealthReporter) error {
 		return mgr.Start(ctx)
 	}))
 

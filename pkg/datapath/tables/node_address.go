@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 // NodeAddress is an IP address assigned to a network interface on a Cilium node
@@ -170,7 +171,7 @@ func (NodeAddressConfig) Flags(flags *pflag.FlagSet) {
 type nodeAddressControllerParams struct {
 	cell.In
 
-	HealthScope     cell.Scope
+	HealthScope     health.Scope
 	Log             logrus.FieldLogger
 	Config          NodeAddressConfig
 	Lifecycle       hive.Lifecycle
@@ -235,7 +236,7 @@ func (n *nodeAddressController) register() {
 
 }
 
-func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthReporter) error {
+func (n *nodeAddressController) run(ctx context.Context, reporter health.HealthReporter) error {
 	defer n.tracker.Close()
 
 	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
@@ -270,7 +271,7 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 }
 
 // updates the node addresses of a single device.
-func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.Set[NodeAddress], reporter cell.HealthReporter, device string) {
+func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.Set[NodeAddress], reporter health.HealthReporter, device string) {
 	updated := false
 	prefixLen := len(device)
 

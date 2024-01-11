@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cell
+package health
 
 import (
 	"bytes"
@@ -17,6 +17,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 
@@ -106,17 +107,17 @@ func GetHealthReporter(parent Scope, name string) HealthReporter {
 
 // TestScope exposes creating a root scope for testing purposes only.
 func TestScope() Scope {
-	return TestScopeFromProvider(FullModuleID{"test"}, NewHealthProvider())
+	return TestScopeFromProvider(cell.FullModuleID{"test"}, NewHealthProvider())
 }
 
 // TestScope exposes creating a root scope from a health provider for testing purposes only.
-func TestScopeFromProvider(moduleID FullModuleID, hp Health) Scope {
+func TestScopeFromProvider(moduleID cell.FullModuleID, hp Health) Scope {
 	s := rootScope(moduleID, hp.forModule(moduleID))
 	s.start()
 	return s
 }
 
-func rootScope(id FullModuleID, hr statusNodeReporter) *scope {
+func rootScope(id cell.FullModuleID, hr statusNodeReporter) *scope {
 	r := &subReporter{
 		base: &subreporterBase{
 			hr:           hr,

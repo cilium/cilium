@@ -62,6 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/vitals"
 )
 
 var (
@@ -111,6 +112,8 @@ var (
 				EnableGatewayAPI: operatorCfg.EnableGatewayAPI,
 			}
 		}),
+
+		vitals.Cell,
 	)
 
 	// ControlPlane implements the control functions.

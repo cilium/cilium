@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
@@ -37,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
 var (
@@ -134,7 +134,7 @@ type manager struct {
 	controllerManager *controller.Manager
 
 	// healthScope reports on the current health status of the node manager module.
-	healthScope cell.Scope
+	healthScope health.Scope
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -242,7 +242,7 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c Configuration, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+func New(c Configuration, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *nodeMetrics, healthScope health.Scope) (*manager, error) {
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
@@ -352,7 +352,7 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 			m.metrics.DatapathValidations.Inc()
 		}
 
-		hr := cell.GetHealthReporter(m.healthScope, "background-sync")
+		hr := health.GetHealthReporter(m.healthScope, "background-sync")
 		if errs != nil {
 			hr.Degraded("Failed to apply node validation", errs)
 		} else {
@@ -596,7 +596,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 				}
 			})
 
-			hr := cell.GetHealthReporter(m.healthScope, "nodes-update")
+			hr := health.GetHealthReporter(m.healthScope, "nodes-update")
 			if errs != nil {
 				hr.Degraded("Failed to update nodes", errs)
 			} else {
@@ -629,7 +629,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			})
 		}
 		entry.mutex.Unlock()
-		hr := cell.GetHealthReporter(m.healthScope, "nodes-add")
+		hr := health.GetHealthReporter(m.healthScope, "nodes-add")
 		if errs != nil {
 			hr.Degraded("Failed to add nodes", errs)
 		} else {
@@ -779,7 +779,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	})
 	entry.mutex.Unlock()
 
-	hr := cell.GetHealthReporter(m.healthScope, "nodes-delete")
+	hr := health.GetHealthReporter(m.healthScope, "nodes-delete")
 	if errs != nil {
 		hr.Degraded("Failed to delete nodes", errs)
 	} else {
