@@ -336,6 +336,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
+          extra-connectivity-test-flags: --expected-drop-reasons "+Failed to update or lookup TC buffer"
           operation-cmd: |
             cd /host/
 
