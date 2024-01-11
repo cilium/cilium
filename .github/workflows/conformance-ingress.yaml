@@ -108,6 +108,10 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+            examples
 
       - name: Create minikube cluster with multiple nodes
         uses: medyagh/setup-minikube@e0505489c98496aff6ed17db0ba68bf7ecadf730 # v0.0.14
@@ -151,7 +155,7 @@ jobs:
 
       - name: Install Cilium
         run: |
-          helm upgrade -i cilium ./install/kubernetes/cilium \
+          helm upgrade -i cilium ./untrusted/install/kubernetes/cilium \
             --wait \
             --namespace kube-system \
             --set kubeProxyReplacement=strict \
@@ -182,7 +186,7 @@ jobs:
         timeout-minutes: 5
         run: |
           kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
-          kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl apply -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
           kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
           lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
