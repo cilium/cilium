@@ -199,7 +199,7 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.image_tag }}
-          chart-dir: './cilium-${{ steps.vars.outputs.downgrade_version }}/install/kubernetes/cilium/'
+          chart-dir: './untrusted/cilium-downgrade/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
@@ -219,7 +219,7 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
-          chart-dir: './install/kubernetes/cilium'
+          chart-dir: './untrusted/cilium-newest/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
@@ -241,14 +241,19 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted/cilium-newest
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
-          path: cilium-${{ steps.vars.outputs.downgrade_version }}
           ref: ${{ steps.vars.outputs.downgrade_version }}
           persist-credentials: false
+          path: untrusted/cilium-downgrade
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium CLI-cli
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
