@@ -67,7 +67,7 @@ jobs:
           #  - iptables-based masquerading does not support multiple non-masquerade
           #    CIDRs. Thus, we enable BPF masquerading where we can add multiple
           #    non-masquerade CIDRs.
-          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=./untrusted/install/kubernetes/cilium \
             --helm-set=debug.enabled=true \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
@@ -117,6 +117,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0

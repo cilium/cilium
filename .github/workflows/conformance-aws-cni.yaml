@@ -144,7 +144,7 @@ jobs:
           # cilium-cli which is setting it to 'eni' because it auto-detects
           # the cluster as being EKS.
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
-            --chart-directory=install/kubernetes/cilium \
+            --chart-directory=./untrusted/install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
@@ -226,6 +226,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium
         run: |

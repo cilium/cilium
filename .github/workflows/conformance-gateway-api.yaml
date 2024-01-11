@@ -110,13 +110,13 @@ jobs:
             SHA="${{ github.sha }}"
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
-          
+
           SUPPORTED_FEATURES="ReferenceGrant,HTTPRoute,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,GatewayClassObservedGenerationBump,HTTPRouteHostRewrite,HTTPRoutePathRewrite,HTTPRouteSchemeRedirect,HTTPRoutePathRedirect,HTTPRoutePortRedirect,HTTPRouteRequestMirror"
           if [ ${{ matrix.crd-channel }} == "experimental" ]; then
             SUPPORTED_FEATURES+=",HTTPResponseHeaderModification,RouteDestinationPortMatching"
           fi
 
-          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=./untrusted/install/kubernetes/cilium \
             --helm-set=debug.enabled=true \
             --helm-set=debug.verbose=envoy \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
@@ -141,6 +141,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -195,7 +198,7 @@ jobs:
           METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
           METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
           METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
-          
+
           cat << EOF > metallb_values.yaml
           configInline:
             address-pools:
@@ -206,7 +209,7 @@ jobs:
           psp:
             create: false
           EOF
-          
+
           helm install --namespace metallb-system \
             --create-namespace \
             --repo https://metallb.github.io/metallb metallb metallb \
@@ -225,7 +228,7 @@ jobs:
           spec:
             controllerName: io.cilium/gateway-controller
           EOF
-          
+
           GATEWAY_API_CONFORMANCE_TESTS=1 go test \
             -p 4 \
             -v ./operator/pkg/gateway-api \
@@ -257,7 +260,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.gateway-api-conformance-test.result }}
