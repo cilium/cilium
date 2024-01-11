@@ -220,7 +220,7 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
-          chart-dir: './install/kubernetes/cilium'
+          chart-dir: './untrusted/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
@@ -239,6 +239,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium CLI-cli
         uses: cilium/cilium-cli@5362f383942260c0aed4f3876e09c3452435577a # v0.14.8
@@ -259,7 +262,7 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
-        uses: cilium/cilium/.github/actions/lvh-kind@v1.13
+        uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
@@ -299,7 +302,7 @@ jobs:
             # Missed tail calls until https://github.com/cilium/cilium/issues/28088 is fixed,
             # (note v1.13: iproute2 is still used for loading cgroup progs, so we can't
             # guarantee no missed tail calls during loading of those programs. Leave this in.)
-            # host datapath once cilium-cli is upgraded to a version that includes 
+            # host datapath once cilium-cli is upgraded to a version that includes
             # https://github.com/cilium/cilium-cli/pull/2206.
             EXTRA+=("--expected-drop-reasons=+Missed tail call,+Host datapath not ready")
           fi

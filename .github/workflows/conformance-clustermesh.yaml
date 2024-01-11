@@ -170,7 +170,7 @@ jobs:
           fi
 
           # bpf.masquerade is disabled due to #23283
-          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=./untrusted/install/kubernetes/cilium \
             --helm-set=debug.enabled=true \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
@@ -330,6 +330,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium in cluster1
         run: |
