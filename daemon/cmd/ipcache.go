@@ -4,10 +4,11 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/netip"
-	"os"
 
 	"github.com/go-openapi/runtime/middleware"
 
@@ -144,7 +145,7 @@ func (d *Daemon) restoreIPCache() error {
 	ipcachemap.IPCacheMap().Close()
 
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
 		return fmt.Errorf("error dumping ipcache: %w", err)
