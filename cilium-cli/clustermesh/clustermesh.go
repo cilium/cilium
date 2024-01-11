@@ -127,7 +127,7 @@ func (k *K8sClusterMesh) generateService() (*corev1.Service, error) {
 	}
 
 	if k.params.ServiceType != "" {
-		if k.params.ServiceType == "NodePort" {
+		if corev1.ServiceType(k.params.ServiceType) == corev1.ServiceTypeNodePort {
 			k.Log("⚠️  Using service type NodePort may fail when nodes are removed from the cluster!")
 		}
 		svc.Spec.Type = corev1.ServiceType(k.params.ServiceType)
@@ -1977,7 +1977,7 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			log("🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=Internal)")
 			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
 				"service": map[string]interface{}{
-					"type": "LoadBalancer",
+					"type": corev1.ServiceTypeLoadBalancer,
 					"annotations": map[string]interface{}{
 						"cloud.google.com/load-balancer-type": "Internal",
 						// Allows cross-region access
@@ -1989,7 +1989,7 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			log("🔮 Auto-exposing service within Azure VPC (service.beta.kubernetes.io/azure-load-balancer-internal)")
 			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
 				"service": map[string]interface{}{
-					"type": "LoadBalancer",
+					"type": corev1.ServiceTypeLoadBalancer,
 					"annotations": map[string]interface{}{
 						"service.beta.kubernetes.io/azure-load-balancer-internal": "true",
 					},
@@ -1999,7 +1999,7 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0")
 			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
 				"service": map[string]interface{}{
-					"type": "LoadBalancer",
+					"type": corev1.ServiceTypeLoadBalancer,
 					"annotations": map[string]interface{}{
 						"service.beta.kubernetes.io/aws-load-balancer-internal": "0.0.0.0/0",
 					},
@@ -2009,7 +2009,7 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			return nil, fmt.Errorf("cannot auto-detect service type, please specify using '--service-type' option")
 		}
 	} else {
-		if params.ServiceType == "NodePort" {
+		if corev1.ServiceType(params.ServiceType) == corev1.ServiceTypeNodePort {
 			log("⚠️  Using service type NodePort may fail when nodes are removed from the cluster!")
 		}
 		helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
