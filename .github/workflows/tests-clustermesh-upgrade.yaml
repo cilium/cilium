@@ -133,7 +133,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA }}
-          chart-dir: ./cilium-newest/install/kubernetes/cilium
+          chart-dir: ./untrusted/cilium-newest/install/kubernetes/cilium
 
       - name: Set up job variables
         id: vars
@@ -302,27 +302,27 @@ jobs:
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          path: cilium-newest
           ref: ${{ steps.newest-vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted/cilium-newest
           sparse-checkout: |
             install/kubernetes/cilium
-          persist-credentials: false
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          path: cilium-downgrade
           ref: ${{ steps.vars.outputs.downgrade_version }}
+          persist-credentials: false
+          path: untrusted/cilium-downgrade
           sparse-checkout: |
             install/kubernetes/cilium
-          persist-credentials: false
 
       - name: Set up downgrade settings
         id: downgrade-vars
         run: |
-          SHA="$(cd cilium-downgrade && git rev-parse HEAD)"
+          SHA="$(cd untrusted/cilium-downgrade && git rev-parse HEAD)"
           CILIUM_IMAGE_SETTINGS=" \
-            --chart-directory=./cilium-downgrade/install/kubernetes/cilium \
+            --chart-directory=./untrusted/cilium-downgrade/install/kubernetes/cilium \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${SHA} \
             --set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHA} \
