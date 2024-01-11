@@ -52,7 +52,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.3
+  cilium_cli_version: v0.15.19
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -310,8 +310,17 @@ jobs:
               EXTRA+=("--expected-drop-reasons=+Missed tail call")
             fi
 
+            if [ "${{ matrix.tunnel }}" != "disabled" ]; then
+              # node-to-node-encryption test with tunneling is broken on this
+              # branch. It was skipped before we bumped cilium_cli_version from
+              # v0.15.3 to v0.15.19, because we don't have encryption enabled,
+              # but cilium-cli changed it in
+              # https://github.com/cilium/cilium-cli/commit/32e12a8e5ab25c54ffe5366825e420a30ea4c3fe
+              EXTRA+=('--test=!node-to-node-encryption')
+            fi
+
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-              "${EXTRA[@]}" \
+              "\${EXTRA[@]}" \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
