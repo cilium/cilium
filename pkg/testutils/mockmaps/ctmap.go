@@ -51,3 +51,12 @@ func (m *CtMockMap) DumpWithCallback(cb bpf.DumpCallback) error {
 	}
 	return nil
 }
+
+// Count returns the length of the map entries.
+func (m *CtMockMap) Count() (int, error) {
+	return len(m.Entries), nil
+}
+
+func (m *CtMockMap) Update(key bpf.MapKey, value bpf.MapValue) error {
+	return nil
+}

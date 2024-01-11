@@ -481,6 +481,9 @@ const (
 	// DNSProxyLockCount.
 	DNSProxyLockTimeout = "dnsproxy-lock-timeout"
 
+	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
+	DNSProxyEnableTransparentMode = "dnsproxy-enable-transparent-mode"
+
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
@@ -933,6 +936,9 @@ const (
 
 	// PolicyAuditModeArg argument enables policy audit mode.
 	PolicyAuditModeArg = "policy-audit-mode"
+
+	// PolicyAccountingArg argument enable policy accounting.
+	PolicyAccountingArg = "policy-accounting"
 
 	// EnableHubble enables hubble in the agent.
 	EnableHubble = "enable-hubble"
@@ -1853,6 +1859,17 @@ type DaemonConfig struct {
 	// been reached.
 	DNSProxyConcurrencyProcessingGracePeriod time.Duration
 
+	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
+	DNSProxyEnableTransparentMode bool
+
+	// DNSProxyLockCount is the array size containing mutexes which protect
+	// against parallel handling of DNS response names.
+	DNSProxyLockCount int
+
+	// DNSProxyLockTimeout is timeout when acquiring the locks controlled by
+	// DNSProxyLockCount.
+	DNSProxyLockTimeout time.Duration
+
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
 	EnableXTSocketFallback bool
@@ -2133,6 +2150,9 @@ type DaemonConfig struct {
 	// audit mode packets affected by policies will not be dropped.
 	// Policy related decisions can be checked via the poicy verdict messages.
 	PolicyAuditMode bool
+
+	// PolicyAccounting enable policy accounting
+	PolicyAccounting bool
 
 	// EnableHubble specifies whether to enable the hubble server.
 	EnableHubble bool
@@ -3130,6 +3150,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.CTMapEntriesTimeoutSYN = vp.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = vp.GetDuration(CTMapEntriesTimeoutFINName)
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
+	c.PolicyAccounting = vp.GetBool(PolicyAccountingArg)
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
 	c.CRDWaitTimeout = vp.GetDuration(CRDWaitTimeout)
@@ -3290,6 +3311,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.FQDNProxyResponseMaxDelay = vp.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
 	c.DNSProxyConcurrencyProcessingGracePeriod = vp.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
+	c.DNSProxyEnableTransparentMode = vp.GetBool(DNSProxyEnableTransparentMode)
+	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)
+	c.DNSProxyLockTimeout = vp.GetDuration(DNSProxyLockTimeout)
 	c.FQDNRejectResponse = vp.GetString(FQDNRejectResponseCode)
 
 	// Convert IP strings into net.IPNet types

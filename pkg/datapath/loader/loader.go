@@ -424,6 +424,7 @@ func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	}
 
 	l.hostDpInitializedOnce.Do(func() {
+		log.Debug("Initialized host datapath")
 		close(l.hostDpInitialized)
 	})
 
@@ -552,12 +553,13 @@ func (l *loader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
 func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	templatePath, _, err := l.templateCache.fetchOrCompile(ctx, ep, stats)
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, stats)
 	if err != nil {
 		return err
 	}
+	defer templateFile.Close()
 
-	template, err := elf.Open(templatePath)
+	template, err := elf.NewELF(templateFile, ep.Logger(subsystem))
 	if err != nil {
 		return err
 	}
@@ -579,9 +581,9 @@ func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 			Err:  err,
 		}
 	}
-	if err := os.Symlink(templatePath, symPath); err != nil {
+	if err := os.Symlink(templateFile.Name(), symPath); err != nil {
 		return &os.PathError{
-			Op:   fmt.Sprintf("Failed to create symlink to %s", templatePath),
+			Op:   fmt.Sprintf("Failed to create symlink to %s", templateFile.Name()),
 			Path: symPath,
 			Err:  err,
 		}

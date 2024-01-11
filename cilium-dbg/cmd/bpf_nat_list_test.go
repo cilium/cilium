@@ -70,8 +70,7 @@ type natRecord6 struct {
 }
 
 func (s *BPFNatListSuite) TestDumpNat4(c *C) {
-
-	natMaps := [2]nat.NatMap{
+	natMaps := []nat.NatMap{
 		mockmaps.NewNatMockMap(
 			[]nat.NatMapRecord{
 				{
@@ -94,11 +93,7 @@ func (s *BPFNatListSuite) TestDumpNat4(c *C) {
 		),
 	}
 
-	maps := make([]interface{}, len(natMaps))
-	for i, m := range natMaps {
-		maps[i] = m
-	}
-	rawDump := dumpAndRead(maps, dumpNat, c)
+	rawDump := dumpAndRead(natMaps, dumpNat, c)
 
 	var natDump []natRecord4
 	err := json.Unmarshal([]byte(rawDump), &natDump)
@@ -114,8 +109,7 @@ func (s *BPFNatListSuite) TestDumpNat4(c *C) {
 }
 
 func (s *BPFNatListSuite) TestDumpNat6(c *C) {
-
-	natMaps := [2]nat.NatMap{
+	natMaps := []nat.NatMap{
 		mockmaps.NewNatMockMap(
 			[]nat.NatMapRecord{
 				{
@@ -138,11 +132,7 @@ func (s *BPFNatListSuite) TestDumpNat6(c *C) {
 		),
 	}
 
-	maps := make([]interface{}, len(natMaps))
-	for i, m := range natMaps {
-		maps[i] = m
-	}
-	rawDump := dumpAndRead(maps, dumpNat, c)
+	rawDump := dumpAndRead(natMaps, dumpNat, c)
 
 	var natDump []natRecord6
 	err := json.Unmarshal([]byte(rawDump), &natDump)

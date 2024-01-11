@@ -92,9 +92,10 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		ccec.GetName(),
 		ccec.Spec.Resources,
 		true,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(ccec.Spec.Services) > 0,
 		useOriginalSourceAddress(&ccec.ObjectMeta),
+		true,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config")
@@ -103,7 +104,7 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err := k.envoyConfigManager.UpsertEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
+	if err := k.envoyXdsServer.UpsertEnvoyResources(ctx, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig")
 		return err
 	}
@@ -138,9 +139,10 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		oldCCEC.GetName(),
 		oldCCEC.Spec.Resources,
 		false,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(oldCCEC.Spec.Services) > 0,
 		useOriginalSourceAddress(&oldCCEC.ObjectMeta),
+		false,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed old Envoy config")
@@ -151,9 +153,10 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		newCCEC.GetName(),
 		newCCEC.Spec.Resources,
 		true,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(newCCEC.Spec.Services) > 0,
 		useOriginalSourceAddress(&newCCEC.ObjectMeta),
+		true,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config")
@@ -167,7 +170,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err = k.envoyConfigManager.UpdateEnvoyResources(ctx, oldResources, newResources, k.envoyConfigManager); err != nil {
+	if err = k.envoyXdsServer.UpdateEnvoyResources(ctx, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig")
 		return err
 	}
@@ -197,9 +200,10 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 		ccec.GetName(),
 		ccec.Spec.Resources,
 		false,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(ccec.Spec.Services) > 0,
 		useOriginalSourceAddress(&ccec.ObjectMeta),
+		false,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyConfig: parsing rersource names failed")
@@ -214,7 +218,7 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err = k.envoyConfigManager.DeleteEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
+	if err = k.envoyXdsServer.DeleteEnvoyResources(ctx, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete Envoy resources")
 		return err
 	}

@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -111,6 +112,7 @@ type Daemon struct {
 	db               *statedb.DB
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
+	envoyXdsServer   envoy.XDSServer
 	svc              service.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
@@ -439,6 +441,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		l2announcer:          params.L2Announcer,
 		svc:                  params.ServiceManager,
 		l7Proxy:              params.L7Proxy,
+		envoyXdsServer:       params.EnvoyXdsServer,
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
@@ -502,6 +505,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
 		d.l7Proxy,
+		d.envoyXdsServer,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,
@@ -762,18 +766,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
 				option.EnableSocketLB)
 		}
-		// ipt.InstallRules() (called by Reinitialize()) happens later than
-		// this  statement, so it's OK to fallback to iptables-based MASQ.
 		if err != nil {
-			option.Config.EnableBPFMasquerade = false
-			log.WithError(err).Warn("Falling back to iptables-based masquerading.")
-			// Too bad, if we need to revert to iptables-based MASQ, we also cannot
-			// use BPF host routing since we need the upper stack.
-			if !option.Config.EnableHostLegacyRouting {
-				option.Config.EnableHostLegacyRouting = true
-				log.Infof("BPF masquerade could not be enabled. Falling back to legacy host routing (--%s=\"true\").",
-					option.EnableHostLegacyRouting)
-			}
+			log.WithError(err).Error("unable to initialize BPF masquerade support")
+			return nil, nil, fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
 		}
 	}
 
@@ -791,9 +786,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.WithError(err).Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
-		log.Infof("Auto-disabling %q feature since IPv4 and IPv6 masquerading are disabled",
-			option.EnableBPFMasquerade)
-		option.Config.EnableBPFMasquerade = false
+		log.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
+		return nil, nil, fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
 	if len(option.Config.GetDevices()) == 0 {
 		if option.Config.EnableHostFirewall {

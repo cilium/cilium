@@ -1714,6 +1714,11 @@ ipam:
     # @default -- `4.0`
     externalAPILimitQPS: ~
 
+nodeIPAM:
+  # -- Configure Node IPAM
+  # ref: https://docs.cilium.io/en/stable/network/node-ipam/
+  enabled: false
+
 # -- The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
 apiRateLimit: ~
 
@@ -2928,6 +2933,9 @@ clustermesh:
       useDigest: false
       pullPolicy: "Always"
 
+    # -- TCP port for the clustermesh-apiserver health API.
+    healthPort: 9880
+
     etcd:
       # The etcd binary is included in the clustermesh API server image, so the same image from above is reused.
       # Independent override isn't supported, because clustermesh-apiserver is tested against the etcd version it is
@@ -3315,6 +3323,8 @@ dnsProxy:
   proxyPort: 0
   # -- The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
   proxyResponseMaxDelay: 100ms
+  # -- DNS proxy operation mode (true/false, or unset to use version dependent defaults)
+  # enableTransparentMode: true
 
 # -- SCTP Configuration Values
 sctp:
@@ -3385,8 +3395,21 @@ authentication:
           # -- SPIRE Workload Attestor kubelet verification.
           skipKubeletVerification: true
           # -- SPIRE agent tolerations configuration
+          # By default it follows the same tolerations as the agent itself
+          # to allow the Cilium agent on this node to connect to SPIRE.
           # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-          tolerations: []
+          tolerations:
+          - key: node.kubernetes.io/not-ready
+            effect: NoSchedule
+          - key: node-role.kubernetes.io/master
+            effect: NoSchedule
+          - key: node-role.kubernetes.io/control-plane
+            effect: NoSchedule
+          - key: node.cloudprovider.kubernetes.io/uninitialized
+            effect: NoSchedule
+            value: "true"
+          - key: CriticalAddonsOnly
+            operator: "Exists"
           # -- SPIRE agent affinity configuration
           affinity: {}
           # -- SPIRE agent nodeSelector configuration

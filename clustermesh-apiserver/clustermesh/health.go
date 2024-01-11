@@ -30,10 +30,11 @@ var healthAPIServerCell = cell.Module(
 	"ClusterMesh Health API Server",
 
 	cell.Config(HealthAPIServerConfig{}),
+	cell.Provide(NewSyncState),
 	cell.Invoke(registerHealthAPIServer),
 )
 
-func registerHealthAPIServer(lc hive.Lifecycle, clientset k8sClient.Clientset, cfg HealthAPIServerConfig) {
+func registerHealthAPIServer(lc hive.Lifecycle, clientset k8sClient.Clientset, cfg HealthAPIServerConfig, syncState *SyncState) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +48,20 @@ func registerHealthAPIServer(lc hive.Lifecycle, clientset k8sClient.Clientset, c
 		w.WriteHeader(statusCode)
 		if _, err := w.Write([]byte(reply)); err != nil {
 			log.WithError(err).Error("Failed to respond to /healthz request")
+		}
+	})
+
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		statusCode := http.StatusInternalServerError
+		reply := "NotReady"
+
+		if syncState.Complete() {
+			statusCode = http.StatusOK
+			reply = "Ready"
+		}
+		w.WriteHeader(statusCode)
+		if _, err := w.Write([]byte(reply)); err != nil {
+			log.WithError(err).Error("Failed to respond to /readyz request")
 		}
 	})
 

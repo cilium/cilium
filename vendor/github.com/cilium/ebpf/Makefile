@@ -102,13 +102,7 @@ testdata/loader-%-eb.elf: testdata/loader.c
 	$(CLANG) $(CFLAGS) -target bpfeb -c $< -o $@
 	$(STRIP) -g $@
 
-.PHONY: generate-btf
-generate-btf: KERNEL_VERSION?=6.1.29
-generate-btf:
-	$(eval TMP := $(shell mktemp -d))
-	curl -fL "$(CI_KERNEL_URL)/linux-$(KERNEL_VERSION)-amd64.tgz" -o "$(TMP)/linux.tgz"
-	tar xvf "$(TMP)/linux.tgz" -C "$(TMP)" --strip-components=2 ./boot/vmlinuz ./lib/modules
-	/lib/modules/$(shell uname -r)/build/scripts/extract-vmlinux "$(TMP)/vmlinuz" > "$(TMP)/vmlinux"
-	$(OBJCOPY) --dump-section .BTF=/dev/stdout "$(TMP)/vmlinux" /dev/null | gzip > "btf/testdata/vmlinux.btf.gz"
-	find "$(TMP)/modules" -type f -name bpf_testmod.ko -exec $(OBJCOPY) --dump-section .BTF="btf/testdata/btf_testmod.btf" {} /dev/null \;
-	$(RM) -r "$(TMP)"
+.PHONY: update-kernel-deps
+update-kernel-deps: export KERNEL_VERSION?=6.6
+update-kernel-deps:
+	./testdata/sh/update-kernel-deps.sh

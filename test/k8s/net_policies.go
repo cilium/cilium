@@ -678,6 +678,7 @@ var _ = SkipDescribeIf(func() bool {
 					map[string]string{
 						"enableIPv4Masquerade": "false",
 						"enableIPv6Masquerade": "false",
+						"bpf.masquerade":       "false",
 					})
 
 			})
@@ -756,6 +757,7 @@ var _ = SkipDescribeIf(func() bool {
 							"remoteNodeIdentity":   "false",
 							"enableIPv4Masquerade": "false",
 							"enableIPv6Masquerade": "false",
+							"bpf.masquerade":       "false",
 						})
 				})
 
@@ -777,6 +779,7 @@ var _ = SkipDescribeIf(func() bool {
 							"remoteNodeIdentity":   "true",
 							"enableIPv4Masquerade": "false",
 							"enableIPv6Masquerade": "false",
+							"bpf.masquerade":       "false",
 						})
 				})
 
