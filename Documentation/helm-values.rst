@@ -2801,7 +2801,7 @@
      - int
      - ``30``
    * - :spelling:ignore:`remoteNodeIdentity`
-     - Enable use of the remote node identity. ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity
+     - Enable use of the remote node identity. ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity Deprecated without replacement in 1.15. To be removed in 1.16.
      - bool
      - ``true``
    * - :spelling:ignore:`resourceQuotas`
