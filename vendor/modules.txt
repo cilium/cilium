@@ -875,6 +875,7 @@ github.com/kr/text
 github.com/lufia/plan9stats
 # github.com/mackerelio/go-osstat v0.2.4
 ## explicit; go 1.18
+github.com/mackerelio/go-osstat/loadavg
 github.com/mackerelio/go-osstat/memory
 # github.com/magiconair/properties v1.8.7
 ## explicit; go 1.19
@@ -1078,7 +1079,6 @@ github.com/servak/go-fastping
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/cpu
 github.com/shirou/gopsutil/v3/internal/common
-github.com/shirou/gopsutil/v3/load
 github.com/shirou/gopsutil/v3/mem
 github.com/shirou/gopsutil/v3/net
 github.com/shirou/gopsutil/v3/process
