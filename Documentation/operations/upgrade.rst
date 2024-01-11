@@ -383,6 +383,13 @@ Removed Options
 
 * Deprecated options ``enable-k8s-event-handover`` and ``cnp-status-update-interval`` has been removed.
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``enable-remote-node-identity`` flag has been deprecated and will be removed in Cilium 1.16.
+  This flag is needed for various features to work correctly and has been enabled by default since
+  Cilium 1.7. There is no benefit in disabling it anymore.
+
 Helm Options
 ~~~~~~~~~~~~
 
@@ -405,6 +412,9 @@ Helm Options
   ``tunnelProtocol``, and has been removed.
 
 * Values  ``enableK8sEventHandover`` and ``enableCnpStatusUpdates`` have been removed.
+
+* Value ``remoteNodeIdentity`` has been deprecated and will be removed in Cilium 1.16. See
+  deprecation notice for the ``enable-remote-node-identity`` for details.
 
 Added Metrics
 ~~~~~~~~~~~~~
