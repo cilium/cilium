@@ -89,8 +89,7 @@ static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
 static __always_inline void ipv6_addr_copy(union v6addr *dst,
 					   const union v6addr *src)
 {
-	dst->d1 = src->d1;
-	dst->d2 = src->d2;
+	memcpy(dst, src, sizeof(*dst));
 }
 
 static __always_inline bool ipv6_addr_equals(const union v6addr *a,
