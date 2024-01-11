@@ -131,6 +131,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set up job variables
         id: vars
@@ -168,6 +169,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@4aa6347c532075df28027772fa1e4ec2f7415341 # v0.15.20

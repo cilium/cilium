@@ -98,6 +98,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set up job variables
         id: vars
@@ -163,6 +164,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
