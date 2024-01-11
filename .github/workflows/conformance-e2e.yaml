@@ -261,7 +261,7 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
-          chart-dir: './install/kubernetes/cilium'
+          chart-dir: './untrusted/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
@@ -283,6 +283,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium CLI-cli
         uses: cilium/cilium-cli@4aa6347c532075df28027772fa1e4ec2f7415341 # v0.15.20
@@ -304,7 +307,7 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
-        uses: cilium/cilium/.github/actions/lvh-kind@main
+        uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
