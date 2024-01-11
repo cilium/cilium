@@ -109,7 +109,6 @@
         // update source import paths on major updates
         "gomodUpdateImportPaths"
       ],
-      "separateMinorPatch": false,
       "matchUpdateTypes": [
         "major",
         "minor",
