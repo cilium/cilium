@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/v3/load"
-	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/mackerelio/go-osstat/memory"
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/sirupsen/logrus"
 
@@ -36,6 +36,10 @@ func toMB(total uint64) uint64 {
 	return total / 1024 / 1024
 }
 
+func toPercent(part uint64, total uint64) float64 {
+	return float64(part) / float64(total) * 100
+}
+
 // LogCurrentSystemLoad logs the current system load and lists all processes
 // consuming more than cpuWatermark of the CPU
 func LogCurrentSystemLoad(logFunc LogFunc) {
@@ -45,16 +49,13 @@ func LogCurrentSystemLoad(logFunc LogFunc) {
 			loadInfo.Load1, loadInfo.Load5, loadInfo.Load15)
 	}
 
-	memInfo, err := mem.VirtualMemory()
-	if err == nil && memInfo != nil {
+	memInfo, err := memory.Get()
+	if err == nil {
 		logFunc("Memory: Total: %d Used: %d (%.2f%%) Free: %d Buffers: %d Cached: %d",
-			toMB(memInfo.Total), toMB(memInfo.Used), memInfo.UsedPercent, toMB(memInfo.Free), toMB(memInfo.Buffers), toMB(memInfo.Cached))
-	}
+			toMB(memInfo.Total), toMB(memInfo.Used), toPercent(memInfo.Used, memInfo.Total), toMB(memInfo.Free), toMB(memInfo.Buffers), toMB(memInfo.Cached))
 
-	swapInfo, err := mem.SwapMemory()
-	if err == nil && swapInfo != nil {
 		logFunc("Swap: Total: %d Used: %d (%.2f%%) Free: %d",
-			toMB(swapInfo.Total), toMB(swapInfo.Used), swapInfo.UsedPercent, toMB(swapInfo.Free))
+			toMB(memInfo.SwapTotal), toMB(memInfo.SwapUsed), toPercent(memInfo.SwapUsed, memInfo.SwapTotal), toMB(memInfo.SwapFree))
 	}
 
 	procs, err := process.Processes()
