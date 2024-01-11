@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -46,6 +47,10 @@ func newCmdStatus() *cobra.Command {
 				fmt.Println(string(jsonStatus))
 			} else {
 				fmt.Print(s.Format())
+			}
+
+			if err == nil && len(s.CollectionErrors) > 0 {
+				err = errors.New("status check failed")
 			}
 			return err
 		},
