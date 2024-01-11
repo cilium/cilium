@@ -58,6 +58,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/kr/pretty v0.3.1
+	github.com/mackerelio/go-osstat v0.2.4
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mdlayher/arp v0.0.0-20220221190821-c37aaafac7f9
 	github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118
