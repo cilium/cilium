@@ -191,11 +191,6 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	}
 	defer coll.Close()
 
-	// Avoid attaching a prog to a stale interface.
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
 	for _, prog := range progs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
 		if xdpMode != "" {
