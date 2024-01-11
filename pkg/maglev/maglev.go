@@ -10,8 +10,9 @@ import (
 	"runtime"
 	"sort"
 
+	"github.com/mackerelio/go-osstat/memory"
+
 	"github.com/cilium/workerpool"
-	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/murmur3"
@@ -203,7 +204,7 @@ func GetLookupTable(backendsMap map[string]*loadbalancer.Backend, m uint64) []in
 // MB, multiply by sizeof(uint64).
 func derivePermutationSliceLen(m uint64) uint64 {
 	threshold := uint64(8 * 1024 * 1024 * 1024) // 8GB
-	if vm, err := mem.VirtualMemory(); err != nil || vm == nil || vm.Total <= threshold {
+	if vm, err := memory.Get(); err != nil || vm == nil || vm.Total <= threshold {
 		return 0
 	}
 
