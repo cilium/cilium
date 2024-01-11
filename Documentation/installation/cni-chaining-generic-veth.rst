@@ -62,7 +62,8 @@ desired CNI chaining configuration:
 	      [...]
             },
             {
-              "type": "cilium-cni"
+              "type": "cilium-cni",
+              "chaining-mode": "generic-veth"
             }
           ]
         }
