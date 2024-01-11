@@ -161,7 +161,7 @@ jobs:
             --hubble=false \
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
-            --test='no-missed-tail-calls' \
+            --test='no-unexpected-packet-drops' \
             --test='no-policies/' \
             --test='no-policies-extra/' \
             --test='allow-all-except-world/' \
@@ -456,7 +456,7 @@ jobs:
             --hubble=false \
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
-            --test='no-missed-tail-calls' \
+            --test='no-unexpected-packet-drops' \
             --include-conn-disrupt-test \
             --junit-file "cilium-junits/${{ env.job_name }} - stress test (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})"
