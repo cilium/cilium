@@ -4,7 +4,6 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/cilium/cilium/pkg/bpf/ops"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -106,7 +105,9 @@ func (fes Frontends) Delete(txn statedb.WriteTxn, name string) bool {
 		for _, id := range fe.Backends {
 			fes.bes.Release(txn, id, name)
 		}
-		fes.rw.Delete(txn, fe)
+		fe = fe.Clone()
+		fe.Status = reconciler.StatusPendingDelete()
+		fes.rw.Insert(txn, fe)
 	}
 	return ok
 }
@@ -131,8 +132,8 @@ var (
 	}
 )
 
-func newFrontendsReconcilerConfig(m frontendsMap) reconciler.Config[*Frontend] {
-	ops, batchOps := ops.NewMapOps[*Frontend](m.Map)
+func newFrontendsReconcilerConfig(m frontendsMap, log logrus.FieldLogger) reconciler.Config[*Frontend] {
+	ops := NewMapOps[*Frontend](m.Map, log)
 	return reconciler.Config[*Frontend]{
 		// Once a minute perform a full reconciliation which does full
 		// refresh of the BPF map and deletes anything that shouldn't
@@ -179,7 +180,7 @@ func newFrontendsReconcilerConfig(m frontendsMap) reconciler.Config[*Frontend] {
 
 		// BatchOperations defines how to reconcile a batch of objects in one
 		// go. This is optional.
-		BatchOperations: batchOps,
+		BatchOperations: nil,
 	}
 }
 

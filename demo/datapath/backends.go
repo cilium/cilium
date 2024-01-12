@@ -3,7 +3,6 @@ package datapath
 import (
 	"time"
 
-	"github.com/cilium/cilium/pkg/bpf/ops"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -70,9 +69,11 @@ func (bes Backends) Upsert(txn statedb.WriteTxn, ref string, key BackendKey) Bac
 }
 
 func (bes Backends) Delete(txn statedb.WriteTxn, k BackendKey) bool {
-	fe, _, ok := bes.First(txn, BackendKeyIndex.Query(k))
+	be, _, ok := bes.First(txn, BackendKeyIndex.Query(k))
 	if ok {
-		_, ok, _ = bes.rw.Delete(txn, fe)
+		be = be.Clone()
+		be.Status = reconciler.StatusPendingDelete()
+		bes.rw.Insert(txn, be)
 	}
 	return ok
 }
@@ -85,13 +86,13 @@ func (bes Backends) Release(txn statedb.WriteTxn, id BackendID, ref string) {
 
 	newRefs := be.Refs.Delete(ref)
 
+	be = be.Clone()
 	if len(newRefs) == 0 {
-		bes.rw.Delete(txn, be)
+		be.Status = reconciler.StatusPendingDelete()
 	} else {
-		be = be.Clone()
 		be.Refs = newRefs
-		bes.rw.Insert(txn, be)
 	}
+	bes.rw.Insert(txn, be)
 }
 
 func (bes Backends) ReleaseAll(txn statedb.WriteTxn, ref string) {
@@ -142,8 +143,8 @@ var (
 	}
 )
 
-func newBackendsReconcilerConfig(m backendsMap) reconciler.Config[*Backend] {
-	ops, batchOps := ops.NewMapOps[*Backend](m.Map)
+func newBackendsReconcilerConfig(m backendsMap, log logrus.FieldLogger) reconciler.Config[*Backend] {
+	ops := NewMapOps[*Backend](m.Map, log)
 	return reconciler.Config[*Backend]{
 		// See newFrontendsReconcilerConfig for comments on these.
 		FullReconcilationInterval: 10 * time.Minute,
@@ -160,7 +161,7 @@ func newBackendsReconcilerConfig(m backendsMap) reconciler.Config[*Backend] {
 		},
 		RateLimiter:     nil,
 		Operations:      ops,
-		BatchOperations: batchOps,
+		BatchOperations: nil,
 	}
 }
 

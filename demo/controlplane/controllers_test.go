@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -230,13 +231,26 @@ func TestControlPlane(t *testing.T) {
 				t,
 				func() bool {
 					txn := p.DB.ReadTxn()
-					numFrontends := p.Frontends.NumObjects(txn)
-					numBackends := p.Backends.NumObjects(txn)
-					return numFrontends == 0 && numBackends == 0
+
+					feIter, _ := p.Frontends.All(txn)
+					for fe, _, ok := feIter.Next(); ok; fe, _, ok = feIter.Next() {
+						if fe.Status.Kind != reconciler.StatusKindPending ||
+							fe.Status.Delete != true {
+							return false
+						}
+					}
+					beIter, _ := p.Backends.All(txn)
+					for be, _, ok := beIter.Next(); ok; be, _, ok = beIter.Next() {
+						if be.Status.Kind != reconciler.StatusKindPending ||
+							be.Status.Delete != true {
+							return false
+						}
+					}
+					return true
 				},
 				time.Second,
 				50*time.Millisecond,
-				"Expected frontends and backends to be deleted",
+				"Expected frontends and backends to be marked pending delete",
 			)
 			require.NoError(t, h.Stop(context.TODO()))
 		})

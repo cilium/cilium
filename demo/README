@@ -28,7 +28,7 @@ It aims to showcase:
 
 4) Showing how to use the generic reconciler to reconcile BPF maps and how
    to inspect the reconciliation state.
-   (../pkg/bpf/ops/ops.go, datapath/{frontends,backends}.go).
+   (datapath/bpf_ops.go, datapath/{frontends,backends}.go).
 
 To build and run the application (runs as root via sudo!):
 
