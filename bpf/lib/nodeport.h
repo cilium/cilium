@@ -932,6 +932,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__be16 src_port __maybe_unused = 0;
+	bool allow_neigh_map = true;
 	int ifindex = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -998,6 +999,8 @@ encap_redirect:
 	if (ret == CTX_ACT_REDIRECT && ifindex)
 		return ctx_redirect(ctx, ifindex, 0);
 
+	/* neigh map doesn't contain DMACs for other nodes */
+	allow_neigh_map = false;
 	goto fib_ipv4;
 #endif
 
@@ -1024,7 +1027,7 @@ fib_ipv4:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	return fib_redirect(ctx, true, &fib_params, true, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
 declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
@@ -2398,6 +2401,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct iphdr *ip4;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	bool allow_neigh_map = true;
 	bool check_revdnat = true;
 	bool has_l4_header;
 
@@ -2478,6 +2482,9 @@ redirect:
 
 		if (ret == CTX_ACT_REDIRECT && ifindex)
 			return ctx_redirect(ctx, ifindex, 0);
+
+		/* neigh map doesn't contain DMACs for other nodes */
+		allow_neigh_map = false;
 	}
 #endif
 
@@ -2487,7 +2494,7 @@ redirect:
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	return fib_redirect(ctx, true, &fib_params, true, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
 declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
