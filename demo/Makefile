@@ -1,4 +1,4 @@
-.PHONY: all build test run hive statedb health add delete maps
+.PHONY: all build test run hive statedb health add delete maps metrics
 
 all: build test
 	@echo
@@ -37,3 +37,5 @@ maps:
 	sudo bpftool map dump name frontends
 	sudo bpftool map dump name backends
 
+metrics:
+	curl -s localhost:9962/metrics

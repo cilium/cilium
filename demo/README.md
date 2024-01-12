@@ -80,7 +80,11 @@ Inspect the contents of StateDB:
 Inspect the module health of the demo application:
 
     $ make health
- 
+
+Inspect metrics related to reconciliation:
+
+    $ make metrics | grep cilium_reconciler
+
 Inspect the BPF maps managed by this demo:
 
     $ make maps
