@@ -1,4 +1,4 @@
-.PHONY: all build test run statedb health add delete maps
+.PHONY: all build test run hive statedb health add delete maps
 
 all: build test
 	@echo
@@ -13,6 +13,9 @@ test:
 
 run: build
 	sudo ./demo --k8s-kubeconfig-path ~/.kube/config
+
+hive:
+	go run . hive --k8s-kubeconfig-path ~/.kube/config
 
 statedb:
 	curl -s localhost:8080/statedb
@@ -33,5 +36,4 @@ delete:
 maps:
 	sudo bpftool map dump name frontends
 	sudo bpftool map dump name backends
-
 

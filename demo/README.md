@@ -1,6 +1,23 @@
-This is a demo for StateDB and generic reconcilers. 
+This is a demo for StateDB and generic reconcilers.
 
-The demo application is split into two layers:
+It's a (bogus) simulation of how one could write part of Cilium's
+load-balancing control-plane using StateDB and the generic reconcilers.
+
+The application pulls Service and Endpoints objects from Kubernetes
+and from those fills in the "frontends" and "backends" BPF maps.
+Additionally it has a HTTP API for creating services and endpoints (the
+internal objects).
+
+The application is built using:
+
+* pkg/hive for wiring up the different modules together
+* pkg/hive/job for managing background jobs
+* pkg/k8s/client for accessing Kubernetes
+* pkg/statedb for managing and consuming state
+* pkg/statedb/reflector for reflecting k8s to statedb
+* pkg/statedb/reconciler for reconciling changes to state
+
+The application is split into two layers:
 
 * Control-plane which integrates with the outside world (k8s, HTTP)
   and transforms the "outside intent" to desired datapath state.
@@ -30,38 +47,44 @@ It aims to showcase:
    to inspect the reconciliation state.
    (datapath/bpf_ops.go, datapath/{frontends,backends}.go).
 
-To build and run the application (runs as root via sudo!):
+To build and run the application:
 
-  $ make run
+    $ make run
+
+(this will run as root via sudo and needs ~/.kube/config)
 
 To run tests:
 
-  $ make test
+    $ make test
 
 Things to try
 -------------
 
 Create a new pod with a service that exposes it:
 
-  $ kubectl run -it --rm nginx --image=nginx --expose --port 12345
-  $ make statedb
-  # try to find nginx related desired state
+    $ kubectl run -it --rm nginx --image=nginx --expose --port 12345
+    $ make statedb
+    # try to find nginx related desired state
 
 Use the HTTP API to add or delete a service and its endpoints:
 
-  $ make add
-  $ make statedb
-  $ make delete
-  $ make statedb
+    $ make add
+    $ make statedb
+    $ make delete
+    $ make statedb
  
 Inspect the contents of StateDB:
 
-  $ make statedb
+    $ make statedb
 
 Inspect the module health of the demo application:
 
-  $ make health
+    $ make health
  
 Inspect the BPF maps managed by this demo:
 
-  $ make maps
+    $ make maps
+
+Inspect the Hive dependencies:
+
+    $ make hive
