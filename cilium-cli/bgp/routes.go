@@ -42,9 +42,8 @@ const (
 // GetRoutes gets BGP routes from all/specific cilium agent pods.
 func (s *Status) GetRoutes(ctx context.Context, args []string) error {
 	silent := s.params.Output == status.OutputJSON // do not print out notes / warnings when the output is JSON
-	if len(args) < 1 {
-		args = defaultGetRoutesArgs(silent)
-	}
+
+	args = defaultGetRoutesArgs(args, silent)
 	err := validateGetRoutesArgs(args)
 	if err != nil {
 		return err
@@ -67,7 +66,9 @@ func (s *Status) GetRoutes(ctx context.Context, args []string) error {
 		// print the errors, but continue with printing results
 		fmt.Fprintf(os.Stderr, "Errors by retrieving routes: %v\n\n", err)
 	}
-	return s.writeRoutes(res)
+
+	printPeer := args[0] == advertisedKW // print peer addresses for `advertised` routes
+	return s.writeRoutes(res, printPeer)
 }
 
 func (s *Status) fetchRoutesConcurrently(ctx context.Context, args []string) (map[string][]*models.BgpRoute, error) {
@@ -147,7 +148,7 @@ func (s *Status) fetchRoutesFromPod(ctx context.Context, fetchCmd []string, pod 
 	return bgpRoutes, nil
 }
 
-func (s *Status) writeRoutes(res map[string][]*models.BgpRoute) error {
+func (s *Status) writeRoutes(res map[string][]*models.BgpRoute, printPeer bool) error {
 	if s.params.Output == status.OutputJSON {
 		jsonStatus, err := json.MarshalIndent(res, "", " ")
 		if err != nil {
@@ -155,23 +156,39 @@ func (s *Status) writeRoutes(res map[string][]*models.BgpRoute) error {
 		}
 		fmt.Println(string(jsonStatus))
 	} else {
-		printRouteSummary(os.Stdout, res)
+		printRouteSummary(os.Stdout, res, printPeer)
 	}
 
 	return nil
 }
 
-func defaultGetRoutesArgs(silent bool) []string {
-	if !silent {
-		fmt.Printf("(Defaulting to `%s %s %s` routes, please see help for more options)\n\n", availableKW, ipv4AFI, unicastSAFI)
+func defaultGetRoutesArgs(args []string, silent bool) []string {
+	if len(args) < 1 {
+		if !silent {
+			fmt.Printf("(Defaulting to `%s %s %s` routes, please see help for more options)\n\n", availableKW, ipv4AFI, unicastSAFI)
+		}
+		return []string{availableKW, ipv4AFI, unicastSAFI}
 	}
-	return []string{availableKW, ipv4AFI, unicastSAFI}
+	if len(args) < 2 {
+		if !silent {
+			fmt.Printf("(Defaulting to `%s %s` AFI & SAFI, please see help for more options)\n\n", ipv4AFI, unicastSAFI)
+		}
+		return []string{args[0], ipv4AFI, unicastSAFI}
+	}
+	if len(args) < 3 {
+		if !silent {
+			fmt.Printf("(Defaulting to `%s` SAFI, please see help for more options)\n\n", unicastSAFI)
+		}
+		return []string{args[0], args[1], unicastSAFI}
+	}
+	return args
 }
 
 func validateGetRoutesArgs(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("missing argument `%s` / `%s`", availableKW, advertisedKW)
 	}
+
 	// <available | advertised>
 	if args[0] != availableKW && args[0] != advertisedKW {
 		return fmt.Errorf("invalid argument: `%s`, expected `%s` / `%s`", args[0], availableKW, advertisedKW)
@@ -207,8 +224,8 @@ func validateGetRoutesArgs(args []string) error {
 	}
 
 	// [peer|neighbor <address>]
-	if args[0] == advertisedKW {
-		if len(checkArgs) == 0 || (checkArgs[0] != peerKW && checkArgs[0] != neighborKW) {
+	if args[0] == advertisedKW && len(checkArgs) > 0 {
+		if checkArgs[0] != peerKW && checkArgs[0] != neighborKW {
 			return fmt.Errorf("missing `%s` argument", peerKW)
 		}
 		if len(checkArgs) < 2 {
@@ -221,7 +238,7 @@ func validateGetRoutesArgs(args []string) error {
 	return nil
 }
 
-func printRouteSummary(out io.Writer, routesPerNode map[string][]*models.BgpRoute) {
+func printRouteSummary(out io.Writer, routesPerNode map[string][]*models.BgpRoute, printPeer bool) {
 	// sort by node names
 	var nodes []string
 	for node := range routesPerNode {
@@ -231,14 +248,18 @@ func printRouteSummary(out io.Writer, routesPerNode map[string][]*models.BgpRout
 
 	// sort routes per node
 	for _, routes := range routesPerNode {
-		// sort routes first by ASN and then by prefix
+		// sort routes first by ASN, then by neighbor and then by prefix
 		sort.Slice(routes, func(i, j int) bool {
-			return routes[i].RouterAsn < routes[j].RouterAsn || routes[i].Prefix < routes[j].Prefix
+			return routes[i].RouterAsn < routes[j].RouterAsn || routes[i].Neighbor < routes[j].Neighbor || routes[i].Prefix < routes[j].Prefix
 		})
 	}
 
 	w := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
-	fmt.Fprintln(w, "Node\tVRouter\tPrefix\tNextHop\tAge\tAttrs")
+	if printPeer {
+		fmt.Fprintln(w, "Node\tVRouter\tPeer\tPrefix\tNextHop\tAge\tAttrs")
+	} else {
+		fmt.Fprintln(w, "Node\tVRouter\tPrefix\tNextHop\tAge\tAttrs")
+	}
 
 	for _, node := range nodes {
 		routes := routesPerNode[node]
@@ -261,6 +282,9 @@ func printRouteSummary(out io.Writer, routesPerNode map[string][]*models.BgpRout
 			}
 			for _, path := range r.Paths {
 				fmt.Fprintf(w, "%d\t", route.RouterAsn)
+				if printPeer {
+					fmt.Fprintf(w, "%s\t", route.Neighbor)
+				}
 				fmt.Fprintf(w, "%s\t", path.NLRI)
 				fmt.Fprintf(w, "%s\t", nextHopFromPathAttributes(path.PathAttributes))
 				fmt.Fprintf(w, "%s\t", time.Duration(path.AgeNanoseconds).Round(time.Second))

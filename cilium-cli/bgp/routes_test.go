@@ -22,6 +22,15 @@ var (
 		"Age",
 		"Attrs",
 	}
+	expectedRoutesColFormatWithPeer = []string{
+		"Node",
+		"VRouter",
+		"Peer",
+		"Prefix",
+		"NextHop",
+		"Age",
+		"Attrs",
+	}
 
 	route1 = &models.BgpRoute{
 		Prefix:    "10.1.0.0/24",
@@ -42,6 +51,7 @@ var (
 	route2 = &models.BgpRoute{
 		Prefix:    "10.1.1.0/24",
 		RouterAsn: 65001,
+		Neighbor:  "192.168.0.100",
 		Paths: []*models.BgpPath{
 			{
 				Family: &models.BgpFamily{
@@ -84,6 +94,7 @@ func Test_printRouteSummary(t *testing.T) {
 	testCases := []struct {
 		Name         string
 		Config       map[string][]*models.BgpRoute
+		printPeer    bool
 		expectedRows int
 	}{
 		{
@@ -105,6 +116,7 @@ func Test_printRouteSummary(t *testing.T) {
 			Config: map[string][]*models.BgpRoute{
 				"node_1": {route1, route2},
 			},
+			printPeer:    true,
 			expectedRows: 3,
 		},
 		{
@@ -119,6 +131,7 @@ func Test_printRouteSummary(t *testing.T) {
 			Config: map[string][]*models.BgpRoute{
 				"node_1": {route1, route2, routeInvalid},
 			},
+			printPeer:    true,
 			expectedRows: 3,
 		},
 		{
@@ -144,7 +157,7 @@ func Test_printRouteSummary(t *testing.T) {
 			var out bytes.Buffer
 
 			// function to test
-			printRouteSummary(&out, tt.Config)
+			printRouteSummary(&out, tt.Config, tt.printPeer)
 
 			// validate rows and cols
 			rows := 0
@@ -152,11 +165,46 @@ func Test_printRouteSummary(t *testing.T) {
 			for scanner.Scan() {
 				// First row should match col format
 				if rows == 0 {
-					validateColFormat(t, expectedRoutesColFormat, scanner.Text())
+					if tt.printPeer {
+						validateColFormat(t, expectedRoutesColFormatWithPeer, scanner.Text())
+					} else {
+						validateColFormat(t, expectedRoutesColFormat, scanner.Text())
+					}
 				}
 				rows++
 			}
 			require.Equal(t, tt.expectedRows, rows)
+		})
+	}
+}
+
+func Test_defaultGetRoutesArgs(t *testing.T) {
+	testCases := []struct {
+		Name       string
+		Args       []string
+		expectArgs []string
+	}{
+		{
+			Name:       "Missing args",
+			Args:       nil,
+			expectArgs: []string{availableKW, ipv4AFI, unicastSAFI},
+		},
+		{
+			Name:       "Missing afi",
+			Args:       []string{advertisedKW},
+			expectArgs: []string{advertisedKW, ipv4AFI, unicastSAFI},
+		},
+		{
+			Name:       "Missing safi",
+			Args:       []string{advertisedKW, ipv4AFI},
+			expectArgs: []string{advertisedKW, ipv4AFI, unicastSAFI},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.Name, func(t *testing.T) {
+			args := defaultGetRoutesArgs(tt.Args, true)
+			require.Equal(t, tt.expectArgs, args)
 		})
 	}
 }
@@ -218,9 +266,9 @@ func Test_validateGetRoutesArgs(t *testing.T) {
 			expectErr: false,
 		},
 		{
-			Name:      "Advertised - missing peer",
+			Name:      "Advertised - peer not specified",
 			Args:      []string{"advertised", "ipv4", "unicast"},
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			Name:      "Advertised - missing peer IP",
