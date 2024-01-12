@@ -84,8 +84,8 @@ func (fe *Frontend) MarshalBinary() ([]byte, error) {
 		return nil, err
 	}
 	buf = append(buf, byte(len(fe.Backends)))
-	for _, be := range fe.Backends {
-		if b, err := be.MarshalBinary(); err == nil {
+	for _, id := range fe.Backends {
+		if b, err := id.MarshalBinary(); err == nil {
 			buf = append(buf, b...)
 		} else {
 			return nil, err

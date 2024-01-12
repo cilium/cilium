@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -41,9 +39,15 @@ func main() {
 
 var Demo = cell.Module(
 	"demo",
-	"Demo for statedb and reconcilers",
+	"Demo app for statedb and reconcilers",
 
-	client.Cell, // client.Clientset for accessing K8s
+	client.Cell,     // client.Clientset for accessing K8s
+	statedb.Cell,    // statedb.DB
+	job.Cell,        // job.Registry for background jobs
+	reconciler.Cell, // the shared reconciler metrics
+
+	// Check that kubeconfig path is configured, if not
+	// fail to start.
 	cell.Invoke(func(cs client.Clientset) error {
 		if !cs.IsEnabled() {
 			return errors.New("Please provide --k8s-kubeconfig-path")
@@ -61,9 +65,6 @@ var Demo = cell.Module(
 		cell.Provide(metrics.NewRegistry),
 		cell.Invoke(func(*metrics.Registry) {}),
 	),
-	statedb.Cell,    // statedb.DB
-	job.Cell,        // job.Registry for background jobs
-	reconciler.Cell, // the shared reconciler metrics
 
 	// Control-plane of the demo application pulls Service and Endpoints objects
 	// from the Kubernetes API server and compute from it the desired datapath state for
@@ -75,49 +76,9 @@ var Demo = cell.Module(
 	// the desired state tables to the BPF maps.
 	datapath.Cell,
 
+	// http.ServeMux for adding HTTP handlers
+	cell.Provide(http.NewServeMux),
+
+	// Simple HTTP API served over localhost:8080/
 	cell.Invoke(registerHTTPServer),
 )
-
-func registerHTTPServer(
-	lc hive.Lifecycle,
-	log logrus.FieldLogger,
-	db *statedb.DB,
-	health cell.Health) {
-
-	mux := http.NewServeMux()
-
-	// For dumping the database:
-	// curl -s localhost:8080/statedb | jq .
-	mux.Handle("/statedb", db)
-
-	healthHandler := func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Add("Content-Type", "application/json")
-		b, err := json.Marshal(health.All())
-		if err != nil {
-			w.WriteHeader(500)
-		} else {
-			w.WriteHeader(200)
-			w.Write(b)
-		}
-	}
-	// For dumping module health status:
-	// curl -s localhost:8080/health | jq
-	mux.HandleFunc("/health", healthHandler)
-
-	server := http.Server{
-		Addr:    "127.0.0.1:8080",
-		Handler: mux,
-	}
-
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			log.Infof("Serving API at %s", server.Addr)
-			go server.ListenAndServe()
-			return nil
-		},
-		OnStop: func(ctx hive.HookContext) error {
-			return server.Shutdown(ctx)
-		},
-	})
-
-}

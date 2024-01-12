@@ -1,0 +1,67 @@
+This is a demo for StateDB and generic reconcilers. 
+
+The demo application is split into two layers:
+
+* Control-plane which integrates with the outside world (k8s, HTTP)
+  and transforms the "outside intent" to desired datapath state.
+
+* Datapath which applies the desired state to the kernel BPF state.
+  It exports APIs to manipulate the desired state towards the control-plane
+  layer.
+
+This split keeps the complex high-level logic in an easily testable
+platform-indepentent control-plane layer, and keeps the business logic
+out of the lower datapath layer.
+
+It aims to showcase:
+
+1) Building an extendable control-plane with StateDB to which new data sources
+   can be added (controlplane/k8s.go, controlplane/handlers.go).
+
+2) Writing a controller that computes desired state when inputs change
+   (controlplane/controllers.go). Showing how to integration-test such
+   a controller (controlplane/controllers_test.go) with real data. 
+
+3) Writing a datapath that uses StateDB for desired state, with a safe API
+   for modifying the desired state.
+   (datapath/models.go, datapath/{frontends,backends}.go).
+
+4) Showing how to use the generic reconciler to reconcile BPF maps and how
+   to inspect the reconciliation state.
+   (../pkg/bpf/ops/ops.go, datapath/{frontends,backends}.go).
+
+To build and run the application (runs as root via sudo!):
+
+  $ make run
+
+To run tests:
+
+  $ make test
+
+Things to try
+-------------
+
+Create a new pod with a service that exposes it:
+
+  $ kubectl run -it --rm nginx --image=nginx --expose --port 12345
+  $ make statedb
+  # try to find nginx related desired state
+
+Use the HTTP API to add or delete a service and its endpoints:
+
+  $ make add
+  $ make statedb
+  $ make delete
+  $ make statedb
+ 
+Inspect the contents of StateDB:
+
+  $ make statedb
+
+Inspect the module health of the demo application:
+
+  $ make health
+ 
+Inspect the BPF maps managed by this demo:
+
+  $ make maps

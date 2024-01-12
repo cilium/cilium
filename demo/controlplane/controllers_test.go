@@ -149,7 +149,9 @@ func TestControlPlane(t *testing.T) {
 					datapath.NewBackends,
 				),
 
-				Cell,
+				tablesCell,
+				k8sCell,
+				servicesControllerCell,
 
 				cell.Invoke(func(p_ params) { p = p_ }),
 			)

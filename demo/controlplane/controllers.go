@@ -11,9 +11,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var controllersCell = cell.Module(
-	"controlplane-controllers",
-	"Demo controllers",
+var servicesControllerCell = cell.Module(
+	"services-controller",
+	"Computes service load-balancing desired state",
 
 	// Register a controller to compute the desired frontends and backends
 	// from K8s's Services and Endpoints.
@@ -101,7 +101,7 @@ func (s *servicesController) process(ctx context.Context, health cell.HealthRepo
 
 func (s *servicesController) endpointChanged(ep *Endpoint, deleted bool, rev statedb.Revision) {
 	if deleted {
-		s.Backends.ReleaseAll(s.wtxn, ep.Service)
+		s.Log.Infof("Deleted all backends for %s", ep.Service)
 		return
 	}
 
@@ -129,6 +129,7 @@ func (s *servicesController) endpointChanged(ep *Endpoint, deleted bool, rev sta
 
 func (s *servicesController) serviceChanged(svc *Service, deleted bool, rev statedb.Revision) {
 	if deleted {
+		s.Log.Infof("Deleted frontend %q", svc.Name)
 		s.Frontends.Delete(s.wtxn, svc.Name)
 	} else {
 
