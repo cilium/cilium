@@ -29,26 +29,9 @@ type DeviceManager struct {
 }
 
 func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
-	hasWildcard := false
-	userDevices := option.Config.GetDevices()
-	for _, name := range userDevices {
-		hasWildcard = hasWildcard || strings.HasSuffix(name, "+")
-	}
-
-	if len(userDevices) == 0 && !option.Config.AreDevicesRequired() {
-		return nil, nil
-	}
-
 	rxn := dm.params.DB.ReadTxn()
 	devs, _ := tables.SelectedDevices(dm.params.DeviceTable, rxn)
 	names := tables.DeviceNames(devs)
-
-	if len(names) == 0 && hasWildcard {
-		// Fail if user provided a device wildcard which didn't match anything.
-		return nil, fmt.Errorf("No device found matching %v", userDevices)
-	}
-
-	option.Config.SetDevices(names)
 	dm.initialDevices = names
 
 	// Look up the device that holds the node IP. Used as fallback for direct-routing

@@ -111,8 +111,6 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 		return nil
 	}
 
-	d.params.Config.SetDevices(devices)
-
 	if d.params.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {
 			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)

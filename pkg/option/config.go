@@ -2521,18 +2521,6 @@ func (c *DaemonConfig) SetIPv6NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Unlock()
 }
 
-func (c *DaemonConfig) SetDevices(devices []string) {
-	c.devicesMu.Lock()
-	c.devices = devices
-	c.devicesMu.Unlock()
-}
-
-func (c *DaemonConfig) GetDevices() []string {
-	c.devicesMu.RLock()
-	defer c.devicesMu.RUnlock()
-	return c.devices
-}
-
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
@@ -2826,7 +2814,7 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 		if !c.EnableIPv6 {
 			return fmt.Errorf("IPv6NDP cannot be enabled when IPv6 is not enabled")
 		}
-		if len(c.IPv6MCastDevice) == 0 && !MightAutoDetectDevices() {
+		if len(c.IPv6MCastDevice) == 0 {
 			return fmt.Errorf("IPv6NDP cannot be enabled without %s", IPv6MCastDevice)
 		}
 	}
@@ -4229,15 +4217,6 @@ func EndpointStatusValuesMap() (values map[string]struct{}) {
 		values[v] = struct{}{}
 	}
 	return
-}
-
-// MightAutoDetectDevices returns true if the device auto-detection might take
-// place.
-func MightAutoDetectDevices() bool {
-	devices := Config.GetDevices()
-	return ((Config.EnableHostFirewall || Config.EnableWireguard || Config.EnableHighScaleIPcache) && len(devices) == 0) ||
-		(Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
-			(len(devices) == 0 || Config.DirectRoutingDevice == ""))
 }
 
 // BPFEventBufferConfig contains parsed configuration for a bpf map event buffer.
