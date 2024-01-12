@@ -12,6 +12,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/stream"
 	"github.com/sirupsen/logrus"
 
@@ -77,6 +79,7 @@ type Update interface {
 
 type statusNodeReporter interface {
 	setStatus(Update)
+	setStatusV2(cell.FullModuleID, StatusV2)
 }
 
 // Health provides exported functions for accessing health status data.
@@ -130,6 +133,12 @@ type Status struct {
 	LastUpdated time.Time
 }
 
+type StatusV2 struct {
+	ID      cell.FullModuleID
+	Level   Level
+	Message string
+}
+
 func (s *Status) JSON() ([]byte, error) {
 	if s.Update == nil {
 		return nil, nil
@@ -156,17 +165,43 @@ func (s *Status) String() string {
 		s.FullModuleID, s.Level(), sinceLast, s.Update.String())
 }
 
+type healthProviderParams struct {
+	cell.In
+	DB *statedb.DB
+}
+
 // NewHealthProvider starts and returns a health status which processes
 // health status updates.
-func NewHealthProvider() Health {
+func NewHealthProvider(pp healthProviderParams) (Health, error) {
 	p := &healthProvider{
 		moduleStatuses: make(map[string]Status),
 		byLevel:        make(map[Level]uint64),
 		running:        true,
+		db:             pp.DB,
+	}
+
+	idIndex := statedb.Index[StatusV2, cell.FullModuleID]{
+		Name: "id",
+		FromObject: func(s StatusV2) index.KeySet {
+			return index.NewKeySet([]byte(s.ID.String()))
+		},
+		FromKey: func(k cell.FullModuleID) index.Key {
+			return index.Key([]byte(k.String()))
+		},
+		Unique: true,
+	}
+	var err error
+	p.statusTable, err = statedb.NewTable("health-status", idIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.db.RegisterTable(p.statusTable); err != nil {
+		return nil, err
 	}
 	p.obs, p.emit, p.complete = stream.Multicast[Update]()
 
-	return p
+	return p, nil
 }
 
 func (p *healthProvider) Subscribe(ctx context.Context, cb func(Update), complete func(error)) {
@@ -186,7 +221,16 @@ func (p *healthProvider) updateMetricsLocked(prev Update, curr Level) {
 	}
 }
 
+func (p *healthProvider) setStatusV2(id cell.FullModuleID, s StatusV2) {
+	tx := p.db.WriteTxn(p.statusTable)
+	if _, _, err := p.statusTable.Insert(tx, s); err != nil {
+		panic(err)
+	}
+	tx.Commit()
+}
+
 func (p *healthProvider) process(id cell.FullModuleID, u Update) {
+
 	prev := func() Status {
 		p.mu.Lock()
 		defer p.mu.Unlock()
@@ -253,6 +297,7 @@ func (p *healthProvider) forModule(moduleID cell.FullModuleID) statusNodeReporte
 	return &reporter{
 		moduleID: moduleID,
 		process:  p.process,
+		upsert:   p.setStatusV2,
 	}
 }
 
@@ -294,6 +339,8 @@ type healthProvider struct {
 
 	byLevel        map[Level]uint64
 	moduleStatuses map[string]Status
+	db             *statedb.DB
+	statusTable    statedb.RWTable[StatusV2]
 
 	obs      stream.Observable[Update]
 	emit     func(Update)
@@ -304,6 +351,12 @@ type healthProvider struct {
 type reporter struct {
 	moduleID cell.FullModuleID
 	process  func(cell.FullModuleID, Update)
+
+	upsert func(cell.FullModuleID, StatusV2)
+}
+
+func (r *reporter) setStatusV2(id cell.FullModuleID, s StatusV2) {
+	r.upsert(id, s)
 }
 
 // Degraded reports a degraded status update, should be used when a module encounters a

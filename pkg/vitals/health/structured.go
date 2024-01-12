@@ -106,9 +106,9 @@ func GetHealthReporter(parent Scope, name string) HealthReporter {
 }
 
 // TestScope exposes creating a root scope for testing purposes only.
-func TestScope() Scope {
-	return TestScopeFromProvider(cell.FullModuleID{"test"}, NewHealthProvider())
-}
+// func TestScope() Scope {
+// 	return TestScopeFromProvider(cell.FullModuleID{"test"}, NewHealthProvider())
+// }
 
 // TestScope exposes creating a root scope from a health provider for testing purposes only.
 func TestScopeFromProvider(moduleID cell.FullModuleID, hp Health) Scope {
@@ -118,6 +118,7 @@ func TestScopeFromProvider(moduleID cell.FullModuleID, hp Health) Scope {
 }
 
 func rootScope(id cell.FullModuleID, hr statusNodeReporter) *scope {
+	fmt.Println("[tom-debug7] creating root scope:", id)
 	r := &subReporter{
 		base: &subreporterBase{
 			hr:           hr,
@@ -125,6 +126,8 @@ func rootScope(id cell.FullModuleID, hr statusNodeReporter) *scope {
 			nodes:        map[string]*node{},
 			wakeup:       make(chan struct{}, 16),
 		},
+
+		path: id,
 	}
 	// create root node, required in case reporters are created without any subscopes.
 	r.id = r.base.addChild("", id.String(), false)
@@ -145,6 +148,7 @@ func rootScope(id cell.FullModuleID, hr statusNodeReporter) *scope {
 		if r.base.revision.Load() == 0 {
 			return
 		}
+		fmt.Println("[tom-debug7] realize:", statusTree.String())
 		r.base.hr.setStatus(statusTree)
 	}
 
@@ -309,6 +313,8 @@ func scopeFromParent(parent Scope, name string, isReporter bool) *subReporter {
 		id:              id,
 		scheduleRealize: r.scheduleRealize,
 		name:            name,
+
+		path: append(parent.scope().path, name),
 	}
 }
 
@@ -558,14 +564,22 @@ type subReporter struct {
 	closeReconciler func()
 	id              string
 	name            string
+
+	path cell.FullModuleID
 }
 
 func (s *subReporter) OK(message string) {
+	fmt.Println("[tom-debug] subreporter:", s.id, "OK:", message, "=>", s.path)
 	if err := s.base.setStatus(s.id, StatusOK, message, nil); err != nil {
 		log.WithError(err).Warnf("could not set OK status on subreporter %q", s.id)
 		return
 	}
 	s.scheduleRealize()
+	s.base.hr.setStatusV2(s.path, StatusV2{
+		ID:      s.path,
+		Level:   StatusOK,
+		Message: message,
+	})
 }
 
 func (s *subReporter) Degraded(message string, err error) {
@@ -574,6 +588,11 @@ func (s *subReporter) Degraded(message string, err error) {
 		return
 	}
 	s.scheduleRealize()
+	s.base.hr.setStatusV2(s.path, StatusV2{
+		ID:      s.path,
+		Level:   StatusDegraded,
+		Message: message,
+	})
 }
 
 // Stopped marks the subreporter as stopped by removing it from the tree.
@@ -584,6 +603,8 @@ func (s *subReporter) Stopped(message string) {
 	s.base.removeTreeLocked(s.id)
 	s.base.Unlock()
 	s.scheduleRealize()
+
+	// TODO: V2 -> remove from tree.
 }
 
 type noopReporter struct{}

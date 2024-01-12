@@ -105,7 +105,7 @@ func statusDaemon() {
 		}
 		if healthEnabled {
 			healthPkg.GetAndFormatHealthStatus(w, true, allHealth, healthLines)
-			healthPkg.GetAndFormatModulesHealth(w, client.Daemon, allHealth)
+			//healthPkg.GetAndFormatModulesHealth(w, client.Daemon, allHealth)
 		} else {
 			fmt.Fprint(w, "Cluster health:\t\tProbe disabled\n")
 		}

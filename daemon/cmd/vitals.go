@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/vitals/health"
 )
 
@@ -55,10 +54,10 @@ func toModuleHealth(m health.Status) (*models.ModuleHealth, error) {
 		return nil, err
 	}
 	return &models.ModuleHealth{
-		ModuleID:    m.FullModuleID.String(),
-		Message:     string(d),
-		Level:       string(m.Level()),
-		LastOk:      client.ToAgeHuman(m.LastOK),
-		LastUpdated: client.ToAgeHuman(m.LastUpdated),
+		ModuleID: m.FullModuleID.String(),
+		Message:  string(d),
+		Level:    string(m.Level()),
+		//LastOk:      client.ToAgeHuman(m.LastOK),
+		//LastUpdated: client.ToAgeHuman(m.LastUpdated),
 	}, nil
 }

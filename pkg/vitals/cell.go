@@ -1,7 +1,6 @@
 package vitals
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -13,9 +12,8 @@ import (
 var Cell = cell.Module(
 	"vitals",
 	"Cilium Vitals Health",
-	cell.Provide(func(healthMetrics *metrics.HealthMetrics, lc hive.Lifecycle) health.Health {
-		fmt.Println("[tom-debug] creating vitals")
-		hp := health.NewHealthProvider()
+	cell.Provide(health.NewHealthProvider),
+	cell.Invoke(func(healthMetrics *metrics.HealthMetrics, lc hive.Lifecycle, hp health.Health) {
 		updateStats := func() {
 			for l, c := range hp.Stats() {
 				healthMetrics.HealthStatusGauge.WithLabelValues(strings.ToLower(string(l))).Set(float64(c))
@@ -33,7 +31,6 @@ var Cell = cell.Module(
 				return hp.Stop(ctx)
 			},
 		})
-		return hp
 	}),
 	health.Cell,
 )
