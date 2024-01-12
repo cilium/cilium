@@ -377,6 +377,18 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	// TODO: react to changes (using the currently ignored watch channel)
 	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
 	devices := tables.DeviceNames(nativeDevices)
+
+	// TODO: this is a hack, see 0670fd2ace1136a1143a384b39912f8153d7a063 for reasoning.
+	// When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
+	// to a remote node running a selected service endpoint must be encrypted.
+	// To make the NodePort's rev-{S,D}NAT translations to happen for a reply
+	// from the remote node, we need to attach bpf_host to the Cilium's WG
+	// netdev (otherwise, the WG netdev after decrypting the reply will pass
+	// it to the stack which drops the packet).
+	if option.Config.EnableNodePort && option.Config.EnableWireguard && option.Config.EncryptNode {
+		devices = append(devices, wgTypes.IfaceName)
+	}
+
 	if err := cleanIngressQdisc(devices); err != nil {
 		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
 		return err

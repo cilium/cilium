@@ -27,7 +27,6 @@ import (
 )
 
 type DevicesSuite struct {
-	prevConfigDevices                 []string
 	prevConfigDirectRoutingDevice     string
 	prevConfigIPv6MCastDevice         string
 	prevConfigEnableIPv4              bool
@@ -46,7 +45,6 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 
 	var err error
 
-	s.prevConfigDevices = option.Config.GetDevices()
 	s.prevConfigDirectRoutingDevice = option.Config.DirectRoutingDevice
 	s.prevConfigEnableIPv4 = option.Config.EnableIPv4
 	s.prevConfigEnableIPv6 = option.Config.EnableIPv6
@@ -65,7 +63,6 @@ func nodeSetIP(ip net.IP) {
 }
 
 func (s *DevicesSuite) TearDownTest(c *C) {
-	option.Config.SetDevices(s.prevConfigDevices)
 	option.Config.DirectRoutingDevice = s.prevConfigDirectRoutingDevice
 	option.Config.EnableIPv4 = s.prevConfigEnableIPv4
 	option.Config.EnableIPv6 = s.prevConfigEnableIPv6
@@ -79,7 +76,6 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 
 func (s *DevicesSuite) TestDetect(c *C) {
 	s.withFixture(c, func() {
-		option.Config.SetDevices([]string{})
 		option.Config.DirectRoutingDevice = ""
 		option.Config.EnableNodePort = true
 		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
@@ -105,7 +101,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
 		option.Config.DirectRoutingDevice = ""
 		dm.Stop()
@@ -114,16 +109,13 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.EnableNodePort = true
 		nodeSetIP(net.ParseIP("192.168.0.1"))
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
-		option.Config.SetDevices([]string{"dummy0"})
 
 		dm, err = newDeviceManagerForTests("dummy0")
 		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
-		option.Config.SetDevices([]string{})
 		option.Config.DirectRoutingDevice = ""
 
 		// Direct routing mode, should find all devices and set direct
@@ -140,10 +132,8 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
 		option.Config.DirectRoutingDevice = ""
-		option.Config.SetDevices([]string{})
 		dm.Stop()
 
 		// Tunnel routing mode with XDP, should find all devices and set direct
@@ -160,11 +150,9 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
 
 		option.Config.DirectRoutingDevice = ""
-		option.Config.SetDevices([]string{})
 		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
 		option.Config.RoutingMode = option.RoutingModeNative
 		dm.Stop()
@@ -180,11 +168,9 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, checker.Equals, "dummy_v6")
 		c.Assert(option.Config.IPv6MCastDevice, checker.DeepEquals, "dummy_v6")
 		option.Config.DirectRoutingDevice = ""
-		option.Config.SetDevices([]string{})
 		dm.Stop()
 
 		// Only consider veth devices if they have a default route.
@@ -194,8 +180,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
-		option.Config.SetDevices([]string{})
 		dm.Stop()
 
 		c.Assert(addRoute(addRouteParams{iface: "veth0", gw: "192.168.4.254", table: unix.RT_TABLE_MAIN}), IsNil)
@@ -204,8 +188,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6", "veth0"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
-		option.Config.SetDevices([]string{})
 		dm.Stop()
 
 		// Detect devices that only have routes in non-main tables
@@ -215,8 +197,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy3", "dummy_v6", "veth0"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
-		option.Config.SetDevices([]string{})
 		dm.Stop()
 
 		// Skip bridge devices, and devices added to the bridge
@@ -226,8 +206,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy3", "dummy_v6", "veth0"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
-		option.Config.SetDevices([]string{})
 		dm.Stop()
 
 		c.Assert(setMaster("dummy3", "br0"), IsNil)
@@ -236,8 +214,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6", "veth0"})
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
-		option.Config.SetDevices([]string{})
 		dm.Stop()
 
 		// Don't skip bond devices, but do skip bond slaves.
@@ -249,7 +225,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(err, IsNil)
 		sort.Strings(devices)
 		c.Assert(devices, checker.DeepEquals, []string{"bond0", "dummy0", "dummy1", "dummy_v6", "veth0"})
-		option.Config.SetDevices([]string{})
 		dm.Stop()
 	})
 }
@@ -522,9 +497,6 @@ func newDeviceManagerForTests(devs ...string) (dm *DeviceManager, err error) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Provide(func() DevicesConfig {
-			return DevicesConfig{Devices: option.Config.GetDevices()}
-		}),
 		cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs() }),
 		cell.Invoke(func(dm_ *DeviceManager) {
 			dm = dm_
