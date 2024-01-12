@@ -64,7 +64,7 @@ spec:
           {{- end }}
           ports:
             - name: grpc
-              containerPort: {{ .Values.hubble.relay.listenPort }}
+              containerPort: {{ include "hubble-relay.config.listenPort" . }}
             {{- if .Values.hubble.relay.prometheus.enabled }}
             - name: prometheus
               containerPort: {{ .Values.hubble.relay.prometheus.port }}
@@ -112,6 +112,7 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
           terminationMessagePolicy: FallbackToLogsOnError
+        {{- include "hubble-relay.containers.extra" . | nindent 8 }}
       restartPolicy: Always
       priorityClassName: {{ .Values.hubble.relay.priorityClassName }}
       serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
@@ -182,8 +183,9 @@ spec:
           {{- end }}
       {{- end }}
       {{- with .Values.hubble.relay.extraVolumes }}
-      {{- toYaml . | nindent 6 }}
+      {{- toYaml . | nindent 6}}
       {{- end }}
+      {{- include "hubble-relay.volumes.extra" . | nindent 6 }}
 {{- end }}
 
 {{- define "hubble-relay.probe" }}

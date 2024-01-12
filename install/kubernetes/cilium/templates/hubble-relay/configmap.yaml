@@ -17,7 +17,7 @@ data:
   config.yaml: |
     cluster-name: {{ .Values.cluster.name }}
     peer-service: "hubble-peer.{{ .Release.Namespace }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:{{ $peerSvcPort }}"
-    listen-address: {{ .Values.hubble.relay.listenHost }}:{{ .Values.hubble.relay.listenPort }}
+    listen-address: {{ include "hubble-relay.config.listenAddress" . }}
     gops: {{ .Values.hubble.relay.gops.enabled }}
     gops-port: {{ .Values.hubble.relay.gops.port | quote }}
     {{- if .Values.hubble.relay.pprof.enabled }}
@@ -39,13 +39,5 @@ data:
     {{- else }}
     disable-client-tls: true
     {{- end }}
-    {{- if and .Values.hubble.tls.enabled .Values.hubble.relay.tls.server.enabled }}
-    tls-relay-server-cert-file: /var/lib/hubble-relay/tls/server.crt
-    tls-relay-server-key-file: /var/lib/hubble-relay/tls/server.key
-    {{- if .Values.hubble.relay.tls.server.mtls }}
-    tls-relay-client-ca-files: /var/lib/hubble-relay/tls/hubble-server-ca.crt
-    {{- end }}
-    {{- else }}
-    disable-server-tls: true
-    {{- end }}
+    {{- include "hubble-relay.config.tls" . | nindent 4 }}
 {{- end }}
