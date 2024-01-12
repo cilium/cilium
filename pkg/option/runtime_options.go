@@ -7,7 +7,7 @@ const (
 	PolicyTracing        = "PolicyTracing"
 	ConntrackAccounting  = "ConntrackAccounting"
 	ConntrackLocal       = "ConntrackLocal"
-	DatapathDebug        = "DatapathDebug"
+	Debug                = "Debug"
 	DebugLB              = "DebugLB"
 	DebugPolicy          = "DebugPolicy"
 	DropNotify           = "DropNotification"
@@ -35,9 +35,9 @@ var (
 		Requires:    nil,
 	}
 
-	specDatapathDebug = Option{
-		Define:      "DATAPATH_DEBUG",
-		Description: "Enable debugging trace statements for datapath",
+	specDebug = Option{
+		Define:      "DEBUG",
+		Description: "Enable debugging trace statements",
 	}
 
 	specDebugLB = Option{

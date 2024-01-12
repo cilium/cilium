@@ -17,7 +17,7 @@ var (
 	DaemonMutableOptionLibrary = OptionLibrary{
 		ConntrackAccounting:  &specConntrackAccounting,
 		ConntrackLocal:       &specConntrackLocal,
-		DatapathDebug:        &specDatapathDebug,
+		Debug:                &specDebug,
 		DebugLB:              &specDebugLB,
 		DebugPolicy:          &specDebugPolicy,
 		DropNotify:           &specDropNotify,
