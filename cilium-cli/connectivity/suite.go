@@ -57,8 +57,11 @@ var (
 	//go:embed manifests/allow-cluster-entity.yaml
 	allowClusterEntityPolicyYAML string
 
-	//go:embed manifests/allow-host-entity.yaml
-	allowHostEntityPolicyYAML string
+	//go:embed manifests/allow-host-entity-egress.yaml
+	allowHostEntityEgressPolicyYAML string
+
+	//go:embed manifests/allow-host-entity-ingress.yaml
+	allowHostEntityIngressPolicyYAML string
 
 	//go:embed manifests/allow-all-except-world.yaml
 	allowAllExceptWorldPolicyYAML string
@@ -266,6 +269,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		tests.PodToHostPort(),
 		tests.PodToWorld(tests.WithRetryAll()),
 		tests.PodToHost(),
+		tests.HostToPod(),
 		tests.PodToExternalWorkload(),
 		tests.PodToCIDR(tests.WithRetryAll()),
 	}
@@ -437,14 +441,20 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			})
 	}
 
-	// This policy allows host entity
-	ct.NewTest("host-entity").WithCiliumPolicy(allowHostEntityPolicyYAML).
+	// This policy allows egress traffic towards the host entity
+	ct.NewTest("host-entity-egress").WithCiliumPolicy(allowHostEntityEgressPolicyYAML).
 		WithScenarios(
 			tests.PodToHost(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
 		})
+
+	// This policy allows ingress traffic from the host entity
+	ct.NewTest("host-entity-ingress").WithCiliumPolicy(allowHostEntityIngressPolicyYAML).
+		WithScenarios(
+			tests.HostToPod(),
+		)
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
 	echoIngressScenarios := []check.Scenario{tests.PodToPod()}
