@@ -304,6 +304,10 @@ Regardless of which way the egress IP is configured, the user must ensure that
 Cilium is running on the device that has the egress IP assigned to it, by
 setting the ``--devices`` agent option accordingly.
 
+.. warning::
+
+   The ``egressIP`` and ``interface`` properties cannot both be specified in the ``egressGateway`` spec. Egress Gateway Policies that contain both of these properties will be ignored by Cilium.
+           
 Example policy
 --------------
 
