@@ -259,7 +259,6 @@ const (
 	etcdTimeout                = "etcd client timeout exceeded"                                            // cf. https://github.com/cilium/cilium/issues/29714
 	endpointRestoreFailed      = "Unable to restore endpoint, ignoring"                                    // cf. https://github.com/cilium/cilium/issues/29716
 	failedPeerSync             = "Failed to create peer client for peers synchronization"                  // cf. https://github.com/cilium/cilium/issues/29726
-	policyMapSyncFix           = "Policy map sync fixed errors"                                            // cf. https://github.com/cilium/cilium/issues/29727
 	unableRestoreRouterIP      = "Unable to restore router IP from filesystem"                             // cf. https://github.com/cilium/cilium/issues/29715
 	routerIPReallocated        = "Router IP could not be re-allocated"                                     // cf. https://github.com/cilium/cilium/issues/29715
 	cantFindIdentityInCache    = "unable to release identity: unable to find key in local cache"           // cf. https://github.com/cilium/cilium/issues/29732
@@ -340,7 +339,7 @@ var badLogMessages = map[string][]string{
 		podCIDRUnavailable, wipEnvoyFeature, unableGetNode,
 		disableSocketLBTracing, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
 		unsupportedSocketLookup, legacyBGPFeature, etcdTimeout, endpointRestoreFailed,
-		failedPeerSync, policyMapSyncFix, unableRestoreRouterIP, routerIPReallocated,
+		failedPeerSync, unableRestoreRouterIP, routerIPReallocated,
 		cantFindIdentityInCache, kubeApiserverConnLost1, kubeApiserverConnLost2, heartbeatTimedOut,
 		keyAllocFailedFoundMaster, cantRecreateMasterKey, cantUpdateCRDIdentity,
 		cantDeleteFromPolicyMap},
