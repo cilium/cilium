@@ -159,3 +159,37 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 }
+
+// HostToPod generates one HTTP request from each node inside the cluster to
+// each echo (server) pod in the test context.
+func HostToPod() check.Scenario {
+	return &hostToPod{}
+}
+
+type hostToPod struct{}
+
+func (s *hostToPod) Name() string {
+	return "host-to-pod"
+}
+
+func (s *hostToPod) Run(ctx context.Context, t *check.Test) {
+	var i int
+	ct := t.Context()
+
+	for _, src := range ct.HostNetNSPodsByNode() {
+		if src.Outside {
+			continue
+		}
+
+		src := src // copy to avoid memory aliasing when using reference
+		for _, dst := range ct.EchoPods() {
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &src, dst, ipFam).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, ct.CurlCommand(dst, ipFam))
+				})
+			})
+
+			i++
+		}
+	}
+}
