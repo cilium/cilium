@@ -62,7 +62,7 @@ func newCmdBgpRoutes() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|neighbor <address>]",
 		Short: "Lists BGP routes",
-		Long:  "Lists BGP routes from all nodes in the cluster - requires cilium >= v1.15.0",
+		Long:  "Lists BGP routes from all nodes in the cluster - requires cilium >= v1.14.6",
 		Example: `  Get all IPv4 unicast routes available:
     cilium bgp routes available ipv4 unicast
 
