@@ -1,7 +1,7 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  name: "host-cluster"
+  name: "host-cluster-egress"
 spec:
   endpointSelector:
     matchLabels: {}
