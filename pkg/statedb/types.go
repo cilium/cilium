@@ -96,6 +96,8 @@ type RWTable[Obj any] interface {
 	// revision.
 	Insert(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
+	Prefix(txn ReadTxn, q Query[Obj]) Iterator[Obj]
+
 	// CompareAndSwap compares the existing object's revision against the
 	// given revision and if equal it replaces the object.
 	//

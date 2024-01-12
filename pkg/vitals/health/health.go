@@ -137,6 +137,7 @@ type StatusV2 struct {
 	ID      cell.FullModuleID
 	Level   Level
 	Message string
+	Feature Feature
 }
 
 func (s *Status) JSON() ([]byte, error) {
@@ -170,6 +171,8 @@ type healthProviderParams struct {
 	DB *statedb.DB
 }
 
+type Feature string
+
 // NewHealthProvider starts and returns a health status which processes
 // health status updates.
 func NewHealthProvider(pp healthProviderParams) (Health, error) {
@@ -178,6 +181,17 @@ func NewHealthProvider(pp healthProviderParams) (Health, error) {
 		byLevel:        make(map[Level]uint64),
 		running:        true,
 		db:             pp.DB,
+	}
+
+	featureIndex := statedb.Index[StatusV2, Feature]{
+		Name: "id",
+		FromObject: func(s StatusV2) index.KeySet {
+			return index.NewKeySet([]byte(s.Feature))
+		},
+		FromKey: func(k Feature) index.Key {
+			return index.Key([]byte(k))
+		},
+		Unique: false,
 	}
 
 	idIndex := statedb.Index[StatusV2, cell.FullModuleID]{
@@ -192,6 +206,8 @@ func NewHealthProvider(pp healthProviderParams) (Health, error) {
 	}
 	var err error
 	p.statusTable, err = statedb.NewTable("health-status", idIndex)
+	p.pathIndex = idIndex
+	p.featureIndex = featureIndex
 	if err != nil {
 		return nil, err
 	}
@@ -221,12 +237,45 @@ func (p *healthProvider) updateMetricsLocked(prev Update, curr Level) {
 	}
 }
 
+func (p *healthProvider) remove(prefix cell.FullModuleID) error {
+	tx := p.db.WriteTxn(p.statusTable)
+	q := p.pathIndex.Query(cell.FullModuleID{"agent", "infra", "vitals", "cilium-endpoint-8"})
+	iter := p.statusTable.Prefix(tx, q)
+	for {
+		o, _, ok := iter.Next()
+		if !ok {
+			break
+		}
+		fmt.Println("[tom-debug7] iter prefix:", o)
+		_, _, err := p.statusTable.Delete(tx, o)
+		if err != nil {
+			return fmt.Errorf("failed to delete status %s: %w", prefix.String(), err)
+		}
+	}
+	tx.Commit()
+}
+
+func (p *healthProvider) getPrefix() {
+	tx := p.db.ReadTxn()
+	q := p.pathIndex.Query(cell.FullModuleID{"agent", "infra", "vitals", "cilium-endpoint-8"})
+	iter := p.statusTable.Prefix(tx, q)
+	for {
+		o, _, ok := iter.Next()
+		if !ok {
+			break
+		}
+		fmt.Println("[tom-debug7] iter prefix:", o)
+	}
+}
+
 func (p *healthProvider) setStatusV2(id cell.FullModuleID, s StatusV2) {
 	tx := p.db.WriteTxn(p.statusTable)
 	if _, _, err := p.statusTable.Insert(tx, s); err != nil {
 		panic(err)
 	}
 	tx.Commit()
+
+	p.getPrefix()
 }
 
 func (p *healthProvider) process(id cell.FullModuleID, u Update) {
@@ -341,6 +390,8 @@ type healthProvider struct {
 	moduleStatuses map[string]Status
 	db             *statedb.DB
 	statusTable    statedb.RWTable[StatusV2]
+	pathIndex      statedb.Index[StatusV2, cell.FullModuleID]
+	featureIndex   statedb.Index[StatusV2, Feature]
 
 	obs      stream.Observable[Update]
 	emit     func(Update)

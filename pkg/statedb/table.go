@@ -121,6 +121,13 @@ func (t *genTable[Obj]) First(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint
 	return
 }
 
+func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) Iterator[Obj] {
+	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
+	iter := indexTxn.txn.Root().Iterator()
+	iter.SeekPrefix(q.key)
+	return &iterator[Obj]{iter}
+}
+
 func (t *genTable[Obj]) FirstWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, watch <-chan struct{}, ok bool) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, q.index)
 	iter := indexTxn.txn.Root().Iterator()

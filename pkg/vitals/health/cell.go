@@ -10,12 +10,10 @@ type reporterHooks struct {
 }
 
 func (r *reporterHooks) Start(ctx hive.HookContext) error {
-	r.rootScope.start()
 	return nil
 }
 
 func (r *reporterHooks) Stop(ctx hive.HookContext) error {
-	flushAndClose(r.rootScope, "Hive shutting down")
 	return nil
 }
 
