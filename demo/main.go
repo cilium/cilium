@@ -57,7 +57,6 @@ var Demo = cell.Module(
 
 	// Serve metrics over localhost:9962/metrics.
 	cell.Group(
-		// TODO: Clean up use of modular metrics outside the agent.
 		cell.ProvidePrivate(func() *option.DaemonConfig {
 			return option.Config
 		}),

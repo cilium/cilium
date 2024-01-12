@@ -85,9 +85,6 @@ func (s *servicesController) process(ctx context.Context, health cell.HealthRepo
 		s.wtxn.Commit()
 		s.wtxn = nil
 
-		// TODO: for this sort of pattern we could have a e.g. job.Watcher which takes
-		// a set of channels (see go-memdb's WatchSet). This would allow for more stats
-		// oN when the control loop has last run and how long it took.
 		health.OK("OK")
 
 		select {

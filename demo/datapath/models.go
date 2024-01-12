@@ -35,10 +35,6 @@ type Frontend struct {
 
 	ID FrontendID
 
-	// TODO: In the real implementation we have one frontend/service entry per backend.
-	// This would lead to quite large table/indexes. One way to avoid that would be to
-	// allow a single object to expand to multiple BPF key-value pairs which would
-	// then be reconciled together.
 	Backends ImmSet[BackendID]
 
 	Status reconciler.Status
@@ -57,10 +53,6 @@ func (fe *Frontend) WithBackends(bes ImmSet[BackendID]) *Frontend {
 	return fe
 }
 
-// TODO: We use encoding.BinaryMarshaler here as currently the BPF map reconciler does not do zero-copy
-// but rather constructs a buffer on the fly to use with the batch syscall. This is due to
-// constraints in cilium/ebpf that do not allow passing in a non-slice buffer to the batch ops, but
-// should be straightforward to solve.
 func (fe *Frontend) Key() encoding.BinaryMarshaler {
 	return fe.ID
 }
