@@ -87,7 +87,7 @@ func (s *Status) fetchRoutesConcurrently(ctx context.Context, args []string) (ma
 	wg.Add(len(s.ciliumPods))
 
 	// compute the command for fetching the routes from a cilium pod
-	fetchCmd := []string{"cilium-dbg", "bgp", "routes"}
+	fetchCmd := []string{"cilium", "bgp", "routes"}
 	fetchCmd = append(fetchCmd, args...)
 	fetchCmd = append(fetchCmd, "-o", "json")
 
