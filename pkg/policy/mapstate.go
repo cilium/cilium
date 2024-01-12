@@ -339,16 +339,11 @@ func (msA *mapState) Equals(msB MapState) bool {
 		return false
 	}
 
-	return msB.ForEach(func(kA Key, vA MapStateEntry) bool {
+	return msA.ForEach(func(kA Key, vA MapStateEntry) bool {
 		if vB, ok := msB.Get(kA); ok {
-			if !(&vB).DatapathEqual(&vA) {
-				return false
-			}
-		} else {
-			return false
+			return (&vB).DatapathEqual(&vA)
 		}
-
-		return true
+		return false
 	})
 }
 
