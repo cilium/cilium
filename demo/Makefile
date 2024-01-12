@@ -39,3 +39,12 @@ maps:
 
 metrics:
 	curl -s localhost:9962/metrics
+
+delete-frontend:
+	sudo bpftool map getnext name frontends | tail -1 | xargs \
+    	  sudo bpftool map delete name frontends key
+
+delete-backend:
+	sudo bpftool map getnext name backends | tail -1 | xargs \
+    	  sudo bpftool map delete name backeds key
+

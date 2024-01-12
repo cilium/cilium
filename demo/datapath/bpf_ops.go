@@ -78,31 +78,35 @@ func (ops *mapOps[KV]) equalValue(b []byte, kv KV) bool {
 // Prune implements reconciler.Operations.
 func (ops *mapOps[KV]) Prune(ctx context.Context, txn statedb.ReadTxn, iter statedb.Iterator[KV]) error {
 	desiredKeys := statedb.CollectSet(statedb.Map(iter, func(kv KV) string { return ops.toStringKey(kv) }))
-	var errs []error
+	var (
+		errs    []error
+		deleted int
+	)
 	mapIter := &keyIterator{ops.m, nil, nil, ops.m.MaxEntries()}
 	for key := mapIter.Next(); key != nil; key = mapIter.Next() {
 		if !desiredKeys.Has(string(key)) {
 			if err := ops.m.Delete(key); err != nil {
 				errs = append(errs, err)
 			}
+			deleted++
 		}
 	}
 	errs = append(errs, mapIter.Err())
-	ops.log.Infof("%T.Prune: errs=%v", ops, errs)
+	ops.log.Infof("%T.Prune: errs=%v, deleted=%d", ops, errs, deleted)
 	return errors.Join(errs...)
 }
 
 // Update implements reconciler.Operations.
 func (ops *mapOps[KV]) Update(ctx context.Context, txn statedb.ReadTxn, entry KV, changed *bool) (err error) {
-	defer func() {
-		ops.log.Infof("%T.Update: err=%v", ops, err)
-	}()
-
 	if changed != nil {
 		// If changed is not nil, then we're doing full reconciliation
 		// and should check whether this update resulted in a change.
 		// This allows detecting when full reconciliation fixed an
 		// issue.
+
+		defer func() {
+			ops.log.Infof("%T.Update: err=%v, changed=%v", ops, err, *changed)
+		}()
 
 		var value []byte
 		err := ops.m.Lookup(entry.Key(), &value)
@@ -120,6 +124,10 @@ func (ops *mapOps[KV]) Update(ctx context.Context, txn statedb.ReadTxn, entry KV
 		}
 		return nil
 	} else {
+		defer func() {
+			ops.log.Infof("%T.Update: err=%v", ops, err)
+		}()
+
 		return ops.m.Put(entry.Key(), entry.Value())
 	}
 }

@@ -147,7 +147,7 @@ func newBackendsReconcilerConfig(m backendsMap, log logrus.FieldLogger) reconcil
 	ops := NewMapOps[*Backend](m.Map, log)
 	return reconciler.Config[*Backend]{
 		// See newFrontendsReconcilerConfig for comments on these.
-		FullReconcilationInterval: 10 * time.Minute,
+		FullReconcilationInterval: 10 * time.Second,
 		RetryBackoffMinDuration:   100 * time.Millisecond,
 		RetryBackoffMaxDuration:   time.Second,
 		IncrementalRoundSize:      1000,

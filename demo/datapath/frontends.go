@@ -139,7 +139,7 @@ func newFrontendsReconcilerConfig(m frontendsMap, log logrus.FieldLogger) reconc
 		// refresh of the BPF map and deletes anything that shouldn't
 		// be there. This recovers from outside manipulation of the BPF
 		// map, but is of course expensive.
-		FullReconcilationInterval: time.Minute,
+		FullReconcilationInterval: 10 * time.Second,
 
 		// The retry backoff durations control how often the reconciliation
 		// of a failing object is retried. Each object will have its own

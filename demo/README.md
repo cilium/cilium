@@ -92,3 +92,19 @@ Inspect the BPF maps managed by this demo:
 Inspect the Hive dependencies:
 
     $ make hive
+
+Make the BPF maps too small to force failures:
+
+    $ $EDITOR demo/frontends.go
+    # search "MaxEntries" and change it to a small number
+    $ make run &
+    $ make statedb
+    # you should see some frontends failing with an error
+
+Test the full reconciler by modifying BPF maps:
+
+    $ make maps
+    $ make delete-frontend
+    $ make maps
+    # wait up to 10 seconds until frontend is restored
+
