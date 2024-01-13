@@ -411,6 +411,21 @@ ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 	return 0;
 }
 
+static __always_inline __maybe_unused __u32
+ctx_load_and_clear_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
+{
+	__u32 val, zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+
+	if (always_succeeds(data_meta)) {
+		val = data_meta[off];
+		data_meta[off] = 0;
+		return val;
+	}
+
+	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
+	return 0;
+}
+
 static __always_inline __maybe_unused __u16
 ctx_get_protocol(const struct xdp_md *ctx)
 {

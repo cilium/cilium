@@ -127,6 +127,15 @@ ctx_load_meta(const struct __sk_buff *ctx, const __u32 off)
 	return ctx->cb[off];
 }
 
+static __always_inline __maybe_unused __u32
+ctx_load_and_clear_meta(struct __sk_buff *ctx, const __u32 off)
+{
+	__u32 val = ctx_load_meta(ctx, off);
+
+	ctx_store_meta(ctx, off, 0);
+	return val;
+}
+
 static __always_inline __maybe_unused __u16
 ctx_get_protocol(const struct __sk_buff *ctx)
 {

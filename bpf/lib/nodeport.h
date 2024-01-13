@@ -3062,7 +3062,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
-	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -3070,8 +3070,6 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	enum trace_point obs_point;
 	int ret;
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
@@ -3123,9 +3121,7 @@ static __always_inline int
 handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		    __s8 *ext_err)
 {
-	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
+	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 
 	return __handle_nat_fwd_ipv4(ctx, cluster_id, trace, ext_err);
 }
