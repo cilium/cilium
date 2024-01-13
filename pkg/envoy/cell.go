@@ -38,7 +38,7 @@ type xdsServerParams struct {
 	cell.In
 
 	Lifecycle          hive.Lifecycle
-	IPCache            *ipcache.IPCache
+	IPCache            ipcache.Interface
 	LocalEndpointStore *LocalEndpointStore
 
 	// Depend on access log server to enforce init order.

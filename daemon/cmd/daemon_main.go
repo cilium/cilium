@@ -1637,7 +1637,7 @@ type daemonParams struct {
 	IdentityAllocator    CachingIdentityAllocator
 	Policy               *policy.Repository
 	PolicyUpdater        *policy.Updater
-	IPCache              *ipcache.IPCache
+	IPCache              ipcache.Interface
 	EgressGatewayManager *egressgateway.Manager
 	IPAMMetadataManager  *ipamMetadata.Manager
 	CNIConfigManager     cni.CNIConfigManager

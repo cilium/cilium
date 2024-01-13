@@ -23,12 +23,12 @@ type EndpointLookup interface {
 
 // endpointInfoRegistry provides a default implementation of the logger.EndpointInfoRegistry interface.
 type endpointInfoRegistry struct {
-	ipcache           *ipcache.IPCache
+	ipcache           ipcache.Interface
 	endpointManager   EndpointLookup
 	identityAllocator cache.IdentityAllocator
 }
 
-func NewEndpointInfoRegistry(ipc *ipcache.IPCache, endpointManager endpointmanager.EndpointsLookup, identityAllocator cache.IdentityAllocator) logger.EndpointInfoRegistry {
+func NewEndpointInfoRegistry(ipc ipcache.Interface, endpointManager endpointmanager.EndpointsLookup, identityAllocator cache.IdentityAllocator) logger.EndpointInfoRegistry {
 	// **NOTE** The global identity allocator is not yet initialized here;
 	// that happens in the daemon init via InitIdentityAllocator().
 	// Only the local identity allocator is initialized here.

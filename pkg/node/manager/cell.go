@@ -77,7 +77,7 @@ type ipsetManager interface {
 
 func newAllNodeManager(
 	lc hive.Lifecycle,
-	ipCache *ipcache.IPCache,
+	ipCache ipcache.Interface,
 	ipsetMgr ipsetManager,
 	nodeMetrics *nodeMetrics,
 	healthScope cell.Scope,

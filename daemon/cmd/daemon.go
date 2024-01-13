@@ -161,7 +161,7 @@ type Daemon struct {
 
 	identityAllocator CachingIdentityAllocator
 
-	ipcache *ipcache.IPCache
+	ipcache ipcache.Interface
 
 	k8sWatcher *watchers.K8sWatcher
 

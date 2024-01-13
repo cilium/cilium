@@ -79,7 +79,7 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 	return false
 }
 
-func newTestAgent(ctx context.Context) (*Agent, *ipcache.IPCache) {
+func newTestAgent(ctx context.Context) (*Agent, ipcache.Interface) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 	})

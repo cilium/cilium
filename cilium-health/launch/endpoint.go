@@ -225,7 +225,7 @@ type EndpointAdder interface {
 func LaunchAsEndpoint(baseCtx context.Context,
 	owner regeneration.Owner,
 	policyGetter policyRepoGetter,
-	ipcache *ipcache.IPCache,
+	ipcache ipcache.Interface,
 	mtuConfig mtu.MTU,
 	bigTCPConfig *bigtcp.Configuration,
 	epMgr EndpointAdder,

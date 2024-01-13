@@ -192,7 +192,7 @@ func (d *Daemon) restoreIPCache() error {
 	// Even though the ipcache map hasn't been initialized yet, this is
 	// safe to do so, because the ipcache's apply controller is currently
 	// paused.
-	d.ipcache.IdentityAllocator.WithholdLocalIdentities(nidsToWithhold)
+	d.ipcache.WithholdLocalIdentities(nidsToWithhold)
 	d.ipcache.UpsertMetadataBatch(metaUpdates...)
 
 	return nil
@@ -234,7 +234,7 @@ func (d *Daemon) releaseRestoredCIDRs() {
 	}
 
 	d.ipcache.RemoveMetadataBatch(updates...)
-	d.ipcache.IdentityAllocator.UnwithholdLocalIdentities(nids)
+	d.ipcache.UnwithholdLocalIdentities(nids)
 }
 
 func isLocalIdentity(nid identity.NumericIdentity) bool {

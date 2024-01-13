@@ -22,5 +22,5 @@ var Cell = cell.Module(
 		func(agent monitorAgent.Agent) monitorNotify { return agent },
 	),
 
-	cell.Invoke(func(listener *BPFListener, ipc *ipcache.IPCache) { ipc.AddListener(listener) }),
+	cell.Invoke(func(listener *BPFListener, ipc ipcache.Interface) { ipc.AddListener(listener) }),
 )

@@ -68,7 +68,7 @@ type Agent struct {
 	lock.RWMutex
 	localNodeStore *node.LocalNodeStore
 	wgClient       wireguardClient
-	ipCache        *ipcache.IPCache
+	ipCache        ipcache.Interface
 	listenPort     int
 	privKey        wgtypes.Key
 
@@ -199,7 +199,7 @@ func (a *Agent) initUserspaceDevice(linkMTU int) (netlink.Link, error) {
 }
 
 // Init creates and configures the local WireGuard tunnel device.
-func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
+func (a *Agent) Init(ipcache ipcache.Interface, mtuConfig mtu.MTU) error {
 	addIPCacheListener := false
 	a.Lock()
 	a.ipCache = ipcache

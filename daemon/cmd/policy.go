@@ -84,7 +84,7 @@ type policyOut struct {
 
 	Repository *policy.Repository
 	Updater    *policy.Updater
-	IPCache    *ipcache.IPCache
+	IPCache    ipcache.Interface
 }
 
 // newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache.
