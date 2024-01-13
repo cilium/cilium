@@ -1632,11 +1632,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
 #ifdef HAVE_ENCAP
-	/* TODO use CB_FROM_TUNNEL on v1.16, when we can trust that all
-	 * callers populate it (even after downgrade).
-	 */
-	/* from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL); */
-	from_tunnel = true;
+	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
 #endif
 
