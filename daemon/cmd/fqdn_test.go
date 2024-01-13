@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/netip"
@@ -22,14 +21,13 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/testutils"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 type DaemonFQDNSuite struct {
@@ -47,12 +45,7 @@ func (ds *DaemonFQDNSuite) SetUpSuite(c *C) {
 func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 	d := &Daemon{}
 	d.policy = policy.NewPolicyRepository(d.identityAllocator, nil, nil, nil)
-	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           context.TODO(),
-		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
-		PolicyHandler:     d.policy.GetSelectorCache(),
-		DatapathHandler:   d.endpointManager,
-	})
+	d.ipcache = testipcache.NewMockIPCache()
 	d.dnsNameManager = fqdn.NewNameManager(fqdn.Config{
 		MinTTL:          1,
 		Cache:           fqdn.NewDNSCache(0),
