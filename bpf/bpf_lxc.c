@@ -1619,8 +1619,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
 	struct ipv6_ct_tuple tuple = {};
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
-	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
-	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
 	bool from_tunnel = false;
 	void *data, *data_end;
@@ -1628,12 +1628,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
 
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
-
 #ifdef HAVE_ENCAP
-	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
-	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
+	from_tunnel = ctx_load_and_clear_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -1694,7 +1690,7 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_ENDPOINT)
 int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool proxy_redirect __maybe_unused = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1743,7 +1739,6 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 #ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = ipv6_policy(ctx, ip6, 0, src_sec_identity, NULL, &ext_err,
 			  &proxy_port);
@@ -1982,8 +1977,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
 	struct ipv4_ct_tuple tuple = {};
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
-	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
-	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
 	bool from_tunnel = false;
 	void *data, *data_end;
@@ -1991,13 +1986,10 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	struct iphdr *ip4;
 	__s8 ext_err = 0;
 
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 0);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
 #ifdef HAVE_ENCAP
-	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
-	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
+	from_tunnel = ctx_load_and_clear_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -2135,7 +2127,7 @@ ipv4_to_endpoint_is_hairpin_flow(struct __ctx_buff *ctx, struct iphdr *ip4)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool proxy_redirect __maybe_unused = false;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -2178,7 +2170,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	/* Check if packet is locally hairpinned (pod reaching itself through a
 	 * service) and skip the policy check if that is the case. Otherwise, pods may

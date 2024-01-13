@@ -263,10 +263,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
 int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 {
 # ifdef HAVE_CHANGE_TAIL
-	int ret, nh_off = ctx_load_meta(ctx, 0);
+	int ret, nh_off = ctx_load_and_clear_meta(ctx, 0);
 	enum metric_dir direction  = (enum metric_dir)ctx_load_meta(ctx, 1);
 
-	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_send_time_exceeded(ctx, nh_off);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -330,10 +329,9 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS)
 int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
 {
-	int ret, nh_off = ctx_load_meta(ctx, 0);
+	int ret, nh_off = ctx_load_and_clear_meta(ctx, 0);
 	enum metric_dir direction  = (enum metric_dir)ctx_load_meta(ctx, 1);
 
-	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_handle_ns(ctx, nh_off);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
