@@ -899,6 +899,14 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 	return cidrs
 }
 
+func (ipc *IPCache) WithholdLocalIdentities(nids []identity.NumericIdentity) {
+	ipc.IdentityAllocator.WithholdLocalIdentities(nids)
+}
+
+func (ipc *IPCache) UnwithholdLocalIdentities(nids []identity.NumericIdentity) {
+	ipc.IdentityAllocator.UnwithholdLocalIdentities(nids)
+}
+
 // Equal returns true if two K8sMetadata pointers contain the same data or are
 // both nil.
 func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
