@@ -256,8 +256,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		return DROP_INVALID;
 
 #ifdef ENABLE_HOST_FIREWALL
-	from_host_raw = ctx_load_meta(ctx, CB_FROM_HOST);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+	from_host_raw = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 
 	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
 		struct ct_buffer6 *ct_buffer;
@@ -401,11 +400,9 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 static __always_inline int
 tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv6_cont(ctx, src_sec_identity, from_host, &ext_err);
 	if (IS_ERR(ret))
@@ -429,11 +426,9 @@ int tail_handle_ipv6_cont_from_netdev(struct __ctx_buff *ctx)
 static __always_inline int
 tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv6(ctx, src_sec_identity, ipcache_srcid, from_host, &ext_err);
 
@@ -466,8 +461,7 @@ int tail_handle_ipv6_from_host(struct __ctx_buff *ctx __maybe_unused)
 	__u32 ipcache_srcid = 0;
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6)
-	ipcache_srcid = ctx_load_meta(ctx, CB_IPCACHE_SRC_LABEL);
-	ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, 0);
+	ipcache_srcid = ctx_load_and_clear_meta(ctx, CB_IPCACHE_SRC_LABEL);
 #endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 
 	return tail_handle_ipv6(ctx, ipcache_srcid, true);
@@ -682,8 +676,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		return DROP_INVALID;
 
 #ifdef ENABLE_HOST_FIREWALL
-	from_host_raw = ctx_load_meta(ctx, CB_FROM_HOST);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+	from_host_raw = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 
 	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
 		struct ct_buffer4 *ct_buffer;
@@ -857,11 +850,9 @@ skip_vtep:
 static __always_inline int
 tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv4_cont(ctx, src_sec_identity, from_host, &ext_err);
 	if (IS_ERR(ret))
@@ -885,11 +876,9 @@ int tail_handle_ipv4_cont_from_netdev(struct __ctx_buff *ctx)
 static __always_inline int
 tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv4(ctx, src_sec_identity, ipcache_srcid, from_host, &ext_err);
 
@@ -922,8 +911,7 @@ int tail_handle_ipv4_from_host(struct __ctx_buff *ctx)
 	__u32 ipcache_srcid = 0;
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
-	ipcache_srcid = ctx_load_meta(ctx, CB_IPCACHE_SRC_LABEL);
-	ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, 0);
+	ipcache_srcid = ctx_load_and_clear_meta(ctx, CB_IPCACHE_SRC_LABEL);
 #endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 
 	return tail_handle_ipv4(ctx, ipcache_srcid, true);
