@@ -90,19 +90,20 @@ func GetHealthReporter(parent Scope, name string) HealthReporter {
 // }
 
 // TestScope exposes creating a root scope from a health provider for testing purposes only.
-func TestScopeFromProvider(moduleID cell.FullModuleID, hp Health) Scope {
-	r, err := hp.forModule(moduleID)
-	if err != nil {
-		panic(err)
-	}
-	s := rootScope(moduleID, r)
-	return s
-}
+// func TestScopeFromProvider(moduleID cell.FullModuleID, hp Health) Scope {
+// 	r, err := hp.forModule(moduleID)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	s := rootScope(moduleID, r)
+// 	return s
+// }
 
+// rootScope always
 func rootScope(id cell.FullModuleID, hr statusNodeReporter) *scope {
 	r := &subReporter{
 		base: &subreporterBase{},
-		path: id,
+		path: NewIdentifier(id),
 	}
 	r.base.hr.Store(&hr)
 	// create root node, required in case reporters are created without any subscopes.
@@ -146,6 +147,7 @@ func createSubScope(parent Scope, name string) *scope {
 	}
 	runtime.SetFinalizer(s, func(s *scope) {
 		// TODO: Remove updates that are not a prefix to any other updates.
+		// We can do this with a prefix check, but we'll want to batch these up.
 	})
 	return s
 }
@@ -160,7 +162,7 @@ func scopeFromParent(parent Scope, name string, isReporter bool) *subReporter {
 		base: parent.scope().base,
 		id:   name,
 
-		path: append(parent.scope().path, name),
+		path: parent.scope().path.withSubComponent(name),
 	}
 }
 
@@ -187,7 +189,8 @@ type subReporter struct {
 	base *subreporterBase
 	id   string
 
-	path cell.FullModuleID
+	//path cell.FullModuleID
+	path Identifier
 }
 
 func (s *subReporter) OK(message string) {

@@ -77,8 +77,8 @@ type Update interface {
 }
 
 type statusNodeReporter interface {
-	upsertStatus(cell.FullModuleID, StatusV2)
-	removeStatusTree(cell.FullModuleID)
+	upsertStatus(Identifier, StatusV2)
+	removeStatusTree(Identifier)
 }
 
 // Health provides exported functions for accessing health status data.
@@ -90,7 +90,7 @@ type Health interface {
 
 	// Get returns a copy of a modules status, by module ID.
 	// This includes unknown status for modules that have not reported a status yet.
-	Get(cell.FullModuleID) (Status, error)
+	Get(Identifier) (Status, error)
 
 	// Stats returns a map of the number of module statuses reported by level.
 	Stats() map[Level]uint64
@@ -110,7 +110,7 @@ type Health interface {
 
 type StatusResult struct {
 	Update
-	FullModuleID cell.FullModuleID
+	FullModuleID Identifier
 	Stopped      bool
 }
 
@@ -119,7 +119,7 @@ type Status struct {
 	// Update is the last reported update for a module.
 	Update
 
-	FullModuleID cell.FullModuleID
+	FullModuleID Identifier
 
 	// Stopped is true when a module has been completed, thus it contains
 	// its last reporter status. New updates will not be processed.
@@ -133,7 +133,7 @@ type Status struct {
 }
 
 type StatusV2 struct {
-	ID      cell.FullModuleID
+	ID      Identifier
 	Level   Level
 	Message string
 	Feature Feature
@@ -194,12 +194,12 @@ func NewHealthProvider(pp healthProviderParams) (Health, error) {
 		Unique: false,
 	}
 
-	idIndex := statedb.Index[StatusV2, cell.FullModuleID]{
+	idIndex := statedb.Index[StatusV2, Identifier]{
 		Name: "id",
 		FromObject: func(s StatusV2) index.KeySet {
 			return index.NewKeySet([]byte(s.ID.String()))
 		},
-		FromKey: func(k cell.FullModuleID) index.Key {
+		FromKey: func(k Identifier) index.Key {
 			return index.Key([]byte(k.String()))
 		},
 		Unique: true,
@@ -237,9 +237,9 @@ func (p *healthProvider) updateMetricsLocked(prev Update, curr Level) {
 	}
 }
 
-func (p *healthProvider) removePrefix(prefix cell.FullModuleID) error {
+func (p *healthProvider) removePrefix(prefix Identifier) error {
 	tx := p.db.WriteTxn(p.statusTable)
-	q := p.pathIndex.Query(cell.FullModuleID{"agent", "infra", "vitals", "cilium-endpoint-8"})
+	q := p.pathIndex.Query(prefix)
 	iter := p.statusTable.Prefix(tx, q)
 	for {
 		o, _, ok := iter.Next()
@@ -256,27 +256,25 @@ func (p *healthProvider) removePrefix(prefix cell.FullModuleID) error {
 	return nil
 }
 
-func (p *healthProvider) getPrefix() {
-	tx := p.db.ReadTxn()
-	q := p.pathIndex.Query(cell.FullModuleID{"agent", "infra", "vitals", "cilium-endpoint-8"})
-	iter := p.statusTable.Prefix(tx, q)
-	for {
-		o, _, ok := iter.Next()
-		if !ok {
-			break
-		}
-		fmt.Println("[tom-debug7] iter prefix:", o)
-	}
-}
+// func (p *healthProvider) getPrefix() {
+// 	tx := p.db.ReadTxn()
+// 	q := p.pathIndex.Query(Identifier{"agent", "infra", "vitals", "cilium-endpoint-8"})
+// 	iter := p.statusTable.Prefix(tx, q)
+// 	for {
+// 		o, _, ok := iter.Next()
+// 		if !ok {
+// 			break
+// 		}
+// 		fmt.Println("[tom-debug7] iter prefix:", o)
+// 	}
+// }
 
-func (p *healthProvider) upsertStatus(id cell.FullModuleID, s StatusV2) {
+func (p *healthProvider) upsertStatus(id Identifier, s StatusV2) {
 	tx := p.db.WriteTxn(p.statusTable)
 	if _, _, err := p.statusTable.Insert(tx, s); err != nil {
 		panic(err)
 	}
 	tx.Commit()
-
-	p.getPrefix()
 }
 
 var log = logrus.New().WithField("subsys", "health-vitals")
@@ -296,7 +294,7 @@ func (p *healthProvider) Stop(ctx context.Context) error {
 func (p *healthProvider) forModule(moduleID cell.FullModuleID) (statusNodeReporter, error) {
 	tx := p.db.WriteTxn(p.statusTable)
 	_, _, err := p.statusTable.Insert(tx, StatusV2{
-		ID:      moduleID,
+		ID:      NewIdentifier(moduleID),
 		Level:   StatusUnknown,
 		Message: "no status reported yet",
 	})
@@ -307,9 +305,9 @@ func (p *healthProvider) forModule(moduleID cell.FullModuleID) (statusNodeReport
 	tx.Commit()
 
 	return &reporter{
-		moduleID: moduleID,
-		upsert:   p.upsertStatus,
-		delete: func(path cell.FullModuleID) {
+		ident:  NewIdentifier(moduleID),
+		upsert: p.upsertStatus,
+		delete: func(path Identifier) {
 			if err := p.removePrefix(path); err != nil {
 				log.WithError(err).Error("failed to remove status tree")
 			}
@@ -338,7 +336,7 @@ func (p *healthProvider) All() []Status {
 }
 
 // Get returns the latest status for a module, by module ID.
-func (p *healthProvider) Get(moduleID cell.FullModuleID) (Status, error) {
+func (p *healthProvider) Get(moduleID Identifier) (Status, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	s, ok := p.moduleStatuses[moduleID.String()]
@@ -366,7 +364,7 @@ type healthProvider struct {
 	moduleStatuses map[string]Status
 	db             *statedb.DB
 	statusTable    statedb.RWTable[StatusV2]
-	pathIndex      statedb.Index[StatusV2, cell.FullModuleID]
+	pathIndex      statedb.Index[StatusV2, Identifier]
 	featureIndex   statedb.Index[StatusV2, Feature]
 
 	obs      stream.Observable[Update]
@@ -376,15 +374,15 @@ type healthProvider struct {
 
 // reporter is a handle for emitting status updates.
 type reporter struct {
-	moduleID cell.FullModuleID
-	upsert   func(cell.FullModuleID, StatusV2)
-	delete   func(cell.FullModuleID)
+	ident  Identifier
+	upsert func(Identifier, StatusV2)
+	delete func(Identifier)
 }
 
-func (r *reporter) upsertStatus(id cell.FullModuleID, s StatusV2) {
+func (r *reporter) upsertStatus(id Identifier, s StatusV2) {
 	r.upsert(id, s)
 }
 
-func (r *reporter) removeStatusTree(path cell.FullModuleID) {
+func (r *reporter) removeStatusTree(path Identifier) {
 	r.delete(path)
 }
