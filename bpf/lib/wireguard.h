@@ -133,6 +133,12 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	if (!src || !identity_is_cluster(src->sec_identity))
 		goto out;
 
+	/* If source is remote node we should treat it like outside traffic.
+	 * This is possible when connection is done from pod to load balancer with DSR enabled.
+	 */
+	if (identity_is_remote_node(src->sec_identity))
+		goto out;
+
 	/* Redirect to the WireGuard tunnel device if the encryption is
 	 * required.
 	 */
