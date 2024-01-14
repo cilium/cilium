@@ -4,33 +4,12 @@
 package health
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"runtime"
-	"strings"
 	"sync/atomic"
-	"text/tabwriter"
-	"time"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
-
-	"k8s.io/apimachinery/pkg/util/duration"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
-
-type children sets.Set[string]
-
-// reporterMinTimeout is the minimum time between status realizations, this
-// prevents excessive reporter tree walks which hold the lock.
-// This also acts as a rate limiter for status updates, if a update is not realized
-// because the minimum timeout has not elapsed, it will eventually be realized by
-// a periodic wakeup of the same interval.
-//
-// HealthReporting is not intendeds to capture high frequency events, but rather provide
-// a structured view of the health of the system.
-var reporterMinTimeout = time.Millisecond * 500
 
 // Scope provides a node in the structured health reporter tree that is
 // serves only as a parent for other nodes (scopes or reporters), and is
@@ -112,7 +91,11 @@ func GetHealthReporter(parent Scope, name string) HealthReporter {
 
 // TestScope exposes creating a root scope from a health provider for testing purposes only.
 func TestScopeFromProvider(moduleID cell.FullModuleID, hp Health) Scope {
-	s := rootScope(moduleID, hp.forModule(moduleID))
+	r, err := hp.forModule(moduleID)
+	if err != nil {
+		panic(err)
+	}
+	s := rootScope(moduleID, r)
 	return s
 }
 
@@ -139,7 +122,7 @@ func (s *scope) scope() *subReporter {
 }
 
 func (s *scope) Name() string {
-	return s.name
+	return s.id
 }
 
 // When a scope is orphaned and garbage collected, we want to remove it from the tree if
@@ -172,10 +155,10 @@ func getSubReporter(parent Scope, name string, isReporter bool) *subReporter {
 }
 
 func scopeFromParent(parent Scope, name string, isReporter bool) *subReporter {
-	fmt.Println("[tom-debug] parent:", parent.scope().name, "new:", name)
+	fmt.Println("[tom-debug] parent:", parent.scope().id, "new:", name)
 	return &subReporter{
 		base: parent.scope().base,
-		name: name,
+		id:   name,
 
 		path: append(parent.scope().path, name),
 	}
@@ -191,90 +174,6 @@ type subreporterBase struct {
 	hr atomic.Pointer[statusNodeReporter]
 }
 
-func (s *subreporterBase) setStatus(id string, level Level, message string, err error) error {
-	return nil
-}
-
-// StatusNode is a model struct for a status tree realization result.
-// It is created upon status tree realization, for now it is only used for
-// for generating a plaintext representation of the status tree.
-// In the future we will want to use this to generate a structured JSON representation
-// of the status tree.
-type StatusNode struct {
-	ID              string        `json:"id"`
-	LastLevel       Level         `json:"level,omitempty"`
-	Name            string        `json:"name"`
-	Message         string        `json:"message,omitempty"`
-	UpdateTimestamp time.Time     `json:"timestamp"`
-	Count           int           `json:"count"`
-	SubStatuses     []*StatusNode `json:"sub_statuses,omitempty"`
-	Error           string        `json:"error,omitempty"`
-}
-
-var _ Update = (*StatusNode)(nil)
-
-func (s *StatusNode) Level() Level {
-	return s.LastLevel
-}
-
-func (s *StatusNode) Timestamp() time.Time {
-	return s.UpdateTimestamp
-}
-
-func (s *StatusNode) JSON() ([]byte, error) {
-	return json.MarshalIndent(s, "", "  ")
-}
-
-func (s *StatusNode) allOk() bool {
-	return s.LastLevel == StatusOK
-}
-
-func (s *StatusNode) writeTo(w io.Writer, d int) {
-	if len(s.SubStatuses) == 0 {
-		since := "never"
-		if !s.UpdateTimestamp.IsZero() {
-			since = duration.HumanDuration(time.Since(s.UpdateTimestamp)) + " ago"
-		}
-		fmt.Fprintf(w, "%s%s\t%s\t%s\t%s\t(x%d)\n", strings.Repeat("\t", d), s.Name, s.LastLevel, s.Message, since, s.Count)
-	} else {
-		fmt.Fprintf(w, "%s%s\n", strings.Repeat("\t", d), s.Name)
-		for _, ss := range s.SubStatuses {
-			ss.writeTo(w, d+1)
-		}
-	}
-}
-
-func (s *StatusNode) StringIndent(ident int) string {
-	if s == nil {
-		return ""
-	}
-	buf := bytes.NewBuffer(nil)
-	w := tabwriter.NewWriter(buf, 0, 0, 1, ' ', 0)
-	s.writeTo(w, ident)
-	w.Flush()
-	return buf.String()
-}
-
-func (s *StatusNode) String() string {
-	return s.Message
-}
-
-type node struct {
-	id         string
-	name       string
-	parentID   string
-	isReporter bool
-	count      int
-	refs       int
-	Message    string
-	Error      error
-	nodeUpdate
-}
-type nodeUpdate struct {
-	Level
-	Timestamp time.Time
-}
-
 // subReporter represents both reporter "leaf" nodes and intermediate
 // "scope" nodes.
 // subReporter only has a pointer to the base, thus copying a subReporter
@@ -287,7 +186,6 @@ type nodeUpdate struct {
 type subReporter struct {
 	base *subreporterBase
 	id   string
-	name string
 
 	path cell.FullModuleID
 }
@@ -297,7 +195,7 @@ func (s *subReporter) OK(message string) {
 	if hr == nil {
 		return
 	}
-	(*hr).setStatusV2(s.path, StatusV2{
+	(*hr).upsertStatus(s.path, StatusV2{
 		ID:      s.path,
 		Level:   StatusOK,
 		Message: message,
@@ -309,7 +207,7 @@ func (s *subReporter) Degraded(message string, err error) {
 	if hr == nil {
 		return
 	}
-	(*hr).setStatusV2(s.path, StatusV2{
+	(*hr).upsertStatus(s.path, StatusV2{
 		ID:      s.path,
 		Level:   StatusDegraded,
 		Message: message,
@@ -320,12 +218,11 @@ func (s *subReporter) Degraded(message string, err error) {
 // Stopped reporters can immediately be removed from the tree, since they do
 // not have any children.
 func (s *subReporter) Stopped(message string) {
-	// s.base.Lock()
-	// s.base.removeTreeLocked(s.id)
-	// s.base.Unlock()
-	// s.scheduleRealize()
-
-	// TODO: V2 -> remove from tree.
+	hr := s.base.hr.Load()
+	if hr == nil {
+		return
+	}
+	(*hr).removeStatusTree(s.path)
 }
 
 type noopReporter struct{}

@@ -17,10 +17,14 @@ func (r *reporterHooks) Stop(ctx hive.HookContext) error {
 	return nil
 }
 
-func createStructedScope(id cell.FullModuleID, p Health, lc hive.Lifecycle) Scope {
-	rs := rootScope(id, p.forModule(id))
+func createStructedScope(id cell.FullModuleID, p Health, lc hive.Lifecycle) (Scope, error) {
+	s, err := p.forModule(id)
+	if err != nil {
+		return nil, err
+	}
+	rs := rootScope(id, s)
 	lc.Append(&reporterHooks{rootScope: rs})
-	return rs
+	return rs, nil
 }
 
 type healthScopeParams struct {
@@ -42,7 +46,7 @@ type initRootParams struct {
 	Lifecycle    hive.Lifecycle
 }
 
-var Cell = cell.Provide(func(p initRootParams) Scope {
+var Cell = cell.Provide(func(p initRootParams) (Scope, error) {
 	return createStructedScope(p.FullModuleID, p.Health, p.Lifecycle)
 })
 

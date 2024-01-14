@@ -6,7 +6,6 @@ package health
 import (
 	"context"
 	"fmt"
-	"sort"
 	"sync/atomic"
 	"time"
 
@@ -78,8 +77,8 @@ type Update interface {
 }
 
 type statusNodeReporter interface {
-	setStatus(Update)
-	setStatusV2(cell.FullModuleID, StatusV2)
+	upsertStatus(cell.FullModuleID, StatusV2)
+	removeStatusTree(cell.FullModuleID)
 }
 
 // Health provides exported functions for accessing health status data.
@@ -103,7 +102,7 @@ type Health interface {
 	Subscribe(context.Context, func(Update), func(error))
 
 	// forModule creates a moduleID scoped reporter handle.
-	forModule(cell.FullModuleID) statusNodeReporter
+	forModule(cell.FullModuleID) (statusNodeReporter, error)
 
 	// processed returns the number of updates processed.
 	processed() uint64
@@ -183,6 +182,7 @@ func NewHealthProvider(pp healthProviderParams) (Health, error) {
 		db:             pp.DB,
 	}
 
+	// Example for how we might start to index by different types of data.
 	featureIndex := statedb.Index[StatusV2, Feature]{
 		Name: "id",
 		FromObject: func(s StatusV2) index.KeySet {
@@ -237,7 +237,7 @@ func (p *healthProvider) updateMetricsLocked(prev Update, curr Level) {
 	}
 }
 
-func (p *healthProvider) remove(prefix cell.FullModuleID) error {
+func (p *healthProvider) removePrefix(prefix cell.FullModuleID) error {
 	tx := p.db.WriteTxn(p.statusTable)
 	q := p.pathIndex.Query(cell.FullModuleID{"agent", "infra", "vitals", "cilium-endpoint-8"})
 	iter := p.statusTable.Prefix(tx, q)
@@ -253,6 +253,7 @@ func (p *healthProvider) remove(prefix cell.FullModuleID) error {
 		}
 	}
 	tx.Commit()
+	return nil
 }
 
 func (p *healthProvider) getPrefix() {
@@ -268,7 +269,7 @@ func (p *healthProvider) getPrefix() {
 	}
 }
 
-func (p *healthProvider) setStatusV2(id cell.FullModuleID, s StatusV2) {
+func (p *healthProvider) upsertStatus(id cell.FullModuleID, s StatusV2) {
 	tx := p.db.WriteTxn(p.statusTable)
 	if _, _, err := p.statusTable.Insert(tx, s); err != nil {
 		panic(err)
@@ -276,46 +277,6 @@ func (p *healthProvider) setStatusV2(id cell.FullModuleID, s StatusV2) {
 	tx.Commit()
 
 	p.getPrefix()
-}
-
-func (p *healthProvider) process(id cell.FullModuleID, u Update) {
-
-	prev := func() Status {
-		p.mu.Lock()
-		defer p.mu.Unlock()
-
-		t := time.Now()
-		prev := p.moduleStatuses[id.String()]
-
-		// If the module has been stopped, then ignore updates.
-		if !p.running {
-			return prev
-		}
-
-		ns := Status{
-			Update:      u,
-			LastUpdated: t,
-		}
-
-		switch u.Level() {
-		case StatusOK:
-			ns.LastOK = t
-		case StatusStopped:
-			// If Stopped, set that module was stopped and preserve last known status.
-			ns = prev
-			ns.Stopped = true
-			ns.Final = u
-		}
-		p.moduleStatuses[id.String()] = ns
-		p.updateMetricsLocked(prev.Update, u.Level())
-		log.WithField("status", ns.String()).Debug("Processed new health status")
-		return prev
-	}()
-	p.numProcessed.Add(1)
-	p.emit(u)
-	if prev.Stopped {
-		log.Warnf("module %q reported health status after being Stopped", id)
-	}
 }
 
 var log = logrus.New().WithField("subsys", "health-vitals")
@@ -330,35 +291,50 @@ func (p *healthProvider) Stop(ctx context.Context) error {
 	return nil
 }
 
-var NoStatus = &StatusNode{Message: "No status reported", LastLevel: StatusUnknown}
-
 // forModule returns a module scoped status reporter handle for emitting status updates.
 // This is used to automatically provide declared modules with a status reported.
-func (p *healthProvider) forModule(moduleID cell.FullModuleID) statusNodeReporter {
-	p.mu.Lock()
-	p.moduleStatuses[moduleID.String()] = Status{
-		FullModuleID: moduleID,
-		Update:       NoStatus,
+func (p *healthProvider) forModule(moduleID cell.FullModuleID) (statusNodeReporter, error) {
+	tx := p.db.WriteTxn(p.statusTable)
+	_, _, err := p.statusTable.Insert(tx, StatusV2{
+		ID:      moduleID,
+		Level:   StatusUnknown,
+		Message: "no status reported yet",
+	})
+	if err != nil {
+		tx.Abort()
+		return nil, err
 	}
-	p.byLevel[StatusUnknown]++
-	p.mu.Unlock()
+	tx.Commit()
 
 	return &reporter{
 		moduleID: moduleID,
-		process:  p.process,
-		upsert:   p.setStatusV2,
-	}
+		upsert:   p.upsertStatus,
+		delete: func(path cell.FullModuleID) {
+			if err := p.removePrefix(path); err != nil {
+				log.WithError(err).Error("failed to remove status tree")
+			}
+		},
+	}, nil
 }
 
 // All returns a copy of all the latest statuses.
 func (p *healthProvider) All() []Status {
-	p.mu.RLock()
-	all := maps.Values(p.moduleStatuses)
-	p.mu.RUnlock()
-	sort.Slice(all, func(i, j int) bool {
-		return all[i].FullModuleID.String() < all[j].FullModuleID.String()
-	})
-	return all
+	// tx := p.db.ReadTxn()
+	// iter, := p.statusTable.All(tx)
+	// ss := make([]Status, 0, iter.Count())
+	// for {
+	// 	o, _, ok := iter.Next()
+	// 	if !ok {
+	// 		break
+	// 	}
+	// 	ss = append(ss, Status{
+	// 		FullModuleID: s.ID,
+	// 	})
+	// }
+	// sort.Slice(all, func(i, j int) bool {
+	// 	return all[i].FullModuleID.String() < all[j].FullModuleID.String()
+	// })
+	return []Status{}
 }
 
 // Get returns the latest status for a module, by module ID.
@@ -401,17 +377,14 @@ type healthProvider struct {
 // reporter is a handle for emitting status updates.
 type reporter struct {
 	moduleID cell.FullModuleID
-	process  func(cell.FullModuleID, Update)
-
-	upsert func(cell.FullModuleID, StatusV2)
+	upsert   func(cell.FullModuleID, StatusV2)
+	delete   func(cell.FullModuleID)
 }
 
-func (r *reporter) setStatusV2(id cell.FullModuleID, s StatusV2) {
+func (r *reporter) upsertStatus(id cell.FullModuleID, s StatusV2) {
 	r.upsert(id, s)
 }
 
-// Degraded reports a degraded status update, should be used when a module encounters a
-// a state that is not fully reconciled.
-func (r *reporter) setStatus(u Update) {
-	r.process(r.moduleID, u)
+func (r *reporter) removeStatusTree(path cell.FullModuleID) {
+	r.delete(path)
 }
