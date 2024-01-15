@@ -57,7 +57,7 @@ func toModuleHealth(m health.Status) (*models.ModuleHealth, error) {
 		ModuleID: m.FullModuleID.String(),
 		Message:  string(d),
 		Level:    string(m.Level()),
-		//LastOk:      client.ToAgeHuman(m.LastOK),
+		//LastOk:   client.ToAgeHuman(m.LastOK),
 		//LastUpdated: client.ToAgeHuman(m.LastUpdated),
 	}, nil
 }

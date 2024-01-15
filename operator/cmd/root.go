@@ -61,6 +61,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/vitals"
 )
@@ -113,6 +114,7 @@ var (
 			}
 		}),
 
+		statedb.Cell,
 		vitals.Cell,
 	)
 

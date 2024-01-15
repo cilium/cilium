@@ -175,9 +175,7 @@ type Feature string
 // health status updates.
 func NewHealthProvider(pp healthProviderParams) (Health, error) {
 	p := &healthProvider{
-		moduleStatuses: make(map[string]Status),
-		byLevel:        make(map[Level]uint64),
-		db:             pp.DB,
+		db: pp.DB,
 
 		stop:    make(chan struct{}),
 		updates: make(chan update),
@@ -237,24 +235,6 @@ func NewHealthProvider(pp healthProviderParams) (Health, error) {
 
 func (p *healthProvider) Subscribe(ctx context.Context, cb func(Update), complete func(error)) {
 	p.obs.Observe(ctx, cb, complete)
-}
-
-func (p *healthProvider) removePrefix(prefix Identifier) error {
-	tx := p.db.WriteTxn(p.statusTable)
-	q := p.pathIndex.Query(prefix)
-	iter := p.statusTable.Prefix(tx, q)
-	for {
-		o, _, ok := iter.Next()
-		if !ok {
-			break
-		}
-		_, _, err := p.statusTable.Delete(tx, o)
-		if err != nil {
-			return fmt.Errorf("failed to delete status %s: %w", prefix.String(), err)
-		}
-	}
-	tx.Commit()
-	return nil
 }
 
 func (p *healthProvider) Start(ctx context.Context) {
@@ -420,18 +400,14 @@ func (p *healthProvider) Stats() map[Level]uint64 {
 }
 
 type healthProvider struct {
-	numProcessed atomic.Uint64
-
-	byLevel        map[Level]uint64
-	moduleStatuses map[string]Status
-	db             *statedb.DB
-	statusTable    statedb.RWTable[StatusV2]
-	pathIndex      statedb.Index[StatusV2, Identifier]
-	featureIndex   statedb.Index[StatusV2, Feature]
-	levelIndex     statedb.Index[StatusV2, Level]
-	updates        chan update
-	stop           chan struct{}
-	running        atomic.Bool
+	db           *statedb.DB
+	statusTable  statedb.RWTable[StatusV2]
+	pathIndex    statedb.Index[StatusV2, Identifier]
+	featureIndex statedb.Index[StatusV2, Feature]
+	levelIndex   statedb.Index[StatusV2, Level]
+	updates      chan update
+	stop         chan struct{}
+	running      atomic.Bool
 
 	obs      stream.Observable[Update]
 	emit     func(Update)

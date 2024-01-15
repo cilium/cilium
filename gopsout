@@ -1,0 +1,2391 @@
+goroutine 226 [running]:
+runtime/pprof.writeGoroutineStacks({0x3f00760, 0xc0006dc008})
+	/usr/local/bin/go/src/runtime/pprof/pprof.go:703 +0x6a
+runtime/pprof.writeGoroutine({0x3f00760?, 0xc0006dc008?}, 0x0?)
+	/usr/local/bin/go/src/runtime/pprof/pprof.go:692 +0x25
+runtime/pprof.(*Profile).WriteTo(0x3942619?, {0x3f00760?, 0xc0006dc008?}, 0x0?)
+	/usr/local/bin/go/src/runtime/pprof/pprof.go:329 +0x146
+github.com/google/gops/agent.handle({0x7fe24b821ea0?, 0xc0006dc008}, {0xc000b82000?, 0x1?, 0x1?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/google/gops/agent/agent.go:200 +0xd2
+github.com/google/gops/agent.listen({0x3f3d120, 0xc00093b0e0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/google/gops/agent/agent.go:144 +0x1a5
+created by github.com/google/gops/agent.Listen in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/google/gops/agent/agent.go:122 +0x379
+
+goroutine 1 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000f11ed0, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000f11ed0, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0x2fbc900?, {{0xc001403440, 0x3, 0x4}, {0xc000f11ed0, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0x3f3dbe0?, {0x3970a37?, 0x39425e3?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/node/manager.(*manager).NodeUpdated(_, {{0xc00017e580, 0xb}, {0xc0014a2bd0, 0x9}, {0xc0001bcd20, 0x4, 0x6}, 0xc000b790b0, {0x0, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/node/manager/manager.go:636 +0x1cc6
+github.com/cilium/cilium/pkg/nodediscovery.(*NodeDiscovery).StartDiscovery(0xc001d81110)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/nodediscovery/nodediscovery.go:226 +0x275
+github.com/cilium/cilium/daemon/cmd.newDaemon({0x3f52368, 0xc0004d9860}, 0xc000931130, 0xc000005800)
+	/home/tom/go/src/github.com/cilium/cilium/daemon/cmd/daemon.go:919 +0x50ef
+github.com/cilium/cilium/daemon/cmd.newDaemonPromise.func1({0x356bea0, 0x496b00})
+	/home/tom/go/src/github.com/cilium/cilium/daemon/cmd/daemon_main.go:1686 +0x66
+github.com/cilium/cilium/pkg/hive.Hook.Start(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/lifecycle.go:35
+github.com/cilium/cilium/pkg/hive.(*DefaultLifecycle).Start(0xc000d0f800, {0x3f523d8?, 0xc001560310?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/lifecycle.go:104 +0x2f4
+github.com/cilium/cilium/pkg/hive.(*Hive).Start(0xc0009a9900, {0x3f523d8, 0xc001560310})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/hive.go:303 +0xf4
+github.com/cilium/cilium/pkg/hive.(*Hive).Run(0xc0009a9900)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/hive.go:203 +0x73
+github.com/cilium/cilium/daemon/cmd.NewAgentCmd.func1(0xc00089a300?, {0x3934f09?, 0x4?, 0x3934d75?})
+	/home/tom/go/src/github.com/cilium/cilium/daemon/cmd/root.go:39 +0x17b
+github.com/spf13/cobra.(*Command).execute(0xc000960600, {0xc000072050, 0x1, 0x1})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/spf13/cobra/command.go:987 +0xaa3
+github.com/spf13/cobra.(*Command).ExecuteC(0xc000960600)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/spf13/cobra/command.go:1115 +0x3ff
+github.com/spf13/cobra.(*Command).Execute(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/spf13/cobra/command.go:1039
+github.com/cilium/cilium/daemon/cmd.Execute(0xc0009a9900?)
+	/home/tom/go/src/github.com/cilium/cilium/daemon/cmd/root.go:79 +0x13
+main.main()
+	/home/tom/go/src/github.com/cilium/cilium/daemon/main.go:14 +0x57
+
+goroutine 16 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc0007c2a80)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 94 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/identity/cache.(*identityWatcher).watch.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/identity/cache/cache.go:151 +0x71
+created by github.com/cilium/cilium/pkg/identity/cache.(*identityWatcher).watch in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/identity/cache/cache.go:145 +0x67
+
+goroutine 84 [select, 2 minutes]:
+io.(*pipe).read(0xc00066f920, {0xc0019be000, 0x10000, 0x425adc?})
+	/usr/local/bin/go/src/io/pipe.go:57 +0xa5
+io.(*PipeReader).Read(0x7fe24ba22568?, {0xc0019be000?, 0x410985?, 0x0?})
+	/usr/local/bin/go/src/io/pipe.go:136 +0x1b
+bufio.(*Scanner).Scan(0xc000029f28)
+	/usr/local/bin/go/src/bufio/scan.go:214 +0x81b
+github.com/sirupsen/logrus.(*Entry).writerScanner(0x0?, 0xc0011ae8f8, 0xc0011b79e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/sirupsen/logrus/writer.go:86 +0x125
+created by github.com/sirupsen/logrus.(*Entry).WriterLevel in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/sirupsen/logrus/writer.go:57 +0x385
+
+goroutine 85 [select, 2 minutes]:
+io.(*pipe).read(0xc00066f980, {0xc0018b0000, 0x10000, 0x425adc?})
+	/usr/local/bin/go/src/io/pipe.go:57 +0xa5
+io.(*PipeReader).Read(0x7fe24b9baac0?, {0xc0018b0000?, 0x410985?, 0x0?})
+	/usr/local/bin/go/src/io/pipe.go:136 +0x1b
+bufio.(*Scanner).Scan(0xc0018e5f28)
+	/usr/local/bin/go/src/bufio/scan.go:214 +0x81b
+github.com/sirupsen/logrus.(*Entry).writerScanner(0xc00011d7d0?, 0xc0011ae908, 0xc0011b7a00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/sirupsen/logrus/writer.go:86 +0x125
+created by github.com/sirupsen/logrus.(*Entry).WriterLevel in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/sirupsen/logrus/writer.go:57 +0x385
+
+goroutine 86 [select, 2 minutes]:
+io.(*pipe).read(0xc00066f9e0, {0xc0019ce000, 0x10000, 0x425adc?})
+	/usr/local/bin/go/src/io/pipe.go:57 +0xa5
+io.(*PipeReader).Read(0x6117e20?, {0xc0019ce000?, 0x410985?, 0x100000000000000?})
+	/usr/local/bin/go/src/io/pipe.go:136 +0x1b
+bufio.(*Scanner).Scan(0xc00002bf28)
+	/usr/local/bin/go/src/bufio/scan.go:214 +0x81b
+github.com/sirupsen/logrus.(*Entry).writerScanner(0x0?, 0xc0011ae918, 0xc0011b7a20)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/sirupsen/logrus/writer.go:86 +0x125
+created by github.com/sirupsen/logrus.(*Entry).WriterLevel in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/sirupsen/logrus/writer.go:57 +0x385
+
+goroutine 87 [select, 2 minutes]:
+io.(*pipe).read(0xc00066fa40, {0xc00123e000, 0x10000, 0x425adc?})
+	/usr/local/bin/go/src/io/pipe.go:57 +0xa5
+io.(*PipeReader).Read(0x7fe24ba2a5e0?, {0xc00123e000?, 0x410985?, 0x0?})
+	/usr/local/bin/go/src/io/pipe.go:136 +0x1b
+bufio.(*Scanner).Scan(0xc0000a1f28)
+	/usr/local/bin/go/src/bufio/scan.go:214 +0x81b
+github.com/sirupsen/logrus.(*Entry).writerScanner(0x0?, 0xc0011ae928, 0xc0011b7a40)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/sirupsen/logrus/writer.go:86 +0x125
+created by github.com/sirupsen/logrus.(*Entry).WriterLevel in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/sirupsen/logrus/writer.go:57 +0x385
+
+goroutine 91 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/cleanup.DeferTerminationCleanupFunction.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/cleanup/cleanup.go:19 +0x58
+created by github.com/cilium/cilium/pkg/cleanup.DeferTerminationCleanupFunction in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/cleanup/cleanup.go:17 +0x90
+
+goroutine 98 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded(0x3f8d620)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:346 +0xdf
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:326 +0xa7
+
+goroutine 92 [select]:
+github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter(0xc001157cc0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:209 +0x2e5
+created by github.com/cilium/cilium/pkg/trigger.NewTrigger in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:122 +0x1d8
+
+goroutine 460 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 455
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 95 [select]:
+github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter(0xc001157d60)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:209 +0x2e5
+created by github.com/cilium/cilium/pkg/trigger.NewTrigger in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:122 +0x1d8
+
+goroutine 96 [select]:
+github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter(0xc001157e00)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:209 +0x2e5
+created by github.com/cilium/cilium/pkg/trigger.NewTrigger in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:122 +0x1d8
+
+goroutine 225 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/hive.(*Hive).fatalOnTimeout.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/hive.go:318 +0x6a
+created by github.com/cilium/cilium/pkg/hive.(*Hive).fatalOnTimeout in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/hive.go:317 +0xa5
+
+goroutine 227 [IO wait, 2 minutes]:
+internal/poll.runtime_pollWait(0x7fe24bca0db8, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc00062c280?, 0xc000028d00?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc00062c280)
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:611 +0x2ac
+net.(*netFD).accept(0xc00062c280)
+	/usr/local/bin/go/src/net/fd_unix.go:172 +0x29
+net.(*TCPListener).accept(0xc00096e000)
+	/usr/local/bin/go/src/net/tcpsock_posix.go:152 +0x1e
+net.(*TCPListener).Accept(0xc00096e000)
+	/usr/local/bin/go/src/net/tcpsock.go:315 +0x30
+net/http.(*Server).Serve(0xc0001bc3c0, {0x3f3d120, 0xc00096e000})
+	/usr/local/bin/go/src/net/http/server.go:3056 +0x364
+net/http.(*Server).ListenAndServe(0xc0001bc3c0)
+	/usr/local/bin/go/src/net/http/server.go:2985 +0x71
+github.com/cilium/cilium/pkg/metrics.NewRegistry.func1.1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/metrics/registry.go:89 +0xa8
+created by github.com/cilium/cilium/pkg/metrics.NewRegistry.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/metrics/registry.go:87 +0xc5
+
+goroutine 237 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 273
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 239 [select]:
+github.com/cilium/cilium/pkg/rate.NewLimiter.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/rate/limiter.go:47 +0x93
+created by github.com/cilium/cilium/pkg/rate.NewLimiter in goroutine 274
+	/home/tom/go/src/github.com/cilium/cilium/pkg/rate/limiter.go:45 +0x147
+
+goroutine 232 [IO wait]:
+internal/poll.runtime_pollWait(0x7fe24bca0cc0, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc000847580?, 0xc00220e000?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000847580, {0xc00220e000, 0xa000, 0xa000})
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:164 +0x27a
+net.(*netFD).Read(0xc000847580, {0xc00220e000?, 0x9ffb?, 0xc00093b3c0?})
+	/usr/local/bin/go/src/net/fd_posix.go:55 +0x25
+net.(*conn).Read(0xc0015f9dd8, {0xc00220e000?, 0xc00220e000?, 0x5?})
+	/usr/local/bin/go/src/net/net.go:179 +0x45
+crypto/tls.(*atLeastReader).Read(0xc001266768, {0xc00220e000?, 0xc001266768?, 0x0?})
+	/usr/local/bin/go/src/crypto/tls/conn.go:805 +0x3b
+bytes.(*Buffer).ReadFrom(0xc000df1428, {0x3f05bc0, 0xc001266768})
+	/usr/local/bin/go/src/bytes/buffer.go:211 +0x98
+crypto/tls.(*Conn).readFromUntil(0xc000df1180, {0x7fe24b856508?, 0xc000c71110}, 0xa000?)
+	/usr/local/bin/go/src/crypto/tls/conn.go:827 +0xde
+crypto/tls.(*Conn).readRecordOrCCS(0xc000df1180, 0x0)
+	/usr/local/bin/go/src/crypto/tls/conn.go:625 +0x250
+crypto/tls.(*Conn).readRecord(...)
+	/usr/local/bin/go/src/crypto/tls/conn.go:587
+crypto/tls.(*Conn).Read(0xc000df1180, {0xc0019b6000, 0x1000, 0xfc8b89?})
+	/usr/local/bin/go/src/crypto/tls/conn.go:1369 +0x158
+bufio.(*Reader).Read(0xc000b05d40, {0xc0001b6d60, 0x9, 0x31d4a80?})
+	/usr/local/bin/go/src/bufio/bufio.go:244 +0x197
+io.ReadAtLeast({0x3f00980, 0xc000b05d40}, {0xc0001b6d60, 0x9, 0x9}, 0x9)
+	/usr/local/bin/go/src/io/io.go:335 +0x90
+io.ReadFull(...)
+	/usr/local/bin/go/src/io/io.go:354
+golang.org/x/net/http2.readFrameHeader({0xc0001b6d60, 0x9, 0x800000?}, {0x3f00980?, 0xc000b05d40?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/frame.go:237 +0x65
+golang.org/x/net/http2.(*Framer).ReadFrame(0xc0001b6d20)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/frame.go:498 +0x85
+golang.org/x/net/http2.(*clientConnReadLoop).run(0xc00070ff98)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2275 +0x11f
+golang.org/x/net/http2.(*ClientConn).readLoop(0xc000da6d80)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2170 +0x65
+created by golang.org/x/net/http2.(*Transport).newClientConn in goroutine 231
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:821 +0xcbe
+
+goroutine 25 [select]:
+github.com/cilium/cilium/pkg/controller.(*controller).runController(0xc0003bc000, {{{0x39530f7, 0xd}}, {0x0, 0x0}, 0xc000328060, 0x0, 0x3b5e8e0, 0x6fc23ac00, 0x0, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:322 +0x9d9
+created by github.com/cilium/cilium/pkg/controller.(*Manager).createControllerLocked in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/manager.go:111 +0x458
+
+goroutine 27 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 245
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 234 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc000b05ec0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 273
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 235 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001442000)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 273
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 236 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc0012869d0, 0x3)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x34aca40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc000b05ec0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f702a0, {0x3f52368, 0xc0007242d0}, 0xc0014cf4a0, {0x3f63828, 0xc001f810e0})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 273
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 245 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc001ea22e8, 0x1)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc000328620?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc001ea22c0, 0xc00134d200)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001eae140)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc0015866f0}, 0x1, 0xc0016e2de0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc00017e180?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001eae140, 0xc0016e2de0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc00096e9e0, 0xc0016e2de0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 224
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 246 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 224
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 368 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).ciliumNodeInit(0xc001dc8300, {0x3f92228, 0xc0015b2160}, 0xc000404560)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/cilium_node.go:112 +0x585
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).enableK8sWatchers in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/watcher.go:578 +0x509
+
+goroutine 532 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc001f51620)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 250 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 106
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 29 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 245
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 30 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc0012ea940}, {0x7fe24bc21918, 0xc001ea22c0}, {0x3f866f8?, 0x38f1c60}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc000df4000, {0x0?, 0x0?}, 0xc0016e2de0, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc000df4000, 0xc0016e2de0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0004d03c0?, {0x3f06e60, 0xc0006fa280}, 0x1, 0xc0016e2de0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc000df4000, 0xc0016e2de0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 245
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 257 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc000df4000, 0xc0016e2de0, 0xc0016e38c0, 0xc00011bf10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 30
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 258 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc00094cf00, 0xc001b60800)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 30
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 273 [chan receive, 2 minutes]:
+github.com/cilium/cilium/daemon/cmd.(*localNodeSynchronizer).SyncLocalNode(0xc00175c580, {0x3f52368?, 0xc000772d70?}, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/daemon/cmd/local_node_sync.go:63 +0xae
+github.com/cilium/cilium/pkg/node.NewLocalNodeStore.func1.1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/node/local_node_store.go:107 +0x31
+created by github.com/cilium/cilium/pkg/node.NewLocalNodeStore.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/node/local_node_store.go:106 +0x2c5
+
+goroutine 274 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/statedb.graveyardWorker(0xc0015a21c0, {0x3f52368, 0xc00072f360}, 0x3b9aca00?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/statedb/graveyard.go:27 +0xf1
+created by github.com/cilium/cilium/pkg/statedb.(*DB).Start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/statedb/db.go:231 +0x152
+
+goroutine 259 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc00094cf48, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc0018e1d40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc00094cf30, {0xc0007fc200, 0x4, 0x4})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0xc0007fc200?}, {0xc0007fc200?, 0xc0018e1ce0?, 0x40e50c?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+io.ReadAtLeast({0x7fe24bc21840, 0xc00094cf00}, {0xc0007fc200, 0x4, 0x4}, 0x4)
+	/usr/local/bin/go/src/io/io.go:335 +0x90
+k8s.io/apimachinery/pkg/util/framer.(*lengthDelimitedFrameReader).Read(0xc000d6a5a0, {0xc001b63400, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:76 +0x85
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc0006fa410, 0xc0016e3da0?, {0x3f34360, 0xc000ab0300})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc000328840)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc0012ea940)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 30
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 275 [select]:
+github.com/cilium/cilium/pkg/datapath/linux.(*devicesController).processUpdates(0xc001157720, 0xc002030360, 0xc002030420, 0xc002030480)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/datapath/linux/devices_controller.go:336 +0x286
+github.com/cilium/cilium/pkg/datapath/linux.(*devicesController).subscribeAndProcess(0xc001157720, {0x3f52368?, 0xc00072f720?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/datapath/linux/devices_controller.go:228 +0x305
+github.com/cilium/cilium/pkg/datapath/linux.(*devicesController).run(0xc001157720, {0x3f52368, 0xc00072f720})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/datapath/linux/devices_controller.go:170 +0x97
+created by github.com/cilium/cilium/pkg/datapath/linux.(*devicesController).Start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/datapath/linux/devices_controller.go:150 +0x156
+
+goroutine 276 [chan receive, 2 minutes]:
+github.com/vishvananda/netlink.addrSubscribeAt.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/addr_linux.go:350 +0x25
+created by github.com/vishvananda/netlink.addrSubscribeAt in goroutine 275
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/addr_linux.go:349 +0x14f
+
+goroutine 277 [syscall, 2 minutes]:
+syscall.Syscall6(0x10010c0100caff?, 0x9010103d9ff4100?, 0x65736e6f70736552?, 0x1020100daff0173?, 0x45726f646e655610?, 0xc001b8fca0?, 0x410685?)
+	/usr/local/bin/go/src/syscall/syscall_linux.go:91 +0x30
+golang.org/x/sys/unix.recvfrom(0x6e65747845726f64?, {0xc001b8fd70?, 0x103dfff52000000?, 0x6e6f707365520d01?}, 0x173706f72506573?, 0x440b01040100e0ff?, 0x6974706972637365?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go:527 +0x6f
+golang.org/x/sys/unix.Recvfrom(0x70616d16010104e5?, {0xc001b8fd70, 0x10000, 0x10000}, 0xff5c0000e2ff010c?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/sys/unix/syscall_unix.go:332 +0x70
+github.com/vishvananda/netlink/nl.(*NetlinkSocket).Receive(0xc000f66450?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/nl/nl_linux.go:781 +0x59
+github.com/vishvananda/netlink.addrSubscribeAt.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/addr_linux.go:366 +0x94
+created by github.com/vishvananda/netlink.addrSubscribeAt in goroutine 275
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/addr_linux.go:363 +0x35f
+
+goroutine 278 [chan receive, 2 minutes]:
+github.com/vishvananda/netlink.routeSubscribeAt.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/route_linux.go:1512 +0x25
+created by github.com/vishvananda/netlink.routeSubscribeAt in goroutine 275
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/route_linux.go:1511 +0x14f
+
+goroutine 279 [syscall, 2 minutes]:
+syscall.Syscall6(0x80100b4ff016570?, 0x656c62616c6c754e?, 0x726f460601000201?, 0x501000c0174616d?, 0xc01656c746954?, 0xc001baf878?, 0x410685?)
+	/usr/local/bin/go/src/syscall/syscall_linux.go:91 +0x30
+golang.org/x/sys/unix.recvfrom(0x7069746c754d0a01?, {0xc001baf948?, 0xa8ff016d756e4504?, 0x725078614d0d0100?}, 0x736569747265706f?, 0x6e694d0d01000401?, 0x69747265706f7250?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go:527 +0x6f
+golang.org/x/sys/unix.Recvfrom(0x6e41050100b8ff01?, {0xc001baf948, 0x10000, 0x10000}, 0xbaff0173656974?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/sys/unix/syscall_unix.go:332 +0x70
+github.com/vishvananda/netlink/nl.(*NetlinkSocket).Receive(0xc000f66480?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/nl/nl_linux.go:781 +0x59
+github.com/vishvananda/netlink.routeSubscribeAt.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/route_linux.go:1528 +0x9a
+created by github.com/vishvananda/netlink.routeSubscribeAt in goroutine 275
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/route_linux.go:1525 +0x35f
+
+goroutine 280 [chan receive, 2 minutes]:
+github.com/vishvananda/netlink.linkSubscribeAt.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/link_linux.go:2338 +0x25
+created by github.com/vishvananda/netlink.linkSubscribeAt in goroutine 275
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/link_linux.go:2337 +0x13e
+
+goroutine 281 [syscall, 2 minutes]:
+syscall.Syscall6(0x643a73386b2b0a0a?, 0x2d79706f63706565?, 0x657572743d6e6567?, 0x7961727261050101?, 0x601050100010114?, 0xc001bcfdc8?, 0x410685?)
+	/usr/local/bin/go/src/syscall/syscall_linux.go:91 +0x30
+golang.org/x/sys/unix.recvfrom(0x6f06010165757274?, {0xc001bcfe98?, 0x69747365676e6f63?, 0x6f72746e6f436e6f?}, 0x730601050100016c?, 0x60210676e697274?, 0x70c676e69727473?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go:527 +0x6f
+golang.org/x/sys/unix.Recvfrom(0x6972747306010501?, {0xc001bcfe98, 0x10000, 0x10000}, 0x77646e6162207349?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/sys/unix/syscall_unix.go:332 +0x70
+github.com/vishvananda/netlink/nl.(*NetlinkSocket).Receive(0xc000f664b0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/nl/nl_linux.go:781 +0x59
+github.com/vishvananda/netlink.linkSubscribeAt.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/link_linux.go:2354 +0x7f
+created by github.com/vishvananda/netlink.linkSubscribeAt in goroutine 275
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/vishvananda/netlink/link_linux.go:2351 +0x34f
+
+goroutine 282 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000c50030, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000c50030, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0xc00136a060?, {{0xc001403440, 0x3, 0x4}, {0xc000c50030, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0xc00049e000?, {0x393b518?, 0xc001c0cc20?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/hive/job.(*jobOneShot).start(0xc001982b40, {0x3f52330, 0xc001322a80}, 0x736e6f6974616469?, {0x3f3dbe0, 0xc0008a2120}, {{{0x0, 0x0, 0x0}}, {0x3f84a70, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:347 +0x67f
+created by github.com/cilium/cilium/pkg/hive/job.(*group).Start.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:163 +0x196
+
+goroutine 287 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000be7180, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000be7180, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0xc0013d6000?, {{0xc001403440, 0x3, 0x4}, {0xc000be7180, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0xc001c235b0?, {0x394a48b?, 0x73d8c8?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/controller.(*controller).recordSuccess(0xc0001c8640, {0x3f3cec0?, 0xc0007a5860?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:392 +0x3a
+github.com/cilium/cilium/pkg/controller.(*controller).runController(0xc0001c8640, {{{0x394a48b, 0xb}}, {0x3f3cec0, 0xc0007a5860}, 0xc000be7190, 0x0, 0x3b5e8e0, 0x45d964b800, 0x0, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:304 +0x859
+created by github.com/cilium/cilium/pkg/controller.(*Manager).createControllerLocked in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/manager.go:111 +0x458
+
+goroutine 288 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:234 +0x73
+sync.(*Once).doSlow(0x0?, 0x0?)
+	/usr/local/bin/go/src/sync/once.go:74 +0xbf
+sync.(*Once).Do(...)
+	/usr/local/bin/go/src/sync/once.go:65
+github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).run(0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:232 +0x3c
+created by github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).Run in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:228 +0x69
+
+goroutine 289 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:234 +0x73
+sync.(*Once).doSlow(0x0?, 0x0?)
+	/usr/local/bin/go/src/sync/once.go:74 +0xbf
+sync.(*Once).Do(...)
+	/usr/local/bin/go/src/sync/once.go:65
+github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).run(0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:232 +0x3c
+created by github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).Run in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:228 +0x69
+
+goroutine 290 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded(0x3f8c5e0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:346 +0xdf
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:326 +0xa7
+
+goroutine 99 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded(0x3f8c920)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:346 +0xdf
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:326 +0xa7
+
+goroutine 101 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000c50350, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000c50350, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0xc00136a1e0?, {{0xc001403440, 0x3, 0x4}, {0xc000c50350, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0xc00049e310?, {0x393b518?, 0xc001c0dc20?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/hive/job.(*jobOneShot).start(0xc0019834a0, {0x3f52330, 0xc0014265d0}, 0x1000001fe020103?, {0x3f3dbe0, 0xc0008a2120}, {{{0xc001530f00, 0x1, 0x1}}, {0x3f84a70, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:347 +0x67f
+created by github.com/cilium/cilium/pkg/hive/job.(*group).Start.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:163 +0x196
+
+goroutine 103 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000c503c0, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000c503c0, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0xc00136a270?, {{0xc001403440, 0x3, 0x4}, {0xc000c503c0, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0xc00049e3f0?, {0x393b518?, 0xc001c0ec20?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/hive/job.(*jobOneShot).start(0xc001983560, {0x3f52330, 0xc001426840}, 0x1736d6574496575?, {0x3f3dbe0, 0xc0008a2120}, {{{0xc0015314e0, 0x1, 0x1}}, {0x3f84a70, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:347 +0x67f
+created by github.com/cilium/cilium/pkg/hive/job.(*group).Start.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:163 +0x196
+
+goroutine 104 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded(0x3f8d620)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:346 +0xdf
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:326 +0xa7
+
+goroutine 500 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).UpdateNoTrackRules(0xc000e13880, 0xc001599920)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/policy.go:932 +0x290
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).metadataResolver(0xc000e13880, {0x3f52368, 0xc00089d220}, 0x1, 0x0, 0x0, {0x3f3ebc0, 0xc000613d10}, 0xc000f11040)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/endpoint.go:1694 +0x6b6
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).RunMetadataResolver.func1({0x3f52368?, 0xc00089d220?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/endpoint.go:1774 +0x6b
+github.com/cilium/cilium/pkg/controller.(*controller).runController(0xc000370500, {{{0x3957c43, 0xe}}, {0x0, 0x0}, 0xc00089d1d0, 0x0, 0x3b5e8e0, 0x0, 0x0, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:254 +0x122
+created by github.com/cilium/cilium/pkg/controller.(*Manager).createControllerLocked in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/manager.go:111 +0x458
+
+goroutine 533 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001f517a0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 480 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc001f513e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 55 [chan receive, 2 minutes]:
+github.com/cilium/workerpool.(*WorkerPool).run(0xc00089c460, {0x3f52368?, 0xc00089c4b0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/workerpool/workerpool.go:173 +0x5e
+created by github.com/cilium/workerpool.NewWithContext in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/workerpool/workerpool.go:68 +0x14a
+
+goroutine 56 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000c50ce0, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000c50ce0, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0x2fbc900?, {{0xc001403440, 0x3, 0x4}, {0xc000c50ce0, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0x3f3dbe0?, {0x39894d7?, 0x395ce54?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/node/manager.(*manager).backgroundSync(0xc000af8460, {0x3f52368, 0xc00089c4b0})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/node/manager/manager.go:359 +0x2ac
+github.com/cilium/workerpool.(*WorkerPool).run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/workerpool/workerpool.go:181 +0x75
+created by github.com/cilium/workerpool.(*WorkerPool).run in goroutine 55
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/workerpool/workerpool.go:178 +0x4c
+
+goroutine 57 [IO wait, 2 minutes]:
+internal/poll.runtime_pollWait(0x7fe24bca0bc8, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc0013a4b40?, 0xc001e0feb0?, 0x1)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc0013a4b40, {0xc001e0feb0, 0x10000, 0x10000})
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:164 +0x27a
+os.(*File).read(...)
+	/usr/local/bin/go/src/os/file_posix.go:29
+os.(*File).Read(0xc001880030, {0xc001e0feb0?, 0x2016574756269?, 0x6570706172570701?})
+	/usr/local/bin/go/src/os/file.go:118 +0x52
+github.com/fsnotify/fsnotify.(*Watcher).readEvents(0xc000e320c0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/fsnotify/fsnotify/backend_inotify.go:483 +0xd2
+created by github.com/fsnotify/fsnotify.NewBufferedWatcher in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/fsnotify/fsnotify/backend_inotify.go:270 +0x1c5
+
+goroutine 58 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/controller.(*controller).runController(0xc000370140, {{{0x3957b55, 0xe}}, {0x0, 0x0}, 0xc000c50fc0, 0x0, 0x3b5e8e0, 0x0, 0x0, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:322 +0x9d9
+created by github.com/cilium/cilium/pkg/controller.(*Manager).createControllerLocked in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/manager.go:111 +0x458
+
+goroutine 59 [select, 2 minutes]:
+github.com/cilium/cilium/daemon/cmd/cni.(*cniConfigManager).watchForDirectoryChanges(0xc0015e4480)
+	/home/tom/go/src/github.com/cilium/cilium/daemon/cmd/cni/config.go:242 +0x105
+created by github.com/cilium/cilium/daemon/cmd/cni.(*cniConfigManager).Start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/daemon/cmd/cni/config.go:216 +0x3ee
+
+goroutine 60 [IO wait, 2 minutes]:
+internal/poll.runtime_pollWait(0x7fe24bca0ad0, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc001c3c080?, 0x6974696e69666564?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc001c3c080)
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:611 +0x2ac
+net.(*netFD).accept(0xc001c3c080)
+	/usr/local/bin/go/src/net/fd_unix.go:172 +0x29
+net.(*UnixListener).accept(0x409f7e?)
+	/usr/local/bin/go/src/net/unixsock_posix.go:172 +0x16
+net.(*UnixListener).Accept(0xc00136ad50)
+	/usr/local/bin/go/src/net/unixsock.go:260 +0x30
+github.com/cilium/cilium/pkg/monitor/agent.(*server).connectionHandler1_2(0xc00079a220, {0x3f52368?, 0xc0009b4870}, 0x1001656c706d?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/monitor/agent/server.go:83 +0xe2
+created by github.com/cilium/cilium/pkg/monitor/agent.ServeMonitorAPI in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/monitor/agent/server.go:69 +0x192
+
+goroutine 61 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded(0x3f8db00)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:346 +0xdf
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:326 +0xa7
+
+goroutine 62 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000be7b60, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000be7b60, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0xc001323c80?, {{0xc001403440, 0x3, 0x4}, {0xc000be7b60, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0xc00039ed20?, {0x393b518?, 0xc001eb9c20?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/hive/job.(*jobOneShot).start(0xc0019004e0, {0x3f52330, 0xc00136b080}, 0x6863530601000201?, {0x3f3dbe0, 0xc0008a2120}, {{{0xc000073e20, 0x1, 0x1}}, {0x3f84a70, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:347 +0x67f
+created by github.com/cilium/cilium/pkg/hive/job.(*group).Start.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:163 +0x196
+
+goroutine 291 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/monitor/agent.(*server).connectionHandler1_2.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/monitor/agent/server.go:78 +0x2c
+created by github.com/cilium/cilium/pkg/monitor/agent.(*server).connectionHandler1_2 in goroutine 60
+	/home/tom/go/src/github.com/cilium/cilium/pkg/monitor/agent/server.go:77 +0xa5
+
+goroutine 63 [IO wait, 2 minutes]:
+internal/poll.runtime_pollWait(0x7fe24bca09d8, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc001c3c300?, 0x3874ec0?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc001c3c300)
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:611 +0x2ac
+net.(*netFD).accept(0xc001c3c300)
+	/usr/local/bin/go/src/net/fd_unix.go:172 +0x29
+net.(*UnixListener).accept(0x1?)
+	/usr/local/bin/go/src/net/unixsock_posix.go:172 +0x16
+net.(*UnixListener).AcceptUnix(0xc00136b1a0)
+	/usr/local/bin/go/src/net/unixsock.go:247 +0x30
+github.com/cilium/cilium/pkg/envoy.(*AccessLogServer).start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/envoy/accesslog_server.go:58 +0xaf
+created by github.com/cilium/cilium/pkg/envoy.(*AccessLogServer).start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/envoy/accesslog_server.go:53 +0x136
+
+goroutine 64 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/envoy.(*AccessLogServer).start.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/envoy/accesslog_server.go:76 +0x2f
+created by github.com/cilium/cilium/pkg/envoy.(*AccessLogServer).start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/envoy/accesslog_server.go:75 +0x199
+
+goroutine 292 [IO wait, 2 minutes]:
+internal/poll.runtime_pollWait(0x7fe24bca08e0, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc00171f500?, 0xc0006ee160?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc00171f500)
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:611 +0x2ac
+net.(*netFD).accept(0xc00171f500)
+	/usr/local/bin/go/src/net/fd_unix.go:172 +0x29
+net.(*UnixListener).accept(0xc000b44b28?)
+	/usr/local/bin/go/src/net/unixsock_posix.go:172 +0x16
+net.(*UnixListener).Accept(0xc001323f80)
+	/usr/local/bin/go/src/net/unixsock.go:260 +0x30
+google.golang.org/grpc.(*Server).Serve(0xc002041800, {0x3f3d150?, 0xc001323f80})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/google.golang.org/grpc/server.go:871 +0x462
+github.com/cilium/cilium/pkg/envoy.startXDSGRPCServer.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/envoy/grpc.go:55 +0xa5
+created by github.com/cilium/cilium/pkg/envoy.startXDSGRPCServer in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/envoy/grpc.go:53 +0x191
+
+goroutine 107 [syscall, 2 minutes]:
+syscall.Syscall6(0xc001c4f960?, 0xc001c4f948?, 0x4e4d7c?, 0xc00136a090?, 0x80000000000?, 0xc001c4f960?, 0x4e8605?)
+	/usr/local/bin/go/src/syscall/syscall_linux.go:91 +0x30
+golang.org/x/sys/unix.EpollWait(0xc0004e20b4?, {0xc001d865a0?, 0xc001c4fa10?, 0x46e573?}, 0x4e85e0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go:55 +0x4f
+github.com/cilium/ebpf/internal/unix.EpollWait(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/ebpf/internal/unix/types_linux.go:127
+github.com/cilium/ebpf/internal/epoll.(*Poller).Wait(0xc0006ee1a0, {0xc001d865a0?, 0x8, 0x8}, {0xc001c4fae8?, 0x73d3d8?, 0x0?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/ebpf/internal/epoll/poller.go:145 +0x2a5
+github.com/cilium/ebpf/perf.(*Reader).ReadInto(0xc001db0000, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/ebpf/perf/reader.go:354 +0x2c5
+github.com/cilium/ebpf/perf.(*Reader).Read(0xc000423180?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/ebpf/perf/reader.go:328 +0x45
+github.com/cilium/cilium/pkg/signal.(*signalManager).start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/signal/signal.go:266 +0x82
+created by github.com/cilium/cilium/pkg/signal.(*signalManager).start in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/signal/signal.go:263 +0x118
+
+goroutine 108 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000e8e300, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000e8e300, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0xc00147ae10?, {{0xc001403440, 0x3, 0x4}, {0xc000e8e300, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0xc00039f810?, {0x39386b5?, 0xc001eb9c08?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/hive/job.(*jobObserver[...]).start(0x3f3d580, {0x3f52330, 0xc0014270b0?}, 0x6e694d0701000201, {0x3f3dbe0?, 0xc0008a2120}, {{{0xc0004df9e0, 0x1, 0x1}}, {0x3f84a70, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:569 +0x374
+created by github.com/cilium/cilium/pkg/hive/job.(*group).Start.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:163 +0x196
+
+goroutine 109 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000e54120, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000e54120, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0xc0013d6270?, {{0xc001403440, 0x3, 0x4}, {0xc000e54120, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0xc00037e5b0?, {0x39386b5?, 0xc001c08c08?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/hive/job.(*jobObserver[...]).start(0x3f3d540, {0x3f52330, 0xc001427110?}, 0x1009cff01656c62, {0x3f3dbe0?, 0xc0008a2120}, {{{0xc0004df9e0, 0x1, 0x1}}, {0x3f84a70, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:569 +0x374
+created by github.com/cilium/cilium/pkg/hive/job.(*group).Start.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:163 +0x196
+
+goroutine 110 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000ec8010, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000ec8010, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0xc001486060?, {{0xc001403440, 0x3, 0x4}, {0xc000ec8010, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0xc0002d8000?, {0x39386b5?, 0xc001da8d90?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/hive/job.(*jobTimer).start(0xc0019009c0, {0x3f52330, 0xc001427170}, 0x7265646165480701?, {0x3f3dbe0, 0xc0008a2120}, {{{0xc0004df9e0, 0x1, 0x1}}, {0x3f84a70, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:471 +0x391
+created by github.com/cilium/cilium/pkg/hive/job.(*group).Start.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/hive/job/job.go:163 +0x196
+
+goroutine 305 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:234 +0x73
+sync.(*Once).doSlow(0xc001c46fd0?, 0x445ebc?)
+	/usr/local/bin/go/src/sync/once.go:74 +0xbf
+sync.(*Once).Do(...)
+	/usr/local/bin/go/src/sync/once.go:65
+github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).run(0xc001d86f00?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:232 +0x3c
+created by github.com/cilium/cilium/pkg/eventqueue.(*EventQueue).Run in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/eventqueue/eventqueue.go:228 +0x69
+
+goroutine 306 [select]:
+github.com/cilium/cilium/pkg/controller.(*controller).runController(0xc000493a40, {{{0x3975204, 0x15}}, {0x0, 0x0}, 0xc000e8ba70, 0x0, 0x3b5e8e0, 0x0, 0xdf8475800, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:322 +0x9d9
+created by github.com/cilium/cilium/pkg/controller.(*Manager).createControllerLocked in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/manager.go:111 +0x458
+
+goroutine 307 [select]:
+github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter(0xc001da2e60)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:209 +0x2e5
+created by github.com/cilium/cilium/pkg/trigger.NewTrigger in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:122 +0x1d8
+
+goroutine 308 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/cgroups/manager.(*CgroupManager).processPodEvents(0xc0009a3ae0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/cgroups/manager/manager.go:237 +0x89
+created by github.com/cilium/cilium/pkg/cgroups/manager.initManager in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/cgroups/manager/manager.go:207 +0x1b6
+
+goroutine 293 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).k8sServiceHandler(0xc001dc8300)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/watcher.go:697 +0xe5
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).RunK8sServiceHandler in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/watcher.go:710 +0x4f
+
+goroutine 294 [select]:
+github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter(0xc00203caa0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:209 +0x2e5
+created by github.com/cilium/cilium/pkg/trigger.NewTrigger in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:122 +0x1d8
+
+goroutine 295 [select]:
+github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter(0xc00203cb40)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:209 +0x2e5
+created by github.com/cilium/cilium/pkg/trigger.NewTrigger in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:122 +0x1d8
+
+goroutine 296 [select]:
+github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter(0xc00203cbe0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:209 +0x2e5
+created by github.com/cilium/cilium/pkg/trigger.NewTrigger in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:122 +0x1d8
+
+goroutine 297 [select]:
+github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter(0xc00203cc80)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:209 +0x2e5
+created by github.com/cilium/cilium/pkg/trigger.NewTrigger in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/trigger/trigger.go:122 +0x1d8
+
+goroutine 298 [select]:
+github.com/cilium/cilium/pkg/controller.(*controller).runController(0xc0001c9540, {{{0x398479a, 0x19}}, {0x0, 0x0}, 0xc000eccf70, 0x0, 0x3b5e8e0, 0xdf8475800, 0x0, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:322 +0x9d9
+created by github.com/cilium/cilium/pkg/controller.(*Manager).createControllerLocked in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/manager.go:111 +0x458
+
+goroutine 388 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc0013a5440)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 249 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc001ea2398, 0x1)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc0006effe0?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc001ea2370, 0xc00134d280)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001eae1e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc001598060}, 0x1, 0xc002096000)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc0007fc030?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001eae1e0, 0xc002096000)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc00096ea40, 0xc002096000)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 106
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 302 [IO wait, 2 minutes]:
+internal/poll.runtime_pollWait(0x7fe24bca0500, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc001cbea80?, 0xc00060f680?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc001cbea80)
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:611 +0x2ac
+net.(*netFD).accept(0xc001cbea80)
+	/usr/local/bin/go/src/net/fd_unix.go:172 +0x29
+net.(*TCPListener).accept(0xc0006097e0)
+	/usr/local/bin/go/src/net/tcpsock_posix.go:152 +0x1e
+net.(*TCPListener).Accept(0xc0006097e0)
+	/usr/local/bin/go/src/net/tcpsock.go:315 +0x30
+github.com/cilium/dns.(*Server).serveTCP(0xc00205ba00, {0x3f3d120?, 0xc0006097e0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:454 +0x142
+github.com/cilium/dns.(*Server).ActivateAndServe(0xc00205ba00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:372 +0x26c
+github.com/cilium/cilium/pkg/fqdn/dnsproxy.StartDNSProxy.func1(0xc00205ba00)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/proxy.go:675 +0x22a
+created by github.com/cilium/cilium/pkg/fqdn/dnsproxy.StartDNSProxy in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/proxy.go:667 +0x8f9
+
+goroutine 303 [IO wait]:
+internal/poll.runtime_pollWait(0x7fe24bca06f0, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc001cbeb00?, 0xc0019fc000?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).ReadMsgInet4(0xc001cbeb00, {0xc0019fc000, 0x200, 0x200}, {0xc00153c3f0, 0x2c, 0x2c}, 0x0?, 0x0?)
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:328 +0x339
+net.(*netFD).readMsgInet4(0xc001cbeb00, {0xc0019fc000?, 0x4259a5?, 0x7fe24ba02c38?}, {0xc00153c3f0?, 0xc0019f9820?, 0x45bebe?}, 0xc00011f000?, 0x9?)
+	/usr/local/bin/go/src/net/fd_posix.go:84 +0x31
+net.(*UDPConn).readMsg(0x3b5f090?, {0xc0019fc000?, 0x418e68?, 0x47?}, {0xc00153c3f0?, 0x0?, 0xffffffffffffffff?})
+	/usr/local/bin/go/src/net/udpsock_posix.go:101 +0x15c
+net.(*UDPConn).ReadMsgUDPAddrPort(0xc000b79030, {0xc0019fc000?, 0x7fe24bca06f0?, 0x47e278?}, {0xc00153c3f0?, 0xc0019f9980?, 0x47e065?})
+	/usr/local/bin/go/src/net/udpsock.go:203 +0x3e
+net.(*UDPConn).ReadMsgUDP(0xc001535320?, {0xc0019fc000?, 0xc000800000?, 0xc000e1e0d0?}, {0xc00153c3f0?, 0xc0019f99e0?, 0x410a05?})
+	/usr/local/bin/go/src/net/udpsock.go:191 +0x25
+github.com/cilium/cilium/pkg/fqdn/dnsproxy.(*sessionUDPFactory).ReadRequest(0xc000b79030?, 0xc000b79030)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/udp.go:158 +0x58
+github.com/cilium/dns.(*Server).readUDP(0xc00205bb00, 0xc000b79030, 0xc000772c30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:688 +0xeb
+github.com/cilium/dns.defaultReader.ReadUDP({0x73ba45?}, 0x3f005e0?, 0xc000772c30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:174 +0x13
+github.com/cilium/dns.(*Server).serveUDP(0xc00205bb00, {0x3f5f628?, 0xc000b79030?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:510 +0x29c
+github.com/cilium/dns.(*Server).ActivateAndServe(0xc00205bb00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:367 +0x1c7
+github.com/cilium/cilium/pkg/fqdn/dnsproxy.StartDNSProxy.func1(0xc00205bb00)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/proxy.go:675 +0x22a
+created by github.com/cilium/cilium/pkg/fqdn/dnsproxy.StartDNSProxy in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/proxy.go:667 +0x8f9
+
+goroutine 304 [IO wait, 2 minutes]:
+internal/poll.runtime_pollWait(0x7fe24bca05f8, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc001cbec00?, 0xc0015861b0?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc001cbec00)
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:611 +0x2ac
+net.(*netFD).accept(0xc001cbec00)
+	/usr/local/bin/go/src/net/fd_unix.go:172 +0x29
+net.(*TCPListener).accept(0xc000609800)
+	/usr/local/bin/go/src/net/tcpsock_posix.go:152 +0x1e
+net.(*TCPListener).Accept(0xc000609800)
+	/usr/local/bin/go/src/net/tcpsock.go:315 +0x30
+github.com/cilium/dns.(*Server).serveTCP(0xc00205bc00, {0x3f3d120?, 0xc000609800})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:454 +0x142
+github.com/cilium/dns.(*Server).ActivateAndServe(0xc00205bc00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:372 +0x26c
+github.com/cilium/cilium/pkg/fqdn/dnsproxy.StartDNSProxy.func1(0xc00205bc00)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/proxy.go:675 +0x22a
+created by github.com/cilium/cilium/pkg/fqdn/dnsproxy.StartDNSProxy in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/proxy.go:667 +0x8f9
+
+goroutine 321 [IO wait]:
+internal/poll.runtime_pollWait(0x7fe24bca0310, 0x72)
+	/usr/local/bin/go/src/runtime/netpoll.go:343 +0x85
+internal/poll.(*pollDesc).wait(0xc001cbec80?, 0xc0019fc200?, 0x0)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/bin/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).ReadMsgInet6(0xc001cbec80, {0xc0019fc200, 0x200, 0x200}, {0xc00153c450, 0x2c, 0x2c}, 0x7fe24b81daf8?, 0x0?)
+	/usr/local/bin/go/src/internal/poll/fd_unix.go:355 +0x339
+net.(*netFD).readMsgInet6(0xc001cbec80, {0xc0019fc200?, 0xc000010030?, 0x0?}, {0xc00153c450?, 0xc0019f5820?, 0x45bebe?}, 0xc00062d580?, 0xc?)
+	/usr/local/bin/go/src/net/fd_posix.go:90 +0x31
+net.(*UDPConn).readMsg(0x3b5f090?, {0xc0019fc200?, 0x418e68?, 0x3f?}, {0xc00153c450?, 0x0?, 0xffffffffffffffff?})
+	/usr/local/bin/go/src/net/udpsock_posix.go:106 +0x9c
+net.(*UDPConn).ReadMsgUDPAddrPort(0xc000b79060, {0xc0019fc200?, 0x7fe24bca0310?, 0x47e278?}, {0xc00153c450?, 0xc0019f5980?, 0x47e065?})
+	/usr/local/bin/go/src/net/udpsock.go:203 +0x3e
+net.(*UDPConn).ReadMsgUDP(0xc001535500?, {0xc0019fc200?, 0xc0019e8000?, 0xc000d7e170?}, {0xc00153c450?, 0xc0019f59e0?, 0x410a05?})
+	/usr/local/bin/go/src/net/udpsock.go:191 +0x25
+github.com/cilium/cilium/pkg/fqdn/dnsproxy.(*sessionUDPFactory).ReadRequest(0xc000b79060?, 0xc000b79060)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/udp.go:158 +0x58
+github.com/cilium/dns.(*Server).readUDP(0xc00205bd00, 0xc000b79060, 0xc0007bebe0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:688 +0xeb
+github.com/cilium/dns.defaultReader.ReadUDP({0x73ba45?}, 0x3f005e0?, 0xc0007bebe0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:174 +0x13
+github.com/cilium/dns.(*Server).serveUDP(0xc00205bd00, {0x3f5f628?, 0xc000b79060?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:510 +0x29c
+github.com/cilium/dns.(*Server).ActivateAndServe(0xc00205bd00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/github.com/cilium/dns/server.go:367 +0x1c7
+github.com/cilium/cilium/pkg/fqdn/dnsproxy.StartDNSProxy.func1(0xc00205bd00)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/proxy.go:675 +0x22a
+created by github.com/cilium/cilium/pkg/fqdn/dnsproxy.StartDNSProxy in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/fqdn/dnsproxy/proxy.go:667 +0x8f9
+
+goroutine 309 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc0001b6ee0, 0xc002096000, 0xc001d87800, 0x2016d756d696e69?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 346
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 476 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc001f511a0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 456 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 53
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 477 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001f51320)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 485 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/kvstore.Client(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/kvstore/client.go:53
+github.com/cilium/cilium/pkg/kvstore.Connected.func1(0xc000404560?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/kvstore/client.go:96 +0x48
+created by github.com/cilium/cilium/pkg/kvstore.Connected in goroutine 481
+	/home/tom/go/src/github.com/cilium/cilium/pkg/kvstore/client.go:94 +0x68
+
+goroutine 487 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 484
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 488 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc00140eec0}, {0x7fe24bc21918, 0xc001e269a0}, {0x3f866f8?, 0x38b7800}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc000fae460, {0x0?, 0x0?}, 0xc001e22a20, 0xc001f305a0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc000fae460, 0xc001e22a20)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0014dd440?, {0x3f06e60, 0xc000b069b0}, 0x1, 0xc001e22a20)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc000fae460, 0xc001e22a20)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 484
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 358 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc001526a00}, {0x7fe24bc21918, 0xc001c164d0}, {0x3f866f8?, 0x38f3a60}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc000fae000, {0x0?, 0x0?}, 0xc001e22420, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc000fae000, 0xc001e22420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0014dcc40?, {0x3f06e60, 0xc000b06230}, 0x1, 0xc001e22420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc000fae000, 0xc001e22420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 395
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 343 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 249
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 386 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).serviceEventLoop(0xc001dc8300, 0xc00040457c, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/service.go:40 +0x11d
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).servicesInit in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/service.go:28 +0x168
+
+goroutine 536 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc002015418, 0x0)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x1e418e8?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc0020153f0, 0xc0015484c0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc00203d720)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc00164b440}, 0x1, 0xc001f52f00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc0007d7140?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc00203d720, 0xc001f52f00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc000de8160, 0xc001f52f00)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 54
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 455 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc0021002e8, 0x0)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc001ef4c80?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc0021002c0, 0xc0012eba80)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001b6c460)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc0015ef4a0}, 0x1, 0xc001b7afc0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc00017f300?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001b6c460, 0xc001b7afc0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc0003293e0, 0xc001b7afc0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 53
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 345 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 249
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 375 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc001cc93e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 386
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 349 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc000fae000, 0xc001e22420, 0xc0020964e0, 0xc000116778?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 358
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 481 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).ciliumEndpointsInit(0xc001dc8300, {0x3f92228, 0xc0015b2160}, 0xc000404560)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/cilium_endpoint.go:101 +0x71
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).initCiliumEndpointOrSlices in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/watcher.go:1061 +0x145
+
+goroutine 484 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc001e269c8, 0x1)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc000bb05e0?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc001e269a0, 0xc001219600)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001e38140)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc00163e480}, 0x1, 0xc001e22a20)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc0006f1010?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001e38140, 0xc001e22a20)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/informer.(*privateRunner).Run(0xc000beab60, 0xc001e22a20)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/informer/informer.go:46 +0x9e
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).ciliumEndpointsInit in goroutine 481
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/cilium_endpoint.go:99 +0x65
+
+goroutine 346 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc001526800}, {0x7fe24bc21918, 0xc001ea2370}, {0x3f866f8?, 0x38f2020}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc0001b6ee0, {0x0?, 0x0?}, 0xc002096000, 0x418e01?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc0001b6ee0, 0xc002096000)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0009ab9c0?, {0x3f06e60, 0xc000725c20}, 0x1, 0xc002096000)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc0001b6ee0, 0xc002096000)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 249
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 265 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 105
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 357 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 395
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 355 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 395
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 264 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc002100028, 0x8)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc000ecb9a0?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc002100000, 0xc0012eaa00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001b6c280)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc001587fb0}, 0x1, 0xc001b7a420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc00017e940?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001b6c280, 0xc001b7a420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc0003288e0, 0xc001b7a420)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 105
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 370 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc001cc90e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 371 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001cc9200)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 372 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f702a0, {0x3f52368, 0xc001e90690}, 0xc001cb1b00, {0x3f63828, 0xc001f810e0})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:664 +0x5a6
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 373 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 389 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc0013a55c0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 390 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc000e32490, 0x4)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x34aca40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc0013a5440)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f70120, {0x3f52368, 0xc00089c8c0}, 0xc001c12b40, {0x3f63720, 0xc001f811e8})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 391 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 392 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).namespacesInit.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/namespace.go:47 +0xc5
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).namespacesInit in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/namespace.go:45 +0x1ed
+
+goroutine 479 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 458 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 455
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 395 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc001c164f8, 0x1)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc00093bc20?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc001c164d0, 0xc000e32740)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001c68000)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc001487140}, 0x1, 0xc001e22420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc0006f0ba0?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001c68000, 0xc001e22420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc00079a400, 0xc001e22420)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 102
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 396 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 102
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 531 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 398 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).podsInit.func1.1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/pod.go:125 +0x116
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).podsInit.func1 in goroutine 393
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/pod.go:123 +0xe5
+
+goroutine 376 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001cc9560)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 386
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 377 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc00130a150, 0x4)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x34aca40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc001cc93e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f70320, {0x3f52368, 0xc001e90870}, 0xc001cb1c80, {0x3f63880, 0xc000e087f8})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 386
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 378 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 386
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 478 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc00130b990, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x34aca40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc001f511a0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f70020, {0x3f52368, 0xc001e91590}, 0xc001f52a20, {0x3f63670, 0xc000c71b90})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 409 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 406
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 253 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc001fadb00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 401 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc001c72180)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 398
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 402 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001c72300)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 398
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 403 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc000e32a50, 0x12)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x0?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc001c72180)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f701a0, {0x3f52368, 0xc00089cc80}, 0xc001c13140, {0x3f63778, 0xc000d6a780})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 398
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 404 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 398
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 254 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001fadc80)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 267 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 264
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 255 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc00134d450, 0x4)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x34aca40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc001fadb00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f6fea0, {0x3f52368, 0xc00089ca00}, 0xc001c12d80, {0x3f63568, 0xc000e08648})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 256 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 417 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).endpointsInit.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/endpoints.go:42 +0xec
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).endpointsInit in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/endpoints.go:40 +0x236
+
+goroutine 364 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).ciliumNetworkPoliciesInit.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/cilium_network_policy.go:93 +0x352
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).ciliumNetworkPoliciesInit in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/cilium_network_policy.go:74 +0x13a
+
+goroutine 419 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).networkPolicyEventLoop(0xc001dc8300, 0xc0001785c8)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/network_policy.go:41 +0x129
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).NetworkPoliciesInit.func1 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/network_policy.go:28 +0x157
+
+goroutine 406 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc001c16708, 0x1)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc00079a8c0?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc001c166e0, 0xc000e32c00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001c680a0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc0015d0000}, 0x1, 0xc001c13500)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc000404630?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001c680a0, 0xc001c13500)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc00079a4c0, 0xc001c13500)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 100
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 407 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 100
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 530 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc00130be90, 0x1)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x1?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc001f513e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f6ffa0, {0x3f52368, 0xc001e91680}, 0xc001f52ae0, {0x3f63618, 0xc000d6aeb8})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 535 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 411 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 406
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 412 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc001526680}, {0x7fe24bc21918, 0xc001c166e0}, {0x3f866f8?, 0x38f14e0}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc000f422a0, {0x0?, 0x0?}, 0xc001c13500, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc000f422a0, 0xc001c13500)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc000898d80?, {0x3f06e60, 0xc00089ce60}, 0x1, 0xc001c13500)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc000f422a0, 0xc001c13500)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 406
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 310 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc001dc3e00, 0xc001dd7500)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 346
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 534 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc001548350, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x34aca40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc001f51620)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f6ff20, {0x3f52368, 0xc001e91770}, 0xc001f52ba0, {0x3f635c0, 0xc001159530})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 269 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 264
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 415 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc000f422a0, 0xc001c13500, 0xc001c13d40, 0xc001da1f10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 412
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 420 [chan receive]:
+k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop(0xc001fadd40)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:281 +0x9c
+created by k8s.io/client-go/util/workqueue.newQueue in goroutine 419
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:106 +0x1ba
+
+goroutine 270 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc001526880}, {0x7fe24bc21918, 0xc002100000}, {0x3f866f8?, 0x38f1120}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc000df4380, {0x0?, 0x0?}, 0xc001b7a420, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc000df4380, 0xc001b7a420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0004d0d00?, {0x3f06e60, 0xc0006faf00}, 0x1, 0xc001b7a420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc000df4380, 0xc001b7a420)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 264
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 421 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001fadec0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 419
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 422 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc00134d8d0, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x34aca40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/util/workqueue.(*Type).Get(0xc001fadd40)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/queue.go:200 +0x99
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).getWorkItem(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:685
+github.com/cilium/cilium/pkg/k8s/resource.(*subscriber[...]).processLoop(0x3f700a0, {0x3f52368, 0xc0000d0c80}, 0xc001e9a840, {0x3f636c8, 0xc001f81410})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:609 +0x144
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:498 +0x33a
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 419
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:464 +0x586
+
+goroutine 423 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:510 +0x135
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).Events in goroutine 419
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:508 +0x64a
+
+goroutine 434 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc000df4380, 0xc001b7a420, 0xc001e9b020, 0xc001c01710?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 270
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 424 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc001ea2708, 0x0)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc001c7ac80?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc001ea26e0, 0xc00134da40)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001eae280)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc0007afe30}, 0x1, 0xc001e9ac00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc000178610?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001eae280, 0xc001e9ac00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc00096eb00, 0xc001e9ac00)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 51
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 425 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 51
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 529 [select]:
+k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop(0xc001f51560)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:276 +0x305
+created by k8s.io/client-go/util/workqueue.newDelayingQueue in goroutine 364
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/util/workqueue/delaying_queue.go:113 +0x21f
+
+goroutine 428 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 424
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 579 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc00211a000, 0xc001b61700)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 543
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 430 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 424
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 431 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc001526b00}, {0x7fe24bc21918, 0xc001ea26e0}, {0x3f866f8?, 0x38f2f20}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc000d9e1c0, {0x0?, 0x0?}, 0xc001e9ac00, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc000d9e1c0, 0xc001e9ac00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc000b88480?, {0x3f06e60, 0xc0000d0eb0}, 0x1, 0xc001e9ac00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc000d9e1c0, 0xc001e9ac00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 424
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 449 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc000d9e1c0, 0xc001e9ac00, 0xc001b7a900, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 431
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 439 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc000da7248, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc0022f6d40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc000da7230, {0xc0007fc600, 0x4, 0x4})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0xc0007fc600?}, {0xc0007fc600?, 0xc0022f6ce0?, 0x40e50c?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+io.ReadAtLeast({0x7fe24bc21840, 0xc000da7200}, {0xc0007fc600, 0x4, 0x4}, 0x4)
+	/usr/local/bin/go/src/io/io.go:335 +0x90
+k8s.io/apimachinery/pkg/util/framer.(*lengthDelimitedFrameReader).Read(0xc001f81ae8, {0xc001efd800, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:76 +0x85
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc0000d1810, 0xc001e9b740?, {0x3f34360, 0xc000ab08c0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc00096f600)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc001526a00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 358
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 350 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc000da7200, 0xc000245f00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x0?, 0xc001b66f10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 358
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 450 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc00094d800, 0xc001b60e00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 431
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 416 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc00218e180, 0xc001c5e600)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x6e654c6e694d0901?, 0x701000401687467?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 412
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 435 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc000b58780, 0xc001eb0900)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 270
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 436 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc00218e1c8, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc001ef5d40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc00218e1b0, {0xc0007fc4f0, 0x4, 0x4})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0xc0007fc4f0?}, {0xc0007fc4f0?, 0xc001ef5ce0?, 0x40e50c?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+io.ReadAtLeast({0x7fe24bc21840, 0xc00218e180}, {0xc0007fc4f0, 0x4, 0x4}, 0x4)
+	/usr/local/bin/go/src/io/io.go:335 +0x90
+k8s.io/apimachinery/pkg/util/framer.(*lengthDelimitedFrameReader).Read(0xc001f81a10, {0xc001efcc00, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:76 +0x85
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc0000d14f0, 0xc001e9b3e0?, {0x3f34360, 0xc000ab0700})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc00096f5a0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc001526680)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 412
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 437 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc001dc3e48, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc001ef6d40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc001dc3e30, {0xc0007fc120, 0x4, 0x4})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0xc0007fc120?}, {0xc0007fc120?, 0xc001ef6ce0?, 0x40e50c?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+io.ReadAtLeast({0x7fe24bc21840, 0xc001dc3e00}, {0xc0007fc120, 0x4, 0x4}, 0x4)
+	/usr/local/bin/go/src/io/io.go:335 +0x90
+k8s.io/apimachinery/pkg/util/framer.(*lengthDelimitedFrameReader).Read(0xc001f81a70, {0xc001efd000, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:76 +0x85
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc0000d16d0, 0xc001e9b500?, {0x3f34360, 0xc000ab01c0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc00096f5c0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc001526800)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 346
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 438 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc000b587c8, 0xa)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc001ef7d40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc000b587b0, {0xc0013d02fc, 0x4, 0x4})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0xc0013d02f2?}, {0xc0013d02fc?, 0xc001ef7ce0?, 0x40e50c?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+io.ReadAtLeast({0x7fe24bc21840, 0xc000b58780}, {0xc0013d02fc, 0x4, 0x4}, 0x4)
+	/usr/local/bin/go/src/io/io.go:335 +0x90
+k8s.io/apimachinery/pkg/util/framer.(*lengthDelimitedFrameReader).Read(0xc001f81aa0, {0xc002374000, 0x4000, 0x5000})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:76 +0x85
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc0000d1720, 0xc001e9b680?, {0x3f34360, 0xc0012860c0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc00096f5e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc001526880)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 270
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 440 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc00094d848, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc0022f7d40?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc00094d830, {0xc0007fc518, 0x4, 0x4})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0xc0007fc500?}, {0xc0007fc518?, 0xc0022f7ce0?, 0x40e50c?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+io.ReadAtLeast({0x7fe24bc21840, 0xc00094d800}, {0xc0007fc518, 0x4, 0x4}, 0x4)
+	/usr/local/bin/go/src/io/io.go:335 +0x90
+k8s.io/apimachinery/pkg/util/framer.(*lengthDelimitedFrameReader).Read(0xc001f81b30, {0xc001efdc00, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:76 +0x85
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc0000d1950, 0xc001e9b8c0?, {0x3f34360, 0xc000ab07c0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc00096f620)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc001526b00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 431
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 441 [sync.Mutex.Lock, 2 minutes]:
+sync.runtime_SemacquireMutex(0x0?, 0x1?, 0x2?)
+	/usr/local/bin/go/src/runtime/sema.go:77 +0x25
+sync.(*Mutex).lockSlow(0xc001ea2790)
+	/usr/local/bin/go/src/sync/mutex.go:171 +0x15d
+sync.(*Mutex).Lock(...)
+	/usr/local/bin/go/src/sync/mutex.go:90
+sync.(*RWMutex).Lock(0xc002301b98?)
+	/usr/local/bin/go/src/sync/rwmutex.go:147 +0x31
+k8s.io/client-go/tools/cache.(*DeltaFIFO).HasSynced(0xc001ea2790)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:301 +0x2f
+k8s.io/client-go/tools/cache.(*controller).HasSynced(0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:165 +0x1b
+k8s.io/client-go/tools/cache.WaitForCacheSync.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/shared_informer.go:329 +0x47
+k8s.io/apimachinery/pkg/util/wait.PollImmediateUntil.ConditionFunc.WithContext.func1({0xc0000d1b30, 0x0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:109 +0x13
+k8s.io/apimachinery/pkg/util/wait.runConditionWithCrashProtectionWithContext({0x3f53670?, 0xc001e9b9e0?}, 0xc002301c60?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:154 +0x4c
+k8s.io/apimachinery/pkg/util/wait.waitForWithContext({0x3f53670, 0xc001e9b9e0}, 0xc002301d28, 0x2fbc900?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:207 +0x107
+k8s.io/apimachinery/pkg/util/wait.poll({0x3f53670, 0xc001e9b9e0}, 0x10?, 0xc0007ae090?, 0x3f2f4e8?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/poll.go:260 +0x89
+k8s.io/apimachinery/pkg/util/wait.PollImmediateUntilWithContext({0x3f53670?, 0xc001e9b9e0?}, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/poll.go:200 +0x53
+k8s.io/apimachinery/pkg/util/wait.PollImmediateUntil(0xc002301d08?, 0xc002301dc8?, 0x73d8c8?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/poll.go:187 +0x3c
+k8s.io/client-go/tools/cache.WaitForCacheSync(0xc0002bf7a0?, {0xc002301e58?, 0xc001b68e80?, 0x12?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/shared_informer.go:326 +0x4c
+github.com/cilium/cilium/pkg/k8s/synced.(*Resources).BlockWaitGroupToSyncResources.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/synced/resources.go:82 +0x1ad
+created by github.com/cilium/cilium/pkg/k8s/synced.(*Resources).BlockWaitGroupToSyncResources in goroutine 368
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/synced/resources.go:79 +0x1e9
+
+goroutine 442 [chan send, 2 minutes]:
+github.com/cilium/cilium/pkg/vitals/health.(*healthProvider).forModule.func1({{0xc001403440, 0x3, 0x4}, {0xc000f52580, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, {0xc000f52580, ...}}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:390 +0x2cc
+github.com/cilium/cilium/pkg/vitals/health.(*reporter).upsertStatus(0x2fbc900?, {{0xc001403440, 0x3, 0x4}, {0xc000f52580, 0x1, 0x1}}, {{{0xc001403440, 0x3, 0x4}, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/health.go:477 +0xa5
+github.com/cilium/cilium/pkg/vitals/health.(*subReporter).OK(0x3f3dbe0?, {0x3970a37?, 0x39425e3?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/vitals/health/structured.go:201 +0x127
+github.com/cilium/cilium/pkg/node/manager.(*manager).NodeUpdated(_, {{0xc001579b60, 0x12}, {0xc0014a2bd0, 0x9}, {0xc001da2f00, 0x4, 0x4}, 0xc0018c4138, {0x0, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/node/manager/manager.go:636 +0x1cc6
+github.com/cilium/cilium/pkg/nodediscovery.(*NodeDiscovery).NodeUpdated(_, {{0xc001579b60, 0x12}, {0xc0014a2bd0, 0x9}, {0xc001da2f00, 0x4, 0x4}, 0xc0018c4138, {0x0, ...}, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/nodediscovery/nodediscovery.go:251 +0x55
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).ciliumNodeInit.func1({0x38c0420?, 0xc002309800?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/cilium_node.go:48 +0x1d5
+k8s.io/client-go/tools/cache.ResourceEventHandlerFuncs.OnAdd(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:239
+github.com/cilium/cilium/pkg/k8s/informer.NewInformerWithStore.func1({0x3253460?, 0xc000fc1230?}, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/informer/informer.go:132 +0x2ad
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc001ea2790, 0xc001526b80)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:603 +0x55e
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc001eae6e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc001598db0}, 0x1, 0xc001e9b9e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc0007fc560?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc001eae6e0, 0xc001e9b9e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/informer.(*privateRunner).Run(0xc00096f6a0, 0xc001e9b9e0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/informer/informer.go:46 +0x9e
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).ciliumNodeInit in goroutine 368
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/cilium_node.go:110 +0x579
+
+goroutine 443 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/kvstore.Client(...)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/kvstore/client.go:53
+github.com/cilium/cilium/pkg/kvstore.Connected.func1(0xc001526880?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/kvstore/client.go:96 +0x48
+created by github.com/cilium/cilium/pkg/kvstore.Connected in goroutine 368
+	/home/tom/go/src/github.com/cilium/cilium/pkg/kvstore/client.go:94 +0x68
+
+goroutine 67 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc000fae460, 0xc001e22a20, 0xc001d0a240, 0xc00140e440?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 488
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 497 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/nodediscovery.(*NodeDiscovery).WaitForLocalNodeInit(0xc000423650?)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/nodediscovery/nodediscovery.go:243 +0x1c
+github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).InitK8sSubsystem.func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/watcher.go:535 +0xe8
+created by github.com/cilium/cilium/pkg/k8s/watchers.(*K8sWatcher).InitK8sSubsystem in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/watchers/watcher.go:533 +0x368
+
+goroutine 70 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc0023404c8, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x3f30640?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc0023404b0, {0xc001dbf801, 0x5ff, 0x5ff})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0x3933c88?}, {0xc001dbf801?, 0x3946b61?, 0xa?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+encoding/json.(*Decoder).refill(0xc001d36c80)
+	/usr/local/bin/go/src/encoding/json/stream.go:165 +0x188
+encoding/json.(*Decoder).readValue(0xc001d36c80)
+	/usr/local/bin/go/src/encoding/json/stream.go:140 +0xa9
+encoding/json.(*Decoder).Decode(0xc001d36c80, {0x3254a60, 0xc0012666d8})
+	/usr/local/bin/go/src/encoding/json/stream.go:63 +0x75
+k8s.io/apimachinery/pkg/util/framer.(*jsonFrameReader).Read(0xc0020d0210, {0xc001d03800, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:152 +0x19c
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc000940690, 0xc001d0a720?, {0x3f34360, 0xc000ab0880})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc000bb0860)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc00140eec0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 488
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 352 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 442
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 513 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc000ab0480}, {0x7fe24bc21918, 0xc001ea2790}, {0x3f866f8?, 0x38c0420}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc0001b7260, {0x0?, 0x0?}, 0xc001e9b9e0, 0xc001f30da0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc0001b7260, 0xc001e9b9e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0009abb00?, {0x3f06e60, 0xc002222140}, 0x1, 0xc001e9b9e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc0001b7260, 0xc001e9b9e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 442
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 553 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc0001b7260, 0xc001e9b9e0, 0xc0022ff260, 0x1796c6e4f746e65?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 513
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 68 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc002340480, 0xc0020ce200)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x2123dc5?, 0xc001da2e60?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 488
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 554 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc000b59b00, 0xc001eb1d00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x74735b70616d1601?, 0x6570735d676e6972?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 513
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 516 [sync.Cond.Wait, 2 minutes]:
+sync.runtime_notifyListWait(0xc000e86a78, 0x0)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0xc0022f2c80?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+k8s.io/client-go/tools/cache.(*DeltaFIFO).Pop(0xc000e86a50, 0xc001287580)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/delta_fifo.go:575 +0x236
+k8s.io/client-go/tools/cache.(*controller).processLoop(0xc0018db2c0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:188 +0x30
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x30?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0x4470a0?, {0x3f06e40, 0xc001599260}, 0x1, 0xc002096c60)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/apimachinery/pkg/util/wait.JitterUntil(0xc0007fc6c0?, 0x3b9aca00, 0x0, 0x0?, 0x0?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:204 +0x7f
+k8s.io/apimachinery/pkg/util/wait.Until(...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:161
+k8s.io/client-go/tools/cache.(*controller).Run(0xc0018db2c0, 0xc002096c60)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:159 +0x393
+github.com/cilium/cilium/pkg/k8s/resource.(*wrapperController).Run(0xc000e8c200, 0xc002096c60)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:808 +0x9e
+github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded.func2()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:366 +0xbb
+created by github.com/cilium/cilium/pkg/k8s/resource.(*resource[...]).startWhenNeeded in goroutine 52
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:364 +0x2a6
+
+goroutine 517 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 52
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 519 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 516
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 567 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc0020a44c8, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x3f30ac8?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc0020a44b0, {0xc001dbec01, 0x5ff, 0x5ff})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0x3933c88?}, {0xc001dbec01?, 0x3946b61?, 0xa?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+encoding/json.(*Decoder).refill(0xc000966500)
+	/usr/local/bin/go/src/encoding/json/stream.go:165 +0x188
+encoding/json.(*Decoder).readValue(0xc000966500)
+	/usr/local/bin/go/src/encoding/json/stream.go:140 +0xa9
+encoding/json.(*Decoder).Decode(0xc000966500, {0x3254a60, 0xc001266588})
+	/usr/local/bin/go/src/encoding/json/stream.go:63 +0x75
+k8s.io/apimachinery/pkg/util/framer.(*jsonFrameReader).Read(0xc0016a6c90, {0xc00222c400, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:152 +0x19c
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc0022230e0, 0xc002097920?, {0x3f34360, 0xc000ab02c0})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc000e8c960)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc001287d00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 522
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 521 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 516
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 446 [select]:
+k8s.io/apimachinery/pkg/util/wait.PollImmediateUntilWithContext.poller.func1.1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/poll.go:297 +0x1c5
+created by k8s.io/apimachinery/pkg/util/wait.PollImmediateUntilWithContext.poller.func1 in goroutine 441
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/poll.go:280 +0xc5
+
+goroutine 522 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc001287d00}, {0x7fe24bc21918, 0xc000e86a50}, {0x3f866f8?, 0x38d6460}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc0001b75e0, {0x0?, 0x0?}, 0xc002096c60, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc0001b75e0, 0xc002096c60)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0009abbc0?, {0x3f06e60, 0xc002222320}, 0x1, 0xc002096c60)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc0001b75e0, 0xc002096c60)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 516
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 491 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc0001b75e0, 0xc002096c60, 0xc001e22ea0, 0xc001f30710?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 522
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 508 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/stream.Multicast[...].func3.1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/stream/sources.go:246 +0x156
+created by github.com/cilium/cilium/pkg/stream.Multicast[...].func3 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/stream/sources.go:239 +0x36f
+
+goroutine 537 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 54
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 461 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc00140ed40}, {0x7fe24bc21918, 0xc0021002c0}, {0x3f866f8?, 0x38ca800}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc000df48c0, {0x0?, 0x0?}, 0xc001b7afc0, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc000df48c0, 0xc001b7afc0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0004d1340?, {0x3f06e60, 0xc0006fb720}, 0x1, 0xc001b7afc0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc000df48c0, 0xc001b7afc0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 455
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 540 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/k8s/resource.merge[...].func1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:905 +0x53
+created by github.com/cilium/cilium/pkg/k8s/resource.merge[...] in goroutine 536
+	/home/tom/go/src/github.com/cilium/cilium/pkg/k8s/resource/resource.go:904 +0xab
+
+goroutine 464 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc000df48c0, 0xc001b7afc0, 0xc001b7b380, 0xc0009b3180?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 461
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 593 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc000b59b48, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x3f30f00?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc000b59b30, {0xc002128001, 0x5ff, 0x5ff})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0x3933c88?}, {0xc002128001?, 0x3946b61?, 0xa?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+encoding/json.(*Decoder).refill(0xc0009b3b80)
+	/usr/local/bin/go/src/encoding/json/stream.go:165 +0x188
+encoding/json.(*Decoder).readValue(0xc0009b3b80)
+	/usr/local/bin/go/src/encoding/json/stream.go:140 +0xa9
+encoding/json.(*Decoder).Decode(0xc0009b3b80, {0x3254a60, 0xc001266540})
+	/usr/local/bin/go/src/encoding/json/stream.go:63 +0x75
+k8s.io/apimachinery/pkg/util/framer.(*jsonFrameReader).Read(0xc00174a4b0, {0xc002335800, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:152 +0x19c
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc002316fa0, 0xc0022ffaa0?, {0x3f34360, 0xc000ab0080})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc000ecb2a0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc000ab0480)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 513
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 542 [chan receive, 2 minutes]:
+k8s.io/client-go/tools/cache.(*controller).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:132 +0x25
+created by k8s.io/client-go/tools/cache.(*controller).Run in goroutine 536
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/controller.go:131 +0xab
+
+goroutine 543 [select]:
+k8s.io/client-go/tools/cache.watchHandler({0x0?, 0x0?, 0x60c3340?}, {0x3f35d90, 0xc000ab0840}, {0x7fe24bc21918, 0xc0020153f0}, {0x3f866f8?, 0x38b45e0}, 0x0, ...)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:724 +0x17b
+k8s.io/client-go/tools/cache.(*Reflector).watch(0xc000e9ac40, {0x0?, 0x0?}, 0xc001f52f00, 0x1?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:437 +0x545
+k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch(0xc000e9ac40, 0xc001f52f00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:357 +0x4c5
+k8s.io/client-go/tools/cache.(*Reflector).Run.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:291 +0x25
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1(0x10?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:226 +0x33
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil(0xc0006de000?, {0x3f06e60, 0xc001e91950}, 0x1, 0xc001f52f00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/backoff.go:227 +0xaf
+k8s.io/client-go/tools/cache.(*Reflector).Run(0xc000e9ac40, 0xc001f52f00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:290 +0x1cd
+k8s.io/client-go/tools/cache.(*controller).Run.(*Group).StartWithChannel.func2()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:55 +0x1e
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:72 +0x4f
+created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 536
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:70 +0x73
+
+goroutine 578 [select, 2 minutes]:
+k8s.io/client-go/tools/cache.(*Reflector).startResync(0xc000e9ac40, 0xc001f52f00, 0xc001b7b740, 0xc001c47710?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:369 +0x10f
+created by k8s.io/client-go/tools/cache.(*Reflector).ListAndWatch in goroutine 543
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/tools/cache/reflector.go:356 +0x49d
+
+goroutine 69 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc00094de48, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x3f309d8?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc00094de30, {0xc00231b801, 0x5ff, 0x5ff})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0x3933c88?}, {0xc00231b801?, 0x3946b61?, 0xa?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+encoding/json.(*Decoder).refill(0xc001d368c0)
+	/usr/local/bin/go/src/encoding/json/stream.go:165 +0x188
+encoding/json.(*Decoder).readValue(0xc001d368c0)
+	/usr/local/bin/go/src/encoding/json/stream.go:140 +0xa9
+encoding/json.(*Decoder).Decode(0xc001d368c0, {0x3254a60, 0xc00173c030})
+	/usr/local/bin/go/src/encoding/json/stream.go:63 +0x75
+k8s.io/apimachinery/pkg/util/framer.(*jsonFrameReader).Read(0xc0013d7fb0, {0xc001d03400, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:152 +0x19c
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc000940550, 0xc001d0a5a0?, {0x3f34360, 0xc001286000})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc000bb0820)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc00140ed40)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 461
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
+
+goroutine 551 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).UpdateNoTrackRules(0xc000e13180, 0xc00163f860)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/policy.go:932 +0x290
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).metadataResolver(0xc000e13180, {0x3f52368, 0xc002316640}, 0x1, 0x0, 0x0, {0x3f3ebc0, 0xc000613d10}, 0xc000fda750)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/endpoint.go:1694 +0x6b6
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).RunMetadataResolver.func1({0x3f52368?, 0xc002316640?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/endpoint.go:1774 +0x6b
+github.com/cilium/cilium/pkg/controller.(*controller).runController(0xc0009b3180, {{{0x3957c43, 0xe}}, {0x0, 0x0}, 0xc0023165f0, 0x0, 0x3b5e8e0, 0x0, 0x0, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:254 +0x122
+created by github.com/cilium/cilium/pkg/controller.(*Manager).createControllerLocked in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/manager.go:111 +0x458
+
+goroutine 552 [chan receive, 2 minutes]:
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).UpdateNoTrackRules(0xc000e13500, 0xc0015d0f30)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/policy.go:932 +0x290
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).metadataResolver(0xc000e13500, {0x3f52368, 0xc002316820}, 0x1, 0x0, 0x0, {0x3f3ebc0, 0xc000613d10}, 0xc000fdabf0)
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/endpoint.go:1694 +0x6b6
+github.com/cilium/cilium/pkg/endpoint.(*Endpoint).RunMetadataResolver.func1({0x3f52368?, 0xc002316820?})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/endpoint/endpoint.go:1774 +0x6b
+github.com/cilium/cilium/pkg/controller.(*controller).runController(0xc0009b3400, {{{0x3957c43, 0xe}}, {0x0, 0x0}, 0xc0023167d0, 0x0, 0x3b5e8e0, 0x0, 0x0, ...})
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/controller.go:254 +0x122
+created by github.com/cilium/cilium/pkg/controller.(*Manager).createControllerLocked in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/controller/manager.go:111 +0x458
+
+goroutine 492 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc0020a4480, 0xc00209ec00)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0xc0006f0ba0?, 0xc001c00fb8?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 522
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 577 [select, 2 minutes]:
+golang.org/x/net/http2.(*clientStream).writeRequest(0xc00094de00, 0xc001b61400)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1464 +0xac7
+golang.org/x/net/http2.(*clientStream).doRequest(0x0?, 0xc001c47710?)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1326 +0x18
+created by golang.org/x/net/http2.(*ClientConn).RoundTrip in goroutine 461
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:1232 +0x308
+
+goroutine 509 [select, 2 minutes]:
+github.com/cilium/cilium/pkg/nodediscovery.(*NodeDiscovery).StartDiscovery.Debounce[...].func4.1()
+	/home/tom/go/src/github.com/cilium/cilium/pkg/stream/operators.go:214 +0x1d5
+created by github.com/cilium/cilium/pkg/nodediscovery.(*NodeDiscovery).StartDiscovery.Debounce[...].func4 in goroutine 1
+	/home/tom/go/src/github.com/cilium/cilium/pkg/stream/operators.go:204 +0x199
+
+goroutine 594 [sync.Cond.Wait]:
+sync.runtime_notifyListWait(0xc00211a048, 0x2)
+	/usr/local/bin/go/src/runtime/sema.go:527 +0x159
+sync.(*Cond).Wait(0x3f308e8?)
+	/usr/local/bin/go/src/sync/cond.go:70 +0x85
+golang.org/x/net/http2.(*pipe).Read(0xc00211a030, {0xc001dbf201, 0x5ff, 0x5ff})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/pipe.go:76 +0xdf
+golang.org/x/net/http2.transportResponseBody.Read({0x3933c88?}, {0xc001dbf201?, 0x3946b61?, 0xa?})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/golang.org/x/net/http2/transport.go:2558 +0x65
+encoding/json.(*Decoder).refill(0xc0009b3e00)
+	/usr/local/bin/go/src/encoding/json/stream.go:165 +0x188
+encoding/json.(*Decoder).readValue(0xc0009b3e00)
+	/usr/local/bin/go/src/encoding/json/stream.go:140 +0xa9
+encoding/json.(*Decoder).Decode(0xc0009b3e00, {0x3254a60, 0xc00173c060})
+	/usr/local/bin/go/src/encoding/json/stream.go:63 +0x75
+k8s.io/apimachinery/pkg/util/framer.(*jsonFrameReader).Read(0xc00174a630, {0xc002335c00, 0x400, 0x400})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/util/framer/framer.go:152 +0x19c
+k8s.io/apimachinery/pkg/runtime/serializer/streaming.(*decoder).Decode(0xc002317090, 0xc0022ffbc0?, {0x3f34360, 0xc001286040})
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming/streaming.go:77 +0xa3
+k8s.io/client-go/rest/watch.(*Decoder).Decode(0xc000ecb2e0)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/client-go/rest/watch/decoder.go:49 +0x4b
+k8s.io/apimachinery/pkg/watch.(*StreamWatcher).receive(0xc000ab0840)
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:105 +0xdb
+created by k8s.io/apimachinery/pkg/watch.NewStreamWatcher in goroutine 543
+	/home/tom/go/src/github.com/cilium/cilium/vendor/k8s.io/apimachinery/pkg/watch/streamwatcher.go:76 +0x125
