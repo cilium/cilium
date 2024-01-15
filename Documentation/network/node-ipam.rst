@@ -23,3 +23,22 @@ shall be used and will use the ``ExternalIP`` addresses if any or the
 To use this feature your service must be of type ``LoadBalancer`` and have the
 `loadBalancerClass <https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__
 set to ``io.cilium/node``.
+
+Cilium's node IPAM is disabled by default.
+To install Cilium with the node IPAM, run:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set nodeIPAM.enabled=true
+
+To enable the node IPAM on an existing installation, run:
+
+.. parsed-literal::
+
+   helm upgrade cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --reuse-values \\
+     --set nodeIPAM.enabled=true
+   kubectl -n kube-system rollout restart deployment/cilium-operator
