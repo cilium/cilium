@@ -39,6 +39,7 @@ import (
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
+	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -182,6 +183,7 @@ var (
 
 			bgpv2.Cell,
 			lbipam.Cell,
+			nodeipam.Cell,
 			auth.Cell,
 			store.Cell,
 			legacyCell,
