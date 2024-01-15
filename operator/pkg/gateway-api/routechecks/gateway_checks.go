@@ -35,6 +35,18 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 			continue
 		}
 
+		if parentRef.SectionName != nil {
+			if listener.Name != *parentRef.SectionName {
+				continue
+			}
+		}
+
+		if parentRef.Port != nil {
+			if listener.Port != *parentRef.Port {
+				continue
+			}
+		}
+
 		// if gateway allows all namespaces, we do not need to check anything here
 		if *listener.AllowedRoutes.Namespaces.From == gatewayv1.NamespacesFromAll {
 			continue
