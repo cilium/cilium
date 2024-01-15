@@ -154,10 +154,6 @@ func (s *SemaphoredMutexSuite) TestWaitChannel(c *C) {
 func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
 	l := NewStoppableWaitGroup()
 
-	// Use math/rand instead of pkg/rand to avoid a test import cycle which
-	// go vet would complain about. Use the global default entropy source
-	// rather than creating a new source to avoid concurrency issues.
-	rand.Seed(time.Now().UnixNano())
 	in := make(chan int)
 	stop := make(chan struct{})
 	go func() {
