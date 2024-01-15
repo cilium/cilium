@@ -11,6 +11,8 @@ import (
 	. "github.com/cilium/checkmate"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1076,6 +1078,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
 
 	// A rule for ICMP
+	icmpV4Type := intstr.FromInt(8)
 	rule1 := &rule{
 		Rule: api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -1083,7 +1086,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 				{
 					ICMPs: api.ICMPRules{{
 						Fields: []api.ICMPField{{
-							Type: 8,
+							Type: &icmpV4Type,
 						}},
 					}},
 				},
@@ -1092,7 +1095,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 				{
 					ICMPs: api.ICMPRules{{
 						Fields: []api.ICMPField{{
-							Type: 8,
+							Type: &icmpV4Type,
 						}},
 					}},
 				},
@@ -1159,7 +1162,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 					}},
 					ICMPs: api.ICMPRules{{
 						Fields: []api.ICMPField{{
-							Type: 8,
+							Type: &icmpV4Type,
 						}},
 					}},
 				},
@@ -1206,6 +1209,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	expected.Detach(testSelectorCache)
 
 	// A rule for ICMPv6
+	icmpV6Type := intstr.FromInt(128)
 	rule3 := &rule{
 		Rule: api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -1214,7 +1218,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 					ICMPs: api.ICMPRules{{
 						Fields: []api.ICMPField{{
 							Family: "IPv6",
-							Type:   128,
+							Type:   &icmpV6Type,
 						}},
 					}},
 				},
