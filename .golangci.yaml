@@ -80,6 +80,9 @@ linters-settings:
               - errors
             reason: "Go 1.20+ has support for combining multiple errors, see https://go.dev/doc/go1.20#errors"
 
+  stylecheck:
+    checks: ["ST1019"]
+
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
@@ -110,6 +113,7 @@ linters:
     - ineffassign
     - misspell
     - staticcheck
+    - stylecheck
     - unused
     - goheader
     - gosec
