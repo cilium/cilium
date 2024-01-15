@@ -78,6 +78,7 @@ type Update interface {
 type statusNodeReporter interface {
 	upsertStatus(Identifier, StatusV2)
 	removeStatusTree(Identifier)
+	pruneStatusTree(Identifier)
 }
 
 // Health provides exported functions for accessing health status data.
@@ -132,10 +133,10 @@ type Status struct {
 }
 
 type StatusV2 struct {
-	ID      Identifier // stable!
-	Level   Level
-	Message string
-	Feature Feature
+	ID       Identifier // stable!
+	Level    Level
+	Message  string
+	Features Feature
 }
 
 func (s *Status) JSON() ([]byte, error) {
@@ -185,7 +186,7 @@ func NewHealthProvider(pp healthProviderParams) (Health, error) {
 	featureIndex := statedb.Index[StatusV2, Feature]{
 		Name: "feature",
 		FromObject: func(s StatusV2) index.KeySet {
-			return index.NewKeySet([]byte(s.Feature))
+			return index.NewKeySet([]byte(s.Features))
 		},
 		FromKey: func(k Feature) index.Key {
 			return index.Key([]byte(k))
@@ -309,6 +310,31 @@ func (p *healthProvider) handleBatch(batch []update) {
 					return
 				}
 			}
+		// Prune checks if a node has any children, and if not, deletes it.
+		case "prune":
+			q := p.pathIndex.Query(u.id)
+			iter := p.statusTable.Prefix(tx, q)
+			foundChild := false
+			for {
+				o, _, ok := iter.Next()
+				if !ok {
+					break
+				}
+				if o.ID.String() != u.id.String() {
+					foundChild = true
+					break
+				}
+			}
+			if !foundChild {
+				_, _, err := p.statusTable.Delete(tx, StatusV2{
+					ID: u.id, // TODO: can I just use the key?
+				})
+				if err != nil {
+					log.WithField("status", u.s).WithError(err).Error("BUG: failed to delete status")
+					tx.Abort()
+					return
+				}
+			}
 		}
 	}
 }
@@ -348,6 +374,15 @@ func (p *healthProvider) forModule(moduleID cell.FullModuleID) (statusNodeReport
 			}
 			p.updates <- update{
 				updateType: "delete",
+				id:         path,
+			}
+		},
+		prune: func(path Identifier) {
+			if !p.running.Load() {
+				log.Warn("health provider not running yet, dropping update")
+			}
+			p.updates <- update{
+				updateType: "prune",
 				id:         path,
 			}
 		},
@@ -419,6 +454,7 @@ type reporter struct {
 	ident  Identifier
 	upsert func(Identifier, StatusV2)
 	delete func(Identifier)
+	prune  func(Identifier)
 }
 
 func (r *reporter) upsertStatus(id Identifier, s StatusV2) {
@@ -427,4 +463,8 @@ func (r *reporter) upsertStatus(id Identifier, s StatusV2) {
 
 func (r *reporter) removeStatusTree(path Identifier) {
 	r.delete(path)
+}
+
+func (r *reporter) pruneStatusTree(path Identifier) {
+	r.prune(path)
 }

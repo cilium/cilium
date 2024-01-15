@@ -62,11 +62,15 @@ type Scope interface {
 //
 //	root(OK) 	// status has been reported, but we no longer have any degraded status
 //				// default to ok status.
-func GetSubScope(parent Scope, name string) Scope {
+func GetSubScope(parent Scope, name string, opts ...ReporterOpt) Scope {
 	if parent == nil {
 		return nil
 	}
-	return createSubScope(parent, name)
+	s := createSubScope(parent, name)
+	for _, opt := range opts {
+		opt(s.scope())
+	}
+	return s
 }
 
 func DecorateModuleScope() cell.Cell {
@@ -75,12 +79,24 @@ func DecorateModuleScope() cell.Cell {
 	})
 }
 
+type ReporterOpt func(r *subReporter)
+
+func WithFeature(feature Feature) ReporterOpt {
+	return func(r *subReporter) {
+		r.feature = feature
+	}
+}
+
 // GetHealthReporter creates a new reporter under the given parent scope.
-func GetHealthReporter(parent Scope, name string) HealthReporter {
+func GetHealthReporter(parent Scope, name string, opts ...ReporterOpt) HealthReporter {
 	if parent == nil {
 		return &noopReporter{}
 	}
-	return getSubReporter(parent, name, true)
+	r := getSubReporter(parent, name, true)
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // rootScope always
@@ -132,6 +148,7 @@ func createSubScope(parent Scope, name string) *scope {
 	runtime.SetFinalizer(s, func(s *scope) {
 		// TODO: Remove updates that are not a prefix to any other updates.
 		// We can do this with a prefix check, but we'll want to batch these up.
+
 	})
 	return s
 }
@@ -167,8 +184,9 @@ type subreporterBase struct {
 // However, this will now be lock free, variables in the reporter scope must
 // be immutable or use atomics after creation to ensure thread safety.
 type subReporter struct {
-	base *subreporterBase
-	path Identifier
+	base    *subreporterBase
+	path    Identifier
+	feature Feature
 }
 
 func (s *subReporter) OK(message string) {
