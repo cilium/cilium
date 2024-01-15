@@ -335,7 +335,7 @@ jobs:
           job-name: ipsec-downgrade-${{ matrix.name }}
           # Disable no-unexpected-packet-drops (formerly no-missed-tail-calls)
           # due to https://github.com/cilium/cilium/issues/26739
-          extra-connectivity-test-flags: --test '!no-unexpected-packet-drops'
+          extra-connectivity-test-flags: --expected-drop-reasons "+Missed tail call"
           operation-cmd: |
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
               ${{ steps.cilium-stable-config.outputs.config }}
