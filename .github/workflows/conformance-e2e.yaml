@@ -345,12 +345,7 @@ jobs:
             EXTRA+=("--secondary-network-iface=eth1")
           fi
 
-          if [ "${{ matrix.host-fw }}" == "true" ]; then
-            # Missed tail calls until https://github.com/cilium/cilium/issues/28088 is fixed,
-            # host datapath once cilium-cli is upgraded to a version that includes 
-            # https://github.com/cilium/cilium-cli/pull/2206.
-            EXTRA+=("--expected-drop-reasons=+Missed tail call,+Host datapath not ready")
-          fi
+          # EXTRA+=("--expected-drop-reasons=+Host datapath not ready")
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             "${EXTRA[@]}" \
