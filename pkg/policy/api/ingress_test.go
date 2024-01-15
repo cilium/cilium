@@ -6,6 +6,8 @@ package api
 import (
 	. "github.com/cilium/checkmate"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/cilium/cilium/pkg/checker"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -179,13 +181,14 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedIngress(c *C) {
 		{
 			name: "rule-with-icmp",
 			setupArgs: func() args {
+				icmpType := intstr.FromInt(8)
 				return args{
 					&IngressRule{
 						ICMPs: ICMPRules{
 							{
 								Fields: []ICMPField{
 									{
-										Type: 8,
+										Type: &icmpType,
 									},
 								},
 							},
@@ -202,6 +205,7 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedIngress(c *C) {
 		{
 			name: "rule-with-icmp6",
 			setupArgs: func() args {
+				icmpType := intstr.FromInt(128)
 				return args{
 					&IngressRule{
 						ICMPs: ICMPRules{
@@ -209,7 +213,7 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedIngress(c *C) {
 								Fields: []ICMPField{
 									{
 										Family: IPv6Family,
-										Type:   128,
+										Type:   &icmpType,
 									},
 								},
 							},

@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
@@ -842,6 +844,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 	_, _, err := repo.Add(l3Rule)
 	c.Assert(err, IsNil)
 
+	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
 		EndpointSelector: selFoo,
 		EgressDeny: []api.EgressDenyRule{
@@ -851,7 +854,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 				},
 				ICMPs: api.ICMPRules{{
 					Fields: []api.ICMPField{{
-						Type: 8,
+						Type: &icmpV4Type,
 					}},
 				}},
 			},
@@ -864,6 +867,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 	_, _, err = repo.Add(icmpRule)
 	c.Assert(err, IsNil)
 
+	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
 		EndpointSelector: selFoo,
 		EgressDeny: []api.EgressDenyRule{
@@ -874,7 +878,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 				ICMPs: api.ICMPRules{{
 					Fields: []api.ICMPField{{
 						Family: api.IPv6Family,
-						Type:   128,
+						Type:   &icmpV6Type,
 					}},
 				}},
 			},
