@@ -28,8 +28,16 @@ func (i Identifier) withSubComponent(componentID string) Identifier {
 	}
 }
 
+func (i Identifier) component() string {
+	return strings.Join(i.ComponentID, ".")
+}
+
+func (i Identifier) module() string {
+	return string(i.ModuleID.String())
+}
+
 func (i Identifier) String() string {
-	return i.ModuleID.String() + "." + strings.Join(i.ComponentID, ".")
+	return i.module() + "." + i.component()
 }
 
 func (i Identifier) Key() index.Key {

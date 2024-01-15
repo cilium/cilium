@@ -4,7 +4,6 @@
 package health
 
 import (
-	"fmt"
 	"runtime"
 	"sync/atomic"
 
@@ -84,21 +83,6 @@ func GetHealthReporter(parent Scope, name string) HealthReporter {
 	return getSubReporter(parent, name, true)
 }
 
-// TestScope exposes creating a root scope for testing purposes only.
-// func TestScope() Scope {
-// 	return TestScopeFromProvider(cell.FullModuleID{"test"}, NewHealthProvider())
-// }
-
-// TestScope exposes creating a root scope from a health provider for testing purposes only.
-// func TestScopeFromProvider(moduleID cell.FullModuleID, hp Health) Scope {
-// 	r, err := hp.forModule(moduleID)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	s := rootScope(moduleID, r)
-// 	return s
-// }
-
 // rootScope always
 func rootScope(id cell.FullModuleID, hr statusNodeReporter) *scope {
 	r := &subReporter{
@@ -123,7 +107,7 @@ func (s *scope) scope() *subReporter {
 }
 
 func (s *scope) Name() string {
-	return s.id
+	return s.path.component()
 }
 
 // When a scope is orphaned and garbage collected, we want to remove it from the tree if
@@ -157,11 +141,8 @@ func getSubReporter(parent Scope, name string, isReporter bool) *subReporter {
 }
 
 func scopeFromParent(parent Scope, name string, isReporter bool) *subReporter {
-	fmt.Println("[tom-debug] parent:", parent.scope().id, "new:", name)
 	return &subReporter{
 		base: parent.scope().base,
-		id:   name,
-
 		path: parent.scope().path.withSubComponent(name),
 	}
 }
@@ -187,9 +168,6 @@ type subreporterBase struct {
 // be immutable or use atomics after creation to ensure thread safety.
 type subReporter struct {
 	base *subreporterBase
-	id   string
-
-	//path cell.FullModuleID
 	path Identifier
 }
 
