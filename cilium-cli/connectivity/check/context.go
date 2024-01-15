@@ -83,10 +83,14 @@ type ConnectivityTest struct {
 	nodes              map[string]*corev1.Node
 	controlPlaneNodes  map[string]*corev1.Node
 	nodesWithoutCilium map[string]struct{}
+	ciliumNodes        map[NodeIdentity]*ciliumv2.CiliumNode
 
 	manifests      map[string]string
 	helmYAMLValues string
 }
+
+// NodeIdentity uniquely identifies a Node by Cluster and Name.
+type NodeIdentity struct{ Cluster, Name string }
 
 func netIPToCIDRs(netIPs []netip.Addr) (netCIDRs []netip.Prefix) {
 	for _, ip := range netIPs {
@@ -217,6 +221,7 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 		secondaryNetworkNodeIPv6: make(map[string]string),
 		nodes:                    make(map[string]*corev1.Node),
 		nodesWithoutCilium:       make(map[string]struct{}),
+		ciliumNodes:              make(map[NodeIdentity]*ciliumv2.CiliumNode),
 		tests:                    []*Test{},
 		testNames:                make(map[string]struct{}),
 		lastFlowTimestamps:       make(map[string]time.Time),
@@ -304,6 +309,9 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 		return err
 	}
 	if err := ct.getNodes(ctx); err != nil {
+		return err
+	}
+	if err := ct.getCiliumNodes(ctx); err != nil {
 		return err
 	}
 	// Detect Cilium version after Cilium pods have been initialized and before feature
@@ -924,6 +932,21 @@ func (ct *ConnectivityTest) getNodes(ctx context.Context) error {
 	return nil
 }
 
+func (ct *ConnectivityTest) getCiliumNodes(ctx context.Context) error {
+	for _, client := range ct.Clients() {
+		nodeList, err := client.ListCiliumNodes(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to list CiliumNodes: %w", err)
+		}
+
+		for _, node := range nodeList.Items {
+			ct.ciliumNodes[NodeIdentity{client.ClusterName(), node.ObjectMeta.Name}] = node.DeepCopy()
+		}
+	}
+
+	return nil
+}
+
 // DetectMinimumCiliumVersion returns the smallest Cilium version running in
 // the cluster(s)
 func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*semver.Version, error) {
@@ -1083,6 +1106,10 @@ func (ct *ConnectivityTest) Nodes() map[string]*corev1.Node {
 
 func (ct *ConnectivityTest) ControlPlaneNodes() map[string]*corev1.Node {
 	return ct.controlPlaneNodes
+}
+
+func (ct *ConnectivityTest) CiliumNodes() map[NodeIdentity]*ciliumv2.CiliumNode {
+	return ct.ciliumNodes
 }
 
 func (ct *ConnectivityTest) ClientPods() map[string]Pod {
