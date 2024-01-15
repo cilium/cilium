@@ -402,6 +402,11 @@ func (a *Action) Fatalf(format string, s ...interface{}) {
 	a.test.Fatalf(format, s...)
 }
 
+// DebugEnabled returns whether debug logging is enabled.
+func (a *Action) DebugEnabled() bool {
+	return a.test.ctx.debug()
+}
+
 func timestamp() string {
 	return fmt.Sprintf("[%s] ", time.Now().Format(time.RFC3339))
 }
