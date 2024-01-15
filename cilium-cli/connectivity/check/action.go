@@ -171,7 +171,8 @@ func (a *Action) Run(f func(*Action)) {
 	}
 
 	// Only perform flow validation if a Hubble Relay connection is available.
-	if a.test.ctx.params.Hubble && a.CollectFlows {
+	collectFlows := a.test.ctx.params.Hubble && a.CollectFlows && a.src != nil
+	if collectFlows {
 		// Channel for the flow listener to notify us when ready.
 		ready := make(chan bool, 1)
 
@@ -215,7 +216,7 @@ func (a *Action) Run(f func(*Action)) {
 	// Print flow buffer if any failures or warnings occurred.
 	// TODO(timo): printFlows is a misnomer, this function actually prints
 	// the verdict annotated over the list of flows.
-	if a.test.ctx.PrintFlows() || a.failed {
+	if collectFlows && (a.test.ctx.PrintFlows() || a.failed) {
 		a.printFlows(a.Source())
 		a.printFlows(a.Destination())
 	}
