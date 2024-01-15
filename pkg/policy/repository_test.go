@@ -20,6 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
@@ -666,6 +668,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	_, _, err = repo.Add(l7Rule)
 	c.Assert(err, IsNil)
 
+	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
 		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
@@ -675,7 +678,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 				},
 				ICMPs: api.ICMPRules{{
 					Fields: []api.ICMPField{{
-						Type: 8,
+						Type: &icmpV4Type,
 					}},
 				}},
 			},
@@ -685,6 +688,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	_, _, err = repo.Add(icmpRule)
 	c.Assert(err, IsNil)
 
+	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
 		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
@@ -694,7 +698,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 				},
 				ICMPs: api.ICMPRules{{
 					Fields: []api.ICMPField{{
-						Type:   128,
+						Type:   &icmpV6Type,
 						Family: api.IPv6Family,
 					}},
 				}},
@@ -1202,6 +1206,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	_, _, err = repo.Add(httpRule)
 	c.Assert(err, IsNil)
 
+	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
 		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
@@ -1211,7 +1216,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 				},
 				ICMPs: api.ICMPRules{{
 					Fields: []api.ICMPField{{
-						Type: 8,
+						Type: &icmpV4Type,
 					}},
 				}},
 			},
@@ -1221,6 +1226,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	_, _, err = repo.Add(icmpRule)
 	c.Assert(err, IsNil)
 
+	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
 		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
@@ -1230,7 +1236,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 				},
 				ICMPs: api.ICMPRules{{
 					Fields: []api.ICMPField{{
-						Type:   128,
+						Type:   &icmpV6Type,
 						Family: "IPv6",
 					}},
 				}},
