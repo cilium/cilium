@@ -450,7 +450,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
 		},
-		Sysctl:           sysctl.NewTestSysctl(t),
+		Sysctl: sysctl.NewTestSysctl(t),
 	})
 	require.NoError(t, err)
 
@@ -467,7 +467,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
 		},
-		Sysctl:           sysctl.NewTestSysctl(t),
+		Sysctl: sysctl.NewTestSysctl(t),
 	})
 	require.NoError(t, err)
 

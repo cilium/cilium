@@ -32,9 +32,9 @@ func (s *LoaderTestSuite) TestobjectCache(c *C) {
 		c.Fatalf("failed to create statedb: %v", err)
 	}
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB: db,
+		DB:      db,
 		Devices: devices,
-		Sysctl: sysctl.NewTestSysctl(c),
+		Sysctl:  sysctl.NewTestSysctl(c),
 	})
 	if err != nil {
 		c.Fatalf("failed to create header file writer: %v", err)

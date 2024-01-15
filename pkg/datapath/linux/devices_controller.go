@@ -59,7 +59,6 @@ var DevicesControllerCell = cell.Module(
 	),
 	cell.Config(&DevicesConfig{}),
 
-
 	// Always construct the devices controller. We provide the
 	// *devicesController for DeviceManager, but once it has been removed,
 	// this can be refactored to just do an invoke to register the

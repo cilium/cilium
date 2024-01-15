@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -86,8 +85,6 @@ var ignoredELFPrefixes = []string{
 	// in a numeric identity.
 	"identity_length",
 }
-
-var templateDirWatcherControllerGroup = controller.NewGroup("template-dir-watcher")
 
 // RestoreTemplates populates the object cache from templates on the filesystem
 // at the specified path.

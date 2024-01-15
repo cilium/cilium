@@ -445,7 +445,7 @@ func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 		// TODO: react to changes (using the currently ignored watch channel)
 		nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
 		devices := tables.DeviceNames(nativeDevices)
-	
+
 		objPath = path.Join(dirs.Output, hostEndpointObj)
 		if err := l.reloadHostDatapath(ctx, ep, objPath, devices); err != nil {
 			return err

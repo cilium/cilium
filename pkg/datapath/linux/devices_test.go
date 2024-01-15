@@ -29,7 +29,6 @@ import (
 
 type DevicesSuite struct {
 	currentNetNS                      netns.NsHandle
-	prevConfigDevices                 []string
 	prevConfigDirectRoutingDevice     string
 	prevConfigIPv6MCastDevice         string
 	prevConfigEnableIPv4              bool
