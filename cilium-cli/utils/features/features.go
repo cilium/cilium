@@ -184,32 +184,36 @@ func RequireMode(feature Feature, mode string) Requirement {
 // ExtractFromVersionedConfigMap extracts features based on Cilium version and cilium-config
 // ConfigMap.
 func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
+	fs[Tunnel] = ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion, cm)
+}
+
+func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) Status {
 	if versioncheck.MustCompile("<1.14.0")(ciliumVersion) {
 		mode := "vxlan"
 		if v, ok := cm.Data["tunnel"]; ok {
 			mode = v
 		}
-		fs[Tunnel] = Status{
+		return Status{
 			Enabled: mode != "disabled",
 			Mode:    mode,
 		}
-	} else {
-		mode := "tunnel"
-		if v, ok := cm.Data["routing-mode"]; ok {
-			mode = v
-		}
+	}
 
-		tunnelProto := "vxlan"
-		if mode != "native" {
-			if v, ok := cm.Data["tunnel-protocol"]; ok {
-				tunnelProto = v
-			}
-		}
+	mode := "tunnel"
+	if v, ok := cm.Data["routing-mode"]; ok {
+		mode = v
+	}
 
-		fs[Tunnel] = Status{
-			Enabled: mode != "native",
-			Mode:    tunnelProto,
+	tunnelProto := "vxlan"
+	if mode != "native" {
+		if v, ok := cm.Data["tunnel-protocol"]; ok {
+			tunnelProto = v
 		}
+	}
+
+	return Status{
+		Enabled: mode != "native",
+		Mode:    tunnelProto,
 	}
 }
 
