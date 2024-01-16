@@ -220,7 +220,7 @@ jobs:
               spec:
                 containers:
                 - name: wait-for-images
-                  image: quay.io/cilium/cilium-ci:${{ steps.vars.outputs.sha }}
+                  image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
                   command: ["true"]
                 tolerations:
                 - key: "node.cilium.io/agent-not-ready"
