@@ -175,6 +175,9 @@ jobs:
           if [ "${{ matrix.mode }}" = "minor" ]; then
             CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
             IMAGE_TAG=${CILIUM_DOWNGRADE_VERSION}
+            # We should only allow certain drop reasons when upgrading/downgrading between minor
+            # versions and not patch releases.
+            EXPECTED_DROP_REASONS='--expected-drop-reasons "+Failed to update or lookup TC buffer"'
           else
             # Upgrade from / downgrade to patch release.
             # In some cases we expect to fail to get the version number, do not
@@ -192,6 +195,7 @@ jobs:
           fi
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
+          echo expected_drop_reasons=${EXPECTED_DROP_REASONS} >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
         id: cilium-stable-config
@@ -335,7 +339,7 @@ jobs:
           job-name: ipsec-downgrade-${{ matrix.name }}
           # Disable no-unexpected-packet-drops (formerly no-missed-tail-calls)
           # due to https://github.com/cilium/cilium/issues/26739
-          extra-connectivity-test-flags: --expected-drop-reasons "+Missed tail call,+Failed to update or lookup TC buffer"
+          extra-connectivity-test-flags: '--expected-drop-reasons "+Missed tail call" ${{ steps.vars.outputs.expected_drop_reasons }}'
           operation-cmd: |
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
               ${{ steps.cilium-stable-config.outputs.config }}
