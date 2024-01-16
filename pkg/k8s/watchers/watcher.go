@@ -415,10 +415,6 @@ const (
 
 	// start causes watcher to be started as soon as possible.
 	start
-
-	// afterNodeInit causes watcher to be started after local node has been initialized
-	// so that e.g., local node addressing info is available.
-	afterNodeInit
 )
 
 type watcherInfo struct {
@@ -448,7 +444,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
-func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups []string) {
+func (k *K8sWatcher) resourceGroups() []string {
 	k8sGroups := []string{
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
@@ -491,12 +487,10 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 			continue
 		case start:
 			ciliumGroups = append(ciliumGroups, groupInfo.group)
-		case afterNodeInit:
-			afterNodeInitGroups = append(afterNodeInitGroups, groupInfo.group)
 		}
 	}
 
-	return append(k8sGroups, ciliumGroups...), afterNodeInitGroups
+	return append(k8sGroups, ciliumGroups...)
 }
 
 // InitK8sSubsystem takes a channel for which it will be closed when all
@@ -505,7 +499,7 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 // already been registered.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
 	log.Info("Enabling k8s event listener")
-	resources, afterNodeInitResources := k.resourceGroups()
+	resources := k.resourceGroups()
 	if err := k.enableK8sWatchers(ctx, resources); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
@@ -516,17 +510,8 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 	close(k.controllersStarted)
 
 	go func() {
-		log.Info("Waiting until local node addressing before starting watchers depending on it")
-		k.nodeDiscoverManager.WaitForLocalNodeInit()
-		if err := k.enableK8sWatchers(ctx, afterNodeInitResources); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
-			}
-			// If the context was canceled it means the daemon is being stopped
-			return
-		}
 		log.Info("Waiting until all pre-existing resources have been received")
-		if err := k.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, append(resources, afterNodeInitResources...)...); err != nil {
+		if err := k.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, resources...); err != nil {
 			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
 		close(cachesSynced)
