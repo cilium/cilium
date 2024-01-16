@@ -384,3 +384,25 @@ func CiliumExternalWorkloads(lc hive.Lifecycle, cs client.Clientset, opts ...fun
 	)
 	return resource.New[*cilium_api_v2.CiliumExternalWorkload](lc, lw, resource.WithMetric("CiliumExternalWorkloads")), nil
 }
+
+func CiliumEnvoyConfigResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumEnvoyConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEnvoyConfigList](cs.CiliumV2().CiliumEnvoyConfigs("")),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumEnvoyConfig](lc, lw, resource.WithMetric("CiliumEnvoyConfig")), nil
+}
+
+func CiliumClusterwideEnvoyConfigResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumClusterwideEnvoyConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumClusterwideEnvoyConfigList](cs.CiliumV2().CiliumClusterwideEnvoyConfigs()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumClusterwideEnvoyConfig](lc, lw, resource.WithMetric("CiliumClusterwideEnvoyConfig")), nil
+}
