@@ -7,7 +7,6 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
@@ -31,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
-	"github.com/cilium/cilium/pkg/maps/nodemap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -70,9 +68,18 @@ var Cell = cell.Module(
 	// Manages Cilium-specific iptables rules.
 	iptables.Cell,
 
+	// Convert the concrete implementations to the datapth interfaces for the
+	// NewDatapath constructor.
+	datapathInterfacesCell,
+
 	cell.Provide(
 		newWireguardAgent,
-		newDatapath,
+		newDatapathConfig,
+		linuxdatapath.NewDatapath,
+
+		func(dp types.Datapath) types.NodeIDHandler {
+			return dp.NodeIDs()
+		},
 	),
 
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
@@ -113,10 +120,6 @@ var Cell = cell.Module(
 	// This cell provides the eBPF compiler/loader.
 	loader.Cell,
 
-	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
-		return dp.NodeIDs()
-	}),
-
 	// DevicesController manages the devices and routes tables
 	linuxdatapath.DevicesControllerCell,
 
@@ -152,60 +155,17 @@ func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore, s
 	return wgAgent
 }
 
-func newDatapath(params datapathParams) types.Datapath {
-	datapathConfig := linuxdatapath.DatapathConfiguration{
+func newDatapathConfig(tunnelConfig tunnel.Config) linuxdatapath.DatapathConfiguration {
+	return linuxdatapath.DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
-		TunnelDevice: params.TunnelConfig.DeviceName(),
+		TunnelDevice: tunnelConfig.DeviceName(),
 	}
-
-	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{
-		ConfigWriter:   params.ConfigWriter,
-		RuleManager:    params.IptablesManager,
-		WGAgent:        params.WgAgent,
-		NodeMap:        params.NodeMap,
-		NodeAddressing: params.NodeAddressing,
-		BWManager:      params.BandwidthManager,
-		Loader:         params.Loader,
-	}, datapathConfig)
-
-	params.LC.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			datapath.NodeIDs().RestoreNodeIDs()
-			return nil
-		},
-	})
-
-	return datapath
 }
 
-type datapathParams struct {
-	cell.In
-
-	LC      hive.Lifecycle
-	WgAgent *wg.Agent
-
-	// Force map initialisation before loader. You should not use these otherwise.
-	// Some of the entries in this slice may be nil.
-	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
-
-	NodeMap nodemap.Map
-
-	NodeAddressing types.NodeAddressing
-
-	// Depend on DeviceManager to ensure devices have been resolved.
-	// This is required until option.Config.GetDevices() has been removed and
-	// uses of it converted to Table[Device].
-	DeviceManager *linuxdatapath.DeviceManager
-
-	BandwidthManager types.BandwidthManager
-
-	ModulesManager *modules.Manager
-
-	IptablesManager *iptables.Manager
-
-	ConfigWriter types.ConfigWriter
-
-	TunnelConfig tunnel.Config
-
-	Loader types.Loader
-}
+// datapathInterfacesCell converts concrete implementations to the datapath interfaces
+// as required by linuxdatapath.NewDatapath.
+var datapathInterfacesCell = cell.Provide(
+	func(m *iptables.Manager) types.IptablesManager { return m },
+	func(wg *wg.Agent) types.WireguardAgent { return wg },
+	func(m mtu.MTU) types.MTUConfiguration { return m },
+)

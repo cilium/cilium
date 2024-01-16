@@ -160,7 +160,12 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 		}
 
 		cfg := &HeaderfileWriter{}
-		varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c), db, devices).ELFSubstitutions(t)
+		varSub, stringSub := loader.NewLoader(
+			loader.LoaderParams{
+				Sysctl:  sysctl.NewTestSysctl(c),
+				DB:      db,
+				Devices: devices,
+			}).ELFSubstitutions(t)
 
 		var buf bytes.Buffer
 		cfg.writeStaticData(nil, &buf, t)
@@ -250,7 +255,12 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	if err != nil {
 		c.Fatalf("failed to create statedb: %v", err)
 	}
-	varSub, stringSub := loader.NewLoader(sysctl.NewTestSysctl(c.T), db, devices).ELFSubstitutions(ep)
+	varSub, stringSub := loader.NewLoader(
+		loader.LoaderParams{
+			Sysctl:  sysctl.NewTestSysctl(c.T),
+			DB:      db,
+			Devices: devices,
+		}).ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
 	cfg.writeStaticData(nil, &buf, ep)

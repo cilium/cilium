@@ -26,6 +26,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -88,9 +89,21 @@ type loader struct {
 	devices statedb.Table[*tables.Device]
 }
 
+type LoaderParams struct {
+	cell.In
+
+	// Force map initialisation before loader. You should not use these otherwise.
+	// Some of the entries in this slice may be nil.
+	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
+
+	Sysctl  sysctl.Sysctl
+	DB      *statedb.DB
+	Devices statedb.Table[*tables.Device]
+}
+
 // NewLoader returns a new loader.
-func NewLoader(sysctl sysctl.Sysctl, db *statedb.DB, devices statedb.Table[*tables.Device]) datapath.Loader {
-	return newLoader(sysctl, db, devices)
+func NewLoader(p LoaderParams) datapath.Loader {
+	return newLoader(p.Sysctl, p.DB, p.Devices)
 }
 
 func newLoader(sysctl sysctl.Sysctl, db *statedb.DB, devices statedb.Table[*tables.Device]) *loader {

@@ -6,6 +6,8 @@ package linux
 import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -34,6 +36,9 @@ type linuxDatapath struct {
 }
 
 type DatapathParams struct {
+	cell.In
+
+	Lifecycle      hive.Lifecycle
 	ConfigWriter   datapath.ConfigWriter
 	RuleManager    datapath.IptablesManager
 	WGAgent        datapath.WireguardAgent
@@ -60,6 +65,13 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 	}
 
 	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.DB, p.Devices)
+
+	p.Lifecycle.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			dp.NodeIDs().RestoreNodeIDs()
+			return nil
+		},
+	})
 	return dp
 }
 

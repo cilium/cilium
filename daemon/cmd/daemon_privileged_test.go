@@ -80,7 +80,13 @@ func createDevices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create statedb: %v", err)
 	}
-	ciliumHost, ciliumNet, err := loader.NewLoader(sysctl.NewTestSysctl(t), db, devices).SetupBaseDevice(1500)
+	ciliumHost, ciliumNet, err := loader.NewLoader(
+		loader.LoaderParams{
+			Sysctl:  sysctl.NewTestSysctl(t),
+			DB:      db,
+			Devices: devices,
+		}).SetupBaseDevice(1500)
+
 	assert.NoError(t, err)
 	assert.NotNil(t, ciliumHost)
 	assert.NotNil(t, ciliumNet)
