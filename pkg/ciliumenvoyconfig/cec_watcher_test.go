@@ -5,14 +5,15 @@ package ciliumenvoyconfig
 
 import (
 	"encoding/json"
+	"io"
 	"testing"
 
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/yaml"
 
-	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -52,6 +53,13 @@ spec:
 `)
 
 func TestParseEnvoySpec(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
 	jsonBytes, err := yaml.YAMLToJSON(envoySpec)
 	assert.NoError(t, err)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
@@ -61,7 +69,7 @@ func TestParseEnvoySpec(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 	assert.True(t, useOriginalSourceAddress(&cec.ObjectMeta))
 
-	resources, err := envoy.ParseResources("", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0, useOriginalSourceAddress(&cec.ObjectMeta), true)
+	resources, err := parser.parseResources("", "name", cec.Spec.Resources, true, len(cec.Spec.Services) > 0, useOriginalSourceAddress(&cec.ObjectMeta), true)
 	assert.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())

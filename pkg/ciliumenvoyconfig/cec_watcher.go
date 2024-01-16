@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -31,9 +30,9 @@ type ciliumEnvoyConfigWatcher struct {
 	policyUpdater  *policy.Updater
 	serviceManager service.ServiceManager
 
-	proxy         *proxy.Proxy
-	xdsServer     envoy.XDSServer
-	backendSyncer *envoyServiceBackendSyncer
+	xdsServer      envoy.XDSServer
+	backendSyncer  *envoyServiceBackendSyncer
+	resourceParser *cecResourceParser
 
 	appliedCECsMutex lock.Mutex
 	appliedCECs      map[resource.Key]*ciliumv2.CiliumEnvoyConfig
@@ -43,17 +42,17 @@ type ciliumEnvoyConfigWatcher struct {
 func newCiliumEnvoyConfigWatcher(logger logrus.FieldLogger,
 	policyUpdater *policy.Updater,
 	serviceManager service.ServiceManager,
-	proxy *proxy.Proxy,
 	xdsServer envoy.XDSServer,
 	backendSyncer *envoyServiceBackendSyncer,
+	resourceParser *cecResourceParser,
 ) *ciliumEnvoyConfigWatcher {
 	return &ciliumEnvoyConfigWatcher{
 		logger:         logger,
 		policyUpdater:  policyUpdater,
 		serviceManager: serviceManager,
-		proxy:          proxy,
 		xdsServer:      xdsServer,
 		backendSyncer:  backendSyncer,
+		resourceParser: resourceParser,
 		appliedCECs:    map[resource.Key]*ciliumv2.CiliumEnvoyConfig{},
 		appliedCCECs:   map[resource.Key]*ciliumv2.CiliumClusterwideEnvoyConfig{},
 	}
@@ -190,12 +189,11 @@ func (r *ciliumEnvoyConfigWatcher) ccecDeleted(ctx context.Context, key resource
 }
 
 func (r *ciliumEnvoyConfigWatcher) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec ciliumv2.CiliumEnvoyConfigSpec) error {
-	resources, err := envoy.ParseResources(
+	resources, err := r.resourceParser.parseResources(
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
 		true,
-		r.proxy,
 		len(cecSpec.Services) > 0,
 		useOriginalSourceAddress(&cecObjectMeta),
 		true,
@@ -283,12 +281,11 @@ func (r *ciliumEnvoyConfigWatcher) updateCiliumEnvoyConfig(
 	oldCECObjectMeta metav1.ObjectMeta, oldCECSpec ciliumv2.CiliumEnvoyConfigSpec,
 	newCECObjectMeta metav1.ObjectMeta, newCECSpec ciliumv2.CiliumEnvoyConfigSpec,
 ) error {
-	oldResources, err := envoy.ParseResources(
+	oldResources, err := r.resourceParser.parseResources(
 		oldCECObjectMeta.GetNamespace(),
 		oldCECObjectMeta.GetName(),
 		oldCECSpec.Resources,
 		false,
-		r.proxy,
 		len(oldCECSpec.Services) > 0,
 		useOriginalSourceAddress(&oldCECObjectMeta),
 		false,
@@ -296,12 +293,11 @@ func (r *ciliumEnvoyConfigWatcher) updateCiliumEnvoyConfig(
 	if err != nil {
 		return fmt.Errorf("malformed old Envoy Config: %w", err)
 	}
-	newResources, err := envoy.ParseResources(
+	newResources, err := r.resourceParser.parseResources(
 		newCECObjectMeta.GetNamespace(),
 		newCECObjectMeta.GetName(),
 		newCECSpec.Resources,
 		true,
-		r.proxy,
 		len(newCECSpec.Services) > 0,
 		useOriginalSourceAddress(&newCECObjectMeta),
 		true,
@@ -396,12 +392,11 @@ func (r *ciliumEnvoyConfigWatcher) removeK8sServiceRedirects(resourceName servic
 }
 
 func (r *ciliumEnvoyConfigWatcher) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec ciliumv2.CiliumEnvoyConfigSpec) error {
-	resources, err := envoy.ParseResources(
+	resources, err := r.resourceParser.parseResources(
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
 		cecSpec.Resources,
 		false,
-		r.proxy,
 		len(cecSpec.Services) > 0,
 		useOriginalSourceAddress(&cecObjectMeta),
 		false,
