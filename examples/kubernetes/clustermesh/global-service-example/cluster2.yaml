@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: rebel-base
-        image: docker.io/nginx:1.15.8
+        image: docker.io/nginx:1.25.3
         volumeMounts:
           - name: html
             mountPath: /usr/share/nginx/html/
