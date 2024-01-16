@@ -6,6 +6,7 @@ package types
 import (
 	"context"
 	"io"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -79,28 +80,21 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 	return nil
 }
 
-func (f *FakeDatapath) InstallProxyRules(context.Context, uint16, bool, string) error {
-	return nil
+func (f *FakeDatapath) InstallProxyRules(uint16, bool, string) {
 }
 
 func (f *FakeDatapath) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (f *FakeDatapath) InstallRules(ctx context.Context, ifName string, quiet, install bool) error {
-	return nil
-}
-
 func (m *FakeDatapath) GetProxyPort(name string) uint16 {
 	return 0
 }
 
-func (m *FakeDatapath) InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
-	return nil
+func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {
 }
 
-func (m *FakeDatapath) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
-	return nil
+func (m *FakeDatapath) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 }
 
 func (f *FakeDatapath) Loader() datapath.Loader {
