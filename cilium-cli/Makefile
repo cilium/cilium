@@ -8,6 +8,10 @@ TARGET=cilium
 INSTALL = $(QUIET)install
 BINDIR ?= /usr/local/bin
 VERSION=$(shell git describe --tags --always)
+STRIP_DEBUG=-w -s
+ifdef DEBUG
+	STRIP_DEBUG=
+endif
 
 TEST_TIMEOUT ?= 5s
 RELEASE_UID ?= $(shell id -u)
@@ -24,7 +28,7 @@ GOLANGCILINT_VERSION = $(shell golangci-lint version --format short 2>/dev/null)
 
 $(TARGET):
 	$(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
-		-ldflags "-w -s \
+		-ldflags "$(STRIP_DEBUG) \
 		-X 'github.com/cilium/cilium-cli/cli.Version=${VERSION}'" \
 		-o $(TARGET) \
 		./cmd/cilium
