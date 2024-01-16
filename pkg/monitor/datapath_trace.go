@@ -117,6 +117,24 @@ func TraceReasonIsKnown(reason uint8) bool {
 	}
 }
 
+func TraceReasonIsEncap(reason uint8) bool {
+	switch reason {
+	case TraceReasonSRv6Encap:
+		return true
+	default:
+		return false
+	}
+}
+
+func TraceReasonIsDecap(reason uint8) bool {
+	switch reason {
+	case TraceReasonSRv6Decap:
+		return true
+	default:
+		return false
+	}
+}
+
 // DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
 func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
 	if len(data) < traceNotifyCommonLen {
