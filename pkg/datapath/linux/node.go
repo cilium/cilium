@@ -1222,6 +1222,10 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.N
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
+	if !n.isInitialized {
+		return nil
+	}
+
 	return n.nodeUpdate(nil, &nodeToValidate, false)
 }
 
@@ -1230,6 +1234,11 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.N
 func (n *linuxNodeHandler) AllNodeValidateImplementation() {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
+
+	if !n.isInitialized {
+		return
+	}
+
 	for _, updateNode := range n.nodes {
 		n.nodeUpdate(nil, updateNode, false)
 	}
