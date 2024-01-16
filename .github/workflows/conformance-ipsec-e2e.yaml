@@ -341,6 +341,15 @@ jobs:
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --flush-ct
 
+      - name: Assert that no unencrypted packets are leaked
+        uses: ./.github/actions/bpftrace/check
+
+      - name: Start unencrypted packets check
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }}
+
       - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/ipsec-key-rotate
         with:
