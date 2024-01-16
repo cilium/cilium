@@ -46,7 +46,7 @@ const (
 )
 
 type DatapathUpdater interface {
-	InstallProxyRules(ctx context.Context, proxyPort uint16, localOnly bool, name string) error
+	InstallProxyRules(proxyPort uint16, localOnly bool, name string)
 	SupportsOriginalSourceAddr() bool
 }
 
@@ -235,9 +235,7 @@ func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) er
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
 		scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.proxyPort)
-		if err := p.datapathUpdater.InstallProxyRules(ctx, pp.proxyPort, pp.localOnly, name); err != nil {
-			return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
-		}
+		p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.localOnly, name)
 		pp.rulesPort = pp.proxyPort
 	}
 	pp.nRedirects++
@@ -471,23 +469,6 @@ func getCiliumNetIPv6() (net.IP, error) {
 	}
 
 	return nil, fmt.Errorf("failed to find valid IPv6 address for cilium_net")
-}
-
-// ReinstallIPTablesRules is called by daemon reconfiguration to reinstall
-// proxy ports rules that were removed during the removal of all Cilium rules.
-func (p *Proxy) ReinstallIPTablesRules(ctx context.Context) error {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-	for name, pp := range p.proxyPorts {
-		if pp.rulesPort > 0 {
-			// This should always succeed if we have managed to start-up properly
-			if err := p.datapathUpdater.InstallProxyRules(ctx, pp.rulesPort, pp.localOnly, name); err != nil {
-				return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
-			}
-		}
-	}
-
-	return nil
 }
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
