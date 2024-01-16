@@ -21,7 +21,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -442,7 +441,7 @@ func finishKubeProxyReplacementInit() error {
 	}
 
 	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
+		if err := setXDPMode(option.Config.NodePortAcceleration); err != nil {
 			return fmt.Errorf("Cannot set NodePort acceleration: %w", err)
 		}
 	}
@@ -658,5 +657,29 @@ func checkNodePortAndEphemeralPortRanges() error {
 			nodePortRangeStr, err)
 	}
 
+	return nil
+}
+
+func setXDPMode(mode string) error {
+	switch mode {
+	case option.XDPModeNative, option.XDPModeBestEffort:
+		if option.Config.XDPMode == option.XDPModeLinkNone ||
+			option.Config.XDPMode == option.XDPModeLinkDriver {
+			option.Config.XDPMode = option.XDPModeLinkDriver
+		} else {
+			return fmt.Errorf("XDP Mode conflict: current mode is %s, trying to set conflicting %s",
+				option.Config.XDPMode, option.XDPModeLinkDriver)
+		}
+	case option.XDPModeGeneric:
+		if option.Config.XDPMode == option.XDPModeLinkNone ||
+			option.Config.XDPMode == option.XDPModeLinkGeneric {
+			option.Config.XDPMode = option.XDPModeLinkGeneric
+		} else {
+			return fmt.Errorf("XDP Mode conflict: current mode is %s, trying to set conflicting %s",
+				option.Config.XDPMode, option.XDPModeLinkGeneric)
+		}
+	case option.XDPModeDisabled:
+		break
+	}
 	return nil
 }

@@ -574,7 +574,7 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 
 func removeXDPAttachments(links []netlink.Link) error {
 	for _, link := range links {
-		if err := loader.DetachXDP(link, bpf.CiliumPath(), "cil_xdp_entry"); err != nil {
+		if err := loader.NewLoader().DetachXDP(link, bpf.CiliumPath(), "cil_xdp_entry"); err != nil {
 			return err
 		}
 		fmt.Printf("removed cilium xdp of %s\n", link.Attrs().Name)
