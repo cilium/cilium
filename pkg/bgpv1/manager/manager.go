@@ -277,6 +277,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 	}
 
 	if err = m.reconcileBGPConfig(ctx, s, c, ciliumNode); err != nil {
+		s.Server.Stop()
 		return fmt.Errorf("failed initial reconciliation for peer config with local ASN %v: %w", c.LocalASN, err)
 	}
 
