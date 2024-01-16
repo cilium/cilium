@@ -33,7 +33,7 @@ type ciliumEnvoyConfigWatcher struct {
 
 	proxy         *proxy.Proxy
 	xdsServer     envoy.XDSServer
-	backendSyncer *envoy.EnvoyServiceBackendSyncer
+	backendSyncer *envoyServiceBackendSyncer
 
 	appliedCECsMutex lock.Mutex
 	appliedCECs      map[resource.Key]*ciliumv2.CiliumEnvoyConfig
@@ -45,7 +45,7 @@ func newCiliumEnvoyConfigWatcher(logger logrus.FieldLogger,
 	serviceManager service.ServiceManager,
 	proxy *proxy.Proxy,
 	xdsServer envoy.XDSServer,
-	backendSyncer *envoy.EnvoyServiceBackendSyncer,
+	backendSyncer *envoyServiceBackendSyncer,
 ) *ciliumEnvoyConfigWatcher {
 	return &ciliumEnvoyConfigWatcher{
 		logger:         logger,
