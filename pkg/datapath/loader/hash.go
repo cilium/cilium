@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	// DatapathSHA256 is set during build to the SHA across all datapath BPF
+	// datapathSHA256 is set during build to the SHA across all datapath BPF
 	// code. See the definition of CILIUM_DATAPATH_SHA256 in Makefile.defs for
 	// details.
-	DatapathSHA256 string
+	datapathSHA256 string
 )
 
 // datapathHash represents a unique enumeration of the datapath implementation.
@@ -29,7 +29,7 @@ type datapathHash struct {
 // template files under bpf/.
 func newDatapathHash() *datapathHash {
 	d := sha256.New()
-	io.WriteString(d, DatapathSHA256)
+	io.WriteString(d, datapathSHA256)
 	return &datapathHash{
 		Hash: d,
 	}

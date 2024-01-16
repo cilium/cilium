@@ -88,7 +88,7 @@ var ignoredELFPrefixes = []string{
 
 // RestoreTemplates populates the object cache from templates on the filesystem
 // at the specified path.
-func RestoreTemplates(stateDir string) error {
+func (l *loader) RestoreTemplates(stateDir string) error {
 	// Simplest implementation: Just garbage-collect everything.
 	// In future we should make this smarter.
 	path := filepath.Join(stateDir, defaults.TemplatesDir)

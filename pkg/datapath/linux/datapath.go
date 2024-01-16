@@ -29,7 +29,7 @@ type linuxDatapath struct {
 	node           *linuxNodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
-	loader         *loader.Loader
+	loader         loader.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
 	bwmgr          bandwidth.Manager
