@@ -316,7 +316,9 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 			var err error
 			nodeResource, err = n.k8sGetters.GetCiliumNode(context.TODO(), nodeTypes.GetName())
 			if err != nil {
-				log.WithError(err).Warning("Unable to get node resource")
+				if retryCount == maxRetryCount {
+					log.WithError(err).Warningf("Unable to get CiliumNode resource after %d retries", maxRetryCount)
+				}
 				performUpdate = false
 				nodeResource = &ciliumv2.CiliumNode{
 					ObjectMeta: metav1.ObjectMeta{
@@ -362,7 +364,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 			}
 		}
 	}
-	log.Fatal("Could not create or update CiliumNode resource, despite retries")
+	log.Fatalf("Could not create or update CiliumNode resource, despite %d retries", maxRetryCount)
 }
 
 func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln *node.LocalNode) error {
