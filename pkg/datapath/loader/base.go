@@ -455,17 +455,9 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if err := iptMgr.InstallRules(ctx, defaults.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
-		return err
-	}
-
 	// Reinstall proxy rules for any running proxies if needed
 	if option.Config.EnableL7Proxy {
 		if err := p.ReinstallRoutingRules(); err != nil {
-			return err
-		}
-
-		if err := p.ReinstallIPTablesRules(ctx); err != nil {
 			return err
 		}
 	}
