@@ -220,17 +220,15 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager    nodeDiscoverManager
-	policyManager          policyManager
-	policyRepository       policyRepository
-	svcManager             svcManager
-	redirectPolicyManager  redirectPolicyManager
-	bgpSpeakerManager      bgpSpeakerManager
-	ipcache                ipcacheManager
-	proxyPortAllocator     envoy.PortAllocator
-	envoyXdsServer         envoy.XDSServer
-	envoyL7LBBackendSyncer *envoy.EnvoyServiceBackendSyncer
-	cgroupManager          cgroupManager
+	nodeDiscoverManager   nodeDiscoverManager
+	policyManager         policyManager
+	policyRepository      policyRepository
+	svcManager            svcManager
+	redirectPolicyManager redirectPolicyManager
+	bgpSpeakerManager     bgpSpeakerManager
+	ipcache               ipcacheManager
+	envoyXdsServer        envoy.XDSServer
+	cgroupManager         cgroupManager
 
 	bandwidthManager bandwidth.Manager
 
@@ -273,9 +271,7 @@ func NewK8sWatcher(
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
-	proxyPortAllocator envoy.PortAllocator,
 	envoyXdsServer envoy.XDSServer,
-	envoyL7LBBackendSyncer *envoy.EnvoyServiceBackendSyncer,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
@@ -301,9 +297,7 @@ func NewK8sWatcher(
 		bgpSpeakerManager:       bgpSpeakerManager,
 		cgroupManager:           cgroupManager,
 		bandwidthManager:        bandwidthManager,
-		proxyPortAllocator:      proxyPortAllocator,
 		envoyXdsServer:          envoyXdsServer,
-		envoyL7LBBackendSyncer:  envoyL7LBBackendSyncer,
 		cfg:                     cfg,
 		resources:               resources,
 	}
