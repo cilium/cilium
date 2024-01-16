@@ -368,6 +368,9 @@ var _ = SkipDescribeIf(func() bool {
 			By("Cleaning up after the test")
 			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
 			_ = kubectl.Exec(cmd)
+
+			By("Checking for pending maps")
+			kubectl.CiliumExecMustSucceedOnAll(context.Background(), "sh -c '! ls /sys/fs/bpf/tc/globals/*:pending'")
 		})
 
 		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "validates ingress CIDR-dependent L4", func() {

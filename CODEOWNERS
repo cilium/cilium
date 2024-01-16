@@ -207,6 +207,9 @@
 #   Responsible for all policy logic from Kubernetes down to eBPF policymap
 #   entries, including all intermediate layers such as the Policy Repository,
 #   SelectorCache, PolicyCache, CachedSelectorPolicy, EndpointPolicy, etc.
+# - @cilium/sig-scalability:
+#   Maintain scalability and performance tests. Provide input on scalability
+#   and performance related changes.
 # - @cilium/sig-servicemesh:
 #   Provide input on the way that Service Mesh constructs such as Gateway API
 #   are converted into lower-level constructs backed by eBPF or Envoy
@@ -232,6 +235,7 @@
 /.github/ @cilium/contributing
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
+/.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*clustermesh*.yaml @cilium/sig-clustermesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
@@ -239,6 +243,7 @@
 /.github/workflows/*externalworkloads*.yaml @cilium/sig-clustermesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ipsec*.yaml @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ingress*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*scale*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/tophat
 /.golangci.yaml @cilium/ci-structure
 /.mailmap @cilium/tophat

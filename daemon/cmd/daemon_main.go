@@ -225,9 +225,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableRuntimeDeviceDetection, false, "Enable runtime device detection and datapath reconfiguration (experimental)")
 	option.BindEnv(vp, option.EnableRuntimeDeviceDetection)
 
-	flags.String(option.LBDevInheritIPAddr, "", fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices))
-	option.BindEnv(vp, option.LBDevInheritIPAddr)
-
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
 	option.BindEnv(vp, option.DatapathMode)
 
@@ -1552,7 +1549,7 @@ func (d *Daemon) initKVStore() {
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
 	}
 
-	var cg = controller.NewGroup("kvstore-locks-gc")
+	cg := controller.NewGroup("kvstore-locks-gc")
 	controller.NewManager().UpdateController("kvstore-locks-gc",
 		controller.ControllerParams{
 			Group: cg,
@@ -1644,6 +1641,7 @@ type daemonParams struct {
 	ServiceManager       service.ServiceManager
 	L7Proxy              *proxy.Proxy
 	EnvoyXdsServer       envoy.XDSServer
+	EnvoyBackendSyncer   *envoy.EnvoyServiceBackendSyncer
 	DB                   *statedb.DB
 	APILimiterSet        *rate.APILimiterSet
 	AuthManager          *auth.AuthManager

@@ -56,7 +56,7 @@ env:
   CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.166.0
+  eksctl_version: v0.167.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.29.0-rc.1
 
@@ -134,6 +134,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set up job variables
         id: vars
@@ -161,7 +162,7 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@32109b32259a487c803648a3c9463cdcafa4c0c3 # v0.15.19
+        uses: cilium/cilium-cli@4aa6347c532075df28027772fa1e4ec2f7415341 # v0.15.20
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -219,7 +220,7 @@ jobs:
               spec:
                 containers:
                 - name: wait-for-images
-                  image: quay.io/cilium/cilium-ci:${{ steps.vars.outputs.sha }}
+                  image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
                   command: ["true"]
                 tolerations:
                 - key: "node.cilium.io/agent-not-ready"
@@ -243,6 +244,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Install Cilium
         id: install-cilium

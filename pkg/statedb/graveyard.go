@@ -90,7 +90,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 				if existed {
 					// The dead object still existed (and wasn't replaced by a create->delete),
 					// delete it from the primary index.
-					key = []byte(meta.primary().fromObject(oldObj).First())
+					key = meta.primary().fromObject(oldObj).First()
 					txn.mustIndexWriteTxn(tableName, GraveyardIndex).txn.Delete(key)
 				}
 			}

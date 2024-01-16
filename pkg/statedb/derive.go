@@ -54,56 +54,66 @@ type DeriveParams[In, Out any] struct {
 func Derive[In, Out any](jobName string, transform func(obj In, deleted bool) (Out, DeriveResult)) func(DeriveParams[In, Out]) {
 	return func(p DeriveParams[In, Out]) {
 		g := p.Jobs.NewGroup(p.Scope)
-		loop := func(ctx context.Context, health cell.HealthReporter) error {
-			out := p.OutTable
-			wtxn := p.DB.WriteTxn(p.InTable)
-			tracker, err := p.InTable.DeleteTracker(wtxn, jobName)
-			if err != nil {
-				wtxn.Abort()
-				return err
-			}
-			wtxn.Commit()
-			defer tracker.Close()
-			revision := Revision(0)
-			for {
-				wtxn := p.DB.WriteTxn(out)
-
-				var watch <-chan struct{}
-				revision, watch, err = tracker.Process(
-					wtxn,
-					revision,
-					func(obj In, deleted bool, rev Revision) (err error) {
-						outObj, result := transform(obj, deleted)
-						switch result {
-						case DeriveInsert:
-							_, _, err = out.Insert(wtxn, outObj)
-						case DeriveUpdate:
-							_, _, found := out.First(wtxn, out.PrimaryIndexer().QueryFromObject(outObj))
-							if found {
-								_, _, err = out.Insert(wtxn, outObj)
-							}
-						case DeriveDelete:
-							_, _, err = out.Delete(wtxn, outObj)
-						case DeriveSkip:
-						}
-						return err
-					},
-				)
-				wtxn.Commit()
-
-				if err != nil {
-					return err
-				}
-
-				select {
-				case <-watch:
-				case <-ctx.Done():
-					return nil
-				}
-			}
-		}
-		g.Add(job.OneShot(jobName, loop))
+		g.Add(job.OneShot(
+			jobName,
+			derive[In, Out]{p, jobName, transform}.loop),
+		)
 		p.Lifecycle.Append(g)
 	}
 
+}
+
+type derive[In, Out any] struct {
+	DeriveParams[In, Out]
+	jobName   string
+	transform func(obj In, deleted bool) (Out, DeriveResult)
+}
+
+func (d derive[In, Out]) loop(ctx context.Context, health cell.HealthReporter) error {
+	out := d.OutTable
+	wtxn := d.DB.WriteTxn(d.InTable)
+	tracker, err := d.InTable.DeleteTracker(wtxn, d.jobName)
+	if err != nil {
+		wtxn.Abort()
+		return err
+	}
+	wtxn.Commit()
+	defer tracker.Close()
+	revision := Revision(0)
+	for {
+		wtxn := d.DB.WriteTxn(out)
+
+		var watch <-chan struct{}
+		revision, watch, err = tracker.Process(
+			wtxn,
+			revision,
+			func(obj In, deleted bool, rev Revision) (err error) {
+				outObj, result := d.transform(obj, deleted)
+				switch result {
+				case DeriveInsert:
+					_, _, err = out.Insert(wtxn, outObj)
+				case DeriveUpdate:
+					_, _, found := out.First(wtxn, out.PrimaryIndexer().QueryFromObject(outObj))
+					if found {
+						_, _, err = out.Insert(wtxn, outObj)
+					}
+				case DeriveDelete:
+					_, _, err = out.Delete(wtxn, outObj)
+				case DeriveSkip:
+				}
+				return err
+			},
+		)
+		wtxn.Commit()
+
+		if err != nil {
+			return err
+		}
+
+		select {
+		case <-watch:
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }

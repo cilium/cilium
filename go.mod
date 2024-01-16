@@ -22,7 +22,7 @@ require (
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
 	github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
-	github.com/cilium/ebpf v0.12.4-0.20240108171828-839118d43a4c
+	github.com/cilium/ebpf v0.12.4-0.20240110182413-87531ae5ba83
 	github.com/cilium/fake v0.6.1
 	github.com/cilium/linters v0.0.0-20231219142606-aea5ed8db47a
 	github.com/cilium/lumberjack/v2 v2.3.0
@@ -97,7 +97,7 @@ require (
 	go.universe.tf/metallb v0.11.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.18.0
-	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc
+	golang.org/x/exp v0.0.0-20240110193028-0dcbfd608b1e
 	golang.org/x/mod v0.14.0
 	golang.org/x/net v0.20.0
 	golang.org/x/sync v0.6.0

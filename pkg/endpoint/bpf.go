@@ -1435,6 +1435,11 @@ func (e *Endpoint) startSyncPolicyMapController() {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 				defer e.unlock()
+				if e.desiredPolicy != e.realizedPolicy {
+					// Currently in the middle of a regeneration; do not execute
+					// at this time.
+					return nil
+				}
 				return e.syncPolicyMapWithDump()
 			},
 			RunInterval: option.Config.PolicyMapFullReconciliationInterval,

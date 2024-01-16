@@ -92,7 +92,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 	}
 
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB: db,
+		DB:      db,
 		Devices: devices,
 	})
 	ds.datapath = linuxDatapath.NewDatapath(
@@ -181,7 +181,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 	}
 
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB: db,
+		DB:      db,
 		Devices: devices,
 	})
 
@@ -266,7 +266,7 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 	}
 
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB: db,
+		DB:      db,
 		Devices: devices,
 	})
 	ds.datapath = linuxDatapath.NewDatapath(

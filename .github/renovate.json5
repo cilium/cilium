@@ -8,6 +8,7 @@
   // This ensures that the gitAuthor and gitSignOff fields match
   "gitAuthor": "renovate[bot] <bot@renovateapp.com>",
   "includePaths": [
+    ".github/actions/kvstore/**",
     ".github/actions/ginkgo/**",
     ".github/actions/set-env-variables/action.yml",
     ".github/workflows/**",
@@ -423,16 +424,29 @@
       "versioning": "regex:^((?<compatibility>[a-z-]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
     },
     {
-      "groupName": "all lvh-images main",
-      "groupSlug": "all-lvh-images-main",
+      "groupName": "stable lvh-images",
+      "groupSlug": "stable-lvh-images",
       "matchPackageNames": [
         "quay.io/lvh-images/kind"
       ],
-      "matchUpdateTypes": [
-        "digest",
-        "patch",
-        "pin",
-        "pinDigest"
+      "allowedVersions": "!/bpf-next-.*/",
+      "matchBaseBranches": [
+        "main",
+        "v1.15",
+        "v1.14",
+        "v1.13",
+        "v1.12",
+      ],
+    },
+    {
+      "groupName": "bpf-next lvh-images main",
+      "groupSlug": "bpf-next-lvh-images-main",
+      "matchPackageNames": [
+        "quay.io/lvh-images/kind"
+      ],
+      "allowedVersions": "/bpf-next-.*/",
+      "matchBaseBranches": [
+        "main"
       ],
     },
     {
@@ -545,6 +559,15 @@
       "matchStrings": [
         "// renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+go (?<currentValue>.*)"
       ]
+    },
+    {
+      "fileMatch": [
+        ".github/actions/kvstore/action.yaml"
+      ],
+      "matchStrings": [
+        "default: (?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>.*?)\\s"
+      ],
+      "datasourceTemplate": "docker"
     }
   ]
 }

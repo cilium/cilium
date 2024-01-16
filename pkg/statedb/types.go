@@ -25,8 +25,7 @@ type Table[Obj any] interface {
 	TableMeta
 
 	// PrimaryIndexer returns the primary indexer for the table.
-	// Useful for generic utilities such as the reconciler that need
-	// access to the primary key.
+	// Useful for generic utilities that need access to the primary key.
 	PrimaryIndexer() Indexer[Obj]
 
 	// NumObjects returns the number of objects stored in the table.

@@ -159,9 +159,10 @@ type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
-	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
-	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
-	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
+	RegisterL7LBServiceRedirect(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, proxyPort uint16) error
+	DeregisterL7LBServiceRedirect(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error
+	RegisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, backendSyncRegistration service.BackendSyncer) error
+	DeregisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, backendSyncRegistration service.BackendSyncer) error
 }
 
 type redirectPolicyManager interface {
@@ -218,16 +219,17 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager   nodeDiscoverManager
-	policyManager         policyManager
-	policyRepository      policyRepository
-	svcManager            svcManager
-	redirectPolicyManager redirectPolicyManager
-	bgpSpeakerManager     bgpSpeakerManager
-	ipcache               ipcacheManager
-	proxyPortAllocator    envoy.PortAllocator
-	envoyXdsServer        envoy.XDSServer
-	cgroupManager         cgroupManager
+	nodeDiscoverManager    nodeDiscoverManager
+	policyManager          policyManager
+	policyRepository       policyRepository
+	svcManager             svcManager
+	redirectPolicyManager  redirectPolicyManager
+	bgpSpeakerManager      bgpSpeakerManager
+	ipcache                ipcacheManager
+	proxyPortAllocator     envoy.PortAllocator
+	envoyXdsServer         envoy.XDSServer
+	envoyL7LBBackendSyncer *envoy.EnvoyServiceBackendSyncer
+	cgroupManager          cgroupManager
 
 	bandwidthManager datapath.BandwidthManager
 
@@ -272,6 +274,7 @@ func NewK8sWatcher(
 	bgpSpeakerManager bgpSpeakerManager,
 	proxyPortAllocator envoy.PortAllocator,
 	envoyXdsServer envoy.XDSServer,
+	envoyL7LBBackendSyncer *envoy.EnvoyServiceBackendSyncer,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
@@ -299,6 +302,7 @@ func NewK8sWatcher(
 		bandwidthManager:        bandwidthManager,
 		proxyPortAllocator:      proxyPortAllocator,
 		envoyXdsServer:          envoyXdsServer,
+		envoyL7LBBackendSyncer:  envoyL7LBBackendSyncer,
 		cfg:                     cfg,
 		resources:               resources,
 	}
