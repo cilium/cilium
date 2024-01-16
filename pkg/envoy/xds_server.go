@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -803,43 +802,13 @@ func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, callback)
 }
 
-// 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
 		BpfRoot:                  bpf.BPFFSRoot(),
-		IsL7Lb:                   l7lb,
+		IsL7Lb:                   false,
 		ProxyId:                  uint32(proxyPort),
-	}
-	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when
-	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
-	// (in such a case use of the original source address would lead to broken routing for the
-	// return traffic, as it would not be sent to the this node where upstream connection
-	// originates from).
-	//
-	// Note: This means that all non-local traffic will be identified by the destination to be
-	// coming from/via "Ingress", even if the listener is not an Ingress listener.
-	// We could refrain from using these ingress addresses in such cases, but then the upstream
-	// traffic would come from an (other) host IP, which is even worse.
-	//
-	// One solution to this dilemma would be to never configure these addresses if
-	// useOriginalSourceAddr is true and let such traffic fail.
-	if l7lb {
-		ingressIPv4 := node.GetIngressIPv4()
-		if ingressIPv4 != nil {
-			conf.Ipv4SourceAddress = ingressIPv4.String()
-			// Enforce ingress policy for Ingress
-			conf.EnforcePolicyOnL7Lb = true
-		}
-		ingressIPv6 := node.GetIngressIPv6()
-		if ingressIPv6 != nil {
-			conf.Ipv6SourceAddress = ingressIPv6.String()
-			// Enforce ingress policy for Ingress
-			conf.EnforcePolicyOnL7Lb = true
-		}
-		log.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
-		log.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())
 	}
 
 	return &envoy_config_listener.ListenerFilter{
@@ -873,7 +842,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			GetListenerFilter(isIngress, mayUseOriginalSourceAddr, false, port),
+			getListenerFilter(isIngress, mayUseOriginalSourceAddr, port),
 		},
 	}
 

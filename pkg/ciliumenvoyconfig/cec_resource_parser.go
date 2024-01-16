@@ -6,6 +6,7 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"net"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -21,8 +22,13 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -31,13 +37,49 @@ import (
 type cecResourceParser struct {
 	logger        logrus.FieldLogger
 	portAllocator PortAllocator
+
+	ingressIPv4 net.IP
+	ingressIPv6 net.IP
 }
 
-func newCECResourceParser(logger logrus.FieldLogger, proxy *proxy.Proxy) *cecResourceParser {
-	return &cecResourceParser{
-		logger:        logger,
-		portAllocator: proxy,
+type parserParams struct {
+	cell.In
+
+	Logger    logrus.FieldLogger
+	Lifecycle hive.Lifecycle
+
+	Proxy          *proxy.Proxy
+	LocalNodeStore *node.LocalNodeStore
+}
+
+func newCECResourceParser(params parserParams) *cecResourceParser {
+	parser := &cecResourceParser{
+		logger:        params.Logger,
+		portAllocator: params.Proxy,
 	}
+
+	// Retrieve Ingress IPs from local Node.
+	// It's assumed that these don't change.
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: func(ctx hive.HookContext) error {
+			localNode, err := params.LocalNodeStore.Get(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get LocalNodeStore: %w", err)
+			}
+
+			parser.ingressIPv4 = localNode.IPv4IngressIP
+			parser.ingressIPv6 = localNode.IPv6IngressIP
+
+			params.Logger.
+				WithField(logfields.V4IngressIP, localNode.IPv4IngressIP).
+				WithField(logfields.V6IngressIP, localNode.IPv6IngressIP).
+				Debug("Retrieved Ingress IPs from Node")
+
+			return nil
+		},
+	})
+
+	return parser
 }
 
 type PortAllocator interface {
@@ -355,7 +397,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 				// Get the listener port from the listener's (main) address
 				port := uint16(listener.GetAddress().GetSocketAddress().GetPortValue())
 
-				listener.ListenerFilters = append(listener.ListenerFilters, envoy.GetListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB, port))
+				listener.ListenerFilters = append(listener.ListenerFilters, r.getListenerFilter(useOriginalSourceAddr, isL7LB, port))
 			}
 		}
 
@@ -367,6 +409,52 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 	}
 
 	return resources, nil
+}
+
+// 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
+func (r *cecResourceParser) getListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+	conf := &cilium.BpfMetadata{
+		IsIngress:                false,
+		UseOriginalSourceAddress: useOriginalSourceAddr,
+		BpfRoot:                  bpf.BPFFSRoot(),
+		IsL7Lb:                   l7lb,
+		ProxyId:                  uint32(proxyPort),
+	}
+
+	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when
+	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
+	// (in such a case use of the original source address would lead to broken routing for the
+	// return traffic, as it would not be sent to the this node where upstream connection
+	// originates from).
+	//
+	// Note: This means that all non-local traffic will be identified by the destination to be
+	// coming from/via "Ingress", even if the listener is not an Ingress listener.
+	// We could refrain from using these ingress addresses in such cases, but then the upstream
+	// traffic would come from an (other) host IP, which is even worse.
+	//
+	// One solution to this dilemma would be to never configure these addresses if
+	// useOriginalSourceAddr is true and let such traffic fail.
+	if l7lb {
+		if r.ingressIPv4 != nil {
+			conf.Ipv4SourceAddress = r.ingressIPv4.String()
+			// Enforce ingress policy for Ingress
+			conf.EnforcePolicyOnL7Lb = true
+		}
+		if r.ingressIPv6 != nil {
+			conf.Ipv6SourceAddress = r.ingressIPv6.String()
+			// Enforce ingress policy for Ingress
+			conf.EnforcePolicyOnL7Lb = true
+		}
+		r.logger.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
+		r.logger.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())
+	}
+
+	return &envoy_config_listener.ListenerFilter{
+		Name: "cilium.bpf_metadata",
+		ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+			TypedConfig: toAny(conf),
+		},
+	}
 }
 
 func qualifyTcpProxyResourceNames(namespace, name string, tcpProxy *envoy_config_tcp.TcpProxy) (updated bool) {
