@@ -307,7 +307,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+          args: ${{ steps.bpftrace-params.outputs.params }} "false"
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
@@ -321,6 +321,15 @@ jobs:
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --flush-ct
+
+      - name: Assert that no unencrypted packets are leaked
+        uses: ./.github/actions/bpftrace/check
+
+      - name: Start unencrypted packets check for key rotation
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "false"
 
       - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-setup
@@ -385,12 +394,31 @@ jobs:
             sleep 30s
           done
 
+      - name: Assert that no unencrypted packets are leaked during key rotation
+        uses: ./.github/actions/bpftrace/check
+
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          full-test: 'true'
 
-      - name: Assert that no unencrypted packets are leaked
+      - name: Start unencrypted packets check for tests
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "false"
+
+      - name: Run tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+
+          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --flush-ct
+
+      - name: Assert that no unencrypted packets are leaked during tests
         uses: ./.github/actions/bpftrace/check
 
       - name: Fetch artifacts
