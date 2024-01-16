@@ -108,18 +108,17 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ctx                context.Context
-	clientset          k8sClient.Clientset
-	db                 *statedb.DB
-	buildEndpointSem   *semaphore.Weighted
-	l7Proxy            *proxy.Proxy
-	envoyXdsServer     envoy.XDSServer
-	envoyBackendSyncer *envoy.EnvoyServiceBackendSyncer
-	svc                service.ServiceManager
-	rec                *recorder.Recorder
-	policy             *policy.Repository
-	policyUpdater      *policy.Updater
-	preFilter          datapath.PreFilter
+	ctx              context.Context
+	clientset        k8sClient.Clientset
+	db               *statedb.DB
+	buildEndpointSem *semaphore.Weighted
+	l7Proxy          *proxy.Proxy
+	envoyXdsServer   envoy.XDSServer
+	svc              service.ServiceManager
+	rec              *recorder.Recorder
+	policy           *policy.Repository
+	policyUpdater    *policy.Updater
+	preFilter        datapath.PreFilter
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -450,7 +449,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		svc:                  params.ServiceManager,
 		l7Proxy:              params.L7Proxy,
 		envoyXdsServer:       params.EnvoyXdsServer,
-		envoyBackendSyncer:   params.EnvoyBackendSyncer,
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
@@ -513,9 +511,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.datapath,
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
-		d.l7Proxy,
 		d.envoyXdsServer,
-		d.envoyBackendSyncer,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,
