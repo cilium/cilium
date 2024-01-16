@@ -410,6 +410,9 @@ func isReply(reason uint8) bool {
 func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrapperspb.BoolValue {
 	switch {
 	case tn != nil && monitor.TraceReasonIsKnown(tn.Reason):
+		if monitor.TraceReasonIsEncap(tn.Reason) || monitor.TraceReasonIsDecap(tn.Reason) {
+			return nil
+		}
 		// Reason was specified by the datapath, just reuse it.
 		return &wrapperspb.BoolValue{
 			Value: isReply(tn.Reason),
