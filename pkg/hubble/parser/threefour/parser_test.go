@@ -472,6 +472,7 @@ func TestDecodeLocalIdentity(t *testing.T) {
 func TestDecodeTrafficDirection(t *testing.T) {
 	localIP := "1.2.3.4"
 	localEP := uint16(1234)
+	hostEP := uint16(0x1092)
 	remoteIP := "5.6.7.8"
 	remoteID := uint32(5678)
 
@@ -620,6 +621,28 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
+	// TRACE_TO_STACK SRV6 decap Ingress
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Source:   hostEP,
+		ObsPoint: monitorAPI.TraceToStack,
+		Reason:   monitor.TraceReasonSRv6Decap,
+	}
+	f = parseFlow(tn, remoteIP, localIP)
+	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint32(localEP), f.GetDestination().GetID())
+
+	// TRACE_TO_STACK SRV6 encap Egress
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Source:   localEP,
+		ObsPoint: monitorAPI.TraceToStack,
+		Reason:   monitor.TraceReasonSRv6Encap,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
+
 	// PolicyVerdictNotify Egress
 	pvn := monitor.PolicyVerdictNotify{
 		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
@@ -654,6 +677,8 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 func TestDecodeIsReply(t *testing.T) {
 	localIP := net.ParseIP("1.2.3.4")
+	localEP := uint16(1234)
+	hostEP := uint16(0x1092)
 	remoteIP := net.ParseIP("5.6.7.8")
 
 	parser, err := New(log, nil, nil, nil, nil, nil, nil)
@@ -689,6 +714,28 @@ func TestDecodeIsReply(t *testing.T) {
 		Type:     byte(monitorAPI.MessageTypeTrace),
 		ObsPoint: monitorAPI.TraceFromLxc,
 		Reason:   monitor.TraceReasonUnknown,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Nil(t, f.GetIsReply())
+	assert.Equal(t, false, f.GetReply())
+
+	// TRACE_TO_STACK SRV6 decap
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Source:   hostEP,
+		ObsPoint: monitorAPI.TraceToStack,
+		Reason:   monitor.TraceReasonSRv6Decap,
+	}
+	f = parseFlow(tn, remoteIP, localIP)
+	assert.Nil(t, f.GetIsReply())
+	assert.Equal(t, false, f.GetReply())
+
+	// TRACE_TO_STACK SRV6 encap
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Source:   localEP,
+		ObsPoint: monitorAPI.TraceToStack,
+		Reason:   monitor.TraceReasonSRv6Encap,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
