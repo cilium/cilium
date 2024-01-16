@@ -1,5 +1,88 @@
 # Changelog
 
+## v1.15.0-rc.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bgpv1: Enable `cilium-dbg bgp routes advertised` command without specifying a peer (Backport PR #30230, Upstream PR #30033, @rastislavs)
+* cilium-agent: Remove the obsolete --bpf-lb-dev-ip-addr-inherit option (Backport PR #30264, Upstream PR #29963, @joamaki)
+
+**Bugfixes:**
+* Add default toleration for SPIRE agent on control plane nodes (Backport PR #30230, Upstream PR #28947, @meyskens)
+* Avoid panic during BPF program compilation when clang command fails to start (Backport PR #30264, Upstream PR #30009, @ti-mo)
+* bgpv1: Avoid creating `resource.Store` in `Start()` hive hooks of BGP CP to ensure proper BGP CP initialization. (Backport PR #30079, Upstream PR #29954, @rastislavs)
+* bpf: fix wrong loopback address mask value (Backport PR #30230, Upstream PR #29946, @haiyuewa)
+* Cilium DNS proxy can now use the original pod's address as the source address towards the DNS servers (--dnsproxy-enable-transparent-mode). (Backport PR #30212, Upstream PR #29239, @jrajahalme)
+* daemon: Fail init if requirements for BPF masquerade are not met (Backport PR #30230, Upstream PR #29778, @pippolo84)
+* Do not attempt an mTLS handshake between reserved identities in Mutual Auth, as they would always fail (Backport PR #30230, Upstream PR #29400, @meyskens)
+* Due to a race condition in the experimental runtime device detection, Cilium could fail to make a newly added device available for node port services. (Backport PR #30230, Upstream PR #29917, @bimmlerd)
+* Fix a bug that may cause traffic to the node internal IP addresses to be incorrectly masqueraded when node encryption and remote node identities are both disabled, due to an inconsistency in the node manager when handling ipset entries insertions and deletions on node updates. (Backport PR #30230, Upstream PR #29986, @qmonnet)
+* Fix and prevent future bugs limiting pod-to-pod network performance under high load when tunneling and IPSec are both enabled. (Backport PR #30079, Upstream PR #29616, @learnitall)
+* Fix bugs in health-server that cause the state in the prober's cache to drift and allow nodes with empty IP addresses to be added. (Backport PR #30230, Upstream PR #29745, @thorn3r)
+* Fix instances of leaked health reporter updates. (Backport PR #30230, Upstream PR #30134, @tommyp1ckles)
+* gateway-api: fix status reconcile error handling (Backport PR #30230, Upstream PR #29894, @mhofstetter)
+* gateway-api: Requeue Gateway for owning GRPCRoute (Backport PR #30230, Upstream PR #30124, @sayboras)
+* gateway: Add GRPCRoute support for status changed predicate (Backport PR #30230, Upstream PR #30176, @sayboras)
+* helm: Fix envoy servicemonitor annotations (Backport PR #30230, Upstream PR #30017, @pmcgrath)
+* l7lb: Fix bug where not all relevant ports of a Service were synchronized to Envoy (Backport PR #30264, Upstream PR #30107, @mhofstetter)
+* maps/metricspath: protect against concurrent access in Collect (Backport PR #30230, Upstream PR #30104, @buroa)
+* nodediscovery: Fix bug where CiliumInternalIP was flapping (Backport PR #29973, Upstream PR #29964, @gandro)
+* policy: Fix mapstate changes error in entry change comparison (Backport PR #30079, Upstream PR #29815, @jrajahalme)
+* Remove non fatal errors from SPIRE client in the operator (Backport PR #30230, Upstream PR #28698, @meyskens)
+* Unify parsing of StringSlice flags and allow splitting by commas (preferably) or by spaces. This fixes parsing of 'prometheus.metrics'. (Backport PR #30079, Upstream PR #29848, @joamaki)
+
+**CI Changes:**
+* bpf: fix test configuration for 5.10 and 6.1 kernels (Backport PR #30230, Upstream PR #29999, @julianwiedmann)
+* ci-clustermesh-upgrade: Adjust name of test to run, to match cilium-cli's renaming (Backport PR #30264, Upstream PR #30211, @qmonnet)
+* ci: Add a call to the update label backport action (Backport PR #30264, Upstream PR #29902, @joestringer)
+* Conformance AKS: wait for cilium-test namespace deletion during uninstallation (Backport PR #30230, Upstream PR #29893, @giorio94)
+* identity: deflake test TestGetIdentity (Backport PR #30079, Upstream PR #29720, @mhofstetter)
+* workflows: Increase IPsec e2e test's timeout (Backport PR #30230, Upstream PR #30194, @julianwiedmann)
+* workflows: Increase IPsec upgrade test's timeout (Backport PR #30079, Upstream PR #29934, @pchaigno)
+
+**Misc Changes:**
+* [v1.15] docs: add deprecation notice for enable-remote-node-identity for v1.15 (#30208, @tklauser)
+* bgpv1: set running flag in manager (Backport PR #30079, Upstream PR #30013, @harsimran-pabla)
+* bpf: ipv4: always return drop reason from ipv4_handle_fragmentation() (Backport PR #30079, Upstream PR #29880, @julianwiedmann)
+* chore(deps): update actions/setup-go action to v5 (v1.15) (#30142, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.15) (patch) (#30225, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.19 (main) (Backport PR #30230, Upstream PR #29942, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.19 (v1.15) (#30141, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.20 (v1.15) (#30201, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.6 docker digest to 6fbd2d3 (v1.15) (#30050, @renovate[bot])
+* chore(deps): update go to v1.21.6 (v1.15) (patch) (#30173, @renovate[bot])
+* doc: Update recommended way for installing cilium on AKS (Backport PR #30230, Upstream PR #28910, @tamilmani1989)
+* docs: Document renovate testing strategy (Backport PR #30230, Upstream PR #30166, @joestringer)
+* docs: fix chained veth plugin example (Backport PR #30230, Upstream PR #30209, @squeed)
+* docs: Fix keyid derivation in IPsec docs (Backport PR #30079, Upstream PR #30000, @brb)
+* docs: Update Gateway API version in example (Backport PR #30230, Upstream PR #30115, @sayboras)
+* endpoint: Use resolved named port also in the proxy stats (Backport PR #30079, Upstream PR #29813, @jrajahalme)
+* Fix cilium-envoy ServiceMonitor template typo (Backport PR #30230, Upstream PR #29976, @cornfeedhobo)
+* Fix log error in clustermesh-apiserver when connecting external workloads (Backport PR #30079, Upstream PR #29896, @giorio94)
+* Fix regression causing a 10x increase in the duration of endpoint integration tests (Backport PR #30079, Upstream PR #29826, @giorio94)
+* fix(deps): update module golang.org/x/crypto to v0.17.0 [security] (main) (Backport PR #30230, Upstream PR #29971, @renovate[bot])
+* fix: remove help message in build config failure (Backport PR #30230, Upstream PR #28974, @vipul-21)
+* fqdn: serialize requests per-name (Backport PR #30230, Upstream PR #30109, @squeed)
+* fqdn: skip ipcache insertion for names without fqdn selectors (Backport PR #30230, Upstream PR #30110, @squeed)
+* Helm: enforce routing mode when either gke.enabled or aksbyocni.enabled are set (Backport PR #30079, Upstream PR #29674, @giorio94)
+* hubble: Reduce "stale identities observed" debug messages even more (Backport PR #30079, Upstream PR #29957, @gandro)
+* identity: stop double-update of selector cache and regenerate when a local identity is allocated (Backport PR #30079, Upstream PR #29865, @squeed)
+* k8s/slim: Clarify instructions for updating slim files (Backport PR #30230, Upstream PR #29877, @christarazi)
+* labels: small optimization in NewFrom and various cleanups (Backport PR #30230, Upstream PR #30006, @tklauser)
+* metrics: revert changes to pre-init kubernetes events metrics + improve metric logs (Backport PR #30079, Upstream PR #29343, @tommyp1ckles)
+* Modularize stale endpoint gc in an independent cell (Backport PR #30079, Upstream PR #29246, @pippolo84)
+* policy: expand "world" entity selector to select all address families (Backport PR #29961, Upstream PR #29958, @squeed)
+* policy: Fix MapState.Equals() (Backport PR #30264, Upstream PR #30233, @jrajahalme)
+* updated docs to reflect Envoy as a DS option (Backport PR #30230, Upstream PR #29518, @nvibert)
+* Use Resource[T] to implement CEP and CES watchers (Backport PR #30230, Upstream PR #29249, @pippolo84)
+
+**Other Changes:**
+* [1.15] loader: fix obsolete XDP program removal (#30224, @rgo3)
+* Add specific drop reason for missing tail calls if the host datapath is not ready yet (#30203, @ti-mo)
+* install: Update image digests for v1.15.0-rc.0 (#29906, @joestringer)
+
 ## v1.15.0-rc.0
 
 Summary of Changes
