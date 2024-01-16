@@ -28,7 +28,6 @@ var Cell = cell.Module(
 
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
-	cell.Provide(newEnvoyServiceBackendSyncer),
 	cell.ProvidePrivate(newEnvoyAccessLogServer),
 	cell.ProvidePrivate(newLocalEndpointStore),
 	cell.ProvidePrivate(newArtifactCopier),

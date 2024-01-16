@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package envoy
+package ciliumenvoyconfig
 
 import (
 	"context"
@@ -10,7 +10,9 @@ import (
 
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
+	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -20,28 +22,31 @@ import (
 
 const anyPort = "*"
 
-// EnvoyServiceBackendSyncer syncs the backends of a Service as Endpoints to the Envoy L7 proxy.
-type EnvoyServiceBackendSyncer struct {
-	envoyXdsServer XDSServer
+// envoyServiceBackendSyncer syncs the backends of a Service as Endpoints to the Envoy L7 proxy.
+type envoyServiceBackendSyncer struct {
+	logger logrus.FieldLogger
+
+	envoyXdsServer envoy.XDSServer
 
 	l7lbSvcsMutex lock.RWMutex
 	l7lbSvcs      map[loadbalancer.ServiceName]*backendSyncInfo
 }
 
-var _ service.BackendSyncer = &EnvoyServiceBackendSyncer{}
+var _ service.BackendSyncer = &envoyServiceBackendSyncer{}
 
-func (*EnvoyServiceBackendSyncer) ProxyName() string {
+func (*envoyServiceBackendSyncer) ProxyName() string {
 	return "Envoy"
 }
 
-func newEnvoyServiceBackendSyncer(envoyXdsServer XDSServer) *EnvoyServiceBackendSyncer {
-	return &EnvoyServiceBackendSyncer{
+func newEnvoyServiceBackendSyncer(logger logrus.FieldLogger, envoyXdsServer envoy.XDSServer) *envoyServiceBackendSyncer {
+	return &envoyServiceBackendSyncer{
+		logger:         logger,
 		envoyXdsServer: envoyXdsServer,
 		l7lbSvcs:       map[loadbalancer.ServiceName]*backendSyncInfo{},
 	}
 }
 
-func (r *EnvoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
+func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
 	r.l7lbSvcsMutex.RLock()
 	l7lbInfo, exists := r.l7lbSvcs[svc.Name]
 	r.l7lbSvcsMutex.RUnlock()
@@ -54,7 +59,7 @@ func (r *EnvoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
 	// as Envoy endpoints
 	be := filterServiceBackends(svc, l7lbInfo.GetAllFrontendPorts())
 
-	log.
+	r.logger.
 		WithField("filteredBackends", be).
 		WithField(logfields.L7LBFrontendPorts, l7lbInfo.GetAllFrontendPorts()).
 		Debug("Upsert envoy endpoints")
@@ -65,7 +70,7 @@ func (r *EnvoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
 	return nil
 }
 
-func (r *EnvoyServiceBackendSyncer) RegisterServiceUsageInCEC(svcName loadbalancer.ServiceName, resourceName service.L7LBResourceName, frontendPorts []string) {
+func (r *envoyServiceBackendSyncer) RegisterServiceUsageInCEC(svcName loadbalancer.ServiceName, resourceName service.L7LBResourceName, frontendPorts []string) {
 	r.l7lbSvcsMutex.Lock()
 	defer r.l7lbSvcsMutex.Unlock()
 
@@ -86,7 +91,7 @@ func (r *EnvoyServiceBackendSyncer) RegisterServiceUsageInCEC(svcName loadbalanc
 	r.l7lbSvcs[svcName] = l7lbInfo
 }
 
-func (r *EnvoyServiceBackendSyncer) DeregisterServiceUsageInCEC(svcName loadbalancer.ServiceName, resourceName service.L7LBResourceName) bool {
+func (r *envoyServiceBackendSyncer) DeregisterServiceUsageInCEC(svcName loadbalancer.ServiceName, resourceName service.L7LBResourceName) bool {
 	r.l7lbSvcsMutex.Lock()
 	defer r.l7lbSvcsMutex.Unlock()
 
@@ -111,8 +116,8 @@ func (r *EnvoyServiceBackendSyncer) DeregisterServiceUsageInCEC(svcName loadbala
 	return false
 }
 
-func (r *EnvoyServiceBackendSyncer) upsertEnvoyEndpoints(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) error {
-	var resources Resources
+func (r *envoyServiceBackendSyncer) upsertEnvoyEndpoints(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) error {
+	var resources envoy.Resources
 
 	resources.Endpoints = getEndpointsForLBBackends(serviceName, backendMap)
 
@@ -138,9 +143,9 @@ func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap 
 						Address: &envoy_config_core.Address{
 							Address: &envoy_config_core.Address_SocketAddress{
 								SocketAddress: &envoy_config_core.SocketAddress{
-									Address: be.L3n4Addr.AddrCluster.String(),
+									Address: be.AddrCluster.String(),
 									PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
-										PortValue: uint32(be.L3n4Addr.L4Addr.Port),
+										PortValue: uint32(be.Port),
 									},
 								},
 							},
