@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package envoy
+package ciliumenvoyconfig
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -16,9 +17,11 @@ import (
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -176,7 +179,13 @@ spec:
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
-	portAllocator := NewMockPortAllocator()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfig))
 	c.Assert(err, IsNil)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
@@ -187,7 +196,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -276,7 +285,13 @@ spec:
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
-	portAllocator := NewMockPortAllocator()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigInvalid))
 	c.Assert(err, IsNil)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
@@ -286,7 +301,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, false, portAllocator, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -319,7 +334,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	//
 	// Same with validation fails
 	//
-	resources, err = ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false, true)
+	resources, err = parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
 	c.Assert(err, Not(IsNil))
 }
 
@@ -356,7 +371,13 @@ spec:
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
-	portAllocator := NewMockPortAllocator()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigNoAddress))
 	c.Assert(err, IsNil)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
@@ -366,7 +387,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -475,7 +496,13 @@ spec:
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
-	portAllocator := NewMockPortAllocator()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
 	c.Assert(err, IsNil)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
@@ -484,7 +511,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 5)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/multi-resource-listener")
@@ -634,7 +661,13 @@ spec:
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
-	portAllocator := NewMockPortAllocator()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTCPProxy))
 	c.Assert(err, IsNil)
 
@@ -645,7 +678,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 2)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, true, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, true, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address, Not(IsNil))
@@ -765,7 +798,13 @@ spec:
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
-	portAllocator := NewMockPortAllocator()
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTCPProxyTermination))
 	c.Assert(err, IsNil)
 
@@ -776,7 +815,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 2)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, true, false, true)
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, true, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address, Not(IsNil))
@@ -855,8 +894,8 @@ func checkCiliumXDS(c *C, cs *envoy_config_core.ConfigSource) {
 }
 
 func (s *JSONSuite) TestListenersAddedOrDeleted(c *C) {
-	var old Resources
-	var new Resources
+	var old envoy.Resources
+	var new envoy.Resources
 
 	// Both empty
 	res := old.ListenersAddedOrDeleted(&new)

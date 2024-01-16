@@ -429,8 +429,8 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 			},
 		},
 		DynamicResources: &envoy_config_bootstrap.Bootstrap_DynamicResources{
-			LdsConfig: ciliumXDS,
-			CdsConfig: ciliumXDS,
+			LdsConfig: CiliumXDSConfigSource,
+			CdsConfig: CiliumXDSConfigSource,
 		},
 		Admin: &envoy_config_bootstrap.Admin{
 			Address: &envoy_config_core.Address{

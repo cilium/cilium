@@ -623,10 +623,12 @@ var L4PolicyL7 = &policy.L4Policy{
 					L7: []api.PortRuleL7{
 						map[string]string{
 							"method": "PUT",
-							"path":   "/"},
+							"path":   "/",
+						},
 						map[string]string{
 							"method": "GET",
-							"path":   "/"},
+							"path":   "/",
+						},
 					},
 				}},
 			},
@@ -639,21 +641,25 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     9090,
 		Protocol: envoy_config_core.SocketAddress_TCP,
-		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
-			L7Proto: "tester",
-			L7: &cilium.PortNetworkPolicyRule_L7Rules{
-				L7Rules: &cilium.L7NetworkPolicyRules{
-					L7AllowRules: []*cilium.L7NetworkPolicyRule{
-						{Rule: map[string]string{
-							"method": "PUT",
-							"path":   "/"}},
-						{Rule: map[string]string{
-							"method": "GET",
-							"path":   "/"}},
+		Rules: []*cilium.PortNetworkPolicyRule{
+			{
+				// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
+				L7Proto: "tester",
+				L7: &cilium.PortNetworkPolicyRule_L7Rules{
+					L7Rules: &cilium.L7NetworkPolicyRules{
+						L7AllowRules: []*cilium.L7NetworkPolicyRule{
+							{Rule: map[string]string{
+								"method": "PUT",
+								"path":   "/",
+							}},
+							{Rule: map[string]string{
+								"method": "GET",
+								"path":   "/",
+							}},
+						},
 					},
 				},
-			}},
+			},
 		},
 	},
 }
@@ -691,24 +697,28 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 	{
 		Port:     9092,
 		Protocol: envoy_config_core.SocketAddress_TCP,
-		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
-			L7Proto: "kafka",
-			L7: &cilium.PortNetworkPolicyRule_KafkaRules{
-				KafkaRules: &cilium.KafkaNetworkPolicyRules{
-					KafkaRules: []*cilium.KafkaNetworkPolicyRule{{
-						ApiVersion: -1,
-						ApiKeys: []int32{int32(kafka.FetchKey), int32(kafka.OffsetsKey),
-							int32(kafka.MetadataKey), int32(kafka.OffsetCommitKey),
-							int32(kafka.OffsetFetchKey), int32(kafka.FindCoordinatorKey),
-							int32(kafka.JoinGroupKey), int32(kafka.HeartbeatKey),
-							int32(kafka.LeaveGroupKey), int32(kafka.SyncgroupKey),
-							int32(kafka.APIVersionsKey)},
-						ClientId: "",
-						Topic:    "deathstar-plans",
-					}},
+		Rules: []*cilium.PortNetworkPolicyRule{
+			{
+				// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
+				L7Proto: "kafka",
+				L7: &cilium.PortNetworkPolicyRule_KafkaRules{
+					KafkaRules: &cilium.KafkaNetworkPolicyRules{
+						KafkaRules: []*cilium.KafkaNetworkPolicyRule{{
+							ApiVersion: -1,
+							ApiKeys: []int32{
+								int32(kafka.FetchKey), int32(kafka.OffsetsKey),
+								int32(kafka.MetadataKey), int32(kafka.OffsetCommitKey),
+								int32(kafka.OffsetFetchKey), int32(kafka.FindCoordinatorKey),
+								int32(kafka.JoinGroupKey), int32(kafka.HeartbeatKey),
+								int32(kafka.LeaveGroupKey), int32(kafka.SyncgroupKey),
+								int32(kafka.APIVersionsKey),
+							},
+							ClientId: "",
+							Topic:    "deathstar-plans",
+						}},
+					},
 				},
-			}},
+			},
 		},
 	},
 }
@@ -735,7 +745,8 @@ var L4PolicyMySQL = &policy.L4Policy{
 					L7: []api.PortRuleL7{
 						map[string]string{
 							"action":     "deny",
-							"user.mysql": "select"},
+							"user.mysql": "select",
+						},
 					},
 				}},
 			},
@@ -748,26 +759,28 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 	{
 		Port:     3306,
 		Protocol: envoy_config_core.SocketAddress_TCP,
-		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
-			L7Proto: "envoy.filters.network.mysql_proxy",
-			L7: &cilium.PortNetworkPolicyRule_L7Rules{
-				L7Rules: &cilium.L7NetworkPolicyRules{
-					L7DenyRules: []*cilium.L7NetworkPolicyRule{{
-						MetadataRule: []*envoy_type_matcher.MetadataMatcher{{
-							Filter: "envoy.filters.network.mysql_proxy",
-							Path: []*envoy_type_matcher.MetadataMatcher_PathSegment{{
-								Segment: &envoy_type_matcher.MetadataMatcher_PathSegment_Key{Key: "user.mysql"},
-							}},
-							Value: &envoy_type_matcher.ValueMatcher{
-								MatchPattern: &envoy_type_matcher.ValueMatcher_ListMatch{
-									ListMatch: &envoy_type_matcher.ListMatcher{
-										MatchPattern: &envoy_type_matcher.ListMatcher_OneOf{
-											OneOf: &envoy_type_matcher.ValueMatcher{
-												MatchPattern: &envoy_type_matcher.ValueMatcher_StringMatch{
-													StringMatch: &envoy_type_matcher.StringMatcher{
-														MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-															Exact: "select",
+		Rules: []*cilium.PortNetworkPolicyRule{
+			{
+				// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
+				L7Proto: "envoy.filters.network.mysql_proxy",
+				L7: &cilium.PortNetworkPolicyRule_L7Rules{
+					L7Rules: &cilium.L7NetworkPolicyRules{
+						L7DenyRules: []*cilium.L7NetworkPolicyRule{{
+							MetadataRule: []*envoy_type_matcher.MetadataMatcher{{
+								Filter: "envoy.filters.network.mysql_proxy",
+								Path: []*envoy_type_matcher.MetadataMatcher_PathSegment{{
+									Segment: &envoy_type_matcher.MetadataMatcher_PathSegment_Key{Key: "user.mysql"},
+								}},
+								Value: &envoy_type_matcher.ValueMatcher{
+									MatchPattern: &envoy_type_matcher.ValueMatcher_ListMatch{
+										ListMatch: &envoy_type_matcher.ListMatcher{
+											MatchPattern: &envoy_type_matcher.ListMatcher_OneOf{
+												OneOf: &envoy_type_matcher.ValueMatcher{
+													MatchPattern: &envoy_type_matcher.ValueMatcher_StringMatch{
+														StringMatch: &envoy_type_matcher.StringMatcher{
+															MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+																Exact: "select",
+															},
 														},
 													},
 												},
@@ -775,11 +788,11 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 										},
 									},
 								},
-							},
+							}},
 						}},
-					}},
+					},
 				},
-			}},
+			},
 		},
 	},
 }
@@ -1065,7 +1078,7 @@ func Test_getLocalListenerAddresses(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotAdditional := getLocalListenerAddresses(tt.args.port, tt.args.ipv4, tt.args.ipv6)
+			got, gotAdditional := GetLocalListenerAddresses(tt.args.port, tt.args.ipv4, tt.args.ipv6)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getLocalListenerAddresses() got = %v, want %v", got, tt.want)
 			}
