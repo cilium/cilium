@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package ciliumenvoyconfig
 
 import (
 	"context"
@@ -189,26 +189,6 @@ func (r *ciliumEnvoyConfigWatcher) ccecDeleted(ctx context.Context, key resource
 	return nil
 }
 
-// useOriginalSourceAddress returns true if the given object metadata indicates that the owner needs the Envoy listener to assume the identity of Cilium Ingress.
-// This can be an explicit label or the presence of an OwnerReference of Kind "Ingress" or "Gateway".
-func useOriginalSourceAddress(meta *metav1.ObjectMeta) bool {
-	for _, owner := range meta.OwnerReferences {
-		if owner.Kind == "Ingress" || owner.Kind == "Gateway" {
-			return false
-		}
-	}
-
-	if meta.GetLabels() != nil {
-		if v, ok := meta.GetLabels()[k8s.UseOriginalSourceAddressLabel]; ok {
-			if boolValue, err := strconv.ParseBool(v); err == nil {
-				return boolValue
-			}
-		}
-	}
-
-	return true
-}
-
 func (r *ciliumEnvoyConfigWatcher) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec ciliumv2.CiliumEnvoyConfigSpec) error {
 	resources, err := envoy.ParseResources(
 		cecObjectMeta.GetNamespace(),
@@ -244,25 +224,6 @@ func (r *ciliumEnvoyConfigWatcher) addCiliumEnvoyConfig(cecObjectMeta metav1.Obj
 	}
 
 	return err
-}
-
-// getServiceName enforces namespacing for service references in Cilium Envoy Configs
-func getServiceName(resourceName service.L7LBResourceName, name, namespace string, isFrontend bool) loadbalancer.ServiceName {
-	if resourceName.Namespace == "" {
-		// nonNamespaced Cilium Clusterwide Envoy Config, default service references to
-		// "default" namespace.
-		if namespace == "" {
-			namespace = "default"
-		}
-	} else {
-		// Namespaced Cilium Envoy Config, enforce frontend service references to the
-		// namespace of the CEC itself, and default the backend service reference namespace
-		// to the namespace of the CEC itself.
-		if isFrontend || namespace == "" {
-			namespace = resourceName.Namespace
-		}
-	}
-	return loadbalancer.ServiceName{Name: name, Namespace: namespace}
 }
 
 func (r *ciliumEnvoyConfigWatcher) addK8sServiceRedirects(resourceName service.L7LBResourceName, spec *ciliumv2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
@@ -519,4 +480,43 @@ func (r *ciliumEnvoyConfigWatcher) deregisterServiceSync(serviceName loadbalance
 	}
 
 	return nil
+}
+
+// getServiceName enforces namespacing for service references in Cilium Envoy Configs
+func getServiceName(resourceName service.L7LBResourceName, name, namespace string, isFrontend bool) loadbalancer.ServiceName {
+	if resourceName.Namespace == "" {
+		// nonNamespaced Cilium Clusterwide Envoy Config, default service references to
+		// "default" namespace.
+		if namespace == "" {
+			namespace = "default"
+		}
+	} else {
+		// Namespaced Cilium Envoy Config, enforce frontend service references to the
+		// namespace of the CEC itself, and default the backend service reference namespace
+		// to the namespace of the CEC itself.
+		if isFrontend || namespace == "" {
+			namespace = resourceName.Namespace
+		}
+	}
+	return loadbalancer.ServiceName{Name: name, Namespace: namespace}
+}
+
+// useOriginalSourceAddress returns true if the given object metadata indicates that the owner needs the Envoy listener to assume the identity of Cilium Ingress.
+// This can be an explicit label or the presence of an OwnerReference of Kind "Ingress" or "Gateway".
+func useOriginalSourceAddress(meta *metav1.ObjectMeta) bool {
+	for _, owner := range meta.OwnerReferences {
+		if owner.Kind == "Ingress" || owner.Kind == "Gateway" {
+			return false
+		}
+	}
+
+	if meta.GetLabels() != nil {
+		if v, ok := meta.GetLabels()[k8s.UseOriginalSourceAddressLabel]; ok {
+			if boolValue, err := strconv.ParseBool(v); err == nil {
+				return boolValue
+			}
+		}
+	}
+
+	return true
 }
