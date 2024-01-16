@@ -413,6 +413,7 @@ Makefile* @cilium/build
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/cgroups/ @cilium/sig-datapath
 /pkg/checker/ @cilium/ci-structure
+/pkg/ciliumenvoyconfig/ @cilium/envoy @cilium/sig-servicemesh
 /pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh

@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -31,7 +32,6 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -175,7 +175,7 @@ var (
 
 		// CiliumEnvoyConfig provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
 		// and L7 loadbalancing.
-		watchers.Cell,
+		ciliumenvoyconfig.Cell,
 
 		// Cilium REST API handlers
 		restapi.Cell,
