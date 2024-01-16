@@ -27,6 +27,7 @@ var Cell = cell.Module(
 			IptablesMasqueradingIPv4Enabled: cfg.IptablesMasqueradingIPv4Enabled(),
 			IptablesMasqueradingIPv6Enabled: cfg.IptablesMasqueradingIPv6Enabled(),
 			IPv4NativeRoutingCIDR:           cfg.GetIPv4NativeRoutingCIDR(),
+			IPv6NativeRoutingCIDR:           cfg.GetIPv6NativeRoutingCIDR(),
 
 			EnableIPv4:                  cfg.EnableIPv4,
 			EnableIPv6:                  cfg.EnableIPv6,
@@ -39,6 +40,7 @@ var Cell = cell.Module(
 			MasqueradeInterfaces:        cfg.MasqueradeInterfaces,
 			EnableMasqueradeRouteSource: cfg.EnableMasqueradeRouteSource,
 			EnableL7Proxy:               cfg.EnableL7Proxy,
+			InstallIptRules:             cfg.InstallIptRules,
 		}
 	}),
 	cell.Provide(newIptablesManager),
@@ -80,6 +82,7 @@ type SharedConfig struct {
 	IptablesMasqueradingIPv4Enabled bool
 	IptablesMasqueradingIPv6Enabled bool
 	IPv4NativeRoutingCIDR           *cidr.CIDR
+	IPv6NativeRoutingCIDR           *cidr.CIDR
 
 	EnableIPv4                  bool
 	EnableIPv6                  bool
@@ -92,4 +95,5 @@ type SharedConfig struct {
 	MasqueradeInterfaces        []string
 	EnableMasqueradeRouteSource bool
 	EnableL7Proxy               bool
+	InstallIptRules             bool
 }

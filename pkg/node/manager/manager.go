@@ -491,7 +491,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	for _, address := range n.IPAddresses {
 		prefix := ip.IPToNetPrefix(address.IP)
 
-		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+		if address.Type == addressing.NodeInternalIP {
 			m.ipsetMgr.AddToNodeIpset(address.IP)
 			ipsetEntries = append(ipsetEntries, prefix)
 		}
@@ -676,8 +676,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			continue
 		}
 
-		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP &&
-			!slices.Contains(ipsetEntries, oldPrefix) {
+		if address.Type == addressing.NodeInternalIP && !slices.Contains(ipsetEntries, oldPrefix) {
 			m.ipsetMgr.RemoveFromNodeIpset(address.IP)
 		}
 
