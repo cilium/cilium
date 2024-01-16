@@ -167,3 +167,11 @@ func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwn
 func (f *fakeLoader) HostDatapathInitialized() <-chan struct{} {
 	return nil
 }
+
+func (f *fakeLoader) RestoreTemplates(stateDir string) error {
+	return nil
+}
+
+func (f *fakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
+	return false, nil
+}

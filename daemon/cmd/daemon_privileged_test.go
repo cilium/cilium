@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -72,10 +72,24 @@ func Test_removeOldRouterState(t *testing.T) {
 func createDevices(t *testing.T) {
 	t.Helper()
 
-	ciliumHost, ciliumNet, err := loader.SetupBaseDevice(1500)
-	assert.NoError(t, err)
-	assert.NotNil(t, ciliumHost)
-	assert.NotNil(t, ciliumNet)
+	hostMac, err := mac.GenerateRandMAC()
+	if err != nil {
+		assert.NoError(t, err)
+	}
+	veth := &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:         defaults.HostDevice,
+			HardwareAddr: net.HardwareAddr(hostMac),
+			TxQLen:       1000,
+		},
+	}
+	if err := netlink.LinkAdd(veth); err != nil {
+		assert.NoError(t, err)
+	}
+	ciliumHost, err := netlink.LinkByName(defaults.HostDevice)
+	if err != nil {
+		assert.NoError(t, err)
+	}
 
 	_, ipnet, _ := net.ParseCIDR("192.0.2.1/32")
 	addr := &netlink.Addr{IPNet: ipnet}
