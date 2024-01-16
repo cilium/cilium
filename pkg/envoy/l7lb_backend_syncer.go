@@ -180,9 +180,11 @@ func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap 
 // filterServiceBackends returns the list of backends based on given front end ports.
 // The returned map will have key as port name/number, and value as list of respective backends.
 func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string][]*loadbalancer.Backend {
+	preferredBackends := filterPreferredBackends(svc.Backends)
+
 	if len(onlyPorts) == 0 {
 		return map[string][]*loadbalancer.Backend{
-			"*": filterPreferredBackends(svc.Backends),
+			"*": preferredBackends,
 		}
 	}
 
@@ -191,11 +193,12 @@ func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string
 		// check for port number
 		if port == strconv.Itoa(int(svc.Frontend.Port)) {
 			return map[string][]*loadbalancer.Backend{
-				port: filterPreferredBackends(svc.Backends),
+				port: preferredBackends,
 			}
 		}
+
 		// check for either named port
-		for _, backend := range filterPreferredBackends(svc.Backends) {
+		for _, backend := range preferredBackends {
 			if port == backend.FEPortName {
 				res[port] = append(res[port], backend)
 			}
