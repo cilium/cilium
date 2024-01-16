@@ -17,9 +17,11 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/statedb"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -82,12 +84,23 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
+
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		c.Fatalf("failed to create statedb: %v", err)
+	}
+
+	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
+		DB: db,
+		Devices: devices,
+	})
 	ds.datapath = linuxDatapath.NewDatapath(
 		linuxDatapath.DatapathParams{
 			RuleManager:    nil,
 			NodeAddressing: nil,
 			NodeMap:        nil,
-			ConfigWriter:   &config.HeaderfileWriter{},
+			ConfigWriter:   cfg,
 		},
 		linuxDatapath.DatapathConfiguration{},
 	)
@@ -161,12 +174,23 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 		ds.datapath = oldDatapath
 	}()
 
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		c.Fatalf("failed to create statedb: %v", err)
+	}
+
+	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
+		DB: db,
+		Devices: devices,
+	})
+
 	ds.datapath = linuxDatapath.NewDatapath(
 		linuxDatapath.DatapathParams{
 			RuleManager:    nil,
 			NodeAddressing: nil,
 			NodeMap:        nil,
-			ConfigWriter:   &config.HeaderfileWriter{},
+			ConfigWriter:   cfg,
 		},
 		linuxDatapath.DatapathConfiguration{},
 	)
@@ -235,12 +259,22 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		c.Fatalf("failed to create statedb: %v", err)
+	}
+
+	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
+		DB: db,
+		Devices: devices,
+	})
 	ds.datapath = linuxDatapath.NewDatapath(
 		linuxDatapath.DatapathParams{
 			RuleManager:    nil,
 			NodeAddressing: nil,
 			NodeMap:        nil,
-			ConfigWriter:   &config.HeaderfileWriter{},
+			ConfigWriter:   cfg,
 		},
 		linuxDatapath.DatapathConfiguration{},
 	)
