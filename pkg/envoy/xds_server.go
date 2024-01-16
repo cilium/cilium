@@ -320,7 +320,7 @@ func (s *xdsServer) stop() {
 	}
 }
 
-func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
+func GetCiliumHttpFilter() *envoy_config_http.HttpFilter {
 	return &envoy_config_http.HttpFilter{
 		Name: "cilium.l7policy",
 		ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
@@ -344,7 +344,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:    true,
 		HttpFilters: []*envoy_config_http.HttpFilter{
-			getCiliumHttpFilter(),
+			GetCiliumHttpFilter(),
 			{
 				Name: "envoy.filters.http.router",
 				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
@@ -548,7 +548,7 @@ func getPublicListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.A
 	}
 }
 
-func getLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core.Address, []*envoy_config_listener.AdditionalAddress) {
+func GetLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core.Address, []*envoy_config_listener.AdditionalAddress) {
 	addresses := []*envoy_config_core.Address_SocketAddress{}
 
 	if ipv4 {
@@ -804,7 +804,7 @@ func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
@@ -859,7 +859,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		tlsClusterName = ingressTLSClusterName
 	}
 
-	addr, additionalAddr := getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+	addr, additionalAddr := GetLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 	listenerConf := &envoy_config_listener.Listener{
 		Name:                name,
 		Address:             addr,
@@ -873,7 +873,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false, port),
+			GetListenerFilter(isIngress, mayUseOriginalSourceAddr, false, port),
 		},
 	}
 
@@ -1250,7 +1250,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
 }
 
-var ciliumXDS = &envoy_config_core.ConfigSource{
+var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
 	ResourceApiVersion: envoy_config_core.ApiVersion_V3,
 	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
 		ApiConfigSource: &envoy_config_core.ApiConfigSource{
@@ -1784,7 +1784,7 @@ type Resources struct {
 	Endpoints []*envoy_config_endpoint.ClusterLoadAssignment
 
 	// Callback functions that are called if the corresponding Listener change was successfully acked by Envoy
-	portAllocationCallbacks map[string]func(context.Context) error
+	PortAllocationCallbacks map[string]func(context.Context) error
 }
 
 // ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'
@@ -1904,8 +1904,8 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
 			// this callback is not called if there is no change
 			func(err error) {
-				if err == nil && resources.portAllocationCallbacks[listenerName] != nil {
-					if callbackErr := resources.portAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+				if err == nil && resources.PortAllocationCallbacks[listenerName] != nil {
+					if callbackErr := resources.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
 						log.WithError(callbackErr).Warn("Failure in port allocation callback")
 					}
 				}
@@ -1951,7 +1951,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 					waitForDelete = true
 				} else {
 					// port is not changing, remove from new.PortAllocations to prevent acking an already acked port.
-					delete(new.portAllocationCallbacks, newListener.Name)
+					delete(new.PortAllocationCallbacks, newListener.Name)
 					found = true
 				}
 				break
@@ -1966,8 +1966,8 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		listenerName := listener.Name
 		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, wg,
 			func(err error) {
-				if err == nil && old.portAllocationCallbacks[listenerName] != nil {
-					if callbackErr := old.portAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+				if err == nil && old.PortAllocationCallbacks[listenerName] != nil {
+					if callbackErr := old.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
 						log.WithError(callbackErr).Warn("Failure in port allocation callback")
 					}
 				}
@@ -2100,8 +2100,8 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
 			// this callback is not called if there is no change
 			func(err error) {
-				if err == nil && new.portAllocationCallbacks[listenerName] != nil {
-					if callbackErr := new.portAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+				if err == nil && new.PortAllocationCallbacks[listenerName] != nil {
+					if callbackErr := new.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
 						log.WithError(callbackErr).Warn("Failure in port allocation callback")
 					}
 				}
@@ -2138,8 +2138,8 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 		listenerName := r.Name
 		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg,
 			func(err error) {
-				if err == nil && resources.portAllocationCallbacks[listenerName] != nil {
-					if callbackErr := resources.portAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+				if err == nil && resources.PortAllocationCallbacks[listenerName] != nil {
+					if callbackErr := resources.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
 						log.WithError(callbackErr).Warn("Failure in port allocation callback")
 					}
 				}

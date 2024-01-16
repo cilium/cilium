@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -29,6 +28,7 @@ var Cell = cell.Module(
 
 	cell.Invoke(registerCECK8sWatcher),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
+	cell.ProvidePrivate(newCECResourceParser),
 )
 
 type watchParams struct {
@@ -48,9 +48,9 @@ type watchParams struct {
 	PolicyUpdater  *policy.Updater
 	ServiceManager service.ServiceManager
 
-	Proxy         *proxy.Proxy
-	XdsServer     envoy.XDSServer
-	BackendSyncer *envoyServiceBackendSyncer
+	XdsServer      envoy.XDSServer
+	BackendSyncer  *envoyServiceBackendSyncer
+	ResourceParser *cecResourceParser
 
 	CECResources  resource.Resource[*ciliumv2.CiliumEnvoyConfig]
 	CCECResources resource.Resource[*ciliumv2.CiliumClusterwideEnvoyConfig]
@@ -68,7 +68,7 @@ func registerCECK8sWatcher(params watchParams) {
 	)
 	params.Lifecycle.Append(jobGroup)
 
-	cecWatcher := newCiliumEnvoyConfigWatcher(params.Logger, params.PolicyUpdater, params.ServiceManager, params.Proxy, params.XdsServer, params.BackendSyncer)
+	cecWatcher := newCiliumEnvoyConfigWatcher(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer, params.BackendSyncer, params.ResourceParser)
 
 	jobGroup.Add(job.Observer("cec-resource-events", cecWatcher.handleCECEvent, params.CECResources))
 	jobGroup.Add(job.Observer("ccec-resource-events", cecWatcher.handleCCECEvent, params.CCECResources))
