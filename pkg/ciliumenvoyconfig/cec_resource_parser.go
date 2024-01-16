@@ -67,15 +67,15 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 		case envoy.ListenerTypeURL:
 			listener, ok := message.(*envoy_config_listener.Listener)
 			if !ok {
-				return envoy.Resources{}, fmt.Errorf("Invalid type for Listener: %T", message)
+				return envoy.Resources{}, fmt.Errorf("invalid type for Listener: %T", message)
 			}
 			// Check that a listener name is provided and that it is unique within this CEC
 			if listener.Name == "" {
-				return envoy.Resources{}, fmt.Errorf("'Listener name not provided")
+				return envoy.Resources{}, fmt.Errorf("unspecified Listener name")
 			}
 			for i := range resources.Listeners {
 				if listener.Name == resources.Listeners[i].Name {
-					return envoy.Resources{}, fmt.Errorf("Duplicate Listener name %q", listener.Name)
+					return envoy.Resources{}, fmt.Errorf("duplicate Listener name %q", listener.Name)
 				}
 			}
 
@@ -179,7 +179,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := listener.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("ParseResources: Could not validate Listener (%s): %s", err, listener.String())
+					return envoy.Resources{}, fmt.Errorf("failed to validate Listener (%s): %s", err, listener.String())
 				}
 			}
 			resources.Listeners = append(resources.Listeners, listener)
@@ -189,15 +189,15 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 		case envoy.RouteTypeURL:
 			route, ok := message.(*envoy_config_route.RouteConfiguration)
 			if !ok {
-				return envoy.Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
+				return envoy.Resources{}, fmt.Errorf("invalid type for Route: %T", message)
 			}
 			// Check that a Route name is provided and that it is unique within this CEC
 			if route.Name == "" {
-				return envoy.Resources{}, fmt.Errorf("RouteConfiguration name not provided")
+				return envoy.Resources{}, fmt.Errorf("unspecified RouteConfiguration name")
 			}
 			for i := range resources.Routes {
 				if route.Name == resources.Routes[i].Name {
-					return envoy.Resources{}, fmt.Errorf("Duplicate Route name %q", route.Name)
+					return envoy.Resources{}, fmt.Errorf("duplicate Route name %q", route.Name)
 				}
 			}
 
@@ -208,7 +208,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := route.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("ParseResources: Could not validate RouteConfiguration (%s): %s", err, route.String())
+					return envoy.Resources{}, fmt.Errorf("failed to validate RouteConfiguration (%s): %s", err, route.String())
 				}
 			}
 			resources.Routes = append(resources.Routes, route)
@@ -218,15 +218,15 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 		case envoy.ClusterTypeURL:
 			cluster, ok := message.(*envoy_config_cluster.Cluster)
 			if !ok {
-				return envoy.Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
+				return envoy.Resources{}, fmt.Errorf("invalid type for Route: %T", message)
 			}
 			// Check that a Cluster name is provided and that it is unique within this CEC
 			if cluster.Name == "" {
-				return envoy.Resources{}, fmt.Errorf("Cluster name not provided")
+				return envoy.Resources{}, fmt.Errorf("unspecified Cluster name")
 			}
 			for i := range resources.Clusters {
 				if cluster.Name == resources.Clusters[i].Name {
-					return envoy.Resources{}, fmt.Errorf("Duplicate Cluster name %q", cluster.Name)
+					return envoy.Resources{}, fmt.Errorf("duplicate Cluster name %q", cluster.Name)
 				}
 			}
 
@@ -251,7 +251,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := cluster.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("ParseResources: Could not validate Cluster %q (%s): %s", cluster.Name, err, cluster.String())
+					return envoy.Resources{}, fmt.Errorf("failed to validate Cluster %q (%s): %s", cluster.Name, err, cluster.String())
 				}
 			}
 			resources.Clusters = append(resources.Clusters, cluster)
@@ -261,15 +261,15 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 		case envoy.EndpointTypeURL:
 			endpoints, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
 			if !ok {
-				return envoy.Resources{}, fmt.Errorf("Invalid type for Route: %T", message)
+				return envoy.Resources{}, fmt.Errorf("invalid type for Route: %T", message)
 			}
 			// Check that a Cluster name is provided and that it is unique within this CEC
 			if endpoints.ClusterName == "" {
-				return envoy.Resources{}, fmt.Errorf("ClusterLoadAssignment cluster_name not provided")
+				return envoy.Resources{}, fmt.Errorf("unspecified ClusterLoadAssignment cluster_name")
 			}
 			for i := range resources.Endpoints {
 				if endpoints.ClusterName == resources.Endpoints[i].ClusterName {
-					return envoy.Resources{}, fmt.Errorf("Duplicate cluster_name %q", endpoints.ClusterName)
+					return envoy.Resources{}, fmt.Errorf("duplicate cluster_name %q", endpoints.ClusterName)
 				}
 			}
 
@@ -278,7 +278,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := endpoints.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("ParseResources: Could not validate ClusterLoadAssignment for cluster %q (%s): %s", endpoints.ClusterName, err, endpoints.String())
+					return envoy.Resources{}, fmt.Errorf("failed to validate ClusterLoadAssignment for cluster %q (%s): %s", endpoints.ClusterName, err, endpoints.String())
 				}
 			}
 			resources.Endpoints = append(resources.Endpoints, endpoints)
@@ -288,15 +288,15 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 		case envoy.SecretTypeURL:
 			secret, ok := message.(*envoy_config_tls.Secret)
 			if !ok {
-				return envoy.Resources{}, fmt.Errorf("Invalid type for Secret: %T", message)
+				return envoy.Resources{}, fmt.Errorf("invalid type for Secret: %T", message)
 			}
 			// Check that a Secret name is provided and that it is unique within this CEC
 			if secret.Name == "" {
-				return envoy.Resources{}, fmt.Errorf("Secret name not provided")
+				return envoy.Resources{}, fmt.Errorf("unspecified Secret name")
 			}
 			for i := range resources.Secrets {
 				if secret.Name == resources.Secrets[i].Name {
-					return envoy.Resources{}, fmt.Errorf("Duplicate Secret name %q", secret.Name)
+					return envoy.Resources{}, fmt.Errorf("duplicate Secret name %q", secret.Name)
 				}
 			}
 
@@ -305,7 +305,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 			if validate {
 				if err := secret.Validate(); err != nil {
-					return envoy.Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s)", secret.Name, err)
+					return envoy.Resources{}, fmt.Errorf("failed to validate Secret for cluster %q (%s)", secret.Name, err)
 				}
 			}
 			resources.Secrets = append(resources.Secrets, secret)
@@ -313,7 +313,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			r.logger.Debugf("ParseResources: Parsed secret: %s", name)
 
 		default:
-			return envoy.Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
+			return envoy.Resources{}, fmt.Errorf("unsupported type: %s", typeURL)
 		}
 	}
 
@@ -361,7 +361,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 
 		if validate {
 			if err := listener.Validate(); err != nil {
-				return envoy.Resources{}, fmt.Errorf("ParseResources: Could not validate Listener %q (%s): %s", listener.Name, err, listener.String())
+				return envoy.Resources{}, fmt.Errorf("failed to validate Listener %q (%s): %s", listener.Name, err, listener.String())
 			}
 		}
 	}
