@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"testing"
 
-	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -18,15 +18,14 @@ import (
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/node"
 )
-
-type JSONSuite struct{}
 
 type MockPort struct {
 	port uint16
@@ -76,16 +75,6 @@ func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
 	return nil
 }
 
-var _ = Suite(&JSONSuite{})
-
-func (*JSONSuite) SetUpTest(*C) {
-	node.SetTestLocalNodeStore()
-}
-
-func (*JSONSuite) TearDownTest(*C) {
-	node.UnsetTestLocalNodeStore()
-}
-
 var xds1 = `version_info: "0"
 resources:
 - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
@@ -117,22 +106,22 @@ resources:
         - name: envoy.filters.http.router
 `
 
-func (s *JSONSuite) TestCiliumEnvoyConfigSpec(c *C) {
+func TestCiliumEnvoyConfigSpec(t *testing.T) {
 	jsonBytes, err := yaml.YAMLToJSON([]byte(xds1))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	spec := cilium_v2.CiliumEnvoyConfigSpec{}
 	err = json.Unmarshal(jsonBytes, &spec)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
-	c.Assert(spec.Resources, HasLen, 1)
-	c.Assert(spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	assert.Len(t, spec.Resources, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", spec.Resources[0].TypeUrl)
 	message, err := spec.Resources[0].UnmarshalNew()
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	listener, ok := message.(*envoy_config_listener.Listener)
-	c.Assert(ok, Equals, true)
-	c.Assert(listener.Name, Equals, "listener_0")
+	assert.True(t, ok)
+	assert.Equal(t, "listener_0", listener.Name)
 }
 
 var ciliumEnvoyConfig = `apiVersion: cilium.io/v2
@@ -178,7 +167,7 @@ spec:
         filename: /etc/ssl/certs/ca-certificates.crt
 `
 
-func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
+func TestCiliumEnvoyConfig(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
@@ -187,74 +176,74 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfig))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
-	c.Assert(err, IsNil)
-	c.Assert(cec.Spec.Resources, Not(IsNil))
-	c.Assert(cec.Spec.Resources, HasLen, 2)
-	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
-	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret")
+	require.NoError(t, err)
+	assert.NotNil(t, cec.Spec.Resources)
+	assert.Len(t, cec.Spec.Resources, 2)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
+	assert.Equal(t, "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret", cec.Spec.Resources[1].TypeUrl)
 
 	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
-	c.Assert(err, IsNil)
-	c.Assert(resources.Listeners, HasLen, 1)
-	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
-	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
+	require.NoError(t, err)
+	assert.Len(t, resources.Listeners, 1)
+	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
+	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
 
-	c.Assert(chain.TransportSocket, Not(IsNil))
-	c.Assert(chain.TransportSocket.Name, Equals, "envoy.transport_sockets.tls")
+	assert.NotNil(t, chain.TransportSocket)
+	assert.Equal(t, "envoy.transport_sockets.tls", chain.TransportSocket.Name)
 	msg, err := chain.TransportSocket.GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(msg, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, msg)
 	tls, ok := msg.(*envoy_config_tls.DownstreamTlsContext)
-	c.Assert(ok, Equals, true)
-	c.Assert(tls, Not(IsNil))
+	assert.True(t, ok)
+	assert.NotNil(t, tls)
 	//
 	// Check that missing SDS config sources are automatically filled in
 	//
 	tlsContext := tls.CommonTlsContext
-	c.Assert(tlsContext, Not(IsNil))
+	assert.NotNil(t, tlsContext)
 	for _, sc := range tlsContext.TlsCertificateSdsSecretConfigs {
-		checkCiliumXDS(c, sc.SdsConfig)
+		checkCiliumXDS(t, sc.SdsConfig)
 		// Check that the already qualified secret name was not changed
-		c.Assert(sc.Name, Equals, "cilium-secrets/server-mtls")
+		assert.Equal(t, "cilium-secrets/server-mtls", sc.Name)
 	}
 	sdsConfig := tlsContext.GetValidationContextSdsSecretConfig()
-	c.Assert(sdsConfig, Not(IsNil))
-	checkCiliumXDS(c, sdsConfig.SdsConfig)
+	assert.NotNil(t, sdsConfig)
+	checkCiliumXDS(t, sdsConfig.SdsConfig)
 	// Check that secret name was qualified
-	c.Assert(sdsConfig.Name, Equals, "namespace/name/validation_context")
+	assert.Equal(t, "namespace/name/validation_context", sdsConfig.Name)
 
-	c.Assert(chain.Filters, HasLen, 1)
-	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
+	assert.Len(t, chain.Filters, 1)
+	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
 	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(message, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, message)
 	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
-	c.Assert(ok, Equals, true)
-	c.Assert(hcm, Not(IsNil))
+	assert.True(t, ok)
+	assert.NotNil(t, hcm)
 
 	//
 	// Check that missing RDS config source is automatically filled in
 	//
 	rds := hcm.GetRds()
-	c.Assert(rds, Not(IsNil))
-	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
-	checkCiliumXDS(c, rds.GetConfigSource())
+	require.NotNil(t, rds)
+	assert.Equal(t, "namespace/name/local_route", rds.RouteConfigName)
+	checkCiliumXDS(t, rds.GetConfigSource())
 
 	//
 	// Check that HTTP filters are parsed
 	//
-	c.Assert(hcm.HttpFilters, HasLen, 1)
-	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+	assert.Len(t, hcm.HttpFilters, 1)
+	assert.Equal(t, "envoy.filters.http.router", hcm.HttpFilters[0].Name)
 
 	//
 	// Check that secret name was qualified
 	//
-	c.Assert(resources.Secrets[0].Name, Equals, "namespace/name/validation_context")
+	assert.Equal(t, "namespace/name/validation_context", resources.Secrets[0].Name)
 }
 
 var ciliumEnvoyConfigInvalid = `apiVersion: cilium.io/v2
@@ -284,7 +273,7 @@ spec:
           - name: envoy.filters.http.router
 `
 
-func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
+func TestCiliumEnvoyConfigValidation(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
@@ -293,49 +282,49 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigInvalid))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
-	c.Assert(err, IsNil)
-	c.Assert(cec.Spec.Resources, Not(IsNil))
-	c.Assert(cec.Spec.Resources, HasLen, 1)
-	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	require.NoError(t, err)
+	assert.NotNil(t, cec.Spec.Resources)
+	assert.Len(t, cec.Spec.Resources, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
 	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
-	c.Assert(err, IsNil)
-	c.Assert(resources.Listeners, HasLen, 1)
-	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(0)) // invalid listener port number
-	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
+	require.NoError(t, err)
+	assert.Len(t, resources.Listeners, 1)
+	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
+	assert.Equal(t, uint32(0), resources.Listeners[0].Address.GetSocketAddress().GetPortValue()) // invalid listener port number
+	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
-	c.Assert(chain.Filters, HasLen, 1)
-	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
+	assert.Len(t, chain.Filters, 1)
+	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
 	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(message, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, message)
 	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
-	c.Assert(ok, Equals, true)
-	c.Assert(hcm, Not(IsNil))
+	assert.True(t, ok)
+	assert.NotNil(t, hcm)
 
 	//
 	// Check that missing RDS config source is automatically filled in
 	//
 	rds := hcm.GetRds()
-	c.Assert(rds, Not(IsNil))
-	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
-	checkCiliumXDS(c, rds.GetConfigSource())
+	assert.NotNil(t, rds)
+	assert.Equal(t, "namespace/name/local_route", rds.RouteConfigName)
+	checkCiliumXDS(t, rds.GetConfigSource())
 
 	//
 	// Check that HTTP filters are parsed
 	//
-	c.Assert(hcm.HttpFilters, HasLen, 1)
-	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+	assert.Len(t, hcm.HttpFilters, 1)
+	assert.Equal(t, "envoy.filters.http.router", hcm.HttpFilters[0].Name)
 
 	//
 	// Same with validation fails
 	//
 	resources, err = parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
-	c.Assert(err, Not(IsNil))
+	assert.Error(t, err)
 }
 
 var ciliumEnvoyConfigNoAddress = `apiVersion: cilium.io/v2
@@ -370,7 +359,7 @@ spec:
           - name: envoy.filters.http.router
 `
 
-func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
+func TestCiliumEnvoyConfigNoAddress(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
@@ -379,52 +368,52 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigNoAddress))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
-	c.Assert(err, IsNil)
-	c.Assert(cec.Spec.Resources, Not(IsNil))
-	c.Assert(cec.Spec.Resources, HasLen, 1)
-	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	require.NoError(t, err)
+	assert.NotNil(t, cec.Spec.Resources)
+	assert.Len(t, cec.Spec.Resources, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
 	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
-	c.Assert(err, IsNil)
-	c.Assert(resources.Listeners, HasLen, 1)
-	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
-	c.Assert(resources.Listeners[0].Address, Not(IsNil))
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress(), Not(IsNil))
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Not(Equals), 0)
-	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
+	require.NoError(t, err)
+	assert.Len(t, resources.Listeners, 1)
+	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
+	assert.NotNil(t, resources.Listeners[0].Address)
+	assert.NotNil(t, resources.Listeners[0].Address.GetSocketAddress())
+	assert.NotEqual(t, 0, resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
-	c.Assert(chain.Filters, HasLen, 2)
-	c.Assert(chain.Filters[0].Name, Equals, "cilium.network")
-	c.Assert(chain.Filters[1].Name, Equals, "envoy.filters.network.http_connection_manager")
+	assert.Len(t, chain.Filters, 2)
+	assert.Equal(t, "cilium.network", chain.Filters[0].Name)
+	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[1].Name)
 	message, err := chain.Filters[1].GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(message, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, message)
 	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
-	c.Assert(ok, Equals, true)
-	c.Assert(hcm, Not(IsNil))
+	assert.True(t, ok)
+	assert.NotNil(t, hcm)
 
 	//
 	// Check that missing RDS config source is automatically filled in
 	//
 	rc := hcm.GetRouteConfig()
-	c.Assert(rc, Not(IsNil))
+	assert.NotNil(t, rc)
 	vh := rc.GetVirtualHosts()
-	c.Assert(len(vh), Equals, 1)
+	assert.Len(t, vh, 1)
 	routes := vh[0].GetRoutes()
-	c.Assert(len(routes), Equals, 1)
+	assert.Len(t, routes, 1)
 	route := routes[0].GetRoute()
-	c.Assert(route, Not(IsNil))
-	c.Assert(route.GetCluster(), Equals, "namespace/name/envoy-ingress")
+	assert.NotNil(t, route)
+	assert.Equal(t, "namespace/name/envoy-ingress", route.GetCluster())
 
 	//
 	// Check that HTTP filters are parsed
 	//
-	c.Assert(hcm.HttpFilters, HasLen, 2)
-	c.Assert(hcm.HttpFilters[0].Name, Equals, "cilium.l7policy")
-	c.Assert(hcm.HttpFilters[1].Name, Equals, "envoy.filters.http.router")
+	assert.Len(t, hcm.HttpFilters, 2)
+	assert.Equal(t, "cilium.l7policy", hcm.HttpFilters[0].Name)
+	assert.Equal(t, "envoy.filters.http.router", hcm.HttpFilters[1].Name)
 }
 
 var ciliumEnvoyConfigMulti = `apiVersion: cilium.io/v2
@@ -495,7 +484,7 @@ spec:
               port_value: 5678
 `
 
-func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
+func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
@@ -504,122 +493,122 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
-	c.Assert(err, IsNil)
-	c.Assert(cec.Spec.Resources, HasLen, 5)
-	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	require.NoError(t, err)
+	assert.Len(t, cec.Spec.Resources, 5)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
 	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
-	c.Assert(err, IsNil)
-	c.Assert(resources.Listeners, HasLen, 1)
-	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/multi-resource-listener")
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
-	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
+	require.NoError(t, err)
+	assert.Len(t, resources.Listeners, 1)
+	assert.Equal(t, "namespace/name/multi-resource-listener", resources.Listeners[0].Name)
+	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
-	c.Assert(chain.Filters, HasLen, 1)
-	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
+	assert.Len(t, chain.Filters, 1)
+	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
 	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(message, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, message)
 	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
-	c.Assert(ok, Equals, true)
-	c.Assert(hcm, Not(IsNil))
+	assert.True(t, ok)
+	assert.NotNil(t, hcm)
 	//
 	// Check that missing RDS config source is automatically filled in
 	//
 	rds := hcm.GetRds()
-	c.Assert(rds, Not(IsNil))
-	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
-	checkCiliumXDS(c, rds.GetConfigSource())
+	assert.NotNil(t, rds)
+	assert.Equal(t, "namespace/name/local_route", rds.RouteConfigName)
+	checkCiliumXDS(t, rds.GetConfigSource())
 	//
 	// Check that HTTP filters are parsed
 	//
-	c.Assert(hcm.HttpFilters, HasLen, 1)
-	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+	assert.Len(t, hcm.HttpFilters, 1)
+	assert.Equal(t, "envoy.filters.http.router", hcm.HttpFilters[0].Name)
 
 	//
 	// Check route resource
 	//
-	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.route.v3.RouteConfiguration")
-	c.Assert(resources.Routes, HasLen, 1)
-	c.Assert(resources.Routes[0].Name, Equals, "namespace/name/local_route")
-	c.Assert(resources.Routes[0].VirtualHosts, HasLen, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.route.v3.RouteConfiguration", cec.Spec.Resources[1].TypeUrl)
+	assert.Len(t, resources.Routes, 1)
+	assert.Equal(t, "namespace/name/local_route", resources.Routes[0].Name)
+	assert.Len(t, resources.Routes[0].VirtualHosts, 1)
 	vh := resources.Routes[0].VirtualHosts[0]
-	c.Assert(vh.Name, Equals, "namespace/name/local_service")
-	c.Assert(vh.Domains, HasLen, 1)
-	c.Assert(vh.Domains[0], Equals, "*")
-	c.Assert(vh.Routes, HasLen, 1)
-	c.Assert(vh.Routes[0].Match, Not(IsNil))
-	c.Assert(vh.Routes[0].Match.GetPrefix(), Equals, "/")
-	c.Assert(vh.Routes[0].GetRoute(), Not(IsNil))
-	c.Assert(vh.Routes[0].GetRoute().GetCluster(), Equals, "namespace/name/some_service")
+	assert.Equal(t, "namespace/name/local_service", vh.Name)
+	assert.Len(t, vh.Domains, 1)
+	assert.Equal(t, "*", vh.Domains[0])
+	assert.Len(t, vh.Routes, 1)
+	assert.NotNil(t, vh.Routes[0].Match)
+	assert.Equal(t, "/", vh.Routes[0].Match.GetPrefix())
+	assert.NotNil(t, vh.Routes[0].GetRoute())
+	assert.Equal(t, "namespace/name/some_service", vh.Routes[0].GetRoute().GetCluster())
 
 	//
 	// Check cluster resource
 	//
-	c.Assert(cec.Spec.Resources[2].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
-	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "namespace/name/some_service")
-	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(0))
-	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(250000000))
-	c.Assert(resources.Clusters[0].LbPolicy, Equals, envoy_config_cluster.Cluster_ROUND_ROBIN)
-	c.Assert(resources.Clusters[0].GetType(), Equals, envoy_config_cluster.Cluster_EDS)
+	assert.Equal(t, "type.googleapis.com/envoy.config.cluster.v3.Cluster", cec.Spec.Resources[2].TypeUrl)
+	assert.Len(t, resources.Clusters, 1)
+	assert.Equal(t, "namespace/name/some_service", resources.Clusters[0].Name)
+	assert.Equal(t, int64(0), resources.Clusters[0].ConnectTimeout.Seconds)
+	assert.Equal(t, int32(250000000), resources.Clusters[0].ConnectTimeout.Nanos)
+	assert.Equal(t, envoy_config_cluster.Cluster_ROUND_ROBIN, resources.Clusters[0].LbPolicy)
+	assert.Equal(t, envoy_config_cluster.Cluster_EDS, resources.Clusters[0].GetType())
 	//
 	// Check that missing EDS config source is automatically filled in
 	//
 	eds := resources.Clusters[0].GetEdsClusterConfig()
-	c.Assert(eds, Not(IsNil))
-	checkCiliumXDS(c, eds.GetEdsConfig())
+	assert.NotNil(t, eds)
+	checkCiliumXDS(t, eds.GetEdsConfig())
 
-	c.Assert(resources.Clusters[0].TransportSocket, Not(IsNil))
-	c.Assert(resources.Clusters[0].TransportSocket.Name, Equals, "envoy.transport_sockets.tls")
+	assert.NotNil(t, resources.Clusters[0].TransportSocket)
+	assert.Equal(t, "envoy.transport_sockets.tls", resources.Clusters[0].TransportSocket.Name)
 	msg, err := resources.Clusters[0].TransportSocket.GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(msg, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, msg)
 	tls, ok := msg.(*envoy_config_tls.UpstreamTlsContext)
-	c.Assert(ok, Equals, true)
-	c.Assert(tls, Not(IsNil))
+	assert.True(t, ok)
+	assert.NotNil(t, tls)
 	//
 	// Check that missing SDS config sources are automatically filled in
 	//
 	tlsContext := tls.CommonTlsContext
-	c.Assert(tlsContext, Not(IsNil))
+	assert.NotNil(t, tlsContext)
 	for _, sc := range tlsContext.TlsCertificateSdsSecretConfigs {
-		checkCiliumXDS(c, sc.SdsConfig)
+		checkCiliumXDS(t, sc.SdsConfig)
 	}
 	sdsConfig := tlsContext.GetValidationContextSdsSecretConfig()
-	c.Assert(sdsConfig, Not(IsNil))
-	checkCiliumXDS(c, sdsConfig.SdsConfig)
+	assert.NotNil(t, sdsConfig)
+	checkCiliumXDS(t, sdsConfig.SdsConfig)
 
 	//
 	// Check 1st endpoint resource
 	//
-	c.Assert(cec.Spec.Resources[3].TypeUrl, Equals, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment")
-	c.Assert(resources.Endpoints, HasLen, 2)
-	c.Assert(resources.Endpoints[0].ClusterName, Equals, "namespace/name/some_service")
-	c.Assert(resources.Endpoints[0].Endpoints, HasLen, 1)
-	c.Assert(resources.Endpoints[0].Endpoints[0].LbEndpoints, HasLen, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[3].TypeUrl)
+	assert.Len(t, resources.Endpoints, 2)
+	assert.Equal(t, "namespace/name/some_service", resources.Endpoints[0].ClusterName)
+	assert.Len(t, resources.Endpoints[0].Endpoints, 1)
+	assert.Len(t, resources.Endpoints[0].Endpoints[0].LbEndpoints, 1)
 	addr := resources.Endpoints[0].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
-	c.Assert(addr, Not(IsNil))
-	c.Assert(addr.GetSocketAddress(), Not(IsNil))
-	c.Assert(addr.GetSocketAddress().GetAddress(), Equals, "127.0.0.1")
-	c.Assert(addr.GetSocketAddress().GetPortValue(), Equals, uint32(1234))
+	assert.NotNil(t, addr)
+	assert.NotNil(t, addr.GetSocketAddress())
+	assert.Equal(t, "127.0.0.1", addr.GetSocketAddress().GetAddress())
+	assert.Equal(t, uint32(1234), addr.GetSocketAddress().GetPortValue())
 
 	//
 	// Check 2nd endpoint resource
 	//
-	c.Assert(cec.Spec.Resources[4].TypeUrl, Equals, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment")
-	c.Assert(resources.Endpoints, HasLen, 2)
-	c.Assert(resources.Endpoints[1].ClusterName, Equals, "namespace/name/other_service")
-	c.Assert(resources.Endpoints[1].Endpoints, HasLen, 1)
-	c.Assert(resources.Endpoints[1].Endpoints[0].LbEndpoints, HasLen, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[4].TypeUrl)
+	assert.Len(t, resources.Endpoints, 2)
+	assert.Equal(t, "namespace/name/other_service", resources.Endpoints[1].ClusterName)
+	assert.Len(t, resources.Endpoints[1].Endpoints, 1)
+	assert.Len(t, resources.Endpoints[1].Endpoints[0].LbEndpoints, 1)
 	addr = resources.Endpoints[1].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
-	c.Assert(addr, Not(IsNil))
-	c.Assert(addr.GetSocketAddress(), Not(IsNil))
-	c.Assert(addr.GetSocketAddress().GetAddress(), Equals, "::")
-	c.Assert(addr.GetSocketAddress().GetPortValue(), Equals, uint32(5678))
+	assert.NotNil(t, addr)
+	assert.NotNil(t, addr.GetSocketAddress())
+	assert.Equal(t, "::", addr.GetSocketAddress().GetAddress())
+	assert.Equal(t, uint32(5678), addr.GetSocketAddress().GetPortValue())
 }
 
 var ciliumEnvoyConfigTCPProxy = `apiVersion: cilium.io/v2
@@ -660,7 +649,7 @@ spec:
                 port_value: 10001
 `
 
-func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
+func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
@@ -669,72 +658,72 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTCPProxy))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
-	c.Assert(err, IsNil)
-	c.Assert(cec.Spec.Resources, Not(IsNil))
-	c.Assert(cec.Spec.Resources, HasLen, 2)
-	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	require.NoError(t, err)
+	assert.NotNil(t, cec.Spec.Resources)
+	assert.Len(t, cec.Spec.Resources, 2)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
 	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, false, true, true)
-	c.Assert(err, IsNil)
-	c.Assert(resources.Listeners, HasLen, 1)
-	c.Assert(resources.Listeners[0].Address, Not(IsNil))
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress(), Not(IsNil))
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Not(Equals), 0)
+	require.NoError(t, err)
+	assert.Len(t, resources.Listeners, 1)
+	assert.NotNil(t, resources.Listeners[0].Address)
+	assert.NotNil(t, resources.Listeners[0].Address.GetSocketAddress())
+	assert.NotEqual(t, 0, resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
 	//
 	// Check injected listener filter config
 	//
-	c.Assert(resources.Listeners[0].ListenerFilters, HasLen, 1)
-	c.Assert(resources.Listeners[0].ListenerFilters[0].Name, Equals, "cilium.bpf_metadata")
+	assert.Len(t, resources.Listeners[0].ListenerFilters, 1)
+	assert.Equal(t, "cilium.bpf_metadata", resources.Listeners[0].ListenerFilters[0].Name)
 	lfMsg, err := resources.Listeners[0].ListenerFilters[0].GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(lfMsg, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, lfMsg)
 	lf, ok := lfMsg.(*cilium.BpfMetadata)
-	c.Assert(ok, Equals, true)
-	c.Assert(lf, Not(IsNil))
-	c.Assert(lf.IsIngress, Equals, false)
-	c.Assert(lf.UseOriginalSourceAddress, Equals, true)
-	c.Assert(lf.BpfRoot, Equals, bpf.BPFFSRoot())
-	c.Assert(lf.IsL7Lb, Equals, false)
+	assert.True(t, ok)
+	assert.NotNil(t, lf)
+	assert.Equal(t, false, lf.IsIngress)
+	assert.True(t, lf.UseOriginalSourceAddress)
+	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
+	assert.Equal(t, false, lf.IsL7Lb)
 
-	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
+	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
-	c.Assert(chain.Filters, HasLen, 2)
-	c.Assert(chain.Filters[0].Name, Equals, "cilium.network")
-	c.Assert(chain.Filters[1].Name, Equals, "envoy.filters.network.tcp_proxy")
+	assert.Len(t, chain.Filters, 2)
+	assert.Equal(t, "cilium.network", chain.Filters[0].Name)
+	assert.Equal(t, "envoy.filters.network.tcp_proxy", chain.Filters[1].Name)
 	message, err := chain.Filters[1].GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(message, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, message)
 	tcp, ok := message.(*envoy_config_tcp.TcpProxy)
-	c.Assert(ok, Equals, true)
-	c.Assert(tcp, Not(IsNil))
+	assert.True(t, ok)
+	assert.NotNil(t, tcp)
 	//
 	// Check TCP config
 	//
-	c.Assert(tcp.GetCluster(), Equals, "namespace/name/cluster_0")
+	assert.Equal(t, "namespace/name/cluster_0", tcp.GetCluster())
 	tc := tcp.GetTunnelingConfig()
-	c.Assert(tc, Not(IsNil))
-	c.Assert(tc.Hostname, Equals, "host.com:443")
-	c.Assert(tc.UsePost, Equals, true)
+	assert.NotNil(t, tc)
+	assert.Equal(t, "host.com:443", tc.Hostname)
+	assert.True(t, tc.UsePost)
 	//
 	// Check cluster resource
 	//
-	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
-	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "namespace/name/cluster_0")
-	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(5))
-	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(0))
-	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "namespace/name/cluster_0")
-	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints, HasLen, 1)
-	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, HasLen, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.cluster.v3.Cluster", cec.Spec.Resources[1].TypeUrl)
+	assert.Len(t, resources.Clusters, 1)
+	assert.Equal(t, "namespace/name/cluster_0", resources.Clusters[0].Name)
+	assert.Equal(t, int64(5), resources.Clusters[0].ConnectTimeout.Seconds)
+	assert.Equal(t, int32(0), resources.Clusters[0].ConnectTimeout.Nanos)
+	assert.Equal(t, "namespace/name/cluster_0", resources.Clusters[0].LoadAssignment.ClusterName)
+	assert.Len(t, resources.Clusters[0].LoadAssignment.Endpoints, 1)
+	assert.Len(t, resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, 1)
 	addr := resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
-	c.Assert(addr, Not(IsNil))
-	c.Assert(addr.GetSocketAddress(), Not(IsNil))
-	c.Assert(addr.GetSocketAddress().GetAddress(), Equals, "127.0.0.1")
-	c.Assert(addr.GetSocketAddress().GetPortValue(), Equals, uint32(10001))
+	assert.NotNil(t, addr)
+	assert.NotNil(t, addr.GetSocketAddress())
+	assert.Equal(t, "127.0.0.1", addr.GetSocketAddress().GetAddress())
+	assert.Equal(t, uint32(10001), addr.GetSocketAddress().GetPortValue())
 }
 
 var ciliumEnvoyConfigTCPProxyTermination = `apiVersion: cilium.io/v2
@@ -797,7 +786,7 @@ spec:
                 port_value: 443
 `
 
-func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
+func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
@@ -806,147 +795,147 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTCPProxyTermination))
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
-	c.Assert(err, IsNil)
-	c.Assert(cec.Spec.Resources, Not(IsNil))
-	c.Assert(cec.Spec.Resources, HasLen, 2)
-	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	require.NoError(t, err)
+	assert.NotNil(t, cec.Spec.Resources)
+	assert.Len(t, cec.Spec.Resources, 2)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
 	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, true, true, false, true)
-	c.Assert(err, IsNil)
-	c.Assert(resources.Listeners, HasLen, 1)
-	c.Assert(resources.Listeners[0].Address, Not(IsNil))
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress(), Not(IsNil))
-	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Not(Equals), 0)
+	require.NoError(t, err)
+	assert.Len(t, resources.Listeners, 1)
+	assert.NotNil(t, resources.Listeners[0].Address)
+	assert.NotNil(t, resources.Listeners[0].Address.GetSocketAddress())
+	assert.NotEqual(t, 0, resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
 	//
 	// Check injected listener filter config
 	//
-	c.Assert(resources.Listeners[0].ListenerFilters, HasLen, 1)
-	c.Assert(resources.Listeners[0].ListenerFilters[0].Name, Equals, "cilium.bpf_metadata")
+	assert.Len(t, resources.Listeners[0].ListenerFilters, 1)
+	assert.Equal(t, "cilium.bpf_metadata", resources.Listeners[0].ListenerFilters[0].Name)
 	lfMsg, err := resources.Listeners[0].ListenerFilters[0].GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(lfMsg, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, lfMsg)
 	lf, ok := lfMsg.(*cilium.BpfMetadata)
-	c.Assert(ok, Equals, true)
-	c.Assert(lf, Not(IsNil))
-	c.Assert(lf.IsIngress, Equals, false)
-	c.Assert(lf.UseOriginalSourceAddress, Equals, false)
-	c.Assert(lf.BpfRoot, Equals, bpf.BPFFSRoot())
-	c.Assert(lf.IsL7Lb, Equals, true)
+	assert.True(t, ok)
+	assert.NotNil(t, lf)
+	assert.Equal(t, false, lf.IsIngress)
+	assert.Equal(t, false, lf.UseOriginalSourceAddress)
+	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
+	assert.True(t, lf.IsL7Lb)
 
-	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
+	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
-	c.Assert(chain.Filters, HasLen, 2)
-	c.Assert(chain.Filters[0].Name, Equals, "cilium.network")
-	c.Assert(chain.Filters[1].Name, Equals, "envoy.filters.network.http_connection_manager")
+	assert.Len(t, chain.Filters, 2)
+	assert.Equal(t, "cilium.network", chain.Filters[0].Name)
+	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[1].Name)
 	message, err := chain.Filters[1].GetTypedConfig().UnmarshalNew()
-	c.Assert(err, IsNil)
-	c.Assert(message, Not(IsNil))
+	require.NoError(t, err)
+	assert.NotNil(t, message)
 	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
-	c.Assert(ok, Equals, true)
-	c.Assert(hcm, Not(IsNil))
+	assert.True(t, ok)
+	assert.NotNil(t, hcm)
 	//
 	// Check HTTP config
 	//
-	c.Assert(hcm.HttpFilters, HasLen, 2)
-	c.Assert(hcm.HttpFilters[0].Name, Equals, "cilium.l7policy")
-	c.Assert(hcm.HttpFilters[1].Name, Equals, "envoy.filters.http.router")
-	c.Assert(hcm.GetRouteConfig().Name, Equals, "namespace/name/local_route")
-	c.Assert(hcm.GetRouteConfig().VirtualHosts[0].Name, Equals, "namespace/name/local_service")
-	c.Assert(hcm.GetRouteConfig().VirtualHosts[0].Routes[0].GetRoute().GetCluster(), Equals, "default/service_google")
+	assert.Len(t, hcm.HttpFilters, 2)
+	assert.Equal(t, "cilium.l7policy", hcm.HttpFilters[0].Name)
+	assert.Equal(t, "envoy.filters.http.router", hcm.HttpFilters[1].Name)
+	assert.Equal(t, "namespace/name/local_route", hcm.GetRouteConfig().Name)
+	assert.Equal(t, "namespace/name/local_service", hcm.GetRouteConfig().VirtualHosts[0].Name)
+	assert.Equal(t, "default/service_google", hcm.GetRouteConfig().VirtualHosts[0].Routes[0].GetRoute().GetCluster())
 	//
 	// Check cluster resource
 	//
-	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
-	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "default/service_google")
-	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(5))
-	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(0))
-	c.Assert(resources.Clusters[0].GetType(), Equals, envoy_config_cluster.Cluster_LOGICAL_DNS)
-	c.Assert(resources.Clusters[0].GetDnsLookupFamily(), Equals, envoy_config_cluster.Cluster_V4_ONLY)
-	c.Assert(resources.Clusters[0].LbPolicy, Equals, envoy_config_cluster.Cluster_ROUND_ROBIN)
+	assert.Equal(t, "type.googleapis.com/envoy.config.cluster.v3.Cluster", cec.Spec.Resources[1].TypeUrl)
+	assert.Len(t, resources.Clusters, 1)
+	assert.Equal(t, "default/service_google", resources.Clusters[0].Name)
+	assert.Equal(t, int64(5), resources.Clusters[0].ConnectTimeout.Seconds)
+	assert.Equal(t, int32(0), resources.Clusters[0].ConnectTimeout.Nanos)
+	assert.Equal(t, envoy_config_cluster.Cluster_LOGICAL_DNS, resources.Clusters[0].GetType())
+	assert.Equal(t, envoy_config_cluster.Cluster_V4_ONLY, resources.Clusters[0].GetDnsLookupFamily())
+	assert.Equal(t, envoy_config_cluster.Cluster_ROUND_ROBIN, resources.Clusters[0].LbPolicy)
 
-	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "default/service_google")
-	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints, HasLen, 1)
-	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, HasLen, 1)
+	assert.Equal(t, "default/service_google", resources.Clusters[0].LoadAssignment.ClusterName)
+	assert.Len(t, resources.Clusters[0].LoadAssignment.Endpoints, 1)
+	assert.Len(t, resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, 1)
 	addr := resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
-	c.Assert(addr, Not(IsNil))
-	c.Assert(addr.GetSocketAddress(), Not(IsNil))
-	c.Assert(addr.GetSocketAddress().GetAddress(), Equals, "www.google.com")
-	c.Assert(addr.GetSocketAddress().GetPortValue(), Equals, uint32(443))
+	assert.NotNil(t, addr)
+	assert.NotNil(t, addr.GetSocketAddress())
+	assert.Equal(t, "www.google.com", addr.GetSocketAddress().GetAddress())
+	assert.Equal(t, uint32(443), addr.GetSocketAddress().GetPortValue())
 }
 
-func checkCiliumXDS(c *C, cs *envoy_config_core.ConfigSource) {
-	c.Assert(cs, Not(IsNil))
-	c.Assert(cs.ResourceApiVersion, Equals, envoy_config_core.ApiVersion_V3)
+func checkCiliumXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
+	assert.NotNil(t, cs)
+	assert.Equal(t, envoy_config_core.ApiVersion_V3, cs.ResourceApiVersion)
 	acs := cs.GetApiConfigSource()
-	c.Assert(acs, Not(IsNil))
-	c.Assert(acs.ApiType, Equals, envoy_config_core.ApiConfigSource_GRPC)
-	c.Assert(acs.TransportApiVersion, Equals, envoy_config_core.ApiVersion_V3)
-	c.Assert(acs.SetNodeOnFirstMessageOnly, Equals, true)
-	c.Assert(acs.GrpcServices, HasLen, 1)
+	assert.NotNil(t, acs)
+	assert.Equal(t, envoy_config_core.ApiConfigSource_GRPC, acs.ApiType)
+	assert.Equal(t, envoy_config_core.ApiVersion_V3, acs.TransportApiVersion)
+	assert.True(t, acs.SetNodeOnFirstMessageOnly)
+	assert.Len(t, acs.GrpcServices, 1)
 	eg := acs.GrpcServices[0].GetEnvoyGrpc()
-	c.Assert(eg, Not(IsNil))
-	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
+	assert.NotNil(t, eg)
+	assert.Equal(t, "xds-grpc-cilium", eg.ClusterName)
 }
 
-func (s *JSONSuite) TestListenersAddedOrDeleted(c *C) {
+func TestListenersAddedOrDeleted(t *testing.T) {
 	var old envoy.Resources
 	var new envoy.Resources
 
 	// Both empty
 	res := old.ListenersAddedOrDeleted(&new)
-	c.Assert(res, Equals, false)
+	assert.Equal(t, false, res)
 
 	// new adds a listener
 	new.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
 	res = old.ListenersAddedOrDeleted(&new)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 
 	// Now both have 'foo'
 	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
 	res = old.ListenersAddedOrDeleted(&new)
-	c.Assert(res, Equals, false)
+	assert.Equal(t, false, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	c.Assert(res, Equals, false)
+	assert.Equal(t, false, res)
 
 	// New has no listeners
 	new.Listeners = nil
 	res = old.ListenersAddedOrDeleted(&new)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 
 	// New has a different listener
 	new.Listeners = append(new.Listeners, &envoy_config_listener.Listener{Name: "bar"})
 	res = old.ListenersAddedOrDeleted(&new)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 
 	// New adds the listener in old, but still has the other listener
 	new.Listeners = append(new.Listeners, &envoy_config_listener.Listener{Name: "foo"})
 	res = old.ListenersAddedOrDeleted(&new)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 
 	// Same listeners but in different order
 	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "bar"})
 	res = old.ListenersAddedOrDeleted(&new)
-	c.Assert(res, Equals, false)
+	assert.Equal(t, false, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	c.Assert(res, Equals, false)
+	assert.Equal(t, false, res)
 
 	// Old has no listeners
 	old.Listeners = nil
 	res = old.ListenersAddedOrDeleted(&new)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	c.Assert(res, Equals, true)
+	assert.True(t, res)
 }
