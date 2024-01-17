@@ -129,7 +129,6 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 
 	if d.params.Config.EnableNodePort {
 		// Synchronize services and endpoints to reflect new addresses onto lbmap.
-		daemon.svc.SyncServicesOnDeviceChange(daemon.Datapath().LocalNodeAddressing())
 		daemon.controllers.TriggerController(syncHostIPsController)
 	}
 
