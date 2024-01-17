@@ -146,11 +146,12 @@ type ManagerTestSuite struct {
 }
 
 var (
-	_           = Suite(&ManagerTestSuite{})
-	surrogateFE = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 80, lb.ScopeExternal, 0)
-	frontend1   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
-	frontend2   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, lb.ScopeExternal, 0)
-	frontend3   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("f00d::1"), 80, lb.ScopeExternal, 0)
+	_             = Suite(&ManagerTestSuite{})
+	surrogateFE   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 80, lb.ScopeExternal, 0)
+	surrogateFEv6 = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("::"), 80, lb.ScopeExternal, 0)
+	frontend1     = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
+	frontend2     = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, lb.ScopeExternal, 0)
+	frontend3     = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("f00d::1"), 80, lb.ScopeExternal, 0)
 
 	backends1, backends2, backends3, backends4, backends5, backends6 []*lb.Backend
 )
@@ -1864,45 +1865,8 @@ func (m *ManagerTestSuite) TestUpdateBackendsStateWithBackendSharedAcrossService
 	c.Assert(m.svc.svcByHash[svcHash2].backendByHash[hash1].State, Equals, lb.BackendStateMaintenance)
 }
 
-type mockNodeAddressingFamily struct {
-	ips []net.IP
-}
-
-func (n *mockNodeAddressingFamily) Router() net.IP { panic("Not implemented") }
-
-func (n *mockNodeAddressingFamily) PrimaryExternal() net.IP { panic("Not implemented") }
-
-func (n *mockNodeAddressingFamily) AllocationCIDR() *cidr.CIDR { panic("Not implemented") }
-
-func (n *mockNodeAddressingFamily) LocalAddresses() ([]net.IP, error) { panic("Not implemented") }
-
-func (n *mockNodeAddressingFamily) LoadBalancerNodeAddresses() []net.IP {
-	return n.ips
-}
-
-func (n *mockNodeAddressingFamily) DirectRouting() (int, net.IP, bool) {
-	return -1, nil, false
-}
-
-type mockNodeAddressing struct {
-	ip4 datapathTypes.NodeAddressingFamily
-	ip6 datapathTypes.NodeAddressingFamily
-}
-
-func (na *mockNodeAddressing) IPv4() datapathTypes.NodeAddressingFamily {
-	return na.ip4
-}
-
-func (na *mockNodeAddressing) IPv6() datapathTypes.NodeAddressingFamily {
-	return na.ip6
-}
-
-// Test the service sync on device/addressing change
-func (m *ManagerTestSuite) TestSyncServices(c *C) {
-	option.Config.EnableIPv4 = true
-	option.Config.EnableIPv6 = true
-	option.Config.NodePortNat46X64 = true
-
+func (m *ManagerTestSuite) TestSyncNodePortFrontends(c *C) {
+	// Add a IPv4 surrogate frontend
 	surrogate := &lb.SVC{
 		Frontend: surrogateFE,
 		Backends: backends1,
@@ -1920,33 +1884,40 @@ func (m *ManagerTestSuite) TestSyncServices(c *C) {
 	c.Assert(len(m.svc.svcByID), Equals, 2)
 
 	// With no addresses all frontends (except surrogates) should be removed.
-	nodeAddrs := &mockNodeAddressing{
-		ip4: &mockNodeAddressingFamily{[]net.IP{}},
-		ip6: &mockNodeAddressingFamily{[]net.IP{}},
-	}
-	m.svc.SyncServicesOnDeviceChange(nodeAddrs)
+	err = m.svc.SyncNodePortFrontends(sets.New[netip.Addr]())
+	c.Assert(err, IsNil)
+
 	c.Assert(len(m.svc.svcByID), Equals, 1)
 	_, ok := m.svc.svcByID[surrID]
 	c.Assert(ok, Equals, true)
 
-	// With a new frontend addresses services should be created.
-	_, _, err = m.svc.UpsertService(p1)
-	c.Assert(err, IsNil)
-	c.Assert(len(m.svc.svcByID), Equals, 2)
-
-	nodeAddrs = &mockNodeAddressing{
-		ip4: &mockNodeAddressingFamily{[]net.IP{frontend1.AddrCluster.AsNetIP(), frontend2.AddrCluster.AsNetIP()}},
-		ip6: &mockNodeAddressingFamily{[]net.IP{frontend3.AddrCluster.AsNetIP()}},
-	}
-	m.svc.SyncServicesOnDeviceChange(nodeAddrs)
-	c.Assert(len(m.svc.svcByID), Equals, 4)
+	// With a new frontend addresses services should be re-created.
+	nodeAddrs := sets.New[netip.Addr](
+		frontend1.AddrCluster.Addr(),
+		frontend2.AddrCluster.Addr(),
+		// IPv6 address should be ignored initially without IPv6 surrogate
+		frontend3.AddrCluster.Addr(),
+	)
+	m.svc.SyncNodePortFrontends(nodeAddrs)
+	c.Assert(len(m.svc.svcByID), Equals, 2+1 /* surrogate */)
 
 	_, _, found := m.svc.GetServiceNameByAddr(frontend1.L3n4Addr)
 	c.Assert(found, Equals, true)
 	_, _, found = m.svc.GetServiceNameByAddr(frontend2.L3n4Addr)
 	c.Assert(found, Equals, true)
-	_, _, found = m.svc.GetServiceNameByAddr(frontend3.L3n4Addr)
-	c.Assert(found, Equals, true)
+
+	// Add an IPv6 surrogate
+	surrogate = &lb.SVC{
+		Frontend: surrogateFEv6,
+		Backends: backends3,
+		Type:     lb.SVCTypeNodePort,
+	}
+	_, _, err = m.svc.UpsertService(surrogate)
+	c.Assert(err, IsNil)
+
+	err = m.svc.SyncNodePortFrontends(nodeAddrs)
+	c.Assert(err, IsNil)
+	c.Assert(len(m.svc.svcByID), Equals, 3+2 /* surrogates */)
 }
 
 func (m *ManagerTestSuite) TestTrafficPolicy(c *C) {
