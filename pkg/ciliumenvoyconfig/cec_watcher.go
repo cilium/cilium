@@ -246,6 +246,14 @@ func (r *ciliumEnvoyConfigWatcher) addK8sServiceRedirects(resourceName service.L
 			}
 		}
 		if proxyPort == 0 {
+			// Do not return (and later on log) error in case of a service with an empty listener reference.
+			// This is the case for the shared CEC in the Cilium namespace, if there is no shared Ingress
+			// present in the cluster.
+			if svc.Listener == "" {
+				r.logger.Infof("Skipping L7LB k8s service redirect for service %s/%s. No Listener found in CEC resources", svc.Namespace, svc.Name)
+				continue
+			}
+
 			return fmt.Errorf("listener %q not found in resources", svc.Listener)
 		}
 
