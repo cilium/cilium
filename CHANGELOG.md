@@ -1,5 +1,58 @@
 # Changelog
 
+## v1.13.11
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Reduce "stale identity observed" warnings (Backport PR #29997, Upstream PR #27894, @leblowl)
+
+**Bugfixes:**
+* Cilium DNS proxy can now use the original pod's address as the source address towards the DNS servers (--dnsproxy-enable-transparent-mode). (Backport PR #30216, Upstream PR #29239, @jrajahalme)
+* cilium-preflight: use the k8s node name instead of relying on hostname (Backport PR #29997, Upstream PR #29809, @marseel)
+* Fix and prevent future bugs limiting pod-to-pod network performance under high load when tunneling and IPSec are both enabled. (Backport PR #29997, Upstream PR #29616, @learnitall)
+* iptables: remove logic to control non-existent net.ipv6.ip_early_demux (Backport PR #30182, Upstream PR #29310, @julianwiedmann)
+* nodediscovery: Fix bug where CiliumInternalIP was flapping (Backport PR #29974, Upstream PR #29964, @gandro)
+* Restore host-stack bypass for pod-to-pod traffic in a configuration with kube-proxy, tunnel routing and per-endpoint routes. (Backport PR #30182, Upstream PR #27908, @julianwiedmann)
+
+**CI Changes:**
+* Add secondary iface to KIND network (Backport PR #30010, Upstream PR #26338, @ysksuzuki)
+* ci-ipsec-upgrade: Add vxlan w/ no EP routes (Backport PR #29702, Upstream PR #29653, @brb)
+* ci-ipsec-{e2e,upgrade}: Use lvh-kind (Backport PR #30010, Upstream PR #29514, @brb)
+* ci/ipsec: Skip waiting for images when skipping upgrade/dowgrade (Backport PR #30010, Upstream PR #29793, @qmonnet)
+* ci: add nameserver 1.1.1.1 to conformance-runtime test LVM (Backport PR #29847, Upstream PR #29455, @mhofstetter)
+* ci: always use full matrix for scheduled cloud-provider workflows (Backport PR #29847, Upstream PR #29694, @mhofstetter)
+* datapath: Cover subnet encryption in XFRM leak test (Backport PR #30081, Upstream PR #27212, @pchaigno)
+* datapath: Fix TestNodeChurnXFRMLeaks (Backport PR #30081, Upstream PR #27274, @brb)
+* gh/workflows: Add lvh-kind action and use it in ci-e2e (Backport PR #30010, Upstream PR #29485, @brb)
+* gha: enable IPv6 in clustermesh upgrade/downgrade workflow (Backport PR #29847, Upstream PR #29675, @giorio94)
+* node: Integration test for XFRM leaks on node churn (Backport PR #30081, Upstream PR #27187, @pchaigno)
+* workflows: Increase IPsec e2e test's timeout (Backport PR #30267, Upstream PR #30194, @julianwiedmann)
+* workflows: Increase IPsec upgrade test's timeout (Backport PR #30081, Upstream PR #29934, @pchaigno)
+* workflows: Make the conn-disrupt test more sensitive (Backport PR #29702, Upstream PR #29623, @pchaigno)
+
+**Misc Changes:**
+* bpf: ipv4: always return drop reason from ipv4_handle_fragmentation() (Backport PR #29997, Upstream PR #29880, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.13) (patch) (#29850, @renovate[bot])
+* chore(deps): update go (v1.13) (patch) (#30143, @renovate[bot])
+* doc: Update recommended way for installing cilium on AKS (Backport PR #30182, Upstream PR #28910, @tamilmani1989)
+* docs: Fix keyid derivation in IPsec docs (Backport PR #30081, Upstream PR #30000, @brb)
+* Fix kind.sh development scripts on MacOS (Backport PR #30010, Upstream PR #25317, @chancez)
+* fix(deps): update module golang.org/x/crypto to v0.17.0 [security] (main) (Backport PR #30182, Upstream PR #29971, @renovate[bot])
+* hubble: Reduce "stale identities observed" debug messages even more (Backport PR #29997, Upstream PR #29957, @gandro)
+* Revert "cilium: Ensure xfrm state is initialized for route IP before … (Backport PR #29869, Upstream PR #29801, @jrfastab)
+
+**Other Changes:**
+* [1.13] Ignore packet drops of type Failed to update or lookup TC buffer (#30249, @rgo3)
+* [1.13] loader: fix obsolete XDP program removal (#30231, @rgo3)
+* [v1.13] ci: In conn-disrupt-test action, disable node-to-node-encryption check (#29741, @qmonnet)
+* [v1.13] go.mod: bump Go to 1.20 (#29818, @tklauser)
+* [v1.13] node: Fix IP removal from ipset on node updates (#29898, @qmonnet)
+* install: Update image digests for v1.13.10 (#29807, @nebril)
+* v1.13: ipam: Fix invalid PodCIDR in CiliumNode in ENI/Azure/MultiPool mode (#30137, @pchaigno)
+* v1.13: update dependency cilium/cilium-cli to v0.15.19 (#30136, @pchaigno)
+
 ## v1.13.10
 
 Summary of Changes
