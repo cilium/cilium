@@ -1,5 +1,81 @@
 # Changelog
 
+## v1.14.6
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add Proxy l7 metrics proxy_type label and and Cleanup (Backport PR #29703, Upstream PR #27863, @tommyp1ckles)
+* Reduce "stale identity observed" warnings (Backport PR #29863, Upstream PR #27894, @leblowl)
+
+**Bugfixes:**
+* [1.14] ingress: fix ingress class reconciliation (#29810, @mhofstetter)
+* Add default toleration for SPIRE agent on control plane nodes (Backport PR #30198, Upstream PR #28947, @meyskens)
+* Cilium DNS proxy can now use the original pod's address as the source address towards the DNS servers (--dnsproxy-enable-transparent-mode). (Backport PR #30213, Upstream PR #29239, @jrajahalme)
+* cilium-preflight: use the k8s node name instead of relying on hostname (Backport PR #29996, Upstream PR #29809, @marseel)
+* Do not attempt an mTLS handshake between reserved identities in Mutual Auth, as they would always fail (Backport PR #30265, Upstream PR #29400, @meyskens)
+* Fix a bug that may cause traffic to the node internal IP addresses to be incorrectly masqueraded when node encryption and remote node identities are both disabled, due to an inconsistency in the node manager when handling ipset entries insertions and deletions on node updates. (Backport PR #30221, Upstream PR #29986, @qmonnet)
+* Fix and prevent future bugs limiting pod-to-pod network performance under high load when tunneling and IPSec are both enabled. (Backport PR #29996, Upstream PR #29616, @learnitall)
+* Fix cleanup of AWS-related leftover iptables chains (Backport PR #29863, Upstream PR #29448, @giorio94)
+* helm: Fix envoy servicemonitor annotations (Backport PR #30198, Upstream PR #30017, @pmcgrath)
+* metrics: fix issue where logging err/warn metric is never updated. (Backport PR #29863, Upstream PR #29201, @tommyp1ckles)
+* nodediscovery: Fix bug where CiliumInternalIP was flapping (Backport PR #29972, Upstream PR #29964, @gandro)
+* policy: Fix mapstate changes error in entry change comparison (Backport PR #29996, Upstream PR #29815, @jrajahalme)
+* Remove non fatal errors from SPIRE client in the operator (Backport PR #30265, Upstream PR #28698, @meyskens)
+* Unify parsing of StringSlice flags and allow splitting by commas (preferably) or by spaces. This fixes parsing of 'prometheus.metrics'. (Backport PR #30080, Upstream PR #29848, @joamaki)
+
+**CI Changes:**
+* bpf: fix test configuration for 5.10 and 6.1 kernels (Backport PR #30198, Upstream PR #29999, @julianwiedmann)
+* ci-ipsec-upgrade: Add vxlan w/ no EP routes (Backport PR #29703, Upstream PR #29653, @brb)
+* ci-ipsec-{e2e,upgrade}: Use lvh-kind (Backport PR #29966, Upstream PR #29514, @brb)
+* ci/ipsec: Skip waiting for images when skipping upgrade/dowgrade (Backport PR #29966, Upstream PR #29793, @qmonnet)
+* ci: add nameserver 1.1.1.1 to conformance-runtime test LVM (Backport PR #29863, Upstream PR #29455, @mhofstetter)
+* ci: always use full matrix for scheduled cloud-provider workflows (Backport PR #29863, Upstream PR #29694, @mhofstetter)
+* ci: fix dns issue when pulling cilium-docker-plugin in ci-runtime (Backport PR #29863, Upstream PR #29502, @mhofstetter)
+* ci: increase disk size for GKE clusters (ci-gke & ci-external-workloads) (Backport PR #30198, Upstream PR #29528, @mhofstetter)
+* Conformance AKS: wait for cilium-test namespace deletion during uninstallation (Backport PR #30198, Upstream PR #29893, @giorio94)
+* datapath: Cover subnet encryption in XFRM leak test (Backport PR #30080, Upstream PR #27212, @pchaigno)
+* datapath: Fix TestNodeChurnXFRMLeaks (Backport PR #30080, Upstream PR #27274, @brb)
+* Fix collecting of verifier logs in ci-verifier (Backport PR #29863, Upstream PR #29752, @lmb)
+* gh/workflows: Add lvh-kind action and use it in ci-e2e (Backport PR #29966, Upstream PR #29485, @brb)
+* gha: add step to ensure presence/absence of the AWS iptables chains (Backport PR #29863, Upstream PR #29670, @giorio94)
+* gha: enable IPv6 in clustermesh upgrade/downgrade workflow (Backport PR #29863, Upstream PR #29675, @giorio94)
+* node: Integration test for XFRM leaks on node churn (Backport PR #30080, Upstream PR #27187, @pchaigno)
+* workflows: Increase IPsec e2e test's timeout (Backport PR #30265, Upstream PR #30194, @julianwiedmann)
+* workflows: Increase IPsec upgrade test's timeout (Backport PR #30080, Upstream PR #29934, @pchaigno)
+* workflows: Make the conn-disrupt test more sensitive (Backport PR #29703, Upstream PR #29623, @pchaigno)
+* workflows: move cilium_cli_version definition to set-env-variables action (Backport PR #30198, Upstream PR #29237, @jibi)
+
+**Misc Changes:**
+* bgpv1: set running flag in manager (Backport PR #30080, Upstream PR #30013, @harsimran-pabla)
+* bpf: ipv4: always return drop reason from ipv4_handle_fragmentation() (Backport PR #29996, Upstream PR #29880, @julianwiedmann)
+* chore(deps): update all github action dependencies to v5 (v1.14) (major) (#29784, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.14) (patch) (#29781, @renovate[bot])
+* chore(deps): update github/codeql-action action to v2.22.9 (v1.14) (#29783, @renovate[bot])
+* doc: Update recommended way for installing cilium on AKS (Backport PR #30198, Upstream PR #28910, @tamilmani1989)
+* docs: fix chained veth plugin example (Backport PR #30265, Upstream PR #30209, @squeed)
+* docs: Fix keyid derivation in IPsec docs (Backport PR #30080, Upstream PR #30000, @brb)
+* Fix bug preventing endpoint-related debug logs from being emitted (Backport PR #29829, Upstream PR #29495, @learnitall)
+* Fix cilium-envoy ServiceMonitor template typo (Backport PR #30198, Upstream PR #29976, @cornfeedhobo)
+* Fix log error in clustermesh-apiserver when connecting external workloads (Backport PR #29919, Upstream PR #29896, @giorio94)
+* fix(deps): update module golang.org/x/crypto to v0.17.0 [security] (main) (Backport PR #30198, Upstream PR #29971, @renovate[bot])
+* fix: remove help message in build config failure (Backport PR #30265, Upstream PR #28974, @vipul-21)
+* Helm: enforce routing mode when either gke.enabled or aksbyocni.enabled are set (Backport PR #30080, Upstream PR #29674, @giorio94)
+* hubble: Reduce "stale identities observed" debug messages even more (Backport PR #29996, Upstream PR #29957, @gandro)
+* k8s: Bump CRD schema version to 1.27.x (#29908, @joestringer)
+* Modularize iptables manager (Backport PR #30221, Upstream PR #28746, @pippolo84)
+* resource: Fix flaky TestResource_RepeatedDelete (Backport PR #29996, Upstream PR #28588, @joamaki)
+* Revert "cilium: Ensure xfrm state is initialized for route IP before … (Backport PR #29868, Upstream PR #29801, @jrfastab)
+
+**Other Changes:**
+* [1.14] loader: fix obsolete XDP program removal (#30229, @rgo3)
+* [v1.14] ci: In conn-disrupt-test action, disable node-to-node-encryption check (#29742, @qmonnet)
+* Add specific drop reason for missing tail calls if the host datapath is not ready yet (#30204, @ti-mo)
+* bgpv1: Add bgp/routes API endpoint and cilium bgp routes CLI command & integrate it in the bugtool (#30205, @rastislavs)
+* install: Update image digests for v1.14.5 (#29806, @nebril)
+* v1.14: update dependency cilium/cilium-cli to v0.15.19 (#30135, @pchaigno)
+
 ## v1.14.5
 
 Summary of Changes
