@@ -2466,6 +2466,9 @@ out:
 	return CTX_ACT_OK;
 
 redirect:
+	fib_params.l.ipv4_src = ip4->saddr;
+	fib_params.l.ipv4_dst = ip4->daddr;
+
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
@@ -2483,16 +2486,13 @@ redirect:
 		if (ret == CTX_ACT_REDIRECT && ifindex)
 			return ctx_redirect(ctx, ifindex, 0);
 
+		fib_params.l.ipv4_src = IPV4_DIRECT_ROUTING;
+		fib_params.l.ipv4_dst = tunnel_endpoint;
+
 		/* neigh map doesn't contain DMACs for other nodes */
 		allow_neigh_map = false;
 	}
 #endif
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	fib_params.l.ipv4_src = ip4->saddr;
-	fib_params.l.ipv4_dst = ip4->daddr;
 
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
