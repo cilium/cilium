@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"reflect"
 	"sync"
 
 	. "github.com/cilium/checkmate"
@@ -11,6 +12,8 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -523,4 +526,239 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
+}
+
+// Deploy cloud provider egress deny rules and validate policy map state.
+// EgressEnablement should be still disabled and Policy map state should contain
+// default egress allow and egress deny for endpoint specified in cloud provider rule
+func (ds *PolicyTestSuite) TestMapStateWithCloudproviderEgressDeny(c *C) {
+	repo := bootstrapRepo(GenerateL3EgressRules, 1000, c)
+
+	ruleLabelAllowAnyEgress := labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
+	}
+
+	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
+	idFooSelectLabels := labels.Labels{}
+	for _, lbl := range idFooSelectLabelArray {
+		idFooSelectLabels[lbl.Key] = lbl
+	}
+
+	fooIdentity := identity.NewIdentity(230, idFooSelectLabels)
+
+	cpRule := api.Rule{
+		EndpointSelector: api.WildcardEndpointSelector,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				ToPorts: []api.PortDenyRule{{
+					Ports: []api.PortProtocol{
+						{Port: "8080", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	cpResourceID := types.NewResourceID(
+		types.ResourceKindDaemonConfig,
+		"",
+		"",
+	)
+	cpOptions := &AddOptions{
+		ReplaceWithLabels: utils.GetPolicyLabels("", utils.ResourceTypeCiliumCloudProviderPolicy, utils.CloudProviderPolicyUid, ""),
+		Resource:          cpResourceID}
+
+	cpRule.Sanitize()
+	_, _, err := repo.AddWithOptions(cpRule, cpOptions)
+	c.Assert(err, IsNil)
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	c.Assert(err, IsNil)
+	c.Assert(selPolicy.EgressPolicyEnabled, Equals, false)
+
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, ExplicitAuthType, AuthTypeDisabled)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+
+	c.Assert(policy.policyMapState.Len(), Equals, 3)
+
+	// check default allow rule exists
+	policy.policyMapState.ForEachAllow(func(k Key, v MapStateEntry) bool {
+		if k.TrafficDirection != trafficdirection.Egress.Uint8() {
+			return true
+		}
+
+		c.Assert(v, checker.DeepEquals, allowEgressMapStateEntry)
+		return true
+	})
+
+	// check deny rule added via cloud provider policy exists
+	policy.policyMapState.ForEachDeny(func(k Key, v MapStateEntry) bool {
+		if k.TrafficDirection != trafficdirection.Egress.Uint8() {
+			return true
+		}
+		c.Assert(k.DestPort, Equals, uint16(8080))
+		c.Assert(v.IsDeny, Equals, true)
+		return true
+	})
+
+}
+
+// Deploy cloud provider egress deny rules and another egress rule and validate policy map state.
+// EgressEnablement should be still enabled and Policy map state should not contain
+// default egress allow and contains egress deny for endpoint specified in cloud provider rule
+func (ds *PolicyTestSuite) TestMapStateWithCloudproviderAndOtherEgressRule(c *C) {
+	repo := bootstrapRepo(GenerateL3EgressRules, 1000, c)
+
+	labelAnyEgress := labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
+	}
+
+	cpRule := api.Rule{
+		EndpointSelector: api.WildcardEndpointSelector,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				ToPorts: []api.PortDenyRule{{
+					Ports: []api.PortProtocol{
+						{Port: "8080", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	cpResourceID := types.NewResourceID(
+		types.ResourceKindDaemonConfig,
+		"",
+		"",
+	)
+	cpOptions := &AddOptions{
+		ReplaceWithLabels: utils.GetPolicyLabels("", utils.ResourceTypeCiliumCloudProviderPolicy, utils.CloudProviderPolicyUid, ""),
+		Resource:          cpResourceID}
+
+	cpRule.Sanitize()
+	_, _, err := repo.AddWithOptions(cpRule, cpOptions)
+	c.Assert(err, IsNil)
+
+	rule1 := api.Rule{
+		EndpointSelector: fooSelector,
+		Egress: []api.EgressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "8081", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	rule1.Sanitize()
+	_, _, err = repo.Add(rule1)
+	c.Assert(err, IsNil)
+
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	c.Assert(err, IsNil)
+	c.Assert(selPolicy.EgressPolicyEnabled, Equals, true)
+
+	anyEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{labelAnyEgress}, false, false, ExplicitAuthType, AuthTypeDisabled)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+
+	c.Assert(policy.policyMapState.Len(), Equals, 3)
+	// since there is another egress rule for same identity, default allow rule should not exist
+	policy.policyMapState.ForEachAllow(func(k Key, v MapStateEntry) bool {
+		if k.TrafficDirection != trafficdirection.Egress.Uint8() {
+			return true
+		}
+		equal := reflect.DeepEqual(v, anyEgressMapStateEntry)
+		c.Assert(equal, checker.Equals, false)
+		return true
+	})
+
+	// check deny rule added via cloud provider policy exists
+	policy.policyMapState.ForEachDeny(func(k Key, v MapStateEntry) bool {
+		c.Assert(k.DestPort, Equals, uint16(8080))
+		c.Assert(v.IsDeny, Equals, true)
+		return true
+	})
+
+}
+
+// Deploy cloud provider egress deny rules and another egress rule and validate policy map state.
+// EgressEnablement should be still enabled and Policy map state should not contain
+// default egress allow and contains egress deny for endpoint specified in cloud provider rule
+func (ds *PolicyTestSuite) TestMapStateWithCloudproviderAndOtherIngressRule(c *C) {
+	repo := bootstrapRepo(GenerateL3IngressRules, 1000, c)
+
+	labelAnyEgress := labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
+	}
+
+	cpRule := api.Rule{
+		EndpointSelector: api.WildcardEndpointSelector,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				ToPorts: []api.PortDenyRule{{
+					Ports: []api.PortProtocol{
+						{Port: "8080", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	cpResourceID := types.NewResourceID(
+		types.ResourceKindDaemonConfig,
+		"",
+		"",
+	)
+	cpOptions := &AddOptions{
+		ReplaceWithLabels: utils.GetPolicyLabels("", utils.ResourceTypeCiliumCloudProviderPolicy, utils.CloudProviderPolicyUid, ""),
+		Resource:          cpResourceID}
+
+	cpRule.Sanitize()
+	_, _, err := repo.AddWithOptions(cpRule, cpOptions)
+	c.Assert(err, IsNil)
+
+	rule1 := api.Rule{
+		EndpointSelector: fooSelector,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "8081", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	rule1.Sanitize()
+	_, _, err = repo.Add(rule1)
+	c.Assert(err, IsNil)
+
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	c.Assert(err, IsNil)
+	c.Assert(selPolicy.EgressPolicyEnabled, Equals, false)
+
+	anyEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{labelAnyEgress}, false, false, ExplicitAuthType, AuthTypeDisabled)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+
+	c.Assert(policy.policyMapState.Len(), Equals, 3)
+
+	// Since there are no egress rules added and only ingress and cloud provider rule is only egress rule, check default allow rule exists
+	policy.policyMapState.ForEachAllow(func(k Key, v MapStateEntry) bool {
+		if k.TrafficDirection != trafficdirection.Egress.Uint8() {
+			return true
+		}
+
+		c.Assert(v, checker.DeepEquals, anyEgressMapStateEntry)
+		return true
+	})
+
+	// check deny rule added via cloud provider policy exists
+	policy.policyMapState.ForEachDeny(func(k Key, v MapStateEntry) bool {
+		if k.TrafficDirection != trafficdirection.Egress.Uint8() {
+			return true
+		}
+		c.Assert(k.DestPort, Equals, uint16(8080))
+		c.Assert(v.IsDeny, Equals, true)
+		return true
+	})
 }

@@ -9,9 +9,12 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -144,55 +147,62 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 			direction, acceptStr, acceptStr2, direction)
 	}
 
-	ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, genCommentf(true, false))
 	c.Assert(egr, Equals, false, genCommentf(false, false))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
 
 	_, _, err := repo.Add(fooIngressDenyRule1)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, genCommentf(true, true))
 	c.Assert(egr, Equals, false, genCommentf(false, false))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressDenyRule1, Commentf("returned matching rules did not match"))
 
 	_, _, err = repo.Add(fooIngressDenyRule2)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, genCommentf(true, true))
 	c.Assert(egr, Equals, false, genCommentf(false, false))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressDenyRule1, Commentf("returned matching rules did not match"))
 	c.Assert(matchingRules[1].Rule, checker.DeepEquals, fooIngressDenyRule2, Commentf("returned matching rules did not match"))
 
 	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressDenyRule1Label})
 	c.Assert(numDeleted, Equals, 1)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, genCommentf(true, true))
 	c.Assert(egr, Equals, false, genCommentf(false, false))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressDenyRule2, Commentf("returned matching rules did not match"))
 
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressDenyRule2Label})
 	c.Assert(numDeleted, Equals, 1)
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, genCommentf(true, false))
 	c.Assert(egr, Equals, false, genCommentf(false, false))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
 
 	_, _, err = repo.Add(fooEgressDenyRule1)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, genCommentf(true, false))
 	c.Assert(egr, Equals, true, genCommentf(false, true))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooEgressDenyRule1, Commentf("returned matching rules did not match"))
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressDenyRule1Label})
 	c.Assert(numDeleted, Equals, 1)
 
 	_, _, err = repo.Add(fooEgressDenyRule2)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, genCommentf(true, false))
 	c.Assert(egr, Equals, true, genCommentf(false, true))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooEgressDenyRule2, Commentf("returned matching rules did not match"))
 
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressDenyRule2Label})
@@ -200,27 +210,30 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 
 	_, _, err = repo.Add(combinedRule)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, genCommentf(true, true))
 	c.Assert(egr, Equals, true, genCommentf(false, true))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules[0].Rule, checker.DeepEquals, combinedRule, Commentf("returned matching rules did not match"))
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{combinedLabel})
 	c.Assert(numDeleted, Equals, 1)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, genCommentf(true, true))
 	c.Assert(egr, Equals, true, genCommentf(false, true))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
 
 	SetPolicyEnabled(option.NeverEnforce)
 	_, _, err = repo.Add(combinedRule)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, genCommentf(true, false))
 	c.Assert(egr, Equals, false, genCommentf(false, false))
-	c.Assert(matchingRules, IsNil, Commentf("no rules should be returned since policy enforcement is disabled"))
+	c.Assert(adminEgr, Equals, false, genCommentf(false, false))
+	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("no rules should be returned since policy enforcement is disabled:%v", matchingRules))
 
 	// Test init identity.
 
@@ -228,22 +241,149 @@ func (ds *PolicyTestSuite) TestComputePolicyDenyEnforcementAndRules(c *C) {
 	// If the mode is "default", check that the policy is always enforced for
 	// endpoints with the reserved:init label. If no policy rules match
 	// reserved:init, this drops all ingress and egress traffic.
-	ingress, egress, matchingRules := repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, adminEgr, matchingRules := repo.computePolicyEnforcementAndRules(initIdentity)
 	c.Assert(ingress, Equals, true)
 	c.Assert(egress, Equals, true)
+	c.Assert(adminEgr, Equals, false)
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("no rules should be returned since policy enforcement is disabled"))
 
 	// Check that the "always" and "never" modes are not affected.
 	SetPolicyEnabled(option.AlwaysEnforce)
-	ingress, egress, _ = repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, adminEgr, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	c.Assert(ingress, Equals, true)
 	c.Assert(egress, Equals, true)
+	c.Assert(adminEgr, Equals, false)
 
 	SetPolicyEnabled(option.NeverEnforce)
-	ingress, egress, _ = repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, adminEgr, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	c.Assert(ingress, Equals, false)
 	c.Assert(egress, Equals, false)
+	c.Assert(adminEgr, Equals, false)
+}
 
+func (ds *PolicyTestSuite) TestPolicyEnforcementDenyWithCloudproviderPolicy(c *C) {
+	oldPolicyEnable := GetPolicyEnabled()
+	defer SetPolicyEnabled(oldPolicyEnable)
+
+	SetPolicyEnabled(option.DefaultEnforcement)
+
+	repo := NewPolicyRepository(nil, nil, nil, nil)
+	repo.selectorCache = testSelectorCache
+
+	fooSelectLabel := labels.ParseSelectLabel("foo")
+	fooNumericIdentity := 9001
+	fooIdentity := identity.NewIdentity(identity.NumericIdentity(fooNumericIdentity), lbls)
+	fooIngressRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooIngressRule1", labels.LabelSourceAny)
+	fooEgressRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule1", labels.LabelSourceAny)
+
+	fooIngressDenyRule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+		IngressDeny: []api.IngressDenyRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(fooSelectLabel),
+					},
+				},
+			},
+		},
+		Labels: labels.LabelArray{
+			fooIngressRule1Label,
+		},
+	}
+	fooEgressDenyRule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(fooSelectLabel),
+					},
+				},
+			},
+		},
+		Labels: labels.LabelArray{
+			fooEgressRule1Label,
+		},
+	}
+	cloudProviderPolicyRule := api.Rule{
+		EndpointSelector: api.WildcardEndpointSelector,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: []api.CIDR{"1.1.1.1"},
+				},
+			},
+		},
+	}
+	cpResourceID := types.NewResourceID(
+		types.ResourceKindDaemonConfig,
+		"",
+		"",
+	)
+	cpOptions := &AddOptions{
+		ReplaceWithLabels: utils.GetPolicyLabels("", utils.ResourceTypeCiliumCloudProviderPolicy, utils.CloudProviderPolicyUid, ""),
+		Resource:          cpResourceID}
+
+	// Add cloudprovider policy with no other policy
+	repo.DeleteByLabels([]labels.Label{})
+	SetPolicyEnabled(option.DefaultEnforcement)
+
+	// Test with no rules
+	ing, egr, adminEgr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no rules are in repository"))
+	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no rules are in repository"))
+	c.Assert(adminEgr, Equals, false, Commentf("cloudprovider egress policy enforcement should not apply since no cloudprovider egress rules select"))
+	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
+
+	// Add cloud provider policy
+	_, _, err := repo.AddWithOptions(cloudProviderPolicyRule, cpOptions)
+	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should apply since ingress rule selects"))
+	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should apply since egress rules selects"))
+	c.Assert(adminEgr, Equals, true, Commentf("cloudprovider egress policy enforcement should apply since cloudprovider egress rule selects"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, cloudProviderPolicyRule, Commentf("returned matching rules did not match"))
+
+	// Add ingress rule along with cloud provider policy
+	_, _, err = repo.Add(fooIngressDenyRule1)
+	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
+	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
+	c.Assert(adminEgr, Equals, true, Commentf("cloudprovider egress policy enforcement should not apply since no cloudprovider egress rules select"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, cloudProviderPolicyRule, Commentf("returned matching rules did not match cloudprovider rule"))
+	c.Assert(matchingRules[1].Rule, checker.DeepEquals, fooIngressDenyRule1, Commentf("returned matching rules did not match ingress rule added"))
+	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
+	c.Assert(numDeleted, Equals, 1)
+
+	// Add egress rule along with cloud provider policy
+	_, _, err = repo.Add(fooEgressDenyRule1)
+	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should apply since ingress rule selects"))
+	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should not apply since no egress rules select"))
+	c.Assert(adminEgr, Equals, true, Commentf("cloudprovider egress policy enforcement should not apply since no cloudprovider egress rules select"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, cloudProviderPolicyRule, Commentf("returned matching rules did not match cloudprovider rule"))
+	c.Assert(matchingRules[1].Rule, checker.DeepEquals, fooEgressDenyRule1, Commentf("returned matching rules did not match egress rule added"))
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
+	c.Assert(numDeleted, Equals, 1)
+
+	// Cloudprovider policy should be enforced even if policy enforcement set to never
+	SetPolicyEnabled(option.NeverEnforce)
+	_, _, err = repo.Add(fooEgressDenyRule1)
+	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+	ing, egr, adminEgr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since policy enforcement is disabled"))
+	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since policy enforcement is disabled"))
+	c.Assert(adminEgr, Equals, true, Commentf("cloudprovider policy enforcement should apply even if policy enforcement is disabled"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, cloudProviderPolicyRule, Commentf("returned matching rules did not match cloudprovider rule"))
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
+	c.Assert(numDeleted, Equals, 1)
+
+	// Delete cloudprovider policy rule
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{})
+	c.Assert(numDeleted, Equals, 1)
 }
 
 func (ds *PolicyTestSuite) TestGetRulesMatching(c *C) {
@@ -519,6 +659,84 @@ func (ds *PolicyTestSuite) TestDeniesEgress(c *C) {
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar3"),
 	}), Equals, api.Denied)
+}
+
+func (ds *PolicyTestSuite) TestCloudProviderEgressDeny(c *C) {
+	repo := NewPolicyRepository(nil, nil, nil, nil)
+	repo.selectorCache = testSelectorCache
+
+	fooToBar := &SearchContext{
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar"),
+	}
+
+	fooToPort8080 := &SearchContext{
+		From:   labels.ParseSelectLabelArray("foo"),
+		DPorts: []*models.Port{{Port: 8080, Protocol: string(api.ProtoTCP)}},
+	}
+
+	repo.Mutex.RLock()
+	// no rules loaded: Allows() => denied
+	c.Assert(repo.AllowsEgressRLocked(fooToBar), Equals, api.Denied)
+	repo.Mutex.RUnlock()
+
+	cloudProviderRule := api.Rule{
+		EndpointSelector: api.WildcardEndpointSelector,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				ToPorts: []api.PortDenyRule{{
+					Ports: []api.PortProtocol{
+						{Port: "8080", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	cp_resourceID := types.NewResourceID(
+		types.ResourceKindDaemonConfig,
+		"",
+		"",
+	)
+	cp_options := &AddOptions{
+		ReplaceWithLabels: utils.GetPolicyLabels("", utils.ResourceTypeCiliumCloudProviderPolicy, utils.CloudProviderPolicyUid, ""),
+		Resource:          cp_resourceID}
+
+	_, _, err := repo.AddWithOptions(cloudProviderRule, cp_options)
+	c.Assert(err, IsNil)
+
+	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
+	rule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+					},
+				},
+			},
+		},
+		Labels: tag1,
+	}
+	_, _, err = repo.Add(rule1)
+	c.Assert(err, IsNil)
+
+	// foo -> port 8080 is denied
+	logBuffer := new(bytes.Buffer)
+	result := repo.AllowsEgressRLocked(fooToPort8080.WithLogger(logBuffer))
+	if equal, err := checker.DeepEqual(result, api.Denied); !equal {
+		c.Logf("%s", logBuffer.String())
+		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	}
+
+	// foo -> bar is ok
+	logBuffer = new(bytes.Buffer)
+	result = repo.AllowsEgressRLocked(fooToBar.WithLogger(logBuffer))
+	if equal, err := checker.DeepEqual(result, api.Allowed); !equal {
+		c.Logf("%s", logBuffer.String())
+		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	}
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDeny(c *C) {

@@ -393,6 +393,12 @@ func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 // so we can clearly delineate what helpers are for testing.
 // NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) Add(r api.Rule) (uint64, map[uint16]struct{}, error) {
+	return p.AddWithOptions(r, nil)
+}
+
+// AddWithOptions inserts a rule into the policy repository with options
+// This is just a helper function for unit testing.
+func (p *Repository) AddWithOptions(r api.Rule, opts *AddOptions) (uint64, map[uint16]struct{}, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
@@ -402,19 +408,18 @@ func (p *Repository) Add(r api.Rule) (uint64, map[uint16]struct{}, error) {
 
 	newList := make([]*api.Rule, 1)
 	newList[0] = &r
-	_, rev := p.AddListLocked(newList)
+	_, rev := p.AddListLocked(newList, opts)
 	return rev, map[uint16]struct{}{}, nil
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
-
+func (p *Repository) AddListLocked(rules api.Rules, opts *AddOptions) (ruleSlice, uint64) {
 	newList := make(ruleSlice, len(rules))
 	for i := range rules {
 		newRule := &rule{
 			Rule:     *rules[i],
-			metadata: newRuleMetadata(),
+			metadata: newRuleMetadata(opts),
 		}
 		newList[i] = newRule
 		if uid := rules[i].Labels.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
@@ -469,7 +474,7 @@ func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
 func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.AddListLocked(rules)
+	return p.AddListLocked(rules, nil)
 }
 
 // Iterate iterates the policy repository, calling f for each rule. It is safe
@@ -609,7 +614,7 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 //
 // Must be called with p.Mutex held
 func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
-	ingressMatch, egressMatch bool,
+	ingressMatch, egressMatch, adminEgressMatch bool,
 	matchingRules ruleSlice) {
 
 	matchingRules = []*rule{}
@@ -628,8 +633,34 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
 			}
 			if !egressMatch {
 				egressMatch = len(r.Egress) > 0 || len(r.EgressDeny) > 0
+				if egressMatch {
+					if r.metadata.DefaultAllow {
+						egressMatch = false
+						adminEgressMatch = true
+					}
+				}
 			}
 			matchingRules = append(matchingRules, r)
+		}
+	}
+	return
+}
+
+func (p *Repository) getMatchingAdminRules(securityIdentity *identity.Identity) (
+	adminEgressMatch bool, matchingRules ruleSlice) {
+
+	matchingRules = []*rule{}
+	for _, r := range p.rules {
+		isNode := securityIdentity.ID == identity.ReservedIdentityHost
+		selectsNode := r.NodeSelector.LabelSelector != nil
+		if selectsNode != isNode {
+			continue
+		}
+		if ruleMatches := r.matches(securityIdentity); ruleMatches {
+			if len(r.EgressDeny) > 0 && r.metadata.DefaultAllow {
+				adminEgressMatch = true
+				matchingRules = append(matchingRules, r)
+			}
 		}
 	}
 	return
@@ -719,7 +750,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// to not have to iterate through the entire rule list multiple times and
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
-	ingressEnabled, egressEnabled,
+	ingressEnabled, egressEnabled, adminEgressEnabled,
 		matchingRules :=
 		p.computePolicyEnforcementAndRules(securityIdentity)
 
@@ -760,7 +791,8 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		calculatedPolicy.L4Policy.Ingress.PortRules = newL4IngressPolicy
 	}
 
-	if egressEnabled {
+	// resolveEgressPolicy if either of egressEnabled or adminEgressEnabled is set.
+	if egressEnabled || adminEgressEnabled {
 		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&policyCtx, &egressCtx)
 		if err != nil {
 			return nil, err
@@ -780,36 +812,39 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 //
 // Must be called with repo mutex held for reading.
 func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (
-	ingress, egress bool,
+	ingress, egress, adminEgress bool,
 	matchingRules ruleSlice,
 ) {
 	lbls := securityIdentity.LabelArray
 
 	// Check if policy enforcement should be enabled at the daemon level.
 	if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
-		return false, false, nil
+		return false, false, false, nil
 	}
 	switch GetPolicyEnabled() {
 	case option.AlwaysEnforce:
-		_, _, matchingRules = p.getMatchingRules(securityIdentity)
+		_, _, _, matchingRules = p.getMatchingRules(securityIdentity)
 		// If policy enforcement is enabled for the daemon, then it has to be
 		// enabled for the endpoint.
-		return true, true, matchingRules
+		return true, true, false, matchingRules
 	case option.DefaultEnforcement:
-		ingress, egress, matchingRules = p.getMatchingRules(securityIdentity)
+		ingress, egress, adminEgress, matchingRules = p.getMatchingRules(securityIdentity)
 		// If the endpoint has the reserved:init label, i.e. if it has not yet
 		// received any labels, always enforce policy (default deny).
 		if lbls.Has(labels.IDNameInit) {
-			return true, true, matchingRules
+			return true, true, false, matchingRules
 		}
 
 		// Default mode means that if rules contain labels that match this
 		// endpoint, then enable policy enforcement for this endpoint.
-		return ingress, egress, matchingRules
+		return ingress, egress, adminEgress, matchingRules
 	default:
 		// If policy enforcement isn't enabled, we do not enable policy
 		// enforcement for the endpoint. We don't care about returning any
 		// rules that match.
-		return false, false, nil
+		// Cloudprovider policy should be enforced even if policy enforcement
+		// is not enabled since this is not user enforced.
+		adminEgress, matchingRules = p.getMatchingAdminRules(securityIdentity)
+		return false, false, adminEgress, matchingRules
 	}
 }
