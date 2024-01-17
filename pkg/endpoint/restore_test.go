@@ -15,13 +15,10 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
-	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/statedb"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -78,33 +75,11 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 }
 
 func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
-	// For this test, the real linux datapath is necessary to properly
-	// serialize config files to disk and test the restore.
 	oldDatapath := ds.datapath
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-
-	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
-	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
-	if err != nil {
-		c.Fatalf("failed to create statedb: %v", err)
-	}
-
-	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB:      db,
-		Devices: devices,
-	})
-	ds.datapath = linuxDatapath.NewDatapath(
-		linuxDatapath.DatapathParams{
-			RuleManager:    nil,
-			NodeAddressing: nil,
-			NodeMap:        nil,
-			ConfigWriter:   cfg,
-		},
-		linuxDatapath.DatapathConfiguration{},
-	)
-
+	ds.datapath = fake.NewDatapath()
 	epsWanted, _ := ds.createEndpoints()
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")
 	defer func() {
@@ -167,34 +142,11 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 }
 
 func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
-	// For this test, the real linux datapath is necessary to properly
-	// serialize config files to disk and test the restore.
 	oldDatapath := ds.datapath
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-
-	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
-	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
-	if err != nil {
-		c.Fatalf("failed to create statedb: %v", err)
-	}
-
-	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB:      db,
-		Devices: devices,
-	})
-
-	ds.datapath = linuxDatapath.NewDatapath(
-		linuxDatapath.DatapathParams{
-			RuleManager:    nil,
-			NodeAddressing: nil,
-			NodeMap:        nil,
-			ConfigWriter:   cfg,
-		},
-		linuxDatapath.DatapathConfiguration{},
-	)
-
+	ds.datapath = fake.NewDatapath()
 	eps, _ := ds.createEndpoints()
 	ep := eps[0]
 	c.Assert(ep, NotNil)
@@ -252,33 +204,11 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 
 func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 	c.StopTimer()
-
-	// For this benchmark, the real linux datapath is necessary to properly
-	// serialize config files to disk and benchmark the restore.
 	oldDatapath := ds.datapath
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
-	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
-	if err != nil {
-		c.Fatalf("failed to create statedb: %v", err)
-	}
-
-	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB:      db,
-		Devices: devices,
-	})
-	ds.datapath = linuxDatapath.NewDatapath(
-		linuxDatapath.DatapathParams{
-			RuleManager:    nil,
-			NodeAddressing: nil,
-			NodeMap:        nil,
-			ConfigWriter:   cfg,
-		},
-		linuxDatapath.DatapathConfiguration{},
-	)
-
+	ds.datapath = fake.NewDatapath()
 	epsWanted, _ := ds.createEndpoints()
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")
 	defer func() {
