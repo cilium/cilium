@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -90,6 +91,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
@@ -234,6 +236,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
 	option.BindEnv(vp, option.DatapathMode)
+
+	flags.StringSlice(option.EgressDenyTuples, []string{}, "Enforce egress deny to listed endpoints without blocking all")
+	option.BindEnv(vp, option.EgressDenyTuples)
 
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(vp, option.EnableEndpointRoutes)
@@ -1923,4 +1928,59 @@ func initClockSourceOption() {
 			option.Config.EnableBPFClockProbe = false
 		}
 	}
+}
+
+// Validates tuple passed in cilium config and creates Egress Deny rules
+func initCloudProviderPolicy(denyTuple string) ([]*api.Rule, error) {
+	fields := strings.Split(denyTuple, ";")
+
+	if len(fields) < 3 {
+		log.WithField("tuplefieldlength", len(fields)).Error("Invalid input for egress-deny-tuples. Expected tuple length as 3. should be in <ip;port;protocol> format")
+		return nil, errors.New("Invalid egress-deny-tuples input")
+	}
+	// field[0] - IPAddress
+	// field[1] - Port
+	// field[2] - Protocol
+	var proto api.L4Proto
+	if len(fields[2]) > 0 {
+		proto = api.L4Proto(strings.ToUpper(fields[2]))
+	}
+
+	var portDenyRules []api.PortDenyRule
+	if len(fields[1]) > 0 {
+		portDenyRules = []api.PortDenyRule{
+			{
+				Ports: []api.PortProtocol{
+					{
+						Port:     fields[1],
+						Protocol: proto,
+					},
+				},
+			},
+		}
+	}
+
+	var toCidr []api.CIDR
+	if len(fields[0]) > 0 {
+		toCidr = append(toCidr, api.CIDR(fields[0]))
+	}
+
+	egressDenyRules := []*api.Rule{{
+		EndpointSelector: api.WildcardEndpointSelector,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: toCidr,
+				},
+				ToPorts: portDenyRules,
+			},
+		},
+	}}
+
+	if err := egressDenyRules[0].Sanitize(); err != nil {
+		log.WithField("error", err).Error("sanitizing Cloudprovider rules failed")
+		return nil, err
+	}
+
+	return egressDenyRules, nil
 }

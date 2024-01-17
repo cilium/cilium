@@ -57,8 +57,10 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -1023,6 +1025,30 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	if err := params.IPsecKeyCustodian.StartBackgroundJobs(d.Datapath().Node()); err != nil {
 		log.WithError(err).Error("Unable to start IPsec key watcher")
+	}
+
+	// cloudprovider policy rules are configured via this field.
+	if len(option.Config.EgressDenyTuples) > 0 {
+		for _, denyTuple := range option.Config.EgressDenyTuples {
+			rules, err := initCloudProviderPolicy(denyTuple)
+			if err == nil {
+				resourceID := ipcacheTypes.NewResourceID(
+					ipcacheTypes.ResourceKindDaemonConfig,
+					"",
+					"",
+				)
+
+				_, policyAdderr := d.PolicyAdd(rules, &policy.AddOptions{
+					ReplaceWithLabels: utils.GetPolicyLabels("", utils.ResourceTypeCiliumCloudProviderPolicy, utils.CloudProviderPolicyUid, ""),
+					Resource:          resourceID})
+
+				if policyAdderr != nil {
+					log.WithError(policyAdderr).Error("Cloudprovider policy add failed")
+				} else {
+					log.Info("Cloudprovider policy added")
+				}
+			}
+		}
 	}
 
 	return &d, restoredEndpoints, nil

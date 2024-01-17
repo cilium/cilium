@@ -133,6 +133,9 @@ const (
 	// DisableEnvoyVersionCheck do not perform Envoy binary version check on startup
 	DisableEnvoyVersionCheck = "disable-envoy-version-check"
 
+	// Deny egress traffic to listed endpoints while not blocking all
+	EgressDenyTuples = "egress-deny-tuples"
+
 	// EnablePolicy enables policy enforcement in the agent.
 	EnablePolicy = "enable-policy"
 
@@ -2416,6 +2419,9 @@ type DaemonConfig struct {
 
 	// ServiceNoBackendResponse determines how we handle traffic to a service with no backends.
 	ServiceNoBackendResponse string
+
+	// Egress Deny Tuples to block specific endpoints without blocking all
+	EgressDenyTuples []string
 }
 
 var (
@@ -3533,6 +3539,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
+
+	// Get Egress Deny tuples
+	c.EgressDenyTuples = vp.GetStringSlice(EgressDenyTuples)
 }
 
 func (c *DaemonConfig) populateDevices(vp *viper.Viper) {

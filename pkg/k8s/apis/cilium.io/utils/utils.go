@@ -37,6 +37,12 @@ const (
 	// ResourceTypeCiliumClusterwideNetworkPolicy is the resource type used for the
 	// PolicyLabelDerivedFrom label
 	ResourceTypeCiliumClusterwideNetworkPolicy = "CiliumClusterwideNetworkPolicy"
+
+	// ResourceTypeCiliumCloudProviderPolicy is the resource type used for the
+	// cloud provider policy derived from cilium config
+	ResourceTypeCiliumCloudProviderPolicy = "CiliumCloudProviderPolicy"
+
+	CloudProviderPolicyUid = "CiliumCloudProviderPolicyUid"
 )
 
 var (
