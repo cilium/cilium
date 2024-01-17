@@ -212,7 +212,7 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 }
 
 func (m *ManagerTestSuite) newServiceMock(lbmap datapathTypes.LBMap) {
-	m.svc = NewService(nil, nil, lbmap)
+	m.svc = NewService(nil, lbmap)
 	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
 }
 
@@ -710,7 +710,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lbmap := mockmaps.NewLBMockMap()
-			svc := NewService(nil, nil, lbmap)
+			svc := NewService(nil, lbmap)
 
 			_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
 			require.NoError(t, err, "Failed to upsert service")
@@ -720,7 +720,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
-			svc = NewService(nil, nil, lbmap)
+			svc = NewService(nil, lbmap)
 			require.NoError(t, svc.RestoreServices(), "Failed to restore services")
 
 			// Simulate a set of service updates. Until synchronization completes, a given service
@@ -984,7 +984,6 @@ func (m *ManagerTestSuite) TestHealthCheckLoadBalancerIP(c *C) {
 	c.Assert(err, IsNil)
 
 	option.Config.EnableHealthCheckLoadBalancerIP = false
-
 }
 
 func (m *ManagerTestSuite) TestHealthCheckNodePortDisabled(c *C) {
@@ -1466,20 +1465,20 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
-	// registering without redirecting
+	// registering redirection with proxy port 0 should result in an error
 	echoOtherNode := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
-	resource1 := lb.ServiceName{Name: "testOwner1", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBServiceBackendSync(echoOtherNode, resource1, nil)
-	c.Assert(err, IsNil)
+	resource1 := L7LBResourceName{Name: "testOwner1", Namespace: "cilium-test"}
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource1, 0)
+	c.Assert(err, NotNil)
 
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
 
-	// registering with redirection stores the proxy port
-	resource2 := lb.ServiceName{Name: "testOwner2", Namespace: "cilium-test"}
-	err = m.svc.RegisterL7LBService(echoOtherNode, resource2, nil, uint16(9090))
+	// Registering with redirection stores the proxy port.
+	resource2 := L7LBResourceName{Name: "testOwner2", Namespace: "cilium-test"}
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource2, 9090)
 	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
@@ -1487,9 +1486,15 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
 
+	// registering redirection for a Service that already has a redirect registration
+	// should result in an error.
+	resource3 := L7LBResourceName{Name: "testOwner3", Namespace: "cilium-test"}
+	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource3, 10000)
+	c.Assert(err, NotNil)
+
 	// Remove with an unregistered owner name does not remove
-	resource3 := lb.ServiceName{Name: "testOwner3", Namespace: "cilium-test"}
-	err = m.svc.RemoveL7LBService(echoOtherNode, resource3)
+	resource4 := L7LBResourceName{Name: "testOwner4", Namespace: "cilium-test"}
+	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource4)
 	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
@@ -1498,7 +1503,7 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
 
 	// Removing registration without redirection does not remove the proxy port
-	err = m.svc.RemoveL7LBService(echoOtherNode, resource1)
+	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource1)
 	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
@@ -1507,13 +1512,85 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(9090))
 
 	// removing the registration with redirection removes the proxy port
-	err = m.svc.RemoveL7LBService(echoOtherNode, resource2)
+	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource2)
 	c.Assert(err, IsNil)
 
 	svc, ok = m.svc.svcByID[id]
 	c.Assert(len(svc.backends), Equals, len(allBackends))
 	c.Assert(ok, Equals, true)
 	c.Assert(svc.l7LBProxyPort, Equals, uint16(0))
+}
+
+// L7 LB proxies should be able to register callback based backend sync registration
+func (m *ManagerTestSuite) TestL7LoadBalancerServiceBackendSyncRegistration(c *C) {
+	// Create a node-local backend.
+	localBackend := backends1[0]
+	localBackend.NodeName = nodeTypes.GetName()
+	// Create two remote backends.
+	remoteBackends := make([]*lb.Backend, 0, len(backends2))
+	for _, backend := range backends2 {
+		backend.NodeName = "not-" + nodeTypes.GetName()
+		remoteBackends = append(remoteBackends, backend)
+	}
+	allBackends := make([]*lb.Backend, 0, 1+len(remoteBackends))
+	allBackends = append(allBackends, localBackend)
+	allBackends = append(allBackends, remoteBackends...)
+
+	p1 := &lb.SVC{
+		Frontend:         frontend1,
+		Backends:         allBackends,
+		Type:             lb.SVCTypeClusterIP,
+		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:             lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	// Registering L7LB backend sync should register backend sync and trigger an initial synchronization
+	service := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
+	backendSyncer := &FakeBackendSyncer{}
+	err = m.svc.RegisterL7LBServiceBackendSync(service, backendSyncer)
+	c.Assert(err, IsNil)
+
+	c.Assert(len(m.svc.l7lbSvcs), Equals, 1)
+	c.Assert(len(m.svc.l7lbSvcs[service].backendSyncRegistrations), Equals, 1)
+	c.Assert(backendSyncer.nrOfBackends, Equals, len(allBackends))
+	c.Assert(backendSyncer.nrOfSyncs, Equals, 1)
+
+	// Re-Registering L7LB backend sync should keep the existing registration and trigger an implicit re-synchronization
+	err = m.svc.RegisterL7LBServiceBackendSync(service, backendSyncer)
+	c.Assert(err, IsNil)
+
+	c.Assert(len(m.svc.l7lbSvcs), Equals, 1)
+	c.Assert(len(m.svc.l7lbSvcs[service].backendSyncRegistrations), Equals, 1)
+	c.Assert(backendSyncer.nrOfBackends, Equals, len(allBackends))
+	c.Assert(backendSyncer.nrOfSyncs, Equals, 2)
+
+	// Upserting a service should trigger a sync for the registered backend sync registrations
+	allBackends = append(allBackends, backends4...)
+	p1.Backends = allBackends
+	created, id, err = m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	c.Assert(len(m.svc.l7lbSvcs), Equals, 1)
+	c.Assert(len(m.svc.l7lbSvcs[service].backendSyncRegistrations), Equals, 1)
+	c.Assert(backendSyncer.nrOfBackends, Equals, len(allBackends))
+	c.Assert(backendSyncer.nrOfSyncs, Equals, 3)
+
+	// De-registering a backend sync should delete the backend sync registration
+	err = m.svc.DeregisterL7LBServiceBackendSync(service, backendSyncer)
+	c.Assert(err, IsNil)
+
+	c.Assert(len(m.svc.l7lbSvcs), Equals, 0)
+	c.Assert(backendSyncer.nrOfBackends, Equals, len(allBackends))
+	c.Assert(backendSyncer.nrOfSyncs, Equals, 3)
 }
 
 // Tests that services with the given backends are updated with the new backend
@@ -1787,198 +1864,22 @@ func (m *ManagerTestSuite) TestUpdateBackendsStateWithBackendSharedAcrossService
 	c.Assert(m.svc.svcByHash[svcHash2].backendByHash[hash1].State, Equals, lb.BackendStateMaintenance)
 }
 
-func Test_filterServiceBackends(t *testing.T) {
-	t.Run("filter by port number", func(t *testing.T) {
-		svc := &svcInfo{
-			frontend: lb.L3n4AddrID{
-				L3n4Addr: lb.L3n4Addr{
-					L4Addr: lb.L4Addr{
-						Port: 8080,
-					},
-				},
-			},
-			backends: []*lb.Backend{
-				{
-					FEPortName: "http",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 3000,
-						},
-					},
-				},
-			},
-		}
-
-		t.Run("all ports are allowed", func(t *testing.T) {
-			backends := filterServiceBackends(svc, nil)
-			assert.Len(t, backends, 1)
-			assert.Len(t, backends[anyPort], 1)
-		})
-		t.Run("only http port", func(t *testing.T) {
-			backends := filterServiceBackends(svc, []string{"8080"})
-			assert.Len(t, backends, 1)
-			assert.Len(t, backends["8080"], 1)
-		})
-		t.Run("no match", func(t *testing.T) {
-			backends := filterServiceBackends(svc, []string{"8000"})
-			assert.Len(t, backends, 0)
-		})
-	})
-
-	t.Run("filter by port named", func(t *testing.T) {
-		svc := &svcInfo{
-			frontend: lb.L3n4AddrID{
-				L3n4Addr: lb.L3n4Addr{
-					L4Addr: lb.L4Addr{
-						Port: 8000,
-					},
-				},
-			},
-			backends: []*lb.Backend{
-				{
-					FEPortName: "http",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 8080,
-						},
-					},
-				},
-				{
-					FEPortName: "https",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 8443,
-						},
-					},
-				},
-				{
-					FEPortName: "metrics",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 8081,
-						},
-					},
-				},
-			},
-		}
-
-		t.Run("all ports are allowed", func(t *testing.T) {
-			backends := filterServiceBackends(svc, nil)
-			assert.Len(t, backends, 1)
-			assert.Len(t, backends[anyPort], 3)
-		})
-		t.Run("only http named port", func(t *testing.T) {
-			backends := filterServiceBackends(svc, []string{"http"})
-			assert.Len(t, backends, 1)
-			assert.Len(t, backends["http"], 1)
-		})
-		t.Run("multiple named ports", func(t *testing.T) {
-			backends := filterServiceBackends(svc, []string{"http", "metrics"})
-			assert.Len(t, backends, 2)
-
-			assert.Len(t, backends["http"], 1)
-			assert.Equal(t, (int)(backends["http"][0].Port), 8080)
-
-			assert.Len(t, backends["metrics"], 1)
-			assert.Equal(t, (int)(backends["metrics"][0].Port), 8081)
-		})
-	})
-
-	t.Run("filter with preferred backend", func(t *testing.T) {
-		svc := &svcInfo{
-			frontend: lb.L3n4AddrID{
-				L3n4Addr: lb.L3n4Addr{
-					L4Addr: lb.L4Addr{
-						Port: 8000,
-					},
-				},
-			},
-			backends: []*lb.Backend{
-				{
-					FEPortName: "http",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 8080,
-						},
-					},
-					Preferred: lb.Preferred(true),
-				},
-				{
-					FEPortName: "http",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 8081,
-						},
-					},
-				},
-				{
-					FEPortName: "https",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 443,
-						},
-					},
-				},
-				{
-					FEPortName: "80",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 8080,
-						},
-					},
-					Preferred: lb.Preferred(true),
-				},
-				{
-					FEPortName: "80",
-					L3n4Addr: lb.L3n4Addr{
-						L4Addr: lb.L4Addr{
-							Port: 8081,
-						},
-					},
-				},
-			},
-		}
-
-		t.Run("all ports are allowed", func(t *testing.T) {
-			backends := filterServiceBackends(svc, nil)
-			assert.Len(t, backends, 1)
-			assert.Len(t, backends[anyPort], 2)
-		})
-
-		t.Run("only named ports", func(t *testing.T) {
-			backends := filterServiceBackends(svc, []string{"http"})
-			assert.Len(t, backends, 1)
-			assert.Len(t, backends["http"], 1)
-		})
-		t.Run("multiple named ports", func(t *testing.T) {
-			backends := filterServiceBackends(svc, []string{"http", "https"})
-			assert.Len(t, backends, 1)
-
-			assert.Len(t, backends["http"], 1)
-			assert.Equal(t, (int)(backends["http"][0].Port), 8080)
-		})
-
-		t.Run("only port number", func(t *testing.T) {
-			backends := filterServiceBackends(svc, []string{"80"})
-			assert.Len(t, backends, 1)
-
-			assert.Len(t, backends["80"], 1)
-			assert.Equal(t, (int)(backends["80"][0].Port), 8080)
-		})
-	})
-}
-
 type mockNodeAddressingFamily struct {
 	ips []net.IP
 }
 
-func (n *mockNodeAddressingFamily) Router() net.IP                    { panic("Not implemented") }
-func (n *mockNodeAddressingFamily) PrimaryExternal() net.IP           { panic("Not implemented") }
-func (n *mockNodeAddressingFamily) AllocationCIDR() *cidr.CIDR        { panic("Not implemented") }
+func (n *mockNodeAddressingFamily) Router() net.IP { panic("Not implemented") }
+
+func (n *mockNodeAddressingFamily) PrimaryExternal() net.IP { panic("Not implemented") }
+
+func (n *mockNodeAddressingFamily) AllocationCIDR() *cidr.CIDR { panic("Not implemented") }
+
 func (n *mockNodeAddressingFamily) LocalAddresses() ([]net.IP, error) { panic("Not implemented") }
+
 func (n *mockNodeAddressingFamily) LoadBalancerNodeAddresses() []net.IP {
 	return n.ips
 }
+
 func (n *mockNodeAddressingFamily) DirectRouting() (int, net.IP, bool) {
 	return -1, nil, false
 }
@@ -1991,6 +1892,7 @@ type mockNodeAddressing struct {
 func (na *mockNodeAddressing) IPv4() datapathTypes.NodeAddressingFamily {
 	return na.ip4
 }
+
 func (na *mockNodeAddressing) IPv6() datapathTypes.NodeAddressingFamily {
 	return na.ip6
 }
@@ -2045,7 +1947,6 @@ func (m *ManagerTestSuite) TestSyncServices(c *C) {
 	c.Assert(found, Equals, true)
 	_, _, found = m.svc.GetServiceNameByAddr(frontend3.L3n4Addr)
 	c.Assert(found, Equals, true)
-
 }
 
 func (m *ManagerTestSuite) TestTrafficPolicy(c *C) {
@@ -2196,7 +2097,7 @@ func (m *ManagerTestSuite) TestRestoreServicesWithLeakedBackends(c *C) {
 	m.svc.lbmap.AddBackend(backend5, backend5.L3n4Addr.IsIPv6())
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends)+4)
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.svc = NewService(nil, lbmap)
 
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()
@@ -2270,4 +2171,22 @@ func (m *ManagerTestSuite) TestUpsertServiceWithDeletedBackends(c *C) {
 			c.Assert(socket.Destroyed, Equals, false)
 		}
 	}
+}
+
+type FakeBackendSyncer struct {
+	nrOfBackends int
+	nrOfSyncs    int
+}
+
+var _ BackendSyncer = &FakeBackendSyncer{}
+
+func (r *FakeBackendSyncer) ProxyName() string {
+	return "Fake"
+}
+
+func (r *FakeBackendSyncer) Sync(svc *lb.SVC) error {
+	r.nrOfBackends = len(svc.Backends)
+	r.nrOfSyncs++
+
+	return nil
 }

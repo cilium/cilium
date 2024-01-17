@@ -14,8 +14,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -52,13 +50,6 @@ type DatapathUpdater interface {
 	SupportsOriginalSourceAddr() bool
 }
 
-type IPCacheManager interface {
-	// AddListener is required for envoy.StartXDSServer()
-	AddListener(ipcache.IPIdentityMappingListener)
-
-	LookupByIP(IP string) (ipcache.Identity, bool)
-}
-
 type ProxyPort struct {
 	// isStatic is true when the listener on the proxy port is incapable
 	// of stopping and/or being reconfigured with a new proxy port once it has been
@@ -87,8 +78,6 @@ type ProxyPort struct {
 
 // Proxy maintains state about redirects
 type Proxy struct {
-	envoy.XDSServer
-
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
 
@@ -129,10 +118,8 @@ func createProxy(
 	datapathUpdater DatapathUpdater,
 	envoyIntegration *envoyProxyIntegration,
 	dnsIntegration *dnsProxyIntegration,
-	xdsServer envoy.XDSServer,
 ) *Proxy {
 	return &Proxy{
-		XDSServer:        xdsServer,
 		rangeMin:         minPort,
 		rangeMax:         maxPort,
 		redirects:        make(map[string]*Redirect),
@@ -486,7 +473,6 @@ func getCiliumNetIPv6() (net.IP, error) {
 	}
 
 	return nil, fmt.Errorf("failed to find valid IPv6 address for cilium_net")
-
 }
 
 // ReinstallIPTablesRules is called by daemon reconfiguration to reinstall
@@ -780,6 +766,14 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (error, reve
 	})
 
 	return nil, finalizeList.Finalize, revertStack.Revert
+}
+
+func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	return p.envoyIntegration.UpdateNetworkPolicy(ep, vis, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
+}
+
+func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
+	p.envoyIntegration.RemoveNetworkPolicy(ep)
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.

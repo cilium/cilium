@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/statedb/index"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 func TestMain(m *testing.M) {
@@ -161,6 +162,7 @@ func TestDB_LowerBound_ByRevision(t *testing.T) {
 	require.False(t, ok)
 
 }
+
 func TestDB_DeleteTracker(t *testing.T) {
 	t.Parallel()
 
@@ -330,6 +332,42 @@ func TestDB_DeleteTracker(t *testing.T) {
 
 	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableObjectCount))
 	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableDeleteTrackerCount))
+}
+
+func TestDB_Observable(t *testing.T) {
+	t.Parallel()
+
+	db, table, _ := newTestDB(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	events := stream.ToChannel(ctx, Observable[testObject](db, table))
+
+	txn := db.WriteTxn(table)
+	table.Insert(txn, testObject{ID: uint64(1)})
+	table.Insert(txn, testObject{ID: uint64(2)})
+	txn.Commit()
+
+	event := <-events
+	require.False(t, event.Deleted, "expected insert")
+	require.Equal(t, uint64(1), event.Object.ID)
+	event = <-events
+	require.False(t, event.Deleted, "expected insert")
+	require.Equal(t, uint64(2), event.Object.ID)
+
+	txn = db.WriteTxn(table)
+	table.Delete(txn, testObject{ID: uint64(1)})
+	table.Delete(txn, testObject{ID: uint64(2)})
+	txn.Commit()
+
+	event = <-events
+	require.True(t, event.Deleted, "expected delete")
+	require.Equal(t, uint64(1), event.Object.ID)
+	event = <-events
+	require.True(t, event.Deleted, "expected delete")
+	require.Equal(t, uint64(2), event.Object.ID)
+
+	cancel()
+	ev, ok := <-events
+	require.False(t, ok, "expected channel to close, got event: %+v", ev)
 }
 
 func TestDB_All(t *testing.T) {

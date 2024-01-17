@@ -118,19 +118,45 @@ func NewKey(ip net.IP, mask net.IPMask, clusterID uint16) Key {
 	return result
 }
 
+// RemoteEndpointInfoFlags represents various flags that can be attached to
+// remote endpoints in the IPCache.
+type RemoteEndpointInfoFlags uint8
+
+// String returns a human-readable representation of the flags present in the
+// RemoteEndpointInfoFlags.
+// The output format is the string name of each flag contained in the flag set,
+// separated by a comma. If no flags are set, then "<none>" is returned.
+func (f RemoteEndpointInfoFlags) String() string {
+	// If more flags are added in the future, then this method will need
+	// a re-work to support multiple flags.
+	// Right now, it only supports checking for FlagSkipTunnel.
+	if f&FlagSkipTunnel == FlagSkipTunnel {
+		return "skiptunnel"
+	}
+
+	return "<none>"
+}
+
+const (
+	// FlagSkipTunnel can be applied to a remote endpoint to signal that
+	// packets destined for said endpoint shall not be forwarded through
+	// a VXLAN/Geneve tunnel, regardless of Cilium's configuration.
+	FlagSkipTunnel RemoteEndpointInfoFlags = 1 << iota
+)
+
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
 type RemoteEndpointInfo struct {
 	SecurityIdentity uint32     `align:"sec_identity"`
 	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
 	_                uint16
-	Key              uint8 `align:"key"`
-	_                uint8
+	Key              uint8                   `align:"key"`
+	Flags            RemoteEndpointInfoFlags `align:"flag_skip_tunnel"`
 }
 
 func (v *RemoteEndpointInfo) String() string {
-	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s",
-		v.SecurityIdentity, v.Key, v.TunnelEndpoint)
+	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s, flags=%s",
+		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.Flags)
 }
 
 func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }

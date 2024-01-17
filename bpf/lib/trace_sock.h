@@ -120,7 +120,7 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 		.l4_proto	= parse_protocol(ctx->protocol),
 		.ipv6		= 1,
 	};
-	ipv6_addr_copy(&msg.dst_ip.ip6, dst_addr);
+	ipv6_addr_copy_unaligned(&msg.dst_ip.ip6, dst_addr);
 
 	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }

@@ -24,6 +24,13 @@ type Table[Obj any] interface {
 	// 'Obj' type.
 	TableMeta
 
+	// PrimaryIndexer returns the primary indexer for the table.
+	// Useful for generic utilities that need access to the primary key.
+	PrimaryIndexer() Indexer[Obj]
+
+	// NumObjects returns the number of objects stored in the table.
+	NumObjects(ReadTxn) int
+
 	// Revision of the table. Constant for a read transaction, but
 	// increments in a write transaction on each Insert and Delete.
 	Revision(ReadTxn) Revision
@@ -142,11 +149,11 @@ type RWTable[Obj any] interface {
 // TableMeta provides information about the table that is independent of
 // the object type (the 'Obj' constraint).
 type TableMeta interface {
-	Name() TableName                          // The name of the table
-	tableKey() []byte                         // The radix key for the table in the root tree
-	primaryIndexer() anyIndexer               // The untyped primary indexer for the table
-	secondaryIndexers() map[string]anyIndexer // Secondary indexers (if any)
-	sortableMutex() lock.SortableMutex        // The sortable mutex for locking the table for writing
+	Name() TableName                   // The name of the table
+	tableKey() []byte                  // The radix key for the table in the root tree
+	primary() anyIndexer               // The untyped primary indexer for the table
+	secondary() map[string]anyIndexer  // Secondary indexers (if any)
+	sortableMutex() lock.SortableMutex // The sortable mutex for locking the table for writing
 }
 
 // Iterator for iterating objects returned from queries.
@@ -185,7 +192,7 @@ type WriteTxn interface {
 
 type Query[Obj any] struct {
 	index IndexName
-	key   []byte
+	key   index.Key
 }
 
 // ByRevision constructs a revision query. Applicable to any table.
@@ -232,12 +239,26 @@ func (i Index[Obj, Key]) Query(key Key) Query[Obj] {
 	}
 }
 
+func (i Index[Obj, Key]) QueryFromObject(obj Obj) Query[Obj] {
+	return Query[Obj]{
+		index: i.Name,
+		key:   i.FromObject(obj).First(),
+	}
+}
+
+func (i Index[Obj, Key]) ObjectToKey(obj Obj) index.Key {
+	return i.FromObject(obj).First()
+}
+
 // Indexer is the "FromObject" subset of Index[Obj, Key]
 // without the 'Key' constraint.
 type Indexer[Obj any] interface {
 	indexName() string
 	isUnique() bool
-	fromObject(obj Obj) index.KeySet
+	fromObject(Obj) index.KeySet
+
+	ObjectToKey(Obj) index.Key
+	QueryFromObject(Obj) Query[Obj]
 }
 
 // TableWritable is a constraint for objects that implement tabular

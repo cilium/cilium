@@ -22,6 +22,6 @@ After the file is created move it into your Rancher Desktop's ``lima/_config`` d
 
       cp override.yaml ~/Library/Application\ Support/rancher-desktop/lima/_config/override.yaml
 
-Finally, open the Rancher Desktop UI and go to Kubernetes Settings panel and click "Reset Kubernetes".
+Finally, open the Rancher Desktop UI and go to the Troubleshooting panel and click "Reset Kubernetes".
 
 After a few minutes Rancher Desktop will start back up prepared for installing Cilium.

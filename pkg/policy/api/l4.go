@@ -139,7 +139,7 @@ type EnvoyConfig struct {
 
 // Listener defines a reference to an Envoy listener specified in a CEC or CCEC resource.
 type Listener struct {
-	// EnvoyConfig is a reference to the CEC or CCNP resource in which
+	// EnvoyConfig is a reference to the CEC or CCEC resource in which
 	// the listener is defined.
 	//
 	// +kubebuilder:validation:Required

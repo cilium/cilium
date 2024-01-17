@@ -372,7 +372,7 @@ spec:
                             properties:
                               envoyConfig:
                                 description: EnvoyConfig is a reference to the CEC
-                                  or CCNP resource in which the listener is defined.
+                                  or CCEC resource in which the listener is defined.
                                 properties:
                                   kind:
                                     description: Kind is the resource type being referred
@@ -1741,7 +1741,7 @@ spec:
                             properties:
                               envoyConfig:
                                 description: EnvoyConfig is a reference to the CEC
-                                  or CCNP resource in which the listener is defined.
+                                  or CCEC resource in which the listener is defined.
                                 properties:
                                   kind:
                                     description: Kind is the resource type being referred
@@ -2904,7 +2904,7 @@ spec:
                               properties:
                                 envoyConfig:
                                   description: EnvoyConfig is a reference to the CEC
-                                    or CCNP resource in which the listener is defined.
+                                    or CCEC resource in which the listener is defined.
                                   properties:
                                     kind:
                                       description: Kind is the resource type being
@@ -4294,7 +4294,7 @@ spec:
                               properties:
                                 envoyConfig:
                                   description: EnvoyConfig is a reference to the CEC
-                                    or CCNP resource in which the listener is defined.
+                                    or CCEC resource in which the listener is defined.
                                   properties:
                                     kind:
                                       description: Kind is the resource type being

@@ -141,7 +141,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 		if ((__u32)oif == fib_params->l.ifindex)
 			return CTX_ACT_OK;
 
-		return fib_do_redirect(ctx, true, fib_params, ext_err, &oif);
+		return fib_do_redirect(ctx, true, fib_params, true, ext_err, &oif);
 	default:
 		return DROP_NO_FIB;
 	}
@@ -346,7 +346,7 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 	opt.hdr.hdrlen = DSR_IPV6_EXT_LEN;
 	opt.opt_type = DSR_IPV6_OPT_TYPE;
 	opt.opt_len = DSR_IPV6_OPT_LEN;
-	ipv6_addr_copy(&opt.addr, svc_addr);
+	ipv6_addr_copy_unaligned(&opt.addr, svc_addr);
 	opt.port = svc_port;
 
 	if (ctx_adjust_hroom(ctx, sizeof(opt), BPF_ADJ_ROOM_NET,
@@ -526,7 +526,8 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
 				*dsr = true;
 				*port = gopt.port;
-				ipv6_addr_copy(addr, (union v6addr *)&gopt.addr);
+				ipv6_addr_copy_unaligned(addr,
+							 (union v6addr *)&gopt.addr);
 				return 0;
 			}
 		}
@@ -761,7 +762,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			       (union v6addr *)&ip6->daddr);
 	}
 
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -868,7 +869,7 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v6(ctx, l3_off, ip6, false, &ext_err, &oif);
+	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -899,7 +900,7 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, l3_off, ip4, false, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -931,6 +932,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__be16 src_port __maybe_unused = 0;
+	bool allow_neigh_map = true;
 	int ifindex = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -997,6 +999,8 @@ encap_redirect:
 	if (ret == CTX_ACT_REDIRECT && ifindex)
 		return ctx_redirect(ctx, ifindex, 0);
 
+	/* neigh map doesn't contain DMACs for other nodes */
+	allow_neigh_map = false;
 	goto fib_ipv4;
 #endif
 
@@ -1023,7 +1027,7 @@ fib_ipv4:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
 declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
@@ -1256,7 +1260,7 @@ fib_ipv4:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -2272,7 +2276,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -2397,6 +2401,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct iphdr *ip4;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	bool allow_neigh_map = true;
 	bool check_revdnat = true;
 	bool has_l4_header;
 
@@ -2477,6 +2482,9 @@ redirect:
 
 		if (ret == CTX_ACT_REDIRECT && ifindex)
 			return ctx_redirect(ctx, ifindex, 0);
+
+		/* neigh map doesn't contain DMACs for other nodes */
+		allow_neigh_map = false;
 	}
 #endif
 
@@ -2486,7 +2494,7 @@ redirect:
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
 declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
@@ -2728,7 +2736,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -3061,7 +3069,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
-	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -3069,8 +3077,6 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	enum trace_point obs_point;
 	int ret;
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
@@ -3122,9 +3128,7 @@ static __always_inline int
 handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		    __s8 *ext_err)
 {
-	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
+	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 
 	return __handle_nat_fwd_ipv4(ctx, cluster_id, trace, ext_err);
 }

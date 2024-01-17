@@ -60,7 +60,7 @@ func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 	c.Assert(useOriginalSourceAddress(&cec.ObjectMeta), Equals, true)
 
-	resources, err := envoy.ParseResources("", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0, useOriginalSourceAddress(&cec.ObjectMeta))
+	resources, err := envoy.ParseResources("", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0, useOriginalSourceAddress(&cec.ObjectMeta), true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))

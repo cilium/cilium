@@ -15,6 +15,9 @@ import (
 const (
 	// DefaultBGPExportPodCIDR defines the default value for ExportPodCIDR determining whether to export the Node's private CIDR block.
 	DefaultBGPExportPodCIDR = false
+	// DefaultBGPPeerLocalPort defines the default value for the local port over which to connect to the peer.
+	// By default, BGP control plane will not set this value, and the kernel will pick a random port source port.
+	DefaultBGPPeerLocalPort = 0
 	// DefaultBGPPeerPort defines the TCP port number of a CiliumBGPNeighbor when PeerPort is unspecified.
 	DefaultBGPPeerPort = 179
 	// DefaultBGPEBGPMultihopTTL defines the default value for the TTL value used in BGP packets sent to the eBGP neighbors.
@@ -106,6 +109,12 @@ type CiliumBGPNeighborGracefulRestart struct {
 	// +kubebuilder:validation:Maximum=4095
 	// +kubebuilder:default=120
 	RestartTimeSeconds *int32 `json:"restartTimeSeconds,omitempty"`
+}
+
+func (gr *CiliumBGPNeighborGracefulRestart) SetDefaults() {
+	if gr.RestartTimeSeconds == nil || *gr.RestartTimeSeconds == 0 {
+		gr.RestartTimeSeconds = pointer.Int32(DefaultBGPGRRestartTimeSeconds)
+	}
 }
 
 // BGPStandardCommunity type represents a value of the "standard" 32-bit BGP Communities Attribute (RFC 1997)

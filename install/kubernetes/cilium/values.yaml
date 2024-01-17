@@ -1714,6 +1714,11 @@ ipam:
     # @default -- `4.0`
     externalAPILimitQPS: ~
 
+nodeIPAM:
+  # -- Configure Node IPAM
+  # ref: https://docs.cilium.io/en/stable/network/node-ipam/
+  enabled: false
+
 # -- The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
 apiRateLimit: ~
 
@@ -2064,9 +2069,9 @@ envoy:
   image:
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.27.2-f19708f3d0188fe39b7e024b4525b75a9eeee61f"
+    tag: "v1.27.2-6d609cf1559365fe9e8db5a7774a313f1861e143"
     pullPolicy: "Always"
-    digest: "sha256:80de27c1d16ab92923cc0cd1fff90f2e7047a9abf3906fda712268d9cbc5b950"
+    digest: "sha256:90c280221e269952b0fe70c2e0c7fcafe7b51e713c8a4b60eb318c5d626f0553"
     useDigest: true
 
   # -- Additional containers added to the cilium Envoy DaemonSet.
@@ -2339,7 +2344,10 @@ tunnelPort: 0
 #  - drop
 serviceNoBackendResponse: reject
 
-# -- Configure the underlying network MTU to overwrite auto-detected MTU.
+# -- Configure the underlying network MTU to overwrite auto-detected MTU. 
+# This value doesn't change the host network interface MTU i.e. eth0 or ens0.
+# It changes the MTU for cilium_net@cilium_host, cilium_host@cilium_net,
+# cilium_vxlan and lxc_health interfaces.
 MTU: 0
 
 # -- Disable the usage of CiliumEndpoint CRD.
@@ -2928,6 +2936,9 @@ clustermesh:
       useDigest: false
       pullPolicy: "Always"
 
+    # -- TCP port for the clustermesh-apiserver health API.
+    healthPort: 9880
+
     etcd:
       # The etcd binary is included in the clustermesh API server image, so the same image from above is reused.
       # Independent override isn't supported, because clustermesh-apiserver is tested against the etcd version it is
@@ -3315,6 +3326,8 @@ dnsProxy:
   proxyPort: 0
   # -- The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
   proxyResponseMaxDelay: 100ms
+  # -- DNS proxy operation mode (true/false, or unset to use version dependent defaults)
+  # enableTransparentMode: true
 
 # -- SCTP Configuration Values
 sctp:
@@ -3385,8 +3398,21 @@ authentication:
           # -- SPIRE Workload Attestor kubelet verification.
           skipKubeletVerification: true
           # -- SPIRE agent tolerations configuration
+          # By default it follows the same tolerations as the agent itself
+          # to allow the Cilium agent on this node to connect to SPIRE.
           # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-          tolerations: []
+          tolerations:
+          - key: node.kubernetes.io/not-ready
+            effect: NoSchedule
+          - key: node-role.kubernetes.io/master
+            effect: NoSchedule
+          - key: node-role.kubernetes.io/control-plane
+            effect: NoSchedule
+          - key: node.cloudprovider.kubernetes.io/uninitialized
+            effect: NoSchedule
+            value: "true"
+          - key: CriticalAddonsOnly
+            operator: "Exists"
           # -- SPIRE agent affinity configuration
           affinity: {}
           # -- SPIRE agent nodeSelector configuration

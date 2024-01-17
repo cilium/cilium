@@ -174,7 +174,7 @@ func (s byInitialism) Less(i, j int) bool {
 
 // Removes leading whitespaces
 func trim(str string) string {
-	return strings.Trim(str, " ")
+	return strings.TrimSpace(str)
 }
 
 // Shortcut to strings.ToUpper()
@@ -231,7 +231,7 @@ func ToHumanNameLower(name string) string {
 		if !w.IsInitialism() {
 			out = append(out, lower(w.GetOriginal()))
 		} else {
-			out = append(out, w.GetOriginal())
+			out = append(out, trim(w.GetOriginal()))
 		}
 	}
 
@@ -244,7 +244,7 @@ func ToHumanNameTitle(name string) string {
 
 	out := make([]string, 0, len(in))
 	for _, w := range in {
-		original := w.GetOriginal()
+		original := trim(w.GetOriginal())
 		if !w.IsInitialism() {
 			out = append(out, Camelize(original))
 		} else {
@@ -264,7 +264,7 @@ func ToJSONName(name string) string {
 			out = append(out, lower(w))
 			continue
 		}
-		out = append(out, Camelize(w))
+		out = append(out, Camelize(trim(w)))
 	}
 	return strings.Join(out, "")
 }

@@ -302,6 +302,40 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.16_upgrade_notes:
+
+1.16 Upgrade Notes
+------------------
+
+* To be determined during v1.16 development.
+
+Removed Options
+~~~~~~~~~~~~~~~
+
+* TBD
+
+Helm Options
+~~~~~~~~~~~~
+
+* TBD
+
+Added Metrics
+~~~~~~~~~~~~~
+
+* TBD
+
+Removed Metrics
+~~~~~~~~~~~~~~~
+
+The following deprecated metrics were removed:
+
+* TBD
+
+Changed Metrics
+~~~~~~~~~~~~~~~
+
+* TBD
+
 .. _1.15_upgrade_notes:
 
 1.15 Upgrade Notes
@@ -348,6 +382,10 @@ Annotations:
   to default deny for an allow policy. Similarly, for an Egress CNP, an empty slice in
   one of the fields ``toEndpoints``, ``toCIDR``, ``toCIDRSet`` and ``toEntities`` will
   not select any identity either.
+* If Cilium is configured with BPF masquerade support but the requirements are not
+  met (e.g: NodePort service implementation in BPF is disabled or socket load-balancing
+  is disabled), it will fail to initialize and will log an error instead of silently
+  fall back to iptables based masquerading.
 
 .. _upgrade_cilium_cli_helm_mode:
 
@@ -383,9 +421,6 @@ Removed Options
   ``tunnel-protocol=vxlan|geneve`` (previously ``tunnel=vxlan|geneve``).
 
 * The long defunct and undocumented ``single-cluster-route`` flag has been removed.
-
-* The ``dnsproxy-lock-count`` and ``dnsproxy-lock-timeout`` flags no longer have
-  any effect and are deprecated. They will be removed in v1.16.
 
 * Deprecated options ``enable-k8s-event-handover`` and ``cnp-status-update-interval`` has been removed.
 

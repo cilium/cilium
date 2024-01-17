@@ -49,16 +49,11 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	hr := original.DeepCopy()
-	defer func() {
-		if err := r.updateStatus(ctx, original, hr); err != nil {
-			scopedLog.WithError(err).Error("Failed to update HTTPRoute status")
-		}
-	}()
 
 	// check if this cert is allowed to be used by this gateway
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
-		return controllerruntime.Fail(fmt.Errorf("failed to retrieve reference grants: %w", err))
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to retrieve reference grants: %w", err), original, hr)
 	}
 
 	// input for the validators
@@ -99,7 +94,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		} {
 			continueCheck, err := fn(i, parent)
 			if err != nil {
-				return ctrl.Result{}, err
+				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Gateway check: %w", err), original, hr)
 			}
 
 			if !continueCheck {
@@ -113,9 +108,18 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		routechecks.CheckBackendIsService,
 		routechecks.CheckBackendIsExistingService,
 	} {
-		if continueCheck, err := fn(i); err != nil || !continueCheck {
-			return ctrl.Result{}, err
+		continueCheck, err := fn(i)
+		if err != nil {
+			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to apply Backend check: %w", err), original, hr)
 		}
+
+		if !continueCheck {
+			break
+		}
+	}
+
+	if err := r.updateStatus(ctx, original, hr); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update HTTPRoute status: %w", err)
 	}
 
 	scopedLog.Info("Successfully reconciled HTTPRoute")
@@ -131,4 +135,12 @@ func (r *httpRouteReconciler) updateStatus(ctx context.Context, original *gatewa
 		return nil
 	}
 	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *httpRouteReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) (ctrl.Result, error) {
+	if err := r.updateStatus(ctx, original, modified); err != nil {
+		return controllerruntime.Fail(fmt.Errorf("failed to update HTTPRoute status while handling the reconcile error %w: %w", reconcileErr, err))
+	}
+
+	return controllerruntime.Fail(reconcileErr)
 }

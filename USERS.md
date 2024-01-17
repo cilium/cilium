@@ -187,8 +187,8 @@ Users (Alphabetically)
 
     * N: Datadog
       D: Datadog is using Cilium in AWS (self-hosted k8s)
-      U: ENI Networking, Service load-balancing, Encryption
-      Q: @lbernail, @roboll
+      U: ENI Networking, Service load-balancing, Encryption, Network Policies, Hubble
+      Q: @lbernail, @roboll, @mvisonneau
 
     * N: Dcode.tech
       D: We specialize in AWS and Kubernetes, and actively implement Cilium at our clients. 
@@ -537,6 +537,11 @@ Users (Alphabetically)
       U: CNI, Overlay networking
       Q: @Madhu CS
 
+    * N: Santa Claus & the Elves
+      D: All our infrastructure to process children's letters and wishes, toy making, and delivery, distributed over multiple clusters around the world, is now powered by Cilium.
+      U: ClusterMesh, L4LB, XDP acceleration, Bandwidth manager, Encryption, Hubble
+      L: https://qmonnet.github.io/whirl-offload/2024/01/02/santa-switches-to-cilium/
+
     * N: SAP
       D: SAP uses Cilium for multiple internal scenarios. For examples for self-hosted Kubernetes scenarios on AWS with SAP Concur and for managed Kubernetes clusters provided with Gardener Project across AWS, Azure, GCP, and OpenStack.
       U: CNI , Overlay Network, Network Policies
@@ -608,11 +613,6 @@ Users (Alphabetically)
       D: S&P Global uses Cilium as their multi-cloud CNI
       U: CNI
       L: https://www.youtube.com/watch?v=6CZ_SSTqb4g
-
-    * N: Sphere Knowledge
-      D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
-      U: ENI Networking, Network policies, Service load-balancing, Hubble
-      Q: @mvisonneau
 
     * N: Spherity
       D: Spherity  is using Cilium on AWS EKS

@@ -17,9 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 )
 
 func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ctx context.Context, clientset client.Clientset) {
@@ -92,9 +92,10 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		ccec.GetName(),
 		ccec.Spec.Resources,
 		true,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(ccec.Spec.Services) > 0,
 		useOriginalSourceAddress(&ccec.ObjectMeta),
+		true,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config")
@@ -103,12 +104,12 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err := k.envoyConfigManager.UpsertEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
+	if err := k.envoyXdsServer.UpsertEnvoyResources(ctx, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig")
 		return err
 	}
 
-	name := loadbalancer.ServiceName{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
+	name := service.L7LBResourceName{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
 	if err := k.addK8sServiceRedirects(name, &ccec.Spec, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to redirect K8s services to Envoy")
 		return err
@@ -138,9 +139,10 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		oldCCEC.GetName(),
 		oldCCEC.Spec.Resources,
 		false,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(oldCCEC.Spec.Services) > 0,
 		useOriginalSourceAddress(&oldCCEC.ObjectMeta),
+		false,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed old Envoy config")
@@ -151,23 +153,24 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		newCCEC.GetName(),
 		newCCEC.Spec.Resources,
 		true,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(newCCEC.Spec.Services) > 0,
 		useOriginalSourceAddress(&newCCEC.ObjectMeta),
+		true,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config")
 		return err
 	}
-	name := loadbalancer.ServiceName{Name: oldCCEC.ObjectMeta.Name, Namespace: oldCCEC.ObjectMeta.Namespace}
-	if err = k.removeK8sServiceRedirects(name, &oldCCEC.Spec, &newCCEC.Spec, oldResources, newResources); err != nil {
+	name := service.L7LBResourceName{Name: oldCCEC.ObjectMeta.Name, Namespace: oldCCEC.ObjectMeta.Namespace}
+	if err := k.removeK8sServiceRedirects(name, &oldCCEC.Spec, &newCCEC.Spec, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update K8s service redirections")
 		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err = k.envoyConfigManager.UpdateEnvoyResources(ctx, oldResources, newResources, k.envoyConfigManager); err != nil {
+	if err := k.envoyXdsServer.UpdateEnvoyResources(ctx, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig")
 		return err
 	}
@@ -197,24 +200,25 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 		ccec.GetName(),
 		ccec.Spec.Resources,
 		false,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(ccec.Spec.Services) > 0,
 		useOriginalSourceAddress(&ccec.ObjectMeta),
+		false,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyConfig: parsing rersource names failed")
 		return err
 	}
 
-	name := loadbalancer.ServiceName{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
-	if err = k.deleteK8sServiceRedirects(name, &ccec.Spec); err != nil {
+	name := service.L7LBResourceName{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
+	if err := k.deleteK8sServiceRedirects(name, &ccec.Spec); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete K8s service redirections")
 		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err = k.envoyConfigManager.DeleteEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
+	if err := k.envoyXdsServer.DeleteEnvoyResources(ctx, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete Envoy resources")
 		return err
 	}

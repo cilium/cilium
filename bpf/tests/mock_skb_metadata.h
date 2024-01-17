@@ -56,7 +56,17 @@ mock_skb_load_meta(const struct __sk_buff *ctx __maybe_unused, const __u32 off)
 	return meta->cb[off];
 }
 
+static __always_inline __maybe_unused __u32
+mock_skb_load_and_clear_meta(struct __sk_buff *ctx __maybe_unused, const __u32 off)
+{
+	__u32 val = mock_skb_load_meta(ctx, off);
+
+	mock_skb_store_meta(ctx, off, 0);
+	return val;
+}
+
 #define ctx_store_meta mock_skb_store_meta
 #define ctx_load_meta mock_skb_load_meta
+#define ctx_load_and_clear_meta mock_skb_load_and_clear_meta
 
 #endif /* ____BPF_TEST_MOCK_SKB_METADATA____ */
