@@ -479,6 +479,10 @@ data:
   service-no-backend-response: "{{ .Values.serviceNoBackendResponse }}"
 {{- end}}
 
+{{- if hasKey .Values "egressDenyTuples" }}
+  egress-deny-tuples: "{{ .Values.egressDenyTuples }}"
+{{- end}}
+
 {{- if .Values.MTU }}
   mtu: {{ .Values.MTU | quote }}
 {{- end }}
