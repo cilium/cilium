@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.12.18
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add option to configure the resources of the cgroups automount init Container in the Cilium Agent DaemonSet. (Backport PR #30004, Upstream PR #22384, @shaardie)
+
+**Bugfixes:**
+* Cilium DNS proxy can now use the original pod's address as the source address towards the DNS servers (--dnsproxy-enable-transparent-mode). (Backport PR #30217, Upstream PR #29239, @jrajahalme)
+* cilium-preflight: use the k8s node name instead of relying on hostname (Backport PR #30004, Upstream PR #29809, @marseel)
+* Fix and prevent future bugs limiting pod-to-pod network performance under high load when tunneling and IPSec are both enabled. (Backport PR #30004, Upstream PR #29616, @learnitall)
+* iptables: remove logic to control non-existent net.ipv6.ip_early_demux (Backport PR #30181, Upstream PR #29310, @julianwiedmann)
+* nodediscovery: Fix bug where CiliumInternalIP was flapping (Backport PR #29979, Upstream PR #29964, @gandro)
+
+**CI Changes:**
+* ci-ipsec-upgrade: Add vxlan w/ no EP routes (Backport PR #29701, Upstream PR #29653, @brb)
+* ci: always use full matrix for scheduled cloud-provider workflows (Backport PR #29842, Upstream PR #29694, @mhofstetter)
+* datapath: Cover subnet encryption in XFRM leak test (Backport PR #30082, Upstream PR #27212, @pchaigno)
+* datapath: Fix TestNodeChurnXFRMLeaks (Backport PR #30082, Upstream PR #27274, @brb)
+* gha: enable IPv6 in clustermesh upgrade/downgrade workflow (Backport PR #29842, Upstream PR #29675, @giorio94)
+* node: Integration test for XFRM leaks on node churn (Backport PR #30082, Upstream PR #27187, @pchaigno)
+* workflows: Increase IPsec e2e test's timeout (Backport PR #30268, Upstream PR #30194, @julianwiedmann)
+* workflows: Increase IPsec upgrade test's timeout (Backport PR #30082, Upstream PR #29934, @pchaigno)
+* workflows: Make the conn-disrupt test more sensitive (Backport PR #29701, Upstream PR #29623, @pchaigno)
+
+**Misc Changes:**
+* bpf: ipv4: always return drop reason from ipv4_handle_fragmentation() (Backport PR #30004, Upstream PR #29880, @julianwiedmann)
+* docs: Fix keyid derivation in IPsec docs (Backport PR #30082, Upstream PR #30000, @brb)
+* fix(deps): update module golang.org/x/crypto to v0.17.0 [security] (main) (Backport PR #30181, Upstream PR #29971, @renovate[bot])
+* Revert "cilium: Ensure xfrm state is initialized for route IP before … (Backport PR #29871, Upstream PR #29801, @jrfastab)
+
+**Other Changes:**
+* install: Update image digests for v1.12.17 (#29808, @nebril)
+* v1.12: Ignore packet drops of type `Failed to update or lookup TC buffer` (#30202, @pchaigno)
+* v1.12: ipam: Fix invalid PodCIDR in CiliumNode in ENI/Azure/MultiPool mode (#30147, @pchaigno)
+* v1.12: update dependency cilium/cilium-cli to v0.15.19 (#30146, @pchaigno)
+* v1.12: workflow/ipsec-e2e: bump CLI to v0.15.19 (#30239, @pchaigno)
+
 ## v1.12.17
 
 Summary of Changes
