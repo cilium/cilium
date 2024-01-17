@@ -85,8 +85,10 @@ func installToProxyRoutesIPv6() error {
 
 // removeToProxyRoutesIPv6 ensures routes and rules for proxy traffic are removed.
 func removeToProxyRoutesIPv6() error {
-	if err := route.DeleteRule(netlink.FAMILY_V6, toProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
-		return fmt.Errorf("removing ipv6 proxy routing rule: %w", err)
+	if err := route.DeleteRule(netlink.FAMILY_V6, toProxyRule); err != nil {
+		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			return fmt.Errorf("removing ipv6 proxy routing rule: %w", err)
+		}
 	}
 	if err := route.DeleteRouteTable(linux_defaults.RouteTableToProxy, netlink.FAMILY_V6); err != nil {
 		return fmt.Errorf("removing ipv6 proxy route table: %w", err)
@@ -183,8 +185,10 @@ func installFromProxyRoutesIPv6(ipv6 net.IP, device string) error {
 
 // removeFromProxyRoutesIPv6 ensures routes and rules for traffic from the proxy are removed.
 func removeFromProxyRoutesIPv6() error {
-	if err := route.DeleteRule(netlink.FAMILY_V6, fromProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
-		return fmt.Errorf("removing ipv6 from proxy routing rule: %w", err)
+	if err := route.DeleteRule(netlink.FAMILY_V6, fromProxyRule); err != nil {
+		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			return fmt.Errorf("removing ipv6 from proxy routing rule: %w", err)
+		}
 	}
 	if err := route.DeleteRouteTable(linux_defaults.RouteTableFromProxy, netlink.FAMILY_V6); err != nil {
 		return fmt.Errorf("removing ipv6 from proxy route table: %w", err)
