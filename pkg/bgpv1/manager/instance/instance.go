@@ -19,6 +19,8 @@ import (
 // It exports a method set for manipulating the BgpServer. However, this
 // struct is a dumb object. The calling code is required to keep the BgpServer's
 // configuration and associated configuration fields in sync.
+//
+// This is used in BGPv1 implementation.
 type ServerWithConfig struct {
 	// backed BgpServer configured in accordance to the accompanying
 	// CiliumBGPVirtualRouter configuration.
@@ -53,5 +55,35 @@ func NewServerWithConfig(ctx context.Context, log *logrus.Entry, params types.Se
 		Server:             s,
 		Config:             nil,
 		ReconcilerMetadata: make(map[string]any),
+	}, nil
+}
+
+// BGPInstance is a container for providing interface with underlying router implementation.
+//
+// This is used in BGPv2 implementation.
+type BGPInstance struct {
+	Config   *v2alpha1api.CiliumBGPNodeInstance
+	Router   types.Router
+	Metadata map[string]any
+}
+
+// NewBGPInstance will start an underlying BGP instance utilizing types.ServerParameters
+// for its initial configuration.
+//
+// The returned BGPInstance has a nil CiliumBGPNodeInstance config, and is
+// ready to be provided to ReconcileBGPConfigV2.
+//
+// Canceling the provided context will kill the BGP instance along with calling the
+// underlying Router's Stop() method.
+func NewBGPInstance(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (*BGPInstance, error) {
+	s, err := gobgp.NewGoBGPServer(ctx, log, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BGPInstance{
+		Config:   nil,
+		Router:   s,
+		Metadata: make(map[string]any),
 	}, nil
 }
