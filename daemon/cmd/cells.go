@@ -32,6 +32,7 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -144,6 +145,10 @@ var (
 		// Shared resources provide access to k8s resources as event streams or as
 		// read-only stores.
 		agentK8s.ResourcesCell,
+
+		// Shared synchronization structures for waiting on K8s resources to
+		// be synced
+		k8sSynced.Cell,
 
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,
