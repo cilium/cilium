@@ -203,6 +203,7 @@ var (
 		"Unknown L3 target address",
 		"No tunnel/encapsulation endpoint (datapath BUG!)",
 		"Host datapath not ready",
+		"Unknown ICMPv4 code",
 	}
 
 	ExpectedXFRMErrors = []string{
