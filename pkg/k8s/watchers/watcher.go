@@ -512,6 +512,15 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 	asyncControllers := &sync.WaitGroup{}
 
 	// CNP, CCNP, and CCG resources are handled together.
+	p := &PolicyWatcher{
+		k8sResourceSynced:                k.k8sResourceSynced,
+		k8sAPIGroups:                     k.k8sAPIGroups,
+		policyManager:                    k.policyManager,
+		K8sSvcCache:                      k.K8sSvcCache,
+		CiliumNetworkPolicies:            k.resources.CiliumNetworkPolicies,
+		CiliumClusterwideNetworkPolicies: k.resources.CiliumClusterwideNetworkPolicies,
+		CiliumCIDRGroups:                 k.resources.CiliumCIDRGroups,
+	}
 	var cnpOnce sync.Once
 	var knpOnce sync.Once
 	for _, r := range resourceNames {
@@ -534,7 +543,9 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.endpointsInit()
 		// Custom resource definitions
 		case k8sAPIGroupCiliumNetworkPolicyV2, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, k8sAPIGroupCiliumCIDRGroupV2Alpha1:
-			cnpOnce.Do(func() { k.ciliumNetworkPoliciesInit(ctx, k.clientset) })
+			cnpOnce.Do(func() {
+				p.ciliumNetworkPoliciesInit(ctx, k.clientset)
+			})
 		case k8sAPIGroupCiliumEndpointV2:
 			k.initCiliumEndpointOrSlices(ctx, asyncControllers)
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
