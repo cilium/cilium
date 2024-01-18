@@ -38,6 +38,7 @@ type ingressReconciler struct {
 	defaultLoadbalancerMode string
 	defaultSecretNamespace  string
 	defaultSecretName       string
+	enforcedHTTPS           bool
 
 	cecTranslator       translation.CECTranslator
 	dedicatedTranslator translation.Translator

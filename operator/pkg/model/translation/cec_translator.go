@@ -32,7 +32,6 @@ var _ CECTranslator = (*cecTranslator)(nil)
 //   - no LB service and endpoint
 type cecTranslator struct {
 	secretsNamespace string
-	enforceHTTPs     bool
 	useProxyProtocol bool
 
 	// hostNameSuffixMatch is a flag to control whether the host name suffix match.
@@ -45,10 +44,9 @@ type cecTranslator struct {
 }
 
 // NewCECTranslator returns a new translator
-func NewCECTranslator(secretsNamespace string, enforceHTTPs bool, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) CECTranslator {
+func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) CECTranslator {
 	return &cecTranslator{
 		secretsNamespace:    secretsNamespace,
-		enforceHTTPs:        enforceHTTPs,
 		useProxyProtocol:    useProxyProtocol,
 		hostNameSuffixMatch: hostNameSuffixMatch,
 		idleTimeoutSeconds:  idleTimeoutSeconds,
@@ -174,7 +172,12 @@ func (i *cecTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSResour
 func (i *cecTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv2.XDSResource {
 	var res []ciliumv2.XDSResource
 
-	portHostName := map[string][]string{}
+	type hostnameRedirect struct {
+		hostname string
+		redirect bool
+	}
+
+	portHostNameRedirect := map[string][]hostnameRedirect{}
 	hostNamePortRoutes := map[string]map[string][]model.HTTPRoute{}
 
 	for _, l := range m.HTTP {
@@ -185,7 +188,11 @@ func (i *cecTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv
 			}
 
 			if len(r.Hostnames) == 0 {
-				portHostName[port] = append(portHostName[port], l.Hostname)
+				hnr := hostnameRedirect{
+					hostname: l.Hostname,
+					redirect: l.ForceHTTPtoHTTPSRedirect,
+				}
+				portHostNameRedirect[port] = append(portHostNameRedirect[port], hnr)
 				if _, ok := hostNamePortRoutes[l.Hostname]; !ok {
 					hostNamePortRoutes[l.Hostname] = map[string][]model.HTTPRoute{}
 				}
@@ -193,7 +200,11 @@ func (i *cecTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv
 				continue
 			}
 			for _, h := range r.Hostnames {
-				portHostName[port] = append(portHostName[port], h)
+				hnr := hostnameRedirect{
+					hostname: h,
+					redirect: l.ForceHTTPtoHTTPSRedirect,
+				}
+				portHostNameRedirect[port] = append(portHostNameRedirect[port], hnr)
 				if _, ok := hostNamePortRoutes[h]; !ok {
 					hostNamePortRoutes[h] = map[string][]model.HTTPRoute{}
 				}
@@ -203,7 +214,7 @@ func (i *cecTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv
 	}
 
 	for _, port := range []string{insecureHost, secureHost} {
-		hostNames, exists := portHostName[port]
+		hostNames, exists := portHostNameRedirect[port]
 		if !exists {
 			continue
 		}
@@ -211,30 +222,32 @@ func (i *cecTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv
 
 		redirectedHost := map[string]struct{}{}
 		// Add HTTPs redirect virtual host for secure host
-		if port == insecureHost && i.enforceHTTPs {
-			for _, h := range slices.Unique(portHostName[secureHost]) {
-				vhs, _ := NewVirtualHostWithDefaults(hostNamePortRoutes[h][secureHost], VirtualHostParameter{
-					HostNames:           []string{h},
-					HTTPSRedirect:       true,
-					HostNameSuffixMatch: i.hostNameSuffixMatch,
-					ListenerPort:        m.HTTP[0].Port,
-				})
-				virtualhosts = append(virtualhosts, vhs)
-				redirectedHost[h] = struct{}{}
+		if port == insecureHost {
+			for _, h := range slices.Unique(portHostNameRedirect[secureHost]) {
+				if h.redirect {
+					vhs, _ := NewVirtualHostWithDefaults(hostNamePortRoutes[h.hostname][secureHost], VirtualHostParameter{
+						HostNames:           []string{h.hostname},
+						HTTPSRedirect:       true,
+						HostNameSuffixMatch: i.hostNameSuffixMatch,
+						ListenerPort:        m.HTTP[0].Port,
+					})
+					virtualhosts = append(virtualhosts, vhs)
+					redirectedHost[h.hostname] = struct{}{}
+				}
 			}
 		}
 		for _, h := range slices.Unique(hostNames) {
 			if port == insecureHost {
-				if _, ok := redirectedHost[h]; ok {
+				if _, ok := redirectedHost[h.hostname]; ok {
 					continue
 				}
 			}
-			routes, exists := hostNamePortRoutes[h][port]
+			routes, exists := hostNamePortRoutes[h.hostname][port]
 			if !exists {
 				continue
 			}
 			vhs, _ := NewVirtualHostWithDefaults(routes, VirtualHostParameter{
-				HostNames:           []string{h},
+				HostNames:           []string{h.hostname},
 				HTTPSRedirect:       false,
 				HostNameSuffixMatch: i.hostNameSuffixMatch,
 				ListenerPort:        m.HTTP[0].Port,
