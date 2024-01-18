@@ -296,8 +296,12 @@ jobs:
           fi
 
           if [ "${{ matrix.host-fw }}" == "true" ]; then
-            # Until https://github.com/cilium/cilium/issues/28088 is fixed
-            EXTRA+=("--expected-drop-reasons=+Missed tail call")
+            # Missed tail calls until https://github.com/cilium/cilium/issues/28088 is fixed,
+            # (note v1.13: iproute2 is still used for loading cgroup progs, so we can't
+            # guarantee no missed tail calls during loading of those programs. Leave this in.)
+            # host datapath once cilium-cli is upgraded to a version that includes 
+            # https://github.com/cilium/cilium-cli/pull/2206.
+            EXTRA+=("--expected-drop-reasons=+Missed tail call,+Host datapath not ready")
           fi
 
           if [ "${{ matrix.tunnel }}" != "disabled" ]; then
