@@ -62,6 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -1622,6 +1623,8 @@ type daemonParams struct {
 	Shutdowner           hive.Shutdowner
 	Resources            agentK8s.Resources
 	CacheStatus          k8s.CacheStatus
+	K8sResourceSynced    *k8sSynced.Resources
+	K8sAPIGroups         *k8sSynced.APIGroups
 	NodeManager          nodeManager.NodeManager
 	EndpointManager      endpointmanager.EndpointManager
 	CertManager          certificatemanager.CertificateManager

@@ -492,6 +492,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		params.Clientset,
+		params.K8sResourceSynced,
+		params.K8sAPIGroups,
 		d.endpointManager,
 		d.nodeDiscovery,
 		&d,

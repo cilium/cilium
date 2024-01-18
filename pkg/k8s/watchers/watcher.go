@@ -197,11 +197,11 @@ type K8sWatcher struct {
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
-	k8sResourceSynced synced.Resources
+	k8sResourceSynced *synced.Resources
 
 	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
 	// and may be disabled while the agent runs.
-	k8sAPIGroups synced.APIGroups
+	k8sAPIGroups *synced.APIGroups
 
 	// K8sSvcCache is a cache of all Kubernetes services and endpoints
 	K8sSvcCache *k8s.ServiceCache
@@ -247,6 +247,8 @@ type K8sWatcher struct {
 
 func NewK8sWatcher(
 	clientset client.Clientset,
+	k8sResourceSynced *synced.Resources,
+	k8sAPIGroups *synced.APIGroups,
 	endpointManager endpointManager,
 	nodeDiscoverManager nodeDiscoverManager,
 	policyManager policyManager,
@@ -264,6 +266,8 @@ func NewK8sWatcher(
 ) *K8sWatcher {
 	return &K8sWatcher{
 		clientset:             clientset,
+		k8sResourceSynced:     k8sResourceSynced,
+		k8sAPIGroups:          k8sAPIGroups,
 		K8sSvcCache:           serviceCache,
 		endpointManager:       endpointManager,
 		nodeDiscoverManager:   nodeDiscoverManager,
@@ -385,7 +389,7 @@ func (k *K8sWatcher) GetAPIGroups() []string {
 // watcher, as those resource controllers need the resources to be registered
 // with K8s first.
 func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
-	return synced.SyncCRDs(ctx, k.clientset, synced.AgentCRDResourceNames(), &k.k8sResourceSynced, &k.k8sAPIGroups)
+	return synced.SyncCRDs(ctx, k.clientset, synced.AgentCRDResourceNames(), k.k8sResourceSynced, k.k8sAPIGroups)
 }
 
 type watcherKind int
