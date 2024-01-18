@@ -5,6 +5,7 @@ package reconciler
 
 import (
 	"context"
+	"sort"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -45,3 +46,37 @@ var ConfigReconcilers = cell.Provide(
 
 // log is the logger used by the reconcilers
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
+
+func GetActiveReconcilers(reconcilers []ConfigReconciler) []ConfigReconciler {
+	recMap := make(map[string]ConfigReconciler)
+	for _, r := range reconcilers {
+		if r == nil {
+			continue // reconciler not initialized
+		}
+		if existing, exists := recMap[r.Name()]; exists {
+			if existing.Priority() == r.Priority() {
+				log.Warnf("Skipping duplicate reconciler %s with the same priority (%d)", existing.Name(), existing.Priority())
+				continue
+			}
+			if existing.Priority() < r.Priority() {
+				log.Debugf("Skipping reconciler %s (priority %d) as it has lower priority than the existing one (%d)",
+					r.Name(), r.Priority(), existing.Priority())
+				continue
+			}
+			log.Debugf("Overriding existing reconciler %s (priority %d) with higher priority one (%d)",
+				existing.Name(), existing.Priority(), r.Priority())
+		}
+		recMap[r.Name()] = r
+	}
+
+	var activeReconcilers []ConfigReconciler
+	for _, r := range recMap {
+		log.Debugf("Adding BGP reconciler: %v (priority %d)", r.Name(), r.Priority())
+		activeReconcilers = append(activeReconcilers, r)
+	}
+	sort.Slice(activeReconcilers, func(i, j int) bool {
+		return activeReconcilers[i].Priority() < activeReconcilers[j].Priority()
+	})
+
+	return activeReconcilers
+}
