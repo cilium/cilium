@@ -6,6 +6,7 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -18,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -37,6 +39,7 @@ type ciliumEnvoyConfigWatcher struct {
 	appliedCECsMutex lock.Mutex
 	appliedCECs      map[resource.Key]*ciliumv2.CiliumEnvoyConfig
 	appliedCCECs     map[resource.Key]*ciliumv2.CiliumClusterwideEnvoyConfig
+	localNodeLabels  map[string]string
 }
 
 func newCiliumEnvoyConfigWatcher(logger logrus.FieldLogger,
@@ -112,6 +115,32 @@ func (r *ciliumEnvoyConfigWatcher) handleCCECEvent(ctx context.Context, event re
 	}
 
 	event.Done(err)
+
+	return nil
+}
+
+func (r *ciliumEnvoyConfigWatcher) handleLocalNodeEvent(ctx context.Context, localNode node.LocalNode) error {
+	r.logger.Debug("Received LocalNode changed event")
+
+	if err := r.handleLocalNodeLabels(ctx, localNode); err != nil {
+		r.logger.WithError(err).Error("failed to handle LocalNode changed event")
+		return fmt.Errorf("failed to handle LocalNode changed event: %w", err)
+	}
+
+	return nil
+}
+
+func (r *ciliumEnvoyConfigWatcher) handleLocalNodeLabels(ctx context.Context, localNode node.LocalNode) error {
+	r.appliedCECsMutex.Lock()
+	defer r.appliedCECsMutex.Unlock()
+
+	if maps.Equal(r.localNodeLabels, localNode.Labels) {
+		r.logger.Debug("Labels of local Node didn't change")
+		return nil
+	}
+
+	r.localNodeLabels = localNode.Labels
+	r.logger.Debug("Updated labels of local Node")
 
 	return nil
 }
