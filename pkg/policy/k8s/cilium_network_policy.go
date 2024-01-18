@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package k8s
 
 import (
 	"context"
@@ -75,7 +75,7 @@ type PolicyWatcher struct {
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
 
-	policyManager policyManager
+	policyManager PolicyManager
 	K8sSvcCache   *k8s.ServiceCache
 
 	CiliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
