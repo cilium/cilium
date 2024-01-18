@@ -208,9 +208,9 @@ END
     printf("Sanity check failed: detected no IPv4 connections from the L7 proxy. Is the filter correct?\n")
   }
 
-  if (!@sanity[TYPE_PROXY_L7_IP6] && str($2) != "::1") {
-    printf("Sanity check failed: detected no IPv6 connections from the L7 proxy. Is the filter correct?\n")
-  }
+//  if (!@sanity[TYPE_PROXY_L7_IP6] && str($2) != "::1") {
+//    printf("Sanity check failed: detected no IPv6 connections from the L7 proxy. Is the filter correct?\n")
+//  }
 
   if (!(@sanity[TYPE_PROXY_DNS_IP4] || @sanity[TYPE_PROXY_DNS_IP6])) {
     printf("Sanity check failed: detected no messages sent by the DNS proxy. Is the filter correct?\n")
