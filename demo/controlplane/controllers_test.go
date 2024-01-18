@@ -36,6 +36,7 @@ type params struct {
 
 	DB        *statedb.DB
 	Clientset *client.FakeClientset
+
 	Frontends statedb.Table[*datapath.Frontend]
 	Backends  statedb.Table[*datapath.Backend]
 }

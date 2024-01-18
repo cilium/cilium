@@ -12,10 +12,11 @@ import (
 )
 
 type DeleteTracker[Obj any] struct {
-	db          *DB
-	trackerName string
-	table       Table[Obj]
-	revision    atomic.Uint64
+	db           *DB
+	trackerName  string
+	table        Table[Obj]
+	revision     atomic.Uint64
+	seenRevision atomic.Uint64
 }
 
 // setRevision is called to set the starting low watermark when
@@ -123,7 +124,7 @@ func (dt *DeleteTracker[Obj]) Process(txn ReadTxn, minRevision Revision, process
 // big of a batch of changes at a time as that would adversely impact latency.
 
 func (dt *DeleteTracker[Obj]) Iterate(txn ReadTxn, iterFn func(obj Obj, deleted bool, rev Revision)) <-chan struct{} {
-	lastRevision := dt.revision.Load()
+	lastRevision := dt.seenRevision.Load()
 	newRevision := dt.table.Revision(txn)
 
 	// Get all new and updated objects with revision number higher than last round.
@@ -146,5 +147,6 @@ func (dt *DeleteTracker[Obj]) Iterate(txn ReadTxn, iterFn func(obj Obj, deleted 
 	// Fully processed up to latest table revision. GC deleted objects
 	// and return the next revision.
 	dt.Mark(newRevision)
+	dt.seenRevision.Store(newRevision)
 	return watch
 }

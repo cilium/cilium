@@ -83,7 +83,6 @@ func (s *servicesController) process(ctx context.Context, health cell.HealthRepo
 			s.endpointChanged,
 		)
 		s.wtxn.Commit()
-		s.wtxn = nil
 
 		health.OK("OK")
 

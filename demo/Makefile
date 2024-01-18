@@ -11,6 +11,9 @@ build:
 test:
 	go test ./...
 
+benchmark:
+	go test ./... -test.run XXX -bench .
+
 run: build
 	sudo ./demo --k8s-kubeconfig-path ~/.kube/config
 
