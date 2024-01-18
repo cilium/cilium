@@ -5,6 +5,7 @@ package ciliumenvoyconfig
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"strconv"
@@ -146,19 +147,41 @@ func (r *ciliumEnvoyConfigWatcher) handleLocalNodeLabels(ctx context.Context, lo
 	}
 
 	r.localNodeLabels = localNode.Labels
-	r.logger.Debug("Updated labels of local Node")
+	r.logger.Debug("Labels of local Node changed - updated local store")
 
-	return nil
+	r.logger.Debug("Checking whether existing configs need to be applied or filtered")
+
+	// Error containing all potential errors during reconciliation of the configs.
+	// On error, only the reconciliation of the faulty config is skipped. All other
+	// configs should be reconciled.
+	var reconcileErr error
+
+	for key, cfg := range r.configs {
+		scopedLogger := r.logger.WithField("key", key)
+
+		err := r.configUpsertedInternal(ctx, key, cfg, false /* spec didn't change */)
+		if err != nil {
+			scopedLogger.WithError(err).Error("failed to reconcile config due to changed node labels")
+			// don't prevent reconciliation of other configs in case of an error for a particular config
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile config due to changed node labels (%s): %w", key, err))
+			continue
+		}
+	}
+
+	return reconcileErr
 }
 
 func (r *ciliumEnvoyConfigWatcher) configUpserted(ctx context.Context, key resource.Key, cfg *config) error {
-	scopedLogger := r.logger.
-		WithField("key", key)
-
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	selectsLocalNode, err := r.localNodeLabelsMatch(cfg)
+	return r.configUpsertedInternal(ctx, key, cfg, true /* spec may have changed */)
+}
+
+func (r *ciliumEnvoyConfigWatcher) configUpsertedInternal(ctx context.Context, key resource.Key, cfg *config, specMayChanged bool) error {
+	scopedLogger := r.logger.WithField("key", key)
+
+	selectsLocalNode, err := r.configSelectsLocalNode(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to match Node labels with config nodeselector (%s): %w", key, err)
 	}
@@ -170,28 +193,28 @@ func (r *ciliumEnvoyConfigWatcher) configUpserted(ctx context.Context, key resou
 		scopedLogger.Debug("New config doesn't select the local Node")
 
 	case !isApplied && selectsLocalNode:
-		scopedLogger.Debug("New config selects the local node - adding config")
+		scopedLogger.Debug("New onfig selects the local node - adding config")
 		if err := r.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && selectsLocalNode && !appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Updated config now selects the local Node - adding previously filtered config")
+		scopedLogger.Debug("Config now selects the local Node - adding previously filtered config")
 		if err := r.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
-	case isApplied && selectsLocalNode && appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Updating applied config")
+	case isApplied && selectsLocalNode && appliedConfig.selectsLocalNode && specMayChanged:
+		scopedLogger.Debug("Config still selects the local Node - updating applied config")
 		if err := r.updateCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec, cfg.meta, cfg.spec); err != nil {
 			return err
 		}
 
 	case isApplied && !selectsLocalNode && !appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Updated config still doesn't select the local Node")
+		scopedLogger.Debug("Config still doesn't select the local Node")
 
 	case isApplied && !selectsLocalNode && appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Updated config no longer selects the local Node - deleting previously applied config")
+		scopedLogger.Debug("Config no longer selects the local Node - deleting previously applied config")
 		if err := r.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
 			return err
 		}
@@ -230,7 +253,7 @@ func (r *ciliumEnvoyConfigWatcher) configDeleted(ctx context.Context, key resour
 	return nil
 }
 
-func (r *ciliumEnvoyConfigWatcher) localNodeLabelsMatch(cfg *config) (bool, error) {
+func (r *ciliumEnvoyConfigWatcher) configSelectsLocalNode(cfg *config) (bool, error) {
 	if cfg != nil && cfg.spec != nil && cfg.spec.NodeSelector != nil {
 		ls, err := slim_metav1.LabelSelectorAsSelector(cfg.spec.NodeSelector)
 		if err != nil {
