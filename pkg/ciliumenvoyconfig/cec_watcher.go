@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -42,8 +44,9 @@ type ciliumEnvoyConfigWatcher struct {
 }
 
 type config struct {
-	meta metav1.ObjectMeta
-	spec *ciliumv2.CiliumEnvoyConfigSpec
+	meta             metav1.ObjectMeta
+	spec             *ciliumv2.CiliumEnvoyConfigSpec
+	selectsLocalNode bool
 }
 
 func newCiliumEnvoyConfigWatcher(logger logrus.FieldLogger,
@@ -149,42 +152,97 @@ func (r *ciliumEnvoyConfigWatcher) handleLocalNodeLabels(ctx context.Context, lo
 }
 
 func (r *ciliumEnvoyConfigWatcher) configUpserted(ctx context.Context, key resource.Key, cfg *config) error {
+	scopedLogger := r.logger.
+		WithField("key", key)
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	appliedConfig, exists := r.configs[key]
-	if exists {
-		return r.updateCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec, cfg.meta, cfg.spec)
+	selectsLocalNode, err := r.localNodeLabelsMatch(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to match Node labels with config nodeselector (%s): %w", key, err)
 	}
 
-	if err := r.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
-		return err
+	appliedConfig, isApplied := r.configs[key]
+
+	switch {
+	case !isApplied && !selectsLocalNode:
+		scopedLogger.Debug("New config doesn't select the local Node")
+
+	case !isApplied && selectsLocalNode:
+		scopedLogger.Debug("New config selects the local node - adding config")
+		if err := r.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
+			return err
+		}
+
+	case isApplied && selectsLocalNode && !appliedConfig.selectsLocalNode:
+		scopedLogger.Debug("Updated config now selects the local Node - adding previously filtered config")
+		if err := r.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
+			return err
+		}
+
+	case isApplied && selectsLocalNode && appliedConfig.selectsLocalNode:
+		scopedLogger.Debug("Updating applied config")
+		if err := r.updateCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec, cfg.meta, cfg.spec); err != nil {
+			return err
+		}
+
+	case isApplied && !selectsLocalNode && !appliedConfig.selectsLocalNode:
+		scopedLogger.Debug("Updated config still doesn't select the local Node")
+
+	case isApplied && !selectsLocalNode && appliedConfig.selectsLocalNode:
+		scopedLogger.Debug("Updated config no longer selects the local Node - deleting previously applied config")
+		if err := r.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
+			return err
+		}
 	}
 
-	r.configs[key] = &config{
-		meta: cfg.meta,
-		spec: cfg.spec,
-	}
+	r.configs[key] = &config{meta: cfg.meta, spec: cfg.spec, selectsLocalNode: selectsLocalNode}
 
 	return nil
 }
 
 func (r *ciliumEnvoyConfigWatcher) configDeleted(ctx context.Context, key resource.Key) error {
+	scopedLogger := r.logger.
+		WithField("key", key)
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	appliedConfig, exists := r.configs[key]
-	if !exists {
-		return fmt.Errorf("applied Envoy config with key %q doesn't exist", key)
-	}
+	appliedConfig, isApplied := r.configs[key]
 
-	if err := r.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
-		return err
+	switch {
+	case !isApplied:
+		scopedLogger.Warn("Deleted Envoy config has never been applied")
+
+	case isApplied && !appliedConfig.selectsLocalNode:
+		scopedLogger.Debug("Deleted CEC was already filtered by NodeSelector")
+
+	case isApplied && appliedConfig.selectsLocalNode:
+		scopedLogger.Debug("Deleting applied CEC")
+		if err := r.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
+			return err
+		}
 	}
 
 	delete(r.configs, key)
 
 	return nil
+}
+
+func (r *ciliumEnvoyConfigWatcher) localNodeLabelsMatch(cfg *config) (bool, error) {
+	if cfg != nil && cfg.spec != nil && cfg.spec.NodeSelector != nil {
+		ls, err := slim_metav1.LabelSelectorAsSelector(cfg.spec.NodeSelector)
+		if err != nil {
+			return false, fmt.Errorf("invalid NodeSelector: %w", err)
+		}
+
+		if !ls.Matches(labels.Set(r.localNodeLabels)) {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func (r *ciliumEnvoyConfigWatcher) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
