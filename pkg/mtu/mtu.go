@@ -169,6 +169,9 @@ func (c *Configuration) GetRoutePostEncryptMTU() int {
 // encryption overhead accounted for.
 func (c *Configuration) GetRouteMTU() int {
 	if c.wireguardEnabled {
+		if c.encapEnabled {
+			return c.GetDeviceMTU() - (WireguardOverhead + TunnelOverhead)
+		}
 		return c.GetDeviceMTU() - WireguardOverhead
 	}
 
