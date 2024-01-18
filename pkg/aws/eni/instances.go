@@ -8,8 +8,11 @@ package eni
 import (
 	"context"
 
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/sirupsen/logrus"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -35,6 +38,7 @@ type EC2API interface {
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
+	GetInstanceTypes(context.Context) ([]ec2_types.InstanceTypeInfo, error)
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date
@@ -241,6 +245,13 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	m.subnets = subnets
 	m.vpcs = vpcs
 	m.securityGroups = securityGroups
+
+	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
+		if err := limits.UpdateFromEC2API(ctx, m.api); err != nil {
+			log.WithError(err).Warning("Unable to update instance type to adapter limits from EC2 API")
+			return time.Time{}
+		}
+	}
 
 	return resyncStart
 }
