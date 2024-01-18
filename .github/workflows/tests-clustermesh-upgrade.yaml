@@ -122,7 +122,7 @@ jobs:
             --set=clustermesh.apiserver.kvstoremesh.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci:${SHA} \
           "
 
-          # * bpf.masquerade is disabled due to #23283
+          # * bpf.masquerade is disabled due to https://github.com/cilium/cilium/issues/14350
           # * Hubble is disabled to avoid the performance penalty in the testing
           #   environment due to the relatively high traffic load.
           # * We enable the clustermesh-apiserver (although with zero replicas)
@@ -139,6 +139,7 @@ jobs:
             --set=ipv6.enabled=true \
             --set=clustermesh.useAPIServer=true \
             --set=clustermesh.apiserver.replicas=${{ matrix.external-kvstore && '0' || '1' }} \
+            --set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
             --set=clustermesh.config.enabled=true"
 
           # Run only a limited subset of tests to reduce the amount of time
@@ -209,6 +210,25 @@ jobs:
           kubectl_version: ${{ env.k8s_version }}
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
+      # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
+      # Additionally, this is also required to workaround #23283.
+      - name: Configure the coredns nameservers
+        run: |
+          COREDNS_PATCH="
+          spec:
+            template:
+              spec:
+                dnsPolicy: None
+                dnsConfig:
+                  nameservers:
+                  - 8.8.4.4
+                  - 8.8.8.8
+          "
+
+          kubectl --context ${{ env.contextName1 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
+          kubectl --context ${{ env.contextName2 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
       - name: Create the IPSec secret in both clusters
         if: matrix.encryption == 'ipsec'
