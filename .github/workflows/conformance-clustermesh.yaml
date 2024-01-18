@@ -211,9 +211,9 @@ jobs:
         id: vars
         run: |
 
-          # bpf.masquerade is disabled due to #23283
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --helm-set=bpf.masquerade=false \
+            --helm-set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
+            --helm-set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
@@ -341,8 +341,8 @@ jobs:
 
       # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
       # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
+      # Additionally, this is also required to workaround #23283.
       - name: Configure the coredns nameservers
-        if: matrix.ipfamily == 'dual'
         run: |
           COREDNS_PATCH="
           spec:
