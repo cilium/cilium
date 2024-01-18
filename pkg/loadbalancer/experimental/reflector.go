@@ -71,8 +71,8 @@ func registerK8sReflector(p reflectorParams) {
 
 func runResourceReflector(ctx context.Context, p reflectorParams, initComplete func(WriteTxn)) {
 	const (
-		bufferSize = 300
-		waitTime   = 10 * time.Millisecond
+		bufferSize = 500
+		waitTime   = 20 * time.Millisecond
 	)
 
 	// Buffer the events to commit in larger write transactions.

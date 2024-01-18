@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
+	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -64,6 +65,11 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writer) (
 
 		reconciler.WithPruning(
 			30*time.Minute,
+		),
+
+		reconciler.WithRoundLimits(
+			1000, // Number of objects
+			rate.NewLimiter(100.0, 1),
 		),
 	)
 }

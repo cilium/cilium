@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/netip"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"slices"
 	"testing"
@@ -112,21 +113,29 @@ func BenchmarkServiceAndEndpoint(b *testing.B) {
 		b.Fatal("could not start CPU profile: ", err)
 	}
 
+	runtime.GC()
+	var m0 runtime.MemStats
+	runtime.ReadMemStats(&m0)
+
 	b.StartTimer()
 
-	for _, svc := range svcs {
-		services <- upsertEvent(svc)
-	}
+	go func() {
+		for _, svc := range svcs {
+			services <- upsertEvent(svc)
+		}
+	}()
 
-	for _, slice := range epSlices {
-		endpoints <- upsertEvent(slice)
-	}
+	go func() {
+		for _, slice := range epSlices {
+			endpoints <- upsertEvent(slice)
+		}
+	}()
 
 	// Wait until the frontends have been marked done.
 	numDone := 0
 	rev := statedb.Revision(0)
 	for {
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		iter := writer.Frontends().LowerBound(db.ReadTxn(), statedb.ByRevision[*Frontend](rev+1))
 		for fe, r, ok := iter.Next(); ok; fe, r, ok = iter.Next() {
 			rev = r
@@ -144,7 +153,7 @@ func BenchmarkServiceAndEndpoint(b *testing.B) {
 	pprof.StopCPUProfile()
 	f.Close()
 
-	b.ReportMetric(float64(b.N*testSize)/b.Elapsed().Seconds(), "svc+ep/sec")
+	b.ReportMetric(float64(testSize*2)/b.Elapsed().Seconds(), "objects/sec")
 
 	// Validate that the services and backends were indeed reconciled
 	// to the maps.
@@ -161,6 +170,12 @@ func BenchmarkServiceAndEndpoint(b *testing.B) {
 		})
 	// *2 entries, master slot + backend slot.
 	require.Equal(b, testSize*2, serviceCount, "service count mismatch")
+
+	// Dump how much memory we're holding after all the insertions.
+	runtime.GC()
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("MemStats:\n  HeapAlloc: %dKB\n  HeapObjects: %d\n  HeapSys: %dKB\n", (m.HeapAlloc-m0.HeapAlloc)/1024, m.HeapObjects-m0.HeapObjects, (m.HeapSys-m0.HeapSys)/1024)
 }
 
 func createHive(maps lbmaps,
