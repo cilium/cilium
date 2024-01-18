@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func (k *K8sWatcher) onUpsertCIDRGroup(
+func (p *PolicyWatcher) onUpsertCIDRGroup(
 	cidrGroup *cilium_v2_alpha1.CiliumCIDRGroup,
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	cnpCache map[resource.Key]*types.SlimCNP,
@@ -29,7 +29,7 @@ func (k *K8sWatcher) onUpsertCIDRGroup(
 ) error {
 
 	defer func() {
-		k.k8sResourceSynced.SetEventTimestamp(apiGroup)
+		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
 	oldCidrGroup, ok := cidrGroupCache[cidrGroup.Name]
@@ -40,12 +40,12 @@ func (k *K8sWatcher) onUpsertCIDRGroup(
 	cidrGroupCpy := cidrGroup.DeepCopy()
 	cidrGroupCache[cidrGroup.Name] = cidrGroupCpy
 
-	err := k.updateCIDRGroupRefPolicies(cidrGroup.Name, cidrGroupCache, cnpCache, cs)
+	err := p.updateCIDRGroupRefPolicies(cidrGroup.Name, cidrGroupCache, cnpCache, cs)
 
 	return err
 }
 
-func (k *K8sWatcher) onDeleteCIDRGroup(
+func (p *PolicyWatcher) onDeleteCIDRGroup(
 	cidrGroupName string,
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	cnpCache map[resource.Key]*types.SlimCNP,
@@ -54,14 +54,14 @@ func (k *K8sWatcher) onDeleteCIDRGroup(
 ) error {
 	delete(cidrGroupCache, cidrGroupName)
 
-	err := k.updateCIDRGroupRefPolicies(cidrGroupName, cidrGroupCache, cnpCache, cs)
+	err := p.updateCIDRGroupRefPolicies(cidrGroupName, cidrGroupCache, cnpCache, cs)
 
-	k.k8sResourceSynced.SetEventTimestamp(apiGroup)
+	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
 	return err
 }
 
-func (k *K8sWatcher) updateCIDRGroupRefPolicies(
+func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 	cidrGroup string,
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	cnpCache map[resource.Key]*types.SlimCNP,
@@ -100,7 +100,7 @@ func (k *K8sWatcher) updateCIDRGroupRefPolicies(
 			cnpCpy.ObjectMeta.Namespace,
 			cnpCpy.ObjectMeta.Name,
 		)
-		err := k.updateCiliumNetworkPolicyV2(cs, cnpCpy, translatedCNP, initialRecvTime, resourceID)
+		err := p.updateCiliumNetworkPolicyV2(cs, cnpCpy, translatedCNP, initialRecvTime, resourceID)
 		if err == nil {
 			cnpCache[key] = cnpCpy
 		}
