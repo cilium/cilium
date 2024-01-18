@@ -75,7 +75,7 @@ func (m *MTUSuite) TestNewConfiguration(c *C) {
 
 	conf = NewConfiguration(32, false, true, true, false, 1400, nil)
 	c.Assert(conf.GetDeviceMTU(), Equals, 1400)
-	c.Assert(conf.GetRouteMTU(), Equals, conf.GetDeviceMTU()-WireguardOverhead)
+	c.Assert(conf.GetRouteMTU(), Equals, conf.GetDeviceMTU()-(WireguardOverhead+TunnelOverhead))
 
 	testIP1 := net.IPv4(0, 0, 0, 0)
 	testIP2 := net.IPv4(127, 0, 0, 1)
