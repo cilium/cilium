@@ -36,10 +36,14 @@ type ciliumEnvoyConfigWatcher struct {
 	backendSyncer  *envoyServiceBackendSyncer
 	resourceParser *cecResourceParser
 
-	appliedCECsMutex lock.Mutex
-	appliedCECs      map[resource.Key]*ciliumv2.CiliumEnvoyConfig
-	appliedCCECs     map[resource.Key]*ciliumv2.CiliumClusterwideEnvoyConfig
-	localNodeLabels  map[string]string
+	mutex           lock.Mutex
+	configs         map[resource.Key]*config
+	localNodeLabels map[string]string
+}
+
+type config struct {
+	meta metav1.ObjectMeta
+	spec *ciliumv2.CiliumEnvoyConfigSpec
 }
 
 func newCiliumEnvoyConfigWatcher(logger logrus.FieldLogger,
@@ -56,8 +60,7 @@ func newCiliumEnvoyConfigWatcher(logger logrus.FieldLogger,
 		xdsServer:      xdsServer,
 		backendSyncer:  backendSyncer,
 		resourceParser: resourceParser,
-		appliedCECs:    map[resource.Key]*ciliumv2.CiliumEnvoyConfig{},
-		appliedCCECs:   map[resource.Key]*ciliumv2.CiliumClusterwideEnvoyConfig{},
+		configs:        map[resource.Key]*config{},
 	}
 }
 
@@ -71,14 +74,14 @@ func (r *ciliumEnvoyConfigWatcher) handleCECEvent(ctx context.Context, event res
 	switch event.Kind {
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
-		err = r.cecUpserted(ctx, event.Key, event.Object)
+		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
 			scopedLogger.WithError(err).Error("failed to handle CEC upsert")
 			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
 		}
 	case resource.Delete:
 		scopedLogger.Debug("Received CiliumEnvoyConfig delete event")
-		err = r.cecDeleted(ctx, event.Key)
+		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
 			scopedLogger.WithError(err).Error("failed to handle CEC delete")
 			err = fmt.Errorf("failed to handle CEC delete: %w", err)
@@ -87,7 +90,7 @@ func (r *ciliumEnvoyConfigWatcher) handleCECEvent(ctx context.Context, event res
 
 	event.Done(err)
 
-	return nil
+	return err
 }
 
 func (r *ciliumEnvoyConfigWatcher) handleCCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumClusterwideEnvoyConfig]) error {
@@ -100,14 +103,14 @@ func (r *ciliumEnvoyConfigWatcher) handleCCECEvent(ctx context.Context, event re
 	switch event.Kind {
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig upsert event")
-		err = r.ccecUpserted(ctx, event.Key, event.Object)
+		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
 			scopedLogger.WithError(err).Error("failed to handle CCEC upsert")
 			err = fmt.Errorf("failed to handle CCEC upsert: %w", err)
 		}
 	case resource.Delete:
 		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig delete event")
-		err = r.ccecDeleted(ctx, event.Key)
+		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
 			scopedLogger.WithError(err).Error("failed to handle CCEC delete")
 			err = fmt.Errorf("failed to handle CCEC delete: %w", err)
@@ -116,7 +119,7 @@ func (r *ciliumEnvoyConfigWatcher) handleCCECEvent(ctx context.Context, event re
 
 	event.Done(err)
 
-	return nil
+	return err
 }
 
 func (r *ciliumEnvoyConfigWatcher) handleLocalNodeEvent(ctx context.Context, localNode node.LocalNode) error {
@@ -131,8 +134,8 @@ func (r *ciliumEnvoyConfigWatcher) handleLocalNodeEvent(ctx context.Context, loc
 }
 
 func (r *ciliumEnvoyConfigWatcher) handleLocalNodeLabels(ctx context.Context, localNode node.LocalNode) error {
-	r.appliedCECsMutex.Lock()
-	defer r.appliedCECsMutex.Unlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	if maps.Equal(r.localNodeLabels, localNode.Labels) {
 		r.logger.Debug("Labels of local Node didn't change")
@@ -145,79 +148,46 @@ func (r *ciliumEnvoyConfigWatcher) handleLocalNodeLabels(ctx context.Context, lo
 	return nil
 }
 
-func (r *ciliumEnvoyConfigWatcher) cecUpserted(ctx context.Context, key resource.Key, cec *ciliumv2.CiliumEnvoyConfig) error {
-	r.appliedCECsMutex.Lock()
-	defer r.appliedCECsMutex.Unlock()
+func (r *ciliumEnvoyConfigWatcher) configUpserted(ctx context.Context, key resource.Key, cfg *config) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
-	appliedCEC, exists := r.appliedCECs[key]
+	appliedConfig, exists := r.configs[key]
 	if exists {
-		return r.updateCiliumEnvoyConfig(appliedCEC.ObjectMeta, appliedCEC.Spec, cec.ObjectMeta, cec.Spec)
+		return r.updateCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec, cfg.meta, cfg.spec)
 	}
 
-	if err := r.addCiliumEnvoyConfig(cec.ObjectMeta, cec.Spec); err != nil {
+	if err := r.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 		return err
 	}
 
-	r.appliedCECs[key] = cec
+	r.configs[key] = &config{
+		meta: cfg.meta,
+		spec: cfg.spec,
+	}
 
 	return nil
 }
 
-func (r *ciliumEnvoyConfigWatcher) cecDeleted(ctx context.Context, key resource.Key) error {
-	r.appliedCECsMutex.Lock()
-	defer r.appliedCECsMutex.Unlock()
+func (r *ciliumEnvoyConfigWatcher) configDeleted(ctx context.Context, key resource.Key) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
-	appliedCEC, exists := r.appliedCECs[key]
+	appliedConfig, exists := r.configs[key]
 	if !exists {
-		return fmt.Errorf("applied CEC with key %q doesn't exist", key)
+		return fmt.Errorf("applied Envoy config with key %q doesn't exist", key)
 	}
 
-	if err := r.deleteCiliumEnvoyConfig(appliedCEC.ObjectMeta, appliedCEC.Spec); err != nil {
+	if err := r.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
 		return err
 	}
 
-	delete(r.appliedCECs, key)
+	delete(r.configs, key)
 
 	return nil
 }
 
-func (r *ciliumEnvoyConfigWatcher) ccecUpserted(ctx context.Context, key resource.Key, ccec *ciliumv2.CiliumClusterwideEnvoyConfig) error {
-	r.appliedCECsMutex.Lock()
-	defer r.appliedCECsMutex.Unlock()
-
-	appliedCCEC, exists := r.appliedCCECs[key]
-	if exists {
-		return r.updateCiliumEnvoyConfig(appliedCCEC.ObjectMeta, appliedCCEC.Spec, ccec.ObjectMeta, ccec.Spec)
-	}
-
-	if err := r.addCiliumEnvoyConfig(ccec.ObjectMeta, ccec.Spec); err != nil {
-		return err
-	}
-
-	r.appliedCCECs[key] = ccec
-
-	return nil
-}
-
-func (r *ciliumEnvoyConfigWatcher) ccecDeleted(ctx context.Context, key resource.Key) error {
-	r.appliedCECsMutex.Lock()
-	defer r.appliedCECsMutex.Unlock()
-
-	appliedCCEC, exists := r.appliedCCECs[key]
-	if !exists {
-		return fmt.Errorf("applied CCEC with key %q doesn't exist", key)
-	}
-
-	if err := r.deleteCiliumEnvoyConfig(appliedCCEC.ObjectMeta, appliedCCEC.Spec); err != nil {
-		return err
-	}
-
-	delete(r.appliedCCECs, key)
-
-	return nil
-}
-
-func (r *ciliumEnvoyConfigWatcher) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec ciliumv2.CiliumEnvoyConfigSpec) error {
+func (r *ciliumEnvoyConfigWatcher) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	resources, err := r.resourceParser.parseResources(
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
@@ -237,7 +207,7 @@ func (r *ciliumEnvoyConfigWatcher) addCiliumEnvoyConfig(cecObjectMeta metav1.Obj
 	}
 
 	name := service.L7LBResourceName{Name: cecObjectMeta.Name, Namespace: cecObjectMeta.Namespace}
-	if err := r.addK8sServiceRedirects(name, &cecSpec, resources); err != nil {
+	if err := r.addK8sServiceRedirects(name, cecSpec, resources); err != nil {
 		return fmt.Errorf("failed to redirect k8s services to Envoy: %w", err)
 	}
 
@@ -306,8 +276,8 @@ func (r *ciliumEnvoyConfigWatcher) addK8sServiceRedirects(resourceName service.L
 }
 
 func (r *ciliumEnvoyConfigWatcher) updateCiliumEnvoyConfig(
-	oldCECObjectMeta metav1.ObjectMeta, oldCECSpec ciliumv2.CiliumEnvoyConfigSpec,
-	newCECObjectMeta metav1.ObjectMeta, newCECSpec ciliumv2.CiliumEnvoyConfigSpec,
+	oldCECObjectMeta metav1.ObjectMeta, oldCECSpec *ciliumv2.CiliumEnvoyConfigSpec,
+	newCECObjectMeta metav1.ObjectMeta, newCECSpec *ciliumv2.CiliumEnvoyConfigSpec,
 ) error {
 	oldResources, err := r.resourceParser.parseResources(
 		oldCECObjectMeta.GetNamespace(),
@@ -333,7 +303,7 @@ func (r *ciliumEnvoyConfigWatcher) updateCiliumEnvoyConfig(
 	}
 
 	name := service.L7LBResourceName{Name: oldCECObjectMeta.Name, Namespace: oldCECObjectMeta.Namespace}
-	if err := r.removeK8sServiceRedirects(name, &oldCECSpec, &newCECSpec, oldResources, newResources); err != nil {
+	if err := r.removeK8sServiceRedirects(name, oldCECSpec, newCECSpec, oldResources, newResources); err != nil {
 		return fmt.Errorf("failed to update k8s service redirects: %w", err)
 	}
 
@@ -343,7 +313,7 @@ func (r *ciliumEnvoyConfigWatcher) updateCiliumEnvoyConfig(
 		return fmt.Errorf("failed to update Envoy resources: %w", err)
 	}
 
-	if err := r.addK8sServiceRedirects(name, &newCECSpec, newResources); err != nil {
+	if err := r.addK8sServiceRedirects(name, newCECSpec, newResources); err != nil {
 		return fmt.Errorf("failed to redirect k8s services to Envoy: %w", err)
 	}
 
@@ -417,7 +387,7 @@ func (r *ciliumEnvoyConfigWatcher) removeK8sServiceRedirects(resourceName servic
 	return nil
 }
 
-func (r *ciliumEnvoyConfigWatcher) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec ciliumv2.CiliumEnvoyConfigSpec) error {
+func (r *ciliumEnvoyConfigWatcher) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	resources, err := r.resourceParser.parseResources(
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
@@ -431,7 +401,7 @@ func (r *ciliumEnvoyConfigWatcher) deleteCiliumEnvoyConfig(cecObjectMeta metav1.
 	}
 
 	name := service.L7LBResourceName{Name: cecObjectMeta.Name, Namespace: cecObjectMeta.Namespace}
-	if err := r.deleteK8sServiceRedirects(name, &cecSpec); err != nil {
+	if err := r.deleteK8sServiceRedirects(name, cecSpec); err != nil {
 		return fmt.Errorf("failed to delete k8s service redirects: %w", err)
 	}
 
