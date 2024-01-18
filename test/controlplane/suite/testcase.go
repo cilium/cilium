@@ -108,6 +108,10 @@ func (cpt *ControlPlaneTest) ClearEnvironment() {
 	os.RemoveAll(cpt.tempDir)
 }
 
+func (cpt *ControlPlaneTest) SlimTracker() k8sTesting.ObjectTracker {
+	return cpt.clients.SlimFakeClientset.Tracker()
+}
+
 func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig), extraCells ...cell.Cell) *ControlPlaneTest {
 	if cpt.agentHandle != nil {
 		cpt.t.Fatal("StartAgent() already called")
@@ -305,7 +309,7 @@ func (cpt *ControlPlaneTest) Execute(task func() error) *ControlPlaneTest {
 }
 
 func (cpt *ControlPlaneTest) retry(act func() error) error {
-	wait := 50 * time.Millisecond
+	wait := 10 * time.Millisecond
 	end := time.Now().Add(cpt.validationTimeout)
 
 	// With validationTimeout set to 0, act will be retried without enforcing any timeout.

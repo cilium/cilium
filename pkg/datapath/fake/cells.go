@@ -5,7 +5,6 @@ package fake
 
 import (
 	"net"
-	"net/netip"
 
 	"golang.org/x/sys/unix"
 
@@ -88,22 +87,23 @@ func fakeDevices(db *statedb.DB, devices statedb.RWTable[*tables.Device]) stated
 		Selected: true,
 	})
 
-	devices.Insert(txn, &tables.Device{
-		Index:        2,
-		MTU:          1500,
-		Name:         "test1",
-		HardwareAddr: []byte{2, 3, 4, 5, 6, 7},
-		Flags:        net.FlagUp,
-		Addrs: []tables.DeviceAddress{
-			{Addr: ip.MustAddrFromIP(fakeTypes.IPv4InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(fakeTypes.IPv6InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+	/*
+		devices.Insert(txn, &tables.Device{
+			Index:        2,
+			MTU:          1500,
+			Name:         "test1",
+			HardwareAddr: []byte{2, 3, 4, 5, 6, 7},
+			Flags:        net.FlagUp,
+			Addrs: []tables.DeviceAddress{
+				{Addr: ip.MustAddrFromIP(IPv4InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+				{Addr: ip.MustAddrFromIP(IPv6InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
 
-			{Addr: netip.MustParseAddr("10.0.0.4"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
-			{Addr: netip.MustParseAddr("f00d::3"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
-		},
-		Type:     "test",
-		Selected: true,
-	})
+				{Addr: netip.MustParseAddr("10.0.0.4"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
+				{Addr: netip.MustParseAddr("f00d::3"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
+			},
+			Type:     "test",
+			Selected: true,
+		})*/
 
 	return devices
 }
