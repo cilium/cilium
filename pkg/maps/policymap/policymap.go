@@ -441,6 +441,13 @@ func Create(path string) error {
 	return m.Create()
 }
 
+// Create unpinned creates a policy map without pinning it to the filesystem
+func CreateUnpinned(path string) (*PolicyMap, error) {
+	m := newMap(path)
+	err := m.CreateUnpinned()
+	return m, err
+}
+
 // Open opens the policymap at the specified path.
 func Open(path string) (*PolicyMap, error) {
 	m := newMap(path)

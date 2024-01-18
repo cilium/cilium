@@ -103,6 +103,7 @@ cilium-agent [flags]
       --enable-custom-calls                                       Enable tail call hooks for custom eBPF programs
       --enable-encryption-strict-mode                             Enable encryption strict mode
       --enable-endpoint-health-checking                           Enable connectivity health checking between virtual endpoints (default true)
+      --enable-endpoint-lockdown-on-policy-overflow               When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint. (default true)
       --enable-endpoint-routes                                    Use per endpoint routes instead of routing via cilium_host
       --enable-envoy-config                                       Enable Envoy Config CRDs
       --enable-external-ips                                       Enable k8s service externalIPs feature (requires enabling enable-node-port)

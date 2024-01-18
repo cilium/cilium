@@ -307,6 +307,7 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.wireguard.persistentKeepalive | string | `"0s"` | Controls Wireguard PersistentKeepalive option. Set 0s to disable. |
 | encryption.wireguard.userspaceFallback | bool | `false` | Enables the fallback to the user-space implementation. |
 | endpointHealthChecking.enabled | bool | `true` | Enable connectivity health checking between virtual endpoints. |
+| endpointLockdownOnMapOverflow | bool | `false` | Enable endpoint lockdown on policy map overflow. |
 | endpointRoutes.enabled | bool | `false` | Enable use of per endpoint routes instead of routing via the cilium_host interface. |
 | endpointStatus | object | `{"enabled":false,"status":""}` | Enable endpoint status. Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space. |
 | eni.awsEnablePrefixDelegation | bool | `false` | Enable ENI prefix delegation |

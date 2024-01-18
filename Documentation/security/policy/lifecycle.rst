@@ -24,6 +24,10 @@ Every endpoint in Cilium is in one of the following states:
   (re)generated. This includes programming eBPF for that endpoint.
 * ``ready``: The endpoint's networking configuration has been
   successfully (re)generated.
+* ``locking-down``: The endpoint is attempting to lockdown.
+* ``full-lockdown``: The endpoint has locked all network traffic.
+* ``soft-lockdown``: The endpoint is enforcing all of its deny
+  policies, but none of its allow policies.
 * ``disconnecting``: The endpoint is being deleted.
 * ``disconnected``: The endpoint has been deleted.
 
@@ -110,3 +114,35 @@ those rules will be dropped.  Otherwise, if the policy enforcement
 mode is ``never`` or ``default``, all ingress (resp. egress) traffic
 is allowed to (resp. from) initializing endpoints.  Otherwise, all
 ingress (resp. egress) traffic is dropped.
+
+
+.. _lockdown_mode:
+
+Lockdown Mode
+-------------
+
+Cilium will put an endpoint in "lockdown" mode if it detects that it cannot
+correctly enforce all of the applicable network policies for that endpoint.
+There are two possible lockdown modes: "full", and "soft".
+
+Cilium creates a bpf policy map for every endpoint. BPF maps are created
+with a specified maximum number of entries. If Cilium detects that
+the number of entries that it would need to correctly enforce the applicable
+policies of an endpoint exceeds the BPF policy map maximum it will put the
+endpoint into one of two lockdown modes ("full", and "soft").
+
+A "full" lockdown disables all egress and ingress traffic (that is, all
+network traffic). A "full" lockdown occurs when the number of policy
+entries required to accomodate an endpoint's applicable policies exceeds
+the BPF policy map maximum. Furthermore, a full lockdown will only happen
+when an endpoint has no applicable deny policies that can be enforced exclusively
+(over and against all of its allow policies) **or** the number of
+deny entries required to enforce a "soft" lockdown exceed the BPF policy map
+maximum.
+
+A "soft" lockdown exclusively enforces an endpoint's deny policies and drops
+all of the endpoint's allow policies.
+
+All other states can ephemerally override a lockdown if they are triggered
+by a lifecycle event (for example), but the endpoint will go back into lockdown
+immediately.

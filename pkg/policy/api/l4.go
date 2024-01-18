@@ -28,6 +28,12 @@ func (l4 L4Proto) IsAny() bool {
 	return l4 == ProtoAny || string(l4) == ""
 }
 
+// SupportedProtocols returns the currently supported protocols in the policy
+// engine, excluding "ANY".
+func SupportedProtocols() []L4Proto {
+	return []L4Proto{ProtoTCP, ProtoUDP, ProtoSCTP}
+}
+
 // PortProtocol specifies an L4 port with an optional transport protocol
 type PortProtocol struct {
 	// Port is an L4 port number. For now the string will be strictly
