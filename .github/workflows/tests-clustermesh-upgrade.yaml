@@ -141,7 +141,6 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
           echo "downgrade_version=${CILIUM_DOWNGRADE_VERSION}" >> $GITHUB_OUTPUT
 
-          # * bpf.masquerade is disabled due to #23283
           # * Hubble is disabled to avoid the performance penalty in the testing
           #   environment due to the relatively high traffic load.
           # * We explicitly configure the sync timeout to a higher value to
@@ -149,13 +148,14 @@ jobs:
           #   the upgrade/downgrade before that agents regenerate the endpoints.
           CILIUM_INSTALL_DEFAULTS=" \
             --set=debug.enabled=true \
-            --set=bpf.masquerade=false \
             --set=bpf.monitorAggregation=none \
             --set=hubble.enabled=false \
             --set=routingMode=tunnel \
             --set=tunnelProtocol=vxlan \
             --set=ipv4.enabled=true \
             --set=ipv6.enabled=true \
+            --set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
+            --set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
             --set=clustermesh.useAPIServer=${{ !matrix.external-kvstore }} \
             --set=clustermesh.config.enabled=true \
             --set=extraConfig.clustermesh-ip-identities-sync-timeout=10m"
@@ -227,6 +227,25 @@ jobs:
           kubectl_version: ${{ env.k8s_version }}
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
+      # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
+      # Additionally, this is also required to workaround #23283.
+      - name: Configure the coredns nameservers
+        run: |
+          COREDNS_PATCH="
+          spec:
+            template:
+              spec:
+                dnsPolicy: None
+                dnsConfig:
+                  nameservers:
+                  - 8.8.4.4
+                  - 8.8.8.8
+          "
+
+          kubectl --context ${{ env.contextName1 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
+          kubectl --context ${{ env.contextName2 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
       - name: Create the IPSec secret in both clusters
         if: matrix.encryption == 'ipsec'
