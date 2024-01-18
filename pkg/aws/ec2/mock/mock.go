@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -50,6 +51,7 @@ type API struct {
 	subnets        map[string]*ipamTypes.Subnet
 	vpcs           map[string]*ipamTypes.VirtualNetwork
 	securityGroups map[string]*types.SecurityGroup
+	instanceTypes  []ec2_types.InstanceTypeInfo
 	errors         map[Operation]error
 	allocator      *ipallocator.Range
 	pdAllocator    *cidrset.CidrSet
@@ -82,6 +84,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
+		instanceTypes:  []ec2_types.InstanceTypeInfo{},
 		allocator:      podCidrRange,
 		pdAllocator:    pdCidrRange,
 		errors:         map[Operation]error{},
@@ -129,6 +132,12 @@ func (e *API) UpdateENIs(enis map[string]ENIMap) {
 			e.enis[instanceID][eniID] = eni.DeepCopy()
 		}
 	}
+	e.mutex.Unlock()
+}
+
+func (e *API) UpdateInstanceTypes(instanceTypes []ec2_types.InstanceTypeInfo) {
+	e.mutex.Lock()
+	e.instanceTypes = instanceTypes
 	e.mutex.Unlock()
 }
 
@@ -645,4 +654,8 @@ func (e *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, er
 		securityGroups[sg.ID] = sg.DeepCopy()
 	}
 	return securityGroups, nil
+}
+
+func (e *API) GetInstanceTypes(ctx context.Context) ([]ec2_types.InstanceTypeInfo, error) {
+	return e.instanceTypes, nil
 }
