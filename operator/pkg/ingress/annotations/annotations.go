@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 
+	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/annotation"
 )
 
@@ -18,6 +19,7 @@ const (
 	InsecureNodePortAnnotation = annotation.IngressPrefix + "/insecure-node-port"
 	SecureNodePortAnnotation   = annotation.IngressPrefix + "/secure-node-port"
 	TLSPassthroughAnnotation   = annotation.IngressPrefix + "/tls-passthrough"
+	ForceHTTPSAnnotation       = annotation.IngressPrefix + "/force-https"
 
 	TCPKeepAliveEnabledAnnotation          = annotation.IngressPrefix + "/tcp-keep-alive"
 	TCPKeepAliveIdleAnnotation             = annotation.IngressPrefix + "/tcp-keep-alive-idle"
@@ -40,6 +42,7 @@ const (
 
 const (
 	enabled                          = "enabled"
+	disabled                         = "disabled"
 	defaultTCPKeepAliveEnabled       = 1  // 1 - Enabled, 0 - Disabled
 	defaultTCPKeepAliveInitialIdle   = 10 // in seconds
 	defaultTCPKeepAliveProbeInterval = 5  // in seconds
@@ -184,4 +187,49 @@ func GetAnnotationTLSPassthroughEnabled(ingress *networkingv1.Ingress) bool {
 	}
 
 	return boolVal
+}
+
+// GetAnnotationEnforceHTTPSEnabled retrieves the EnforceHTTPS annotation's value.
+// This uses a string rather than a bool because the empty string means "unset".
+// In this case this matters because if the value is unset, it can be overridden
+// by the global config option `--enforce-ingress-https`.
+//
+// If the annotation is set, will override the global config option in all cases.
+//
+// Note that `enabled`, `disabled` and `true` or `false` style values (as understood by
+// strconv.ParseBool() ) will work. The annotation being present but set to any
+// other value will result in returning the empty string (as in, the same as if
+// unset).
+//
+// If the annotation is unset, this returns `nil`.
+//
+// The only valid values are:
+// - &true - the annotation is present and set to a truthy value
+// - &false - the annovation is present and set to a false value
+// - nil - the annotatation is not present
+func GetAnnotationForceHTTPSEnabled(ingress *networkingv1.Ingress) *bool {
+
+	val, exists := annotation.Get(ingress, ForceHTTPSAnnotation)
+	if !exists {
+		return nil
+	}
+
+	if val == enabled {
+		return model.AddressOf(true)
+	}
+
+	if val == disabled {
+		return model.AddressOf(false)
+	}
+
+	boolVal, err := strconv.ParseBool(val)
+	if err != nil {
+		return nil
+	}
+
+	if boolVal {
+		return model.AddressOf(true)
+	}
+
+	return model.AddressOf(false)
 }

@@ -17,7 +17,7 @@ import (
 // Ingress translates an Ingress resource to a HTTPListener.
 // This function does not check IngressClass (via field or annotation).
 // It's expected that only relevant Ingresses will have this function called on them.
-func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string) []model.HTTPListener {
+func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string, enforcedHTTPS bool) []model.HTTPListener {
 	// First, we make a map of HTTPListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
@@ -133,6 +133,16 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 
 	secureListenerMap := make(map[string]model.HTTPListener)
 
+	// Before we check for TLS config, we need to see if the force-https annotation
+	// is set.
+	forceHTTPsannotation := annotations.GetAnnotationForceHTTPSEnabled(&ing)
+	forceHTTPs := false
+
+	// We only care about enforcedHTTPS if the annotation is unset
+	if (forceHTTPsannotation == nil && enforcedHTTPS) || (forceHTTPsannotation != nil && *forceHTTPsannotation) {
+		forceHTTPs = true
+	}
+
 	// First, we check for TLS config, and set them up with Listeners to return.
 	for _, tlsConfig := range ing.Spec.TLS {
 		for _, host := range tlsConfig.Hosts {
@@ -168,6 +178,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 			l.Port = 443
 			l.Hostname = host
 			l.Service = getService(ing)
+			l.ForceHTTPtoHTTPSRedirect = forceHTTPs
 			secureListenerMap[host] = l
 
 			defaultListener, ok := insecureListenerMap["*"]

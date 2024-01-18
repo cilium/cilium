@@ -78,7 +78,7 @@ func registerReconciler(params ingressParams) error {
 		return nil
 	}
 
-	cecTranslator := translation.NewCECTranslator(params.Config.IngressSecretsNamespace, params.Config.EnforceIngressHTTPS, params.Config.EnableIngressProxyProtocol, false, operatorOption.Config.ProxyIdleTimeoutSeconds)
+	cecTranslator := translation.NewCECTranslator(params.Config.IngressSecretsNamespace, params.Config.EnableIngressProxyProtocol, false, operatorOption.Config.ProxyIdleTimeoutSeconds)
 	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator)
 
 	reconciler := newIngressReconciler(

@@ -349,8 +349,7 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 
 func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 	type args struct {
-		m            *model.Model
-		enforceHTTPS bool
+		m *model.Model
 	}
 
 	tests := []struct {
@@ -375,8 +374,7 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 		{
 			name: "host rule with enforceHTTPS",
 			args: args{
-				m:            hostRulesModel,
-				enforceHTTPS: true,
+				m: hostRulesModelEnforcedHTTPS,
 			},
 			expectedRouteConfigs: hostRulesExpectedConfigEnforceHTTPS,
 		},
@@ -397,8 +395,7 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 		{
 			name: "complex ingress with enforceHTTPS",
 			args: args{
-				m:            complexIngressModel,
-				enforceHTTPS: true,
+				m: complexIngressModelwithRedirects,
 			},
 			expectedRouteConfigs: complexIngressExpectedConfigEnforceHTTPS,
 		},
@@ -422,7 +419,6 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defT.enforceHTTPs = tt.args.enforceHTTPS
 			res := defT.getEnvoyHTTPRouteConfiguration(tt.args.m)
 			require.Len(t, res, len(tt.expectedRouteConfigs), "Number of Listeners did not match")
 
@@ -440,9 +436,13 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 
 					ttVhost := ttListener.VirtualHosts[j]
 
+					if len(ttVhost.Routes) > len(vhost.Routes) {
+						diffOutput := cmp.Diff(ttVhost.Routes, vhost.Routes, protocmp.Transform())
+						t.Errorf("More Routes in the actual than the expected for actual VirtualHost name %s in actual Listener %s\n%s\n", vhost.Name, listener.Name, diffOutput)
+					}
+
 					for k, route := range vhost.Routes {
 						if k >= len(ttVhost.Routes) {
-							t.Errorf("More Routes in the actual than the expected for actual VirtualHost name %s in actual Listener %s", vhost.Name, listener.Name)
 							continue
 						}
 

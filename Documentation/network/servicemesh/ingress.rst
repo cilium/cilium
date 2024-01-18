@@ -127,6 +127,19 @@ Supported Ingress Annotations
        | the ``ssl-passthrough`` on other Ingress
        | controllers.
      - ``disabled``
+   * - ``ingress.cilium.io/force-https``
+     - | Enable enforced HTTPS redirects for this Ingress.
+       | Applicable values are ``enabled`` and ``disabled``,
+       | although boolean-style values will also be
+       | accepted.
+       |
+       | Note that if the annotation is not present, this
+       | behavior will be controlled by the ``enforce-ingress-https`` configuration
+       | file setting (or ``ingressController.enforceHttps`` in Helm).
+       | 
+       | Any host with TLS config will have redirects to HTTPS
+       | configured for each match specified in the Ingress.
+     - unspecified
 
 Additionally, cloud-provider specific annotations for the LoadBalancer service
 are supported.

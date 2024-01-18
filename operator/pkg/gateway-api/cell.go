@@ -92,7 +92,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	cecTranslator := translation.NewCECTranslator(params.Config.GatewayAPISecretsNamespace, false, params.Config.EnableGatewayAPIProxyProtocol, true, operatorOption.Config.ProxyIdleTimeoutSeconds)
+	cecTranslator := translation.NewCECTranslator(params.Config.GatewayAPISecretsNamespace, params.Config.EnableGatewayAPIProxyProtocol, true, operatorOption.Config.ProxyIdleTimeoutSeconds)
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator)
 
 	if err := registerReconcilers(

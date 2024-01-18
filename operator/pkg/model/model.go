@@ -69,6 +69,13 @@ type HTTPListener struct {
 	Service *Service `json:"service,omitempty"`
 	// Infrastructure configuration
 	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
+	// ForceHTTPtoHTTPSRedirect enforces that, for HTTPListeners that have a
+	// TLS field set and create a HTTPS listener, an equivalent plaintext HTTP
+	// listener will be created that redirects requests from HTTP to HTTPS.
+	//
+	// This plaintext listener will override any other plaintext HTTP config in
+	// the final rendered Envoy Config.
+	ForceHTTPtoHTTPSRedirect bool
 }
 
 func (l *HTTPListener) GetSources() []FullyQualifiedResource {

@@ -331,7 +331,210 @@ var defaultBackendListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
-// Conformance/HostRules test
+// Conformance/HostRules test, enforce HTTPS is enabled
+var hostRulesListenersEnforceHTTPS = []model.HTTPListener{
+	{
+		Name: "ing-host-rules-random-namespace-*.foo.com",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "host-rules",
+				Namespace: "random-namespace",
+				Version:   "networking.k8s.io/v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "*.foo.com",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "wildcard-foo-com",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "ing-host-rules-random-namespace-foo.bar.com",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "host-rules",
+				Namespace: "random-namespace",
+				Version:   "networking.k8s.io/v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "foo.bar.com",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-bar-com",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Name: "http",
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "ing-host-rules-random-namespace-foo.bar.com",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "host-rules",
+				Namespace: "random-namespace",
+				Version:   "networking.k8s.io/v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     443,
+		Hostname: "foo.bar.com",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "conformance-tls",
+				Namespace: "random-namespace",
+			},
+		},
+		ForceHTTPtoHTTPSRedirect: true,
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-bar-com",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Name: "http",
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var hostRulesListenersEnforceHTTPSCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-ingress-random-namespace-host-rules",
+		Namespace: "random-namespace",
+		Labels: map[string]string{
+			"cilium.io/use-original-source-address": "false",
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-ingress-host-rules",
+				Namespace: "random-namespace",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "foo-bar-com",
+				Namespace: "random-namespace",
+				Ports:     []string{"http"},
+			},
+			{
+				Name:      "wildcard-foo-com",
+				Namespace: "random-namespace",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: toBothListenersXDSResource([]string{"foo.bar.com"}, "cilium-secrets/random-namespace-conformance-tls")},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "foo.bar.com",
+							Domains: []string{"foo.bar.com", "foo.bar.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: toHTTPSRedirectAction(),
+								},
+							},
+						},
+						{
+							Name:    "*.foo.com",
+							Domains: []string{"*.foo.com", "*.foo.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+										Headers: []*envoy_config_route_v3.HeaderMatcher{
+											{
+												Name: ":authority",
+												HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher_v3.StringMatcher{
+														MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+															SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+																Regex: "^[^.]+[.]foo[.]com$",
+															},
+														},
+													},
+												},
+											},
+										},
+										QueryParameters: []*envoy_config_route_v3.QueryParameterMatcher{},
+									},
+									Action: toRouteAction("random-namespace", "wildcard-foo-com", "8080"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-secure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "foo.bar.com",
+							Domains: []string{"foo.bar.com", "foo.bar.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: toRouteAction("random-namespace", "foo-bar-com", "http"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: toAny(toEnvoyCluster("random-namespace", "foo-bar-com", "http"))},
+			{Any: toAny(toEnvoyCluster("random-namespace", "wildcard-foo-com", "8080"))},
+		},
+	},
+}
+
 var hostRulesListeners = []model.HTTPListener{
 	{
 		Name: "ing-host-rules-random-namespace-*.foo.com",
@@ -462,20 +665,6 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 					Name: "listener-insecure",
 					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
 						{
-							Name:    "foo.bar.com",
-							Domains: []string{"foo.bar.com", "foo.bar.com:*"},
-							Routes: []*envoy_config_route_v3.Route{
-								{
-									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-											Prefix: "/",
-										},
-									},
-									Action: toHTTPSRedirectAction(),
-								},
-							},
-						},
-						{
 							Name:    "*.foo.com",
 							Domains: []string{"*.foo.com", "*.foo.com:*"},
 							Routes: []*envoy_config_route_v3.Route{
@@ -501,6 +690,20 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 										QueryParameters: []*envoy_config_route_v3.QueryParameterMatcher{},
 									},
 									Action: toRouteAction("random-namespace", "wildcard-foo-com", "8080"),
+								},
+							},
+						},
+						{
+							Name:    "foo.bar.com",
+							Domains: []string{"foo.bar.com", "foo.bar.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: toRouteAction("random-namespace", "foo-bar-com", "http"),
 								},
 							},
 						},

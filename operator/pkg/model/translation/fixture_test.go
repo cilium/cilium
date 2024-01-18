@@ -211,6 +211,105 @@ var hostRulesExpectedConfig = []*envoy_config_route_v3.RouteConfiguration{
 	},
 }
 
+var hostRulesModelEnforcedHTTPS = &model.Model{
+	HTTP: []model.HTTPListener{
+		{
+			Name: "ing-host-rules-random-namespace-*.foo.com",
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "host-rules",
+					Namespace: "random-namespace",
+					Version:   "v1",
+					Kind:      "Ingress",
+				},
+			},
+			Port:     80,
+			Hostname: "*.foo.com",
+			Routes: []model.HTTPRoute{
+				{
+					PathMatch: model.StringMatch{
+						Prefix: "/",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "wildcard-foo-com",
+							Namespace: "random-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "ing-host-rules-random-namespace-foo.bar.com",
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "host-rules",
+					Namespace: "random-namespace",
+					Version:   "v1",
+					Kind:      "Ingress",
+				},
+			},
+			Port:     80,
+			Hostname: "foo.bar.com",
+			Routes: []model.HTTPRoute{
+				{
+					PathMatch: model.StringMatch{
+						Prefix: "/",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "foo-bar-com",
+							Namespace: "random-namespace",
+							Port: &model.BackendPort{
+								Name: "http",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "ing-host-rules-random-namespace-foo.bar.com",
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "host-rules",
+					Namespace: "random-namespace",
+					Version:   "v1",
+					Kind:      "Ingress",
+				},
+			},
+			Port:     443,
+			Hostname: "foo.bar.com",
+			TLS: []model.TLSSecret{
+				{
+					Name:      "conformance-tls",
+					Namespace: "random-namespace",
+				},
+			},
+			ForceHTTPtoHTTPSRedirect: true,
+			Routes: []model.HTTPRoute{
+				{
+					PathMatch: model.StringMatch{
+						Prefix: "/",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "foo-bar-com",
+							Namespace: "random-namespace",
+							Port: &model.BackendPort{
+								Name: "http",
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 var hostRulesExpectedConfigEnforceHTTPS = []*envoy_config_route_v3.RouteConfiguration{
 	{
 		Name: "listener-insecure",
@@ -625,6 +724,184 @@ var complexIngressModel = &model.Model{
 					Namespace: "dummy-namespace",
 				},
 			},
+			Routes: []model.HTTPRoute{
+				{
+					Backends: []model.Backend{
+						{
+							Name:      "default-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+				{
+					PathMatch: model.StringMatch{
+						Exact: "/dummy-path",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+				{
+					PathMatch: model.StringMatch{
+						Prefix: "/another-dummy-path",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "another-dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8081,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var complexIngressModelwithRedirects = &model.Model{
+	HTTP: []model.HTTPListener{
+		{
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "dummy-ingress",
+					Namespace: "dummy-namespace",
+					Version:   "v1",
+					Kind:      "Ingress",
+				},
+			},
+			Port:     80,
+			Hostname: "*",
+			Routes: []model.HTTPRoute{
+				{
+					Backends: []model.Backend{
+						{
+							Name:      "default-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+				{
+					PathMatch: model.StringMatch{
+						Exact: "/dummy-path",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+				{
+					PathMatch: model.StringMatch{
+						Prefix: "/another-dummy-path",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "another-dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8081,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "dummy-ingress",
+					Namespace: "dummy-namespace",
+					Version:   "v1",
+					Kind:      "Ingress",
+				},
+			},
+			Port:     443,
+			Hostname: "another-very-secure.server.com",
+			TLS: []model.TLSSecret{
+				{
+					Name:      "tls-another-very-secure-server-com",
+					Namespace: "dummy-namespace",
+				},
+			},
+			ForceHTTPtoHTTPSRedirect: true,
+			Routes: []model.HTTPRoute{
+				{
+					Backends: []model.Backend{
+						{
+							Name:      "default-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+				{
+					PathMatch: model.StringMatch{
+						Exact: "/dummy-path",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+				{
+					PathMatch: model.StringMatch{
+						Prefix: "/another-dummy-path",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "another-dummy-backend",
+							Namespace: "dummy-namespace",
+							Port: &model.BackendPort{
+								Port: 8081,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "dummy-ingress",
+					Namespace: "dummy-namespace",
+					Version:   "v1",
+					Kind:      "Ingress",
+				},
+			},
+			Port:     443,
+			Hostname: "very-secure.server.com",
+			TLS: []model.TLSSecret{
+				{
+					Name:      "tls-very-secure-server-com",
+					Namespace: "dummy-namespace",
+				},
+			},
+			ForceHTTPtoHTTPSRedirect: true,
 			Routes: []model.HTTPRoute{
 				{
 					Backends: []model.Backend{

@@ -6,7 +6,9 @@ package ingress
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -176,7 +178,6 @@ func Test_getEndpointForIngress(t *testing.T) {
 func Test_translator_Translate(t *testing.T) {
 	type args struct {
 		m                *model.Model
-		enforceHTTPs     bool
 		useProxyProtocol bool
 	}
 	tests := []struct {
@@ -191,7 +192,6 @@ func Test_translator_Translate(t *testing.T) {
 				m: &model.Model{
 					HTTP: defaultBackendListeners,
 				},
-				enforceHTTPs: true,
 			},
 			want: defaultBackendListenersCiliumEnvoyConfig,
 		},
@@ -199,9 +199,17 @@ func Test_translator_Translate(t *testing.T) {
 			name: "Conformance/HostRules",
 			args: args{
 				m: &model.Model{
+					HTTP: hostRulesListenersEnforceHTTPS,
+				},
+			},
+			want: hostRulesListenersEnforceHTTPSCiliumEnvoyConfig,
+		},
+		{
+			name: "Conformance/HostRules,no Force HTTPS",
+			args: args{
+				m: &model.Model{
 					HTTP: hostRulesListeners,
 				},
-				enforceHTTPs: true,
 			},
 			want: hostRulesListenersCiliumEnvoyConfig,
 		},
@@ -211,7 +219,6 @@ func Test_translator_Translate(t *testing.T) {
 				m: &model.Model{
 					HTTP: pathRulesListeners,
 				},
-				enforceHTTPs: true,
 			},
 			want: pathRulesListenersCiliumEnvoyConfig,
 		},
@@ -221,7 +228,6 @@ func Test_translator_Translate(t *testing.T) {
 				m: &model.Model{
 					HTTP: proxyProtocolListeners,
 				},
-				enforceHTTPs:     true,
 				useProxyProtocol: true,
 			},
 			want: proxyProtoListenersCiliumEnvoyConfig,
@@ -231,12 +237,15 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &dedicatedIngressTranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", tt.args.enforceHTTPs, tt.args.useProxyProtocol, false, 60),
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", tt.args.useProxyProtocol, false, 60),
 			}
 
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-			require.Equal(t, tt.want, cec, "CiliumEnvoyConfig did not match")
+			diffOutput := cmp.Diff(tt.want, cec, protocmp.Transform())
+			if len(diffOutput) != 0 {
+				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
+			}
 		})
 	}
 }
