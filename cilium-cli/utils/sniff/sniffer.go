@@ -15,22 +15,43 @@ import (
 	"github.com/cilium/cilium-cli/utils/lock"
 )
 
+// Mode configures the Sniffer validation mode.
+type Mode string
+
+const (
+	// ModeAssert: do not expect to observe any packets matching the filter.
+	ModeAssert Mode = "assert"
+	// ModeSanity: expect to observe packets matching the filter, to be
+	// leveraged as a sanity check to verify that the filter is correct.
+	ModeSanity Mode = "sanity"
+)
+
 type Sniffer struct {
-	host     *check.Pod
+	target   *check.Pod
 	dumpPath string
+	mode     Mode
+	cmd      []string
 
 	stdout lock.Buffer
 	cancel context.CancelFunc
 	exited chan error
 }
 
-func Sniff(ctx context.Context, t *check.Test, host *check.Pod,
-	iface string, filter string,
+type debugLogger interface {
+	Debugf(string, ...interface{})
+}
+
+// Start starts a tcpdump capture on the given pod, listening to the specified
+// interface. The mode configures whether Validate() will (not) expect any packet
+// to match the filter.
+func Sniff(ctx context.Context, name string, target *check.Pod,
+	iface string, filter string, mode Mode, dbg debugLogger,
 ) (*Sniffer, error) {
 	cmdctx, cancel := context.WithCancel(ctx)
 	sniffer := &Sniffer{
-		host:     host,
-		dumpPath: fmt.Sprintf("/tmp/%s-%s.pcap", t.Name(), host.Pod.Name),
+		target:   target,
+		dumpPath: fmt.Sprintf("/tmp/%s.pcap", name),
+		mode:     mode,
 		cancel:   cancel,
 		exited:   make(chan error, 1),
 	}
@@ -40,14 +61,19 @@ func Sniff(ctx context.Context, t *check.Test, host *check.Pod,
 		// is to avoid a race after sending ^C (triggered by cancel()) which
 		// might terminate the tcpdump process before it gets a chance to dump
 		// its captures.
-		cmd := []string{
-			"tcpdump", "-i", iface, "--immediate-mode",
-			"-w", sniffer.dumpPath, filter,
+		args := []string{"-i", iface, "--immediate-mode", "-w", sniffer.dumpPath}
+		if sniffer.mode == ModeSanity {
+			// We limit the number of packets to be captured only when expecting
+			// them to be seen (i.e., in sanity mode). Otherwise, better to capture
+			// them all to provide more informative debug messages on failures.
+			args = append(args, "-c", "1")
 		}
+		sniffer.cmd = append([]string{"tcpdump"}, append(args, filter)...)
 
-		t.Debugf("Running in bg: %s", strings.Join(cmd, " "))
-		err := host.K8sClient.ExecInPodWithWriters(ctx, cmdctx,
-			host.Pod.Namespace, host.Pod.Name, "", cmd, &sniffer.stdout, io.Discard)
+		dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
+			target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
+		err := target.K8sClient.ExecInPodWithWriters(ctx, cmdctx,
+			target.Pod.Namespace, target.Pod.Name, "", sniffer.cmd, &sniffer.stdout, io.Discard)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			sniffer.exited <- err
 		}
@@ -76,41 +102,46 @@ func Sniff(ctx context.Context, t *check.Test, host *check.Pod,
 	}
 }
 
-func (sniffer *Sniffer) Validate(ctx context.Context, a *check.Action, assertNoLeaks, debug bool) {
+// Validate stops the tcpdump capture previously started by Sniff and asserts that
+// no packets (or at least one packet when running in sanity mode) got captured. It
+// additionally dumps the captured packets in case of failure if debug logs are enabled.
+func (sniffer *Sniffer) Validate(ctx context.Context, a *check.Action) {
 	// Wait until tcpdump has exited
 	sniffer.cancel()
 	if err := <-sniffer.exited; err != nil {
-		a.Fatalf("Failed to execute tcpdump: %w", err)
+		a.Fatalf("Failed to execute tcpdump on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
 	}
 
 	// Redirect stderr to /dev/null, as tcpdump logs to stderr, and ExecInPod
 	// will return an error if any char is written to stderr. Anyway, the count
 	// is written to stdout.
 	cmd := []string{"/bin/sh", "-c", fmt.Sprintf("tcpdump -r %s --count 2>/dev/null", sniffer.dumpPath)}
-	count, err := sniffer.host.K8sClient.ExecInPod(ctx, sniffer.host.Pod.Namespace, sniffer.host.Pod.Name, "", cmd)
+	count, err := sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", cmd)
 	if err != nil {
-		a.Fatalf("Failed to retrieve tcpdump pkt count: %s", err)
+		a.Fatalf("Failed to retrieve tcpdump packet count on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
 	}
 
 	if !strings.Contains(count.String(), "packet") {
-		a.Fatalf("tcpdump output doesn't look correct: %s", count.String())
+		a.Fatalf("tcpdump output doesn't look correct on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), count.String())
 	}
 
-	if !strings.HasPrefix(count.String(), "0 packets") && assertNoLeaks {
-		a.Failf("Captured unencrypted pkt (count=%s)", strings.TrimRight(count.String(), "\n\r"))
+	if !strings.HasPrefix(count.String(), "0 packets") && sniffer.mode == ModeAssert {
+		a.Failf("Captured unexpected packets (count=%s)", strings.TrimRight(count.String(), "\n\r"))
+		a.Infof("Capture executed on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), strings.Join(sniffer.cmd, " "))
 
 		// If debug mode is enabled, dump the captured pkts
-		if debug {
+		if a.DebugEnabled() {
 			cmd := []string{"/bin/sh", "-c", fmt.Sprintf("tcpdump -r %s 2>/dev/null", sniffer.dumpPath)}
-			out, err := sniffer.host.K8sClient.ExecInPod(ctx, sniffer.host.Pod.Namespace, sniffer.host.Pod.Name, "", cmd)
+			out, err := sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", cmd)
 			if err != nil {
-				a.Fatalf("Failed to retrieve tcpdump output: %s", err)
+				a.Fatalf("Failed to retrieve tcpdump output on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
 			}
-			a.Debugf("Captured pkts:\n%s", out.String())
+			a.Debugf("Captured packets:\n%s", out.String())
 		}
 	}
 
-	if strings.HasPrefix(count.String(), "0 packets") && !assertNoLeaks {
-		a.Failf("Expected to see unencrypted packets, but none found. This check might be broken")
+	if strings.HasPrefix(count.String(), "0 packets") && sniffer.mode == ModeSanity {
+		a.Failf("Expected to capture packets, but none found. This check might be broken.")
+		a.Infof("Capture executed on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), strings.Join(sniffer.cmd, " "))
 	}
 }

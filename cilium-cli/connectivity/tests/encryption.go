@@ -267,7 +267,12 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType, wgEncap)
 	srcIface := getInterNodeIface(ctx, t, client, clientHost, server, serverHost, ipFam, wgEncap)
 
-	srcSniffer, err := sniff.Sniff(ctx, t, clientHost, srcIface, srcFilter)
+	snifferMode := sniff.ModeAssert
+	if !assertNoLeaks {
+		snifferMode = sniff.ModeSanity
+	}
+
+	srcSniffer, err := sniff.Sniff(ctx, s.Name(), clientHost, srcIface, srcFilter, snifferMode, t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +282,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType, wgEncap)
 		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam, wgEncap)
 
-		dstSniffer, err = sniff.Sniff(ctx, t, serverHost, dstIface, dstFilter)
+		dstSniffer, err = sniff.Sniff(ctx, s.Name(), serverHost, dstIface, dstFilter, snifferMode, t)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -288,18 +293,18 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 		// Curl the server from the client to generate some traffic
 		t.NewAction(s, fmt.Sprintf("curl-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, t.Context().CurlCommand(server, ipFam))
-			srcSniffer.Validate(ctx, a, assertNoLeaks, t.Context().Params().Debug)
+			srcSniffer.Validate(ctx, a)
 			if dstSniffer != nil {
-				dstSniffer.Validate(ctx, a, assertNoLeaks, t.Context().Params().Debug)
+				dstSniffer.Validate(ctx, a)
 			}
 		})
 	case requestICMPEcho:
 		// Ping the server from the client to generate some traffic
 		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam))
-			srcSniffer.Validate(ctx, a, assertNoLeaks, t.Context().Params().Debug)
+			srcSniffer.Validate(ctx, a)
 			if dstSniffer != nil {
-				dstSniffer.Validate(ctx, a, assertNoLeaks, t.Context().Params().Debug)
+				dstSniffer.Validate(ctx, a)
 			}
 		})
 	}
