@@ -189,13 +189,15 @@ func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1
 
 func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) Status {
 	if versioncheck.MustCompile("<1.14.0")(ciliumVersion) {
-		mode := "vxlan"
+		enabled, proto := true, "vxlan"
 		if v, ok := cm.Data["tunnel"]; ok {
-			mode = v
+			if enabled = v != "disabled"; enabled {
+				proto = v
+			}
 		}
 		return Status{
-			Enabled: mode != "disabled",
-			Mode:    mode,
+			Enabled: enabled,
+			Mode:    proto,
 		}
 	}
 
@@ -205,10 +207,8 @@ func ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion semver.Version, cm
 	}
 
 	tunnelProto := "vxlan"
-	if mode != "native" {
-		if v, ok := cm.Data["tunnel-protocol"]; ok {
-			tunnelProto = v
-		}
+	if v, ok := cm.Data["tunnel-protocol"]; ok {
+		tunnelProto = v
 	}
 
 	return Status{
