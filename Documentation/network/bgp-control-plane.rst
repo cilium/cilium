@@ -56,161 +56,86 @@ Control Plane can only advertise the route of the address family that the
 Cilium is configured to use. You cannot advertise IPv4 routes when the Cilium
 Agent is configured to use only IPv6 address family. The opposite is also true.
 
-All ``BGP`` peering topology information is carried in a
-``CiliumBGPPeeringPolicy`` CRD.
-
-``CiliumBGPPeeringPolicy`` can be applied to one or more nodes based on
-its ``nodeSelector`` fields.
-
-A Cilium node may only have a single ``CiliumBGPPeeringPolicy`` apply to
-it and if more than one does, it will apply no policy at all.
-
-Each ``CiliumBGPPeeringPolicy`` defines one or more
-``CiliumBGPVirtualRouter`` configurations.
-
-When these CRDs are written or read from the cluster the ``Controllers``
-will take notice and perform the necessary actions to drive the
-``BGP Control Plane`` to the desired state described by the policy.
-
-The policy in ``yaml`` form is defined below:
+Configure Peering
+-----------------
 
 .. code-block:: yaml
 
    apiVersion: "cilium.io/v2alpha1"
    kind: CiliumBGPPeeringPolicy
    metadata:
-    name: 01-bgp-peering-policy
-   spec: # CiliumBGPPeeringPolicySpec
-    nodeSelector:
-      matchLabels:
-        bgp-policy: a
-    virtualRouters: # []CiliumBGPVirtualRouter
-    - localASN: 64512
-      exportPodCIDR: true
-      neighbors: # []CiliumBGPNeighbor
-       - peerAddress: 'fc00:f853:ccd:e793::50/128'
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
          peerASN: 64512
-         authSecretRef: secretname
-         eBGPMultihopTTL: 10
-         connectRetryTimeSeconds: 120
-         holdTimeSeconds: 90
-         keepAliveTimeSeconds: 30
-         gracefulRestart:
-           enabled: true
-           restartTimeSeconds: 120
 
-Fields
-^^^^^^
+All BGP peering topology information is carried in a ``CiliumBGPPeeringPolicy``
+CRD. A ``CiliumBGPPeeringPolicy`` can be applied to one or more nodes based on
+its ``nodeSelector`` field. Only a single ``CiliumBGPPeeringPolicy`` can be
+applied to a node. If multiple policies match a node, Cilium clears all BGP
+sessions until only one policy matches the node.
 
-::
+.. warning::
 
-   nodeSelector: Nodes which are selected by this label selector will apply the given policy
+   Applying another policy over an existing one will cause the BGP session to
+   be cleared and causes immediate connectivity disruption. It is strongly
+   recommended to test the policy in a staging environment before applying it
+   to production.
 
-    virtualRouters: One or more peering configurations outlined below. Each peering configuration can be thought of as a BGP router instance.
+Each ``CiliumBGPPeeringPolicy`` defines one or more ``virtualRouters``. The
+virtual router defines a BGP router instance which is uniquely identified by
+its ``localASN``. Each virtual router can have multiple ``neighbors`` defined.
+The neighbor defines a BGP neighbor uniquely identified by its ``peerAddress``
+and ``peerASN``. When ``localASN`` and ``peerASN`` are the same, iBGP peering
+is used. When ``localASN`` and ``peerASN`` are different, eBGP peering is used.
 
-       virtualRouters[*].localASN: The local ASN for this peering configuration
+Specifying Router ID (IPv6 single-stack only)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-       virtualRouters[*].serviceSelector: Services which are selected by this label selector will be announced.
+When Cilium is running on an IPv4 or a dual-stack, the BGP Router ID is
+automatically derived from the IPv4 address assigned to the node. When Cilium
+is running on an IPv6 single-stack cluster, the BGP Router ID must be
+configured manually. This can be done by setting the annotation on the
+Kubernetes Node resource:
 
-       virtualRouters[*].podIPPoolSelector: Allocated CIDRs from CiliumPodIPPools which are selected by this label selector will be announced.
+.. code-block:: shell-session
 
-       virtualRouters[*].exportPodCIDR: Whether to export the private pod CIDR block to the listed neighbors
+   $ kubectl annotate node <node-name> cilium.io/bgp-virtual-router.64512="router-id=10.0.0.2"
 
-       virtualRouters[*].neighbors: A list of neighbors to peer with
-           neighbors[*].peerAddress: The address of the peer neighbor
-           neighbors[*].peerPort: Optional TCP port number of the neighbor. 1-65535 are valid values and defaults to 179 when unspecified.
-           neighbors[*].peerASN: The ASN of the peer
-           neighbors[*].authSecretRef: Optional name of a secret in the BGP secrets namespace to use to retrieve a TCP MD5 password.
-           neighbors[*].eBGPMultihopTTL: Time To Live (TTL) value used in BGP packets. The value 1 implies that eBGP multi-hop feature is disabled.
-           neighbors[*].connectRetryTimeSeconds: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
-           neighbors[*].holdTimeSeconds: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
-           neighbors[*].keepAliveTimeSeconds: Initial value for the BGP KeepaliveTimer (RFC 4271, Section 8). Defaults to 30 seconds.
-           neighbors[*].gracefulRestart.enabled: The flag to enable graceful restart capability.
-           neighbors[*].gracefulRestart.restartTimeSeconds: The restart time advertised to the peer (RFC 4724 section 4.2).
+Currently, you must set the annotation for each Node. In the future, automatic
+assignment of the Router ID may be supported. Follow `#30333
+<https://github.com/cilium/cilium/issues/30333/>`_ for updates.
 
-.. note::
 
-   Setting unique configuration details of a particular
-   instantiated virtual router on a particular Cilium node is explained
-   in `Virtual Router Attributes`_
+Validating Peering Status
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Creating a BGP Topology
------------------------
+Once the ``CiliumBGPPeeringPolicy`` is applied, you can check the BGP peering
+status with the Cilium CLI with the following command:
 
-Rules
-~~~~~
+.. code-block:: shell-session
 
-Follow the rules below to have a ``CiliumBGPPeeringPolicy`` correctly
-apply to a node.
+   $ cilium bgp peers
+   Node                              Local AS   Peer AS   Peer Address     Session State   Uptime   Family         Received   Advertised
+   node0                             64512      64512     10.0.0.1         established     10s      ipv4/unicast   0          0
+                                                                                                    ipv6/unicast   0          0
 
--  Only a single ``CiliumBGPPeeringPolicy`` can apply to a ``Cilium``
-   node.
 
-   -  If the ``BGP Control Plane`` on a node iterates through the
-      ``CiliumBGPPeeringPolicy`` CRs currently written to the cluster
-      and discovers (n > 1) policies match its labels, it will return an
-      error and remove any existing BGP sessions. Only (n == 1) policies
-      **must** match a node's label sets.
-   -  Administrators should test a new BGP topology in a staging
-      environment before making permanent changes in production.
+Node Annotations
+----------------
 
--  Within a ``CiliumBGPPeeringPolicy`` each ``CiliumBGPVirtualRouter``
-   defined must have a unique ``localASN`` field.
-
-   -  A node cannot host two or more logical routers with the same local
-      ASN. Local ASNs are used as unique keys for a logical router.
-   -  A node can define the remote ASN on a per-neighbor basis to
-      mitigate this scenario. See ``CiliumBGPNeighbor`` CR
-      sub-structure.
-
--  IPv6 single stack deployments **must** set an IPv4 encoded
-   ``routerID`` field in each defined ``CiliumBGPVirtualRouter`` object
-   within a ``CiliumBGPPeeringPolicy``
-
-   -  Cilium running on a IPv6 single stack cluster cannot reliably
-      generate a unique 32 bit BGP router ID, as it defines no unique
-      IPv4 addresses for the node. The administrator must define these
-      IDs manually or an error applying the policy will occur.
-   -  This is explained further in `Virtual Router Attributes`_
-
-Defining Topology
-~~~~~~~~~~~~~~~~~
-
-Within a ``CiliumBGPPeeringPolicy`` multiple
-``CiliumBGPVirtualRouter``\ (s) can be defined.
-
-Each one can be thought of as a logical BGP router instance.
-
-Defining more than one ``CiliumBGPVirtualRouter`` in a
-``CiliumBGPVirtualRouter`` creates more than one logical BGP router on
-the hosts which the policy matches.
-
-It is possible to create a single ``CiliumBGPPeeringPolicy`` for all
-nodes by giving each node in a cluster the same label and defining a
-single ``CiliumBGPPeeringPolicy`` which applies to this label.
-
-It is also possible to provide each ``Kubernetes`` node its own
-``CiliumBGPPeeringPolicy`` by giving each node a unique label and
-creating a ``CiliumBGPPeeringPolicy`` for each unique label.
-
-This allows for selecting subsets of nodes which peer to a particular
-BGP router while another subset of nodes peer to a separate BGP router,
-akin to an "AS-per-rack" topology.
-
-Virtual Router Attributes
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-A ``CiliumBGPPeeringPolicy`` can apply to multiple nodes.
-
-When a ``CiliumBGPPeeringPolicy`` applies to one or more nodes each node
-will instantiate one or more BGP routers as defined by the list of
-``CiliumBGPVirutalRouter``.
-
-However, there are times where fine-grained control over an instantiated
-virtual router's configuration needs to take place.
-
-To accomplish this a Kubernetes annotation is defined which applies to
-Kubernetes Node resources.
+A ``CiliumBGPPeeringPolicy`` can apply to multiple nodes. When a
+``CiliumBGPPeeringPolicy`` applies to one or more nodes each node will
+instantiate one or more BGP routers as defined in ``virtualRouters``. However,
+there are times when fine-grained control over an instantiated virtual router's
+configuration needs to take place. This can be accomplished by applying a
+Kubernetes annotation to Kubernetes Node resources.
 
 A single annotation is used to specify a set of configuration attributes
 to apply to a particular virtual router instantiated on a particular
@@ -222,71 +147,45 @@ The syntax of the annotation is as follows:
 
        cilium.io/bgp-virtual-router.{asn}="key=value,..."
 
-The ``{asn}`` portion should be replaced by the virtual router's local
-ASN you wish to apply these configuration attributes to.
+The ``{asn}`` portion should be replaced by the virtual router's local ASN you
+wish to apply these configuration attributes to. Multiple option key/value
+pairs can be specified by separating them with a comma. When duplicate keys are
+defined with different values, the last key's value will be used.
 
-The following sections outline the currently supported attributes.
-
-.. note::
-
-   Each following section describes the syntax of applying a
-   single attribute, however the annotation's value supports a comma
-   separated lists of attributes and applying multiple attributes in a
-   single annotation is supported.
-
-.. note::
-
-   When duplicate ``key=value`` attributes are defined the last
-   one will be selected.
-
-Router ID Attribute
-^^^^^^^^^^^^^^^^^^^
-
-When Cilium is running on an ``IPv4`` or a dual-stack ``IPv4/6`` cluster
-the ``BGP Control Plane`` will utilize the ``IPv4`` addressed used by
-Cilium for external reach ability.
-
-This will typically be Kubernetes' reported external IP address but can
-also be configured with a Cilium agent flag.
-
-When running in ``IPv6`` single stack or when the administrator needs to
-manually define the instantiated BGP server's router ID a Kubernetes
-annotation can be placed on the node.
-
-The annotation takes the following syntax:
-
-::
-
-   cilium.io/bgp-virtual-router.{asn}="router-id=127.0.0.1"
-
-The above annotation syntax should replace ``{asn}`` with the local ASN
-of the ``CiliumBGPVirtualRouter`` you are setting the provided router ID
-for.
-
-When the ``BGPControlPlane`` evaluates a ``CiliumBGPPeeringPolicy`` with
-a ``CiliumBGPVirtualRouter`` it also searches for an annotation which
-targets the aforementioned ``CiliumBGPVirtualRouter`` local ASN.
-
-If found it will use the provided router ID and not attempt to use the
-IPv4 address assigned to the node.
-
-Local Listening Port
+Overriding Router ID
 ^^^^^^^^^^^^^^^^^^^^
 
-By default the ``GoBGP BGPRouterManager`` will instantiate each virtual
-router without a listening port.
+When Cilium is running on an IPv4 single-stack or a dual-stack, the BGP Control
+Plane can use the IPv4 address assigned to the node as the BGP Router ID
+because Router ID is 32bit long, and we can rely on the uniqueness of the IPv4
+address to make Router ID unique which is not the case for IPv6. Thus, when
+running in an IPv6 single-stack, or when the auto assignment of the Router ID
+is not desired, the administrator needs to manually define it. This can be
+accomplished by setting the ``router-id`` key in the annotation.
 
-It is possible to deploy a virtual router which creates a local
-listening port where BGP connections may take place.
+.. code-block:: shell-session
 
-If this is desired the following annotation can be provided
+   $ kubectl annotate node <node-name> cilium.io/bgp-virtual-router.{asn}="router-id=10.0.0.2"
 
-::
 
-   cilium.io/bgp-virtual-router.{asn}="local-port=45450"
+Listening on the Local Port
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, the BGP Control Plane instantiates each virtual router without a
+listening port. This means the BGP router can only initiate connections to the
+configured peers, but cannot accept incoming connections. This is the default
+behavior because the BGP Control Plane is designed to function in environments
+where another BGP router (such as ``Bird``) is running on the same node. When
+it is required to accept incoming connections, the ``local-port`` key can be
+used to specify the listening port.
+
+.. code-block:: shell-session
+
+   $ kubectl annotate node <node-name> cilium.io/bgp-virtual-router.{asn}="local-port=179"
+
 
 Neighbors
-^^^^^^^^^
+---------
 
 Each ``CiliumBGPVirtualRouter`` can contain multiple ``CiliumBGPNeighbor`` sections,
 each specifying configuration for a neighboring BGP peer of the Virtual Router.
