@@ -444,7 +444,7 @@ func (r *MUPDirectSegmentDiscoveryRoute) rd() RouteDistinguisherInterface {
 }
 
 // MUPType1SessionTransformedRoute3GPP5G represents 3GPP 5G specific Type 1 Session Transformed (ST) Route as described in
-// https://datatracker.ietf.org/doc/html/draft-mpmz-bess-mup-safi-00#section-3.1.3
+// https://datatracker.ietf.org/doc/html/draft-mpmz-bess-mup-safi-03#section-3.1.3
 type MUPType1SessionTransformedRoute struct {
 	RD                    RouteDistinguisherInterface
 	Prefix                netip.Prefix
@@ -452,21 +452,28 @@ type MUPType1SessionTransformedRoute struct {
 	QFI                   uint8
 	EndpointAddressLength uint8
 	EndpointAddress       netip.Addr
+	SourceAddressLength   uint8
+	SourceAddress         *netip.Addr
 }
 
-func NewMUPType1SessionTransformedRoute(rd RouteDistinguisherInterface, prefix netip.Prefix, teid netip.Addr, qfi uint8, ea netip.Addr) *MUPNLRI {
+func NewMUPType1SessionTransformedRoute(rd RouteDistinguisherInterface, prefix netip.Prefix, teid netip.Addr, qfi uint8, ea netip.Addr, sa *netip.Addr) *MUPNLRI {
 	afi := uint16(AFI_IP)
 	if prefix.Addr().Is6() {
 		afi = uint16(AFI_IP6)
 	}
-	return NewMUPNLRI(afi, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_TYPE_1_SESSION_TRANSFORMED, &MUPType1SessionTransformedRoute{
+	r := &MUPType1SessionTransformedRoute{
 		RD:                    rd,
 		Prefix:                prefix,
 		TEID:                  teid,
 		QFI:                   qfi,
 		EndpointAddressLength: uint8(ea.BitLen()),
 		EndpointAddress:       ea,
-	})
+	}
+	if sa != nil {
+		r.SourceAddressLength = uint8(sa.BitLen())
+		r.SourceAddress = sa
+	}
+	return NewMUPNLRI(afi, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_TYPE_1_SESSION_TRANSFORMED, r)
 }
 
 func (r *MUPType1SessionTransformedRoute) DecodeFromBytes(data []byte, afi uint16) error {
@@ -519,6 +526,16 @@ func (r *MUPType1SessionTransformedRoute) DecodeFromBytes(data []byte, afi uint1
 	} else {
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Endpoint Address length: %d", r.EndpointAddressLength))
 	}
+	p += int(r.EndpointAddressLength / 8)
+	r.SourceAddressLength = data[p]
+	p += 1
+	if r.SourceAddressLength == 32 || r.SourceAddressLength == 128 {
+		sa, ok := netip.AddrFromSlice(data[p : p+int(r.SourceAddressLength/8)])
+		if !ok {
+			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Source Address: %x", data[p:p+int(r.SourceAddressLength/8)]))
+		}
+		r.SourceAddress = &sa
+	}
 	return nil
 }
 
@@ -540,6 +557,10 @@ func (r *MUPType1SessionTransformedRoute) Serialize() ([]byte, error) {
 	buf = append(buf, r.QFI)
 	buf = append(buf, r.EndpointAddressLength)
 	buf = append(buf, r.EndpointAddress.AsSlice()...)
+	buf = append(buf, r.SourceAddressLength)
+	if r.SourceAddressLength > 0 {
+		buf = append(buf, r.SourceAddress.AsSlice()...)
+	}
 	return buf, nil
 }
 
@@ -552,8 +573,12 @@ func (r *MUPType1SessionTransformedRoute) AFI() uint16 {
 
 func (r *MUPType1SessionTransformedRoute) Len() int {
 	// RD(8) + PrefixLength(1) + Prefix(variable)
-	// + TEID(4) + QFI(1) + EndpointAddressLength(1) + EndpointAddress(4 or 16)
-	return 15 + (r.Prefix.Bits()+7)/8 + int(r.EndpointAddressLength/8)
+	// + TEID(4) + QFI(1) + EndpointAddressLength(1) + EndpointAddress(4 or 16) + SourceAddressLength(1) + SourceAddress(4 or 16)
+	l := 16 + (r.Prefix.Bits()+7)/8 + int(r.EndpointAddressLength/8)
+	if r.SourceAddressLength > 0 {
+		l += int(r.SourceAddressLength / 8)
+	}
+	return l
 }
 
 func (r *MUPType1SessionTransformedRoute) String() string {
@@ -564,19 +589,24 @@ func (r *MUPType1SessionTransformedRoute) String() string {
 }
 
 func (r *MUPType1SessionTransformedRoute) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
+	d := struct {
 		RD              RouteDistinguisherInterface `json:"rd"`
 		Prefix          string                      `json:"prefix"`
 		TEID            string                      `json:"teid"`
 		QFI             uint8                       `json:"qfi"`
 		EndpointAddress string                      `json:"endpoint_address"`
+		SourceAddress   string                      `json:"source_address"`
 	}{
 		RD:              r.RD,
 		Prefix:          r.Prefix.String(),
 		TEID:            r.TEID.String(),
 		QFI:             r.QFI,
 		EndpointAddress: r.EndpointAddress.String(),
-	})
+	}
+	if r.SourceAddress != nil {
+		d.SourceAddress = r.SourceAddress.String()
+	}
+	return json.Marshal(d)
 }
 
 func (r *MUPType1SessionTransformedRoute) rd() RouteDistinguisherInterface {
