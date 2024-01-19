@@ -17,39 +17,44 @@ reachability within the cluster.
 
 .. _Border Gateway Protocol: https://datatracker.ietf.org/doc/html/rfc4271
 
-Usage
------
+Prerequisites
+-------------
 
-Currently a single flag in the ``Cilium Agent`` exists to turn on the
-``BGP Control Plane`` feature set.
+- Cilium must be configured with IPAM mode ``cluster-pool``, ``kubernetes``, or ``multi-pool``.
+- If you are using the older MetalLB-based :ref:`bgp` feature, it must be disabled.
 
-::
+Installation
+------------
 
-   --enable-bgp-control-plane=true
+.. tabs::
 
-If using Helm charts instead, the relevant values are the following:
+  .. group-tab:: Helm
 
-.. code-block:: yaml
+        Cilium BGP Control Plane can be enabled with Helm flag ``bgpControlPlane.enabled``
+        set as true.
 
-   bgpControlPlane:
-     enabled: true
+        .. parsed-literal::
 
-.. note::
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --reuse-values \\
+                --set bgpControlPlane.enabled=true
+            $ kubectl -n kube-system rollout restart ds/cilium
 
-   The BGP Control Plane feature is mutually exclusive with the MetalLB-based :ref:`bgp`
-   feature. To use the Control Plane, the older BGP feature has to be disabled.
-   In other words, this feature does _not_ switch the BGP implementation
-   from MetalLB to GoBGP.
+  .. group-tab:: Cilium CLI
 
-When set to ``true`` the ``BGP Control Plane`` ``Controllers`` will be
-instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
-events.
+        .. include:: ../installation/cli-download.rst
 
-Currently, the ``BGP Control Plane`` will only work when IPAM mode is set to
-"cluster-pool", "kubernetes", or "multi-pool".
+        Cilium BGP Control Plane can be enabled with the following command
 
-CiliumBGPPeeringPolicy CRD
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+        .. parsed-literal::
+
+            $ cilium install |CHART_VERSION| --set bgpControlPlane.enabled=true
+
+IPv4/IPv6 single-stack and dual-stack setup are supported. Note that the BGP
+Control Plane can only advertise the route of the address family that the
+Cilium is configured to use. You cannot advertise IPv4 routes when the Cilium
+Agent is configured to use only IPv6 address family. The opposite is also true.
 
 All ``BGP`` peering topology information is carried in a
 ``CiliumBGPPeeringPolicy`` CRD.
