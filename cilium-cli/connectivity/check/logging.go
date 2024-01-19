@@ -286,6 +286,7 @@ func (t *Test) Infof(format string, a ...interface{}) {
 }
 
 func (t *Test) failCommon() {
+	alreadyFailed := t.failed
 	t.failed = true
 	t.flush()
 	if t.ctx.params.PauseOnFail {
@@ -301,7 +302,8 @@ func (t *Test) failCommon() {
 		case <-ctx.Done():
 		}
 	}
-	if t.ctx.params.CollectSysdumpOnFailure {
+	if t.ctx.params.CollectSysdumpOnFailure &&
+		(t.sysdumpPolicy == SysdumpPolicyEach || (t.sysdumpPolicy == SysdumpPolicyOnce && !alreadyFailed)) {
 		t.collectSysdump()
 	}
 }
