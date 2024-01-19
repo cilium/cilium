@@ -144,7 +144,7 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 		// - To catch Geneve traffic we cannot use the "geneve" filter, as it shifts
 		//   offset of a filted packet which invalidates the later part of the
 		//   filter. Thus this poor UDP/6081 check.
-		tunnelFilter := "(udp and (udp[8:2] = 0x0800 or dst port 8472 or dst 6081))"
+		tunnelFilter := "(udp and (udp[8:2] = 0x0800 or dst port 8472 or dst port 6081))"
 		filter := fmt.Sprintf("(%s and host %s and host %s) or (host %s and host %s and %s)",
 			tunnelFilter,
 			clientHost.Address(features.IPFamilyV4), serverHost.Address(features.IPFamilyV4),
