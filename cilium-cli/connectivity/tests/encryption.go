@@ -4,13 +4,11 @@
 package tests
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium-cli/utils/lock"
 )
 
 type requestType int
@@ -268,7 +267,7 @@ type leakSniffer struct {
 	host     *check.Pod
 	dumpPath string
 
-	stdout safeBuffer
+	stdout lock.Buffer
 	cancel context.CancelFunc
 	exited chan error
 }
@@ -407,39 +406,6 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 			}
 		})
 	}
-}
-
-// bytes.Buffer from the stdlib is non-thread safe, thus our custom
-// implementation. Unfortunately, we cannot use io.Pipe, as Write() blocks until
-// Read() has read all content, which makes it deadlock-prone when used with
-// ExecInPodWithWriters() running in a separate goroutine.
-type safeBuffer struct {
-	sync.Mutex
-	b bytes.Buffer
-}
-
-func (b *safeBuffer) Read(p []byte) (n int, err error) {
-	b.Lock()
-	defer b.Unlock()
-	return b.b.Read(p)
-}
-
-func (b *safeBuffer) Write(p []byte) (n int, err error) {
-	b.Lock()
-	defer b.Unlock()
-	return b.b.Write(p)
-}
-
-func (b *safeBuffer) String() string {
-	b.Lock()
-	defer b.Unlock()
-	return b.b.String()
-}
-
-func (b *safeBuffer) ReadString(d byte) (string, error) {
-	b.Lock()
-	defer b.Unlock()
-	return b.b.ReadString(d)
 }
 
 func NodeToNodeEncryption(reqs ...features.Requirement) check.Scenario {
