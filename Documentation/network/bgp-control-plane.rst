@@ -399,15 +399,105 @@ Get IPv4 unicast routes advertised to a specific peer:
    Node                              VRouter   Prefix        NextHop   Age    Attrs
    node0                             64512     10.1.0.0/24   10.0.0.2  17m42s [{Origin: i} {AsPath: } {Nexthop: 10.0.0.2} {LocalPref: 100}]
 
+
+Neighbor Options
+----------------
+
+Each ``virtualRouters`` can contain multiple ``neighbors``. You can specify
+various BGP peering options for each neighbor. This section describes the
+available options and use cases.
+
 .. warning::
 
    Change of an existing neighbor configuration can cause reset of the existing BGP
    peering connection, which results in route flaps and transient packet loss while
    the session reestablishes and peers exchange their routes. To prevent packet loss,
-   it is recommended to configure BGP graceful restart.
+   it is recommended to configure BGP Graceful Restart.
 
-MD5 passwords
-'''''''''''''
+Peer Port
+^^^^^^^^^
+
+By default, the BGP Control Plane uses port 179 for BGP peering. When the neighbor is
+running on a non-standard port, you can specify the port number with the ``peerPort``
+field.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+         peerPort: 1179 # <-- specify the peer port
+
+Timers
+^^^^^^
+
+BGP Control Plane supports modifying the following BGP timer parameters. For
+more detailed description for each timer parameters, please refer to `RFC4271
+<https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__.
+
+================= ============================ ==========
+Name              Field                        Default
+----------------- ---------------------------- ----------
+ConnectRetryTimer ``connectRetryTimeSeconds``  120
+HoldTimer         ``holdTimeSeconds``          90
+KeepaliveTimer    ``keepAliveTimeSeconds``     30
+================= ============================ ==========
+
+In datacenter networks which Kubernetes clusters are deployed, it is generally
+recommended to set the ``HoldTimer`` and ``KeepaliveTimer`` to a lower value
+for faster possible failure detection. For example, you can set the minimum
+possible values ``holdTimeSeconds=9`` and ``keepAliveTimeSeconds=3``.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+         connetRetryTimeSeconds: 90 # <-- specify the ConnectRetryTimer
+         holdTimeSeconds: 9         # <-- specify the HoldTimer
+         keepAliveTimeSeconds: 3    # <-- specify the KeepaliveTimer
+
+eBGP Multihop
+^^^^^^^^^^^^^
+
+By default, IP TTL of the BGP packets is set to 1 in eBGP. Generally, it is
+encouraged to not change the TTL, but in some cases, you may need to change the
+TTL value. For example, when the BGP peer is a Route Server and located in a
+different subnet, you may need to set the TTL value to more than 1.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+         eBGPMultihopTTL: 4 # <-- specify the TTL value
+
+MD5 Passwords
+^^^^^^^^^^^^^
 
 By configuring ``authSecretRef`` for a neighbor you can configure that a
 `RFC-2385`_ TCP MD5 password should be configured on the session with this BGP
@@ -447,8 +537,8 @@ If a ``CiliumBGPPeeringPolicy`` is deployed with an ``authSecretRef`` that Ciliu
    level=error msg="Failed to fetch secret \"secretname\": not found (will continue with empty password)" component=manager.fetchPeerPassword subsys=bgp-control-plane
 
 Graceful Restart
-''''''''''''''''
-The Cilium BGP control plane can be configured to act as a graceful restart
+^^^^^^^^^^^^^^^^
+The Cilium BGP Control Plane can be configured to act as a graceful restart
 ``Restarting Speaker``. When you enable graceful restart, the BGP session will restart
 and the "graceful restart" capability will be advertised in the BGP OPEN message.
 
@@ -497,7 +587,7 @@ Default value of ``RestartTime`` is 120 seconds. More details on graceful restar
 .. _RFC-8538 : https://www.rfc-editor.org/rfc/rfc8538.html
 
 Advertised Path Attributes
-''''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 BGP advertisements can be extended with additional BGP Path Attributes - BGP Communities (`RFC-1997`_) or Local Preference.
 These Path Attributes can be configured selectively for each BGP peer and advertisement type.
