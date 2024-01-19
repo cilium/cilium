@@ -117,13 +117,13 @@ func (p *Printer) GetPorts(f *flowpb.Flow) (string, string) {
 	if l4 == nil {
 		return "", ""
 	}
-	switch l4.Protocol.(type) {
+	switch l4.GetProtocol().(type) {
 	case *flowpb.Layer4_TCP:
-		return strconv.Itoa(int(l4.GetTCP().SourcePort)), strconv.Itoa(int(l4.GetTCP().DestinationPort))
+		return strconv.Itoa(int(l4.GetTCP().GetSourcePort())), strconv.Itoa(int(l4.GetTCP().GetDestinationPort()))
 	case *flowpb.Layer4_UDP:
-		return strconv.Itoa(int(l4.GetUDP().SourcePort)), strconv.Itoa(int(l4.GetUDP().DestinationPort))
+		return strconv.Itoa(int(l4.GetUDP().GetSourcePort())), strconv.Itoa(int(l4.GetUDP().GetDestinationPort()))
 	case *flowpb.Layer4_SCTP:
-		return strconv.Itoa(int(l4.GetSCTP().SourcePort)), strconv.Itoa(int(l4.GetSCTP().DestinationPort))
+		return strconv.Itoa(int(l4.GetSCTP().GetSourcePort())), strconv.Itoa(int(l4.GetSCTP().GetDestinationPort()))
 	default:
 		return "", ""
 	}
@@ -144,24 +144,24 @@ func (p *Printer) GetHostNames(f *flowpb.Flow) (string, string) {
 	}
 
 	if src := f.GetSource(); src != nil {
-		srcNamespace = src.Namespace
-		srcPodName = src.PodName
+		srcNamespace = src.GetNamespace()
+		srcPodName = src.GetPodName()
 	}
 	if dst := f.GetDestination(); dst != nil {
-		dstNamespace = dst.Namespace
-		dstPodName = dst.PodName
+		dstNamespace = dst.GetNamespace()
+		dstPodName = dst.GetPodName()
 	}
 	if svc := f.GetSourceService(); svc != nil {
-		srcNamespace = svc.Namespace
-		srcSvcName = svc.Name
+		srcNamespace = svc.GetNamespace()
+		srcSvcName = svc.GetName()
 	}
 	if svc := f.GetDestinationService(); svc != nil {
-		dstNamespace = svc.Namespace
-		dstSvcName = svc.Name
+		dstNamespace = svc.GetNamespace()
+		dstSvcName = svc.GetName()
 	}
 	srcPort, dstPort := p.GetPorts(f)
-	src := p.Hostname(f.GetIP().Source, srcPort, srcNamespace, srcPodName, srcSvcName, f.GetSourceNames())
-	dst := p.Hostname(f.GetIP().Destination, dstPort, dstNamespace, dstPodName, dstSvcName, f.GetDestinationNames())
+	src := p.Hostname(f.GetIP().GetSource(), srcPort, srcNamespace, srcPodName, srcSvcName, f.GetSourceNames())
+	dst := p.Hostname(f.GetIP().GetDestination(), dstPort, dstNamespace, dstPodName, dstSvcName, f.GetDestinationNames())
 	return p.color.host(src), p.color.host(dst)
 }
 
@@ -198,13 +198,13 @@ func fmtTimestamp(layout string, ts *timestamppb.Timestamp) string {
 func GetFlowType(f *flowpb.Flow) string {
 	if l7 := f.GetL7(); l7 != nil {
 		l7Protocol := "l7"
-		l7Type := strings.ToLower(l7.Type.String())
+		l7Type := strings.ToLower(l7.GetType().String())
 		switch l7.GetRecord().(type) {
 		case *flowpb.Layer7_Http:
 			l7Protocol = "http"
 		case *flowpb.Layer7_Dns:
 			l7Protocol = "dns"
-			l7Type += " " + l7.GetDns().ObservationSource
+			l7Type += " " + l7.GetDns().GetObservationSource()
 		case *flowpb.Layer7_Kafka:
 			l7Protocol = "kafka"
 		}
@@ -365,7 +365,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 		if f.GetIsReply() == nil {
 			// direction is unknown.
 			arrow = "<>"
-		} else if f.GetIsReply().Value {
+		} else if f.GetIsReply().GetValue() {
 			// flip the arrow and src/dst for reply packets.
 			src, dst = dst, src
 			srcIdentity, dstIdentity = dstIdentity, srcIdentity
@@ -452,14 +452,14 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 		} else {
 			p.line++
 		}
-		nodeNames := joinWithCutOff(s.NodeNames, ", ", nodeNamesCutOff)
+		nodeNames := joinWithCutOff(s.GetNodeNames(), ", ", nodeNamesCutOff)
 		message := "N/A"
 		if m := s.GetMessage(); len(m) != 0 {
 			message = strconv.Quote(m)
 		}
 		_, err := fmt.Fprint(p.opts.werr,
 			"  TIMESTAMP: ", fmtTimestamp(p.opts.timeFormat, r.GetTime()), newline,
-			"      STATE: ", s.StateChange.String(), newline,
+			"      STATE: ", s.GetStateChange().String(), newline,
 			"      NODES: ", nodeNames, newline,
 			"    MESSAGE: ", message, newline,
 		)
@@ -467,11 +467,11 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 			return fmt.Errorf("failed to write out node status: %v", err)
 		}
 	case TabOutput, CompactOutput:
-		numNodes := len(s.NodeNames)
-		nodeNames := joinWithCutOff(s.NodeNames, ", ", nodeNamesCutOff)
+		numNodes := len(s.GetNodeNames())
+		nodeNames := joinWithCutOff(s.GetNodeNames(), ", ", nodeNamesCutOff)
 		prefix := fmt.Sprintf("%s [%s]", fmtTimestamp(p.opts.timeFormat, r.GetTime()), r.GetNodeName())
 		msg := fmt.Sprintf("%s: unknown node status event: %+v", prefix, s)
-		switch s.StateChange {
+		switch s.GetStateChange() {
 		case relaypb.NodeState_NODE_CONNECTED:
 			msg = fmt.Sprintf("%s: Receiving flows from %d nodes: %s", prefix, numNodes, nodeNames)
 		case relaypb.NodeState_NODE_UNAVAILABLE:
@@ -479,7 +479,7 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 		case relaypb.NodeState_NODE_GONE:
 			msg = fmt.Sprintf("%s: %d nodes removed from cluster: %s", prefix, numNodes, nodeNames)
 		case relaypb.NodeState_NODE_ERROR:
-			msg = fmt.Sprintf("%s: Error %q on %d nodes: %s", prefix, s.Message, numNodes, nodeNames)
+			msg = fmt.Sprintf("%s: Error %q on %d nodes: %s", prefix, s.GetMessage(), numNodes, nodeNames)
 		}
 
 		return p.WriteErr(msg)
@@ -489,29 +489,29 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 }
 
 func formatServiceAddr(a *flowpb.ServiceUpsertNotificationAddr) string {
-	return net.JoinHostPort(a.Ip, strconv.Itoa(int(a.Port)))
+	return net.JoinHostPort(a.GetIp(), strconv.Itoa(int(a.GetPort())))
 }
 
 func getAgentEventDetails(e *flowpb.AgentEvent, timeLayout string) string {
 	switch e.GetType() {
 	case flowpb.AgentEventType_AGENT_EVENT_UNKNOWN:
 		if u := e.GetUnknown(); u != nil {
-			return fmt.Sprintf("type: %s, notification: %s", u.Type, u.Notification)
+			return fmt.Sprintf("type: %s, notification: %s", u.GetType(), u.GetNotification())
 		}
 	case flowpb.AgentEventType_AGENT_STARTED:
 		if a := e.GetAgentStart(); a != nil {
-			return fmt.Sprintf("start time: %s", fmtTimestamp(timeLayout, a.Time))
+			return fmt.Sprintf("start time: %s", fmtTimestamp(timeLayout, a.GetTime()))
 		}
 	case flowpb.AgentEventType_POLICY_UPDATED, flowpb.AgentEventType_POLICY_DELETED:
 		if p := e.GetPolicyUpdate(); p != nil {
 			return fmt.Sprintf("labels: [%s], revision: %d, count: %d",
-				strings.Join(p.Labels, ","), p.Revision, p.RuleCount)
+				strings.Join(p.GetLabels(), ","), p.GetRevision(), p.GetRuleCount())
 		}
 	case flowpb.AgentEventType_ENDPOINT_REGENERATE_SUCCESS, flowpb.AgentEventType_ENDPOINT_REGENERATE_FAILURE:
 		if r := e.GetEndpointRegenerate(); r != nil {
 			var sb strings.Builder
-			fmt.Fprintf(&sb, "id: %d, labels: [%s]", r.Id, strings.Join(r.Labels, ","))
-			if re := r.Error; re != "" {
+			fmt.Fprintf(&sb, "id: %d, labels: [%s]", r.GetId(), strings.Join(r.GetLabels(), ","))
+			if re := r.GetError(); re != "" {
 				fmt.Fprintf(&sb, ", error: %s", re)
 			}
 			return sb.String()
@@ -519,11 +519,11 @@ func getAgentEventDetails(e *flowpb.AgentEvent, timeLayout string) string {
 	case flowpb.AgentEventType_ENDPOINT_CREATED, flowpb.AgentEventType_ENDPOINT_DELETED:
 		if ep := e.GetEndpointUpdate(); ep != nil {
 			var sb strings.Builder
-			fmt.Fprintf(&sb, "id: %d", ep.Id)
-			if n := ep.Namespace; n != "" {
+			fmt.Fprintf(&sb, "id: %d", ep.GetId())
+			if n := ep.GetNamespace(); n != "" {
 				fmt.Fprintf(&sb, ", namespace: %s", n)
 			}
-			if n := ep.PodName; n != "" {
+			if n := ep.GetPodName(); n != "" {
 				fmt.Fprintf(&sb, ", pod name: %s", n)
 			}
 			return sb.String()
@@ -531,50 +531,50 @@ func getAgentEventDetails(e *flowpb.AgentEvent, timeLayout string) string {
 	case flowpb.AgentEventType_IPCACHE_UPSERTED, flowpb.AgentEventType_IPCACHE_DELETED:
 		if i := e.GetIpcacheUpdate(); i != nil {
 			var sb strings.Builder
-			fmt.Fprintf(&sb, "cidr: %s, identity: %d", i.Cidr, i.Identity)
-			if i.OldIdentity != nil {
-				fmt.Fprintf(&sb, ", old identity: %d", i.OldIdentity.Value)
+			fmt.Fprintf(&sb, "cidr: %s, identity: %d", i.GetCidr(), i.GetIdentity())
+			if i.GetOldIdentity() != nil {
+				fmt.Fprintf(&sb, ", old identity: %d", i.GetOldIdentity().GetValue())
 			}
-			if i.HostIp != "" {
-				fmt.Fprintf(&sb, ", host ip: %s", i.HostIp)
+			if i.GetHostIp() != "" {
+				fmt.Fprintf(&sb, ", host ip: %s", i.GetHostIp())
 			}
-			if i.OldHostIp != "" {
-				fmt.Fprintf(&sb, ", old host ip: %s", i.OldHostIp)
+			if i.GetOldHostIp() != "" {
+				fmt.Fprintf(&sb, ", old host ip: %s", i.GetOldHostIp())
 			}
-			fmt.Fprintf(&sb, ", encrypt key: %d", i.EncryptKey)
+			fmt.Fprintf(&sb, ", encrypt key: %d", i.GetEncryptKey())
 			return sb.String()
 		}
 	case flowpb.AgentEventType_SERVICE_UPSERTED:
 		if svc := e.GetServiceUpsert(); svc != nil {
 			var sb strings.Builder
-			fmt.Fprintf(&sb, "id: %d", svc.Id)
-			if fe := svc.FrontendAddress; fe != nil {
+			fmt.Fprintf(&sb, "id: %d", svc.GetId())
+			if fe := svc.GetFrontendAddress(); fe != nil {
 				fmt.Fprintf(&sb, ", frontend: %s", formatServiceAddr(fe))
 			}
-			if bes := svc.BackendAddresses; len(bes) != 0 {
+			if bes := svc.GetBackendAddresses(); len(bes) != 0 {
 				backends := make([]string, 0, len(bes))
 				for _, a := range bes {
 					backends = append(backends, formatServiceAddr(a))
 				}
 				fmt.Fprintf(&sb, ", backends: [%s]", strings.Join(backends, ","))
 			}
-			if t := svc.Type; t != "" {
+			if t := svc.GetType(); t != "" {
 				fmt.Fprintf(&sb, ", type: %s", t)
 			}
-			if tp := svc.TrafficPolicy; tp != "" {
+			if tp := svc.GetTrafficPolicy(); tp != "" {
 				fmt.Fprintf(&sb, ", traffic policy: %s", tp)
 			}
-			if ns := svc.Namespace; ns != "" {
+			if ns := svc.GetNamespace(); ns != "" {
 				fmt.Fprintf(&sb, ", namespace: %s", ns)
 			}
-			if n := svc.Name; n != "" {
+			if n := svc.GetName(); n != "" {
 				fmt.Fprintf(&sb, ", name: %s", n)
 			}
 			return sb.String()
 		}
 	case flowpb.AgentEventType_SERVICE_DELETED:
 		if s := e.GetServiceDelete(); s != nil {
-			return fmt.Sprintf("id: %d", s.Id)
+			return fmt.Sprintf("id: %d", s.GetId())
 		}
 	}
 	return "UNKNOWN"
@@ -819,11 +819,15 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 
 	numConnectedNodes := "N/A"
 	if n := res.GetNumConnectedNodes(); n != nil {
-		numConnectedNodes = fmt.Sprintf("%d", n.Value)
+		numConnectedNodes = fmt.Sprintf("%d", n.GetValue())
 	}
 	numUnavailableNodes := "N/A"
 	if n := res.GetNumUnavailableNodes(); n != nil {
-		numUnavailableNodes = fmt.Sprintf("%d", n.Value)
+		numUnavailableNodes = fmt.Sprintf("%d", n.GetValue())
+	}
+	flowsPerSec := "N/A"
+	if fr := res.GetFlowsRate(); fr > 0 {
+		flowsPerSec = fmt.Sprintf("%.2f", fr)
 	}
 
 	switch p.opts.output {
@@ -833,6 +837,7 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 			"NUM FLOWS", tab,
 			"MAX FLOWS", tab,
 			"SEEN FLOWS", tab,
+			"FLOWS PER SECOND", tab,
 			"UPTIME", tab,
 			"NUM CONNECTED NODES", tab,
 			"NUM UNAVAILABLE NODES", tab,
@@ -840,6 +845,7 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 			uint64Grouping(res.GetNumFlows()), tab,
 			uint64Grouping(res.GetMaxFlows()), tab,
 			uint64Grouping(res.GetSeenFlows()), tab,
+			flowsPerSec, tab,
 			formatDurationNS(res.GetUptimeNs()), tab,
 			numConnectedNodes, tab,
 			numUnavailableNodes, tab,
@@ -854,6 +860,7 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 			"          NUM FLOWS: ", uint64Grouping(res.GetNumFlows()), newline,
 			"          MAX FLOWS: ", uint64Grouping(res.GetMaxFlows()), newline,
 			"         SEEN FLOWS: ", uint64Grouping(res.GetSeenFlows()), newline,
+			"   FLOWS PER SECOND: ", flowsPerSec, newline,
 			"             UPTIME: ", formatDurationNS(res.GetUptimeNs()), newline,
 			"NUM CONNECTED NODES: ", numConnectedNodes, newline,
 			" NUM UNAVAIL. NODES: ", numUnavailableNodes, newline,
@@ -865,14 +872,13 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 	case CompactOutput:
 		ew := &errWriter{w: p.opts.w}
 		flowsRatio := ""
-		if res.MaxFlows > 0 {
-			flowsRatio = fmt.Sprintf(" (%.2f%%)", (float64(res.NumFlows)/float64(res.MaxFlows))*100)
+		if res.GetMaxFlows() > 0 {
+			flowsRatio = fmt.Sprintf(" (%.2f%%)", (float64(res.GetNumFlows())/float64(res.GetMaxFlows()))*100)
 		}
-		ew.writef("Current/Max Flows: %v/%v%s\n", uint64Grouping(res.NumFlows), uint64Grouping(res.MaxFlows), flowsRatio)
+		ew.writef("Current/Max Flows: %v/%v%s\n", uint64Grouping(res.GetNumFlows()), uint64Grouping(res.GetMaxFlows()), flowsRatio)
 
-		flowsPerSec := "N/A"
-		if uptime := time.Duration(res.UptimeNs).Seconds(); uptime > 0 {
-			flowsPerSec = fmt.Sprintf("%.2f", float64(res.SeenFlows)/uptime)
+		if uptime := time.Duration(res.GetUptimeNs()).Seconds(); flowsPerSec == "N/A" && uptime > 0 {
+			flowsPerSec = fmt.Sprintf("%.2f", float64(res.GetSeenFlows())/uptime)
 		}
 		ew.writef("Flows/s: %s\n", flowsPerSec)
 
@@ -881,22 +887,22 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 		if numConnected != nil {
 			total := ""
 			if numUnavailable != nil {
-				total = fmt.Sprintf("/%d", numUnavailable.Value+numConnected.Value)
+				total = fmt.Sprintf("/%d", numUnavailable.GetValue()+numConnected.GetValue())
 			}
-			ew.writef("Connected Nodes: %d%s\n", numConnected.Value, total)
+			ew.writef("Connected Nodes: %d%s\n", numConnected.GetValue(), total)
 		}
-		if numUnavailable != nil && numUnavailable.Value > 0 {
+		if numUnavailable != nil && numUnavailable.GetValue() > 0 {
 			if unavailable := res.GetUnavailableNodes(); unavailable != nil {
 				sort.Strings(unavailable) // it's nicer when displaying unavailable nodes list
-				if numUnavailable.Value > uint32(len(unavailable)) {
-					unavailable = append(unavailable, fmt.Sprintf("and %d more...", numUnavailable.Value-uint32(len(unavailable))))
+				if numUnavailable.GetValue() > uint32(len(unavailable)) {
+					unavailable = append(unavailable, fmt.Sprintf("and %d more...", numUnavailable.GetValue()-uint32(len(unavailable))))
 				}
 				ew.writef("Unavailable Nodes: %d\n  - %s\n",
-					numUnavailable.Value,
+					numUnavailable.GetValue(),
 					strings.Join(unavailable, "\n  - "),
 				)
 			} else {
-				ew.writef("Unavailable Nodes: %d\n", numUnavailable.Value)
+				ew.writef("Unavailable Nodes: %d\n", numUnavailable.GetValue())
 			}
 		}
 		if ew.err != nil {
