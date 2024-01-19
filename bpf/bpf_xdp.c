@@ -11,12 +11,12 @@
 #define SKIP_POLICY_MAP 1
 
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
- * bpf_lxc object file.
+ * object file.
  */
 #define SKIP_ICMPV6_NS_HANDLING
 
 /* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED section
- * in the bpf_lxc object file. This is needed for all callers of
+ * in the object file. This is needed for all callers of
  * ipv6_local_delivery, which calls into the IPv6 L3 handling.
  */
 #define SKIP_ICMPV6_HOPLIMIT_HANDLING
@@ -24,6 +24,11 @@
 /* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
  */
 #define SKIP_SRV6_HANDLING
+
+/* Controls the inclusion of egress-related nodeport sections in the object file.
+ * As XDP doesn't have an egress hook, they are not needed.
+ */
+#define SKIP_NODEPORT_EGRESS_HANDLING		1
 
 /* The XDP datapath does not take care of health probes from the local node,
  * thus do not compile it in.

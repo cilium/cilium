@@ -1520,7 +1520,8 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	return CTX_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
+declare_tailcall_if(__not(is_defined(SKIP_NODEPORT_EGRESS_HANDLING)),
+		    CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
@@ -1584,10 +1585,11 @@ handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	return __handle_nat_fwd_ipv6(ctx, trace, ext_err);
 }
 
-declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-			       is_defined(ENABLE_IPV6)),
-			 __and(is_defined(ENABLE_HOST_FIREWALL),
-			       is_defined(IS_BPF_HOST))),
+declare_tailcall_if(__and(__not(is_defined(SKIP_NODEPORT_EGRESS_HANDLING)),
+			  __or(__and(is_defined(ENABLE_IPV4),
+				     is_defined(ENABLE_IPV6)),
+			       __and(is_defined(ENABLE_HOST_FIREWALL),
+				     is_defined(IS_BPF_HOST)))),
 		    CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
@@ -3066,7 +3068,8 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	return CTX_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
+declare_tailcall_if(__not(is_defined(SKIP_NODEPORT_EGRESS_HANDLING)),
+		    CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
@@ -3133,14 +3136,15 @@ handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	return __handle_nat_fwd_ipv4(ctx, cluster_id, trace, ext_err);
 }
 
-declare_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
-				is_defined(ENABLE_IPV6)),
-			  __and(is_defined(ENABLE_HOST_FIREWALL),
-				is_defined(IS_BPF_HOST)),
-			  __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
-				is_defined(ENABLE_INTER_CLUSTER_SNAT)),
-			  __and(is_defined(ENABLE_EGRESS_GATEWAY_COMMON),
-				is_defined(IS_BPF_HOST))),
+declare_tailcall_if(__and(__not(is_defined(SKIP_NODEPORT_EGRESS_HANDLING)),
+			  __or4(__and(is_defined(ENABLE_IPV4),
+				      is_defined(ENABLE_IPV6)),
+				__and(is_defined(ENABLE_HOST_FIREWALL),
+				      is_defined(IS_BPF_HOST)),
+				__and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
+				      is_defined(ENABLE_INTER_CLUSTER_SNAT)),
+				__and(is_defined(ENABLE_EGRESS_GATEWAY_COMMON),
+				      is_defined(IS_BPF_HOST)))),
 		    CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
