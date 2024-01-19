@@ -27,12 +27,13 @@ var Cell = cell.Module(
 	"ciliumenvoyconfig",
 	"CiliumEnvoyConfig",
 
-	cell.Invoke(registerCECK8sManager),
-	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
+	cell.Invoke(registerCECK8sReconciler),
+	cell.ProvidePrivate(newCECManager),
 	cell.ProvidePrivate(newCECResourceParser),
+	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
 )
 
-type managerParams struct {
+type reconcilerParams struct {
 	cell.In
 
 	Logger      logrus.FieldLogger
@@ -40,24 +41,19 @@ type managerParams struct {
 	JobRegistry job.Registry
 	Scope       cell.Scope
 
-	PolicyUpdater  *policy.Updater
-	ServiceManager service.ServiceManager
-
-	XdsServer      envoy.XDSServer
-	BackendSyncer  *envoyServiceBackendSyncer
-	ResourceParser *cecResourceParser
+	Manager ciliumEnvoyConfigManager
 
 	CECResources   resource.Resource[*ciliumv2.CiliumEnvoyConfig]
 	CCECResources  resource.Resource[*ciliumv2.CiliumClusterwideEnvoyConfig]
 	LocalNodeStore *node.LocalNodeStore
 }
 
-func registerCECK8sManager(params managerParams) {
+func registerCECK8sReconciler(params reconcilerParams) {
 	if !option.Config.EnableL7Proxy || !option.Config.EnableEnvoyConfig {
 		return
 	}
 
-	mgr := newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer, params.BackendSyncer, params.ResourceParser)
+	reconciler := newCiliumEnvoyConfigReconciler(params.Logger, params.Manager)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
@@ -66,10 +62,10 @@ func registerCECK8sManager(params managerParams) {
 				return fmt.Errorf("failed to get LocalNodeStore: %w", err)
 			}
 
-			mgr.localNodeLabels = localNode.Labels
+			reconciler.localNodeLabels = localNode.Labels
 
 			params.Logger.
-				WithField(logfields.Labels, mgr.localNodeLabels).
+				WithField(logfields.Labels, reconciler.localNodeLabels).
 				Debug("Retrieved initial labels from local Node")
 
 			return nil
@@ -83,10 +79,27 @@ func registerCECK8sManager(params managerParams) {
 	)
 	params.Lifecycle.Append(jobGroup)
 
-	jobGroup.Add(job.Observer("cec-resource-events", mgr.handleCECEvent, params.CECResources))
-	jobGroup.Add(job.Observer("ccec-resource-events", mgr.handleCCECEvent, params.CCECResources))
+	jobGroup.Add(job.Observer("cec-resource-events", reconciler.handleCECEvent, params.CECResources))
+	jobGroup.Add(job.Observer("ccec-resource-events", reconciler.handleCCECEvent, params.CCECResources))
 
 	// Observing local node events for changed labels
 	// Note: LocalNodeStore (in comparison to `resource.Resource`) doesn't provide a retry mechanism
-	jobGroup.Add(job.Observer("local-node-events", mgr.handleLocalNodeEvent, params.LocalNodeStore))
+	jobGroup.Add(job.Observer("local-node-events", reconciler.handleLocalNodeEvent, params.LocalNodeStore))
+}
+
+type managerParams struct {
+	cell.In
+
+	Logger logrus.FieldLogger
+
+	PolicyUpdater  *policy.Updater
+	ServiceManager service.ServiceManager
+
+	XdsServer      envoy.XDSServer
+	BackendSyncer  *envoyServiceBackendSyncer
+	ResourceParser *cecResourceParser
+}
+
+func newCECManager(params managerParams) ciliumEnvoyConfigManager {
+	return newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer, params.BackendSyncer, params.ResourceParser)
 }
