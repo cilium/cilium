@@ -89,7 +89,7 @@ var (
 	// policies to selectors
 	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
 		EntityAll:           {WildcardEndpointSelector},
-		EntityWorld:         {endpointSelectorWorld},
+		EntityWorld:         {endpointSelectorWorld, endpointSelectorWorldIPv4, endpointSelectorWorldIPv6},
 		EntityWorldIPv4:     {endpointSelectorWorldIPv4},
 		EntityWorldIPv6:     {endpointSelectorWorldIPv6},
 		EntityHost:          {endpointSelectorHost},

@@ -22,6 +22,9 @@ import (
 // swagger:model BgpRoute
 type BgpRoute struct {
 
+	// IP address specifying a BGP neighbor if the source table type is adj-rib-in or adj-rib-out
+	Neighbor string `json:"neighbor,omitempty"`
+
 	// List of routing paths leading towards the prefix
 	Paths []*BgpPath `json:"paths"`
 

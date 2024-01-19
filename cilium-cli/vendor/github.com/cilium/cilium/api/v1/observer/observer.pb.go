@@ -173,6 +173,7 @@ const DropReason_UNENCRYPTED_TRAFFIC = flow.DropReason_UNENCRYPTED_TRAFFIC
 const DropReason_TTL_EXCEEDED = flow.DropReason_TTL_EXCEEDED
 const DropReason_NO_NODE_ID = flow.DropReason_NO_NODE_ID
 const DropReason_DROP_RATE_LIMITED = flow.DropReason_DROP_RATE_LIMITED
+const DropReason_DROP_HOST_NOT_READY = flow.DropReason_DROP_HOST_NOT_READY
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value
