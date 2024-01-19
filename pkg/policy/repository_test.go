@@ -248,6 +248,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	lbls1 := labels.LabelArray{
 		labels.ParseLabel("tag1"),
 		labels.ParseLabel("tag2"),
+		labels.ParseLabel("k8s:io.cilium.k8s.policy.uid=uid-here"),
 	}
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),

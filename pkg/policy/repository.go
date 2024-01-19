@@ -112,7 +112,7 @@ type Repository struct {
 	rules ruleSlice
 
 	// rulesIndexByK8sUID indexes the rules by k8s UID.
-	rulesIndexByK8sUID map[string]*rule
+	rulesIndexByK8sUID map[string][]*rule
 
 	// revision is the revision of the policy repository. It will be
 	// incremented whenever the policy repository is changed.
@@ -193,7 +193,7 @@ func NewStoppedPolicyRepository(
 ) *Repository {
 	selectorCache := NewSelectorCache(idAllocator, idCache)
 	repo := &Repository{
-		rulesIndexByK8sUID: map[string]*rule{},
+		rulesIndexByK8sUID: map[string][]*rule{},
 		selectorCache:      selectorCache,
 		certManager:        certManager,
 		secretManager:      secretManager,
@@ -372,9 +372,11 @@ func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 	result := api.Rules{}
 
 	if uid := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
-		r, ok := p.rulesIndexByK8sUID[uid]
+		rules, ok := p.rulesIndexByK8sUID[uid]
 		if ok {
-			result = append(result, &r.Rule)
+			for _, r := range rules {
+				result = append(result, &r.Rule)
+			}
 		}
 		return result
 	}
@@ -418,7 +420,7 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 		}
 		newList[i] = newRule
 		if uid := rules[i].Labels.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
-			p.rulesIndexByK8sUID[uid] = newRule
+			p.rulesIndexByK8sUID[uid] = append(p.rulesIndexByK8sUID[uid], newRule)
 		}
 	}
 
@@ -513,10 +515,29 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpoints
 // contain the specified labels. Returns the revision of the policy repository
 // after deleting the rules, as well as now many rules were deleted.
 func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
-
 	deleted := 0
 	new := p.rules[:0]
 	deletedRules := ruleSlice{}
+
+	if uid := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
+		indexedRules, found := p.rulesIndexByK8sUID[uid]
+		if !found {
+			return deletedRules, p.GetRevision(), deleted
+		}
+		newIndex := indexedRules[:0]
+		for _, r := range indexedRules {
+			if !r.Labels.Contains(lbls) {
+				newIndex = append(newIndex, r)
+			}
+		}
+		if len(newIndex) == len(indexedRules) {
+			return deletedRules, p.GetRevision(), deleted
+		} else if len(newIndex) > 0 {
+			p.rulesIndexByK8sUID[uid] = newIndex
+		} else {
+			delete(p.rulesIndexByK8sUID, uid)
+		}
+	}
 
 	for _, r := range p.rules {
 		if !r.Labels.Contains(lbls) {
@@ -527,12 +548,25 @@ func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, ui
 		}
 	}
 
+	if uid := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); deleted > 0 && uid == "" {
+		for uid, indexedRules := range p.rulesIndexByK8sUID {
+			newIndex := indexedRules[:0]
+			for _, r := range indexedRules {
+				if !r.Labels.Contains(lbls) {
+					newIndex = append(newIndex, r)
+				}
+			}
+			if len(newIndex) > 0 {
+				p.rulesIndexByK8sUID[uid] = newIndex
+			} else {
+				delete(p.rulesIndexByK8sUID, uid)
+			}
+		}
+	}
+
 	if deleted > 0 {
 		p.BumpRevision()
 		p.rules = new
-		if uid := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
-			delete(p.rulesIndexByK8sUID, uid)
-		}
 		metrics.Policy.Sub(float64(deleted))
 	}
 
