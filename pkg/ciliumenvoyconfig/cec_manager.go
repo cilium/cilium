@@ -5,9 +5,7 @@ package ciliumenvoyconfig
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"maps"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -16,20 +14,20 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
 )
 
-type ciliumEnvoyConfigManager struct {
+type ciliumEnvoyConfigManager interface {
+	addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
+	updateCiliumEnvoyConfig(oldCECObjectMeta metav1.ObjectMeta, oldCECSpec *ciliumv2.CiliumEnvoyConfigSpec, newCECObjectMeta metav1.ObjectMeta, newCECSpec *ciliumv2.CiliumEnvoyConfigSpec) error
+	deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
+}
+
+type cecManager struct {
 	logger logrus.FieldLogger
 
 	policyUpdater  *policy.Updater
@@ -38,16 +36,6 @@ type ciliumEnvoyConfigManager struct {
 	xdsServer      envoy.XDSServer
 	backendSyncer  *envoyServiceBackendSyncer
 	resourceParser *cecResourceParser
-
-	mutex           lock.Mutex
-	configs         map[resource.Key]*config
-	localNodeLabels map[string]string
-}
-
-type config struct {
-	meta             metav1.ObjectMeta
-	spec             *ciliumv2.CiliumEnvoyConfigSpec
-	selectsLocalNode bool
 }
 
 func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
@@ -56,219 +44,18 @@ func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
 	xdsServer envoy.XDSServer,
 	backendSyncer *envoyServiceBackendSyncer,
 	resourceParser *cecResourceParser,
-) *ciliumEnvoyConfigManager {
-	return &ciliumEnvoyConfigManager{
+) *cecManager {
+	return &cecManager{
 		logger:         logger,
 		policyUpdater:  policyUpdater,
 		serviceManager: serviceManager,
 		xdsServer:      xdsServer,
 		backendSyncer:  backendSyncer,
 		resourceParser: resourceParser,
-		configs:        map[resource.Key]*config{},
 	}
 }
 
-func (r *ciliumEnvoyConfigManager) handleCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumEnvoyConfig]) error {
-	scopedLogger := r.logger.
-		WithField(logfields.K8sNamespace, event.Key.Namespace).
-		WithField(logfields.CiliumEnvoyConfigName, event.Key.Name)
-
-	var err error
-
-	switch event.Kind {
-	case resource.Upsert:
-		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
-		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
-		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CEC upsert")
-			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
-		}
-	case resource.Delete:
-		scopedLogger.Debug("Received CiliumEnvoyConfig delete event")
-		err = r.configDeleted(ctx, event.Key)
-		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CEC delete")
-			err = fmt.Errorf("failed to handle CEC delete: %w", err)
-		}
-	}
-
-	event.Done(err)
-
-	return err
-}
-
-func (r *ciliumEnvoyConfigManager) handleCCECEvent(ctx context.Context, event resource.Event[*ciliumv2.CiliumClusterwideEnvoyConfig]) error {
-	scopedLogger := r.logger.
-		WithField(logfields.K8sNamespace, event.Key.Namespace).
-		WithField(logfields.CiliumClusterwideEnvoyConfigName, event.Key.Name)
-
-	var err error
-
-	switch event.Kind {
-	case resource.Upsert:
-		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig upsert event")
-		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
-		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CCEC upsert")
-			err = fmt.Errorf("failed to handle CCEC upsert: %w", err)
-		}
-	case resource.Delete:
-		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig delete event")
-		err = r.configDeleted(ctx, event.Key)
-		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CCEC delete")
-			err = fmt.Errorf("failed to handle CCEC delete: %w", err)
-		}
-	}
-
-	event.Done(err)
-
-	return err
-}
-
-func (r *ciliumEnvoyConfigManager) handleLocalNodeEvent(ctx context.Context, localNode node.LocalNode) error {
-	r.logger.Debug("Received LocalNode changed event")
-
-	if err := r.handleLocalNodeLabels(ctx, localNode); err != nil {
-		r.logger.WithError(err).Error("failed to handle LocalNode changed event")
-		return fmt.Errorf("failed to handle LocalNode changed event: %w", err)
-	}
-
-	return nil
-}
-
-func (r *ciliumEnvoyConfigManager) handleLocalNodeLabels(ctx context.Context, localNode node.LocalNode) error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	if maps.Equal(r.localNodeLabels, localNode.Labels) {
-		r.logger.Debug("Labels of local Node didn't change")
-		return nil
-	}
-
-	r.localNodeLabels = localNode.Labels
-	r.logger.Debug("Labels of local Node changed - updated local store")
-
-	r.logger.Debug("Checking whether existing configs need to be applied or filtered")
-
-	// Error containing all potential errors during reconciliation of the configs.
-	// On error, only the reconciliation of the faulty config is skipped. All other
-	// configs should be reconciled.
-	var reconcileErr error
-
-	for key, cfg := range r.configs {
-		scopedLogger := r.logger.WithField("key", key)
-
-		err := r.configUpsertedInternal(ctx, key, cfg, false /* spec didn't change */)
-		if err != nil {
-			scopedLogger.WithError(err).Error("failed to reconcile config due to changed node labels")
-			// don't prevent reconciliation of other configs in case of an error for a particular config
-			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile config due to changed node labels (%s): %w", key, err))
-			continue
-		}
-	}
-
-	return reconcileErr
-}
-
-func (r *ciliumEnvoyConfigManager) configUpserted(ctx context.Context, key resource.Key, cfg *config) error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	return r.configUpsertedInternal(ctx, key, cfg, true /* spec may have changed */)
-}
-
-func (r *ciliumEnvoyConfigManager) configUpsertedInternal(ctx context.Context, key resource.Key, cfg *config, specMayChanged bool) error {
-	scopedLogger := r.logger.WithField("key", key)
-
-	selectsLocalNode, err := r.configSelectsLocalNode(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to match Node labels with config nodeselector (%s): %w", key, err)
-	}
-
-	appliedConfig, isApplied := r.configs[key]
-
-	switch {
-	case !isApplied && !selectsLocalNode:
-		scopedLogger.Debug("New config doesn't select the local Node")
-
-	case !isApplied && selectsLocalNode:
-		scopedLogger.Debug("New onfig selects the local node - adding config")
-		if err := r.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
-			return err
-		}
-
-	case isApplied && selectsLocalNode && !appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Config now selects the local Node - adding previously filtered config")
-		if err := r.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
-			return err
-		}
-
-	case isApplied && selectsLocalNode && appliedConfig.selectsLocalNode && specMayChanged:
-		scopedLogger.Debug("Config still selects the local Node - updating applied config")
-		if err := r.updateCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec, cfg.meta, cfg.spec); err != nil {
-			return err
-		}
-
-	case isApplied && !selectsLocalNode && !appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Config still doesn't select the local Node")
-
-	case isApplied && !selectsLocalNode && appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Config no longer selects the local Node - deleting previously applied config")
-		if err := r.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
-			return err
-		}
-	}
-
-	r.configs[key] = &config{meta: cfg.meta, spec: cfg.spec, selectsLocalNode: selectsLocalNode}
-
-	return nil
-}
-
-func (r *ciliumEnvoyConfigManager) configDeleted(ctx context.Context, key resource.Key) error {
-	scopedLogger := r.logger.
-		WithField("key", key)
-
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	appliedConfig, isApplied := r.configs[key]
-
-	switch {
-	case !isApplied:
-		scopedLogger.Warn("Deleted Envoy config has never been applied")
-
-	case isApplied && !appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Deleted CEC was already filtered by NodeSelector")
-
-	case isApplied && appliedConfig.selectsLocalNode:
-		scopedLogger.Debug("Deleting applied CEC")
-		if err := r.deleteCiliumEnvoyConfig(appliedConfig.meta, appliedConfig.spec); err != nil {
-			return err
-		}
-	}
-
-	delete(r.configs, key)
-
-	return nil
-}
-
-func (r *ciliumEnvoyConfigManager) configSelectsLocalNode(cfg *config) (bool, error) {
-	if cfg != nil && cfg.spec != nil && cfg.spec.NodeSelector != nil {
-		ls, err := slim_metav1.LabelSelectorAsSelector(cfg.spec.NodeSelector)
-		if err != nil {
-			return false, fmt.Errorf("invalid NodeSelector: %w", err)
-		}
-
-		if !ls.Matches(labels.Set(r.localNodeLabels)) {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
-func (r *ciliumEnvoyConfigManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
+func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	resources, err := r.resourceParser.parseResources(
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
@@ -303,7 +90,7 @@ func (r *ciliumEnvoyConfigManager) addCiliumEnvoyConfig(cecObjectMeta metav1.Obj
 	return err
 }
 
-func (r *ciliumEnvoyConfigManager) addK8sServiceRedirects(resourceName service.L7LBResourceName, spec *ciliumv2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
+func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceName, spec *ciliumv2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
 	// Redirect k8s services to an Envoy listener
 	for _, svc := range spec.Services {
 		svcListener := ""
@@ -356,7 +143,7 @@ func (r *ciliumEnvoyConfigManager) addK8sServiceRedirects(resourceName service.L
 	return nil
 }
 
-func (r *ciliumEnvoyConfigManager) updateCiliumEnvoyConfig(
+func (r *cecManager) updateCiliumEnvoyConfig(
 	oldCECObjectMeta metav1.ObjectMeta, oldCECSpec *ciliumv2.CiliumEnvoyConfigSpec,
 	newCECObjectMeta metav1.ObjectMeta, newCECSpec *ciliumv2.CiliumEnvoyConfigSpec,
 ) error {
@@ -405,7 +192,7 @@ func (r *ciliumEnvoyConfigManager) updateCiliumEnvoyConfig(
 	return nil
 }
 
-func (r *ciliumEnvoyConfigManager) removeK8sServiceRedirects(resourceName service.L7LBResourceName, oldSpec, newSpec *ciliumv2.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
+func (r *cecManager) removeK8sServiceRedirects(resourceName service.L7LBResourceName, oldSpec, newSpec *ciliumv2.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
 	removedServices := []*ciliumv2.ServiceListener{}
 	for _, oldSvc := range oldSpec.Services {
 		found := false
@@ -468,7 +255,7 @@ func (r *ciliumEnvoyConfigManager) removeK8sServiceRedirects(resourceName servic
 	return nil
 }
 
-func (r *ciliumEnvoyConfigManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
+func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	resources, err := r.resourceParser.parseResources(
 		cecObjectMeta.GetNamespace(),
 		cecObjectMeta.GetName(),
@@ -499,7 +286,7 @@ func (r *ciliumEnvoyConfigManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.
 	return nil
 }
 
-func (r *ciliumEnvoyConfigManager) deleteK8sServiceRedirects(resourceName service.L7LBResourceName, spec *ciliumv2.CiliumEnvoyConfigSpec) error {
+func (r *cecManager) deleteK8sServiceRedirects(resourceName service.L7LBResourceName, spec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	for _, svc := range spec.Services {
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
 
@@ -526,7 +313,7 @@ func (r *ciliumEnvoyConfigManager) deleteK8sServiceRedirects(resourceName servic
 	return nil
 }
 
-func (r *ciliumEnvoyConfigManager) registerServiceSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, ports []string) error {
+func (r *cecManager) registerServiceSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, ports []string) error {
 	// Register service usage in Envoy backend sync
 	r.backendSyncer.RegisterServiceUsageInCEC(serviceName, resourceName, ports)
 
@@ -539,7 +326,7 @@ func (r *ciliumEnvoyConfigManager) registerServiceSync(serviceName loadbalancer.
 	return nil
 }
 
-func (r *ciliumEnvoyConfigManager) deregisterServiceSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error {
+func (r *cecManager) deregisterServiceSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error {
 	// Deregister usage of Service from Envoy Backend Sync
 	isLastDeregistration := r.backendSyncer.DeregisterServiceUsageInCEC(serviceName, resourceName)
 
