@@ -282,14 +282,122 @@ io.cilium.podippool.name        ``.meta.name``
 
 For additional details regarding CiliumPodIPPools, see the :ref:`ipam_crd_multi_pool` section.
 
-Neighbors
----------
+Advertising Service Virtual IPs
+-------------------------------
 
-Each ``CiliumBGPVirtualRouter`` can contain multiple ``CiliumBGPNeighbor`` sections,
-each specifying configuration for a neighboring BGP peer of the Virtual Router.
-Each neighbor is uniquely identified by the address and the ASN of the peer, and can
-contain additional configuration specific for the given BGP peering, such as BGP timer
-values, graceful restart configuration and others.
+Type Load Balancer Services
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+BGP Control Plane can advertise the ingress IPs
+(``status.loadBalancer.ingress[*].ip``) of a Service of type ``LoadBalancer``
+to the BGP peers. This allows the BGP peers to reach the Service directly from
+outside the cluster. When your upstream router supports Equal Cost Multi Path
+(ECMP), you can use this feature to load balance traffic to the Service across
+multiple nodes by advertising the same ingress IPs from multiple nodes.
+
+You must first allocate ingress IPs to advertise them. By default, Kubernetes
+doesn't provide a way to assign ingress IPs to a Service. The cluster
+administrator is responsible for preparing a controller that assigns ingress
+IPs. Cilium supports assigning ingress IPs with the :ref:`Load Balancer IPAM
+<lb_ipam>` feature.
+
+To advertise the ingress IPs, specify the ``virtualRouters[*].serviceSelector`` field.
+The ``.serviceSelector`` field is a label selector that selects Services matching
+the specified ``.matchLabels`` or ``.matchExpressions``.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       serviceSelector:
+         matchLabels:
+           app: foo
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+
+This advertises the ingress IPs of all Services matching the ``.serviceSelector``.
+
+If you wish to announce ALL services within the cluster, a ``NotIn`` match expression
+with a dummy key and value can be used like:
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       serviceSelector:
+          matchExpressions:
+             - {key: somekey, operator: NotIn, values: ['never-used-value']}
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+
+There are a few special purpose selector fields which don't match on labels but
+instead on other metadata like ``.meta.name`` or ``.meta.namespace``.
+
+=============================== ===================
+Selector                        Field
+------------------------------- -------------------
+io.kubernetes.service.namespace ``.meta.namespace``
+io.kubernetes.service.name      ``.meta.name``
+=============================== ===================
+
+Load Balancer Class
+~~~~~~~~~~~~~~~~~~~
+
+Cilium supports the `loadBalancerClass
+<https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__.
+When the load balancer class is set to ``io.cilium/bgp-control-plane`` or unspecified,
+Cilium will announce the ingress IPs of the Service. Otherwise, Cilium will not announce
+the ingress IPs of the Service.
+
+externalTrafficPolicy
+~~~~~~~~~~~~~~~~~~~~~
+
+When the Service has ``externalTrafficPolicy: Cluster``, BGP Control Plane
+unconditionally advertises the ingress IPs of the selected Service. When the
+Service has ``externalTrafficPolicy: Local``, BGP Control Plane keeps track of
+the endpoints for the service on the local node and stops advertisement when
+there's no local endpoint.
+
+Validating Advertised Routes
+----------------------------
+
+Get all IPv4 unicast routes available:
+
+.. code-block:: shell-session
+
+   $ cilium bgp routes available ipv4 unicast
+   Node                              VRouter   Prefix        NextHop   Age    Attrs
+   node0                             64512     10.1.0.0/24   0.0.0.0   17m42s [{Origin: i} {Nexthop: 0.0.0.0}]
+
+Get all IPv4 unicast routes available for a specific vrouter:
+
+.. code-block:: shell-session
+
+   $ cilium bgp routes available ipv4 unicast vrouter 64512
+   Node                              VRouter   Prefix        NextHop   Age    Attrs
+   node0                             64512     10.1.0.0/24   0.0.0.0   17m42s [{Origin: i} {Nexthop: 0.0.0.0}]
+
+Get IPv4 unicast routes advertised to a specific peer:
+
+.. code-block:: shell-session
+
+   $ cilium bgp routes advertised ipv4 unicast peer 10.0.0.1
+   Node                              VRouter   Prefix        NextHop   Age    Attrs
+   node0                             64512     10.1.0.0/24   10.0.0.2  17m42s [{Origin: i} {AsPath: } {Nexthop: 10.0.0.2} {LocalPref: 100}]
 
 .. warning::
 
@@ -470,46 +578,6 @@ Once configured, the additional Path Attributes advertised with the routes for a
    65000     10.244.0.0/24        172.0.0.2   3m31s   [{Origin: i} {LocalPref: 150} {Nexthop: 172.0.0.2}
    65000     192.168.100.190/32   172.0.0.2   3m32s   [{Origin: i} {LocalPref: 100} {Communities: 64512:100}] {Nexthop: 172.0.0.2}
 
-
-Service announcements
----------------------
-
-By default, virtual routers will not announce services. Virtual routers will announce
-the ingress IPs of any LoadBalancer services that matches the ``.serviceSelector``
-of the virtual router and has `loadBalancerClass <https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__
-unspecified or set to ``io.cilium/bgp-control-plane``.
-
-If you wish to announce ALL services within the cluster, a ``NotIn`` match expression
-with a dummy key and value can be used like:
-
-.. code-block:: yaml
-
-   apiVersion: "cilium.io/v2alpha1"
-   kind: CiliumBGPPeeringPolicy
-   #[...]
-   virtualRouters: # []CiliumBGPVirtualRouter
-    - localASN: 64512
-      # [...]
-      serviceSelector:
-         matchExpressions:
-            - {key: somekey, operator: NotIn, values: ['never-used-value']}
-
-There are a few special purpose selector fields which don't match on labels but
-instead on other metadata like ``.meta.name`` or ``.meta.namespace``.
-
-=============================== ===================
-Selector                        Field
-------------------------------- -------------------
-io.kubernetes.service.namespace ``.meta.namespace``
-io.kubernetes.service.name      ``.meta.name``
-=============================== ===================
-
-Semantics of the externalTrafficPolicy: Local
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When the service has ``externalTrafficPolicy: Local``, ``BGP Control Plane`` keeps track
-of the endpoints for the service on the local node and stops advertisement when there's
-no local endpoint.
 
 CLI
 ---
