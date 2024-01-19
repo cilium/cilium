@@ -183,6 +183,104 @@ used to specify the listening port.
 
    $ kubectl annotate node <node-name> cilium.io/bgp-virtual-router.{asn}="local-port=179"
 
+Advertising PodCIDRs
+--------------------
+
+BGP Control Plane can advertise PodCIDR prefixes of the nodes selected by the
+``CiliumBGPPeeringPolicy`` to the BGP peers. This allows the BGP peers to reach
+the Pods directly without involving load balancers or NAT. There are two ways
+to advertise PodCIDRs depending on the IPAM mode setting.
+
+Kubernetes and ClusterPool IPAM
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When :ref:`Kubernetes <k8s_hostscope>` or :ref:`ClusterPool
+<ipam_crd_cluster_pool>` IPAM is used, set the
+``virtualRouters[*].exportPodCIDR`` field to true.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       exportPodCIDR: true # <-- enable PodCIDR advertisement
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+
+With this configuration, the BGP speaker on each node advertises the
+PodCIDR prefixes assigned to the local node.
+
+MutliPool IPAM
+^^^^^^^^^^^^^^
+
+When :ref:`MultiPool IPAM <ipam_crd_multi_pool>` is used, specify the
+``virtualRouters[*].podIPPoolSelector`` field. The ``.podIPPoolSelector`` field
+is a label selector that selects allocated CIDRs of ``CiliumPodIPPool``
+matching the specified ``.matchLabels`` or ``.matchExpressions``.
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       podIPPoolSelector: # <-- select CiliumPodIPPool to advertise
+         matchLabels:
+           environment: production
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+
+This advertises the PodCIDR prefixes allocated from the selected
+CiliumPodIPPools. Note that the CIDR must be allocated to a ``CiliumNode`` that
+matches the ``.nodeSelector`` for the virtual router to announce the PodCIDR as
+a BGP route.
+
+If you wish to announce ALL CiliumPodIPPool CIDRs within the cluster, a ``NotIn`` match expression
+with a dummy key and value can be used like:
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       podIPPoolSelector:
+         matchExpressions:
+         - {key: somekey, operator: NotIn, values: ['never-used-value']}
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+
+There are two special purpose selector fields that match CiliumPodIPPools based on ``name`` and/or
+``namespace`` metadata instead of labels:
+
+=============================== ===================
+Selector                        Field
+------------------------------- -------------------
+io.cilium.podippool.namespace   ``.meta.namespace``
+io.cilium.podippool.name        ``.meta.name``
+=============================== ===================
+
+For additional details regarding CiliumPodIPPools, see the :ref:`ipam_crd_multi_pool` section.
 
 Neighbors
 ---------
@@ -412,46 +510,6 @@ Semantics of the externalTrafficPolicy: Local
 When the service has ``externalTrafficPolicy: Local``, ``BGP Control Plane`` keeps track
 of the endpoints for the service on the local node and stops advertisement when there's
 no local endpoint.
-
-CiliumPodIPPool announcements
------------------------------
-
-By default, virtual routers will not announce any CiliumPodIPPool CIDRs. To announce allocated
-CIDRs of a CiliumPodIPPool, specify the ``.podIPPoolSelector`` for the virtual router. The
-``.podIPPoolSelector`` field is a label selector that selects allocated CIDRs of CiliumPodIPPools
-matching the specified ``.matchLabels`` or ``.matchExpressions``.
-
-.. note::
-
-   The CiliumPodIPPool CIDR must be allocated to a CiliumNode that matches the ``.nodeSelector`` for
-   the virtual router to announce the CIDR as a BGP route.
-
-If you wish to announce ALL CiliumPodIPPool CIDRs within the cluster, a ``NotIn`` match expression
-with a dummy key and value can be used like:
-
-.. code-block:: yaml
-
-   apiVersion: "cilium.io/v2alpha1"
-   kind: CiliumBGPPeeringPolicy
-   #[...]
-   virtualRouters: # []CiliumBGPVirtualRouter
-    - localASN: 64512
-      # [...]
-      podIPPoolSelector:
-         matchExpressions:
-            - {key: somekey, operator: NotIn, values: ['never-used-value']}
-
-There are two special purpose selector fields that match CiliumPodIPPools based on ``name`` and/or
-``namespace`` metadata instead of labels:
-
-=============================== ===================
-Selector                        Field
-------------------------------- -------------------
-io.cilium.podippool.namespace   ``.meta.namespace``
-io.cilium.podippool.name        ``.meta.name``
-=============================== ===================
-
-For additional details regarding CiliumPodIPPools, see the :ref:`ipam_crd_multi_pool` section.
 
 CLI
 ---
