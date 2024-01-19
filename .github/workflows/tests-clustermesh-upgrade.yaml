@@ -74,7 +74,7 @@ jobs:
 
   upgrade-and-downgrade:
     name: "Upgrade and Downgrade Test"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4cores-16gb
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
