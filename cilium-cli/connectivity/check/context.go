@@ -355,7 +355,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 		}
 	}
 	if match, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.NodeWithoutCilium)); match {
-		if err := ct.detectPodCIDRs(ctx); err != nil {
+		if err := ct.detectPodCIDRs(); err != nil {
 			return fmt.Errorf("unable to detect pod CIDRs: %w", err)
 		}
 
@@ -673,38 +673,31 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	return nil
 }
 
-func (ct *ConnectivityTest) detectPodCIDRs(ctx context.Context) error {
-	for _, client := range ct.Clients() {
-		nodes, err := client.ListNodes(ctx, metav1.ListOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to list nodes: %w", err)
+func (ct *ConnectivityTest) detectPodCIDRs() error {
+	for id, n := range ct.CiliumNodes() {
+		if _, ok := ct.nodesWithoutCilium[id.Name]; ok {
+			// Skip the nodes where Cilium is not installed.
+			continue
 		}
 
-		for _, n := range nodes.Items {
-			if _, ok := ct.nodesWithoutCilium[n.Name]; ok {
-				// Skip the nodes where Cilium is not installed.
-				continue
-			}
+		pod, ok := ct.hostNetNSPodsByNode[id.Name]
+		if !ok {
+			// No host-netns pod seems to be running on this node. Skipping
+			ct.Warnf("Could not find any host-netns pod running on %s", id.Name)
+			continue
+		}
 
-			pod, ok := ct.hostNetNSPodsByNode[n.Name]
-			if !ok {
-				// No host-netns pod seems to be running on this node. Skipping
-				ct.Warnf("Could not find any host-netns pod running on %s", n.Name)
-				continue
-			}
-
-			for _, cidr := range n.Spec.PodCIDRs {
-				// PodIPs match HostIPs given that the pod is running in host network.
-				for _, ip := range pod.Pod.Status.PodIPs {
-					f := features.GetIPFamily(ip.IP)
-					if strings.Contains(cidr, ":") != (f == features.IPFamilyV6) {
-						// Skip if the host IP of the pod mismatches with pod CIDR.
-						// Cannot create a route with the gateway IP family
-						// mismatching the subnet.
-						continue
-					}
-					ct.params.PodCIDRs = append(ct.params.PodCIDRs, podCIDRs{cidr, ip.IP})
+		for _, cidr := range n.Spec.IPAM.PodCIDRs {
+			// PodIPs match HostIPs given that the pod is running in host network.
+			for _, ip := range pod.Pod.Status.PodIPs {
+				f := features.GetIPFamily(ip.IP)
+				if strings.Contains(cidr, ":") != (f == features.IPFamilyV6) {
+					// Skip if the host IP of the pod mismatches with pod CIDR.
+					// Cannot create a route with the gateway IP family
+					// mismatching the subnet.
+					continue
 				}
+				ct.params.PodCIDRs = append(ct.params.PodCIDRs, podCIDRs{cidr, ip.IP})
 			}
 		}
 	}
