@@ -743,6 +743,14 @@ func (t *Test) NewAction(s Scenario, name string, src *Pod, dst TestPeer, ipFam 
 	return a
 }
 
+// NewGenericAction creates a new Action not associated with any execution pod
+// nor network target, but intended for generic assertions (e.g., checking the
+// absence of log errors over multiple pods). s must be the Scenario the Action
+// is created for, name should be a visually-distinguishable name.
+func (t *Test) NewGenericAction(s Scenario, name string) *Action {
+	return t.NewAction(s, name, nil, nil, features.IPFamilyAny)
+}
+
 // failedActions returns a list of failed Actions in the Test.
 func (t *Test) failedActions() []*Action {
 	var out []*Action
