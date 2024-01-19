@@ -32,8 +32,11 @@ type ciliumEnvoyConfigReconciler struct {
 }
 
 type config struct {
-	meta             metav1.ObjectMeta
-	spec             *ciliumv2.CiliumEnvoyConfigSpec
+	meta metav1.ObjectMeta
+	spec *ciliumv2.CiliumEnvoyConfigSpec
+	// Keeping the state whether the config matched as dedicated field.
+	// This is only used when checking whether an existing config selected
+	// the local node. (instead of re-evaluating using the node selector)
 	selectsLocalNode bool
 }
 
@@ -172,7 +175,7 @@ func (r *ciliumEnvoyConfigReconciler) configUpsertedInternal(ctx context.Context
 		scopedLogger.Debug("New config doesn't select the local Node")
 
 	case !isApplied && selectsLocalNode:
-		scopedLogger.Debug("New onfig selects the local node - adding config")
+		scopedLogger.Debug("New config selects the local node - adding config")
 		if err := r.manager.addCiliumEnvoyConfig(cfg.meta, cfg.spec); err != nil {
 			return err
 		}
