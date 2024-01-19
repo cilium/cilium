@@ -9,7 +9,11 @@ default_workers=1
 default_cluster_name=""
 default_image=""
 default_kubeproxy_mode="iptables"
-default_ipfamily="dual"
+if [ "$(uname 2>/dev/null)" == "Linux" ] && [ $(sysctl -n net.ipv6.conf.all.disable_ipv6) == 1 ] ; then
+  default_ipfamily="ipv4"
+else
+  default_ipfamily="dual"
+fi
 default_pod_subnet=""
 default_service_subnet=""
 default_agent_port_prefix="234"
