@@ -104,8 +104,24 @@ func decoderConfig(target any) *mapstructure.DecoderConfig {
 		Result:           target,
 		WeaklyTypedInput: true,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			// To unify the splitting of fields of a []string field across the input coming
+			// from environment, configmap and pflag (command-line), we first split a string
+			// (env/configmap) by comma, and then for all input methods we split a single
+			// value []string by whitespace. Thus the following all result in the same slice:
+			//
+			// --string-slice=foo,bar,baz
+			// --string-slice="foo bar baz"
+			// CILIUM_STRING_SLICE="foo,bar,baz"
+			// CILIUM_STRING_SLICE="foo bar baz"
+			// /.../configmap/string_slice: "foo bar baz"
+			// /.../configmap/string_slice: "foo,bar,baz"
+			//
+			// If both commas and whitespaces are present the commas take precedence:
+			// "foo,bar baz" => []string{"foo", "bar baz"}
+			mapstructure.StringToSliceHookFunc(","), // string->[]string is split by comma
+			fixupStringSliceHookFunc,                // []string of length 1 is split again by whitespace
+
 			mapstructure.StringToTimeDurationHookFunc(),
-			mapstructure.StringToSliceHookFunc(","),
 			stringToCIDRHookFunc,
 			stringToMapHookFunc,
 		),
@@ -164,4 +180,24 @@ func stringToCIDRHookFunc(from reflect.Type, to reflect.Type, data interface{}) 
 		return data, nil
 	}
 	return cidr.ParseCIDR(s)
+}
+
+// fixupStringSliceHookFunc takes a []string and if it's a single element splits it again
+// by whitespace. This unifies the flag parsing behavior with StringSlice
+// values coming from environment or configmap where both spaces or commas can be used to split.
+func fixupStringSliceHookFunc(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	if from.Kind() != reflect.Slice || to.Kind() != reflect.Slice {
+		return data, nil
+	}
+	if from.Elem().Kind() != reflect.String || to.Elem().Kind() != reflect.String {
+		return data, nil
+	}
+
+	raw := data.([]string)
+	if len(raw) == 1 {
+		// Flag was already split by commas (the default behavior), so split it
+		// now by spaces.
+		return strings.Fields(raw[0]), nil
+	}
+	return raw, nil
 }
