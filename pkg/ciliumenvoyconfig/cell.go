@@ -27,12 +27,12 @@ var Cell = cell.Module(
 	"ciliumenvoyconfig",
 	"CiliumEnvoyConfig",
 
-	cell.Invoke(registerCECK8sWatcher),
+	cell.Invoke(registerCECK8sManager),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
 	cell.ProvidePrivate(newCECResourceParser),
 )
 
-type watchParams struct {
+type managerParams struct {
 	cell.In
 
 	Logger      logrus.FieldLogger
@@ -52,12 +52,12 @@ type watchParams struct {
 	LocalNodeStore *node.LocalNodeStore
 }
 
-func registerCECK8sWatcher(params watchParams) {
+func registerCECK8sManager(params managerParams) {
 	if !option.Config.EnableL7Proxy || !option.Config.EnableEnvoyConfig {
 		return
 	}
 
-	cecWatcher := newCiliumEnvoyConfigWatcher(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer, params.BackendSyncer, params.ResourceParser)
+	mgr := newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer, params.BackendSyncer, params.ResourceParser)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
@@ -66,10 +66,10 @@ func registerCECK8sWatcher(params watchParams) {
 				return fmt.Errorf("failed to get LocalNodeStore: %w", err)
 			}
 
-			cecWatcher.localNodeLabels = localNode.Labels
+			mgr.localNodeLabels = localNode.Labels
 
 			params.Logger.
-				WithField(logfields.Labels, cecWatcher.localNodeLabels).
+				WithField(logfields.Labels, mgr.localNodeLabels).
 				Debug("Retrieved initial labels from local Node")
 
 			return nil
@@ -83,10 +83,10 @@ func registerCECK8sWatcher(params watchParams) {
 	)
 	params.Lifecycle.Append(jobGroup)
 
-	jobGroup.Add(job.Observer("cec-resource-events", cecWatcher.handleCECEvent, params.CECResources))
-	jobGroup.Add(job.Observer("ccec-resource-events", cecWatcher.handleCCECEvent, params.CCECResources))
+	jobGroup.Add(job.Observer("cec-resource-events", mgr.handleCECEvent, params.CECResources))
+	jobGroup.Add(job.Observer("ccec-resource-events", mgr.handleCCECEvent, params.CCECResources))
 
 	// Observing local node events for changed labels
 	// Note: LocalNodeStore (in comparison to `resource.Resource`) doesn't provide a retry mechanism
-	jobGroup.Add(job.Observer("local-node-events", cecWatcher.handleLocalNodeEvent, params.LocalNodeStore))
+	jobGroup.Add(job.Observer("local-node-events", mgr.handleLocalNodeEvent, params.LocalNodeStore))
 }
