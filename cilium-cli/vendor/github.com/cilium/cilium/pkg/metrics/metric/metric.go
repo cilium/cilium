@@ -56,7 +56,11 @@ func (b *metric) checkLabelValues(lvs ...string) {
 		return
 	}
 	if err := b.labels.checkLabelValues(lvs); err != nil {
-		logger.WithError(err).Error("metric label constraints violated")
+		logger.WithError(err).
+			WithFields(logrus.Fields{
+				"metric": b.opts.Name,
+			}).
+			Warning("metric label constraints violated, metric will still be collected")
 	}
 }
 
@@ -64,8 +68,13 @@ func (b *metric) checkLabels(labels prometheus.Labels) {
 	if b.labels == nil {
 		return
 	}
+
 	if err := b.labels.checkLabels(labels); err != nil {
-		logger.WithError(err).Error("metric label constraints violated")
+		logger.WithError(err).
+			WithFields(logrus.Fields{
+				"metric": b.opts.Name,
+			}).
+			Warning("metric label constraints violated, metric will still be collected")
 	}
 }
 
@@ -297,7 +306,8 @@ func (l *labelSet) checkLabels(labels prometheus.Labels) error {
 	for name, value := range labels {
 		if lvs, ok := l.namesToValues()[name]; ok {
 			if _, ok := lvs[value]; !ok {
-				return fmt.Errorf("value %s not allowed for label %s (should be one of %v)", value, name, lvs)
+				return fmt.Errorf("unexpected label vector value for label %q: value %q not defined in label range %v",
+					name, value, maps.Keys(lvs))
 			}
 		} else {
 			return fmt.Errorf("invalid label name: %s", name)
@@ -308,11 +318,12 @@ func (l *labelSet) checkLabels(labels prometheus.Labels) error {
 
 func (l *labelSet) checkLabelValues(lvs []string) error {
 	if len(l.lbls) != len(lvs) {
-		return fmt.Errorf("invalid labels")
+		return fmt.Errorf("unexpected label vector length: expected %d, got %d", len(l.lbls), len(lvs))
 	}
 	for i, label := range l.lbls {
 		if _, ok := label.Values[lvs[i]]; !ok {
-			return fmt.Errorf("invalid label value")
+			return fmt.Errorf("unexpected label vector value for label %q: value %q not defined in label range %v",
+				label.Name, lvs[i], maps.Keys(label.Values))
 		}
 	}
 	return nil
