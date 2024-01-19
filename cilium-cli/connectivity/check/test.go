@@ -104,6 +104,9 @@ type Test struct {
 	// CA certificates of the certificates that have to be present during the test.
 	certificateCAs map[string][]byte
 
+	// A custom sysdump policy for the given test.
+	sysdumpPolicy SysdumpPolicy
+
 	// List of callbacks to be executed before the test run as additional setup.
 	before []SetupFunc
 
@@ -724,6 +727,30 @@ func (t *Test) WithSetupFunc(f SetupFunc) *Test {
 // WithFinalizer registers a finalizer to be executed when Run() returns.
 func (t *Test) WithFinalizer(f func() error) *Test {
 	t.finalizers = append(t.finalizers, f)
+	return t
+}
+
+// SysdumpPolicy represents a policy for sysdump collection in case of test failure.
+type SysdumpPolicy int
+
+const (
+	// SysdumpPolicyEach enables capturing one sysdump for each failing action.
+	// This is the default and applies also when no explicit policy is specified.
+	SysdumpPolicyEach SysdumpPolicy = iota
+	// SysdumpPolicyOnce enables capturing only one sysdump for the given test,
+	// independently of the number of failures.
+	SysdumpPolicyOnce
+	// SysdumpPolicyNever disables sysdump collection for the given test.
+	SysdumpPolicyNever
+)
+
+// WithSysdumpPolicy enables tuning the policy for capturing the sysdump in case
+// of test failure, which takes effect only when sysdumps have been requested by
+// the user. It is intended to be used to limit the number of sysdumps generated
+// in case of multiple subsequent failures, if they would not contain additional
+// information (e.g., when asserting the absence of log errors over multiple pods).
+func (t *Test) WithSysdumpPolicy(policy SysdumpPolicy) *Test {
+	t.sysdumpPolicy = policy
 	return t
 }
 
