@@ -1058,32 +1058,37 @@ func (ss *selectedService) serviceLeaderElection(ctx context.Context) error {
 
 	ss.ctx, ss.cancel = context.WithCancel(ctx)
 
-	leaderelection.RunOrDie(ss.ctx, leaderelection.LeaderElectionConfig{
-		Name:            ss.lock.LeaseMeta.Name,
-		Lock:            ss.lock,
-		ReleaseOnCancel: true,
+	for {
+		select {
+		case <-ss.ctx.Done():
+			return nil
+		default:
+			leaderelection.RunOrDie(ss.ctx, leaderelection.LeaderElectionConfig{
+				Name:            ss.lock.LeaseMeta.Name,
+				Lock:            ss.lock,
+				ReleaseOnCancel: true,
 
-		LeaseDuration: ss.leaseDuration,
-		RenewDeadline: ss.renewDeadline,
-		RetryPeriod:   ss.retryPeriod,
+				LeaseDuration: ss.leaseDuration,
+				RenewDeadline: ss.renewDeadline,
+				RetryPeriod:   ss.retryPeriod,
 
-		Callbacks: leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(ctx context.Context) {
-				ss.leaderChannel <- leaderElectionEvent{
-					typ:             leaderElectionLeading,
-					selectedService: ss,
-				}
-			},
-			OnStoppedLeading: func() {
-				ss.leaderChannel <- leaderElectionEvent{
-					typ:             leaderElectionStoppedLeading,
-					selectedService: ss,
-				}
-			},
-		},
-	})
-
-	return nil
+				Callbacks: leaderelection.LeaderCallbacks{
+					OnStartedLeading: func(ctx context.Context) {
+						ss.leaderChannel <- leaderElectionEvent{
+							typ:             leaderElectionLeading,
+							selectedService: ss,
+						}
+					},
+					OnStoppedLeading: func() {
+						ss.leaderChannel <- leaderElectionEvent{
+							typ:             leaderElectionStoppedLeading,
+							selectedService: ss,
+						}
+					},
+				},
+			})
+		}
+	}
 }
 
 func (ss *selectedService) stop() {
