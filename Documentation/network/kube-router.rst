@@ -6,9 +6,9 @@
 
 .. _kube-router:
 
-****************************
-Using Kube-Router to Run BGP
-****************************
+*****************************************
+Using Kube-Router to Run BGP (deprecated)
+*****************************************
 
 This guide explains how to configure Cilium and kube-router to co-operate to
 use kube-router for BGP peering and route propagation and Cilium for policy

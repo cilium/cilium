@@ -6,8 +6,8 @@
 
 .. _bgp_control_plane:
 
-Cilium BGP Control Plane (Beta)
-===============================
+Cilium BGP Control Plane
+========================
 
 BGP Control Plane provides a way for Cilium to advertise routes to connected routers by using the
 `Border Gateway Protocol`_ (BGP). BGP Control Plane makes Pod networks and/or Services of type

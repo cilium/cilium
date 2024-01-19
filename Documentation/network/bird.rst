@@ -5,9 +5,9 @@
     https://docs.cilium.io
 
 
-****************************
-Using BIRD to run BGP
-****************************
+**********************************
+Using BIRD to run BGP (deprecated)
+**********************************
 
 `BIRD is an open-source implementation for routing Internet Protocol
 packets on Unix-like operating systems <https://en.wikipedia.org/wiki/Bird_Internet_routing_daemon>`_.
