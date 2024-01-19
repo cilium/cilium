@@ -28,6 +28,8 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 
+#define nodeport_nat_egress_ipv4_hook(ctx, ip4, info, tuple, l4_off, ext_err) CTX_ACT_OK
+
 #ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
@@ -2658,12 +2660,12 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	bool has_l4_header;
 	struct iphdr *ip4;
 	__s8 ext_err = 0;
+	__u32 dst_sec_identity __maybe_unused = 0;
 #ifdef TUNNEL_MODE
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u8 cluster_id __maybe_unused = (__u8)ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	struct remote_endpoint_info *info;
 	__be32 tunnel_endpoint = 0;
-	__u32 dst_sec_identity = 0;
 #endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -2696,6 +2698,10 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	 */
 	ipv4_ct_tuple_swap_ports(&tuple);
 	tuple.flags = TUPLE_F_OUT;
+
+	ret = nodeport_nat_egress_ipv4_hook(ctx, ip4, dst_sec_identity, &tuple, l4_off, &ext_err);
+	if (ret != CTX_ACT_OK)
+		return ret;
 
 	ret = ipv4_l3(ctx, ETH_HLEN, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
