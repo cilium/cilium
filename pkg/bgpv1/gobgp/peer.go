@@ -196,7 +196,12 @@ func (g *GoBGPServer) getPeerConfigV2(ctx context.Context, n types.NeighborReque
 	}
 
 	// set address families
-	peer.AfiSafis, err = convertBGPNeighborSAFI(n.PeerConfig.Families)
+	var families []v2alpha1.CiliumBGPFamily
+	for _, fam := range n.PeerConfig.Families {
+		families = append(families, fam.CiliumBGPFamily)
+	}
+
+	peer.AfiSafis, err = convertBGPNeighborSAFI(families)
 	if err != nil {
 		return peer, needsReset, fmt.Errorf("failed to convert CiliumBGPNeighbor Families to gobgp AfiSafi: %w", err)
 	}
