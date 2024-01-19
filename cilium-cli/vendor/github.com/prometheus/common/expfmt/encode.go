@@ -18,9 +18,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/matttproud/golang_protobuf_extensions/v2/pbutil"
-	"github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg"
+	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/prototext"
+
+	"github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg"
 
 	dto "github.com/prometheus/client_model/go"
 )
@@ -120,7 +121,7 @@ func NewEncoder(w io.Writer, format Format) Encoder {
 	case FmtProtoDelim:
 		return encoderCloser{
 			encode: func(v *dto.MetricFamily) error {
-				_, err := pbutil.WriteDelimited(w, v)
+				_, err := protodelim.MarshalTo(w, v)
 				return err
 			},
 			close: func() error { return nil },
