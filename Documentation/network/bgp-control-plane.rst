@@ -503,6 +503,23 @@ By configuring ``authSecretRef`` for a neighbor you can configure that a
 `RFC-2385`_ TCP MD5 password should be configured on the session with this BGP
 peer.
 
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+         authSecretRef: "bgp-password" # <-- specify the secret name
+
 ``authSecretRef`` should reference the name of a secret in the BGP secrets
 namespace (if using the Helm chart this is ``kube-system`` by default). The
 secret should contain a key with a name of ``password``.
@@ -553,16 +570,20 @@ Configure graceful restart on per-neighbor basis, as follows:
 
    apiVersion: "cilium.io/v2alpha1"
    kind: CiliumBGPPeeringPolicy
-   #[...]
-   virtualRouters: # []CiliumBGPVirtualRouter
-    - localASN: 64512
-      # [...]
-      neighbors: # []CiliumBGPNeighbor
-       - peerAddress: 'fc00:f853:ccd:e793::50/128'
-         # [...]
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
          gracefulRestart:
-           enabled: true
-           restartTimeSeconds: 120
+           enabled: true           # <-- enable graceful restart
+           restartTimeSeconds: 120 # <-- set RestartTime
 
 .. note::
 
@@ -593,7 +614,7 @@ BGP advertisements can be extended with additional BGP Path Attributes - BGP Com
 These Path Attributes can be configured selectively for each BGP peer and advertisement type.
 
 The following code block shows an example configuration of ``AdvertisedPathAttributes`` for a BGP neighbor,
-which adds a BGP community attribute with the value ``65001:100`` to all Service announcements from the
+which adds a BGP community attribute with the value ``64512:100`` to all Service announcements from the
 matching ``CiliumLoadBalancerIPPool`` and sets the Local Preference value for all Pod CIDR announcements
 to the value ``150``:
 
@@ -601,27 +622,30 @@ to the value ``150``:
 
    apiVersion: "cilium.io/v2alpha1"
    kind: CiliumBGPPeeringPolicy
-   #[...]
-   virtualRouters: # []CiliumBGPVirtualRouter
-    - localASN: 64512
-      # [...]
-      neighbors: # []CiliumBGPNeighbor
-       - peerASN: 64512
-         peerAddress: 172.0.0.1/32
-         # [...]
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
          advertisedPathAttributes:
-         - selectorType: CiliumLoadBalancerIPPool
+         - selectorType: CiliumLoadBalancerIPPool # <-- select CiliumLoadBalancerIPPool and add BGP community 64512:100
            selector:
              matchLabels:
                environment: production
            communities:
              standard:
-             - 65001:100
-         - selectorType: PodCIDR
+             - 64512:100
+         - selectorType: PodCIDR # <-- select PodCIDR and add local preference 150 and BGP community 64512:150
            localPreference: 150
            communities:
              standard:
-             - 65001:150
+             - 64512:150
 
 .. note::
   Note that Local Preference Path Attribute is sent only to ``iBGP`` peers (not to ``eBGP`` peers).
@@ -646,9 +670,9 @@ There are two types of additional Path Attributes that can be advertised with th
 The values can be of two types:
 
  - ``Standard``: represents a value of the "standard" 32-bit BGP Communities Attribute (`RFC-1997`_)
-   as a 4-byte decimal number or two 2-byte decimal numbers separated by a colon (e.g. ``65100:100``).
+   as a 4-byte decimal number or two 2-byte decimal numbers separated by a colon (e.g. ``64512:100``).
  - ``Large``: represents a value of the BGP Large Communities Attribute (`RFC-8092`_),
-   as three 4-byte decimal numbers separated by colons (e.g. ``65100:100:50``).
+   as three 4-byte decimal numbers separated by colons (e.g. ``64512:100:50``).
 
 .. _RFC-1997 : https://www.rfc-editor.org/rfc/rfc1997.html
 .. _RFC-8092 : https://www.rfc-editor.org/rfc/rfc8092.html
@@ -658,12 +682,12 @@ As Local Preference is only valid for ``iBGP`` peers, this value will be ignored
 (no Local Preference Path Attribute will be advertised).
 
 Once configured, the additional Path Attributes advertised with the routes for a peer can be verified using the
-``cilium-dbg bgp routes`` CLI command, for example:
+``cilium bgp routes`` Cilium CLI command, for example:
 
 .. code-block:: shell-session
 
-   $ cilium-dbg bgp routes advertised ipv4 unicast peer 172.0.0.1
+   $ cilium bgp routes advertised ipv4 unicast peer 10.0.0.1
 
    VRouter   Prefix               NextHop     Age     Attrs
-   65000     10.244.0.0/24        172.0.0.2   3m31s   [{Origin: i} {LocalPref: 150} {Nexthop: 172.0.0.2}
-   65000     192.168.100.190/32   172.0.0.2   3m32s   [{Origin: i} {LocalPref: 100} {Communities: 64512:100}] {Nexthop: 172.0.0.2}
+   64512     10.1.0.0/24          10.0.0.2    3m31s   [{Origin: i} {LocalPref: 150} {Nexthop: 10.0.0.2}]
+   64512     192.168.100.190/32   10.0.0.2    3m32s   [{Origin: i} {LocalPref: 100} {Communities: 64512:100} {Nexthop: 10.0.0.2}]
