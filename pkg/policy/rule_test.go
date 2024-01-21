@@ -2771,3 +2771,84 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgressWithMultipleSelectors(c *C) {
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 }
+
+func (ds *PolicyTestSuite) TestMergeListenerReference(c *C) {
+	// No listener remains a no listener
+	ps := &PerSelectorPolicy{}
+	err := ps.mergeListenerReference(ps)
+	c.Assert(err, IsNil)
+	c.Assert(ps.Listener, Equals, "")
+	c.Assert(ps.Priority, Equals, uint16(0))
+
+	// Listener reference remains when the other has none
+	ps0 := &PerSelectorPolicy{Listener: "listener0"}
+	err = ps0.mergeListenerReference(ps)
+	c.Assert(err, IsNil)
+	c.Assert(ps0.Listener, Equals, "listener0")
+	c.Assert(ps0.Priority, Equals, uint16(0))
+
+	// Listener reference is propagated when there is none to begin with
+	err = ps.mergeListenerReference(ps0)
+	c.Assert(err, IsNil)
+	c.Assert(ps.Listener, Equals, "listener0")
+	c.Assert(ps.Priority, Equals, uint16(0))
+
+	// A listener is not changed when there is no change
+	err = ps0.mergeListenerReference(ps0)
+	c.Assert(err, IsNil)
+	c.Assert(ps0.Listener, Equals, "listener0")
+	c.Assert(ps0.Priority, Equals, uint16(0))
+
+	// Cannot merge two different listeners with the default (zero) priority
+	ps0a := &PerSelectorPolicy{Listener: "listener0a"}
+	err = ps0.mergeListenerReference(ps0a)
+	c.Assert(err, Not(IsNil))
+
+	err = ps0a.mergeListenerReference(ps0)
+	c.Assert(err, Not(IsNil))
+
+	// Listener with a defined (non-zero) priority takes precedence over
+	// a listener with an undefined (zero) priority
+	ps1 := &PerSelectorPolicy{Listener: "listener1", Priority: 1}
+	err = ps1.mergeListenerReference(ps0)
+	c.Assert(err, IsNil)
+	c.Assert(ps1.Listener, Equals, "listener1")
+	c.Assert(ps1.Priority, Equals, uint16(1))
+
+	err = ps0.mergeListenerReference(ps1)
+	c.Assert(err, IsNil)
+	c.Assert(ps0.Listener, Equals, "listener1")
+	c.Assert(ps0.Priority, Equals, uint16(1))
+
+	// Listener with the lower priority value takes precedence
+	ps2 := &PerSelectorPolicy{Listener: "listener2", Priority: 2}
+	err = ps1.mergeListenerReference(ps2)
+	c.Assert(err, IsNil)
+	c.Assert(ps1.Listener, Equals, "listener1")
+	c.Assert(ps1.Priority, Equals, uint16(1))
+
+	err = ps2.mergeListenerReference(ps1)
+	c.Assert(err, IsNil)
+	c.Assert(ps2.Listener, Equals, "listener1")
+	c.Assert(ps2.Priority, Equals, uint16(1))
+
+	// Cannot merge two different listeners with the same priority
+	ps12 := &PerSelectorPolicy{Listener: "listener1", Priority: 2}
+	ps2 = &PerSelectorPolicy{Listener: "listener2", Priority: 2}
+	err = ps12.mergeListenerReference(ps2)
+	c.Assert(err, Not(IsNil))
+	err = ps2.mergeListenerReference(ps12)
+	c.Assert(err, Not(IsNil))
+
+	// Lower priority is propagated also when the listeners are the same
+	ps23 := &PerSelectorPolicy{Listener: "listener2", Priority: 3}
+	err = ps2.mergeListenerReference(ps23)
+	c.Assert(err, IsNil)
+	c.Assert(ps2.Listener, Equals, "listener2")
+	c.Assert(ps2.Priority, Equals, uint16(2))
+
+	err = ps23.mergeListenerReference(ps2)
+	c.Assert(err, IsNil)
+	c.Assert(ps23.Listener, Equals, "listener2")
+	c.Assert(ps23.Priority, Equals, uint16(2))
+}
