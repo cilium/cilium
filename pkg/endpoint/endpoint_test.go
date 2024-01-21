@@ -525,7 +525,7 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 	e := &Endpoint{ID: 123, policyRevision: 0}
 	e.UpdateLogger(nil)
 
-	id, port := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
+	id, port := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "")
 	c.Assert(id, Not(Equals), "")
 	c.Assert(port, Equals, uint16(8080))
 
@@ -537,7 +537,7 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 	c.Assert(listener, Equals, "")
 	c.Assert(err, IsNil)
 
-	id, port = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD, Listener: "test-listener"})
+	id, port = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD}, "test-listener")
 	c.Assert(id, Not(Equals), "")
 	c.Assert(port, Equals, uint16(8080))
 	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
@@ -549,7 +549,7 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 	c.Assert(err, IsNil)
 
 	// Undefined named port
-	id, port = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true})
+	id, port = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "")
 	c.Assert(id, Equals, "")
 	c.Assert(port, Equals, uint16(0))
 }
