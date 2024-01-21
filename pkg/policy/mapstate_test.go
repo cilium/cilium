@@ -1467,10 +1467,14 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, DefaultAuthType, AuthTypeDisabled)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, denyRules, nil)
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
@@ -1684,10 +1688,14 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, x.hasAuth, x.authType)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, policyFeatures(0), nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, policyFeatures(0), nil)
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
@@ -2248,10 +2256,14 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, DefaultAuthType, AuthTypeDisabled)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, denyRules, nil)
 		changes = ChangeState{
 			Adds:    adds,
 			Deletes: deletes,

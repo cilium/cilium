@@ -104,11 +104,18 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter) (string, uint16) {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, l4.Listener), port
 }
 
+var unrealizedRedirect = errors.New("Proxy port for redirect not found")
+
 // LookupRedirectPort returns the redirect L4 proxy port for the given input parameters.
 // Returns 0 if not found or the filter doesn't require a redirect.
-func (e *Endpoint) LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) uint16 {
+// Returns an error if the redirect port can not be found.
+func (e *Endpoint) LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error) {
 	redirects := e.GetRealizedRedirects()
-	return redirects[policy.ProxyID(e.ID, ingress, protocol, port, listener)]
+	proxyPort, exists := redirects[policy.ProxyID(e.ID, ingress, protocol, port, listener)]
+	if !exists {
+		return 0, unrealizedRedirect
+	}
+	return proxyPort, nil
 }
 
 // Note that this function assumes that endpoint policy has already been generated!
