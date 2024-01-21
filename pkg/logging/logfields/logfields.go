@@ -75,6 +75,12 @@ const (
 	// OldIdentity is a previously used security identity
 	OldIdentity = "oldIdentity"
 
+	// PolicyKey is a policy map key
+	PolicyKey = "policyKey"
+
+	// PolicyEntry is a policy map value
+	PolicyEntry = "policyEntry"
+
 	// PolicyRevision is the revision of the policy in the repository or of
 	// the object in question
 	PolicyRevision = "policyRevision"
