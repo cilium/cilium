@@ -292,7 +292,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		if (ret == CT_NEW) {
 			ret = ct_create4(get_ct_map4(&tuple_snat), NULL,
 					 &tuple_snat, ctx, CT_EGRESS,
-					 &ct_state, ext_err);
+					 NULL, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 		}
@@ -1148,7 +1148,7 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		if (ret == CT_NEW) {
 			ret = ct_create6(get_ct_map6(&tuple_snat), NULL,
 					 &tuple_snat, ctx, CT_EGRESS,
-					 &ct_state, ext_err);
+					 NULL, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 		}
