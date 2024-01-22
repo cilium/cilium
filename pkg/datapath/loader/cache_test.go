@@ -10,10 +10,16 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -26,19 +32,25 @@ func (s *LoaderTestSuite) TestobjectCache(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
-	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
-	if err != nil {
-		c.Fatalf("failed to create statedb: %v", err)
-	}
-	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-		DB:      db,
-		Devices: devices,
-		Sysctl:  sysctl.NewTestSysctl(c),
-	})
-	if err != nil {
-		c.Fatalf("failed to create header file writer: %v", err)
-	}
+	var cfg types.ConfigWriter
+	h := hive.New(
+		statedb.Cell,
+		cell.Provide(
+			fake.NewNodeAddressing,
+			func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },
+			tables.NewDeviceTable,
+			func(_ *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
+				return devices
+			},
+			config.NewHeaderfileWriter,
+		),
+		cell.Invoke(statedb.RegisterTable[*tables.Device]),
+		cell.Invoke(func(writer_ datapath.ConfigWriter) {
+			cfg = writer_
+		}),
+	)
+	require.NoError(c, h.Start(context.TODO()))
+	c.Cleanup(func() { require.Nil(c, h.Stop(context.TODO())) })
 
 	cache := newObjectCache(cfg, nil, tmpDir)
 	realEP := testutils.NewTestEndpoint()
@@ -119,19 +131,26 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 		c.Logf("  %s", t.description)
 
 		results := make(chan buildResult, t.builds)
-		devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
-		db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
-		if err != nil {
-			c.Fatalf("failed to create statedb: %v", err)
-		}
-		cfg, err := config.NewHeaderfileWriter(config.WriterParams{
-			DB:      db,
-			Devices: devices,
-			Sysctl:  sysctl.NewTestSysctl(c),
-		})
-		if err != nil {
-			c.Fatalf("failed to create header file writer: %v", err)
-		}
+
+		var cfg types.ConfigWriter
+		h := hive.New(
+			statedb.Cell,
+			cell.Provide(
+				fake.NewNodeAddressing,
+				func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },
+				tables.NewDeviceTable,
+				func(_ *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
+					return devices
+				},
+				config.NewHeaderfileWriter,
+			),
+			cell.Invoke(statedb.RegisterTable[*tables.Device]),
+			cell.Invoke(func(writer_ datapath.ConfigWriter) {
+				cfg = writer_
+			}),
+		)
+		require.NoError(c, h.Start(context.TODO()))
+		c.Cleanup(func() { require.Nil(c, h.Stop(context.TODO())) })
 		cache := newObjectCache(cfg, nil, tmpDir)
 		for i := 0; i < t.builds; i++ {
 			go func(i int) {
