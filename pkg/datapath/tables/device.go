@@ -159,6 +159,29 @@ func DeviceNames(devs []*Device) (names []string) {
 	return
 }
 
+// PickDirectRoutingDevice returns the direct routing device and a channel which
+// closes if the query invalidates. Can return a nil device, if no suitable
+// device is found.
+func PickDirectRoutingDevice(devices statedb.Table[*Device], rxn statedb.ReadTxn, filter DeviceFilter) (*Device, <-chan struct{}) {
+	var device *Device
+
+	devs, watch := SelectedDevices(devices, rxn)
+	if filter.NonEmpty() {
+		// User has defined a direct-routing device. Try to find the first matching
+		// device.
+		for _, dev := range devs {
+			if filter.Match(dev.Name) {
+				device = dev
+				break
+			}
+		}
+	} else if len(devs) == 1 {
+		device = devs[0]
+	}
+
+	return device, watch
+}
+
 // DeviceFilter implements filtering device names either by
 // concrete name ("eth0") or by iptables-like wildcard ("eth+").
 type DeviceFilter []string
