@@ -76,6 +76,7 @@ Meltwater
 Menlo
 MiB
 Monnet
+Multihop
 Mythbusters
 NDP
 Neovim
@@ -276,6 +277,7 @@ dpaa
 dropdown
 dryRun
 dwarfris
+eBGP
 eBPF
 eXpress
 ebpf
@@ -355,6 +357,7 @@ hubble
 hubblecertgen
 hugepages
 hv
+iBGP
 icmp
 ie
 ifindex
@@ -695,6 +698,7 @@ unaudited
 uncommented
 unencrypted
 unexported
+unicast
 uninline
 unix
 unlabel
@@ -726,6 +730,7 @@ vlan
 vmlinux
 volumeMounts
 vrf
+vrouter
 vtep
 vxlan
 waker
