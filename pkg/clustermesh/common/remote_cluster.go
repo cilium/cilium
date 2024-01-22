@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/models"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -34,7 +34,7 @@ var (
 type RemoteCluster interface {
 	// Run implements the actual business logic once the connection to the remote cluster has been established.
 	// The ready channel shall be closed when the initialization tasks completed, possibly returning an error.
-	Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error)
+	Run(ctx context.Context, backend kvstore.BackendOperations, config *types.CiliumClusterConfig, ready chan<- error)
 
 	// ClusterConfigRequired returns whether the CiliumClusterConfig is always
 	// expected to be exposed by remote clusters.
@@ -231,7 +231,7 @@ func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOp
 	}
 }
 
-func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.BackendOperations, forceRequired bool) (*cmtypes.CiliumClusterConfig, error) {
+func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.BackendOperations, forceRequired bool) (*types.CiliumClusterConfig, error) {
 	var (
 		err                           error
 		requireConfig                 = forceRequired
@@ -253,7 +253,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	rc.config = &models.RemoteClusterConfig{Required: requireConfig}
 	rc.mutex.Unlock()
 
-	cfgch := make(chan *cmtypes.CiliumClusterConfig)
+	cfgch := make(chan *types.CiliumClusterConfig)
 	defer close(cfgch)
 
 	// We retry here rather than simply returning an error and relying on the external
