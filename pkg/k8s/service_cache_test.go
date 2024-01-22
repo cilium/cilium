@@ -13,7 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -24,8 +24,24 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
+
+func (s *K8sSuite) newDB(c *check.C) (*statedb.DB, statedb.RWTable[datapathTables.NodeAddress]) {
+	nodeAddrs, err := datapathTables.NewNodeAddressTable()
+	c.Assert(err, check.IsNil)
+	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs}, statedb.NewMetrics())
+	c.Assert(err, check.IsNil)
+
+	txn := db.WriteTxn(nodeAddrs)
+	for _, addr := range datapathTables.TestAddresses {
+		nodeAddrs.Insert(txn, addr)
+	}
+	txn.Commit()
+
+	return db, nodeAddrs
+}
 
 func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	svcID1 := ServiceID{Name: "svc1", Namespace: "default"}
@@ -44,7 +60,9 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 		},
 	}
 
-	cache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	cache := NewServiceCache(db, nodeAddrs)
+
 	cache.services = map[ServiceID]*Service{
 		svcID1: {
 			FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
@@ -146,7 +164,7 @@ func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
 		svcCache.DeleteEndpoints(endpoints.EndpointSliceID, swgEps)
 	}
 
-	testServiceCache(c, updateEndpoints, deleteEndpoints)
+	s.testServiceCache(c, updateEndpoints, deleteEndpoints)
 }
 
 func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
@@ -182,13 +200,14 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 		svcCache.DeleteEndpoints(endpoints.EndpointSliceID, swgEps)
 	}
 
-	testServiceCache(c, updateEndpoints, deleteEndpoints)
+	s.testServiceCache(c, updateEndpoints, deleteEndpoints)
 }
 
-func testServiceCache(c *check.C,
+func (s *K8sSuite) testServiceCache(c *check.C,
 	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup)) {
 
-	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	svcCache := NewServiceCache(db, nodeAddrs)
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -333,7 +352,9 @@ func (s *K8sSuite) TestCacheActionString(c *check.C) {
 func (s *K8sSuite) TestServiceMutators(c *check.C) {
 	var m1, m2 int
 
-	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	svcCache := NewServiceCache(db, nodeAddrs)
+
 	svcCache.ServiceMutators = append(svcCache.ServiceMutators,
 		func(svc *slim_corev1.Service, svcInfo *Service) { m1++ },
 		func(svc *slim_corev1.Service, svcInfo *Service) { m2++ },
@@ -354,7 +375,8 @@ func (s *K8sSuite) TestServiceMutators(c *check.C) {
 }
 
 func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
-	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	svcCache := NewServiceCache(db, nodeAddrs)
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -716,7 +738,8 @@ func (s *K8sSuite) TestExternalServiceDeletion(c *check.C) {
 	id2 := ServiceID{Cluster: cluster, Namespace: "bar", Name: "foo"}
 
 	swg := lock.NewStoppableWaitGroup()
-	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	svcCache := NewServiceCache(db, nodeAddrs)
 
 	// Store the service with the non-cluster-aware ID
 	svcCache.services[id1] = &svc
@@ -776,7 +799,9 @@ func (s *K8sSuite) TestExternalServiceDeletion(c *check.C) {
 }
 
 func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
-	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	svcCache := NewServiceCache(db, nodeAddrs)
+
 	swgSvcs := lock.NewStoppableWaitGroup()
 	swgEps := lock.NewStoppableWaitGroup()
 
@@ -844,7 +869,8 @@ func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
 }
 
 func (s *K8sSuite) TestNonSharedService(c *check.C) {
-	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	svcCache := NewServiceCache(db, nodeAddrs)
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -968,7 +994,8 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 		},
 	})
 
-	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	svcCache := NewServiceCache(db, nodeAddrs)
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1186,7 +1213,8 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 		},
 	})
 
-	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	db, nodeAddrs := s.newDB(c)
+	svcCache := NewServiceCache(db, nodeAddrs)
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1399,8 +1427,10 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 	store := node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{
 		Labels: map[string]string{v1.LabelTopologyZone: "test-zone-2"},
 	}})
-	svcCache := newServiceCache(hivetest.Lifecycle(c), fakeTypes.NewNodeAddressing(),
-		ServiceCacheConfig{EnableServiceTopology: true}, store)
+	db, nodeAddrs := s.newDB(c)
+	svcCache := newServiceCache(hivetest.Lifecycle(c),
+		ServiceCacheConfig{EnableServiceTopology: true}, store,
+		db, nodeAddrs)
 
 	swg := lock.NewStoppableWaitGroup()
 

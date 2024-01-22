@@ -22,11 +22,13 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -99,10 +101,19 @@ func writeConfig(c *C, header string, write writeFn) {
 		var writer datapath.ConfigWriter
 		c.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
+			statedb.Cell,
 			cell.Provide(
+				tables.NewNodeAddressTable,
+				statedb.RWTable[tables.NodeAddress].ToTable,
+				tables.NewDeviceTable,
+				statedb.RWTable[*tables.Device].ToTable,
 				fakeTypes.NewNodeAddressing,
 				func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 				NewHeaderfileWriter,
+			),
+			cell.Invoke(
+				statedb.RegisterTable[*tables.Device],
+				statedb.RegisterTable[tables.NodeAddress],
 			),
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
 				writer = writer_
@@ -358,8 +369,20 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	var buffer bytes.Buffer
 
+	nodeAddrs, err := tables.NewNodeAddressTable()
+	require.NoError(t, err)
+
+	devices, err := tables.NewDeviceTable()
+	require.NoError(t, err)
+
+	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs, devices}, statedb.NewMetrics())
+	require.NoError(t, err)
+
 	// Assert that configurations are propagated when all generated extra defines are valid
 	cfg, err := NewHeaderfileWriter(WriterParams{
+		DB:               db,
+		Devices:          devices,
+		NodeAddresses:    nodeAddrs,
 		NodeAddressing:   fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
@@ -378,6 +401,9 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	// Assert that an error is returned when one extra define function returns an error
 	cfg, err = NewHeaderfileWriter(WriterParams{
+		DB:               db,
+		Devices:          devices,
+		NodeAddresses:    nodeAddrs,
 		NodeAddressing:   fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
@@ -392,6 +418,9 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	// Assert that an error is returned when one extra define would overwrite an already existing entry
 	cfg, err = NewHeaderfileWriter(WriterParams{
+		DB:               db,
+		Devices:          devices,
+		NodeAddresses:    nodeAddrs,
 		NodeAddressing:   fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
@@ -413,7 +442,19 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	a := dpdef.Map{"A": "1"}
 	var buffer bytes.Buffer
 
-	_, err := NewHeaderfileWriter(WriterParams{
+	nodeAddrs, err := tables.NewNodeAddressTable()
+	require.NoError(t, err)
+
+	devices, err := tables.NewDeviceTable()
+	require.NoError(t, err)
+
+	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs, devices}, statedb.NewMetrics())
+	require.NoError(t, err)
+
+	_, err = NewHeaderfileWriter(WriterParams{
+		DB:                 db,
+		Devices:            devices,
+		NodeAddresses:      nodeAddrs,
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
@@ -423,6 +464,9 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	require.Error(t, err, "duplicate keys should be rejected")
 
 	cfg, err := NewHeaderfileWriter(WriterParams{
+		DB:                 db,
+		Devices:            devices,
+		NodeAddresses:      nodeAddrs,
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,

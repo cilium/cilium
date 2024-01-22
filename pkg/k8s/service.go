@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"net/netip"
 	"net/url"
 	"strings"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -96,7 +96,7 @@ func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service.
-func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing) (ServiceID, *Service) {
+func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (ServiceID, *Service) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
@@ -196,20 +196,30 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 		}
 	}
 
+	// TODO(brb) Get rid of this hack by moving the creation of surrogate
+	// frontends to pkg/service.
+	//
+	// This is a hack;-( In the case of NodePort service, we need to create
+	// surrogate frontends per IP protocol - one with a zero IP addr and
+	// one per each public iface IP addr.
+
+	ipv4 := option.Config.EnableIPv4 && utils.GetClusterIPByFamily(slim_corev1.IPv4Protocol, svc) != ""
+	if ipv4 {
+		nodePortAddrs = append(nodePortAddrs, ip.MustAddrFromIP(net.IPv4zero))
+	}
+	ipv6 := option.Config.EnableIPv6 && utils.GetClusterIPByFamily(slim_corev1.IPv6Protocol, svc) != ""
+	if ipv6 {
+		nodePortAddrs = append(nodePortAddrs, ip.MustAddrFromIP(net.IPv6zero))
+	}
+
 	for _, port := range svc.Spec.Ports {
 		p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 		portName := loadbalancer.FEPortName(port.Name)
 		if _, ok := svcInfo.Ports[portName]; !ok {
 			svcInfo.Ports[portName] = p
 		}
-		// TODO(brb) Get rid of this hack by moving the creation of surrogate
-		// frontends to pkg/service.
-		//
-		// This is a hack;-( In the case of NodePort service, we need to create
-		// surrogate frontends per IP protocol - one with a zero IP addr and
-		// one per each public iface IP addr.
 		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
-			if option.Config.EnableNodePort && nodeAddressing != nil {
+			if option.Config.EnableNodePort {
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
 				// This can happen if the service type is NodePort/LoadBalancer but the upstream apiserver
@@ -227,20 +237,9 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 						make(map[string]*loadbalancer.L3n4AddrID)
 				}
 
-				if option.Config.EnableIPv4 &&
-					utils.GetClusterIPByFamily(slim_corev1.IPv4Protocol, svc) != "" {
-
-					for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
-						nodePortFE := loadbalancer.NewL3n4AddrID(proto, cmtypes.MustAddrClusterFromIP(ip), port,
-							loadbalancer.ScopeExternal, id)
-						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
-					}
-				}
-				if option.Config.EnableIPv6 &&
-					utils.GetClusterIPByFamily(slim_corev1.IPv6Protocol, svc) != "" {
-
-					for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {
-						nodePortFE := loadbalancer.NewL3n4AddrID(proto, cmtypes.MustAddrClusterFromIP(ip), port,
+				for _, addr := range nodePortAddrs {
+					if (ipv4 && addr.Is4()) || (ipv6 && addr.Is6()) {
+						nodePortFE := loadbalancer.NewL3n4AddrID(proto, cmtypes.AddrClusterFrom(addr, 0), port,
 							loadbalancer.ScopeExternal, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}

@@ -5,13 +5,11 @@ package k8s
 
 import (
 	"fmt"
-	"maps"
 
 	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 
-	dpTypes "github.com/cilium/cilium/pkg/datapath/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -41,24 +39,6 @@ func CastInformerEvent[typ any](obj interface{}) *typ {
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warnf("Ignoring invalid type, expected: %T", new(typ))
 	return nil
-}
-
-func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing dpTypes.NodeAddressing) bool {
-	// Service annotations are used to mark services as global, shared, etc.
-	if !maps.Equal(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
-		return false
-	}
-
-	svcID1, svc1 := ParseService(k8sSVC1, nodeAddressing)
-	svcID2, svc2 := ParseService(k8sSVC2, nodeAddressing)
-
-	if svcID1 != svcID2 {
-		return false
-	}
-
-	// Please write all the equalness logic inside the K8sServiceInfo.Equals()
-	// method.
-	return svc1.DeepEqual(svc2)
 }
 
 // AnnotationsEqual returns whether the annotation with any key in

@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 	"net"
+	"net/netip"
 	"slices"
 	"sync"
 
@@ -16,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // ServiceCacheCell initializes the service cache holds the list of known services
@@ -116,26 +118,28 @@ type ServiceCache struct {
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
 
-	nodeAddressing types.NodeAddressing
-
 	selfNodeZoneLabel string
 
 	ServiceMutators []func(svc *slim_corev1.Service, svcInfo *Service)
+
+	db        *statedb.DB
+	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
+func NewServiceCache(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress]) *ServiceCache {
 	return &ServiceCache{
+		db:                db,
+		nodeAddrs:         nodeAddrs,
 		services:          map[ServiceID]*Service{},
 		endpoints:         map[ServiceID]*EndpointSlices{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
 		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
-		nodeAddressing:    nodeAddressing,
 	}
 }
 
-func newServiceCache(lc cell.Lifecycle, nodeAddressing types.NodeAddressing, cfg ServiceCacheConfig, lns *node.LocalNodeStore) *ServiceCache {
-	sc := NewServiceCache(nodeAddressing)
+func newServiceCache(lc cell.Lifecycle, cfg ServiceCacheConfig, lns *node.LocalNodeStore, db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress]) *ServiceCache {
+	sc := NewServiceCache(db, nodeAddrs)
 	sc.config = cfg
 
 	var wg sync.WaitGroup
@@ -242,17 +246,18 @@ func (s *ServiceCache) GetEndpointsOfService(svcID ServiceID) *Endpoints {
 	return eps.GetEndpoints()
 }
 
-// GetNodeAddressing returns the registered node addresses to this service cache.
-func (s *ServiceCache) GetNodeAddressing() types.NodeAddressing {
-	return s.nodeAddressing
-}
-
 // UpdateService parses a Kubernetes service and adds or updates it in the
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
 // cache or not.
 func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) ServiceID {
-	svcID, newService := ParseService(k8sSvc, s.nodeAddressing)
+	var addrs []netip.Addr
+	if s.nodeAddrs != nil {
+		iter, _ := s.nodeAddrs.Get(s.db.ReadTxn(), datapathTables.NodeAddressNodePortIndex.Query(true))
+		addrs = statedb.Collect(statedb.Map(iter, datapathTables.NodeAddress.GetAddr))
+	}
+
+	svcID, newService := ParseService(k8sSvc, addrs)
 	if newService == nil {
 		return svcID
 	}

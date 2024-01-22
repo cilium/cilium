@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
@@ -53,6 +54,7 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -234,8 +236,6 @@ type K8sWatcher struct {
 
 	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 
-	datapath datapath.Datapath
-
 	// networkPoliciesInitOnce is used to guarantee only one call to NetworkPoliciesInit is
 	// executed.
 	networkPoliciesInitOnce sync.Once
@@ -246,6 +246,9 @@ type K8sWatcher struct {
 	cfg WatcherConfiguration
 
 	resources agentK8s.Resources
+
+	db        *statedb.DB
+	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 }
 
 func NewK8sWatcher(
@@ -255,7 +258,6 @@ func NewK8sWatcher(
 	policyManager policyManager,
 	policyRepository policyRepository,
 	svcManager svcManager,
-	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
 	cfg WatcherConfiguration,
@@ -264,6 +266,8 @@ func NewK8sWatcher(
 	resources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
 	bandwidthManager datapath.BandwidthManager,
+	db *statedb.DB,
+	nodeAddrs statedb.Table[datapathTables.NodeAddress],
 ) *K8sWatcher {
 	return &K8sWatcher{
 		clientset:               clientset,
@@ -278,13 +282,14 @@ func NewK8sWatcher(
 		stop:                    make(chan struct{}),
 		podStoreSet:             make(chan struct{}),
 		networkPoliciesStoreSet: make(chan struct{}),
-		datapath:                datapath,
 		redirectPolicyManager:   redirectPolicyManager,
 		bgpSpeakerManager:       bgpSpeakerManager,
 		cgroupManager:           cgroupManager,
 		bandwidthManager:        bandwidthManager,
 		cfg:                     cfg,
 		resources:               resources,
+		db:                      db,
+		nodeAddrs:               nodeAddrs,
 	}
 }
 

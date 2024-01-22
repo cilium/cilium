@@ -11,14 +11,15 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -38,9 +39,10 @@ type PerClusterCTMapsRetriever func() []*ctmap.Map
 type parameters struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
-
+	Lifecycle       cell.Lifecycle
+	Logger          logrus.FieldLogger
+	DB              *statedb.DB
+	NodeAddrs       statedb.Table[tables.NodeAddress]
 	DaemonConfig    *option.DaemonConfig
 	EndpointManager EndpointManager
 	Datapath        types.Datapath
@@ -54,6 +56,9 @@ type GC struct {
 
 	ipv4 bool
 	ipv6 bool
+
+	db        *statedb.DB
+	nodeAddrs statedb.Table[tables.NodeAddress]
 
 	endpointsManager EndpointManager
 	nodeAddressing   types.NodeAddressing
@@ -69,6 +74,9 @@ func New(params parameters) *GC {
 
 		ipv4: params.DaemonConfig.EnableIPv4,
 		ipv6: params.DaemonConfig.EnableIPv6,
+
+		db:        params.DB,
+		nodeAddrs: params.NodeAddrs,
 
 		endpointsManager: params.EndpointManager,
 		nodeAddressing:   params.Datapath.LocalNodeAddressing(),
@@ -314,25 +322,18 @@ func (gc *GC) createGCFilter(initialScan bool, restoredEndpoints []*endpoint.End
 			}
 		}
 
+		iter, _ := gc.nodeAddrs.All(gc.db.ReadTxn())
+		addrs := statedb.Collect(statedb.Map(iter, tables.NodeAddress.GetAddr))
+
 		// Once the host firewall is enabled, we will start tracking (and
 		// potentially enforcing policies) on all connections to and from the
 		// host IP addresses. Thus, we also need to avoid GCing the host IPs.
 		if option.Config.EnableHostFirewall {
-			addrs, err := nodeAddressing.IPv4().LocalAddresses()
-			if err != nil {
-				gc.logger.WithError(err).Warning("Unable to list local IPv4 addresses")
-			}
-			addrsV6, err := nodeAddressing.IPv6().LocalAddresses()
-			if err != nil {
-				gc.logger.WithError(err).Warning("Unable to list local IPv6 addresses")
-			}
-			addrs = append(addrs, addrsV6...)
-
-			for _, ip := range addrs {
-				if option.Config.IsExcludedLocalAddress(ip) {
+			for _, addr := range addrs {
+				if option.Config.IsExcludedLocalAddress(addr.AsSlice()) {
 					continue
 				}
-				filter.ValidIPs[iputil.MustAddrFromIP(ip)] = struct{}{}
+				filter.ValidIPs[addr] = struct{}{}
 			}
 		}
 	}

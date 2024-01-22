@@ -58,6 +58,12 @@ func (n *NodeAddress) String() string {
 	return fmt.Sprintf("%s (%s)", n.Addr, n.DeviceName)
 }
 
+// GetAddr returns the address. Useful when mapping over NodeAddress's with
+// e.g. statedb.Map.
+func (n NodeAddress) GetAddr() netip.Addr {
+	return n.Addr
+}
+
 func (n NodeAddress) TableHeader() []string {
 	return []string{
 		"Address",
@@ -103,6 +109,15 @@ var (
 		Unique:  false,
 	}
 
+	NodeAddressNodePortIndex = statedb.Index[NodeAddress, bool]{
+		Name: "node-port",
+		FromObject: func(a NodeAddress) index.KeySet {
+			return index.NewKeySet(index.Bool(a.NodePort))
+		},
+		FromKey: index.Bool,
+		Unique:  false,
+	}
+
 	NodeAddressTableName statedb.TableName = "node-addresses"
 
 	// NodeAddressCell provides Table[NodeAddress] and a background controller
@@ -129,6 +144,7 @@ func NewNodeAddressTable() (statedb.RWTable[NodeAddress], error) {
 		NodeAddressTableName,
 		NodeAddressIndex,
 		NodeAddressDeviceNameIndex,
+		NodeAddressNodePortIndex,
 	)
 }
 
@@ -399,3 +415,38 @@ func sortedAddresses(addrs []DeviceAddress) []DeviceAddress {
 	})
 	return addrs
 }
+
+// Shared test address definitions
+var (
+	TestIPv4InternalAddress = netip.MustParseAddr("10.0.0.2")
+	TestIPv4NodePortAddress = netip.MustParseAddr("10.0.0.3")
+	TestIPv6InternalAddress = netip.MustParseAddr("f00d::1")
+	TestIPv6NodePortAddress = netip.MustParseAddr("f00d::2")
+
+	TestAddresses = []NodeAddress{
+		{
+			Addr:       TestIPv4InternalAddress,
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "test",
+		},
+		{
+			Addr:       TestIPv4NodePortAddress,
+			NodePort:   true,
+			Primary:    false,
+			DeviceName: "test",
+		},
+		{
+			Addr:       TestIPv6InternalAddress,
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "test",
+		},
+		{
+			Addr:       TestIPv6NodePortAddress,
+			NodePort:   true,
+			Primary:    false,
+			DeviceName: "test",
+		},
+	}
+)

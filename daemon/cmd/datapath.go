@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -40,9 +41,9 @@ import (
 	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // LocalConfig returns the local configuration of the daemon's nodediscovery.
@@ -155,13 +156,15 @@ func (d *Daemon) syncHostIPs() error {
 	}
 	specialIdentities := make([]ipIDLabel, 0, 2)
 
-	if option.Config.EnableIPv4 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
-		}
+	iter, _ := d.nodeAddrs.All(d.db.ReadTxn())
+	addrs := statedb.Collect(statedb.Map(iter, func(a datapathTables.NodeAddress) netip.Addr { return a.Addr }))
 
-		for _, ip := range addrs {
+	if option.Config.EnableIPv4 {
+		for _, addr := range addrs {
+			if !addr.Is4() {
+				continue
+			}
+			ip := addr.AsSlice()
 			if option.Config.IsExcludedLocalAddress(ip) {
 				continue
 			}
@@ -194,17 +197,14 @@ func (d *Daemon) syncHostIPs() error {
 	}
 
 	if option.Config.EnableIPv6 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv6 addresses")
-		}
-
-		addrs = append(addrs, node.GetIPv6Router())
-		for _, ip := range addrs {
+		for _, addr := range addrs {
+			if !addr.Is6() {
+				continue
+			}
+			ip := addr.AsSlice()
 			if option.Config.IsExcludedLocalAddress(ip) {
 				continue
 			}
-
 			if len(ip) > 0 {
 				specialIdentities = append(specialIdentities, ipIDLabel{
 					identity.IPIdentityPair{

@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
@@ -489,7 +488,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 
 	epAddrCluster := cmtypes.MustParseAddrCluster("10.1.1.1")
 
-	cache := NewServiceCache(fakeTypes.NewNodeAddressing())
+	cache := NewServiceCache(nil, nil)
 
 	endpointInfo := Endpoints{
 		Backends: map[cmtypes.AddrCluster]*Backend{

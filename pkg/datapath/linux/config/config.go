@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -58,6 +59,7 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -65,6 +67,9 @@ import (
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
+	db                 *statedb.DB
+	devices            statedb.Table[*tables.Device]
+	nodeAddrs          statedb.Table[tables.NodeAddress]
 	log                logrus.FieldLogger
 	nodeAddressing     datapath.NodeAddressing
 	nodeExtraDefines   dpdef.Map
@@ -79,6 +84,9 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 		}
 	}
 	return &HeaderfileWriter{
+		db:                 p.DB,
+		devices:            p.Devices,
+		nodeAddrs:          p.NodeAddresses,
 		nodeAddressing:     p.NodeAddressing,
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
@@ -92,6 +100,8 @@ func writeIncludes(w io.Writer) (int, error) {
 
 // WriteNodeConfig writes the local node configuration to the specified writer.
 func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
+	txn := h.db.ReadTxn()
+
 	extraMacrosMap := make(dpdef.Map)
 	cDefinesMap := make(dpdef.Map)
 
@@ -102,16 +112,30 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	routerIP := node.GetIPv6Router()
 	hostIP := node.GetIPv6()
 
+	var ipv4NodePortAddrs, ipv6NodePortAddrs []netip.Addr
+	iter, _ := h.nodeAddrs.All(txn)
+	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+		if !addr.NodePort {
+			continue
+		}
+		if addr.Addr.Is4() {
+			ipv4NodePortAddrs = append(ipv4NodePortAddrs, addr.Addr)
+		} else {
+			ipv6NodePortAddrs = append(ipv6NodePortAddrs, addr.Addr)
+
+		}
+	}
+
 	fmt.Fprintf(fw, "/*\n")
 	if option.Config.EnableIPv6 {
 		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
 		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
-		fmt.Fprintf(fw, " cilium.v6.nodeport.str %v\n", h.nodeAddressing.IPv6().LoadBalancerNodeAddresses())
+		fmt.Fprintf(fw, " cilium.v6.nodeport.str %v\n", ipv6NodePortAddrs)
 		fmt.Fprintf(fw, "\n")
 	}
 	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4Router().String())
-	fmt.Fprintf(fw, " cilium.v4.nodeport.str %v\n", h.nodeAddressing.IPv4().LoadBalancerNodeAddresses())
+	fmt.Fprintf(fw, " cilium.v4.nodeport.str %v\n", ipv4NodePortAddrs)
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
 		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))

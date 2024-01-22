@@ -127,6 +127,7 @@ type Daemon struct {
 
 	deviceManager *linuxdatapath.DeviceManager
 	devices       statedb.Table[*datapathTables.Device]
+	nodeAddrs     statedb.Table[datapathTables.NodeAddress]
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -421,6 +422,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		datapath:          params.Datapath,
 		deviceManager:     params.DeviceManager,
 		devices:           params.Devices,
+		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
@@ -501,7 +503,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		&d,
 		d.policy,
 		d.svc,
-		d.datapath,
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
 		option.Config,
@@ -510,6 +511,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		params.Resources,
 		params.ServiceCache,
 		d.bwManager,
+		d.db,
+		d.nodeAddrs,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
 

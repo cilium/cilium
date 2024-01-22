@@ -11,9 +11,11 @@ import (
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -30,10 +32,19 @@ var (
 func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	var cfg datapath.ConfigWriter
 	hv := hive.New(
+		statedb.Cell,
 		cell.Provide(
 			fakeTypes.NewNodeAddressing,
+			tables.NewNodeAddressTable,
+			statedb.RWTable[tables.NodeAddress].ToTable,
+			tables.NewDeviceTable,
+			statedb.RWTable[*tables.Device].ToTable,
 			func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 			config.NewHeaderfileWriter,
+		),
+		cell.Invoke(
+			statedb.RegisterTable[*tables.Device],
+			statedb.RegisterTable[tables.NodeAddress],
 		),
 		cell.Invoke(func(writer_ datapath.ConfigWriter) {
 			cfg = writer_

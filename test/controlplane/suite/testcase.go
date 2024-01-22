@@ -30,6 +30,7 @@ import (
 	operatorCmd "github.com/cilium/cilium/operator/cmd"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -38,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type trackerAndDecoder struct {
@@ -56,6 +58,10 @@ type ControlPlaneTest struct {
 	agentHandle    *agentHandle
 	operatorHandle *operatorHandle
 	Datapath       *fakeTypes.FakeDatapath
+}
+
+func (cpt *ControlPlaneTest) AgentDB() (*statedb.DB, statedb.Table[datapathTables.NodeAddress]) {
+	return cpt.agentHandle.db, cpt.agentHandle.nodeAddrs
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
