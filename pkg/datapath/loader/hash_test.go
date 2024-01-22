@@ -41,15 +41,19 @@ func TestHashDatapath(t *testing.T) {
 	hv := hive.New(
 		provideNodemap,
 		cell.Provide(
-			fakeTypes.NewNodeAddressing,
-			func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
+			tables.NewNodeAddressTable,
+			statedb.RWTable[tables.NodeAddress].ToTable,
 			tables.NewDeviceTable,
-			func(_ *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
-				return devices
-			},
+			statedb.RWTable[*tables.Device].ToTable,
+			func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
+			func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
 			config.NewHeaderfileWriter,
+			fakeTypes.NewNodeAddressing,
 		),
-		cell.Invoke(statedb.RegisterTable[*tables.Device]),
+		cell.Invoke(
+			statedb.RegisterTable[*tables.Device],
+			statedb.RegisterTable[tables.NodeAddress],
+		),
 		cell.Invoke(func(writer_ datapath.ConfigWriter) {
 			cfg = writer_
 		}),

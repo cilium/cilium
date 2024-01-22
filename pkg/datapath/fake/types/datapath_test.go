@@ -24,11 +24,4 @@ func TestNewDatapath(t *testing.T) {
 	require.NotNil(t, dp.LocalNodeAddressing().IPv6().Router())
 	require.NotNil(t, dp.LocalNodeAddressing().IPv4().Router())
 	require.NotNil(t, dp.LocalNodeAddressing().IPv4().AllocationCIDR())
-
-	list, err := dp.LocalNodeAddressing().IPv4().LocalAddresses()
-	require.NotEqual(t, 0, len(list))
-	require.Nil(t, err)
-	list, err = dp.LocalNodeAddressing().IPv6().LocalAddresses()
-	require.NotEqual(t, 0, len(list))
-	require.Nil(t, err)
 }

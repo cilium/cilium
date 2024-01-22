@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"net"
+	"net/netip"
 	"reflect"
 	"testing"
 
@@ -191,7 +192,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
-	id, svc := ParseService(k8sSvc, fakeTypes.NewNodeAddressing())
+	id, svc := ParseService(k8sSvc, nil)
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
@@ -213,7 +214,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
-	id, svc = ParseService(k8sSvc, fakeTypes.NewNodeAddressing())
+	id, svc = ParseService(k8sSvc, nil)
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		IsHeadless:               true,
@@ -237,7 +238,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
-	id, svc = ParseService(k8sSvc, fakeTypes.NewNodeAddressing())
+	id, svc = ParseService(k8sSvc, nil)
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
@@ -294,7 +295,12 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	nodePortFE := loadbalancer.NewL3n4AddrID(tcpProto, ipv4NodePortAddrCluster, 31111,
 		loadbalancer.ScopeExternal, lbID)
 
-	id, svc = ParseService(k8sSvc, fakeTypes.NewIPv4OnlyNodeAddressing())
+	addrs := []netip.Addr{
+		ipv4InternalAddrCluster.Addr(),
+		ipv4NodePortAddrCluster.Addr(),
+	}
+
+	id, svc = ParseService(k8sSvc, addrs)
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
@@ -968,9 +974,8 @@ func (s *K8sSuite) TestServiceString(c *check.C) {
 		},
 	}
 
-	nodeAddressing := fakeTypes.NewNodeAddressing()
 	for _, tt := range tests {
-		_, svc := ParseService(tt.service, nodeAddressing)
+		_, svc := ParseService(tt.service, nil)
 		c.Assert(svc.String(), check.Equals, tt.svcString)
 	}
 }
@@ -992,7 +997,7 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 				},
 				Type: slim_corev1.ServiceTypeClusterIP,
 			},
-		}, fakeTypes.NewNodeAddressing())
+		}, nil)
 
 	endpoints := ParseEndpoints(&slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{

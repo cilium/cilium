@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -867,41 +866,6 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 	}
 	for _, tt := range tests {
 		got := tt.args.o1.DeepEqual(tt.args.o2)
-		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
-	}
-}
-
-func (s *K8sSuite) Test_EqualV1Service(c *C) {
-	type args struct {
-		o1 *slim_corev1.Service
-		o2 *slim_corev1.Service
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{
-			name: "Service with different annotations",
-			args: args{
-				o1: &slim_corev1.Service{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Annotations: map[string]string{},
-					},
-				},
-				o2: &slim_corev1.Service{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"service.cilium.io/shared": "true",
-						},
-					},
-				},
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		got := EqualV1Services(tt.args.o1, tt.args.o2, fakeTypes.NewNodeAddressing())
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

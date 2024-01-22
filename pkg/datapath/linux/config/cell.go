@@ -26,6 +26,7 @@ type WriterParams struct {
 	Sysctl             sysctl.Sysctl
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
+	NodeAddresses      statedb.Table[tables.NodeAddress]
 }
 
 var Cell = cell.Module(

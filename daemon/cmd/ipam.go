@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -519,6 +520,9 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	log.Infof("  Local node-name: %s", nodeTypes.GetName())
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
+	iter, _ := d.nodeAddrs.All(d.db.ReadTxn())
+	addrs := statedb.Collect(iter)
+
 	if option.Config.EnableIPv6 {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 
@@ -528,12 +532,10 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 
 		log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 
-		if addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses(); err != nil {
-			log.WithError(err).Fatal("Unable to list local IPv6 addresses")
-		} else {
-			log.Info("  Local IPv6 addresses:")
-			for _, ip := range addrs {
-				log.Infof("  - %s", ip)
+		log.Info("  Local IPv6 addresses:")
+		for _, addr := range addrs {
+			if addr.Addr.Is6() {
+				log.Infof("  - %s", addr.Addr)
 			}
 		}
 	}
@@ -556,12 +558,10 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 		node.SetIPv4Loopback(loopbackIPv4)
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 
-		if addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses(); err != nil {
-			log.WithError(err).Fatal("Unable to list local IPv4 addresses")
-		} else {
-			log.Info("  Local IPv4 addresses:")
-			for _, ip := range addrs {
-				log.Infof("  - %s", ip)
+		log.Info("  Local IPv4 addresses:")
+		for _, addr := range addrs {
+			if addr.Addr.Is4() {
+				log.Infof("  - %s", addr.Addr)
 			}
 		}
 	}

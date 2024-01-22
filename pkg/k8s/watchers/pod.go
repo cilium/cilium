@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"net/netip"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,10 +30,12 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -605,7 +608,7 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				}
 			}
 
-			var nodeAddrAll [][]net.IP
+			var nodeAddrAll []netip.Addr
 			loopbackHostport := false
 
 			// When HostIP is explicitly set, then we need to expose *only*
@@ -624,57 +627,55 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 					}
 					loopbackHostport = true
 				}
-				nodeAddrAll = [][]net.IP{
-					{feIP},
-				}
+				nodeAddrAll = []netip.Addr{ip.MustAddrFromIP(feIP)}
 			} else {
-				nodeAddrAll = [][]net.IP{
-					k.K8sSvcCache.GetNodeAddressing().IPv4().LoadBalancerNodeAddresses(),
-					k.K8sSvcCache.GetNodeAddressing().IPv6().LoadBalancerNodeAddresses(),
+				iter, _ := k.nodeAddrs.Get(k.db.ReadTxn(), tables.NodeAddressNodePortIndex.Query(true))
+				for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+					nodeAddrAll = append(nodeAddrAll, addr.Addr)
 				}
+				nodeAddrAll = append(nodeAddrAll, ip.MustAddrFromIP(net.IPv4zero))
+				nodeAddrAll = append(nodeAddrAll, ip.MustAddrFromIP(net.IPv6zero))
 			}
-			for _, addrs := range nodeAddrAll {
-				for _, ip := range addrs {
-					fe := loadbalancer.L3n4AddrID{
-						L3n4Addr: loadbalancer.L3n4Addr{
-							AddrCluster: cmtypes.MustParseAddrCluster(ip.String()),
-							L4Addr: loadbalancer.L4Addr{
-								Protocol: proto,
-								Port:     uint16(p.HostPort),
-							},
-							Scope: loadbalancer.ScopeExternal,
+			for _, addr := range nodeAddrAll {
+				fe := loadbalancer.L3n4AddrID{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.AddrClusterFrom(addr, 0),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: proto,
+							Port:     uint16(p.HostPort),
 						},
-						ID: loadbalancer.ID(0),
-					}
+						Scope: loadbalancer.ScopeExternal,
+					},
+					ID: loadbalancer.ID(0),
+				}
 
-					// We don't have the node name available here, but in any
-					// case in the BPF data path we drop any potential non-local
-					// backends anyway (which should never exist in the first
-					// place), hence we can just leave it at Cluster policy.
-					if ip.To4() != nil {
-						if option.Config.EnableIPv4 && len(bes4) > 0 {
-							svcs = append(svcs,
-								loadbalancer.SVC{
-									Frontend:         fe,
-									Backends:         bes4,
-									Type:             loadbalancer.SVCTypeHostPort,
-									ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-									IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-									LoopbackHostport: loopbackHostport,
-								})
-						}
-					} else {
-						if option.Config.EnableIPv6 && len(bes6) > 0 {
-							svcs = append(svcs,
-								loadbalancer.SVC{
-									Frontend:         fe,
-									Backends:         bes6,
-									Type:             loadbalancer.SVCTypeHostPort,
-									ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-									IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-									LoopbackHostport: loopbackHostport,
-								})
-						}
+				// We don't have the node name available here, but in any
+				// case in the BPF data path we drop any potential non-local
+				// backends anyway (which should never exist in the first
+				// place), hence we can just leave it at Cluster policy.
+				if addr.Is4() {
+					if option.Config.EnableIPv4 && len(bes4) > 0 {
+						svcs = append(svcs,
+							loadbalancer.SVC{
+								Frontend:         fe,
+								Backends:         bes4,
+								Type:             loadbalancer.SVCTypeHostPort,
+								ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+								IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+								LoopbackHostport: loopbackHostport,
+							})
+					}
+				} else {
+					if option.Config.EnableIPv6 && len(bes6) > 0 {
+						svcs = append(svcs,
+							loadbalancer.SVC{
+								Frontend:         fe,
+								Backends:         bes6,
+								Type:             loadbalancer.SVCTypeHostPort,
+								ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+								IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+								LoopbackHostport: loopbackHostport,
+							})
 					}
 				}
 			}
