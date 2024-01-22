@@ -895,9 +895,7 @@ static __always_inline int ct_lookup4(const void *map,
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const enum ct_dir dir,
-				      const struct ct_state *ct_state,
-				      bool proxy_redirect, bool from_l7lb,
-				      __s8 *ext_err)
+				      const struct ct_state *ct_state, __s8 *ext_err)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
@@ -916,8 +914,8 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		/* Note if this is a proxy connection so that replies can be redirected
 		 * back to the proxy.
 		 */
-		entry.proxy_redirect = proxy_redirect;
-		entry.from_l7lb = from_l7lb;
+		entry.proxy_redirect = ct_state->proxy_redirect;
+		entry.from_l7lb = ct_state->from_l7lb;
 	}
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
@@ -971,7 +969,6 @@ static __always_inline int ct_create4(const void *map_main,
 				      struct ipv4_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
-				      bool proxy_redirect, bool from_l7lb,
 				      __s8 *ext_err)
 {
 	/* Create entry in original direction */
@@ -995,8 +992,8 @@ static __always_inline int ct_create4(const void *map_main,
 		/* Note if this is a proxy connection so that replies can be redirected
 		 * back to the proxy.
 		 */
-		entry.proxy_redirect = proxy_redirect;
-		entry.from_l7lb = from_l7lb;
+		entry.proxy_redirect = ct_state->proxy_redirect;
+		entry.from_l7lb = ct_state->from_l7lb;
 	}
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
