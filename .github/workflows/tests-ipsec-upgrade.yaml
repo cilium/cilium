@@ -175,6 +175,9 @@ jobs:
           if [ "${{ matrix.mode }}" = "minor" ]; then
             CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
             IMAGE_TAG=${CILIUM_DOWNGRADE_VERSION}
+            # Disable no-unexpected-packet-drops (formerly no-missed-tail-calls) 
+            # because the API to retrieve those is different in v1.11.
+            EXTRA_CONN_TEST_FLAGS='--test "!no-unexpected-packet-drops"'
           else
             # Upgrade from / downgrade to patch release.
             # In some cases we expect to fail to get the version number, do not
@@ -189,9 +192,14 @@ jobs:
             # default release image, without crafting an image path with the
             # "-ci" suffix
             IMAGE_TAG=''
+            # On patch downgrades we allowlist missed tail calls and ct buffer drops, see :
+            # https://github.com/cilium/cilium/issues/26739
+            # https://github.com/cilium/cilium/pull/30202
+            EXTRA_CONN_TEST_FLAGS='--expected-drop-reasons "+Missed tail call,+Failed to update or lookup TC buffer"'
           fi
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
+          echo extra_conn_test_flags=${EXTRA_CONN_TEST_FLAGS} >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
         id: cilium-stable-config
@@ -352,10 +360,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
-          # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
-          # Disable no-unexpected-packet-drops because the API to retrieve
-          # those is different in v1.11.
-          extra-connectivity-test-flags: --test '!no-missed-tail-calls,!no-unexpected-packet-drops'
+          extra-connectivity-test-flags: '${{ steps.vars.outputs.extra_conn_test_flags }}'
           operation-cmd: |
             cd /host/
 
