@@ -189,6 +189,29 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 				   CT_REPORT_FLAGS);
 }
 
+static __always_inline void
+ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
+		     enum ct_dir dir, bool syn)
+{
+	state->rev_nat_index = entry->rev_nat_index;
+	if (dir == CT_SERVICE) {
+		state->backend_id = entry->backend_id;
+		state->syn = syn;
+	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
+#ifndef DISABLE_LOOPBACK_LB
+		state->loopback = entry->lb_loopback;
+#endif
+		state->node_port = entry->node_port;
+		state->dsr = entry->dsr;
+		state->proxy_redirect = entry->proxy_redirect;
+		state->from_l7lb = entry->from_l7lb;
+		state->from_tunnel = entry->from_tunnel;
+#ifndef HAVE_FIB_IFINDEX
+		state->ifindex = entry->ifindex;
+#endif
+	}
+}
+
 static __always_inline void ct_reset_seen_flags(struct ct_entry *entry)
 {
 	entry->rx_flags_seen = 0;
@@ -270,23 +293,9 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
-		ct_state->rev_nat_index = entry->rev_nat_index;
-		if (dir == CT_SERVICE) {
-			ct_state->backend_id = entry->backend_id;
-			ct_state->syn = syn;
-		} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-#ifndef DISABLE_LOOPBACK_LB
-			ct_state->loopback = entry->lb_loopback;
-#endif
-			ct_state->node_port = entry->node_port;
-			ct_state->dsr = entry->dsr;
-			ct_state->proxy_redirect = entry->proxy_redirect;
-			ct_state->from_l7lb = entry->from_l7lb;
-			ct_state->from_tunnel = entry->from_tunnel;
-#ifndef HAVE_FIB_IFINDEX
-			ct_state->ifindex = entry->ifindex;
-#endif
-		}
+		if (ct_state)
+			ct_lookup_fill_state(ct_state, entry, dir, syn);
+
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
 		if (dir == CT_INGRESS) {
@@ -583,7 +592,8 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 	}
 
 out:
-	cilium_dbg(ctx, DBG_CT_VERDICT, ret, ct_state->rev_nat_index);
+	cilium_dbg(ctx, DBG_CT_VERDICT, ret,
+		   ct_state ? ct_state->rev_nat_index : 0);
 	return ret;
 }
 
@@ -831,7 +841,8 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 	}
 
 out:
-	cilium_dbg(ctx, DBG_CT_VERDICT, ret, ct_state->rev_nat_index);
+	cilium_dbg(ctx, DBG_CT_VERDICT, ret,
+		   ct_state ? ct_state->rev_nat_index : 0);
 	return ret;
 }
 
@@ -847,7 +858,7 @@ out:
  *			be in forward layout.
  * @arg ct_entry_types	a mask of CT_ENTRY_* values that selects the expected
  *			entry type(s)
- * @arg ct_state	returned CT entry
+ * @arg ct_state	returned CT entry information (or NULL if none required)
  * @arg monitor		monitor feedback for trace aggregation
  *
  * This differs from ct_lookup4(), as here we expect that the CT tuple has its

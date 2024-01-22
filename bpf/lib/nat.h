@@ -274,7 +274,6 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 
 	if (needs_ct) {
 		struct ipv4_ct_tuple tuple_snat;
-		struct ct_state ct_state = {};
 		int ret;
 
 		memcpy(&tuple_snat, tuple, sizeof(tuple_snat));
@@ -284,7 +283,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_snat), &tuple_snat,
 				      ctx, ipv4_is_fragment(ip4), off, has_l4_header,
 				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_ANY,
-				      &ct_state, &trace->monitor);
+				      NULL, &trace->monitor);
 		if (ret < 0)
 			return ret;
 
@@ -326,7 +325,6 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 	if (*state && (*state)->common.needs_ct) {
 		struct ipv4_ct_tuple tuple_revsnat;
-		struct ct_state ct_state = {};
 		int ret;
 
 		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
@@ -341,7 +339,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_revsnat), &tuple_revsnat,
 				      ctx, ipv4_is_fragment(ip4), off, has_l4_header,
 				      CT_INGRESS, SCOPE_REVERSE, CT_ENTRY_ANY,
-				      &ct_state, &trace->monitor);
+				      NULL, &trace->monitor);
 		if (ret < 0)
 			return ret;
 
@@ -1131,7 +1129,6 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 
 	if (needs_ct) {
 		struct ipv6_ct_tuple tuple_snat;
-		struct ct_state ct_state = {};
 		int ret;
 
 		memcpy(&tuple_snat, tuple, sizeof(tuple_snat));
@@ -1140,7 +1137,7 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple_snat), &tuple_snat,
 				      ctx, off, CT_EGRESS, SCOPE_FORWARD,
-				      CT_ENTRY_ANY, &ct_state, &trace->monitor);
+				      CT_ENTRY_ANY, NULL, &trace->monitor);
 		if (ret < 0)
 			return ret;
 
@@ -1174,7 +1171,6 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 	if (*state && (*state)->common.needs_ct) {
 		struct ipv6_ct_tuple tuple_revsnat;
-		struct ct_state ct_state = {};
 		int ret;
 
 		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
@@ -1188,7 +1184,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple_revsnat), &tuple_revsnat,
 				      ctx, off, CT_INGRESS, SCOPE_REVERSE,
-				      CT_ENTRY_ANY, &ct_state, &trace->monitor);
+				      CT_ENTRY_ANY, NULL, &trace->monitor);
 		if (ret < 0)
 			return ret;
 
