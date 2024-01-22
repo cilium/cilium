@@ -26,20 +26,18 @@ var NodeAddressingCell = cell.Module(
 	cell.Provide(NewNodeAddressing),
 )
 
-func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, nodeAddresses statedb.Table[NodeAddress], devices statedb.Table[*Device]) types.NodeAddressing {
+func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devices statedb.Table[*Device]) types.NodeAddressing {
 	return &nodeAddressing{
-		localNode:     localNode,
-		db:            db,
-		nodeAddresses: nodeAddresses,
-		devices:       devices,
+		localNode: localNode,
+		db:        db,
+		devices:   devices,
 	}
 }
 
 type nodeAddressing struct {
-	localNode     *node.LocalNodeStore
-	db            *statedb.DB
-	nodeAddresses statedb.Table[NodeAddress]
-	devices       statedb.Table[*Device]
+	localNode *node.LocalNodeStore
+	db        *statedb.DB
+	devices   statedb.Table[*Device]
 }
 
 func (n *nodeAddressing) IPv6() types.NodeAddressingFamily {
@@ -75,24 +73,8 @@ func (a addressFamily) AllocationCIDR() *cidr.CIDR {
 	return nil
 }
 
-func (a addressFamily) LocalAddresses() (addrs []net.IP, err error) {
-	return a.getNodeAddresses(a.db.ReadTxn(), a.flags), nil
-}
-
 func (a addressFamily) DirectRouting() (int, net.IP, bool) {
 	return a.getDirectRouting(a.flags)
-}
-
-// LoadBalancerNodeAddresses returns all node addresses on which the
-// loadbalancer should implement HostPort and NodePort services.
-func (a addressFamily) LoadBalancerNodeAddresses() []net.IP {
-	addrs := a.getNodeAddresses(a.db.ReadTxn(), a.flags|nodePort)
-	if a.flags&ipv6 != 0 {
-		addrs = append(addrs, net.IPv6zero)
-	} else {
-		addrs = append(addrs, net.IPv4zero)
-	}
-	return addrs
 }
 
 type getFlags int
@@ -128,24 +110,6 @@ func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
 	}
 
 	return dev.Index, addr, true
-}
-
-func (a addressFamily) getNodeAddresses(txn statedb.ReadTxn, flag getFlags) (addrs []net.IP) {
-	nodeAddrs, _ := a.nodeAddresses.All(txn)
-	for addr, _, ok := nodeAddrs.Next(); ok; addr, _, ok = nodeAddrs.Next() {
-		if addr.DeviceName == WildcardDeviceName {
-			continue
-		}
-		if flag&nodePort != 0 && !addr.NodePort {
-			continue
-		}
-		if flag&ipv4 != 0 && addr.Addr.Is4() {
-			addrs = append(addrs, addr.IP())
-		} else if flag&ipv6 != 0 && addr.Addr.Is6() {
-			addrs = append(addrs, addr.IP())
-		}
-	}
-	return
 }
 
 type addressFamily struct {

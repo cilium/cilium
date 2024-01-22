@@ -19,6 +19,7 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -30,13 +31,16 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type agentHandle struct {
-	t  *testing.T
-	d  *cmd.Daemon
-	p  promise.Promise[*cmd.Daemon]
-	dp *fakeTypes.FakeDatapath
+	t         *testing.T
+	db        *statedb.DB
+	nodeAddrs statedb.Table[datapathTables.NodeAddress]
+	d         *cmd.Daemon
+	p         promise.Promise[*cmd.Daemon]
+	dp        *fakeTypes.FakeDatapath
 
 	hive *hive.Hive
 	log  *slog.Logger
@@ -82,6 +86,11 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon], dp *fakeTypes.FakeDatapath) {
 			h.p = p
 			h.dp = dp
+		}),
+
+		cell.Invoke(func(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress]) {
+			h.db = db
+			h.nodeAddrs = nodeAddrs
 		}),
 	)
 }

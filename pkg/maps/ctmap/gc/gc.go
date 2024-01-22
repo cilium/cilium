@@ -12,12 +12,14 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -37,9 +39,10 @@ type PerClusterCTMapsRetriever func() []*ctmap.Map
 type parameters struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Logger    logrus.FieldLogger
-
+	Lifecycle       cell.Lifecycle
+	Logger          logrus.FieldLogger
+	DB              *statedb.DB
+	NodeAddrs       statedb.Table[tables.NodeAddress]
 	DaemonConfig    *option.DaemonConfig
 	EndpointManager EndpointManager
 	Datapath        types.Datapath
@@ -53,6 +56,9 @@ type GC struct {
 
 	ipv4 bool
 	ipv6 bool
+
+	db        *statedb.DB
+	nodeAddrs statedb.Table[tables.NodeAddress]
 
 	endpointsManager EndpointManager
 	nodeAddressing   types.NodeAddressing
@@ -68,6 +74,9 @@ func New(params parameters) *GC {
 
 		ipv4: params.DaemonConfig.EnableIPv4,
 		ipv6: params.DaemonConfig.EnableIPv6,
+
+		db:        params.DB,
+		nodeAddrs: params.NodeAddrs,
 
 		endpointsManager: params.EndpointManager,
 		nodeAddressing:   params.Datapath.LocalNodeAddressing(),

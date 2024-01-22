@@ -7,38 +7,27 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
 var (
-	IPv4InternalAddress = net.ParseIP("10.0.0.2")
-	IPv4NodePortAddress = net.ParseIP("10.0.0.3")
+	IPv4InternalAddress = tables.TestIPv4InternalAddress.AsSlice()
+	IPv4NodePortAddress = tables.TestIPv4NodePortAddress.AsSlice()
 
 	fakeIPv4 = addressFamily{
 		router:          net.ParseIP("1.1.1.2"),
 		primaryExternal: net.ParseIP("1.1.1.1"),
 		allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
-		localAddresses: []net.IP{
-			net.ParseIP("10.0.0.2"),
-			net.ParseIP("10.0.0.3"),
-			net.ParseIP("10.0.0.4"),
-		},
-		lbNodeAddresses: []net.IP{net.IPv4(0, 0, 0, 0), IPv4InternalAddress, IPv4NodePortAddress},
 	}
 
-	IPv6InternalAddress = net.ParseIP("f00d::1")
-	IPv6NodePortAddress = net.ParseIP("f00d::2")
+	IPv6InternalAddress = tables.TestIPv6InternalAddress.AsSlice()
+	IPv6NodePortAddress = tables.TestIPv6NodePortAddress.AsSlice()
 
 	fakeIPv6 = addressFamily{
 		router:          net.ParseIP("cafe::2"),
 		primaryExternal: net.ParseIP("cafe::1"),
 		allocCIDR:       cidr.MustParseCIDR("cafe::/96"),
-		localAddresses: []net.IP{
-			net.ParseIP("f00d::1"),
-			net.ParseIP("f00d::2"),
-			net.ParseIP("f00d::3"),
-		},
-		lbNodeAddresses: []net.IP{net.IPv6zero, IPv6InternalAddress, IPv6NodePortAddress},
 	}
 )
 
@@ -77,8 +66,6 @@ type addressFamily struct {
 	router          net.IP
 	primaryExternal net.IP
 	allocCIDR       *cidr.CIDR
-	localAddresses  []net.IP
-	lbNodeAddresses []net.IP
 }
 
 func (a *addressFamily) Router() net.IP {
@@ -91,14 +78,6 @@ func (a *addressFamily) PrimaryExternal() net.IP {
 
 func (a *addressFamily) AllocationCIDR() *cidr.CIDR {
 	return a.allocCIDR
-}
-
-func (a *addressFamily) LocalAddresses() ([]net.IP, error) {
-	return a.localAddresses, nil
-}
-
-func (a *addressFamily) LoadBalancerNodeAddresses() []net.IP {
-	return a.lbNodeAddresses
 }
 
 func (a *addressFamily) DirectRouting() (int, net.IP, bool) {
