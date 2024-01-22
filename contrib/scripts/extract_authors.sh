@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Ensure sort order doesn't depend on locale
 export LANG=en_US.UTF-8
