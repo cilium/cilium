@@ -35,7 +35,7 @@ ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_
 	if (ct_ret == CT_NEW) {
 		int ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6,
 				     tuple, ctx, CT_EGRESS, &ct_state_new,
-				     false, false, ext_err);
+				     ext_err);
 		if (unlikely(ret < 0))
 			return ret;
 	}
@@ -129,6 +129,9 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		ct_state_new.src_sec_id = HOST_ID;
+		ct_state_new.proxy_redirect = proxy_port > 0;
+		ct_state_new.from_l7lb = false;
+
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
@@ -136,8 +139,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		 * its error code.
 		 */
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple,
-				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false,
-				 ext_err);
+				 ctx, CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -247,6 +249,9 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_sec_identity;
+		ct_state_new.proxy_redirect = proxy_port > 0;
+		ct_state_new.from_l7lb = false;
+
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
@@ -254,8 +259,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		 * its error code.
 		 */
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple,
-				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false,
-				 ext_err);
+				 ctx, CT_INGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -315,7 +319,7 @@ ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_
 	if (ct_ret == CT_NEW) {
 		int ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4,
 				     tuple, ctx, CT_EGRESS, &ct_state_new,
-				     false, false, ext_err);
+				     ext_err);
 		if (unlikely(ret < 0))
 			return ret;
 	}
@@ -403,6 +407,9 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		ct_state_new.src_sec_id = HOST_ID;
+		ct_state_new.proxy_redirect = proxy_port > 0;
+		ct_state_new.from_l7lb = false;
+
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
@@ -410,8 +417,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		 * its error code.
 		 */
 		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple,
-				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false,
-				 ext_err);
+				 ctx, CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -524,6 +530,9 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_sec_identity;
+		ct_state_new.proxy_redirect = proxy_port > 0;
+		ct_state_new.from_l7lb = false;
+
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
@@ -531,8 +540,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 		 * its error code.
 		 */
 		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple,
-				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false,
-				 ext_err);
+				 ctx, CT_INGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}

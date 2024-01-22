@@ -797,8 +797,11 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
 		ct_state_new.dsr = 1;
+		ct_state_new.proxy_redirect = false;
+		ct_state_new.from_l7lb = false;
+
 		ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false, ext_err);
+				 CT_EGRESS, &ct_state_new, ext_err);
 		if (!IS_ERR(ret))
 			ret = snat_v6_create_dsr(tuple, addr, port, ext_err);
 
@@ -1405,8 +1408,11 @@ redo:
 #ifndef HAVE_FIB_IFINDEX
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
+			ct_state_new.proxy_redirect = false;
+			ct_state_new.from_l7lb = false;
+
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false, false, ext_err);
+					 CT_EGRESS, &ct_state_new, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 			break;
@@ -2318,8 +2324,11 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
 		ct_state_new.dsr = 1;
+		ct_state_new.proxy_redirect = 0;
+		ct_state_new.from_l7lb = 0;
+
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false, ext_err);
+				 CT_EGRESS, &ct_state_new, ext_err);
 		if (!IS_ERR(ret))
 			ret = snat_v4_create_dsr(tuple, addr, port, ext_err);
 
@@ -2927,8 +2936,11 @@ redo:
 #ifndef HAVE_FIB_IFINDEX
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
+			ct_state_new.proxy_redirect = false;
+			ct_state_new.from_l7lb = false;
+
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false, false, ext_err);
+					 CT_EGRESS, &ct_state_new, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 			break;
