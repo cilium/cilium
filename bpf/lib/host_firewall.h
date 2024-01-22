@@ -20,8 +20,6 @@ static __always_inline int
 ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 					 enum ct_status ct_ret, __s8 *ext_err)
 {
-	struct ct_state ct_state_new = {};
-
 	/* If kube-proxy is in use (no BPF-based masquerading), packets from
 	 * pods may be SNATed. The response packet will therefore have a host
 	 * IP as the destination IP.
@@ -34,8 +32,7 @@ ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_
 	 */
 	if (ct_ret == CT_NEW) {
 		int ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6,
-				     tuple, ctx, CT_EGRESS, &ct_state_new,
-				     ext_err);
+				     tuple, ctx, CT_EGRESS, NULL, ext_err);
 		if (unlikely(ret < 0))
 			return ret;
 	}
@@ -304,8 +301,6 @@ static __always_inline int
 ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 					 enum ct_status ct_ret, __s8 *ext_err)
 {
-	struct ct_state ct_state_new = {};
-
 	/* If kube-proxy is in use (no BPF-based masquerading), packets from
 	 * pods may be SNATed. The response packet will therefore have a host
 	 * IP as the destination IP.
@@ -318,8 +313,7 @@ ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_
 	 */
 	if (ct_ret == CT_NEW) {
 		int ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4,
-				     tuple, ctx, CT_EGRESS, &ct_state_new,
-				     ext_err);
+				     tuple, ctx, CT_EGRESS, NULL, ext_err);
 		if (unlikely(ret < 0))
 			return ret;
 	}
