@@ -66,7 +66,7 @@ WORKER_MAC=$(nsenter -t $NGINX_PID -n ip -o l show dev eth0 | grep -oP '(?<=link
 LB_VIP="10.0.0.4"
 
 ${CILIUM_EXEC} \
-    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "[${WORKER_IP6}]:80" --k8s-node-port
+    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "[${WORKER_IP6}]:80" --k8s-load-balancer
 
 SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list)
 
@@ -138,7 +138,7 @@ done
 LB_ALT="fd00:dead:beef:15:bad::1"
 
 ${CILIUM_EXEC} \
-    cilium-dbg service update --id 2 --frontend "[${LB_ALT}]:80" --backends "[${WORKER_IP6}]:80" --k8s-node-port
+    cilium-dbg service update --id 2 --frontend "[${LB_ALT}]:80" --backends "[${WORKER_IP6}]:80" --k8s-load-balancer
 
 ${CILIUM_EXEC} cilium-dbg service list
 ${CILIUM_EXEC} cilium-dbg bpf lb list
@@ -195,7 +195,7 @@ nsenter -t $CONTROL_PLANE_PID -n ip neigh del ${WORKER_IP6} dev eth0
 LB_VIP="fd00:cafe::1"
 
 ${CILIUM_EXEC} \
-    cilium-dbg service update --id 1 --frontend "[${LB_VIP}]:80" --backends "${WORKER_IP4}:80" --k8s-node-port
+    cilium-dbg service update --id 1 --frontend "[${LB_VIP}]:80" --backends "${WORKER_IP4}:80" --k8s-load-balancer
 
 SVC_BEFORE=$(${CILIUM_EXEC} cilium-dbg service list)
 
@@ -267,7 +267,7 @@ done
 LB_ALT="10.0.0.8"
 
 ${CILIUM_EXEC} \
-    cilium-dbg service update --id 2 --frontend "${LB_ALT}:80" --backends "${WORKER_IP4}:80" --k8s-node-port
+    cilium-dbg service update --id 2 --frontend "${LB_ALT}:80" --backends "${WORKER_IP4}:80" --k8s-load-balancer
 
 ${CILIUM_EXEC} cilium-dbg service list
 ${CILIUM_EXEC} cilium-dbg bpf lb list
