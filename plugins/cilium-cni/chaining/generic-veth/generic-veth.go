@@ -223,7 +223,8 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		err = fmt.Errorf("unable to create endpoint: %s", err)
 		return
 	}
-	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
+	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" &&
+		newEp.Status.Networking.Mac != vethLXCMac {
 		err = netns.ReplaceMacAddressWithLinkName(netNs, vethLXCName, newEp.Status.Networking.Mac)
 		if err != nil {
 			err = fmt.Errorf("unable to set MAC address on interface %s: %w", vethLXCName, err)
