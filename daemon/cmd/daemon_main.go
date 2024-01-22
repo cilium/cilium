@@ -1636,6 +1636,7 @@ type daemonParams struct {
 	HealthV2Provider     healthTypes.Provider
 	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
 	Devices              statedb.Table[*datapathTables.Device]
+	NodeAddrs            statedb.Table[datapathTables.NodeAddress]
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.

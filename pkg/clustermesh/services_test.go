@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -64,7 +65,13 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	clusterName2 := s.randomName + "2"
 
 	require.NoError(tb, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName))
-	s.svcCache = k8s.NewServiceCache(fakeTypes.NewNodeAddressing())
+
+	nodeAddrs, err := datapathTables.NewNodeAddressTable()
+	require.Nil(tb, err)
+	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs}, statedb.NewMetrics())
+	require.Nil(tb, err)
+
+	s.svcCache = k8s.NewServiceCache(db, nodeAddrs)
 
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
@@ -83,7 +90,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	}
 
 	config1 := path.Join(dir, clusterName1)
-	err := os.WriteFile(config1, etcdConfig, 0644)
+	err = os.WriteFile(config1, etcdConfig, 0644)
 	require.NoError(tb, err)
 
 	config2 := path.Join(dir, clusterName2)

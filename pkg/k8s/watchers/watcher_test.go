@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/statedb"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
@@ -105,6 +107,21 @@ func (f *fakeSvcManager) UpsertService(p *loadbalancer.SVC) (bool, loadbalancer.
 		return f.OnUpsertService(p)
 	}
 	panic("OnUpsertService() was called and is not set!")
+}
+
+func (s *K8sWatcherSuite) newDB(c *C) (*statedb.DB, statedb.Table[datapathTables.NodeAddress]) {
+	nodeAddrs, err := datapathTables.NewNodeAddressTable()
+	c.Assert(err, IsNil)
+	db, err := statedb.NewDB([]statedb.TableMeta{nodeAddrs}, statedb.NewMetrics())
+	c.Assert(err, IsNil)
+
+	txn := db.WriteTxn(nodeAddrs)
+	for _, addr := range datapathTables.TestAddresses {
+		nodeAddrs.Insert(txn, addr)
+	}
+	txn.Commit()
+
+	return db, nodeAddrs
 }
 
 func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
@@ -380,7 +397,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		},
 	}
 
-	dp := fakeTypes.NewDatapath()
+	db, nodeAddrs := s.newDB(c)
+
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -390,15 +408,16 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
-		dp,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
 		emptyResources,
-		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		k8s.NewServiceCache(db, nodeAddrs),
 		nil,
+		db,
+		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -531,7 +550,8 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		},
 	}
 
-	dp := fakeTypes.NewDatapath()
+	db, nodeAddrs := s.newDB(c)
+
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -541,15 +561,16 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
-		dp,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
 		emptyResources,
-		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		k8s.NewServiceCache(db, nodeAddrs),
 		nil,
+		db,
+		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1011,7 +1032,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		},
 	}
 
-	dp := fakeTypes.NewDatapath()
+	db, nodeAddrs := s.newDB(c)
+
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -1021,15 +1043,16 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
-		dp,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
 		emptyResources,
-		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		k8s.NewServiceCache(db, nodeAddrs),
 		nil,
+		db,
+		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1325,7 +1348,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		},
 	}
 
-	dp := fakeTypes.NewDatapath()
+	db, nodeAddrs := s.newDB(c)
+
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -1335,15 +1359,16 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
-		dp,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
 		emptyResources,
-		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		k8s.NewServiceCache(db, nodeAddrs),
 		nil,
+		db,
+		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1632,7 +1657,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		},
 	}
 
-	dp := fakeTypes.NewDatapath()
+	db, nodeAddrs := s.newDB(c)
+
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -1642,15 +1668,16 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
-		dp,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
 		emptyResources,
-		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		k8s.NewServiceCache(db, nodeAddrs),
 		nil,
+		db,
+		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2553,7 +2580,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		},
 	}
 
-	dp := fakeTypes.NewDatapath()
+	db, nodeAddrs := s.newDB(c)
+
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -2563,15 +2591,16 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
-		dp,
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
 		emptyResources,
-		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		k8s.NewServiceCache(db, nodeAddrs),
 		nil,
+		db,
+		nodeAddrs,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2614,11 +2643,12 @@ func (s *K8sWatcherSuite) Test_No_Resources_InitK8sSubsystem(c *C) {
 		nil,
 		nil,
 		nil,
-		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
 		emptyResources,
+		nil,
+		nil,
 		nil,
 		nil,
 	)
