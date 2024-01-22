@@ -576,6 +576,10 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
+#ifndef ENABLE_HIGH_SCALE_IPCACHE
+	/* preserve skb->cb for hs-ipcache, from-netdev is passing info */
+	bpf_clear_meta(ctx);
+#endif
 	ctx_skip_nodeport_clear(ctx);
 
 	if (!validate_ethertype(ctx, &proto)) {
