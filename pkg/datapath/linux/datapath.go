@@ -38,17 +38,18 @@ type linuxDatapath struct {
 type DatapathParams struct {
 	cell.In
 
-	Lifecycle      hive.Lifecycle
-	ConfigWriter   datapath.ConfigWriter
-	RuleManager    datapath.IptablesManager
-	WGAgent        datapath.WireguardAgent
-	NodeMap        nodemap.Map
-	BWManager      datapath.BandwidthManager
-	NodeAddressing datapath.NodeAddressing
-	MTU            datapath.MTUConfiguration
-	Loader         datapath.Loader
-	DB             *statedb.DB
-	Devices        statedb.Table[*tables.Device]
+	Lifecycle        hive.Lifecycle
+	ConfigWriter     datapath.ConfigWriter
+	RuleManager      datapath.IptablesManager
+	WGAgent          datapath.WireguardAgent
+	NodeMap          nodemap.Map
+	BWManager        datapath.BandwidthManager
+	NodeAddressing   datapath.NodeAddressing
+	MTU              datapath.MTUConfiguration
+	Loader           datapath.Loader
+	DB               *statedb.DB
+	Devices          statedb.Table[*tables.Device]
+	DirectRoutingDev tables.DirectRoutingDevice
 }
 
 // NewDatapath creates a new Linux datapath
@@ -64,7 +65,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		bwmgr:           p.BWManager,
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.DB, p.Devices)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.DB, p.Devices, p.DirectRoutingDev)
 
 	p.Lifecycle.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {

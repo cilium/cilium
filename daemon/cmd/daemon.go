@@ -128,8 +128,9 @@ type Daemon struct {
 	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	deviceManager *linuxdatapath.DeviceManager
-	devices       statedb.Table[*datapathTables.Device]
+	deviceManager    *linuxdatapath.DeviceManager
+	devices          statedb.Table[*datapathTables.Device]
+	directRoutingDev tables.DirectRoutingDevice
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -423,6 +424,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		datapath:          params.Datapath,
 		deviceManager:     params.DeviceManager,
 		devices:           params.Devices,
+		directRoutingDev:  params.DirectRoutingDevice,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
@@ -745,8 +747,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.l2announcer.DevicesChanged(devices)
 	}
 
-	_, nativeDevices, _ := d.getDevices()
-	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices); err != nil {
+	if err := finishKubeProxyReplacementInit(params.Sysctl, d.db, d.devices, d.directRoutingDev); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}

@@ -103,6 +103,7 @@ func writeConfig(c *C, header string, write writeFn) {
 		c.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
 			statedb.Cell,
+			tables.DirectRoutingDeviceCell,
 			cell.Provide(
 				fake.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },

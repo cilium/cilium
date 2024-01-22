@@ -1879,8 +1879,7 @@ func (n *mockNodeAddressingFamily) LocalAddresses() ([]net.IP, error) { panic("N
 func (n *mockNodeAddressingFamily) LoadBalancerNodeAddresses() []net.IP {
 	return n.ips
 }
-
-func (n *mockNodeAddressingFamily) DirectRouting() (int, net.IP, bool) {
+func (n *mockNodeAddressingFamily) DirectRouting(string) (int, net.IP, bool) {
 	return -1, nil, false
 }
 

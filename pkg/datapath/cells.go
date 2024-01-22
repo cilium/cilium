@@ -123,6 +123,9 @@ var Cell = cell.Module(
 	// DevicesController manages the devices and routes tables
 	linuxdatapath.DevicesControllerCell,
 
+	// A cell to figure out the direct routing device
+	tables.DirectRoutingDeviceCell,
+
 	// Synchronizes the userspace ipcache with the corresponding BPF map.
 	ipcache.Cell,
 )

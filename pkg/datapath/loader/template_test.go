@@ -32,6 +32,7 @@ func (s *LoaderTestSuite) TestWrap(c *C) {
 
 	h := hive.New(
 		statedb.Cell,
+		tables.DirectRoutingDeviceCell,
 		cell.Provide(
 			fake.NewNodeAddressing,
 			func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },

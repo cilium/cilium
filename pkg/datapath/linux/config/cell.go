@@ -17,13 +17,14 @@ import (
 type WriterParams struct {
 	cell.In
 
-	Log                logrus.FieldLogger
-	NodeAddressing     datapath.NodeAddressing
-	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
-	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
-	Sysctl             sysctl.Sysctl
-	DB                 *statedb.DB
-	Devices            statedb.Table[*tables.Device]
+	Log                 logrus.FieldLogger
+	NodeAddressing      datapath.NodeAddressing
+	NodeExtraDefines    []dpdef.Map `group:"header-node-defines"`
+	NodeExtraDefineFns  []dpdef.Fn  `group:"header-node-define-fns"`
+	Sysctl              sysctl.Sysctl
+	DB                  *statedb.DB
+	Devices             statedb.Table[*tables.Device]
+	DirectRoutingDevice tables.DirectRoutingDevice
 }
 
 var Cell = cell.Module(

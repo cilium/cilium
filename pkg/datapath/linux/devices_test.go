@@ -29,7 +29,6 @@ import (
 
 type DevicesSuite struct {
 	currentNetNS                      netns.NsHandle
-	prevConfigDirectRoutingDevice     string
 	prevConfigIPv6MCastDevice         string
 	prevConfigEnableIPv4              bool
 	prevConfigEnableIPv6              bool
@@ -47,7 +46,6 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 
 	var err error
 
-	s.prevConfigDirectRoutingDevice = option.Config.DirectRoutingDevice
 	s.prevConfigEnableIPv4 = option.Config.EnableIPv4
 	s.prevConfigEnableIPv6 = option.Config.EnableIPv6
 	s.prevConfigEnableNodePort = option.Config.EnableNodePort
@@ -66,7 +64,6 @@ func nodeSetIP(ip net.IP) {
 }
 
 func (s *DevicesSuite) TearDownTest(c *C) {
-	option.Config.DirectRoutingDevice = s.prevConfigDirectRoutingDevice
 	option.Config.EnableIPv4 = s.prevConfigEnableIPv4
 	option.Config.EnableIPv6 = s.prevConfigEnableIPv6
 	option.Config.EnableNodePort = s.prevConfigEnableNodePort
@@ -79,7 +76,6 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 
 func (s *DevicesSuite) TestDetect(c *C) {
 	s.withFixture(c, func() {
-		option.Config.DirectRoutingDevice = ""
 		option.Config.EnableNodePort = true
 		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
 		option.Config.EnableHostLegacyRouting = true
@@ -104,8 +100,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
-		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
-		option.Config.DirectRoutingDevice = ""
 		dm.Stop()
 
 		// Manually specified devices, no detection is performed
@@ -118,8 +112,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
-		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
-		option.Config.DirectRoutingDevice = ""
 
 		// Direct routing mode, should find all devices and set direct
 		// routing device to the one with k8s node ip.
@@ -135,8 +127,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
-		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
-		option.Config.DirectRoutingDevice = ""
 		dm.Stop()
 
 		// Tunnel routing mode with XDP, should find all devices and set direct
@@ -153,9 +143,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
-		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
 
-		option.Config.DirectRoutingDevice = ""
 		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
 		option.Config.RoutingMode = option.RoutingModeNative
 		dm.Stop()
@@ -171,9 +159,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6"})
-		c.Assert(option.Config.DirectRoutingDevice, checker.Equals, "dummy_v6")
 		c.Assert(option.Config.IPv6MCastDevice, checker.DeepEquals, "dummy_v6")
-		option.Config.DirectRoutingDevice = ""
 		dm.Stop()
 
 		// Only consider veth devices if they have a default route.
@@ -241,7 +227,6 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
 
 		// 1. Check expansion works and non-matching prefixes are ignored
-		option.Config.DirectRoutingDevice = "dummy0"
 		dm, err := newDeviceManagerForTests("dummy0", "other+", "dummy1")
 		c.Assert(err, IsNil)
 		devs, err := dm.Detect(true)
@@ -269,7 +254,6 @@ func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 		nodeSetIP(net.ParseIP("192.168.0.1"))
 
 		// 1. Check expansion works and non-matching prefixes are ignored
-		option.Config.DirectRoutingDevice = "dummy+"
 		dm, err := newDeviceManagerForTests(
 			"dummy+", "missing+", "other0+",
 			/* duplicates: */
@@ -278,16 +262,13 @@ func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 		c.Assert(err, IsNil)
 		_, err = dm.Detect(true)
 		c.Assert(err, IsNil)
-		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
 		dm.Stop()
 
 		// 2. Check that expansion fails if directRoutingDevice is specified but yields empty expansion
-		option.Config.DirectRoutingDevice = "none+"
 		dm, err = newDeviceManagerForTests()
 		c.Assert(err, IsNil)
 		_, err = dm.Detect(true)
 		c.Assert(err, NotNil)
-		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
 		dm.Stop()
 	})
 }

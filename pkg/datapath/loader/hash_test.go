@@ -34,6 +34,7 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	var cfg datapath.ConfigWriter
 	hv := hive.New(
 		statedb.Cell,
+		tables.DirectRoutingDeviceCell,
 		cell.Provide(
 			fake.NewNodeAddressing,
 			func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },

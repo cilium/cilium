@@ -6,6 +6,7 @@ package config
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -67,13 +68,14 @@ import (
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
-	db                 *statedb.DB
-	devices            statedb.Table[*tables.Device]
-	log                logrus.FieldLogger
-	nodeAddressing     datapath.NodeAddressing
-	nodeExtraDefines   dpdef.Map
-	nodeExtraDefineFns []dpdef.Fn
-	sysctl             sysctl.Sysctl
+	db                  *statedb.DB
+	devices             statedb.Table[*tables.Device]
+	directRoutingDevice tables.DirectRoutingDevice
+	log                 logrus.FieldLogger
+	nodeAddressing      datapath.NodeAddressing
+	nodeExtraDefines    dpdef.Map
+	nodeExtraDefineFns  []dpdef.Fn
+	sysctl              sysctl.Sysctl
 }
 
 func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
@@ -84,13 +86,14 @@ func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
 		}
 	}
 	return &HeaderfileWriter{
-		db:                 p.DB,
-		devices:            p.Devices,
-		nodeAddressing:     p.NodeAddressing,
-		nodeExtraDefines:   merged,
-		nodeExtraDefineFns: p.NodeExtraDefineFns,
-		log:                p.Log,
-		sysctl:             p.Sysctl,
+		db:                  p.DB,
+		devices:             p.Devices,
+		directRoutingDevice: p.DirectRoutingDevice,
+		nodeAddressing:      p.NodeAddressing,
+		nodeExtraDefines:    merged,
+		nodeExtraDefineFns:  p.NodeExtraDefineFns,
+		log:                 p.Log,
+		sysctl:              p.Sysctl,
 	}, nil
 }
 
@@ -551,8 +554,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 
 	if option.Config.DirectRoutingDeviceRequired() {
+		drd, _ := h.directRoutingDevice.Get(txn, context.TODO())
+		if drd == nil {
+			return fmt.Errorf("IPv4 direct routing device not found")
+		}
 		if option.Config.EnableIPv4 {
-			ifindex, ip, ok := h.nodeAddressing.IPv4().DirectRouting()
+			ifindex, ip, ok := h.nodeAddressing.IPv4().DirectRouting(drd.Name)
 			if !ok {
 				return fmt.Errorf("IPv4 direct routing device not found")
 			}
@@ -561,7 +568,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 		}
 		if option.Config.EnableIPv6 {
-			ifindex, ip, ok := h.nodeAddressing.IPv6().DirectRouting()
+			ifindex, ip, ok := h.nodeAddressing.IPv6().DirectRouting(drd.Name)
 			if !ok {
 				return fmt.Errorf("IPv6 direct routing device not found")
 			}
@@ -1048,16 +1055,14 @@ func (h *HeaderfileWriter) writeTemplateConfig(devices []*tables.Device, fw *buf
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if !option.Config.EnableHostLegacyRouting && option.Config.DirectRoutingDevice != "" {
-		directRoutingIface := option.Config.DirectRoutingDevice
-		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
-		if len(devices) == 1 {
-			if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
-				fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
+	if !option.Config.EnableHostLegacyRouting {
+		drd, _ := h.directRoutingDevice.Get(h.db.ReadTxn(), context.TODO())
+		if drd != nil {
+			fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", drd.Index)
+			if len(devices) == 1 {
+				if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
+					fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
+				}
 			}
 		}
 	}

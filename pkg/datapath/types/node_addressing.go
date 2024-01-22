@@ -34,7 +34,7 @@ type NodeAddressingFamily interface {
 
 	// DirectRouting returns the interface index and IP address for
 	// direct routing.
-	DirectRouting() (int, net.IP, bool)
+	DirectRouting(dev string) (int, net.IP, bool)
 }
 
 // NodeAddressing implements addressing of a node

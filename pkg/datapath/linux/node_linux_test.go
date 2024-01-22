@@ -215,9 +215,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -276,9 +277,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -371,9 +373,10 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(c *check.C,
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -651,9 +654,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(c *check.C) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodeMap, &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodeMap, &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -810,9 +814,10 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(c *check
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -907,9 +912,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -1133,9 +1139,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -1254,9 +1261,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(c *check.
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -1411,9 +1419,6 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
-	prevDRDev := option.Config.DirectRoutingDevice
-	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
-	option.Config.DirectRoutingDevice = "veth0"
 	prevNP := option.Config.EnableNodePort
 	defer func() { option.Config.EnableNodePort = prevNP }()
 	option.Config.EnableNodePort = true
@@ -1425,15 +1430,22 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], dev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, dev)
 		}),
 	)
 	hive.AddConfigOverride(
 		h,
 		func(cfg *DevicesConfig) {
 			cfg.Devices = []string{"veth0"}
+		},
+	)
+	hive.AddConfigOverride(
+		h,
+		func(c *tables.DirectRoutingDeviceConfig) {
+			c.DirectRoutingDevice = "veth0"
 		},
 	)
 
@@ -2180,23 +2192,27 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
-	prevDRDev := option.Config.DirectRoutingDevice
-	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
-	option.Config.DirectRoutingDevice = "veth0"
 
 	var linuxNodeHandler *linuxNodeHandler
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], dev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, dev)
 		}),
 	)
 	hive.AddConfigOverride(
 		h,
 		func(cfg *DevicesConfig) {
 			cfg.Devices = []string{"veth0", "veth2", "veth4"}
+		},
+	)
+	hive.AddConfigOverride(
+		h,
+		func(c *tables.DirectRoutingDeviceConfig) {
+			c.DirectRoutingDevice = "veth0"
 		},
 	)
 
@@ -2468,9 +2484,6 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
-	prevDRDev := option.Config.DirectRoutingDevice
-	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
-	option.Config.DirectRoutingDevice = "veth0"
 	prevNP := option.Config.EnableNodePort
 	defer func() { option.Config.EnableNodePort = prevNP }()
 	option.Config.EnableNodePort = true
@@ -2482,15 +2495,22 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], dev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, dev)
 		}),
 	)
 	hive.AddConfigOverride(
 		h,
 		func(cfg *DevicesConfig) {
 			cfg.Devices = []string{"veth0"}
+		},
+	)
+	hive.AddConfigOverride(
+		h,
+		func(c *tables.DirectRoutingDeviceConfig) {
+			c.DirectRoutingDevice = "veth0"
 		},
 	)
 
@@ -3237,17 +3257,15 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	prevRoutingMode := option.Config.RoutingMode
 	defer func() { option.Config.RoutingMode = prevRoutingMode }()
 	option.Config.RoutingMode = option.RoutingModeNative
-	prevDRDev := option.Config.DirectRoutingDevice
-	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
-	option.Config.DirectRoutingDevice = "veth0"
 
 	var linuxNodeHandler *linuxNodeHandler
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], dev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, dev)
 		}),
 	)
 	hive.AddConfigOverride(
@@ -3255,6 +3273,12 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 		func(cfg *DevicesConfig) {
 			cfg.Devices = []string{"veth0", "veth2", "veth4"}
 		})
+	hive.AddConfigOverride(
+		h,
+		func(c *tables.DirectRoutingDeviceConfig) {
+			c.DirectRoutingDevice = "veth0"
+		},
+	)
 
 	prevNP := option.Config.EnableNodePort
 	defer func() { option.Config.EnableNodePort = prevNP }()
@@ -3453,9 +3477,10 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config da
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -3560,9 +3585,10 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(c *check.C, config
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -3639,9 +3665,10 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(c *ch
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
+		tables.DirectRoutingDeviceCell,
+		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) {
 			dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
+			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices, directRoutingDev)
 		}),
 	)
 	c.Assert(h.Start(context.TODO()), check.IsNil)

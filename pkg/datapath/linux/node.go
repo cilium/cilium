@@ -86,8 +86,9 @@ type linuxNodeHandler struct {
 	prefixClusterMutatorFn func(node *types.Node) []cmtypes.PrefixClusterOpts
 	enableEncapsulation    func(node *types.Node) bool
 
-	db      *statedb.DB
-	devices statedb.Table[*tables.Device]
+	db               *statedb.DB
+	devices          statedb.Table[*tables.Device]
+	directRoutingDev tables.DirectRoutingDevice
 }
 
 var (
@@ -105,10 +106,12 @@ func NewNodeHandler(
 	mtu datapath.MTUConfiguration,
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
+	directRoutingDev tables.DirectRoutingDevice,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		db:                     db,
 		devices:                devices,
+		directRoutingDev:       directRoutingDev,
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
 		nodeConfig:             datapath.LocalNodeConfiguration{MtuConfig: mtu},
@@ -1219,15 +1222,14 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		case !option.Config.EnableL2NeighDiscovery:
 			n.enableNeighDiscovery = false
 		case option.Config.DirectRoutingDeviceRequired():
-			if option.Config.DirectRoutingDevice == "" {
-				return fmt.Errorf("direct routing device is required, but not defined")
-			}
-
-			nativeDevices, _ := tables.SelectedDevices(n.devices, n.db.ReadTxn())
+			rxn := n.db.ReadTxn()
+			nativeDevices, _ := tables.SelectedDevices(n.devices, rxn)
 			devices := tables.DeviceNames(nativeDevices)
-
 			var targetDevices []string
-			targetDevices = append(targetDevices, option.Config.DirectRoutingDevice)
+			drd, _ := n.directRoutingDev.Get(rxn, context.TODO())
+			if drd != nil && drd.Name != "" {
+				targetDevices = append(targetDevices, drd.Name)
+			}
 			targetDevices = append(targetDevices, devices...)
 
 			var err error
@@ -1332,7 +1334,7 @@ func filterL2Devices(devices []string) ([]string, error) {
 	for k := range deviceSets {
 		mac, err := link.GetHardwareAddr(k)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to find L2 device %s: %w", k, err)
 		}
 		if mac != nil {
 			l2devices = append(l2devices, k)

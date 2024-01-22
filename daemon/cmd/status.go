@@ -325,11 +325,16 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		features.Nat46X64.Service = svc
 	}
 
+	directRoutingDevice := ""
+	drd, _ := d.directRoutingDev.Get(d.db.ReadTxn(), context.TODO())
+	if drd != nil {
+		directRoutingDevice = drd.Name
+	}
 	return &models.KubeProxyReplacement{
 		Mode:                mode,
 		Devices:             datapathTables.DeviceNames(devices),
 		DeviceList:          devicesList,
-		DirectRoutingDevice: option.Config.DirectRoutingDevice,
+		DirectRoutingDevice: directRoutingDevice,
 		Features:            features,
 	}
 }

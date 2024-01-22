@@ -6,6 +6,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // initKubeProxyReplacementOptions will grok the global config and determine
@@ -383,7 +385,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Device) error {
+func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, db *statedb.DB, devicesT statedb.Table[*tables.Device], directRoutingDev tables.DirectRoutingDevice) error {
 	if !(option.Config.EnableNodePort || option.Config.EnableWireguard) {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
@@ -458,8 +460,10 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 	// In the case where the fib lookup does not return the outgoing ifindex
 	// the datapath needs to store it in our CT map, and the map's field is
 	// limited to 16 bit.
+	rxn := db.ReadTxn()
+	devs, _ := tables.SelectedDevices(devicesT, rxn)
 	if probes.HaveFibIfindex() != nil {
-		for _, iface := range devices {
+		for _, iface := range devs {
 			if idx := iface.Index; idx > math.MaxUint16 {
 				return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface.Name, idx)
 			}
@@ -469,7 +473,7 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 	if option.Config.EnableIPv4 &&
 		!option.Config.TunnelingEnabled() &&
 		option.Config.LoadBalancerUsesDSR() &&
-		len(devices) > 1 {
+		len(devs) > 1 {
 
 		// In the case of the multi-dev NodePort DSR, if a request from an
 		// external client was sent to a device which is not used for direct
@@ -478,15 +482,17 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		// and the client IP is reachable via other device than the direct
 		// routing one.
 
-		iface := option.Config.DirectRoutingDevice
-		if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)); err != nil {
-			log.Warnf("Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
-				iface, err)
-		} else {
-			if val == "1" {
-				log.Warnf(`DSR might not work for requests sent to other than %s device. `+
-					`Run 'sysctl -w net.ipv4.conf.%s.rp_filter=2' (or set to '0') on each node to fix`,
-					iface, iface)
+		drd, _ := directRoutingDev.Get(rxn, context.TODO())
+		if drd != nil {
+			if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", drd.Name)); err != nil {
+				log.Warnf("Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
+					drd.Name, err)
+			} else {
+				if val == "1" {
+					log.Warnf(`DSR might not work for requests sent to other than %s device. `+
+						`Run 'sysctl -w net.ipv4.conf.%s.rp_filter=2' (or set to '0') on each node to fix`,
+						drd.Name, drd.Name)
+				}
 			}
 		}
 	}

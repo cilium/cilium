@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -45,34 +44,6 @@ func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 				break
 			}
 		}
-	}
-
-	if option.Config.DirectRoutingDeviceRequired() {
-		var filter deviceFilter
-		if option.Config.DirectRoutingDevice != "" {
-			filter = deviceFilter(strings.Split(option.Config.DirectRoutingDevice, ","))
-		}
-		option.Config.DirectRoutingDevice = ""
-		if filter.nonEmpty() {
-			// User has defined a direct-routing device. Try to find the first matching
-			// device.
-			for _, dev := range devs {
-				if filter.match(dev.Name) {
-					option.Config.DirectRoutingDevice = dev.Name
-					break
-				}
-			}
-		} else if len(devs) == 1 {
-			option.Config.DirectRoutingDevice = devs[0].Name
-		} else if nodeDevice != nil {
-			option.Config.DirectRoutingDevice = nodeDevice.Name
-		}
-		if option.Config.DirectRoutingDevice == "" {
-			return nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
-				option.DirectRoutingDevice)
-		}
-		log.WithField(option.DirectRoutingDevice, option.Config.DirectRoutingDevice).
-			Info("Direct routing device detected")
 	}
 
 	if option.Config.EnableIPv6NDP && option.Config.IPv6MCastDevice == "" {

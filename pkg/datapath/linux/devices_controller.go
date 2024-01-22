@@ -108,6 +108,8 @@ type devicesControllerParams struct {
 
 	// netlinkFuncs is optional and used by tests to verify error handling behavior.
 	NetlinkFuncs *netlinkFuncs `optional:"true"`
+	// NetlinkHandle is used to create the above NetlinkFuncs if not set.
+	NetlinkHandle netns.NsHandle `optional:"true"`
 }
 
 type devicesController struct {
@@ -144,8 +146,12 @@ func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) (*device
 
 func (dc *devicesController) Start(startCtx hive.HookContext) error {
 	if dc.params.NetlinkFuncs == nil {
+		handle := netns.None()
+		if dc.params.NetlinkHandle != 0 {
+			handle = dc.params.NetlinkHandle
+		}
 		var err error
-		dc.params.NetlinkFuncs, err = makeNetlinkFuncs(netns.None())
+		dc.params.NetlinkFuncs, err = makeNetlinkFuncs(handle)
 		if err != nil {
 			return err
 		}

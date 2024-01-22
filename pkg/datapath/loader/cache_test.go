@@ -35,6 +35,7 @@ func (s *LoaderTestSuite) TestobjectCache(c *C) {
 	var cfg types.ConfigWriter
 	h := hive.New(
 		statedb.Cell,
+		tables.DirectRoutingDeviceCell,
 		cell.Provide(
 			fake.NewNodeAddressing,
 			func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },
@@ -135,6 +136,7 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 		var cfg types.ConfigWriter
 		h := hive.New(
 			statedb.Cell,
+			tables.DirectRoutingDeviceCell,
 			cell.Provide(
 				fake.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewTestSysctl(c) },

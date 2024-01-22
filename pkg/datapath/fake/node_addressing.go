@@ -101,7 +101,7 @@ func (a *addressFamily) LoadBalancerNodeAddresses() []net.IP {
 	return a.lbNodeAddresses
 }
 
-func (a *addressFamily) DirectRouting() (int, net.IP, bool) {
+func (a *addressFamily) DirectRouting(string) (int, net.IP, bool) {
 	return 0, nil, false
 }
 

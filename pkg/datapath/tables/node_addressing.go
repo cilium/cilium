@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
@@ -78,8 +77,8 @@ func (a addressFamily) LocalAddresses() (addrs []net.IP, err error) {
 	return a.getNodeAddresses(a.db.ReadTxn(), a.flags), nil
 }
 
-func (a addressFamily) DirectRouting() (int, net.IP, bool) {
-	return a.getDirectRouting(a.flags)
+func (a addressFamily) DirectRouting(dev string) (int, net.IP, bool) {
+	return a.getDirectRouting(a.flags, dev)
 }
 
 // LoadBalancerNodeAddresses returns all node addresses on which the
@@ -102,12 +101,12 @@ const (
 	nodePort getFlags = 1 << 2
 )
 
-func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
-	if option.Config.DirectRoutingDevice == "" {
+func (a addressFamily) getDirectRouting(flags getFlags, devName string) (int, net.IP, bool) {
+	if devName == "" {
 		return 0, nil, false
 	}
-	dev, _, ok := a.devices.First(a.db.ReadTxn(), DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
-	if !ok {
+	dev, _, found := a.devices.First(a.db.ReadTxn(), DeviceNameIndex.Query(devName))
+	if !found {
 		return 0, nil, false
 	}
 	var addr net.IP

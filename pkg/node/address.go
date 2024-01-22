@@ -280,8 +280,8 @@ func SetIPv6NodeRange(net *cidr.CIDR) {
 }
 
 // AutoComplete completes the parts of addressing that can be auto derived
-func AutoComplete() error {
-	InitDefaultPrefix(option.Config.DirectRoutingDevice)
+func AutoComplete(directRoutingDevice string) error {
+	InitDefaultPrefix(directRoutingDevice)
 
 	if option.Config.EnableIPv6 && GetIPv6AllocRange() == nil {
 		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specify --%s", option.IPv6Range)
