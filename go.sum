@@ -122,8 +122,8 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/cilium/checkmate v1.0.3 h1:CQC5eOmlAZeEjPrVZY3ZwEBH64lHlx9mXYdUehEwI5w=
 github.com/cilium/checkmate v1.0.3/go.mod h1:KiBTasf39/F2hf2yAmHw21YFl3hcEyP4Yk6filxc12A=
-github.com/cilium/controller-tools v0.8.0-1 h1:D5xhwSUZZceaKAacHOyfcpUMgLbs2TGeJEijNHlAQlc=
-github.com/cilium/controller-tools v0.8.0-1/go.mod h1:qE2DXhVOiEq5ijmINcFbqi9GZrrUjzB1TuJU0xa6eoY=
+github.com/cilium/controller-tools v0.8.0-2 h1:QkYiSOyZz4Aww7JrvoH/8DjuEZ/Hlq2VREWe2Sb2NTQ=
+github.com/cilium/controller-tools v0.8.0-2/go.mod h1:qE2DXhVOiEq5ijmINcFbqi9GZrrUjzB1TuJU0xa6eoY=
 github.com/cilium/coverbee v0.3.2 h1:RaJN5OaHf/M8tmeLemHmdO0H5bFUhvtTAoYbStDIX14=
 github.com/cilium/coverbee v0.3.2/go.mod h1:p9Q2SRC/sPA0qATNfY19GXBUPdcQP6UVV2LKgOHRIzQ=
 github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f h1:t1A8nGkbZcjLACtNGIkfhfnKgG7V83+Tzr1pMeoPuA8=
