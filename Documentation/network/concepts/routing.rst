@@ -31,6 +31,9 @@ Requirements on the network
   Cilium nodes can already reach each other, all routing requirements are
   already met.
 
+* The underlying network must support IPv4. See :gh-issue:`17240`
+  for the status of IPv6-based tunneling.
+
 * The underlying network and firewalls must allow encapsulated packets:
 
   ================== =====================
