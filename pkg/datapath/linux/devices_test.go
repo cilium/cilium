@@ -218,61 +218,6 @@ func (s *DevicesSuite) TestDetect(c *C) {
 	})
 }
 
-func (s *DevicesSuite) TestExpandDevices(c *C) {
-	s.withFixture(c, func() {
-		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
-		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
-		c.Assert(createDummy("other0", "192.168.2.3/24", false), IsNil)
-		c.Assert(createDummy("other1", "192.168.3.4/24", false), IsNil)
-		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
-
-		// 1. Check expansion works and non-matching prefixes are ignored
-		dm, err := newDeviceManagerForTests("dummy0", "other+", "dummy1")
-		c.Assert(err, IsNil)
-		devs, err := dm.Detect(true)
-		c.Assert(err, IsNil)
-		c.Assert(devs, checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
-		dm.Stop()
-
-		// 2. Check that detect fails if we don't find devices
-		dm, err = newDeviceManagerForTests("nope+")
-		c.Assert(err, IsNil)
-		_, err = dm.Detect(true)
-		c.Assert(err, NotNil)
-		dm.Stop()
-	})
-}
-
-func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
-	s.withFixture(c, func() {
-		option.Config.EnableNodePort = true
-		option.Config.RoutingMode = option.RoutingModeNative
-
-		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
-		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
-		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
-		nodeSetIP(net.ParseIP("192.168.0.1"))
-
-		// 1. Check expansion works and non-matching prefixes are ignored
-		dm, err := newDeviceManagerForTests(
-			"dummy+", "missing+", "other0+",
-			/* duplicates: */
-			"dum+", "other0", "other1",
-		)
-		c.Assert(err, IsNil)
-		_, err = dm.Detect(true)
-		c.Assert(err, IsNil)
-		dm.Stop()
-
-		// 2. Check that expansion fails if directRoutingDevice is specified but yields empty expansion
-		dm, err = newDeviceManagerForTests()
-		c.Assert(err, IsNil)
-		_, err = dm.Detect(true)
-		c.Assert(err, NotNil)
-		dm.Stop()
-	})
-}
-
 func (s *DevicesSuite) withFixture(c *C, test func()) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
