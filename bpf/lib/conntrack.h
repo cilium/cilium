@@ -891,6 +891,33 @@ static __always_inline int ct_lookup4(const void *map,
 			    dir, SCOPE_BIDIR, CT_ENTRY_ANY, ct_state, monitor);
 }
 
+static __always_inline void
+ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
+		     enum ct_dir dir)
+{
+	entry->rev_nat_index = state->rev_nat_index;
+	entry->src_sec_id = state->src_sec_id;
+
+	if (dir == CT_SERVICE) {
+		entry->backend_id = state->backend_id;
+	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
+#ifndef DISABLE_LOOPBACK_LB
+		entry->lb_loopback = state->loopback;
+#endif
+		entry->node_port = state->node_port;
+		entry->dsr = state->dsr;
+		entry->from_tunnel = state->from_tunnel;
+#ifndef HAVE_FIB_IFINDEX
+		entry->ifindex = state->ifindex;
+#endif
+		/* Note if this is a proxy connection so that replies can be redirected
+		 * back to the proxy.
+		 */
+		entry->proxy_redirect = state->proxy_redirect;
+		entry->from_l7lb = state->from_l7lb;
+	}
+}
+
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
@@ -903,22 +930,9 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
-	if (dir == CT_SERVICE) {
-		entry.backend_id = ct_state->backend_id;
-	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-		entry.node_port = ct_state->node_port;
-		entry.dsr = ct_state->dsr;
-#ifndef HAVE_FIB_IFINDEX
-		entry.ifindex = ct_state->ifindex;
-#endif
-		/* Note if this is a proxy connection so that replies can be redirected
-		 * back to the proxy.
-		 */
-		entry.proxy_redirect = ct_state->proxy_redirect;
-		entry.from_l7lb = ct_state->from_l7lb;
-	}
+	if (ct_state)
+		ct_create_fill_entry(&entry, ct_state, dir);
 
-	entry.rev_nat_index = ct_state->rev_nat_index;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
@@ -932,9 +946,9 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	}
 #endif
 
-	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
+	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index,
+		    entry.src_sec_id, 0);
 
-	entry.src_sec_id = ct_state->src_sec_id;
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
 		goto err_ct_fill_up;
@@ -977,26 +991,9 @@ static __always_inline int ct_create4(const void *map_main,
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
-	if (dir == CT_SERVICE) {
-		entry.backend_id = ct_state->backend_id;
-	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-#ifndef DISABLE_LOOPBACK_LB
-		entry.lb_loopback = ct_state->loopback;
-#endif
-		entry.node_port = ct_state->node_port;
-		entry.dsr = ct_state->dsr;
-		entry.from_tunnel = ct_state->from_tunnel;
-#ifndef HAVE_FIB_IFINDEX
-		entry.ifindex = ct_state->ifindex;
-#endif
-		/* Note if this is a proxy connection so that replies can be redirected
-		 * back to the proxy.
-		 */
-		entry.proxy_redirect = ct_state->proxy_redirect;
-		entry.from_l7lb = ct_state->from_l7lb;
-	}
+	if (ct_state)
+		ct_create_fill_entry(&entry, ct_state, dir);
 
-	entry.rev_nat_index = ct_state->rev_nat_index;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
@@ -1011,9 +1008,8 @@ static __always_inline int ct_create4(const void *map_main,
 #endif
 
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
-		    ct_state->src_sec_id, 0);
+		    entry.src_sec_id, 0);
 
-	entry.src_sec_id = ct_state->src_sec_id;
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
 		goto err_ct_fill_up;
