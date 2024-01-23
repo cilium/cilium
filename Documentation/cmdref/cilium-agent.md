@@ -106,6 +106,7 @@ cilium-agent [flags]
       --enable-endpoint-routes                                    Use per endpoint routes instead of routing via cilium_host
       --enable-envoy-config                                       Enable Envoy Config CRDs
       --enable-external-ips                                       Enable k8s service externalIPs feature (requires enabling enable-node-port)
+      --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-health-check-loadbalancer-ip                       Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
       --enable-health-check-nodeport                              Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                                    Enable connectivity health checking (default true)
@@ -116,6 +117,7 @@ cilium-agent [flags]
       --enable-hubble                                             Enable hubble server
       --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
       --enable-identity-mark                                      Enable setting identity mark for local traffic (default true)
+      --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
       --enable-ipsec                                              Enable IPSec support
       --enable-ipsec-key-watcher                                  Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
@@ -167,9 +169,11 @@ cilium-agent [flags]
       --endpoint-status strings                                   Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
       --envoy-config-timeout duration                             Timeout duration for Envoy Config acknowledgements (default 2m0s)
       --envoy-log string                                          Path to a separate Envoy log file, if any
+      --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
       --exclude-local-address strings                             Exclude CIDR from being recognized as local address
       --external-envoy-proxy                                      whether the Envoy is deployed externally in form of a DaemonSet or not
       --fixed-identity-mapping map                                Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
+      --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
   -h, --help                                                      help for cilium-agent
       --http-idle-timeout uint                                    Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
@@ -210,6 +214,7 @@ cilium-agent [flags]
       --identity-allocation-mode string                           Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration                     Time to wait before using new identity on endpoint identity change (default 5s)
       --identity-restore-grace-period duration                    Time to wait before releasing unused restored CIDR identities during agent restart (default 10m0s)
+      --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
       --install-no-conntrack-iptables-rules                       Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.
       --ip-allocation-timeout duration                            Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
       --ip-masq-agent-config-path string                          ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")

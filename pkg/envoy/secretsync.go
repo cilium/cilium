@@ -5,13 +5,16 @@ package envoy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_entensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -23,6 +26,8 @@ const (
 	caCrtAttribute = "ca.crt"
 )
 
+// secretSyncer is responsible to sync K8s TLS Secrets in pre-defined namespaces
+// via xDS SDS to Envoy.
 type secretSyncer struct {
 	logger         logrus.FieldLogger
 	envoyXdsServer XDSServer
@@ -35,32 +40,58 @@ func newSecretSyncer(logger logrus.FieldLogger, envoyXdsServer XDSServer) *secre
 	}
 }
 
-// addK8sSecretV1 performs Envoy upsert operation for newly added secret.
-func (r *secretSyncer) addK8sSecretV1(ctx context.Context, secret *slim_corev1.Secret) error {
+func (r *secretSyncer) handleSecretEvent(ctx context.Context, event resource.Event[*slim_corev1.Secret]) error {
+	scopedLogger := r.logger.
+		WithField(logfields.K8sNamespace, event.Key.Namespace).
+		WithField("name", event.Key.Name)
+
+	var err error
+
+	switch event.Kind {
+	case resource.Upsert:
+		scopedLogger.Debug("Received Secret upsert event")
+		err = r.upsertK8sSecretV1(ctx, event.Object)
+		if err != nil {
+			scopedLogger.WithError(err).Error("failed to handle Secret upsert")
+			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
+		}
+	case resource.Delete:
+		scopedLogger.Debug("Received Secret delete event")
+		err = r.deleteK8sSecretV1(ctx, event.Key)
+		if err != nil {
+			scopedLogger.WithError(err).Error("failed to handle Secret delete")
+			err = fmt.Errorf("failed to handle Secret delete: %w", err)
+		}
+	}
+
+	event.Done(err)
+
+	return err
+}
+
+// updateK8sSecretV1 performs Envoy upsert operation for added or updated secret.
+func (r *secretSyncer) upsertK8sSecretV1(ctx context.Context, secret *slim_corev1.Secret) error {
+	if secret == nil {
+		return errors.New("secret is nil")
+	}
+
 	resource := Resources{
 		Secrets: []*envoy_entensions_tls_v3.Secret{k8sToEnvoySecret(secret)},
 	}
 	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
 }
 
-// updateK8sSecretV1 performs Envoy upsert operation for updated secret (if required).
-func (r *secretSyncer) updateK8sSecretV1(ctx context.Context, oldSecret, newSecret *slim_corev1.Secret) error {
-	if oldSecret != nil && oldSecret.DeepEqual(newSecret) {
-		return nil
-	}
-	resource := Resources{
-		Secrets: []*envoy_entensions_tls_v3.Secret{k8sToEnvoySecret(newSecret)},
-	}
-	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
-}
-
 // deleteK8sSecretV1 makes sure the related secret values in Envoy SDS is removed.
-func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, secret *slim_corev1.Secret) error {
+func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, key resource.Key) error {
+	if len(key.Namespace) == 0 || len(key.Name) == 0 {
+		return errors.New("key has empty namespace and/or name")
+	}
+
 	resource := Resources{
 		Secrets: []*envoy_entensions_tls_v3.Secret{
 			{
 				// For deletion, only the name is required.
-				Name: getEnvoySecretName(secret.GetNamespace(), secret.GetName()),
+				Name: getEnvoySecretName(key.Namespace, key.Name),
 			},
 		},
 	}
