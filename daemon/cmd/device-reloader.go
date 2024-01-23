@@ -126,11 +126,6 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 		daemon.l2announcer.DevicesChanged(devices)
 	}
 
-	if d.params.Config.EnableNodePort {
-		// Synchronize services and endpoints to reflect new addresses onto lbmap.
-		daemon.controllers.TriggerController(syncHostIPsController)
-	}
-
 	// Reload the datapath.
 	wg, err := daemon.TriggerReloadWithoutCompile("devices changed")
 	if err != nil {
