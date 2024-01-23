@@ -62,18 +62,6 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 	return ns + "/" + obj.GetName()
 }
 
-// IngressConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
-type IngressConfiguration interface {
-	// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
-	K8sIngressControllerEnabled() bool
-}
-
-// GatewayAPIConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
-type GatewayAPIConfiguration interface {
-	// K8sGatewayAPIEnabled returns true if gateway API is enabled in Cilium
-	K8sGatewayAPIEnabled() bool
-}
-
 // PolicyConfiguration is the required configuration for K8s NetworkPolicy
 type PolicyConfiguration interface {
 	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
