@@ -2,9 +2,9 @@
 ---
 include:
   - version: "1.25"
-    location: westeurope
+    location: westus3
     index: 1
   - version: "1.26"
-    location: westus
+    location: westus2
     index: 2
     default: true
