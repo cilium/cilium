@@ -20,6 +20,7 @@ type Loader interface {
 	CompileAndLoad(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
 	CompileOrLoad(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
 	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
+	ReinitializeXDP(ctx context.Context, o BaseProgramOwner, extraCArgs []string) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr IptablesManager, p Proxy) error
