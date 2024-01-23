@@ -672,6 +672,7 @@ func (n *linuxNodeHandler) insertNeighborCommon(scopedLog *logrus.Entry, ctx con
 			HardwareAddr: nil,
 		}
 		if err := netlink.NeighSet(&neighInit); err != nil {
+			// EINVAL is expected (see above)
 			scopedLog.WithError(err).WithFields(logrus.Fields{
 				"neighbor": fmt.Sprintf("%+v", neighInit),
 			}).Debug("Unable to insert new next hop")
