@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package envoy
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_entensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/envoy"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
@@ -23,28 +23,40 @@ const (
 	caCrtAttribute = "ca.crt"
 )
 
+type secretSyncer struct {
+	logger         logrus.FieldLogger
+	envoyXdsServer XDSServer
+}
+
+func newSecretSyncer(logger logrus.FieldLogger, envoyXdsServer XDSServer) *secretSyncer {
+	return &secretSyncer{
+		logger:         logger,
+		envoyXdsServer: envoyXdsServer,
+	}
+}
+
 // addK8sSecretV1 performs Envoy upsert operation for newly added secret.
-func (k *K8sWatcher) addK8sSecretV1(secret *slim_corev1.Secret) error {
-	resource := envoy.Resources{
+func (r *secretSyncer) addK8sSecretV1(ctx context.Context, secret *slim_corev1.Secret) error {
+	resource := Resources{
 		Secrets: []*envoy_entensions_tls_v3.Secret{k8sToEnvoySecret(secret)},
 	}
-	return k.envoyXdsServer.UpsertEnvoyResources(context.TODO(), resource)
+	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
 }
 
 // updateK8sSecretV1 performs Envoy upsert operation for updated secret (if required).
-func (k *K8sWatcher) updateK8sSecretV1(oldSecret, newSecret *slim_corev1.Secret) error {
+func (r *secretSyncer) updateK8sSecretV1(ctx context.Context, oldSecret, newSecret *slim_corev1.Secret) error {
 	if oldSecret != nil && oldSecret.DeepEqual(newSecret) {
 		return nil
 	}
-	resource := envoy.Resources{
+	resource := Resources{
 		Secrets: []*envoy_entensions_tls_v3.Secret{k8sToEnvoySecret(newSecret)},
 	}
-	return k.envoyXdsServer.UpsertEnvoyResources(context.TODO(), resource)
+	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
 }
 
 // deleteK8sSecretV1 makes sure the related secret values in Envoy SDS is removed.
-func (k *K8sWatcher) deleteK8sSecretV1(secret *slim_corev1.Secret) error {
-	resource := envoy.Resources{
+func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, secret *slim_corev1.Secret) error {
+	resource := Resources{
 		Secrets: []*envoy_entensions_tls_v3.Secret{
 			{
 				// For deletion, only the name is required.
@@ -52,7 +64,7 @@ func (k *K8sWatcher) deleteK8sSecretV1(secret *slim_corev1.Secret) error {
 			},
 		},
 	}
-	return k.envoyXdsServer.DeleteEnvoyResources(context.TODO(), resource)
+	return r.envoyXdsServer.DeleteEnvoyResources(ctx, resource)
 }
 
 // k8sToEnvoySecret converts k8s secret object to envoy TLS secret object
@@ -97,17 +109,4 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secre
 
 func getEnvoySecretName(namespace, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
-}
-
-func uniq(arr []string) []string {
-	keys := make(map[string]bool)
-	for _, entry := range arr {
-		keys[entry] = true
-	}
-
-	list := make([]string, 0, len(keys))
-	for k := range keys {
-		list = append(list, k)
-	}
-	return list
 }
