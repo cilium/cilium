@@ -72,6 +72,7 @@ LinuxKit_                  all
 Opensuse_                  Tumbleweed, >=Leap 15.4
 `RedHat Enterprise Linux`_ >= 8.0
 Ubuntu_                    >= 18.04.3
+`Talos Linux`_             >= 1.5.0
 ========================== ====================
 
 .. _Amazon Linux 2: https://aws.amazon.com/amazon-linux-2/
@@ -85,6 +86,7 @@ Ubuntu_                    >= 18.04.3
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
 .. _Opensuse: https://www.opensuse.org/
 .. _Bottlerocket OS: https://github.com/bottlerocket-os/bottlerocket
+.. _Talos Linux: https://www.talos.dev/
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
