@@ -264,6 +264,13 @@ Install Cilium
              --set operator.replicas=1 \\
              --set cni.binPath=/usr/libexec/cni
 
+    .. group-tab:: Talos Linux
+
+       To install Cilium on `Talos Linux <https://www.talos.dev/>`_,
+       perform the following steps.
+
+       .. include:: k8s-install-talos-linux.rst
+
     .. group-tab:: Alibaba ACK
 
         .. include:: ../installation/alibabacloud-eni.rst

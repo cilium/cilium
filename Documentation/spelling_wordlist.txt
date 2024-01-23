@@ -107,6 +107,7 @@ Starovoitov
 Stormtroopers
 Suchakra
 Suricata
+Talos
 Telco
 Terraform
 Tierney
