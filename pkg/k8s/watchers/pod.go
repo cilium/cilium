@@ -880,7 +880,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
 
-	hostKey := node.GetIPsecKeyIdentity()
+	hostKey := node.GetEncryptKeyIndex()
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,

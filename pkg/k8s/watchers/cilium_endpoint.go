@@ -132,7 +132,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 	}
 
 	// default to the standard key
-	encryptionKey := node.GetIPsecKeyIdentity()
+	encryptionKey := node.GetEncryptKeyIndex()
 
 	id := identity.ReservedIdentityUnmanaged
 	if endpoint.Identity != nil {

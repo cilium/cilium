@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const preferPublicIP bool = true
@@ -507,11 +506,6 @@ func SetIPsecKeyIdentity(id uint8) {
 	})
 }
 
-// GetIPsecKeyIdentity returns the IPsec key identity of the node
-func GetIPsecKeyIdentity() uint8 {
-	return getLocalNode().EncryptionKey
-}
-
 // GetK8sNodeIPs returns k8s Node IP addr.
 func GetK8sNodeIP() net.IP {
 	n := getLocalNode()
@@ -575,19 +569,11 @@ func GetIngressIPv6() net.IP {
 }
 
 // GetEncryptKeyIndex returns the encryption key value for the local node.
-// With IPSec encryption, this is equivalent to GetIPsecKeyIdentity().
+// With IPSec encryption, this is the ID of the currently loaded key.
 // With WireGuard encryption, this function returns a non-zero static value
 // if the local node has WireGuard enabled.
 func GetEncryptKeyIndex() uint8 {
-	switch {
-	case option.Config.EnableIPSec:
-		return GetIPsecKeyIdentity()
-	case option.Config.EnableWireguard:
-		if len(GetWireguardPubKey()) > 0 {
-			return wgTypes.StaticEncryptKey
-		}
-	}
-	return 0
+	return getLocalNode().EncryptionKey
 }
 
 func copyStringToNetIPMap(in map[string]net.IP) map[string]net.IP {
