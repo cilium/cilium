@@ -197,20 +197,6 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 
 	l.Infof("Registering BGP servers for policy with local ASN %v", c.LocalASN)
 
-	// ATTENTION: this defer handles cleaning up of a server if an error in
-	// registration occurs. for this to work the below err variable must be
-	// overwritten for the length of this method.
-	var err error
-	var s *ServerWithConfig
-	defer func() {
-		if err != nil {
-			if s != nil {
-				s.Server.Stop()
-			}
-			delete(m.Servers, c.LocalASN) // optimistic delete
-		}
-	}()
-
 	// resolve local port from kubernetes annotations
 	var localPort int32
 	localPort = -1
@@ -236,16 +222,21 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 		},
 	}
 
-	if s, err = NewServerWithConfig(ctx, globalConfig, cstate); err != nil {
+	s, err := NewServerWithConfig(ctx, globalConfig, cstate)
+	if err != nil {
 		return fmt.Errorf("failed to start BGP server for config with local ASN %v: %w", c.LocalASN, err)
 	}
+
+	// We can commit the register the server here. Even if the following
+	// reconciliation fails, we can return error and it triggers retry. The
+	// next retry will be handled by reconcile(). We don't need to retry
+	// the server creation which already succeeded.
+	m.Servers[c.LocalASN] = s
 
 	if err = m.reconcileBGPConfig(ctx, s, c, cstate); err != nil {
 		return fmt.Errorf("failed initial reconciliation for peer config with local ASN %v: %w", c.LocalASN, err)
 	}
 
-	// register with manager
-	m.Servers[c.LocalASN] = s
 	l.Infof("Successfully registered GoBGP servers for policy with local ASN %v", c.LocalASN)
 
 	return err
@@ -310,11 +301,8 @@ func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) err
 			l.Errorf("Virtual router with local ASN %v marked for reconciliation but missing from incoming configurations", sc.Config.LocalASN) // also really shouldn't happen
 			continue
 		}
-
 		if err := m.reconcileBGPConfig(ctx, sc, newc, rd.state); err != nil {
-			l.WithError(err).Errorf("Encountered error reconciling virtual router with local ASN %v, shutting down this server", newc.LocalASN)
-			sc.Server.Stop()
-			delete(m.Servers, asn)
+			l.WithError(err).Errorf("Encountered error reconciling virtual router with local ASN %v", newc.LocalASN)
 		}
 	}
 	return nil
