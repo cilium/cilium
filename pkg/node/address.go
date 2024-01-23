@@ -724,12 +724,6 @@ func GetOptOutNodeEncryption() bool {
 	return getLocalNode().OptOutNodeEncryption
 }
 
-func SetOptOutNodeEncryption(b bool) {
-	localNode.Update(func(node *LocalNode) {
-		node.OptOutNodeEncryption = b
-	})
-}
-
 // SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
 func SetEndpointHealthIPv4(ip net.IP) {
 	localNode.Update(func(n *LocalNode) {
