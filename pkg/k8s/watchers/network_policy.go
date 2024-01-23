@@ -48,13 +48,7 @@ func (k *K8sWatcher) networkPolicyEventLoop(synced *atomic.Bool) {
 			var err error
 			switch event.Kind {
 			case resource.Sync:
-				var store resource.Store[*slim_networkingv1.NetworkPolicy]
 				synced.Store(true)
-				store, err = k.resources.NetworkPolicies.Store(ctx)
-				if err == nil {
-					k.networkpolicyStore = store.CacheStore()
-					close(k.networkPoliciesStoreSet)
-				}
 			case resource.Upsert:
 				k.k8sResourceSynced.SetEventTimestamp(apiGroup)
 				err = k.addK8sNetworkPolicyV1(event.Object)

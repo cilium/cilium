@@ -19,7 +19,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/client-go/tools/cache"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
@@ -492,10 +491,6 @@ type fakeCiliumDaemon struct{}
 
 func (f *fakeCiliumDaemon) DebugEnabled() bool {
 	return true
-}
-
-func (f *fakeCiliumDaemon) GetK8sStore(name string) cache.Store {
-	return nil
 }
 
 func TestHooks(t *testing.T) {

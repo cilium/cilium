@@ -6,8 +6,6 @@ package getters
 import (
 	"net/netip"
 
-	"k8s.io/client-go/tools/cache"
-
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -49,16 +47,6 @@ type IPGetter interface {
 // ServiceGetter fetches service metadata.
 type ServiceGetter interface {
 	GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service
-}
-
-// StoreGetter ...
-type StoreGetter interface {
-	// GetK8sStore return the k8s watcher cache store for the given resource name.
-	// Currently only resource networkpolicy and namespace are supported.
-	// WARNING: the objects returned by these stores can't be used to create
-	// update objects into k8s as well as the objects returned by these stores
-	// should only be used for reading.
-	GetK8sStore(name string) cache.Store
 }
 
 // LinkGetter fetches local link information.
