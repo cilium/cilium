@@ -2913,8 +2913,12 @@ skip_service_lookup:
 	if (backend_local || !nodeport_uses_dsr4(&tuple)) {
 		struct ct_state ct_state = {};
 
+#if !(defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
+		src_sec_identity = WORLD_IPV4_ID;
+#else
 		if (src_sec_identity == 0)
 			src_sec_identity = WORLD_IPV4_ID;
+#endif
 
 		/* lookup with SCOPE_FORWARD: */
 		__ipv4_ct_tuple_reverse(&tuple);
