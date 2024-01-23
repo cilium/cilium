@@ -214,7 +214,7 @@ func TestAttachXDPWithExistingLink(t *testing.T) {
 		require.NoError(t, err)
 
 		// Detach the program.
-		err = NewLoader().DetachXDP(veth, basePath, "test")
+		err = newLoader().DetachXDP(veth, basePath, "test")
 		require.NoError(t, err)
 
 		err = netlink.LinkDel(veth)
@@ -251,7 +251,7 @@ func TestDetachXDPWithPreviousAttach(t *testing.T) {
 		err = netlink.LinkSetXdpFdWithFlags(veth, prog.FD(), int(link.XDPGenericMode))
 		require.NoError(t, err)
 
-		err = NewLoader().DetachXDP(veth, basePath, "test")
+		err = newLoader().DetachXDP(veth, basePath, "test")
 		require.NoError(t, err)
 
 		err = netlink.LinkDel(veth)

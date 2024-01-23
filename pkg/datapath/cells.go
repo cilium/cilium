@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -122,6 +123,9 @@ var Cell = cell.Module(
 
 	// Synchronizes the userspace ipcache with the corresponding BPF map.
 	ipcache.Cell,
+
+	// Provides the loader, which compiles and loads the datapath programs.
+	loader.Cell,
 )
 
 func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *wg.Agent {
@@ -166,6 +170,7 @@ func newDatapath(params datapathParams) types.Datapath {
 		NodeMap:        params.NodeMap,
 		NodeAddressing: params.NodeAddressing,
 		BWManager:      params.BandwidthManager,
+		Loader:         params.Loader,
 	}, datapathConfig)
 
 	params.LC.Append(hive.Hook{
@@ -206,4 +211,6 @@ type datapathParams struct {
 	ConfigWriter types.ConfigWriter
 
 	TunnelConfig tunnel.Config
+
+	Loader loader.Loader
 }
