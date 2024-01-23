@@ -405,6 +405,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		K8sNamespace:             e.K8sNamespace,
 		DatapathConfiguration:    e.DatapathConfiguration,
 		CiliumEndpointUID:        e.ciliumEndpointUID,
+		Properties:               e.properties,
 	}
 }
 
@@ -510,6 +511,9 @@ type serializableEndpoint struct {
 	// This is used to avoid overwriting/deleting ciliumendpoints that are managed
 	// by other endpoints.
 	CiliumEndpointUID types.UID
+
+	// Properties are used to store some internal property about this Endpoint.
+	Properties map[string]interface{}
 }
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
@@ -562,4 +566,9 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.DatapathConfiguration = r.DatapathConfiguration
 	ep.Options = r.Options
 	ep.ciliumEndpointUID = r.CiliumEndpointUID
+	if r.Properties != nil {
+		ep.properties = r.Properties
+	} else {
+		ep.properties = map[string]interface{}{}
+	}
 }
