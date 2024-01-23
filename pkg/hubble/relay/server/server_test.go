@@ -267,6 +267,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 			"l4.TCP.source_port",
 		)
 		require.NoError(b, err)
+		getFlowsReq.FieldMask = fieldmask
 		getFlowsReq.Experimental = &observerpb.GetFlowsRequest_Experimental{
 			FieldMask: fieldmask,
 		}

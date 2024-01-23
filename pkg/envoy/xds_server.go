@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/envoy/xds"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -98,17 +97,15 @@ type XDSServer interface {
 
 	// UpsertEnvoyResources inserts or updates Envoy resources in 'resources' to the xDS cache,
 	// from where they will be delivered to Envoy via xDS streaming gRPC.
-	UpsertEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error
+	UpsertEnvoyResources(ctx context.Context, resources Resources) error
 	// UpdateEnvoyResources removes any resources in 'old' that are not
 	// present in 'new' and then adds or updates all resources in 'new'.
 	// Envoy does not support changing the listening port of an existing
 	// listener, so if the port changes we have to delete the old listener
 	// and then add the new one with the new port number.
-	UpdateEnvoyResources(ctx context.Context, old, new Resources, portAllocator PortAllocator) error
+	UpdateEnvoyResources(ctx context.Context, old, new Resources) error
 	// DeleteEnvoyResources deletes all Envoy resources in 'resources'.
-	DeleteEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error
-
-	UpsertEnvoyEndpoints(serviceName loadbalancer.ServiceName, backendMap map[string][]*loadbalancer.Backend) error
+	DeleteEnvoyResources(ctx context.Context, resources Resources) error
 
 	// GetNetworkPolicies returns the current version of the network policies with the given names.
 	// If resourceNames is empty, all resources are returned.
@@ -338,7 +335,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	idleTimeout := int64(option.Config.HTTPIdleTimeout)       // seconds
 	maxGRPCTimeout := int64(option.Config.HTTPMaxGRPCTimeout) // seconds
 	numRetries := uint32(option.Config.HTTPRetryCount)
-	retryTimeout := int64(option.Config.HTTPRetryTimeout) //seconds
+	retryTimeout := int64(option.Config.HTTPRetryTimeout) // seconds
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
 		StatPrefix:       "proxy",
@@ -805,12 +802,13 @@ func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool) *envoy_config_listener.ListenerFilter {
+func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
 		BpfRoot:                  bpf.BPFFSRoot(),
 		IsL7Lb:                   l7lb,
+		ProxyId:                  uint32(proxyPort),
 	}
 	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when
 	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
@@ -873,7 +871,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false),
+			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false, port),
 		},
 	}
 

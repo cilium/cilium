@@ -176,20 +176,6 @@ func (l Labels) String() string {
 	return strings.Join(l.GetPrintableModel(), ",")
 }
 
-// AppendPrefixInKey appends the given prefix to all the Key's of the map and the
-// respective Labels' Key.
-func (l Labels) AppendPrefixInKey(prefix string) Labels {
-	newLabels := Labels{}
-	for k, v := range l {
-		newLabels[prefix+k] = Label{
-			Key:    prefix + v.Key,
-			Value:  v.Value,
-			Source: v.Source,
-		}
-	}
-	return newLabels
-}
-
 // Equals returns true if the two Labels contain the same set of labels.
 func (l Labels) Equals(other Labels) bool {
 	if len(l) != len(other) {
@@ -438,7 +424,7 @@ func NewSelectLabelArrayFromModel(base []string) LabelArray {
 
 // NewFrom creates a new Labels from the given labels by creating a copy.
 func NewFrom(l Labels) Labels {
-	nl := NewLabelsFromModel(nil)
+	nl := make(Labels, len(l))
 	nl.MergeLabels(l)
 	return nl
 }

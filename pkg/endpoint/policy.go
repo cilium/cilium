@@ -92,7 +92,7 @@ func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string
 // proxyID returns a unique string to identify a proxy mapping,
 // and the resolved destination port number, if any.
 // Must be called with e.mutex held.
-func (e *Endpoint) proxyID(l4 *policy.L4Filter) (string, uint16) {
+func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16) {
 	port := uint16(l4.Port)
 	if port == 0 && l4.PortName != "" {
 		port = e.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
@@ -100,15 +100,22 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter) (string, uint16) {
 			return "", 0
 		}
 	}
-	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port), port
+
+	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port
 }
 
-// LookupRedirectPortBuildLocked returns the redirect L4 proxy port for the given L4
-// policy map key, in host byte order. Returns 0 if not found or the
-// filter doesn't require a redirect.
-// Must be called with either Endpoint.mutex or Endpoint.buildMutex held for reading.
-func (e *Endpoint) LookupRedirectPortBuildLocked(ingress bool, protocol string, port uint16) uint16 {
-	return e.realizedRedirects[policy.ProxyID(e.ID, ingress, protocol, port)]
+var unrealizedRedirect = errors.New("Proxy port for redirect not found")
+
+// LookupRedirectPort returns the redirect L4 proxy port for the given input parameters.
+// Returns 0 if not found or the filter doesn't require a redirect.
+// Returns an error if the redirect port can not be found.
+func (e *Endpoint) LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error) {
+	redirects := e.GetRealizedRedirects()
+	proxyPort, exists := redirects[policy.ProxyID(e.ID, ingress, protocol, port, listener)]
+	if !exists {
+		return 0, unrealizedRedirect
+	}
+	return proxyPort, nil
 }
 
 // Note that this function assumes that endpoint policy has already been generated!

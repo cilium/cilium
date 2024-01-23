@@ -406,115 +406,6 @@ func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
 	}
 }
 
-func (e *EtcdLockedSuite) TestGetPrefixIfLocked(c *C) {
-	randomPath := c.MkDir()
-	type args struct {
-		key  string
-		lock KVLocker
-	}
-	type wanted struct {
-		err   error
-		key   string
-		value []byte
-	}
-	tests := []struct {
-		name        string
-		setupArgs   func() args
-		setupWanted func() wanted
-		cleanup     func(args args) error
-	}{
-		{
-			name: "getting locked prefix path",
-			setupArgs: func() args {
-				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
-				c.Assert(err, IsNil)
-				_, err = e.etcdClient.Put(context.Background(), key, "bar")
-				c.Assert(err, IsNil)
-
-				return args{
-					key:  key,
-					lock: kvlocker,
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					err:   nil,
-					key:   randomPath + "foo",
-					value: []byte("bar"),
-				}
-			},
-			cleanup: func(args args) error {
-				_, err := e.etcdClient.Delete(context.Background(), args.key)
-				if err != nil {
-					return err
-				}
-				return args.lock.Unlock(context.TODO())
-			},
-		},
-		{
-			name: "getting locked prefix path with no value",
-			setupArgs: func() args {
-				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
-				c.Assert(err, IsNil)
-
-				return args{
-					key:  key,
-					lock: kvlocker,
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					err:   nil,
-					value: nil,
-				}
-			},
-			cleanup: func(args args) error {
-				return args.lock.Unlock(context.TODO())
-			},
-		},
-		{
-			name: "getting locked prefix path where lock was lost",
-			setupArgs: func() args {
-				key := randomPath + "foo"
-				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
-				c.Assert(err, IsNil)
-				err = kvlocker.Unlock(context.TODO())
-				c.Assert(err, IsNil)
-				_, err = e.etcdClient.Put(context.Background(), key, "bar")
-				c.Assert(err, IsNil)
-
-				return args{
-					key:  key,
-					lock: kvlocker,
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					err:   ErrLockLeaseExpired,
-					value: nil,
-				}
-			},
-			cleanup: func(args args) error {
-				_, err := e.etcdClient.Delete(context.Background(), args.key)
-				return err
-			},
-		},
-	}
-	for _, tt := range tests {
-		c.Log(tt.name)
-		args := tt.setupArgs()
-		want := tt.setupWanted()
-		k, value, err := Client().GetPrefixIfLocked(context.Background(), args.key, args.lock)
-		c.Assert(err, Equals, want.err)
-		c.Assert(k, Equals, want.key)
-		c.Assert(value, checker.DeepEquals, want.value)
-		err = tt.cleanup(args)
-		c.Assert(err, IsNil)
-	}
-}
-
 func (e *EtcdLockedSuite) TestDeleteIfLocked(c *C) {
 	randomPath := c.MkDir()
 	type args struct {
@@ -1663,27 +1554,6 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 		},
 		{
 			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				retKey, val, err := Client().GetPrefix(ctx, getKey(k))
-				require.NoError(t, err)
-				require.Equal(t, getKey(k), retKey)
-				require.Equal(t, []byte(value), val)
-			},
-			name:            "GetPrefix",
-			populateKVPairs: true,
-		},
-		{
-			fn: func(t *testing.T, key string, k int, locker KVLocker) {
-				retKey, val, err := Client().GetPrefixIfLocked(ctx, getKey(k), locker)
-				require.NoError(t, err)
-				require.Equal(t, getKey(k), retKey)
-				require.Equal(t, []byte(value), val)
-			},
-			name:            "GetPrefixIfLocked",
-			useKVLocker:     true,
-			populateKVPairs: true,
-		},
-		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
 				kvPairs, err := Client().ListPrefix(ctx, getKey(k))
 				require.NoError(t, err)
 				require.Len(t, kvPairs, 1)
@@ -1728,13 +1598,6 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 		},
 		{
 			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				err := Client().Set(ctx, getKey(k), []byte(value))
-				require.NoError(t, err)
-			},
-			name: "Set",
-		},
-		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
 				err := Client().Update(ctx, getKey(k), []byte(value), true)
 				require.NoError(t, err)
 			},
@@ -1764,15 +1627,6 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 			},
 			name:        "CreateOnlyIfLocked",
 			useKVLocker: true,
-		},
-		{
-			fn: func(t *testing.T, key string, k int, _ KVLocker) {
-				err := Client().CreateIfExists(ctx, condKey, getKey(k), []byte(value), true)
-				require.NoError(t, err)
-			},
-			name:        "CreateIfExists",
-			useKVLocker: true,
-			needCondKey: true,
 		},
 		{
 			fn: func(t *testing.T, key string, k int, _ KVLocker) {

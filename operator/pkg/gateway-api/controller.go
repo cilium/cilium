@@ -24,9 +24,10 @@ import (
 
 const (
 	// controllerName is the gateway controller name used in cilium.
-	controllerName      = "io.cilium/gateway-controller"
-	backendServiceIndex = "backendServiceIndex"
-	gatewayIndex        = "gatewayIndex"
+	controllerName            = "io.cilium/gateway-controller"
+	backendServiceIndex       = "backendServiceIndex"
+	backendServiceImportIndex = "backendServiceImportIndex"
+	gatewayIndex              = "gatewayIndex"
 )
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string) func(object client.Object) bool {
@@ -139,7 +140,7 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 }
 
 // onlyStatusChanged returns true if and only if there is status change for underlying objects.
-// Supported objects are GatewayClass, Gateway, and HTTPRoute.
+// Supported objects are GatewayClass, Gateway, HTTPRoute and GRPCRoute
 func onlyStatusChanged() predicate.Predicate {
 	option := cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")
 	return predicate.Funcs{
@@ -169,6 +170,13 @@ func onlyStatusChanged() predicate.Predicate {
 			case *gatewayv1alpha2.TLSRoute:
 				o, _ := e.ObjectOld.(*gatewayv1alpha2.TLSRoute)
 				n, ok := e.ObjectNew.(*gatewayv1alpha2.TLSRoute)
+				if !ok {
+					return false
+				}
+				return !cmp.Equal(o.Status, n.Status, option)
+			case *gatewayv1alpha2.GRPCRoute:
+				o, _ := e.ObjectOld.(*gatewayv1alpha2.GRPCRoute)
+				n, ok := e.ObjectNew.(*gatewayv1alpha2.GRPCRoute)
 				if !ok {
 					return false
 				}

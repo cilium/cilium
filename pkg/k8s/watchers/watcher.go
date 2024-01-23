@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -32,10 +33,12 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -157,9 +160,10 @@ type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
-	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
-	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
-	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
+	RegisterL7LBServiceRedirect(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, proxyPort uint16) error
+	DeregisterL7LBServiceRedirect(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error
+	RegisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, backendSyncRegistration service.BackendSyncer) error
+	DeregisterL7LBServiceBackendSync(serviceName loadbalancer.ServiceName, backendSyncRegistration service.BackendSyncer) error
 }
 
 type redirectPolicyManager interface {
@@ -177,17 +181,6 @@ type bgpSpeakerManager interface {
 	OnDeleteService(svc *slim_corev1.Service) error
 
 	OnUpdateEndpoints(eps *k8s.Endpoints) error
-}
-
-type envoyConfigManager interface {
-	UpsertEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
-	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error
-	DeleteEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
-
-	// envoy.PortAllocator
-	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
-	AckProxyPort(ctx context.Context, name string) error
-	ReleaseProxyPort(name string) error
 }
 
 type cgroupManager interface {
@@ -227,15 +220,17 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager   nodeDiscoverManager
-	policyManager         policyManager
-	policyRepository      policyRepository
-	svcManager            svcManager
-	redirectPolicyManager redirectPolicyManager
-	bgpSpeakerManager     bgpSpeakerManager
-	ipcache               ipcacheManager
-	envoyConfigManager    envoyConfigManager
-	cgroupManager         cgroupManager
+	nodeDiscoverManager    nodeDiscoverManager
+	policyManager          policyManager
+	policyRepository       policyRepository
+	svcManager             svcManager
+	redirectPolicyManager  redirectPolicyManager
+	bgpSpeakerManager      bgpSpeakerManager
+	ipcache                ipcacheManager
+	proxyPortAllocator     envoy.PortAllocator
+	envoyXdsServer         envoy.XDSServer
+	envoyL7LBBackendSyncer *envoy.EnvoyServiceBackendSyncer
+	cgroupManager          cgroupManager
 
 	bandwidthManager bandwidth.Manager
 
@@ -252,22 +247,14 @@ type K8sWatcher struct {
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
 
-	ciliumNodeStoreMU lock.RWMutex
-	ciliumNodeStore   cache.Store
-
-	ciliumEndpointIndexerMU lock.RWMutex
-	ciliumEndpointIndexer   cache.Indexer
-
-	ciliumEndpointSliceIndexerMU lock.RWMutex
-	// note: this store only contains endpointslices referencing local endpoints.
-	ciliumEndpointSliceIndexer cache.Indexer
+	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 
 	datapath datapath.Datapath
 
 	// networkPoliciesInitOnce is used to guarantee only one call to NetworkPoliciesInit is
 	// executed.
 	networkPoliciesInitOnce sync.Once
-	//networkPoliciesStoreSet is closed once the networkpolicyStore is set.
+	// networkPoliciesStoreSet is closed once the networkpolicyStore is set.
 	networkPoliciesStoreSet chan struct{}
 	networkpolicyStore      cache.Store
 
@@ -286,7 +273,9 @@ func NewK8sWatcher(
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
-	envoyConfigManager envoyConfigManager,
+	proxyPortAllocator envoy.PortAllocator,
+	envoyXdsServer envoy.XDSServer,
+	envoyL7LBBackendSyncer *envoy.EnvoyServiceBackendSyncer,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
@@ -312,7 +301,9 @@ func NewK8sWatcher(
 		bgpSpeakerManager:       bgpSpeakerManager,
 		cgroupManager:           cgroupManager,
 		bandwidthManager:        bandwidthManager,
-		envoyConfigManager:      envoyConfigManager,
+		proxyPortAllocator:      proxyPortAllocator,
+		envoyXdsServer:          envoyXdsServer,
+		envoyL7LBBackendSyncer:  envoyL7LBBackendSyncer,
 		cfg:                     cfg,
 		resources:               resources,
 	}
@@ -575,7 +566,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			asyncControllers.Add(1)
-			go k.ciliumNodeInit(k.clientset, asyncControllers)
+			go k.ciliumNodeInit(ctx, asyncControllers)
 		// Kubernetes built-in resources
 		case k8sAPIGroupNetworkingV1Core:
 			k.NetworkPoliciesInit()
@@ -591,7 +582,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case k8sAPIGroupCiliumNetworkPolicyV2, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, k8sAPIGroupCiliumCIDRGroupV2Alpha1:
 			cnpOnce.Do(func() { k.ciliumNetworkPoliciesInit(ctx, k.clientset) })
 		case k8sAPIGroupCiliumEndpointV2:
-			k.initCiliumEndpointOrSlices(k.clientset, asyncControllers)
+			k.initCiliumEndpointOrSlices(ctx, asyncControllers)
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
@@ -1036,28 +1027,20 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 		k.podStoreMU.RLock()
 		defer k.podStoreMU.RUnlock()
 		return k.podStore
-	case "ciliumendpoint":
-		k.ciliumEndpointIndexerMU.RLock()
-		defer k.ciliumEndpointIndexerMU.RUnlock()
-		return k.ciliumEndpointIndexer
-	case "ciliumendpointslice":
-		k.ciliumEndpointSliceIndexerMU.RLock()
-		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
-		return k.ciliumEndpointSliceIndexer
 	default:
 		panic("no such store: " + name)
 	}
 }
 
 // initCiliumEndpointOrSlices intializes the ciliumEndpoints or ciliumEndpointSlice
-func (k *K8sWatcher) initCiliumEndpointOrSlices(clientset client.Clientset, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) initCiliumEndpointOrSlices(ctx context.Context, asyncControllers *sync.WaitGroup) {
 	// If CiliumEndpointSlice feature is enabled, Cilium-agent watches CiliumEndpointSlice
 	// objects instead of CiliumEndpoints. Hence, skip watching CiliumEndpoints if CiliumEndpointSlice
 	// feature is enabled.
 	asyncControllers.Add(1)
 	if option.Config.EnableCiliumEndpointSlice {
-		go k.ciliumEndpointSliceInit(clientset, asyncControllers)
+		go k.ciliumEndpointSliceInit(ctx, asyncControllers)
 	} else {
-		go k.ciliumEndpointsInit(clientset, asyncControllers)
+		go k.ciliumEndpointsInit(ctx, asyncControllers)
 	}
 }

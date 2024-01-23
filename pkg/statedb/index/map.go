@@ -4,9 +4,9 @@
 package index
 
 func StringMap[V any](m map[string]V) KeySet {
-	ks := KeySet{}
+	keys := make([]Key, 0, len(m))
 	for k := range m {
-		ks.Append(String(k))
+		keys = append(keys, String(k))
 	}
-	return ks
+	return NewKeySet(keys...)
 }

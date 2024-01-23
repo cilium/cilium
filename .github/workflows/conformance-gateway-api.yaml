@@ -100,7 +100,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@32109b32259a487c803648a3c9463cdcafa4c0c3 # v0.15.19
+        uses: cilium/cilium-cli@4aa6347c532075df28027772fa1e4ec2f7415341 # v0.15.20
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -111,6 +111,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set image tag
         id: vars
@@ -140,6 +141,10 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+            examples
 
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -151,7 +156,7 @@ jobs:
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.21.5
+          go-version: 1.21.6
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -228,7 +233,7 @@ jobs:
       - name: Run simple Gateway API GRPCRoute test (temporary till upstream conformance tests)
         timeout-minutes: 10
         run: |
-          kubectl apply -f examples/kubernetes/gateway/grpc-route.yaml
+          kubectl apply -f untrusted/examples/kubernetes/gateway/grpc-route.yaml
           # Install grpcurl binary
           go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
           
@@ -286,15 +291,15 @@ jobs:
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --output-filename cilium-sysdump-out-${{ join(matrix.*, '-') }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: cilium-sysdump-out
+          path: cilium-sysdump-out-*.zip
           retention-days: 5
 
   commit-status-final:

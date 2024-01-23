@@ -52,6 +52,8 @@ enum trace_reason {
 	TRACE_REASON_CT_RELATED = CT_RELATED,
 	TRACE_REASON_CT_REOPENED = CT_REOPENED,
 	TRACE_REASON_UNKNOWN,
+	TRACE_REASON_SRV6_ENCAP,
+	TRACE_REASON_SRV6_DECAP,
 	/* Note: TRACE_REASON_ENCRYPTED is used as a mask. Beware if you add
 	 * new values below it, they would match with that mask.
 	 */

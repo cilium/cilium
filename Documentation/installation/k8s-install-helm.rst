@@ -234,15 +234,6 @@ Install Cilium
 
        .. include:: requirements-rke.rst
 
-       **Install Cilium:**
-
-       Install Cilium via ``helm install``:
-
-       .. parsed-literal::
-
-          helm install cilium |CHART_RELEASE| \\
-             --namespace $CILIUM_NAMESPACE
-
     .. group-tab:: k3s
 
        .. include:: requirements-k3s.rst

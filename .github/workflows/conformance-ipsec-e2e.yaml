@@ -122,7 +122,7 @@ jobs:
             key-one: 'cbc(aes)'
             key-two: 'gcm(aes)'
 
-    timeout-minutes: 60
+    timeout-minutes: 70
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -148,7 +148,7 @@ jobs:
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
-          chart-dir: './install/kubernetes/cilium'
+          chart-dir: './untrusted/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
@@ -163,16 +163,8 @@ jobs:
           ingress-controller: ${{ matrix.ingress-controller }}
           misc: ${{ matrix.misc }}
 
-      # Warning: since this is a privileged workflow, subsequent workflow job
-      # steps must take care not to execute untrusted code.
-      - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          ref: ${{ steps.vars.outputs.sha }}
-          persist-credentials: false
-
-      - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@32109b32259a487c803648a3c9463cdcafa4c0c3 # v0.15.19
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@4aa6347c532075df28027772fa1e4ec2f7415341 # v0.15.20
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -191,11 +183,22 @@ jobs:
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
       - name: Provision K8s on LVH VM
-        uses: cilium/cilium/.github/actions/lvh-kind@main
+        uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -239,7 +242,7 @@ jobs:
             --flush-ct
 
       - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@main
+        uses: ./.github/actions/conn-disrupt-test
         with:
           job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
           operation-cmd: |

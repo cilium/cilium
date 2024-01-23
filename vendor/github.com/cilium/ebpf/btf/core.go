@@ -159,12 +159,17 @@ func (k coreKind) String() string {
 // CORERelocate calculates changes needed to adjust eBPF instructions for differences
 // in types.
 //
+// resolveLocalTypeID is called for each local type which requires a stable TypeID.
+// Calling the function with the same type multiple times must produce the same
+// result. It is the callers responsibility to ensure that the relocated instructions
+// are loaded with matching BTF.
+//
 // Returns a list of fixups which can be applied to instructions to make them
 // match the target type(s).
 //
 // Fixups are returned in the order of relos, e.g. fixup[i] is the solution
 // for relos[i].
-func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder) ([]COREFixup, error) {
+func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder, resolveLocalTypeID func(Type) (TypeID, error)) ([]COREFixup, error) {
 	if target == nil {
 		var err error
 		target, _, err = kernelSpec()
@@ -194,14 +199,15 @@ func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder) ([
 				return nil, fmt.Errorf("%s: unexpected accessor %v", relo.kind, relo.accessor)
 			}
 
+			id, err := resolveLocalTypeID(relo.typ)
+			if err != nil {
+				return nil, fmt.Errorf("%s: get type id: %w", relo.kind, err)
+			}
+
 			result[i] = COREFixup{
-				kind:  relo.kind,
-				local: uint64(relo.id),
-				// NB: Using relo.id as the target here is incorrect, since
-				// it doesn't match the BTF we generate on the fly. This isn't
-				// too bad for now since there are no uses of the local type ID
-				// in the kernel, yet.
-				target: uint64(relo.id),
+				kind:   relo.kind,
+				local:  uint64(relo.id),
+				target: uint64(id),
 			}
 			continue
 		}
@@ -903,7 +909,7 @@ func coreAreTypesCompatible(localType Type, targetType Type) error {
 		targetType = UnderlyingType(*t)
 
 		if reflect.TypeOf(localType) != reflect.TypeOf(targetType) {
-			return fmt.Errorf("type mismatch: %w", errIncompatibleTypes)
+			return fmt.Errorf("type mismatch between %v and %v: %w", localType, targetType, errIncompatibleTypes)
 		}
 
 		switch lv := (localType).(type) {

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_EGRESS_POLICIES_H_
-#define __LIB_EGRESS_POLICIES_H_
+#ifndef __LIB_SRV6_H_
+#define __LIB_SRV6_H_
 
 #include "lib/common.h"
 #include "lib/fib.h"
@@ -490,7 +490,7 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 					      METRIC_EGRESS);
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, 0, 0, 0,
-			  TRACE_REASON_UNKNOWN, 0);
+			  TRACE_REASON_SRV6_ENCAP, 0);
 
 	return ret;
 }
@@ -509,7 +509,7 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 		goto error_drop;
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, 0, 0, 0,
-			  TRACE_REASON_UNKNOWN, 0);
+			  TRACE_REASON_SRV6_DECAP, 0);
 	return CTX_ACT_OK;
 error_drop:
 		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
@@ -529,4 +529,4 @@ int tail_srv6_reply(struct __ctx_buff *ctx)
 }
 # endif /* SKIP_SRV6_HANDLING */
 #endif /* ENABLE_SRV6 */
-#endif /* __LIB_EGRESS_POLICIES_H_ */
+#endif /* __LIB_SRV6_H_ */

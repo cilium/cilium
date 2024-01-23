@@ -41,6 +41,38 @@ var (
 	DefaultLabelSourceKeyPrefix = LabelSourceAny + "."
 )
 
+func TestNewFrom(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		lbls Labels
+		want Labels
+	}{
+		{
+			name: "non-empty labels",
+			lbls: lbls,
+			want: lbls,
+		},
+		{
+			name: "empty labels",
+			lbls: Labels{},
+			want: Labels{},
+		},
+		{
+			name: "nil labels",
+			lbls: nil,
+			want: Labels{},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			newLbls := NewFrom(tt.lbls)
+			// Verify that underlying maps are different
+			assert.NotSame(t, tt.lbls, newLbls)
+			// Verify that the map contents are equal
+			assert.EqualValues(t, tt.want, newLbls)
+		})
+	}
+}
+
 func (s *LabelsSuite) TestSortMap(c *C) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
@@ -108,7 +140,7 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
 		{"6foo==", NewLabel("6foo", "=", LabelSourceUnspec)},
 		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceUnspec)},
-		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
+		{"k8s:foo=bar:", NewLabel("foo", "bar:", LabelSourceK8s)},
 		{"reservedz=host", NewLabel("reservedz", "host", LabelSourceUnspec)},
 		{":", NewLabel("", "", LabelSourceUnspec)},
 		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
@@ -139,7 +171,7 @@ func BenchmarkParseLabel(b *testing.B) {
 		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
 		{"6foo==", NewLabel("6foo", "=", LabelSourceUnspec)},
 		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceUnspec)},
-		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
+		{"k8s:foo=bar:", NewLabel("foo", "bar:", LabelSourceK8s)},
 		{"reservedz=host", NewLabel("reservedz", "host", LabelSourceUnspec)},
 		{":", NewLabel("", "", LabelSourceUnspec)},
 		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
@@ -174,7 +206,7 @@ func (s *LabelsSuite) TestParseSelectLabel(c *C) {
 		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
 		{"6foo==", NewLabel("6foo", "=", LabelSourceAny)},
 		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceAny)},
-		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
+		{"k8s:foo=bar:", NewLabel("foo", "bar:", LabelSourceK8s)},
 		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
 	}
 	for _, test := range tests {
@@ -399,6 +431,14 @@ func TestLabels_GetFromSource(t *testing.T) {
 	}
 }
 
+func BenchmarkNewFrom(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NewFrom(lbls)
+	}
+}
+
 func BenchmarkLabels_SortedList(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -408,7 +448,7 @@ func BenchmarkLabels_SortedList(b *testing.B) {
 }
 
 func BenchmarkLabel_FormatForKVStore(b *testing.B) {
-	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", "k8s")
+	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", LabelSourceK8s)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -417,7 +457,7 @@ func BenchmarkLabel_FormatForKVStore(b *testing.B) {
 }
 
 func BenchmarkLabel_String(b *testing.B) {
-	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", "k8s")
+	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", LabelSourceK8s)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -435,9 +475,9 @@ func BenchmarkGenerateLabelString(b *testing.B) {
 
 func TestLabel_String(t *testing.T) {
 	// with value
-	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", "k8s")
+	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", LabelSourceK8s)
 	assert.Equal(t, "k8s:io.kubernetes.pod.namespace=kube-system", l.String())
 	// without value
-	l = NewLabel("io.kubernetes.pod.namespace", "", "k8s")
+	l = NewLabel("io.kubernetes.pod.namespace", "", LabelSourceK8s)
 	assert.Equal(t, "k8s:io.kubernetes.pod.namespace", l.String())
 }

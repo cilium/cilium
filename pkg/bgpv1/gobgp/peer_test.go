@@ -176,7 +176,12 @@ func bgpPeerConfigFromTestConf(c neighborConf) *v2alpha1.CiliumBGPPeerConfigSpec
 	p := &v2alpha1.CiliumBGPPeerConfigSpec{}
 	p.SetDefaults()
 
-	p.Families = c.families
+	p.Families = []v2alpha1.CiliumBGPFamilyWithAdverts{}
+	for _, fam := range c.families {
+		p.Families = append(p.Families, v2alpha1.CiliumBGPFamilyWithAdverts{
+			CiliumBGPFamily: fam,
+		})
+	}
 
 	if c.multihop != nil {
 		p.EBGPMultihop = c.multihop

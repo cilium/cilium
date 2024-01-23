@@ -10,18 +10,25 @@
 Installation using Rancher Kubernetes Engine
 ********************************************
 
-This guide walks you through installation of Cilium on `Rancher Kubernetes Engine <https://rancher.com/products/rke/>`_,
-a CNCF-certified Kubernetes distribution that runs entirely within Docker containers.
+This guide walks you through installation of Cilium on **standalone**
+`Rancher Kubernetes Engine (RKE) <https://www.rancher.com/products/secure-kubernetes-distribution>`__
+clusters, SUSE's CNCF-certified Kubernetes distribution with built-in security
+and compliance capabilities.
 RKE solves the common frustration of installation complexity with Kubernetes by
 removing most host dependencies and presenting a stable path for deployment,
 upgrades, and rollbacks.
 
-Install a Cluster Using RKE
-===========================
+If you're using the Rancher Management Console/UI to install your RKE clusters, head
+over to the :ref:`Installation using Rancher <rancher_managed_rke_clusters>` guide.
 
-The first step is to install a cluster based on the `RKE Installation Guide <https://rancher.com/docs/rke/latest/en/installation/>`_.
-When creating the cluster, make sure to `change the default network plugin <https://rancher.com/docs/rke/latest/en/config-options/add-ons/network-plugins/custom-network-plugin-example/>`_
-in the config.yaml file.
+.. _rke1_cni_none:
+
+Install a Cluster Using RKE1
+=============================
+
+The first step is to install a cluster based on the `RKE1 Kubernetes installation guide <https://rke.docs.rancher.com/installation>`__.
+When creating the cluster, make sure to `change the default network plugin <https://rancher.com/docs/rke/latest/en/config-options/add-ons/network-plugins/custom-network-plugin-example/>`__
+in the generated ``config.yaml`` file.
 
 Change:
 
@@ -38,6 +45,23 @@ To:
 
   network:
     plugin: none
+
+
+Install a Cluster Using RKE2
+=============================
+
+The first step is to install a cluster based on the `RKE2 Kubernetes installation guide <https://docs.rke2.io/install/quickstart>`__.
+You can either use the `RKE2-integrated Cilium version <https://docs.rke2.io/install/network_options#install-a-cni-plugin>`__
+or you can configure the RKE2 cluster with ``cni: none`` (see `doc <https://docs.rke2.io/reference/server_config>`__),
+and install Cilium with Helm. You can use either method while the
+directly integrated one is recommended for most users.
+
+Cilium power-users might want to use the ``cni: none`` method as Rancher is using
+a custom ``rke2-cilium`` `Helm chart <https://github.com/rancher/rke2-charts/tree/main-source/packages/rke2-cilium>`__
+with independent release cycles for its integrated Cilium version. By instead using the
+out-of-band Cilium installation (based on the official
+`Cilium Helm chart <https://github.com/cilium/charts>`__),
+power-users gain more flexibility from a Cilium perspective.
 
 Deploy Cilium
 =============
@@ -64,8 +88,6 @@ Deploy Cilium
         .. parsed-literal::
 
             cilium install |CHART_VERSION|
-
-.. include:: k8s-install-restart-pods.rst
 
 .. include:: k8s-install-validate.rst
 

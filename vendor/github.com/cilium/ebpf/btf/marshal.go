@@ -93,6 +93,11 @@ func NewBuilder(types []Type) (*Builder, error) {
 	return b, nil
 }
 
+// Empty returns true if [Add] has not been invoked on the builder.
+func (b *Builder) Empty() bool {
+	return len(b.types) == 0
+}
+
 // Add a Type and allocate a stable ID for it.
 //
 // Adding the identical Type multiple times is valid and will return the same ID.

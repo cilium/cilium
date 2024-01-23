@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/service"
 )
 
 func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient client.Clientset) {
@@ -119,9 +120,10 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 		cec.GetName(),
 		cec.Spec.Resources,
 		true,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(cec.Spec.Services) > 0,
 		useOriginalSourceAddress(&cec.ObjectMeta),
+		true,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig: malformed Envoy config")
@@ -130,12 +132,12 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err := k.envoyConfigManager.UpsertEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
+	if err := k.envoyXdsServer.UpsertEnvoyResources(ctx, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig")
 		return err
 	}
 
-	name := loadbalancer.ServiceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
+	name := service.L7LBResourceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
 	if err := k.addK8sServiceRedirects(name, &cec.Spec, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to redirect K8s services to Envoy")
 		return err
@@ -154,7 +156,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 }
 
 // getServiceName enforces namespacing for service references in Cilium Envoy Configs
-func getServiceName(resourceName loadbalancer.ServiceName, name, namespace string, isFrontend bool) loadbalancer.ServiceName {
+func getServiceName(resourceName service.L7LBResourceName, name, namespace string, isFrontend bool) loadbalancer.ServiceName {
 	if resourceName.Namespace == "" {
 		// nonNamespaced Cilium Clusterwide Envoy Config, default service references to
 		// "default" namespace.
@@ -172,7 +174,7 @@ func getServiceName(resourceName loadbalancer.ServiceName, name, namespace strin
 	return loadbalancer.ServiceName{Name: name, Namespace: namespace}
 }
 
-func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceName, spec *cilium_v2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
+func (k *K8sWatcher) addK8sServiceRedirects(resourceName service.L7LBResourceName, spec *cilium_v2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
 	// Redirect k8s services to an Envoy listener
 	for _, svc := range spec.Services {
 		svcListener := ""
@@ -192,22 +194,24 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceNam
 			}
 		}
 		if proxyPort == 0 {
-			return fmt.Errorf("Listener %q not found in resources", svc.Listener)
+			return fmt.Errorf("listener %q not found in resources", svc.Listener)
 		}
 
 		// Tell service manager to redirect the service to the port
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
-		err := k.svcManager.RegisterL7LBService(serviceName, resourceName, nil, proxyPort)
-		if err != nil {
+		if err := k.svcManager.RegisterL7LBServiceRedirect(serviceName, resourceName, proxyPort); err != nil {
+			return err
+		}
+
+		if err := k.registerServiceSync(serviceName, resourceName, nil /* all ports */); err != nil {
 			return err
 		}
 	}
 	// Register services for Envoy backend sync
 	for _, svc := range spec.BackendServices {
-		// Tell service manager to sync backends for this service
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, false)
-		err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, resourceName, svc.Ports)
-		if err != nil {
+
+		if err := k.registerServiceSync(serviceName, resourceName, svc.Ports); err != nil {
 			return err
 		}
 	}
@@ -228,9 +232,10 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		oldCEC.GetName(),
 		oldCEC.Spec.Resources,
 		false,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(oldCEC.Spec.Services) > 0,
 		useOriginalSourceAddress(&oldCEC.ObjectMeta),
+		false,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed old Envoy config")
@@ -241,24 +246,25 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		newCEC.GetName(),
 		newCEC.Spec.Resources,
 		true,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(newCEC.Spec.Services) > 0,
 		useOriginalSourceAddress(&newCEC.ObjectMeta),
+		true,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed new Envoy config")
 		return err
 	}
 
-	name := loadbalancer.ServiceName{Name: oldCEC.ObjectMeta.Name, Namespace: oldCEC.ObjectMeta.Namespace}
-	if err = k.removeK8sServiceRedirects(name, &oldCEC.Spec, &newCEC.Spec, oldResources, newResources); err != nil {
+	name := service.L7LBResourceName{Name: oldCEC.ObjectMeta.Name, Namespace: oldCEC.ObjectMeta.Namespace}
+	if err := k.removeK8sServiceRedirects(name, &oldCEC.Spec, &newCEC.Spec, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update K8s service redirections")
 		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err := k.envoyConfigManager.UpdateEnvoyResources(ctx, oldResources, newResources, k.envoyConfigManager); err != nil {
+	if err := k.envoyXdsServer.UpdateEnvoyResources(ctx, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig")
 		return err
 	}
@@ -276,7 +282,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 	return nil
 }
 
-func (k *K8sWatcher) removeK8sServiceRedirects(resourceName loadbalancer.ServiceName, oldSpec, newSpec *cilium_v2.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
+func (k *K8sWatcher) removeK8sServiceRedirects(resourceName service.L7LBResourceName, oldSpec, newSpec *cilium_v2.CiliumEnvoyConfigSpec, oldResources, newResources envoy.Resources) error {
 	removedServices := []*cilium_v2.ServiceListener{}
 	for _, oldSvc := range oldSpec.Services {
 		found := false
@@ -302,10 +308,15 @@ func (k *K8sWatcher) removeK8sServiceRedirects(resourceName loadbalancer.Service
 		}
 	}
 	for _, oldSvc := range removedServices {
-		// Tell service manager to remove old service registration
 		serviceName := getServiceName(resourceName, oldSvc.Name, oldSvc.Namespace, true)
-		err := k.svcManager.RemoveL7LBService(serviceName, resourceName)
-		if err != nil {
+
+		// Tell service manager to remove old service registration
+		if err := k.svcManager.DeregisterL7LBServiceRedirect(serviceName, resourceName); err != nil {
+			return err
+		}
+
+		// Deregister Service from Secret Sync
+		if err := k.deregisterServiceSync(serviceName, resourceName); err != nil {
 			return err
 		}
 	}
@@ -323,10 +334,10 @@ func (k *K8sWatcher) removeK8sServiceRedirects(resourceName loadbalancer.Service
 		}
 	}
 	for _, oldSvc := range removedBackendServices {
-		// Tell service manager to remove old service registration
 		serviceName := getServiceName(resourceName, oldSvc.Name, oldSvc.Namespace, false)
-		err := k.svcManager.RemoveL7LBService(serviceName, resourceName)
-		if err != nil {
+
+		// Deregister Service from Secret Sync
+		if err := k.deregisterServiceSync(serviceName, resourceName); err != nil {
 			return err
 		}
 	}
@@ -347,24 +358,25 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 		cec.GetName(),
 		cec.Spec.Resources,
 		false,
-		k.envoyConfigManager,
+		k.proxyPortAllocator,
 		len(cec.Spec.Services) > 0,
 		useOriginalSourceAddress(&cec.ObjectMeta),
+		false,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyConfig: parsing rersource names failed")
 		return err
 	}
 
-	name := loadbalancer.ServiceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
-	if err = k.deleteK8sServiceRedirects(name, &cec.Spec); err != nil {
+	name := service.L7LBResourceName{Name: cec.ObjectMeta.Name, Namespace: cec.ObjectMeta.Namespace}
+	if err := k.deleteK8sServiceRedirects(name, &cec.Spec); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete K8s service redirections")
 		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
 	defer cancel()
-	if err := k.envoyConfigManager.DeleteEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
+	if err := k.envoyXdsServer.DeleteEnvoyResources(ctx, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete Envoy resources")
 		return err
 	}
@@ -377,22 +389,63 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 	return nil
 }
 
-func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName loadbalancer.ServiceName, spec *cilium_v2.CiliumEnvoyConfigSpec) error {
+func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName service.L7LBResourceName, spec *cilium_v2.CiliumEnvoyConfigSpec) error {
 	for _, svc := range spec.Services {
-		// Tell service manager to remove old service redirection
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
-		err := k.svcManager.RemoveL7LBService(serviceName, resourceName)
-		if err != nil {
+
+		// Tell service manager to remove old service redirection
+		if err := k.svcManager.DeregisterL7LBServiceRedirect(serviceName, resourceName); err != nil {
+			return err
+		}
+
+		// Deregister Service from Secret Sync
+		if err := k.deregisterServiceSync(serviceName, resourceName); err != nil {
 			return err
 		}
 	}
+
 	for _, svc := range spec.BackendServices {
-		// Tell service manager to remove old service redirection
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, false)
-		err := k.svcManager.RemoveL7LBService(serviceName, resourceName)
-		if err != nil {
+
+		// Deregister Service from Secret Sync
+		if err := k.deregisterServiceSync(serviceName, resourceName); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (k *K8sWatcher) registerServiceSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName, ports []string) error {
+	// Register service usage in Envoy backend sync
+	k.envoyL7LBBackendSyncer.RegisterServiceUsageInCEC(serviceName, resourceName, ports)
+
+	// Register Envoy Backend Sync for the specific service in the service manager.
+	// A re-registration will trigger an implicit re-synchronization.
+	if err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, k.envoyL7LBBackendSyncer); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *K8sWatcher) deregisterServiceSync(serviceName loadbalancer.ServiceName, resourceName service.L7LBResourceName) error {
+	// Deregister usage of Service from Envoy Backend Sync
+	isLastDeregistration := k.envoyL7LBBackendSyncer.DeregisterServiceUsageInCEC(serviceName, resourceName)
+
+	if isLastDeregistration {
+		// Tell service manager to remove backend sync for this service
+		if err := k.svcManager.DeregisterL7LBServiceBackendSync(serviceName, k.envoyL7LBBackendSyncer); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	// There are other CECs using the same service as backend.
+	// Re-Register the backend-sync to enforce a synchronization.
+	if err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, k.envoyL7LBBackendSyncer); err != nil {
+		return err
 	}
 
 	return nil

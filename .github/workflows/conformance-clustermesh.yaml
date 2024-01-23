@@ -80,7 +80,7 @@ jobs:
 
   installation-and-connectivity:
     name: Installation and Connectivity Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4cores-16gb
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
@@ -94,17 +94,17 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'iptables'
-            kvstoremesh: true
+            mode: 'kvstoremesh'
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'legacy'
             maxConnectedClusters: '255'
 
           - name: '2'
             tunnel: 'disabled'
-            ipfamily: 'ipv4'
+            ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'none'
-            kvstoremesh: false
+            mode: 'clustermesh'
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '511'
@@ -112,10 +112,10 @@ jobs:
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
             tunnel: 'disabled'
-            ipfamily: 'ipv4'
+            ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
-            kvstoremesh: true
+            mode: 'kvstoremesh'
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -127,7 +127,7 @@ jobs:
             ipfamily: 'ipv6'
             encryption: 'disabled'
             kube-proxy: 'none'
-            kvstoremesh: false
+            mode: 'clustermesh'
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '255'
@@ -138,9 +138,7 @@ jobs:
             ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
-            kvstoremesh: true
-            cm-auth-mode-1: 'migration'
-            cm-auth-mode-2: 'cluster'
+            mode: 'external'
             maxConnectedClusters: '255'
 
           - name: '6'
@@ -148,28 +146,28 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'none'
-            kvstoremesh: false
-            cm-auth-mode-1: 'cluster'
-            cm-auth-mode-2: 'cluster'
-            maxConnectedClusters: '511'
-
-          - name: '7'
-            tunnel: 'geneve'
-            ipfamily: 'ipv4'
-            encryption: 'wireguard'
-            kube-proxy: 'iptables'
-            kvstoremesh: true
+            mode: 'clustermesh'
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
 
+          - name: '7'
+            tunnel: 'geneve'
+            ipfamily: 'dual'
+            encryption: 'wireguard'
+            kube-proxy: 'iptables'
+            mode: 'kvstoremesh'
+            cm-auth-mode-1: 'migration'
+            cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '511'
+
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
             tunnel: 'vxlan'
-            ipfamily: 'ipv4'
+            ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
-            kvstoremesh: false
+            mode: 'clustermesh'
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -180,7 +178,7 @@ jobs:
         #    ipfamily: 'ipv6'
         #    encryption: 'disabled'
         #    kube-proxy: 'none'
-        #    kvstoremesh: true
+        #    mode: 'kvstoremesh'
         #    cm-auth-mode-1: 'cluster'
         #    cm-auth-mode-2: 'cluster'
 
@@ -189,10 +187,8 @@ jobs:
             ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
-            kvstoremesh: false
-            cm-auth-mode-1: 'cluster'
-            cm-auth-mode-2: 'cluster'
-            maxConnectedClusters: '255'
+            mode: 'external'
+            maxConnectedClusters: '511'
 
     steps:
       - name: Checkout context ref (trusted)
@@ -209,6 +205,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set up job variables for GHA environment
         id: vars
@@ -217,11 +214,10 @@ jobs:
           # bpf.masquerade is disabled due to #23283
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=bpf.masquerade=false \
-            --helm-set=bpf.monitorAggregation=none \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
-            --helm-set=clustermesh.useAPIServer=true \
-            --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.kvstoremesh }} \
+            --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
+            --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
             "
 
@@ -266,10 +262,17 @@ jobs:
               --helm-set=encryption.type=${{ matrix.encryption }}"
           fi
 
+          CILIUM_INSTALL_INGRESS=""
+          if [ "${{ matrix.kube-proxy }}" == "none" ]; then
+            # The ingress controller requires KPR to be enabled.
+            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
             --flow-validation=disabled \
             --multi-cluster=${{ env.contextName2 }} \
             --external-target=google.com \
+            --include-unsafe-tests \
             --collect-sysdump-on-failure"
 
           # Skip external traffic (e.g. 1.1.1.1 and www.google.com) tests as IPv6 is not supported
@@ -281,7 +284,7 @@ jobs:
           fi
 
           echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
-            ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION}" >> $GITHUB_OUTPUT
+            ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_INGRESS}" >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
@@ -291,7 +294,7 @@ jobs:
           echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@32109b32259a487c803648a3c9463cdcafa4c0c3 # v0.15.19
+        uses: cilium/cilium-cli@4aa6347c532075df28027772fa1e4ec2f7415341 # v0.15.20
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -331,6 +334,11 @@ jobs:
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Label one of the nodes as external to the cluster
+        run: |
+          kubectl --context ${{ env.contextName1 }} label node \
+            ${{ env.clusterName1 }}-worker2 cilium.io/no-schedule=true
+
       # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
       # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
       - name: Configure the coredns nameservers
@@ -350,6 +358,30 @@ jobs:
           kubectl --context ${{ env.contextName1 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
           kubectl --context ${{ env.contextName2 }} patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
+      - name: Start kvstore clusters
+        id: kvstore
+        if: matrix.mode == 'external'
+        uses: ./.github/actions/kvstore
+        with:
+          clusters: 2
+
+      - name: Create the secret containing the kvstore credentials
+        if: matrix.mode == 'external'
+        run: |
+          kubectl --context ${{ env.contextName1 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+          kubectl --context ${{ env.contextName2 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
+
+      - name: Set clustermesh connection parameters
+        if: matrix.mode == 'external'
+        id: clustermesh-vars
+        run: |
+          echo "cilium_install_clustermesh= \
+            --set=clustermesh.config.enabled=true \
+            --set clustermesh.config.clusters[0].name=${{ env.clusterName1 }} \
+            --set clustermesh.config.clusters[1].name=${{ env.clusterName2 }} \
+            ${{ steps.kvstore.outputs.cilium_install_clustermesh }} \
+          " >> $GITHUB_OUTPUT
+
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
@@ -365,6 +397,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
 
       - name: Create the IPSec secret in both clusters
         if: matrix.encryption == 'ipsec'
@@ -375,6 +410,8 @@ jobs:
 
       - name: Install Cilium in cluster1
         id: install-cilium-cluster1
+        env:
+          KVSTORE_ID: 1
         run: |
           # Explicitly configure the NodePort to make sure that it is different in
           # each cluster, to workaround #24692
@@ -383,7 +420,10 @@ jobs:
             --helm-set cluster.name=${{ env.clusterName1 }} \
             --helm-set cluster.id=1 \
             --helm-set clustermesh.apiserver.service.nodePort=32379 \
-            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }}
+            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }} \
+            --nodes-without-cilium=${{ env.clusterName1 }}-worker2
 
       - name: Copy the Cilium CA secret to cluster2, as they must match
         run: |
@@ -391,15 +431,19 @@ jobs:
             kubectl --context ${{ env.contextName2 }} create -f -
 
       - name: Install Cilium in cluster2
+        env:
+          KVSTORE_ID: 2
         run: |
           # Explicitly configure the NodePort to make sure that it is different in
           # each cluster, to workaround #24692
           cilium --context ${{ env.contextName2 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.clusterName2 }} \
-            --helm-set cluster.id=255 \
+            --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
             --helm-set clustermesh.apiserver.service.nodePort=32380 \
-            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }}
+            --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
+            ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
+            ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }}
 
       - name: Wait for cluster mesh status to be ready
         run: |
@@ -409,10 +453,12 @@ jobs:
           cilium --context ${{ env.contextName2 }} clustermesh status --wait
 
       - name: Connect clusters
+        if: matrix.mode != 'external'
         run: |
           cilium --context ${{ env.contextName1 }} clustermesh connect --destination-context ${{ env.contextName2 }}
 
       - name: Wait for cluster mesh status to be ready
+        if: matrix.mode != 'external'
         run: |
           cilium --context ${{ env.contextName1 }} status --wait
           cilium --context ${{ env.contextName2 }} status --wait
@@ -450,6 +496,14 @@ jobs:
           kubectl config use-context ${{ env.contextName2 }}
           kubectl get pods --all-namespaces -o wide
           cilium sysdump --output-filename cilium-sysdump-context2-final-${{ join(matrix.*, '-') }}
+
+          if [ "${{ matrix.mode }}" == "external" ]; then
+            for i in {1..2}; do
+              echo
+              echo "# Retrieving logs from kvstore$i docker container"
+              docker logs kvstore$i
+            done
+          fi
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts

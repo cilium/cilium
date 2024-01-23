@@ -368,7 +368,7 @@ spec:
                             properties:
                               envoyConfig:
                                 description: EnvoyConfig is a reference to the CEC
-                                  or CCNP resource in which the listener is defined.
+                                  or CCEC resource in which the listener is defined.
                                 properties:
                                   kind:
                                     description: Kind is the resource type being referred
@@ -396,6 +396,14 @@ spec:
                                 description: Name is the name of the listener.
                                 minLength: 1
                                 type: string
+                              priority:
+                                description: Priority for this Listener that is used
+                                  when multiple rules would apply different listeners
+                                  to a policy map entry. Behavior of this is implementation
+                                  dependent.
+                                maximum: 100
+                                minimum: 1
+                                type: integer
                             required:
                             - envoyConfig
                             - name
@@ -1737,7 +1745,7 @@ spec:
                             properties:
                               envoyConfig:
                                 description: EnvoyConfig is a reference to the CEC
-                                  or CCNP resource in which the listener is defined.
+                                  or CCEC resource in which the listener is defined.
                                 properties:
                                   kind:
                                     description: Kind is the resource type being referred
@@ -1765,6 +1773,14 @@ spec:
                                 description: Name is the name of the listener.
                                 minLength: 1
                                 type: string
+                              priority:
+                                description: Priority for this Listener that is used
+                                  when multiple rules would apply different listeners
+                                  to a policy map entry. Behavior of this is implementation
+                                  dependent.
+                                maximum: 100
+                                minimum: 1
+                                type: integer
                             required:
                             - envoyConfig
                             - name
@@ -2900,7 +2916,7 @@ spec:
                               properties:
                                 envoyConfig:
                                   description: EnvoyConfig is a reference to the CEC
-                                    or CCNP resource in which the listener is defined.
+                                    or CCEC resource in which the listener is defined.
                                   properties:
                                     kind:
                                       description: Kind is the resource type being
@@ -2929,6 +2945,14 @@ spec:
                                   description: Name is the name of the listener.
                                   minLength: 1
                                   type: string
+                                priority:
+                                  description: Priority for this Listener that is
+                                    used when multiple rules would apply different
+                                    listeners to a policy map entry. Behavior of this
+                                    is implementation dependent.
+                                  maximum: 100
+                                  minimum: 1
+                                  type: integer
                               required:
                               - envoyConfig
                               - name
@@ -4290,7 +4314,7 @@ spec:
                               properties:
                                 envoyConfig:
                                   description: EnvoyConfig is a reference to the CEC
-                                    or CCNP resource in which the listener is defined.
+                                    or CCEC resource in which the listener is defined.
                                   properties:
                                     kind:
                                       description: Kind is the resource type being
@@ -4319,6 +4343,14 @@ spec:
                                   description: Name is the name of the listener.
                                   minLength: 1
                                   type: string
+                                priority:
+                                  description: Priority for this Listener that is
+                                    used when multiple rules would apply different
+                                    listeners to a policy map entry. Behavior of this
+                                    is implementation dependent.
+                                  maximum: 100
+                                  minimum: 1
+                                  type: integer
                               required:
                               - envoyConfig
                               - name

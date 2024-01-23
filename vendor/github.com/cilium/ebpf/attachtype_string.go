@@ -52,11 +52,17 @@ func _() {
 	_ = x[AttachSkReuseportSelectOrMigrate-40]
 	_ = x[AttachPerfEvent-41]
 	_ = x[AttachTraceKprobeMulti-42]
+	_ = x[AttachLSMCgroup-43]
+	_ = x[AttachStructOps-44]
+	_ = x[AttachNetfilter-45]
+	_ = x[AttachTCXIngress-46]
+	_ = x[AttachTCXEgress-47]
+	_ = x[AttachTraceUprobeMulti-48]
 }
 
-const _AttachType_name = "NoneCGroupInetEgressCGroupInetSockCreateCGroupSockOpsSkSKBStreamParserSkSKBStreamVerdictCGroupDeviceSkMsgVerdictCGroupInet4BindCGroupInet6BindCGroupInet4ConnectCGroupInet6ConnectCGroupInet4PostBindCGroupInet6PostBindCGroupUDP4SendmsgCGroupUDP6SendmsgLircMode2FlowDissectorCGroupSysctlCGroupUDP4RecvmsgCGroupUDP6RecvmsgCGroupGetsockoptCGroupSetsockoptTraceRawTpTraceFEntryTraceFExitModifyReturnLSMMacTraceIterCgroupInet4GetPeernameCgroupInet6GetPeernameCgroupInet4GetSocknameCgroupInet6GetSocknameXDPDevMapCgroupInetSockReleaseXDPCPUMapSkLookupXDPSkSKBVerdictSkReuseportSelectSkReuseportSelectOrMigratePerfEventTraceKprobeMulti"
+const _AttachType_name = "NoneCGroupInetEgressCGroupInetSockCreateCGroupSockOpsSkSKBStreamParserSkSKBStreamVerdictCGroupDeviceSkMsgVerdictCGroupInet4BindCGroupInet6BindCGroupInet4ConnectCGroupInet6ConnectCGroupInet4PostBindCGroupInet6PostBindCGroupUDP4SendmsgCGroupUDP6SendmsgLircMode2FlowDissectorCGroupSysctlCGroupUDP4RecvmsgCGroupUDP6RecvmsgCGroupGetsockoptCGroupSetsockoptTraceRawTpTraceFEntryTraceFExitModifyReturnLSMMacTraceIterCgroupInet4GetPeernameCgroupInet6GetPeernameCgroupInet4GetSocknameCgroupInet6GetSocknameXDPDevMapCgroupInetSockReleaseXDPCPUMapSkLookupXDPSkSKBVerdictSkReuseportSelectSkReuseportSelectOrMigratePerfEventTraceKprobeMultiLSMCgroupStructOpsNetfilterTCXIngressTCXEgressTraceUprobeMulti"
 
-var _AttachType_index = [...]uint16{0, 4, 20, 40, 53, 70, 88, 100, 112, 127, 142, 160, 178, 197, 216, 233, 250, 259, 272, 284, 301, 318, 334, 350, 360, 371, 381, 393, 399, 408, 430, 452, 474, 496, 505, 526, 535, 543, 546, 558, 575, 601, 610, 626}
+var _AttachType_index = [...]uint16{0, 4, 20, 40, 53, 70, 88, 100, 112, 127, 142, 160, 178, 197, 216, 233, 250, 259, 272, 284, 301, 318, 334, 350, 360, 371, 381, 393, 399, 408, 430, 452, 474, 496, 505, 526, 535, 543, 546, 558, 575, 601, 610, 626, 635, 644, 653, 663, 672, 688}
 
 func (i AttachType) String() string {
 	if i >= AttachType(len(_AttachType_index)-1) {

@@ -11,9 +11,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
+
+func GroupPtr(name string) *gatewayv1.Group {
+	group := gatewayv1.Group(name)
+	return &group
+}
+
+func KindPtr(name string) *gatewayv1.Kind {
+	kind := gatewayv1.Kind(name)
+	return &kind
+}
 
 var basicHTTP = Input{
 	GatewayClass: gatewayv1.GatewayClass{},
@@ -77,6 +89,16 @@ var basicHTTP = Input{
 									},
 								},
 							},
+							{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Group: GroupPtr(mcsapiv1alpha1.GroupName),
+										Kind:  KindPtr("ServiceImport"),
+										Name:  "my-service",
+										Port:  model.AddressOf[gatewayv1.PortNumber](8080),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -88,6 +110,17 @@ var basicHTTP = Input{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-service",
 				Namespace: "default",
+			},
+		},
+	},
+	ServiceImports: []mcsapiv1alpha1.ServiceImport{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-service",
+				Namespace: "default",
+				Annotations: map[string]string{
+					mcsapicontrollers.DerivedServiceAnnotation: "my-service",
+				},
 			},
 		},
 	},
@@ -113,6 +146,13 @@ var basicHTTPListeners = []model.HTTPListener{
 					Prefix: "/bar",
 				},
 				Backends: []model.Backend{
+					{
+						Name:      "my-service",
+						Namespace: "default",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
 					{
 						Name:      "my-service",
 						Namespace: "default",
@@ -181,6 +221,14 @@ var basicTLS = Input{
 									Port: model.AddressOf[gatewayv1.PortNumber](443),
 								},
 							},
+							{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Group: GroupPtr(mcsapiv1alpha1.GroupName),
+									Kind:  KindPtr("ServiceImport"),
+									Name:  "my-service",
+									Port:  model.AddressOf[gatewayv1.PortNumber](443),
+								},
+							},
 						},
 					},
 				},
@@ -192,6 +240,17 @@ var basicTLS = Input{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-service",
 				Namespace: "default",
+			},
+		},
+	},
+	ServiceImports: []mcsapiv1alpha1.ServiceImport{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-service",
+				Namespace: "default",
+				Annotations: map[string]string{
+					mcsapicontrollers.DerivedServiceAnnotation: "my-service",
+				},
 			},
 		},
 	},
@@ -252,6 +311,13 @@ var basicTLSListeners = []model.TLSListener{
 					"example.com",
 				},
 				Backends: []model.Backend{
+					{
+						Name:      "my-service",
+						Namespace: "default",
+						Port: &model.BackendPort{
+							Port: 443,
+						},
+					},
 					{
 						Name:      "my-service",
 						Namespace: "default",

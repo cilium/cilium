@@ -39,7 +39,6 @@ cilium-agent [flags]
       --bpf-fragments-map-max int                                 Maximum number of entries in fragments tracking map (default 8192)
       --bpf-lb-acceleration string                                BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                   BPF load balancing algorithm ("random", "maglev") (default "random")
-      --bpf-lb-dev-ip-addr-inherit string                         Device name which IP addr is inherited by devices running LB BPF program (--devices)
       --bpf-lb-dsr-dispatch string                                BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")
       --bpf-lb-dsr-l4-xlate string                                BPF load balancing DSR L4 DNAT method for IPIP ("frontend", "backend") (default "frontend")
       --bpf-lb-external-clusterip                                 Enable external access to ClusterIP services (default false)
@@ -86,6 +85,7 @@ cilium-agent [flags]
       --dns-policy-unload-on-shutdown                             Unload DNS policy rules on graceful shutdown
       --dnsproxy-concurrency-limit int                            Limit concurrency of DNS message processing
       --dnsproxy-concurrency-processing-grace-period duration     Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing
+      --dnsproxy-enable-transparent-mode                          Enable DNS proxy transparent mode
       --egress-gateway-policy-map-max int                         Maximum number of entries in egress gateway policy map (default 16384)
       --egress-gateway-reconciliation-trigger-interval duration   Time between triggers of egress gateway state reconciliations (default 1s)
       --egress-masquerade-interfaces strings                      Limit iptables-based egress masquerading to interface selector
@@ -284,6 +284,7 @@ cilium-agent [flags]
       --node-port-bind-protection                                 Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-range strings                                   Set the min/max NodePort port range (default [30000,32767])
       --nodeport-addresses strings                                A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
+      --policy-accounting                                         Enable policy accounting (default true)
       --policy-audit-mode                                         Enable policy audit (non-drop) mode
       --policy-cidr-match-mode strings                            The entities that can be selected by CIDR policy. Supported values: 'nodes'
       --policy-queue-size int                                     Size of queues for policy-related events (default 100)

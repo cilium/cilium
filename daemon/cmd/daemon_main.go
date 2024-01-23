@@ -229,9 +229,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableRuntimeDeviceDetection, false, "Enable runtime device detection and datapath reconfiguration (experimental)")
 	option.BindEnv(vp, option.EnableRuntimeDeviceDetection)
 
-	flags.String(option.LBDevInheritIPAddr, "", fmt.Sprintf("Device name which IP addr is inherited by devices running LB BPF program (--%s)", option.Devices))
-	option.BindEnv(vp, option.LBDevInheritIPAddr)
-
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
 	option.BindEnv(vp, option.DatapathMode)
 
@@ -871,13 +868,16 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.DNSProxyConcurrencyProcessingGracePeriod, 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
 	option.BindEnv(vp, option.DNSProxyConcurrencyProcessingGracePeriod)
 
-	flags.Int(option.DNSProxyLockCount, 131, "Array size containing mutexes which protect against parallel handling of DNS response IPs. Preferably use prime numbers")
-	flags.MarkDeprecated(option.DNSProxyLockCount, "This option no longer has any effect, and will be removed in v1.16")
+	flags.Int(option.DNSProxyLockCount, 131, "Array size containing mutexes which protect against parallel handling of DNS response names. Preferably use prime numbers")
+	flags.MarkHidden(option.DNSProxyLockCount)
 	option.BindEnv(vp, option.DNSProxyLockCount)
 
 	flags.Duration(option.DNSProxyLockTimeout, 500*time.Millisecond, fmt.Sprintf("Timeout when acquiring the locks controlled by --%s", option.DNSProxyLockCount))
-	flags.MarkDeprecated(option.DNSProxyLockTimeout, "This option no longer has any effect, and will be removed in v1.16")
+	flags.MarkHidden(option.DNSProxyLockTimeout)
 	option.BindEnv(vp, option.DNSProxyLockTimeout)
+
+	flags.Bool(option.DNSProxyEnableTransparentMode, defaults.DNSProxyEnableTransparentMode, "Enable DNS proxy transparent mode")
+	option.BindEnv(vp, option.DNSProxyEnableTransparentMode)
 
 	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "Size of queues for policy-related events")
 	option.BindEnv(vp, option.PolicyQueueSize)
@@ -891,6 +891,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.PolicyAuditModeArg, false, "Enable policy audit (non-drop) mode")
 	option.BindEnv(vp, option.PolicyAuditModeArg)
+
+	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
+	option.BindEnv(vp, option.PolicyAccountingArg)
 
 	flags.Bool(option.EnableHubble, false, "Enable hubble server")
 	option.BindEnv(vp, option.EnableHubble)
@@ -1305,9 +1308,10 @@ func initEnv(vp *viper.Viper) {
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
-	option.Config.Opts.SetBool(option.ConntrackAccounting, true)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, false)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
+	option.Config.Opts.SetBool(option.PolicyAccounting, option.Config.PolicyAccounting)
 	option.Config.Opts.SetBool(option.SourceIPVerification, true)
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)
@@ -1358,6 +1362,10 @@ func initEnv(vp *viper.Viper) {
 
 	if option.Config.EnableL7Proxy && !option.Config.InstallIptRules {
 		log.Fatal("L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
+	}
+
+	if option.Config.EnableIPSec && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
+		log.Fatal("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
 	}
 
 	if option.Config.EnableIPSec && !option.Config.EnableIPv4 {
@@ -1550,7 +1558,7 @@ func (d *Daemon) initKVStore() {
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
 	}
 
-	var cg = controller.NewGroup("kvstore-locks-gc")
+	cg := controller.NewGroup("kvstore-locks-gc")
 	controller.NewManager().UpdateController("kvstore-locks-gc",
 		controller.ControllerParams{
 			Group: cg,
@@ -1641,6 +1649,8 @@ type daemonParams struct {
 	L2Announcer          *l2announcer.L2Announcer
 	ServiceManager       service.ServiceManager
 	L7Proxy              *proxy.Proxy
+	EnvoyXdsServer       envoy.XDSServer
+	EnvoyBackendSyncer   *envoy.EnvoyServiceBackendSyncer
 	DB                   *statedb.DB
 	APILimiterSet        *rate.APILimiterSet
 	AuthManager          *auth.AuthManager

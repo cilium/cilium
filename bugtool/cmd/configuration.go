@@ -436,6 +436,8 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium-dbg bgp peers",
 		"cilium-dbg bgp routes available ipv4 unicast",
 		"cilium-dbg bgp routes available ipv6 unicast",
+		"cilium-dbg bgp routes advertised ipv4 unicast",
+		"cilium-dbg bgp routes advertised ipv6 unicast",
 		"cilium-dbg bgp route-policies",
 	}
 	var commands []string

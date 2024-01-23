@@ -13,8 +13,8 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
-	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -832,10 +832,14 @@ func UpdateFromUserDefinedMappings(m map[string]string) (err error) {
 	return nil
 }
 
+type ec2API interface {
+	GetInstanceTypes(context.Context) ([]ec2_types.InstanceTypeInfo, error)
+}
+
 // UpdateFromEC2API updates limits from the EC2 API via calling
 // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html.
-func UpdateFromEC2API(ctx context.Context, ec2Client *ec2shim.Client) error {
-	instanceTypeInfos, err := ec2Client.GetInstanceTypes(ctx)
+func UpdateFromEC2API(ctx context.Context, api ec2API) error {
+	instanceTypeInfos, err := api.GetInstanceTypes(ctx)
 	if err != nil {
 		return err
 	}

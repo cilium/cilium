@@ -291,7 +291,7 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 	rule.Mark = linux_defaults.RouteMarkEncrypt
 	if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("delete previousa IPv4 encrypt rule failed: %w", err)
+			return fmt.Errorf("delete previous IPv4 encrypt rule failed: %w", err)
 		}
 	}
 
@@ -344,18 +344,26 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 	}
 }
 
+func (n *linuxNodeHandler) isValidIP(ip *net.IPNet) bool {
+	if ip.IP.To4() != nil {
+		if !n.nodeConfig.EnableIPv4 {
+			return false
+		}
+	} else {
+		if !n.nodeConfig.EnableIPv6 {
+			return false
+		}
+	}
+
+	return true
+}
+
 // replaceNodeIPSecOutRoute replace the out IPSec route in the host routing
 // table with the new route. If no route exists the route is installed on the
 // host. The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) error {
-	if ip.IP.To4() != nil {
-		if !n.nodeConfig.EnableIPv4 {
-			return nil
-		}
-	} else {
-		if !n.nodeConfig.EnableIPv6 {
-			return nil
-		}
+	if !n.isValidIP(ip) {
+		return nil
 	}
 
 	if err := route.Upsert(n.createNodeIPSecOutRoute(ip)); err != nil {
@@ -367,14 +375,8 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) error {
 
 // The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) error {
-	if ip.IP.To4() != nil {
-		if !n.nodeConfig.EnableIPv4 {
-			return nil
-		}
-	} else {
-		if !n.nodeConfig.EnableIPv6 {
-			return nil
-		}
+	if !n.isValidIP(ip) {
+		return nil
 	}
 
 	if err := route.Delete(n.createNodeIPSecOutRoute(ip)); err != nil {
@@ -388,14 +390,8 @@ func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) error {
 // table with the new route. If no route exists the route is installed on the
 // host. The caller must ensure that the CIDR passed in must be non-nil.
 func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) error {
-	if ip.IP.To4() != nil {
-		if !n.nodeConfig.EnableIPv4 {
-			return nil
-		}
-	} else {
-		if !n.nodeConfig.EnableIPv6 {
-			return nil
-		}
+	if !n.isValidIP(ip) {
+		return nil
 	}
 
 	if err := route.Upsert(n.createNodeIPSecInRoute(ip)); err != nil {

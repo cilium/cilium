@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -74,6 +75,10 @@ type progInfo struct {
 	OutputType OutputType
 	// Options are passed directly to LLVM as individual parameters
 	Options []string
+}
+
+func (pi *progInfo) AbsoluteOutput(dir *directoryInfo) string {
+	return filepath.Join(dir.Output, pi.Output)
 }
 
 // directoryInfo includes relevant directories for compilation and linking
@@ -187,7 +192,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	compileCmd, cancelCompile := exec.WithCancel(ctx, compiler, compileArgs...)
 	defer cancelCompile()
 
-	output, err := os.Create(path.Join(dir.Output, prog.Output))
+	output, err := os.Create(prog.AbsoluteOutput(dir))
 	if err != nil {
 		return "", err
 	}
@@ -197,20 +202,12 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	var compilerStderr bytes.Buffer
 	compileCmd.Stderr = &compilerStderr
 
-	err = compileCmd.Run()
-
-	var maxRSS int64
-	if usage, ok := compileCmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
-		maxRSS = usage.Maxrss
-	}
-
-	if err != nil {
+	if err := compileCmd.Run(); err != nil {
 		err = fmt.Errorf("Failed to compile %s: %w", prog.Output, err)
 
 		if !errors.Is(err, context.Canceled) {
 			log.WithFields(logrus.Fields{
 				"compiler-pid": pidFromProcess(compileCmd.Process),
-				"max-rss":      maxRSS,
 			}).Error(err)
 		}
 
@@ -222,11 +219,14 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 		return "", err
 	}
 
-	if maxRSS > 0 {
+	// Cmd.ProcessState is populated by Cmd.Wait(). Cmd.Run() bails out if
+	// Cmd.Start() fails, which will leave Cmd.ProcessState nil. Only log peak
+	// RSS if the compilation succeeded, which will be the majority of cases.
+	if usage, ok := compileCmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
 		log.WithFields(logrus.Fields{
 			"compiler-pid": compileCmd.Process.Pid,
 			"output":       output.Name(),
-		}).Debugf("Compilation had peak RSS of %d bytes", maxRSS)
+		}).Debugf("Compilation had peak RSS of %d bytes", usage.Maxrss)
 	}
 
 	return output.Name(), nil
@@ -306,17 +306,6 @@ func CompileWithOptions(ctx context.Context, src string, out string, opts []stri
 // Compile compiles a BPF program generating an object file.
 func Compile(ctx context.Context, src string, out string) error {
 	return CompileWithOptions(ctx, src, out, nil)
-}
-
-// compileTemplate compiles a BPF program generating a template object file.
-func compileTemplate(ctx context.Context, out string, isHost bool) error {
-	dirs := directoryInfo{
-		Library: option.Config.BpfDir,
-		Runtime: option.Config.StateDir,
-		Output:  out,
-		State:   out,
-	}
-	return compileDatapath(ctx, &dirs, isHost, log)
 }
 
 // compileNetwork compiles a BPF program attached to network
