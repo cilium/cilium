@@ -14,14 +14,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -84,7 +81,7 @@ type PolicyWatcher struct {
 	NetworkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
 }
 
-func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Clientset) {
+func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
 	var cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
 	go func() {
 		cnpEvents := p.CiliumNetworkPolicies.Events(ctx)
@@ -135,9 +132,9 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, cs, k8sAPIGroupCiliumNetworkPolicyV2, resources.MetricCNP, cidrGroupPolicies, resourceID)
+					err = p.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, k8sAPIGroupCiliumNetworkPolicyV2, cidrGroupPolicies, resourceID)
 				case resource.Delete:
-					err = p.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resources.MetricCNP, cidrGroupPolicies, resourceID)
+					err = p.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, cidrGroupPolicies, resourceID)
 				}
 				reportCNPChangeMetrics(err)
 				event.Done(err)
@@ -170,9 +167,9 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, cs, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP, cidrGroupPolicies, resourceID)
+					err = p.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, cidrGroupPolicies, resourceID)
 				case resource.Delete:
-					err = p.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP, cidrGroupPolicies, resourceID)
+					err = p.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, cidrGroupPolicies, resourceID)
 				}
 				reportCNPChangeMetrics(err)
 				event.Done(err)
@@ -191,9 +188,9 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsertCIDRGroup(event.Object, cidrGroupCache, cnpCache, cs, k8sAPIGroupCiliumCIDRGroupV2Alpha1, resources.MetricCCG)
+					err = p.onUpsertCIDRGroup(event.Object, cidrGroupCache, cnpCache, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
 				case resource.Delete:
-					err = p.onDeleteCIDRGroup(event.Object.Name, cidrGroupCache, cnpCache, cs, k8sAPIGroupCiliumCIDRGroupV2Alpha1, resources.MetricCCG)
+					err = p.onDeleteCIDRGroup(event.Object.Name, cidrGroupCache, cnpCache, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
 				}
 				event.Done(err)
 			}
@@ -219,9 +216,7 @@ func (p *PolicyWatcher) onUpsert(
 	cnpCache map[resource.Key]*types.SlimCNP,
 	key resource.Key,
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
-	cs client.Clientset,
 	apiGroup string,
-	metricLabel string,
 	cidrGroupPolicies map[resource.Key]struct{},
 	resourceID ipcacheTypes.ResourceID,
 ) error {
@@ -264,9 +259,9 @@ func (p *PolicyWatcher) onUpsert(
 
 	var err error
 	if ok {
-		err = p.updateCiliumNetworkPolicyV2(cs, oldCNP, translatedCNP, initialRecvTime, resourceID)
+		err = p.updateCiliumNetworkPolicyV2(oldCNP, translatedCNP, initialRecvTime, resourceID)
 	} else {
-		err = p.addCiliumNetworkPolicyV2(cs, translatedCNP, initialRecvTime, resourceID)
+		err = p.addCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 	}
 	if err == nil {
 		cnpCache[key] = cnpCpy
@@ -280,7 +275,6 @@ func (p *PolicyWatcher) onDelete(
 	cache map[resource.Key]*types.SlimCNP,
 	key resource.Key,
 	apiGroup string,
-	metricLabel string,
 	cidrGroupPolicies map[resource.Key]struct{},
 	resourceID ipcacheTypes.ResourceID,
 ) error {
@@ -295,7 +289,7 @@ func (p *PolicyWatcher) onDelete(
 	return err
 }
 
-func (p *PolicyWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
+func (p *PolicyWatcher) addCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -363,7 +357,7 @@ func (p *PolicyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 	return err
 }
 
-func (p *PolicyWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
+func (p *PolicyWatcher) updateCiliumNetworkPolicyV2(
 	oldRuleCpy, newRuleCpy *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
 
 	_, err := oldRuleCpy.Parse()
@@ -401,7 +395,7 @@ func (p *PolicyWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Int
 		"annotations":                              newRuleCpy.ObjectMeta.Annotations,
 	}).Debug("Modified CiliumNetworkPolicy")
 
-	return p.addCiliumNetworkPolicyV2(ciliumNPClient, newRuleCpy, initialRecvTime, resourceID)
+	return p.addCiliumNetworkPolicyV2(newRuleCpy, initialRecvTime, resourceID)
 }
 
 func (p *PolicyWatcher) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {

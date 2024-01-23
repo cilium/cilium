@@ -107,10 +107,11 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 				NetworkPolicies:                  p.NetworkPolicies,
 			}
 
-			w.ciliumNetworkPoliciesInit(ctx, p.ClientSet)
+			w.ciliumNetworkPoliciesInit(ctx)
 			if p.Config.EnableK8sNetworkPolicy {
 				w.networkPoliciesInit(ctx)
 			}
+
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
