@@ -1327,12 +1327,12 @@ func (e *Endpoint) HaveK8sMetadata() (metadataSet bool) {
 	return p != nil
 }
 
-// K8sNamespaceAndPodNameIsSet returns true if the pod name is set
+// K8sNamespaceAndPodNameIsSet returns true if the namespace and the pod name
+// are both set.
 func (e *Endpoint) K8sNamespaceAndPodNameIsSet() bool {
 	e.unconditionalLock()
-	podName := e.GetK8sNamespaceAndPodName()
-	e.unlock()
-	return podName != "" && podName != "/"
+	defer e.unlock()
+	return e.K8sNamespace != "" && e.K8sPodName != ""
 }
 
 // getState returns the endpoint's state
