@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
@@ -63,23 +62,6 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
-type Loader interface {
-	CallsMapPath(id uint16) string
-	CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error
-	CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error
-	CustomCallsMapPath(id uint16) string
-	DetachXDP(iface netlink.Link, bpffsBase, progName string) error
-	DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error)
-	ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string)
-	EndpointHash(cfg datapath.EndpointConfiguration) (string, error)
-	HostDatapathInitialized() <-chan struct{}
-	Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error
-	ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error
-	ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (err error)
-	RestoreTemplates(stateDir string) error
-	Unload(ep datapath.Endpoint)
-}
-
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
 type loader struct {
@@ -92,11 +74,6 @@ type loader struct {
 
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
-}
-
-// NewLoader returns a new loader.
-func NewLoader() Loader {
-	return newLoader()
 }
 
 // newLoader returns a new loader.

@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -218,7 +217,7 @@ func (r *Recorder) orderedMaskSets() ([]*RecMask, []*RecMask) {
 
 func (r *Recorder) triggerDatapathRegenerate() error {
 	var masks4, masks6 string
-	l := loader.NewLoader()
+	l := r.owner.Datapath().Loader()
 	extraCArgs := []string{}
 	if len(r.recMask) == 0 {
 		extraCArgs = append(extraCArgs, "-Dcapture_enabled=0")

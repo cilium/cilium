@@ -144,6 +144,10 @@ func (f *fakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, s
 	panic("implement me")
 }
 
+func (f *fakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+	panic("implement me")
+}
+
 func (f *fakeLoader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
 	panic("implement me")
 }
