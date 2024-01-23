@@ -10,8 +10,6 @@ const (
 	K8sAPIGroupServiceV1Core = "core/v1::Service"
 	// K8sAPIGroupPodV1Core is the identifier for K8s resources of type core/v1/Pod.
 	K8sAPIGroupPodV1Core = "core/v1::Pods"
-	// K8sAPIGroupSecretV1Cores is the identifier for K8s resources of type core/v1/Secret.
-	K8sAPIGroupSecretV1Core = "core/v1::Secrets"
 	// K8sAPIGroupEndpointSliceOrEndpoint is the combined identifier for K8s EndpointSlice and
 	// Endpoint resources.
 	K8sAPIGroupEndpointSliceOrEndpoint = "EndpointSliceOrEndpoint"
