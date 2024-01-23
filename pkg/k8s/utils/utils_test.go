@@ -326,6 +326,19 @@ func TestGetLatestPodReadiness(t *testing.T) {
 	}
 }
 
+type FakeNamespace struct {
+	Name   string
+	Labels map[string]string
+}
+
+func (fn *FakeNamespace) GetName() string {
+	return fn.Name
+}
+
+func (fn *FakeNamespace) GetLabels() map[string]string {
+	return fn.Labels
+}
+
 func TestSanitizePodLabels(t *testing.T) {
 	namespaceLabelKey := "wow-very-key"
 	namespaceMetaLabelKey := joinPath(k8sconst.PodNamespaceMetaLabels, namespaceLabelKey)
@@ -341,19 +354,20 @@ func TestSanitizePodLabels(t *testing.T) {
 	trueClusterName := "true-cluster-name"
 	trueNamespaceLabelValue := "true-value-for-key"
 
-	namespace := &slim_corev1.Namespace{
-		ObjectMeta: slim_metav1.ObjectMeta{Name: trueNamespace,
-			Labels: map[string]string{
-				namespaceLabelKey: trueNamespaceLabelValue,
-			}}}
-	labels := SanitizePodLabels(testedLabels, namespace, trueSA, trueClusterName)
+	fakeNs := &FakeNamespace{
+		Name: trueNamespace,
+		Labels: map[string]string{
+			namespaceLabelKey: trueNamespaceLabelValue,
+		},
+	}
+	labels := SanitizePodLabels(testedLabels, fakeNs, trueSA, trueClusterName)
 
 	ns, ok := labels[k8sconst.PodNamespaceLabel]
 	if !ok {
 		t.Errorf("namespace label not found")
 	}
 	if ns != trueNamespace {
-		t.Errorf("namespace label not set to %s, set to %s instead", trueNamespace, namespace)
+		t.Errorf("namespace label not set to %s, set to %s instead", trueNamespace, fakeNs)
 	}
 
 	sa, ok := labels[k8sconst.PolicyLabelServiceAccount]
@@ -380,7 +394,7 @@ func TestSanitizePodLabels(t *testing.T) {
 		t.Errorf("namespace meta label not set to %s, set to %s instead", trueNamespaceLabelValue, namespaceMetaLabel)
 	}
 
-	labels = SanitizePodLabels(testedLabels, namespace, "", trueClusterName)
+	labels = SanitizePodLabels(testedLabels, fakeNs, "", trueClusterName)
 	sa, ok = labels[k8sconst.PolicyLabelServiceAccount]
 	if ok {
 		t.Errorf("Expected service account label to be deleted, got %s instead", sa)
