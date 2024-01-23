@@ -180,6 +180,7 @@ func (s *RedirectSuite) SetUpTest(c *check.C) {
 
 func (s *RedirectSuite) NewTestEndpoint(c *check.C) *Endpoint {
 	ep := NewTestEndpointWithState(c, s.do, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, 12345, StateRegenerating)
+	ep.SetPropertyValue(PropertyFakeEndpoint, false)
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identity.NumericIdentity(identityBar))
 	c.Assert(err, check.IsNil)

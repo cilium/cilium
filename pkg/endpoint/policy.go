@@ -47,9 +47,9 @@ var (
 )
 
 // HasBPFPolicyMap returns true if policy map changes should be collected
+// Deprecated: use (e *Endpoint).IsProperty(PropertySkipBPFPolicy)
 func (e *Endpoint) HasBPFPolicyMap() bool {
-	// Ingress Endpoint has no policy maps
-	return !e.isIngress
+	return !e.IsProperty(PropertySkipBPFPolicy)
 }
 
 // GetNamedPort returns the port for the given name.
@@ -542,7 +542,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 
 	// Start periodic background full reconciliation of the policy map.
 	// Does nothing if it has already been started.
-	if !option.Config.DryMode {
+	if !e.isProperty(PropertyFakeEndpoint) {
 		e.startSyncPolicyMapController()
 	}
 
