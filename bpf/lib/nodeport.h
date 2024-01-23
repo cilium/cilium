@@ -2933,7 +2933,7 @@ skip_service_lookup:
 		switch (ret) {
 		case CT_NEW:
 redo:
-			ct_state_new.src_sec_id = WORLD_IPV4_ID;
+			ct_state_new.src_sec_id = src_sec_identity;
 			ct_state_new.node_port = 1;
 #ifndef HAVE_FIB_IFINDEX
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
