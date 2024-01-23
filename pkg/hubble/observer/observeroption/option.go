@@ -14,17 +14,11 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 )
 
 // CiliumDaemon is a reference to the Cilium's Daemon when running inside Cilium
 type CiliumDaemon interface {
 	DebugEnabled() bool
-	// CiliumDaemon implements the StoreGetter interface that exposes cached stores
-	// of various k8s resources.
-	// WARNING: Access to the stores are meant to be read-only. Do not modify the stores
-	// or any objects returned by the stores.
-	getters.StoreGetter
 }
 
 // Server gives access to the Hubble server
