@@ -560,6 +560,12 @@ Users (Alphabetically)
       L: https://www.dbschenker.com/global
       Q: @amirkkn
 
+    * N: Sealos
+      D: Sealos is using Cilium as a consistent CNI for our Sealos Cloud.
+      U: Networking, Service, kube-proxy replacement, Network Policy, Hubble
+      L: https://sealos.io
+      Q: @fanux, @yangchuansheng
+
     * N: Seznam.cz
       D: Seznam.cz uses Cilium in multiple scenarios in on-prem DCs. At first as L4LB which loadbalances external traffic into k8s+openstack clusters then as CNI in multiple k8s and openstack clusters which are all connected in a clustermesh to enforce NetworkPolicies across pods/VMs.
       U: L4LB, L3/4 CNPs+CCNPs, KPR, Hubble, HostPolicy, Direct-routing, IPv4+IPv6, ClusterMesh
