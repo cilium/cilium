@@ -55,5 +55,5 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: productpage
-      port: 9080
+    - name: frontend
+      port: 80
