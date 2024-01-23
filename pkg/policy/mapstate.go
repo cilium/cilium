@@ -398,13 +398,7 @@ func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Ke
 			changes.Old[owner] = e
 		}
 		e.AddDependent(dependent)
-		if e.IsDeny {
-			delete(ms.allows, owner)
-			ms.denies[owner] = e
-		} else {
-			delete(ms.denies, owner)
-			ms.allows[owner] = e
-		}
+		ms.Insert(owner, e)
 	}
 }
 
