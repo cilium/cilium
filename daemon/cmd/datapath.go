@@ -6,8 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net"
-	"net/netip"
 	"os"
 	"strings"
 
@@ -20,10 +18,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity"
-	ippkg "github.com/cilium/cilium/pkg/ip"
-	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
@@ -39,11 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/source"
 )
 
 // LocalConfig returns the local configuration of the daemon's nodediscovery.
@@ -140,157 +131,6 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 	} else {
 		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
 	}
-}
-
-// syncHostIPs adds local host entries to bpf lxcmap, as well as ipcache, if
-// needed, and also notifies the daemon and network policy hosts cache if
-// changes were made.
-func (d *Daemon) syncHostIPs() error {
-	if option.Config.DryMode {
-		return nil
-	}
-
-	type ipIDLabel struct {
-		identity.IPIdentityPair
-		labels.Labels
-	}
-	specialIdentities := make([]ipIDLabel, 0, 2)
-
-	if option.Config.EnableIPv4 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
-		}
-
-		for _, ip := range addrs {
-			if option.Config.IsExcludedLocalAddress(ip) {
-				continue
-			}
-
-			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities, ipIDLabel{
-					identity.IPIdentityPair{
-						IP: ip,
-						ID: identity.ReservedIdentityHost,
-					},
-					labels.LabelHost,
-				})
-			}
-		}
-
-		ipv4Ident := identity.ReservedIdentityWorldIPv4
-		ipv4Label := labels.LabelWorldIPv4
-		if !option.Config.EnableIPv6 {
-			ipv4Ident = identity.ReservedIdentityWorld
-			ipv4Label = labels.LabelWorld
-		}
-		specialIdentities = append(specialIdentities, ipIDLabel{
-			identity.IPIdentityPair{
-				IP:   net.IPv4zero,
-				Mask: net.CIDRMask(0, net.IPv4len*8),
-				ID:   ipv4Ident,
-			},
-			ipv4Label,
-		})
-	}
-
-	if option.Config.EnableIPv6 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv6 addresses")
-		}
-
-		addrs = append(addrs, node.GetIPv6Router())
-		for _, ip := range addrs {
-			if option.Config.IsExcludedLocalAddress(ip) {
-				continue
-			}
-
-			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities, ipIDLabel{
-					identity.IPIdentityPair{
-						IP: ip,
-						ID: identity.ReservedIdentityHost,
-					},
-					labels.LabelHost,
-				})
-			}
-		}
-
-		ipv6Ident := identity.ReservedIdentityWorldIPv6
-		ipv6Label := labels.LabelWorldIPv6
-		if !option.Config.EnableIPv4 {
-			ipv6Ident = identity.ReservedIdentityWorld
-			ipv6Label = labels.LabelWorld
-		}
-		specialIdentities = append(specialIdentities, ipIDLabel{
-			identity.IPIdentityPair{
-				IP:   net.IPv6zero,
-				Mask: net.CIDRMask(0, net.IPv6len*8),
-				ID:   ipv6Ident,
-			},
-			ipv6Label,
-		})
-	}
-
-	existingEndpoints, err := lxcmap.DumpToMap()
-	if err != nil {
-		return err
-	}
-
-	daemonResourceID := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", "reserved")
-	for _, ipIDLblsPair := range specialIdentities {
-		isHost := ipIDLblsPair.ID == identity.ReservedIdentityHost
-		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDLblsPair.IP)
-			if err != nil {
-				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
-			}
-			if added {
-				log.WithField(logfields.IPAddr, ipIDLblsPair.IP).Debugf("Added local ip to endpoint map")
-			}
-		}
-
-		delete(existingEndpoints, ipIDLblsPair.IP.String())
-
-		lbls := ipIDLblsPair.Labels
-		if ipIDLblsPair.ID.IsWorld() {
-			p := netip.PrefixFrom(ippkg.MustAddrFromIP(ipIDLblsPair.IP), 0)
-			d.ipcache.OverrideIdentity(p, lbls, source.Local, daemonResourceID)
-		} else {
-			d.ipcache.UpsertLabels(ippkg.IPToNetPrefix(ipIDLblsPair.IP),
-				lbls,
-				source.Local, daemonResourceID,
-			)
-		}
-	}
-
-	// existingEndpoints is a map from endpoint IP to endpoint info. Referring
-	// to the key as host IP here because we only care about the host endpoint.
-	for hostIP, info := range existingEndpoints {
-		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.IPAddr: hostIP,
-				}).Warn("Unable to delete obsolete host IP from BPF map")
-			} else {
-				log.Debugf("Removed outdated host IP %s from endpoint map", hostIP)
-			}
-
-			d.ipcache.RemoveLabels(ippkg.IPToNetPrefix(ip), labels.LabelHost, daemonResourceID)
-		}
-	}
-
-	// we have a reference to all ifindex values, so we update the related metric
-	maxIfindex := uint32(0)
-	for _, endpoint := range existingEndpoints {
-		if endpoint.IfIndex > maxIfindex {
-			maxIfindex = endpoint.IfIndex
-		}
-	}
-	metrics.EndpointMaxIfindex.Set(float64(maxIfindex))
-
-	return nil
 }
 
 // initMaps opens all BPF maps (and creates them if they do not exist). This

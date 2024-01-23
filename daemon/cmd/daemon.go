@@ -98,8 +98,6 @@ const (
 	// ConfigModifyQueueSize is the size of the event queue for serializing
 	// configuration updates to the daemon
 	ConfigModifyQueueSize = 10
-
-	syncHostIPsController = "sync-host-ips"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -968,27 +966,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
 	}
 
-	// Start the controller for periodic sync. The purpose of the
-	// controller is to ensure that endpoints and host IPs entries are
-	// reinserted to the bpf maps if they are ever removed from them.
-	syncErrs := make(chan error, 1)
-	syncHostIPsControllerGroup := controller.NewGroup("sync-host-ips")
-	d.controllers.UpdateController(
-		syncHostIPsController,
-		controller.ControllerParams{
-			Group: syncHostIPsControllerGroup,
-			DoFunc: func(ctx context.Context) error {
-				err := d.syncHostIPs()
-				select {
-				case syncErrs <- err:
-				default:
-				}
-				return err
-			},
-			RunInterval: time.Minute,
-			Context:     d.ctx,
-		})
-
 	if option.Config.EnableVTEP {
 		// Start controller to setup and periodically verify VTEP
 		// endpoints and routes.
@@ -1003,8 +980,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			})
 	}
 
-	// Wait for the initial sync and check that it succeeded.
-	if err := <-syncErrs; err != nil {
+	// Start the host IP synchronization. Blocks until the initial synchronization
+	// has finished.
+	if err := params.SyncHostIPs.StartAndWaitFirst(ctx); err != nil {
 		return nil, nil, err
 	}
 

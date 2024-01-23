@@ -1600,9 +1600,12 @@ var daemonCell = cell.Module(
 	"daemon",
 	"Legacy Daemon",
 
-	cell.Provide(newDaemonPromise),
-	cell.Provide(newRestorerPromise),
-	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
+	cell.Provide(
+		newDaemonPromise,
+		newRestorerPromise,
+		func() k8s.CacheStatus { return make(k8s.CacheStatus) },
+		newSyncHostIPs,
+	),
 	// Provide a read-only copy of the current daemon settings to be consumed
 	// by the debuginfo API
 	cell.ProvidePrivate(daemonSettings),
@@ -1664,6 +1667,7 @@ type daemonParams struct {
 	IPsecKeyCustodian   datapath.IPsecKeyCustodian
 	MTU                 mtu.MTU
 	Sysctl              sysctl.Sysctl
+	SyncHostIPs         *syncHostIPs
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1697,7 +1701,6 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				}
 			}
 			daemonResolver.Resolve(daemon)
-
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
