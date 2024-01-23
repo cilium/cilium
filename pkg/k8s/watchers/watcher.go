@@ -236,10 +236,6 @@ type K8sWatcher struct {
 
 	datapath datapath.Datapath
 
-	// networkPoliciesInitOnce is used to guarantee only one call to NetworkPoliciesInit is
-	// executed.
-	networkPoliciesInitOnce sync.Once
-
 	cfg WatcherConfiguration
 
 	resources agentK8s.Resources
@@ -517,6 +513,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 
 	// CNP, CCNP, and CCG resources are handled together.
 	var cnpOnce sync.Once
+	var knpOnce sync.Once
 	for _, r := range resourceNames {
 		switch r {
 		// Core Cilium
@@ -530,7 +527,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			go k.ciliumNodeInit(ctx, asyncControllers)
 		// Kubernetes built-in resources
 		case k8sAPIGroupNetworkingV1Core:
-			k.NetworkPoliciesInit()
+			knpOnce.Do(func() { k.networkPoliciesInit(ctx) })
 		case resources.K8sAPIGroupServiceV1Core:
 			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:

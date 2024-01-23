@@ -20,27 +20,20 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (k *K8sWatcher) NetworkPoliciesInit() {
-	k.networkPoliciesInitOnce.Do(func() {
-		var synced atomic.Bool
-		swg := lock.NewStoppableWaitGroup()
-		k.blockWaitGroupToSyncResources(k.stop, swg, func() bool { return synced.Load() }, k8sAPIGroupNetworkingV1Core)
-		go k.networkPolicyEventLoop(&synced)
-		swg.Wait()
-		k.k8sAPIGroups.AddAPI(k8sAPIGroupNetworkingV1Core)
-	})
+func (k *K8sWatcher) networkPoliciesInit(ctx context.Context) {
+	var synced atomic.Bool
+	swg := lock.NewStoppableWaitGroup()
+	k.blockWaitGroupToSyncResources(ctx.Done(), swg, func() bool { return synced.Load() }, k8sAPIGroupNetworkingV1Core)
+	go k.networkPolicyEventLoop(ctx, &synced)
+	swg.Wait()
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupNetworkingV1Core)
 }
 
-func (k *K8sWatcher) networkPolicyEventLoop(synced *atomic.Bool) {
+func (k *K8sWatcher) networkPolicyEventLoop(ctx context.Context, synced *atomic.Bool) {
 	apiGroup := k8sAPIGroupNetworkingV1Core
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	events := k.resources.NetworkPolicies.Events(ctx)
 	for {
 		select {
-		case <-k.stop:
-			cancel()
 		case event, ok := <-events:
 			if !ok {
 				return
