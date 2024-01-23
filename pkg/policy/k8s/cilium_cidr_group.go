@@ -11,7 +11,6 @@ import (
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -24,8 +23,7 @@ func (p *PolicyWatcher) onUpsertCIDRGroup(
 	cidrGroup *cilium_v2_alpha1.CiliumCIDRGroup,
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	cnpCache map[resource.Key]*types.SlimCNP,
-	cs client.Clientset,
-	apiGroup, metricLabel string,
+	apiGroup string,
 ) error {
 
 	defer func() {
@@ -40,7 +38,7 @@ func (p *PolicyWatcher) onUpsertCIDRGroup(
 	cidrGroupCpy := cidrGroup.DeepCopy()
 	cidrGroupCache[cidrGroup.Name] = cidrGroupCpy
 
-	err := p.updateCIDRGroupRefPolicies(cidrGroup.Name, cidrGroupCache, cnpCache, cs)
+	err := p.updateCIDRGroupRefPolicies(cidrGroup.Name, cidrGroupCache, cnpCache)
 
 	return err
 }
@@ -49,12 +47,11 @@ func (p *PolicyWatcher) onDeleteCIDRGroup(
 	cidrGroupName string,
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	cnpCache map[resource.Key]*types.SlimCNP,
-	cs client.Clientset,
-	apiGroup, metricLabel string,
+	apiGroup string,
 ) error {
 	delete(cidrGroupCache, cidrGroupName)
 
-	err := p.updateCIDRGroupRefPolicies(cidrGroupName, cidrGroupCache, cnpCache, cs)
+	err := p.updateCIDRGroupRefPolicies(cidrGroupName, cidrGroupCache, cnpCache)
 
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
@@ -65,7 +62,6 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 	cidrGroup string,
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	cnpCache map[resource.Key]*types.SlimCNP,
-	cs client.Clientset,
 ) error {
 	var errs []error
 	for key, cnp := range cnpCache {
@@ -100,7 +96,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 			cnpCpy.ObjectMeta.Namespace,
 			cnpCpy.ObjectMeta.Name,
 		)
-		err := p.updateCiliumNetworkPolicyV2(cs, cnpCpy, translatedCNP, initialRecvTime, resourceID)
+		err := p.updateCiliumNetworkPolicyV2(cnpCpy, translatedCNP, initialRecvTime, resourceID)
 		if err == nil {
 			cnpCache[key] = cnpCpy
 		}
