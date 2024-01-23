@@ -74,7 +74,6 @@ const (
 
 	metricKNP            = "NetworkPolicy"
 	metricNS             = "Namespace"
-	metricSecret         = "Secret"
 	metricCiliumNode     = "CiliumNode"
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
@@ -557,10 +556,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
 			k.endpointsInit()
-		case resources.K8sAPIGroupSecretV1Core:
-			swgSecret := lock.NewStoppableWaitGroup()
-			// only watch secrets in specific namespaces
-			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespaces, swgSecret)
 		// Custom resource definitions
 		case k8sAPIGroupCiliumNetworkPolicyV2, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, k8sAPIGroupCiliumCIDRGroupV2Alpha1:
 			cnpOnce.Do(func() { k.ciliumNetworkPoliciesInit(ctx, k.clientset) })
