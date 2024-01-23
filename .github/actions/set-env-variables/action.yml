@@ -9,3 +9,4 @@ runs:
         echo "QUAY_ORGANIZATION_DEV=cilium" >> $GITHUB_ENV
         # no prod yet
         echo "QUAY_CHARTS_ORGANIZATION_DEV=cilium-charts-dev" >> $GITHUB_ENV
+        echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results" >> $GITHUB_ENV
