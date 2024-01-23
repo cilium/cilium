@@ -36,7 +36,6 @@ env:
   # has stricter DNS naming requirements.
   test_name: scale-100
   cluster_base_name: ${{ github.run_id }}-${{ github.run_attempt }}.k8s.local
-  GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
 
 jobs:
   install-and-scaletest:
