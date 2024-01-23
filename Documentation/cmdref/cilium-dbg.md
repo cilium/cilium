@@ -32,6 +32,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium-dbg identity](cilium-dbg_identity.md)	 - Manage security identities
 * [cilium-dbg ip](cilium-dbg_ip.md)	 - Manage IP addresses and associated information
 * [cilium-dbg kvstore](cilium-dbg_kvstore.md)	 - Direct access to the kvstore
+* [cilium-dbg loadinfo](cilium-dbg_loadinfo.md)	 - Show load information
 * [cilium-dbg lrp](cilium-dbg_lrp.md)	 - Manage local redirect policies
 * [cilium-dbg map](cilium-dbg_map.md)	 - Access userspace cached content of BPF maps
 * [cilium-dbg metrics](cilium-dbg_metrics.md)	 - Access metric status
