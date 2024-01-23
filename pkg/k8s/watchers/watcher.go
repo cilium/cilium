@@ -67,14 +67,8 @@ const (
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 
-	metricKNP            = "NetworkPolicy"
-	metricNS             = "Namespace"
-	metricCiliumNode     = "CiliumNode"
-	metricCiliumEndpoint = "CiliumEndpoint"
-	metricCLRP           = "CiliumLocalRedirectPolicy"
-	metricCEGP           = "CiliumEgressGatewayPolicy"
-	metricPod            = "Pod"
-	metricNode           = "Node"
+	metricCLRP = "CiliumLocalRedirectPolicy"
+	metricPod  = "Pod"
 )
 
 func init() {
