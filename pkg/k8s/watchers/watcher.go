@@ -520,6 +520,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		CiliumNetworkPolicies:            k.resources.CiliumNetworkPolicies,
 		CiliumClusterwideNetworkPolicies: k.resources.CiliumClusterwideNetworkPolicies,
 		CiliumCIDRGroups:                 k.resources.CiliumCIDRGroups,
+		NetworkPolicies:                  k.resources.NetworkPolicies,
 	}
 	var cnpOnce sync.Once
 	var knpOnce sync.Once
@@ -536,7 +537,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			go k.ciliumNodeInit(ctx, asyncControllers)
 		// Kubernetes built-in resources
 		case k8sAPIGroupNetworkingV1Core:
-			knpOnce.Do(func() { k.networkPoliciesInit(ctx) })
+			knpOnce.Do(func() { p.networkPoliciesInit(ctx) })
 		case resources.K8sAPIGroupServiceV1Core:
 			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:

@@ -20,41 +20,35 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (k *K8sWatcher) networkPoliciesInit(ctx context.Context) {
+func (p *PolicyWatcher) networkPoliciesInit(ctx context.Context) {
 	var synced atomic.Bool
 	swg := lock.NewStoppableWaitGroup()
-	k.blockWaitGroupToSyncResources(ctx.Done(), swg, func() bool { return synced.Load() }, k8sAPIGroupNetworkingV1Core)
-	go k.networkPolicyEventLoop(ctx, &synced)
+	p.k8sResourceSynced.BlockWaitGroupToSyncResources(ctx.Done(), swg, func() bool { return synced.Load() }, k8sAPIGroupNetworkingV1Core)
+	go p.networkPolicyEventLoop(ctx, &synced)
 	swg.Wait()
-	k.k8sAPIGroups.AddAPI(k8sAPIGroupNetworkingV1Core)
+	p.k8sAPIGroups.AddAPI(k8sAPIGroupNetworkingV1Core)
 }
 
-func (k *K8sWatcher) networkPolicyEventLoop(ctx context.Context, synced *atomic.Bool) {
+func (p *PolicyWatcher) networkPolicyEventLoop(ctx context.Context, synced *atomic.Bool) {
 	apiGroup := k8sAPIGroupNetworkingV1Core
-	events := k.resources.NetworkPolicies.Events(ctx)
-	for {
-		select {
-		case event, ok := <-events:
-			if !ok {
-				return
-			}
-			var err error
-			switch event.Kind {
-			case resource.Sync:
-				synced.Store(true)
-			case resource.Upsert:
-				k.k8sResourceSynced.SetEventTimestamp(apiGroup)
-				err = k.addK8sNetworkPolicyV1(event.Object)
-			case resource.Delete:
-				k.k8sResourceSynced.SetEventTimestamp(apiGroup)
-				err = k.deleteK8sNetworkPolicyV1(event.Object)
-			}
-			event.Done(err)
+	events := p.NetworkPolicies.Events(ctx)
+	for event := range events {
+		var err error
+		switch event.Kind {
+		case resource.Sync:
+			synced.Store(true)
+		case resource.Upsert:
+			p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+			err = p.addK8sNetworkPolicyV1(event.Object)
+		case resource.Delete:
+			p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+			err = p.deleteK8sNetworkPolicyV1(event.Object)
 		}
+		event.Done(err)
 	}
 }
 
-func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
+func (p *PolicyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
 	rules, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
@@ -79,7 +73,7 @@ func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolic
 			k8sNP.ObjectMeta.Name,
 		),
 	}
-	if _, err := k.policyManager.PolicyAdd(rules, &opts); err != nil {
+	if _, err := p.policyManager.PolicyAdd(rules, &opts); err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
@@ -92,7 +86,7 @@ func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolic
 	return nil
 }
 
-func (k *K8sWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
+func (p *PolicyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
 	labels := k8s.GetPolicyLabelsv1(k8sNP)
 
 	if labels == nil {
@@ -105,7 +99,7 @@ func (k *K8sWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
 		logfields.Labels:               logfields.Repr(labels),
 	})
-	if _, err := k.policyManager.PolicyDelete(labels, &policy.DeleteOptions{
+	if _, err := p.policyManager.PolicyDelete(labels, &policy.DeleteOptions{
 		Source: source.Kubernetes,
 		Resource: ipcacheTypes.NewResourceID(
 			ipcacheTypes.ResourceKindNetpol,
