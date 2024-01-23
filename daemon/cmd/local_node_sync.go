@@ -184,8 +184,18 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 				node.SetCiliumInternalIP(net.ParseIP(addr.IP))
 			}
 		}
+
+		if ini.Config.EnableHealthChecking && ini.Config.EnableEndpointHealthChecking {
+			if ini.Config.EnableIPv4 {
+				node.IPv4HealthIP = net.ParseIP(k8sCiliumNode.Spec.HealthAddressing.IPv4)
+			}
+
+			if ini.Config.EnableIPv6 {
+				node.IPv6HealthIP = net.ParseIP(k8sCiliumNode.Spec.HealthAddressing.IPv6)
+			}
+		}
 	} else {
-		log.Info("no local ciliumnode found, will not restore cilium internal ips from k8s")
+		log.Info("no local ciliumnode found, will not restore cilium internal and health ips from k8s")
 	}
 	if ini.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(node.Labels)) {
 		log.WithField(logfields.Selector, ini.Config.NodeEncryptionOptOutLabels).

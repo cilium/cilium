@@ -308,58 +308,77 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 
 func (d *Daemon) allocateHealthIPs() error {
 	bootstrapStats.healthCheck.Start()
-	if option.Config.EnableHealthChecking && option.Config.EnableEndpointHealthChecking {
-		if option.Config.EnableIPv4 {
-			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health", ipam.PoolDefault())
+	defer bootstrapStats.healthCheck.End(true)
+	if !option.Config.EnableHealthChecking || !option.Config.EnableEndpointHealthChecking {
+		return nil
+	}
+	var healthIPv4, healthIPv6 net.IP
+	if option.Config.EnableIPv4 {
+		var result *ipam.AllocationResult
+		var err error
+		healthIPv4 = node.GetEndpointHealthIPv4()
+		if healthIPv4 != nil {
+			result, err = d.ipam.AllocateIPWithoutSyncUpstream(healthIPv4, "health", ipam.PoolDefault())
 			if err != nil {
-				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
-			}
-
-			// Coalescing multiple CIDRs. GH #18868
-			if option.Config.EnableIPv4Masquerade &&
-				option.Config.IPAM == ipamOption.IPAMENI &&
-				result != nil &&
-				len(result.CIDRs) > 0 {
-				result.CIDRs = coalesceCIDRs(result.CIDRs)
-			}
-
-			log.Debugf("IPv4 health endpoint address: %s", result.IP)
-			node.SetEndpointHealthIPv4(result.IP)
-
-			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
-			// in order to set up rules and routes on the local node to direct
-			// endpoint traffic out of the ENIs.
-			if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
-				var err error
-				if d.healthEndpointRouting, err = parseRoutingInfo(result); err != nil {
-					log.WithError(err).Warn("Unable to allocate health information for ENI")
-				}
+				log.WithError(err).WithField(logfields.IPv4, healthIPv4).
+					Warn("unable to re-allocate health IPv4, a new health IPv4 will be allocated")
+				healthIPv4 = nil
 			}
 		}
-
-		if option.Config.EnableIPv6 {
-			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault())
+		if healthIPv4 == nil {
+			result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "health", ipam.PoolDefault())
 			if err != nil {
-				if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
+				return fmt.Errorf("unable to allocate health IPv4: %s, see https://cilium.link/ipam-range-full", err)
+			}
+			node.SetEndpointHealthIPv4(result.IP)
+		}
+
+		// Coalescing multiple CIDRs. GH #18868
+		if option.Config.EnableIPv4Masquerade &&
+			option.Config.IPAM == ipamOption.IPAMENI &&
+			result != nil &&
+			len(result.CIDRs) > 0 {
+			result.CIDRs = coalesceCIDRs(result.CIDRs)
+		}
+
+		log.Debugf("IPv4 health endpoint address: %s", result.IP)
+
+		// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
+		// in order to set up rules and routes on the local node to direct
+		// endpoint traffic out of the ENIs.
+		if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+			if d.healthEndpointRouting, err = parseRoutingInfo(result); err != nil {
+				log.WithError(err).Warn("Unable to allocate health information for ENI")
+			}
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		var result *ipam.AllocationResult
+		var err error
+		healthIPv6 = node.GetEndpointHealthIPv6()
+		if healthIPv6 != nil {
+			result, err = d.ipam.AllocateIPWithoutSyncUpstream(healthIPv6, "health", ipam.PoolDefault())
+			if err != nil {
+				log.WithError(err).WithField(logfields.IPv6, healthIPv6).
+					Warn("unable to re-allocate health IPv6, a new health IPv6 will be allocated")
+				healthIPv6 = nil
+			}
+		}
+		if healthIPv6 == nil {
+			result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault())
+			if err != nil {
+				if healthIPv4 != nil {
 					d.ipam.ReleaseIP(healthIPv4, ipam.PoolDefault())
 					node.SetEndpointHealthIPv4(nil)
 				}
-				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
+				return fmt.Errorf("unable to allocate health IPv6: %s, see https://cilium.link/ipam-range-full", err)
 			}
-
-			// Coalescing multiple CIDRs. GH #18868
-			if option.Config.EnableIPv6Masquerade &&
-				option.Config.IPAM == ipamOption.IPAMENI &&
-				result != nil &&
-				len(result.CIDRs) > 0 {
-				result.CIDRs = coalesceCIDRs(result.CIDRs)
-			}
-
 			node.SetEndpointHealthIPv6(result.IP)
-			log.Debugf("IPv6 health endpoint address: %s", result.IP)
 		}
+
+		log.Debugf("IPv6 health endpoint address: %s", result.IP)
 	}
-	bootstrapStats.healthCheck.End(true)
 	return nil
 }
 
