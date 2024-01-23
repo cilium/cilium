@@ -652,12 +652,9 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponStop(c *C) {
 	// Need to modify global configuration (hooray!), change back when test is
 	// done.
 	oldQueueSize := option.Config.EndpointQueueSize
-	oldDryMode := option.Config.DryMode
 	option.Config.EndpointQueueSize = 1
-	option.Config.DryMode = true
 	defer func() {
 		option.Config.EndpointQueueSize = oldQueueSize
-		option.Config.DryMode = oldDryMode
 	}()
 
 	oldDatapath := s.datapath
@@ -669,6 +666,9 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponStop(c *C) {
 	}()
 
 	ep := NewTestEndpointWithState(c, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+
+	ep.properties[PropertyFakeEndpoint] = true
+	ep.properties[PropertySkipBPFPolicy] = true
 
 	// In case deadlock occurs, provide a timeout of 3 (number of events) *
 	// deadlockTimeout + 1 seconds to ensure that we are actually testing for

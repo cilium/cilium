@@ -63,6 +63,10 @@ func checkLink(linkName string) error {
 // Returns true to indicate that the endpoint is valid to restore, and an
 // optional error.
 func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error) {
+	if ep.IsProperty(endpoint.PropertyFakeEndpoint) {
+		return true, nil
+	}
+
 	// On each restart, the health endpoint is supposed to be recreated.
 	// Hence we need to clean health endpoint state unconditionally.
 	if ep.HasLabels(labels.LabelHealth) {

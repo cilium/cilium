@@ -140,6 +140,10 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		ep.setState(State(*base.State), "Endpoint creation")
 	}
 
+	if base.Properties != nil {
+		ep.properties = base.Properties
+	}
+
 	return ep, nil
 }
 

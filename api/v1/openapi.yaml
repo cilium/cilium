@@ -1545,6 +1545,13 @@ definitions:
         type: boolean
       datapath-configuration:
         "$ref": "#/definitions/EndpointDatapathConfiguration"
+      properties:
+        description: >-
+          Properties is used to store information about the endpoint at
+          creation.
+          Useful for tests.
+        additionalProperties:
+          type: object
   EndpointBatchDeleteRequest:
     description: |
       Properties selecting a batch of endpoints to delete.

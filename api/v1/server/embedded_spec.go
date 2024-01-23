@@ -2950,6 +2950,12 @@ func init() {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"
         },
+        "properties": {
+          "description": "Properties is used to store information about the endpoint at creation. Useful for tests.",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
         "state": {
           "description": "Current state of endpoint",
           "$ref": "#/definitions/EndpointState"
@@ -8816,6 +8822,12 @@ func init() {
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"
+        },
+        "properties": {
+          "description": "Properties is used to store information about the endpoint at creation. Useful for tests.",
+          "additionalProperties": {
+            "type": "object"
+          }
         },
         "state": {
           "description": "Current state of endpoint",
