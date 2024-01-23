@@ -39,7 +39,6 @@ env:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
   k8s_version: 1.28
-  GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
 
 jobs:
   installation-and-perf:
