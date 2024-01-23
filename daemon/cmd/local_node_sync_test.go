@@ -134,9 +134,14 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 	lni := &localNodeSynchronizer{
 		localNodeSynchronizerParams: localNodeSynchronizerParams{
 			Config: &option.DaemonConfig{
-				IPv4NodeAddr:               "auto",
-				IPv6NodeAddr:               "auto",
-				NodeEncryptionOptOutLabels: k8sLabels.NewSelector(),
+				IPv4NodeAddr:                 "auto",
+				IPv6NodeAddr:                 "auto",
+				IPv6ClusterAllocCIDRBase:     "fd00::",
+				EnableIPv4:                   true,
+				EnableIPv6:                   true,
+				EnableHealthChecking:         true,
+				EnableEndpointHealthChecking: true,
+				NodeEncryptionOptOutLabels:   k8sLabels.NewSelector(),
 			},
 			K8sLocalNode: &mockResource[*slim_corev1.Node]{
 				items: []resource.Event[*slim_corev1.Node]{
@@ -178,6 +183,10 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 										IP:   "fd00:10:244:1::aaa6",
 									},
 								},
+								HealthAddressing: v2.HealthAddressingSpec{
+									IPv4: "10.0.0.2",
+									IPv6: "fd00:10:244:1::aaa7",
+								},
 							},
 						},
 						Done: func(err error) {},
@@ -195,6 +204,8 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "10.0.0.1", n.GetCiliumInternalIP(false).String())
 	assert.Equal(t, "fd00:10:244:1::aaa6", n.GetCiliumInternalIP(true).String())
+	assert.Equal(t, "10.0.0.2", n.IPv4HealthIP.String())
+	assert.Equal(t, "fd00:10:244:1::aaa7", n.IPv6HealthIP.String())
 	assert.Equal(t, n.Name, "test-node")
 }
 
