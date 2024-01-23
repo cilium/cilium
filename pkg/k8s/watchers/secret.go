@@ -9,17 +9,9 @@ import (
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_entensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
-	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
@@ -30,67 +22,6 @@ const (
 	// as 'tls.crt' and 'tls.key' are via k8s tls secret type.
 	caCrtAttribute = "ca.crt"
 )
-
-func (k *K8sWatcher) tlsSecretInit(slimClient slimclientset.Interface, namespaces []string, swgSecrets *lock.StoppableWaitGroup) {
-	// Watch for all Secret types
-	secretOptsModifier := func(options *metav1.ListOptions) {}
-
-	apiGroup := resources.K8sAPIGroupSecretV1Core
-	for _, ns := range uniq(namespaces) {
-		_, secretController := informer.NewInformer(
-			utils.ListerWatcherWithModifier(
-				utils.ListerWatcherFromTyped[*slim_corev1.SecretList](slimClient.CoreV1().Secrets(ns)),
-				secretOptsModifier),
-			&slim_corev1.Secret{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					var valid, equal bool
-					defer func() {
-						k.K8sEventReceived(apiGroup, metricSecret, resources.MetricCreate, valid, equal)
-					}()
-					if k8sSecret := k8s.CastInformerEvent[slim_corev1.Secret](obj); k8sSecret != nil {
-						valid = true
-						err := k.addK8sSecretV1(k8sSecret)
-						k.K8sEventProcessed(metricSecret, resources.MetricCreate, err == nil)
-					}
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					var valid, equal bool
-					defer func() { k.K8sEventReceived(apiGroup, metricSecret, resources.MetricUpdate, valid, equal) }()
-					if oldSecret := k8s.CastInformerEvent[slim_corev1.Secret](oldObj); oldSecret != nil {
-						if newSecret := k8s.CastInformerEvent[slim_corev1.Secret](newObj); newSecret != nil {
-							valid = true
-							if oldSecret.DeepEqual(newSecret) {
-								equal = true
-								return
-							}
-							err := k.updateK8sSecretV1(oldSecret, newSecret)
-							k.K8sEventProcessed(metricSecret, resources.MetricUpdate, err == nil)
-						}
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					var valid, equal bool
-					defer func() {
-						k.K8sEventReceived(apiGroup, metricSecret, resources.MetricDelete, valid, equal)
-					}()
-					k8sSecret := k8s.CastInformerEvent[slim_corev1.Secret](obj)
-					if k8sSecret == nil {
-						return
-					}
-					valid = true
-					err := k.deleteK8sSecretV1(k8sSecret)
-					k.K8sEventProcessed(metricSecret, resources.MetricDelete, err == nil)
-				},
-			},
-			nil,
-		)
-		k.blockWaitGroupToSyncResources(k.stop, swgSecrets, secretController.HasSynced, resources.K8sAPIGroupSecretV1Core)
-		go secretController.Run(k.stop)
-	}
-	k.k8sAPIGroups.AddAPI(apiGroup)
-}
 
 // addK8sSecretV1 performs Envoy upsert operation for newly added secret.
 func (k *K8sWatcher) addK8sSecretV1(secret *slim_corev1.Secret) error {
