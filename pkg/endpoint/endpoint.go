@@ -1324,6 +1324,39 @@ func (e *Endpoint) GetPod() *slim_corev1.Pod {
 	return e.pod.Load()
 }
 
+// CEPOwnerInterface contains the interface of an endpoint owner.
+type CEPOwnerInterface interface {
+	// IsNil returns true or false if the object is nil.
+	IsNil() bool
+
+	// GetAPIVersion returns the API version of the owner.
+	GetAPIVersion() string
+
+	// GetKind returns the Kind of the owner.
+	GetKind() string
+
+	// GetNamespace returns the namespace where the owner lives.
+	GetNamespace() string
+
+	// GetName returns the owners' name.
+	GetName() string
+
+	// GetLabels returns the labels of the owner.
+	GetLabels() map[string]string
+
+	// GetUID returns the owners' UID.
+	GetUID() k8sTypes.UID
+
+	// GetHostIP returns the owners' host IP.
+	GetHostIP() string
+}
+
+// GetCEPOwner retrieves the cep owner related to this endpoint which will be,
+// by default, the pod associated with this endpoint.
+func (e *Endpoint) GetCEPOwner() CEPOwnerInterface {
+	return e.GetPod()
+}
+
 // SetK8sMetadata sets the k8s container ports specified by kubernetes.
 // Note that once put in place, the new k8sPorts is never changed,
 // so that the map can be used concurrently without keeping locks.

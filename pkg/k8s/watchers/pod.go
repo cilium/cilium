@@ -475,8 +475,8 @@ func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoin
 		controller.ControllerParams{
 			Group: ciliumEndpointSyncPodLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) (err error) {
-				pod := ep.GetPod()
-				if pod == nil {
+				cepOwner := ep.GetCEPOwner()
+				if cepOwner.IsNil() {
 					err := errors.New("Skipping CiliumEndpoint update because it has no k8s pod")
 					scopedLog.WithFields(logrus.Fields{
 						logfields.EndpointID: ep.GetID(),
@@ -500,7 +500,7 @@ func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoin
 					return err
 				}
 
-				_, err = ciliumClient.CiliumEndpoints(pod.GetNamespace()).Patch(
+				_, err = ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Patch(
 					ctx, ep.GetK8sCEPName(),
 					types.JSONPatchType,
 					labelsPatch,
