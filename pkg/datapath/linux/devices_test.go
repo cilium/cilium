@@ -91,7 +91,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 		devices, err := dm.Detect(false)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string(nil))
+		c.Assert(len(devices), checker.Equals, 0)
 		dm.Stop()
 
 		// 2. Nodeport, detection is performed:
@@ -113,7 +113,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		nodeSetIP(net.ParseIP("192.168.0.1"))
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
 
-		dm, err = newDeviceManagerForTests()
+		dm, err = newDeviceManagerForTests("dummy0")
 		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
@@ -242,15 +242,15 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 
 		// 1. Check expansion works and non-matching prefixes are ignored
 		option.Config.DirectRoutingDevice = "dummy0"
-		dm, err := newDeviceManagerForTests()
+		dm, err := newDeviceManagerForTests("dummy0", "other+", "dummy1")
 		c.Assert(err, IsNil)
 		devs, err := dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devs, checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
 		dm.Stop()
 
-		// 2. Check that expansion fails if devices are specified but yields empty expansion
-		dm, err = newDeviceManagerForTests()
+		// 2. Check that detect fails if we don't find devices
+		dm, err = newDeviceManagerForTests("nope+")
 		c.Assert(err, IsNil)
 		_, err = dm.Detect(true)
 		c.Assert(err, NotNil)
@@ -270,7 +270,11 @@ func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 
 		// 1. Check expansion works and non-matching prefixes are ignored
 		option.Config.DirectRoutingDevice = "dummy+"
-		dm, err := newDeviceManagerForTests()
+		dm, err := newDeviceManagerForTests(
+			"dummy+", "missing+", "other0+",
+			/* duplicates: */
+			"dum+", "other0", "other1",
+		)
 		c.Assert(err, IsNil)
 		_, err = dm.Detect(true)
 		c.Assert(err, IsNil)
@@ -487,7 +491,7 @@ func delRoutes(iface string) error {
 	return nil
 }
 
-func newDeviceManagerForTests() (dm *DeviceManager, err error) {
+func newDeviceManagerForTests(devs ...string) (dm *DeviceManager, err error) {
 	ns, _ := netns.Get()
 	h := hive.New(
 		statedb.Cell,
@@ -496,6 +500,10 @@ func newDeviceManagerForTests() (dm *DeviceManager, err error) {
 		cell.Invoke(func(dm_ *DeviceManager) {
 			dm = dm_
 		}))
+	hive.AddConfigOverride(h,
+		func(cfg *DevicesConfig) {
+			cfg.Devices = devs
+		})
 	err = h.Start(context.TODO())
 	dm.hive = h
 	return

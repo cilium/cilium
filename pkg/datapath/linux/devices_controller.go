@@ -57,7 +57,7 @@ var DevicesControllerCell = cell.Module(
 		newDevicesController,
 		newDeviceManager,
 	),
-	cell.Config(&DevicesConfig{}),
+	cell.Config(DevicesConfig{}),
 
 	// Always construct the devices controller. We provide the
 	// *devicesController for DeviceManager, but once it has been removed,
@@ -66,8 +66,11 @@ var DevicesControllerCell = cell.Module(
 	cell.Invoke(func(*devicesController) {}),
 )
 
-func (c *DevicesConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
+func (def DevicesConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice(
+		option.Devices,
+		def.Devices,
+		"List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
 }
 
 var (
@@ -97,7 +100,7 @@ type DevicesConfig struct {
 type devicesControllerParams struct {
 	cell.In
 
-	Config      *DevicesConfig
+	Config      DevicesConfig
 	Log         logrus.FieldLogger
 	DB          *statedb.DB
 	DeviceTable statedb.RWTable[*tables.Device]

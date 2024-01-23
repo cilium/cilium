@@ -1356,16 +1356,15 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Provide(func() DevicesConfig {
-			return DevicesConfig{
-				Devices: []string{"veth0"},
-			}
-		}),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
 			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
 		}),
 	)
+	hive.AddConfigOverride(h,
+		func(cfg *DevicesConfig) {
+			cfg.Devices = []string{"veth0"}
+		})
 
 	c.Assert(h.Start(context.TODO()), check.IsNil)
 	defer func() { c.Assert(h.Stop(context.TODO()), check.IsNil) }()
@@ -2309,15 +2308,16 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Provide(func() DevicesConfig {
-			return DevicesConfig{
-				Devices: []string{"veth0", "veth2", "veth4"},
-			}
-		}),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
 			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
 		}),
+	)
+	hive.AddConfigOverride(
+		h,
+		func(cfg *DevicesConfig) {
+			cfg.Devices = []string{"veth0", "veth2", "veth4"}
+		},
 	)
 
 	prevNP := option.Config.EnableNodePort
@@ -2639,15 +2639,16 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Provide(func() DevicesConfig {
-			return DevicesConfig{
-				Devices: []string{"veth0"},
-			}
-		}),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
 			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
 		}),
+	)
+	hive.AddConfigOverride(
+		h,
+		func(cfg *DevicesConfig) {
+			cfg.Devices = []string{"veth0"}
+		},
 	)
 
 	c.Assert(h.Start(context.TODO()), check.IsNil)
@@ -3593,16 +3594,16 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
-		cell.Provide(func() DevicesConfig {
-			return DevicesConfig{
-				Devices: []string{"veth0", "veth2", "veth4"},
-			}
-		}),
 		cell.Invoke(func(db *statedb.DB, devices statedb.Table[*tables.Device]) {
 			dpConfig := DatapathConfiguration{HostDevice: "veth0"}
 			linuxNodeHandler = NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap(), &s.mtuConfig, db, devices)
 		}),
 	)
+	hive.AddConfigOverride(
+		h,
+		func(cfg *DevicesConfig) {
+			cfg.Devices = []string{"veth0", "veth2", "veth4"}
+		})
 
 	prevNP := option.Config.EnableNodePort
 	defer func() { option.Config.EnableNodePort = prevNP }()
