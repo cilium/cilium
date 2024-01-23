@@ -239,9 +239,6 @@ type K8sWatcher struct {
 	// networkPoliciesInitOnce is used to guarantee only one call to NetworkPoliciesInit is
 	// executed.
 	networkPoliciesInitOnce sync.Once
-	// networkPoliciesStoreSet is closed once the networkpolicyStore is set.
-	networkPoliciesStoreSet chan struct{}
-	networkpolicyStore      cache.Store
 
 	cfg WatcherConfiguration
 
@@ -266,25 +263,24 @@ func NewK8sWatcher(
 	bandwidthManager datapath.BandwidthManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		clientset:               clientset,
-		K8sSvcCache:             serviceCache,
-		endpointManager:         endpointManager,
-		nodeDiscoverManager:     nodeDiscoverManager,
-		policyManager:           policyManager,
-		policyRepository:        policyRepository,
-		svcManager:              svcManager,
-		ipcache:                 ipcache,
-		controllersStarted:      make(chan struct{}),
-		stop:                    make(chan struct{}),
-		podStoreSet:             make(chan struct{}),
-		networkPoliciesStoreSet: make(chan struct{}),
-		datapath:                datapath,
-		redirectPolicyManager:   redirectPolicyManager,
-		bgpSpeakerManager:       bgpSpeakerManager,
-		cgroupManager:           cgroupManager,
-		bandwidthManager:        bandwidthManager,
-		cfg:                     cfg,
-		resources:               resources,
+		clientset:             clientset,
+		K8sSvcCache:           serviceCache,
+		endpointManager:       endpointManager,
+		nodeDiscoverManager:   nodeDiscoverManager,
+		policyManager:         policyManager,
+		policyRepository:      policyRepository,
+		svcManager:            svcManager,
+		ipcache:               ipcache,
+		controllersStarted:    make(chan struct{}),
+		stop:                  make(chan struct{}),
+		podStoreSet:           make(chan struct{}),
+		datapath:              datapath,
+		redirectPolicyManager: redirectPolicyManager,
+		bgpSpeakerManager:     bgpSpeakerManager,
+		cgroupManager:         cgroupManager,
+		bandwidthManager:      bandwidthManager,
+		cfg:                   cfg,
+		resources:             resources,
 	}
 }
 
@@ -961,28 +957,6 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 	metrics.KubernetesEventReceived.WithLabelValues(scope, action, validStr, equalStr).Inc()
 
 	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
-}
-
-// GetStore returns the k8s cache store for the given resource name.
-// It's possible for valid resource names to return nil stores if that
-// watcher is not in use.
-// Objects gotten using returned stores should *not* be mutated as they
-// are references to internal k8s watcher store state.
-func (k *K8sWatcher) GetStore(name string) cache.Store {
-	switch name {
-	case "networkpolicy":
-		<-k.networkPoliciesStoreSet
-		return k.networkpolicyStore
-	case "pod":
-		// Wait for podStore to get initialized.
-		<-k.podStoreSet
-		// Access to podStore is protected by podStoreMU.
-		k.podStoreMU.RLock()
-		defer k.podStoreMU.RUnlock()
-		return k.podStore
-	default:
-		panic("no such store: " + name)
-	}
 }
 
 // initCiliumEndpointOrSlices intializes the ciliumEndpoints or ciliumEndpointSlice
