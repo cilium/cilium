@@ -1167,15 +1167,6 @@ const (
 	// Flag to enable BGP control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
 
-	// EnvoySecretsNamespace is the namespace having secrets used by CEC.
-	EnvoySecretsNamespace = "envoy-secrets-namespace"
-
-	// IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller.
-	IngressSecretsNamespace = "ingress-secrets-namespace"
-
-	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API.
-	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
-
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -3537,17 +3528,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
-
-	// Envoy secrets namespaces to watch
-	params := []string{EnvoySecretsNamespace, IngressSecretsNamespace, GatewayAPISecretsNamespace}
-	var nsList = make([]string, 0, len(params))
-	for _, param := range params {
-		ns := vp.GetString(param)
-		if ns != "" {
-			nsList = append(nsList, ns)
-		}
-	}
-	c.EnvoySecretNamespaces = nsList
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)

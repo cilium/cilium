@@ -510,7 +510,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.datapath,
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
-		d.envoyXdsServer,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,
