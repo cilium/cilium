@@ -4,6 +4,7 @@
 package ingestion
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -29,6 +31,7 @@ type Input struct {
 	GRPCRoutes      []gatewayv1alpha2.GRPCRoute
 	ReferenceGrants []gatewayv1beta1.ReferenceGrant
 	Services        []corev1.Service
+	ServiceImports  []mcsapiv1alpha1.ServiceImport
 }
 
 // GatewayAPI translates Gateway API resources into a model.
@@ -59,8 +62,8 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 		}
 
 		var httpRoutes []model.HTTPRoute
-		httpRoutes = append(httpRoutes, toHTTPRoutes(l, input.HTTPRoutes, input.Services, input.ReferenceGrants)...)
-		httpRoutes = append(httpRoutes, toGRPCRoutes(l, input.GRPCRoutes, input.Services, input.ReferenceGrants)...)
+		httpRoutes = append(httpRoutes, toHTTPRoutes(l, input.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
+		httpRoutes = append(httpRoutes, toGRPCRoutes(l, input.GRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 		resHTTP = append(resHTTP, model.HTTPListener{
 			Name: string(l.Name),
 			Sources: []model.FullyQualifiedResource{
@@ -94,7 +97,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			},
 			Port:           uint32(l.Port),
 			Hostname:       toHostname(l.Hostname),
-			Routes:         toTLSRoutes(l, input.TLSRoutes, input.Services, input.ReferenceGrants),
+			Routes:         toTLSRoutes(l, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
 			Infrastructure: infra,
 		})
 	}
@@ -102,7 +105,35 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 	return resHTTP, resTLS
 }
 
-func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, services []corev1.Service, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+func getBackendServiceName(namespace string, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
+	svcName := string(backendObjectReference.Name)
+
+	switch {
+	case helpers.IsService(backendObjectReference):
+		// We don't have to do anything here
+	case helpers.IsServiceImport(backendObjectReference):
+		svcImport := getServiceImport(string(backendObjectReference.Name), namespace, serviceImports)
+		if svcImport == nil {
+			return "", fmt.Errorf("Service Import %s/%s does not exists", string(backendObjectReference.Name), namespace)
+		}
+
+		var err error
+		svcName, err = helpers.GetServiceName(svcImport)
+		if err != nil {
+			return "", err
+		}
+
+	default:
+		return "", fmt.Errorf("Unsupported backend kind %s", *backendObjectReference.Kind)
+	}
+
+	if !serviceExists(svcName, namespace, services) {
+		return "", fmt.Errorf("Service %s/%s does not exist", svcName, namespace)
+	}
+	return svcName, nil
+}
+
+func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
 		isListener := false
@@ -132,8 +163,17 @@ func toHTTPRoutes(listener gatewayv1.Listener, input []gatewayv1.HTTPRoute, serv
 				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute"), grants) {
 					continue
 				}
-				if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
+				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
+				if err != nil {
 					continue
+				}
+				if svcName != string(be.Name) {
+					be = *be.DeepCopy()
+					be.BackendRef.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
+						Name:      gatewayv1beta1.ObjectName(svcName),
+						Port:      be.Port,
+						Namespace: be.Namespace,
+					}
 				}
 				if be.BackendRef.Port == nil {
 					// must have port for Service reference
@@ -234,7 +274,7 @@ func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
 	return res
 }
 
-func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPCRoute, services []corev1.Service, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
 		isListener := false
@@ -264,8 +304,17 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPC
 				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("GRPCRoute"), grants) {
 					continue
 				}
-				if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
+				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
+				if err != nil {
 					continue
+				}
+				if svcName != string(be.Name) {
+					be = *be.DeepCopy()
+					be.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
+						Name:      gatewayv1beta1.ObjectName(svcName),
+						Port:      be.Port,
+						Namespace: be.Namespace,
+					}
 				}
 				if be.BackendRef.Port == nil {
 					// must have port for Service reference
@@ -335,7 +384,7 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPC
 	return grpcRoutes
 }
 
-func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, grants []gatewayv1beta1.ReferenceGrant) []model.TLSRoute {
+func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.TLSRoute {
 	var tlsRoutes []model.TLSRoute
 	for _, r := range input {
 		isListener := false
@@ -365,8 +414,17 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRo
 				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1alpha2.SchemeGroupVersion.WithKind("TLSRoute"), grants) {
 					continue
 				}
-				if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
+				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
+				if err != nil {
 					continue
+				}
+				if svcName != string(be.Name) {
+					be = *be.DeepCopy()
+					be.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
+						Name:      gatewayv1beta1.ObjectName(svcName),
+						Port:      be.Port,
+						Namespace: be.Namespace,
+					}
 				}
 				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
 					bes = append(bes, backendToModelBackend(be, r.Namespace))
@@ -455,6 +513,15 @@ func serviceExists(svcName, svcNamespace string, services []corev1.Service) bool
 		}
 	}
 	return false
+}
+
+func getServiceImport(svcName, svcNamespace string, serviceImports []mcsapiv1alpha1.ServiceImport) *mcsapiv1alpha1.ServiceImport {
+	for _, svc := range serviceImports {
+		if svc.GetName() == svcName && svc.GetNamespace() == svcNamespace {
+			return &svc
+		}
+	}
+	return nil
 }
 
 func backendToModelBackend(be gatewayv1.BackendRef, defaultNamespace string) model.Backend {

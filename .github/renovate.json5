@@ -431,7 +431,6 @@
       ],
       "allowedVersions": "!/bpf-next-.*/",
       "matchBaseBranches": [
-        "main",
         "v1.15",
         "v1.14",
         "v1.13",
@@ -439,12 +438,11 @@
       ],
     },
     {
-      "groupName": "bpf-next lvh-images main",
-      "groupSlug": "bpf-next-lvh-images-main",
+      "groupName": "all lvh-images main",
+      "groupSlug": "all-lvh-images-main",
       "matchPackageNames": [
         "quay.io/lvh-images/kind"
       ],
-      "allowedVersions": "/bpf-next-.*/",
       "matchBaseBranches": [
         "main"
       ],

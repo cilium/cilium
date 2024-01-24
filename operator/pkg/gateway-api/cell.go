@@ -17,6 +17,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -82,6 +83,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
+	if err := registerMCSAPITypesToScheme(params.K8sClient, params.Scheme); err != nil {
+		return err
+	}
+
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
 		params.Config.GatewayAPISecretsNamespace,
@@ -114,32 +119,37 @@ func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrati
 	}
 }
 
-func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error {
+func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.GroupVersionKind) error {
 	if !clientset.IsEnabled() {
 		return nil
 	}
 
-	var res error
-
-	for _, gvk := range requiredGVK {
-		crd, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, gvk.GroupKind().String(), metav1.GetOptions{})
-		if err != nil {
-			res = errors.Join(res, err)
-			continue
-		}
-
-		found := false
-		for _, v := range crd.Spec.Versions {
-			if v.Name == gvk.Version {
-				found = true
-				break
-			}
-		}
-		if !found {
-			res = errors.Join(res, fmt.Errorf("CRD %q does not have version %q", gvk.GroupKind().String(), gvk.Version))
-		}
+	crd, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, gvk.GroupKind().String(), metav1.GetOptions{})
+	if err != nil {
+		return err
 	}
 
+	found := false
+	for _, v := range crd.Spec.Versions {
+		if v.Name == gvk.Version {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("CRD %q does not have version %q", gvk.GroupKind().String(), gvk.Version)
+	}
+
+	return nil
+}
+
+func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error {
+	var res error
+	for _, gvk := range requiredGVK {
+		if err := checkCRD(ctx, clientset, gvk); err != nil {
+			res = errors.Join(res, err)
+		}
+	}
 	return res
 }
 
@@ -174,6 +184,17 @@ func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) error {
 		if err := f(scheme); err != nil {
 			return fmt.Errorf("failed to add types from %s to scheme: %w", gv, err)
 		}
+	}
+
+	return nil
+}
+
+func registerMCSAPITypesToScheme(clientset k8sClient.Clientset, scheme *runtime.Scheme) error {
+	serviceImportSupport := checkCRD(context.Background(), clientset, mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceimports")) == nil
+	log.WithField("enabled", serviceImportSupport).
+		Info("Multi-cluster Service API ServiceImport GatewayAPI integration")
+	if serviceImportSupport {
+		return mcsapiv1alpha1.AddToScheme(scheme)
 	}
 
 	return nil

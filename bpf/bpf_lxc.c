@@ -49,7 +49,7 @@
 #include "lib/trace.h"
 #include "lib/csum.h"
 #include "lib/egress_gateway.h"
-#include "lib/egress_policies.h"
+#include "lib/srv6.h"
 #include "lib/encap.h"
 #include "lib/eps.h"
 #include "lib/nat.h"
@@ -516,9 +516,11 @@ ct_recreate6:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL_IPV6;
+		ct_state_new.proxy_redirect = proxy_port > 0;
+		ct_state_new.from_l7lb = from_l7lb;
+
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
-				 ext_err);
+				 CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 		trace.monitor = TRACE_PAYLOAD_LEN;
@@ -668,7 +670,7 @@ ct_recreate6:
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
 
-		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, ext_err, &oif);
+		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, 0, oif,
@@ -960,9 +962,11 @@ ct_recreate4:
 		/* We could avoid creating related entries for legacy ClusterIP
 		 * handling here, but turns out that verifier cannot handle it.
 		 */
+		ct_state_new.proxy_redirect = proxy_port > 0;
+		ct_state_new.from_l7lb = from_l7lb;
+
 		ret = ct_create4(ct_map, ct_related_map, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
-				 ext_err);
+				 CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -1229,7 +1233,7 @@ skip_vtep:
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
 
-		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, ext_err, &oif);
+		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, 0, oif,
@@ -1586,6 +1590,9 @@ skip_policy_enforcement:
 
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
+		ct_state_new.proxy_redirect = *proxy_port > 0;
+		ct_state_new.from_l7lb = false;
+
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
@@ -1593,7 +1600,7 @@ skip_policy_enforcement:
 		 * its error code.
 		 */
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx, CT_INGRESS,
-				 &ct_state_new, *proxy_port > 0, false, ext_err);
+				 &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1619,8 +1626,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
 	struct ipv6_ct_tuple tuple = {};
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
-	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
-	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
 	bool from_tunnel = false;
 	void *data, *data_end;
@@ -1628,12 +1635,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
 
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
-
 #ifdef HAVE_ENCAP
-	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
-	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
+	from_tunnel = ctx_load_and_clear_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -1694,7 +1697,7 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_ENDPOINT)
 int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool proxy_redirect __maybe_unused = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1743,7 +1746,6 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 #ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = ipv6_policy(ctx, ip6, 0, src_sec_identity, NULL, &ext_err,
 			  &proxy_port);
@@ -1949,6 +1951,9 @@ skip_policy_enforcement:
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
+		ct_state_new.proxy_redirect = *proxy_port > 0;
+		ct_state_new.from_l7lb = false;
+
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
@@ -1956,7 +1961,7 @@ skip_policy_enforcement:
 		 * its error code.
 		 */
 		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx, CT_INGRESS,
-				 &ct_state_new, *proxy_port > 0, false, ext_err);
+				 &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1982,8 +1987,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
 	struct ipv4_ct_tuple tuple = {};
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
-	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
-	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
 	bool from_tunnel = false;
 	void *data, *data_end;
@@ -1991,13 +1996,10 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	struct iphdr *ip4;
 	__s8 ext_err = 0;
 
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 0);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
 #ifdef HAVE_ENCAP
-	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
-	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
+	from_tunnel = ctx_load_and_clear_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -2135,7 +2137,7 @@ ipv4_to_endpoint_is_hairpin_flow(struct __ctx_buff *ctx, struct iphdr *ip4)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool proxy_redirect __maybe_unused = false;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -2178,7 +2180,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	/* Check if packet is locally hairpinned (pod reaching itself through a
 	 * service) and skip the policy check if that is the case. Otherwise, pods may

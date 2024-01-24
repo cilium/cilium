@@ -75,9 +75,24 @@ const (
 	// OldIdentity is a previously used security identity
 	OldIdentity = "oldIdentity"
 
+	// PolicyKey is a policy map key
+	PolicyKey = "policyKey"
+
+	// PolicyEntry is a policy map value
+	PolicyEntry = "policyEntry"
+
 	// PolicyRevision is the revision of the policy in the repository or of
 	// the object in question
 	PolicyRevision = "policyRevision"
+
+	// PolicyKeysAdded is a set of added policy map keys
+	PolicyKeysAdded = "policyKeysAdded"
+
+	// PolicyKeysDeleted is a set of deleted policy map keys
+	PolicyKeysDeleted = "policyKeysDeleted"
+
+	// PolicyEntriesOld is a set of old policy map keys and values
+	PolicyEntriesOld = "policyEntriesOld"
 
 	// DatapathPolicyRevision is the policy revision currently running in
 	// the datapath
@@ -352,6 +367,9 @@ const (
 
 	// Listener is the name of an Envoy Listener defined in CEC or CCEC
 	Listener = "listener"
+
+	// ListenerPriority is the priority of an Envoy Listener defined in CEC or CCEC
+	ListenerPriority = "listenerPriority"
 
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"

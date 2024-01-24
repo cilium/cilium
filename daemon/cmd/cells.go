@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -182,6 +183,10 @@ var (
 		// It is used to provide support for Ingress, GatewayAPI and L7 network policies (e.g. HTTP).
 		envoy.Cell,
 
+		// CiliumEnvoyConfig provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
+		// and L7 loadbalancing.
+		ciliumenvoyconfig.Cell,
+
 		// Cilium REST API handlers
 		restapi.Cell,
 
@@ -246,5 +251,4 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, swaggerSpec 
 		}
 	}
 	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
-
 }

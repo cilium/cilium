@@ -141,7 +141,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 		if ((__u32)oif == fib_params->l.ifindex)
 			return CTX_ACT_OK;
 
-		return fib_do_redirect(ctx, true, fib_params, ext_err, &oif);
+		return fib_do_redirect(ctx, true, fib_params, true, ext_err, &oif);
 	default:
 		return DROP_NO_FIB;
 	}
@@ -762,7 +762,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			       (union v6addr *)&ip6->daddr);
 	}
 
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -778,7 +778,6 @@ nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			  __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
-	struct ct_state ct_state = {};
 	__u32 monitor = 0;
 	int ret;
 
@@ -787,7 +786,7 @@ nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 	ret = ct_lazy_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,
 			      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_DSR,
-			      &ct_state, &monitor);
+			      NULL, &monitor);
 	switch (ret) {
 	case CT_NEW:
 	case CT_REOPENED:
@@ -797,8 +796,11 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
 		ct_state_new.dsr = 1;
+		ct_state_new.proxy_redirect = false;
+		ct_state_new.from_l7lb = false;
+
 		ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false, ext_err);
+				 CT_EGRESS, &ct_state_new, ext_err);
 		if (!IS_ERR(ret))
 			ret = snat_v6_create_dsr(tuple, addr, port, ext_err);
 
@@ -869,7 +871,7 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v6(ctx, l3_off, ip6, false, &ext_err, &oif);
+	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -900,7 +902,7 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, l3_off, ip4, false, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -932,6 +934,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__be16 src_port __maybe_unused = 0;
+	bool allow_neigh_map = true;
 	int ifindex = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -998,6 +1001,8 @@ encap_redirect:
 	if (ret == CTX_ACT_REDIRECT && ifindex)
 		return ctx_redirect(ctx, ifindex, 0);
 
+	/* neigh map doesn't contain DMACs for other nodes */
+	allow_neigh_map = false;
 	goto fib_ipv4;
 #endif
 
@@ -1024,7 +1029,7 @@ fib_ipv4:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
 declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
@@ -1257,7 +1262,7 @@ fib_ipv4:
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -1402,8 +1407,11 @@ redo:
 #ifndef HAVE_FIB_IFINDEX
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
+			ct_state_new.proxy_redirect = false;
+			ct_state_new.from_l7lb = false;
+
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false, false, ext_err);
+					 CT_EGRESS, &ct_state_new, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 			break;
@@ -1468,7 +1476,6 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	struct lb6_reverse_nat *nat_info;
 	struct ipv6_ct_tuple tuple = {};
-	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int ret, l4_off;
@@ -1502,7 +1509,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
 			      SCOPE_REVERSE, CT_ENTRY_NODEPORT | CT_ENTRY_DSR,
-			      &ct_state, &trace->monitor);
+			      NULL, &trace->monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
@@ -2273,7 +2280,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -2289,7 +2296,6 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			  __be32 addr, __be16 port, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
-	struct ct_state ct_state = {};
 	__u32 monitor = 0;
 	int ret;
 
@@ -2298,7 +2304,7 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 	ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, ipv4_is_fragment(ip4),
 			      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
-			      CT_ENTRY_DSR, &ct_state, &monitor);
+			      CT_ENTRY_DSR, NULL, &monitor);
 	switch (ret) {
 	case CT_NEW:
 	/* Maybe we can be a bit more selective about CT_REOPENED?
@@ -2315,8 +2321,11 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
 		ct_state_new.dsr = 1;
+		ct_state_new.proxy_redirect = 0;
+		ct_state_new.from_l7lb = 0;
+
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false, ext_err);
+				 CT_EGRESS, &ct_state_new, ext_err);
 		if (!IS_ERR(ret))
 			ret = snat_v4_create_dsr(tuple, addr, port, ext_err);
 
@@ -2398,6 +2407,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct iphdr *ip4;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	bool allow_neigh_map = true;
 	bool check_revdnat = true;
 	bool has_l4_header;
 
@@ -2478,6 +2488,9 @@ redirect:
 
 		if (ret == CTX_ACT_REDIRECT && ifindex)
 			return ctx_redirect(ctx, ifindex, 0);
+
+		/* neigh map doesn't contain DMACs for other nodes */
+		allow_neigh_map = false;
 	}
 #endif
 
@@ -2487,7 +2500,7 @@ redirect:
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
+	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
 declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
@@ -2729,7 +2742,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect(ctx, true, &fib_params, false, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -2920,8 +2933,11 @@ redo:
 #ifndef HAVE_FIB_IFINDEX
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif
+			ct_state_new.proxy_redirect = false;
+			ct_state_new.from_l7lb = false;
+
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false, false, ext_err);
+					 CT_EGRESS, &ct_state_new, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 			break;
@@ -3062,7 +3078,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
-	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -3070,8 +3086,6 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	enum trace_point obs_point;
 	int ret;
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
@@ -3123,9 +3137,7 @@ static __always_inline int
 handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		    __s8 *ext_err)
 {
-	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
+	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 
 	return __handle_nat_fwd_ipv4(ctx, cluster_id, trace, ext_err);
 }

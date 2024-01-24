@@ -1246,7 +1246,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		}
 
 		if n.enableNeighDiscovery {
-			var neighDiscoveryLinks []netlink.Link
+			neighDiscoveryLinks := make([]netlink.Link, 0, len(ifaceNames))
 			for _, ifaceName := range ifaceNames {
 				l, err := netlink.LinkByName(ifaceName)
 				if err != nil {
@@ -1284,8 +1284,9 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) &&
 			len(option.Config.IPv4PodSubnets) == 0 {
 			if info := node.GetRouterInfo(); info != nil {
-				var ipv4PodSubnets []*net.IPNet
-				for _, c := range info.GetIPv4CIDRs() {
+				ipv4CIDRs := info.GetIPv4CIDRs()
+				ipv4PodSubnets := make([]*net.IPNet, 0, len(ipv4CIDRs))
+				for _, c := range ipv4CIDRs {
 					cidr := c // create a copy to be able to take a reference
 					ipv4PodSubnets = append(ipv4PodSubnets, &cidr)
 				}
@@ -1298,8 +1299,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		}
 		n.registerIpsecMetricOnce()
 	} else {
-		err := n.removeEncryptRules()
-		if err != nil {
+		if err := n.removeEncryptRules(); err != nil {
 			log.WithError(err).Warning("Cannot cleanup previous encryption rule state.")
 		}
 		if err := ipsec.DeleteXfrm(); err != nil {
@@ -1323,12 +1323,12 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 
 func filterL2Devices(devices []string) ([]string, error) {
 	// Eliminate duplicates
-	deviceSets := make(map[string]struct{})
+	deviceSets := make(map[string]struct{}, len(devices))
 	for _, d := range devices {
 		deviceSets[d] = struct{}{}
 	}
 
-	var l2devices []string
+	l2devices := make([]string, 0, len(deviceSets))
 	for k := range deviceSets {
 		mac, err := link.GetHardwareAddr(k)
 		if err != nil {
@@ -1347,6 +1347,10 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.N
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
+	if !n.isInitialized {
+		return nil
+	}
+
 	return n.nodeUpdate(nil, &nodeToValidate, false)
 }
 
@@ -1355,6 +1359,10 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.N
 func (n *linuxNodeHandler) AllNodeValidateImplementation() {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
+
+	if !n.isInitialized {
+		return
+	}
 
 	var errs error
 	for _, updateNode := range n.nodes {
@@ -1558,7 +1566,7 @@ func storeNeighLink(dir string, names []string) error {
 	}
 	defer f.Close()
 
-	var nls []NeighLink
+	nls := make([]NeighLink, 0, len(names))
 	for _, name := range names {
 		nls = append(nls, NeighLink{Name: name})
 	}
@@ -1588,14 +1596,14 @@ func loadNeighLink(dir string) ([]string, error) {
 		}
 	}
 
-	var nls []NeighLink
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
+	var nls []NeighLink
 	if err := json.NewDecoder(f).Decode(&nls); err != nil {
 		return nil, fmt.Errorf("unable to decode '%s': %w", configFileName, err)
 	}
-	var names []string
+	names := make([]string, 0, len(nls))
 	for _, nl := range nls {
 		names = append(names, nl.Name)
 	}

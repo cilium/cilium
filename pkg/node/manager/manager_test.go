@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -42,43 +43,6 @@ func Test(t *testing.T) {
 type managerTestSuite struct{}
 
 var _ = check.Suite(&managerTestSuite{})
-
-type configMock struct {
-	Tunneling          bool
-	RemoteNodeIdentity bool
-	NodeEncryption     bool
-	Encryption         bool
-
-	LocalRouterIPv4 string
-	LocalRouterIPv6 string
-
-	EnableIPv4Masquerade bool
-	EnableIPv6Masquerade bool
-}
-
-func (c *configMock) TunnelingEnabled() bool {
-	return c.Tunneling
-}
-
-func (c *configMock) RemoteNodeIdentitiesEnabled() bool {
-	return c.RemoteNodeIdentity
-}
-
-func (c *configMock) NodeEncryptionEnabled() bool {
-	return c.NodeEncryption
-}
-
-func (c *configMock) EncryptionEnabled() bool {
-	return c.Encryption
-}
-
-func (c *configMock) IsLocalRouterIP(ip string) bool {
-	return ip != "" && (c.LocalRouterIPv4 == ip || c.LocalRouterIPv6 == ip)
-}
-
-func (c *configMock) NodeIpsetNeeded() bool {
-	return !c.Tunneling && (c.EnableIPv4Masquerade || c.EnableIPv6Masquerade)
-}
 
 type nodeEvent struct {
 	event  string
@@ -276,7 +240,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	mngr.Subscribe(dp)
 	c.Assert(err, check.IsNil)
 
@@ -348,7 +312,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -430,7 +394,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fake.NewNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -451,7 +415,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fake.NewNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -483,7 +447,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	mngr.Subscribe(signalNodeHandler)
 	c.Assert(err, check.IsNil)
 	defer mngr.Stop(context.TODO())
@@ -527,7 +491,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 func (s *managerTestSuite) TestIpcache(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -575,7 +539,7 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -651,7 +615,7 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{RemoteNodeIdentity: true}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{EnableRemoteNodeIdentity: true}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -727,7 +691,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{NodeEncryption: true, Encryption: true}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{EncryptNode: true, EnableIPSec: true}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -822,7 +786,7 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := New(&configMock{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -918,7 +882,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 
 	baseBackgroundSyncInterval = 1 * time.Millisecond
 	hp := cell.NewHealthProvider()
-	m, err := New(&configMock{}, newIPcacheMock(), newIPSetMock(), NewNodeMetrics(), cell.TestScopeFromProvider(cell.FullModuleID{"test"}, hp))
+	m, err := New(&option.DaemonConfig{}, newIPcacheMock(), newIPSetMock(), NewNodeMetrics(), cell.TestScopeFromProvider(cell.FullModuleID{"test"}, hp))
 	assert.NoError(err)
 
 	m.nodes[nodeTypes.Identity{
@@ -980,7 +944,7 @@ func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := New(&configMock{LocalRouterIPv4: "169.254.4.6"}, ipcache, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	mngr, err := New(&option.DaemonConfig{LocalRouterIPv4: "169.254.4.6"}, ipcache, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1075,11 +1039,8 @@ func (s *managerTestSuite) TestNodeIpset(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := New(&configMock{
-		// Tunneling and EnableIPv4Masquerade are disabled and enabled,
-		// respectively, to make sure we update the ipset in the
-		// manager (see NodeIpsetNeeded()).
-		Tunneling:            false,
+	mngr, err := New(&option.DaemonConfig{
+		RoutingMode:          option.RoutingModeNative,
 		EnableIPv4Masquerade: true,
 	}, newIPcacheMock(), newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	mngr.Subscribe(dp)

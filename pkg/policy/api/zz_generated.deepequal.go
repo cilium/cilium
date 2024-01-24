@@ -831,6 +831,9 @@ func (in *Listener) DeepEqual(other *Listener) bool {
 	if in.Name != other.Name {
 		return false
 	}
+	if in.Priority != other.Priority {
+		return false
+	}
 
 	return true
 }

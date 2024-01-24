@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"reflect"
 	"regexp"
@@ -29,8 +28,7 @@ const (
 )
 
 var (
-	countErrors int
-	regex       = regexp.MustCompile("oseq[[:blank:]]0[xX]([[:xdigit:]]+)")
+	regex = regexp.MustCompile("oseq[[:blank:]]0[xX]([[:xdigit:]]+)")
 )
 
 var encryptStatusCmd = &cobra.Command{
@@ -38,7 +36,17 @@ var encryptStatusCmd = &cobra.Command{
 	Short: "Display the current encryption state",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium encrypt status")
-		getEncryptionMode()
+		status, err := getEncryptionStatus()
+		if err != nil {
+			Fatalf("Cannot get daemon encryption status: %s", err)
+		}
+		if command.OutputOption() {
+			if err := command.PrintOutput(status); err != nil {
+				Fatalf("error getting output in JSON: %s\n", err)
+			}
+		} else {
+			printEncryptionStatus(status)
+		}
 	},
 }
 
@@ -47,34 +55,103 @@ func init() {
 	command.AddOutputOption(encryptStatusCmd)
 }
 
-func getXfrmStats(mountPoint string) (int, map[string]int) {
+func getEncryptionStatus() (models.EncryptionStatus, error) {
+	params := daemon.NewGetHealthzParamsWithTimeout(timeout)
+	params.SetBrief(&brief)
+	resp, err := client.Daemon.GetHealthz(params)
+	if err != nil {
+		return models.EncryptionStatus{}, err
+	}
+
+	enc := resp.Payload.Encryption
+	switch enc.Mode {
+	case models.EncryptionStatusModeIPsec:
+		return dumpIPsecStatus()
+	case models.EncryptionStatusModeWireguard:
+		return dumpWireGuardStatus(enc), nil
+	}
+	return models.EncryptionStatus{Mode: models.EncryptionStatusModeDisabled}, nil
+}
+
+func dumpIPsecStatus() (models.EncryptionStatus, error) {
+	status := models.EncryptionStatus{
+		Mode:  models.EncryptionStatusModeIPsec,
+		Ipsec: &models.IPsecStatus{},
+	}
+	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		return models.EncryptionStatus{}, fmt.Errorf("cannot get xfrm state: %s", err)
+	}
+	keys, err := ipsec.CountUniqueIPsecKeys(xfrmStates)
+	if err != nil {
+		return models.EncryptionStatus{}, fmt.Errorf("error counting IPsec keys: %s\n", err)
+	}
+	status.Ipsec.KeysInUse = int64(keys)
+	decryptInts, err := getDecryptionInterfaces()
+	if err != nil {
+		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec decryption interfaces: %s\n", err)
+	}
+	status.Ipsec.DecryptInterfaces = decryptInts
+	seqNum, err := maxSequenceNumber()
+	if err != nil {
+		return models.EncryptionStatus{}, fmt.Errorf("error getting IPsec max sequence number: %s\n", err)
+	}
+	status.Ipsec.MaxSeqNumber = seqNum
+	errCount, errMap, err := getXfrmStats("")
+	if err != nil {
+		return models.EncryptionStatus{}, fmt.Errorf("error getting xfrm stats: %s\n", err)
+	}
+	status.Ipsec.ErrorCount = errCount
+	status.Ipsec.XfrmErrors = errMap
+	return status, nil
+}
+
+func dumpWireGuardStatus(p *models.EncryptionStatus) models.EncryptionStatus {
+	status := models.EncryptionStatus{
+		Mode: models.EncryptionStatusModeWireguard,
+		Wireguard: &models.WireguardStatus{
+			Interfaces: make([]*models.WireguardInterface, 0),
+		},
+	}
+	for _, wg := range p.Wireguard.Interfaces {
+		status.Wireguard.Interfaces = append(status.Wireguard.Interfaces, &models.WireguardInterface{
+			Name:      wg.Name,
+			PublicKey: wg.PublicKey,
+			PeerCount: wg.PeerCount,
+		})
+	}
+	return status
+}
+
+func getXfrmStats(mountPoint string) (int64, map[string]int64, error) {
 	fs, err := procfs.NewDefaultFS()
 	if mountPoint != "" {
 		fs, err = procfs.NewFS(mountPoint)
 	}
 	if err != nil {
-		Fatalf("Cannot get a new proc FS: %s", err)
+		return 0, nil, fmt.Errorf("cannot get a new proc FS: %s", err)
 	}
 	stats, err := fs.NewXfrmStat()
 	if err != nil {
-		Fatalf("Failed to read xfrm statistics: %s", err)
+		return 0, nil, fmt.Errorf("failed to read xfrm statistics: %s", err)
 	}
 	v := reflect.ValueOf(stats)
-	errorMap := make(map[string]int)
+	countErrors := int64(0)
+	errorMap := make(map[string]int64)
 	if v.Type().Kind() == reflect.Struct {
 		for i := 0; i < v.NumField(); i++ {
 			name := v.Type().Field(i).Name
 			value := v.Field(i).Interface().(int)
 			if value != 0 {
-				countErrors += value
-				errorMap[name] = value
+				countErrors += int64(value)
+				errorMap[name] = int64(value)
 			}
 		}
 	}
-	return countErrors, errorMap
+	return countErrors, errorMap, nil
 }
 
-func extractMaxSequenceNumber(ipOutput string) int64 {
+func extractMaxSequenceNumber(ipOutput string) (int64, error) {
 	maxSeqNum := int64(0)
 	lines := strings.Split(ipOutput, "\n")
 	for _, line := range lines {
@@ -82,7 +159,7 @@ func extractMaxSequenceNumber(ipOutput string) int64 {
 		if matched != nil {
 			oseq, err := strconv.ParseInt(line[matched[2]:matched[3]], 16, 64)
 			if err != nil {
-				Fatalf("Failed to parse sequence number '%s': %s",
+				return 0, fmt.Errorf("failed to parse sequence number '%s': %s",
 					line[matched[2]:matched[3]], err)
 			}
 			if oseq > maxSeqNum {
@@ -90,38 +167,22 @@ func extractMaxSequenceNumber(ipOutput string) int64 {
 			}
 		}
 	}
-	return maxSeqNum
+	return maxSeqNum, nil
 }
 
-func maxSequenceNumber() string {
+func maxSequenceNumber() (string, error) {
 	out, err := exec.Command("ip", "xfrm", "state", "list", "reqid", ciliumReqId).Output()
 	if err != nil {
-		Fatalf("Cannot get xfrm states: %s", err)
+		return "", fmt.Errorf("cannot get xfrm states: %s", err)
 	}
-	commandOutput := string(out)
-	maxSeqNum := extractMaxSequenceNumber(commandOutput)
-	if maxSeqNum == 0 {
-		return "N/A"
-	}
-	return fmt.Sprintf("0x%x/0xffffffff", maxSeqNum)
-}
-
-func getEncryptionMode() {
-	params := daemon.NewGetHealthzParamsWithTimeout(timeout)
-	params.SetBrief(&brief)
-	resp, err := client.Daemon.GetHealthz(params)
+	maxSeqNum, err := extractMaxSequenceNumber(string(out))
 	if err != nil {
-		Fatalf("Cannot get daemon encryption status: %s", err)
+		return "", err
 	}
-	encryptionStatusResponse := resp.Payload.Encryption
-	fmt.Printf("Encryption: %-26s\n", encryptionStatusResponse.Mode)
-
-	switch encryptionStatusResponse.Mode {
-	case models.EncryptionStatusModeIPsec:
-		dumpIPsecStatus()
-	case models.EncryptionStatusModeWireguard:
-		dumpWireGuardStatus(encryptionStatusResponse)
+	if maxSeqNum == 0 {
+		return "N/A", nil
 	}
+	return fmt.Sprintf("0x%x/0xffffffff", maxSeqNum), nil
 }
 
 func isDecryptionInterface(link netlink.Link) (bool, error) {
@@ -142,51 +203,40 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 	return false, nil
 }
 
-func getDecryptionInterfaces() []string {
-	decryptionIfaces := []string{}
+func getDecryptionInterfaces() ([]string, error) {
 	links, err := netlink.LinkList()
 	if err != nil {
-		Fatalf("Failed to list interfaces: %s", err)
+		return nil, fmt.Errorf("failed to list interfaces: %s", err)
 	}
+	decryptionIfaces := []string{}
 	for _, link := range links {
 		itIs, err := isDecryptionInterface(link)
 		if err != nil {
-			Fatalf("Failed to list BPF programs for %s: %s", link.Attrs().Name, err)
+			return nil, fmt.Errorf("failed to list BPF programs for %s: %s", link.Attrs().Name, err)
 		}
 		if itIs {
 			decryptionIfaces = append(decryptionIfaces, link.Attrs().Name)
 		}
 	}
-	return decryptionIfaces
+	return decryptionIfaces, nil
 }
 
-func dumpIPsecStatus() {
-	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
-	if err != nil {
-		Fatalf("Cannot get xfrm state: %s", err)
-	}
-	keys, err := ipsec.CountUniqueIPsecKeys(xfrmStates)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error counting IPsec keys: %s\n", err)
-	}
-	oseq := maxSequenceNumber()
-	interfaces := getDecryptionInterfaces()
-	fmt.Printf("Decryption interface(s): %s\n", strings.Join(interfaces, ", "))
-	fmt.Printf("Keys in use: %-26d\n", keys)
-	fmt.Printf("Max Seq. Number: %s\n", oseq)
-	errCount, errMap := getXfrmStats("")
-	fmt.Printf("Errors: %-26d\n", errCount)
-	if errCount != 0 {
-		for k, v := range errMap {
+func printEncryptionStatus(status models.EncryptionStatus) {
+	fmt.Printf("Encryption: %-26s\n", status.Mode)
+	switch status.Mode {
+	case models.EncryptionStatusModeIPsec:
+		fmt.Printf("Decryption interface(s): %s\n", strings.Join(status.Ipsec.DecryptInterfaces, ", "))
+		fmt.Printf("Keys in use: %-26d\n", status.Ipsec.KeysInUse)
+		fmt.Printf("Max Seq. Number: %s\n", status.Ipsec.MaxSeqNumber)
+		fmt.Printf("Errors: %-26d\n", status.Ipsec.ErrorCount)
+		for k, v := range status.Ipsec.XfrmErrors {
 			fmt.Printf("\t%s: %-26d\n", k, v)
 		}
-	}
-}
-
-func dumpWireGuardStatus(p *models.EncryptionStatus) {
-	for _, wg := range p.Wireguard.Interfaces {
-		fmt.Printf("Interface: %s\n", wg.Name)
-		fmt.Printf("\tPublic key: %s\n", wg.PublicKey)
-		fmt.Printf("\tNumber of peers: %d\n", wg.PeerCount)
+	case models.EncryptionStatusModeWireguard:
+		for _, s := range status.Wireguard.Interfaces {
+			fmt.Printf("Interface: %s\n", s.Name)
+			fmt.Printf("\tPublic key: %s\n", s.PublicKey)
+			fmt.Printf("\tNumber of peers: %d\n", s.PeerCount)
+		}
 	}
 }

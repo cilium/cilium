@@ -192,6 +192,35 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	}
 	defer coll.Close()
 
+	// If an ELF contains one of the policy call maps, resolve and insert the
+	// programs it refers to into the map. This always needs to happen _before_
+	// attaching the ELF's entrypoint(s), but after the ELF's internal tail call
+	// map (cilium_calls) has been populated, as doing so means the ELF's programs
+	// become reachable through its policy programs, which hold references to the
+	// endpoint's cilium_calls. Therefore, inserting policy programs is considered
+	// an 'attachment', just not through the typical bpf hooks.
+	//
+	// For example, a packet can enter to-container, jump into the bpf_host policy
+	// program, which then jumps into the endpoint's policy program that are
+	// installed by the loops below. If we allow packets to enter the endpoint's
+	// bpf programs through its tc hook(s), _all_ this plumbing needs to be done
+	// first, or we risk missing tail calls.
+	if len(policyProgs) != 0 {
+		if err := resolveAndInsertCalls(coll, policymap.PolicyCallMapName, policyProgs); err != nil {
+			revert()
+			return nil, fmt.Errorf("inserting policy programs: %w", err)
+		}
+	}
+
+	if len(egressPolicyProgs) != 0 {
+		if err := resolveAndInsertCalls(coll, policymap.PolicyEgressCallMapName, egressPolicyProgs); err != nil {
+			revert()
+			return nil, fmt.Errorf("inserting egress policy programs: %w", err)
+		}
+	}
+
+	// Finally, attach the endpoint's tc or xdp entry points to allow traffic to
+	// flow in.
 	for _, prog := range progs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
 		if xdpMode != "" {
@@ -212,23 +241,6 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 			return nil, fmt.Errorf("program %s: %w", prog.progName, err)
 		}
 		scopedLog.Debug("Successfully attached program to interface")
-	}
-
-	// If an ELF contains one of the policy call maps, resolve and insert the
-	// programs it refers to into the map.
-
-	if len(policyProgs) != 0 {
-		if err := resolveAndInsertCalls(coll, policymap.PolicyCallMapName, policyProgs); err != nil {
-			revert()
-			return nil, fmt.Errorf("inserting policy programs: %w", err)
-		}
-	}
-
-	if len(egressPolicyProgs) != 0 {
-		if err := resolveAndInsertCalls(coll, policymap.PolicyEgressCallMapName, egressPolicyProgs); err != nil {
-			revert()
-			return nil, fmt.Errorf("inserting egress policy programs: %w", err)
-		}
 	}
 
 	return finalize, nil

@@ -105,7 +105,8 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	for _, fn := range []routechecks.CheckRuleFunc{
 		routechecks.CheckAgainstCrossNamespaceBackendReferences,
-		routechecks.CheckBackendIsService,
+		routechecks.CheckBackend,
+		routechecks.CheckHasServiceImportSupport,
 		routechecks.CheckBackendIsExistingService,
 	} {
 		continueCheck, err := fn(i)

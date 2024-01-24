@@ -896,8 +896,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
+		state->proxy_redirect = false;
+		state->from_l7lb = false;
 
-		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, ext_err);
+		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
@@ -1011,14 +1013,11 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
 						  struct ct_state *state,
 						 __u16 *proxy_port)
 {
-	state->rev_nat_index = (__u16)ctx_load_meta(ctx, CB_CT_STATE);
-	/* Clear to not leak state to later stages of the datapath. */
-	ctx_store_meta(ctx, CB_CT_STATE, 0);
+	state->rev_nat_index = (__u16)ctx_load_and_clear_meta(ctx, CB_CT_STATE);
 
 	/* No loopback support for IPv6, see lb6_local() above. */
 
-	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
+	*proxy_port = ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16;
 }
 
 #else
@@ -1575,8 +1574,10 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
+		state->proxy_redirect = false;
+		state->from_l7lb = false;
 
-		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, ext_err);
+		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
@@ -1727,22 +1728,17 @@ static __always_inline void
 lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 		       __u16 *proxy_port, __u32 *cluster_id __maybe_unused)
 {
-	__u32 meta = ctx_load_meta(ctx, CB_CT_STATE);
+	__u32 meta = ctx_load_and_clear_meta(ctx, CB_CT_STATE);
 #ifndef DISABLE_LOOPBACK_LB
 	if (meta & 1)
 		state->loopback = 1;
 #endif
 	state->rev_nat_index = meta >> 16;
 
-	/* Clear to not leak state to later stages of the datapath. */
-	ctx_store_meta(ctx, CB_CT_STATE, 0);
-
-	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
+	*proxy_port = ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	*cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
+	*cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 #endif
 }
 

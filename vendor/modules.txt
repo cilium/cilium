@@ -2066,7 +2066,7 @@ sigs.k8s.io/controller-runtime/pkg/webhook
 sigs.k8s.io/controller-runtime/pkg/webhook/admission
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
-# sigs.k8s.io/controller-tools v0.13.0 => github.com/cilium/controller-tools v0.8.0-1
+# sigs.k8s.io/controller-tools v0.13.0 => github.com/cilium/controller-tools v0.8.0-2
 ## explicit; go 1.17
 sigs.k8s.io/controller-tools/cmd/controller-gen
 sigs.k8s.io/controller-tools/pkg/crd
@@ -2102,6 +2102,10 @@ sigs.k8s.io/gateway-api/conformance/utils/tls
 ## explicit; go 1.18
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
+# sigs.k8s.io/mcs-api v0.1.1-0.20230531192946-4231f56e5ff9
+## explicit; go 1.19
+sigs.k8s.io/mcs-api/pkg/apis/v1alpha1
+sigs.k8s.io/mcs-api/pkg/controllers
 # sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
@@ -2114,4 +2118,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
-# sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.8.0-1
+# sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.8.0-2

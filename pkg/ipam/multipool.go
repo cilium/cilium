@@ -193,7 +193,7 @@ type nodeUpdater interface {
 
 type multiPoolManager struct {
 	mutex *lock.Mutex
-	conf  Configuration
+	conf  *option.DaemonConfig
 	owner Owner
 
 	preallocatedIPsPerPool preAllocatePerPool
@@ -213,8 +213,8 @@ type multiPoolManager struct {
 
 var _ Allocator = (*multiPoolAllocator)(nil)
 
-func newMultiPoolManager(conf Configuration, node agentK8s.LocalCiliumNodeResource, owner Owner, clientset nodeUpdater) *multiPoolManager {
-	preallocMap, err := parseMultiPoolPreAllocMap(option.Config.IPAMMultiPoolPreAllocation)
+func newMultiPoolManager(conf *option.DaemonConfig, node agentK8s.LocalCiliumNodeResource, owner Owner, clientset nodeUpdater) *multiPoolManager {
+	preallocMap, err := parseMultiPoolPreAllocMap(conf.IPAMMultiPoolPreAllocation)
 	if err != nil {
 		log.WithError(err).Fatalf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation)
 	}

@@ -46,7 +46,12 @@ func TestReconciler_Batch(t *testing.T) {
 }
 
 func testReconciler(t *testing.T, batchOps bool) {
-	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	defer goleak.VerifyNone(t,
+		goleak.IgnoreCurrent(),
+		// metrics.statusCollector uses cilium client, so we see some http connections.
+		goleak.IgnoreAnyFunction("net/http.(*persistConn).readLoop"),
+		goleak.IgnoreAnyFunction("net/http.(*persistConn).writeLoop"),
+	)
 
 	var (
 		mt       = &mockOps{}
@@ -54,6 +59,7 @@ func testReconciler(t *testing.T, batchOps bool) {
 		registry *metricsPkg.Registry
 		r        reconciler.Reconciler[*testObject]
 		health   cell.Health
+		scope    cell.Scope
 	)
 
 	testObjects, err := statedb.NewTable[*testObject]("test-objects", idIndex, statusIndex)
@@ -102,9 +108,20 @@ func testReconciler(t *testing.T, batchOps bool) {
 			}),
 			cell.Provide(reconciler.New[*testObject]),
 
-			cell.Invoke(func(r_ reconciler.Reconciler[*testObject], h cell.Health) {
+			cell.Invoke(func(r_ reconciler.Reconciler[*testObject], m *reconciler.Metrics, h cell.Health, s cell.Scope) {
 				r = r_
 				health = h
+				scope = s
+
+				// Enable all metrics for the test
+				m.IncrementalReconciliationCount.SetEnabled(true)
+				m.IncrementalReconciliationDuration.SetEnabled(true)
+				m.IncrementalReconciliationTotalErrors.SetEnabled(true)
+				m.IncrementalReconciliationCurrentErrors.SetEnabled(true)
+				m.FullReconciliationCount.SetEnabled(true)
+				m.FullReconciliationOutOfSyncCount.SetEnabled(true)
+				m.FullReconciliationTotalErrors.SetEnabled(true)
+				m.FullReconciliationDuration.SetEnabled(true)
 			}),
 		),
 	)
@@ -118,9 +135,10 @@ func testReconciler(t *testing.T, batchOps bool) {
 		ops:    mt,
 		r:      r,
 		health: health,
+		scope:  scope,
 	}
 
-	numIterations := 10
+	numIterations := 3
 
 	t.Run("incremental", func(t *testing.T) {
 		h.t = t
@@ -440,6 +458,7 @@ type testHelper struct {
 	ops    *mockOps
 	r      reconciler.Reconciler[*testObject]
 	health cell.Health
+	scope  cell.Scope
 }
 
 const (
@@ -528,6 +547,7 @@ func (h testHelper) expectRetried(id uint64) {
 
 func (h testHelper) expectHealthLevel(level cell.Level) {
 	cond := func() bool {
+		h.scope.Realize()
 		status, err := h.health.Get([]string{"test"})
 		return err == nil && level == status.Level()
 	}

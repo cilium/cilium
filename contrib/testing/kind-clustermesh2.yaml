@@ -11,7 +11,7 @@ operator:
 ipam:
   mode: kubernetes
 ipv6:
-  enabled: false
+  enabled: true
 ipv4:
   enabled: true
 bpf:

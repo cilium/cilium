@@ -109,7 +109,8 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	for _, fn := range []routechecks.CheckRuleFunc{
 		routechecks.CheckAgainstCrossNamespaceBackendReferences,
-		routechecks.CheckBackendIsService,
+		routechecks.CheckBackend,
+		routechecks.CheckHasServiceImportSupport,
 		routechecks.CheckBackendIsExistingService,
 	} {
 		if continueCheck, err := fn(i); err != nil || !continueCheck {

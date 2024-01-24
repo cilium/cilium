@@ -160,11 +160,9 @@ not_esp:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_OVERLAY)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	__s8 ext_err = 0;
 	int ret;
-
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv6(ctx, &src_sec_identity, &ext_err);
 
@@ -257,10 +255,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT)
 int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
 {
 	int ret;
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_inter_cluster_revsnat(ctx, src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
@@ -418,8 +414,13 @@ not_esp:
 				return ret;
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
-			return egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
-								 daddr, ext_err);
+			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
+								daddr, ext_err);
+			if (ret != CTX_ACT_OK)
+				return ret;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
 		}
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
@@ -440,11 +441,9 @@ not_esp:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_OVERLAY)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
-	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	__s8 ext_err = 0;
 	int ret;
-
-	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv4(ctx, &src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
@@ -555,6 +554,10 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
+#ifndef ENABLE_HIGH_SCALE_IPCACHE
+	/* preserve skb->cb for hs-ipcache, from-netdev is passing info */
+	bpf_clear_meta(ctx);
+#endif
 	ctx_skip_nodeport_clear(ctx);
 
 	if (!validate_ethertype(ctx, &proto)) {

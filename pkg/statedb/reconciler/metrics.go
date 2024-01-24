@@ -29,15 +29,11 @@ const (
 	OpPrune  = "prune"
 )
 
-// TODO: Or would it be better if the metrics for reconciliation would be
-// instantiated by the user with a configurable prefix (versus using a global
-// set of metrics with labels)?
-
 func newMetrics() *Metrics {
 	return &Metrics{
 		IncrementalReconciliationCount: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: metrics.Namespace + "_reconciler_incremental_total",
-			Disabled:   false,
+			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "incremental_total",
@@ -46,7 +42,7 @@ func newMetrics() *Metrics {
 
 		IncrementalReconciliationDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: metrics.Namespace + "_reconciler_incremental_duration_seconds",
-			Disabled:   false,
+			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "incremental_duration_seconds",
@@ -55,7 +51,7 @@ func newMetrics() *Metrics {
 
 		IncrementalReconciliationTotalErrors: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: metrics.Namespace + "_reconciler_incremental_errors_total",
-			Disabled:   false,
+			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "incremental_errors_total",
@@ -64,7 +60,7 @@ func newMetrics() *Metrics {
 
 		IncrementalReconciliationCurrentErrors: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: metrics.Namespace + "_reconciler_incremental_errors_current",
-			Disabled:   false,
+			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "incremental_errors_current",
@@ -73,7 +69,7 @@ func newMetrics() *Metrics {
 
 		FullReconciliationCount: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: metrics.Namespace + "_reconciler_full_total",
-			Disabled:   false,
+			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "full_total",
@@ -82,7 +78,7 @@ func newMetrics() *Metrics {
 
 		FullReconciliationOutOfSyncCount: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: metrics.Namespace + "_reconciler_full_out_of_sync_total",
-			Disabled:   false,
+			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "full_out_of_sync_total",
@@ -91,7 +87,7 @@ func newMetrics() *Metrics {
 
 		FullReconciliationTotalErrors: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: metrics.Namespace + "_reconciler_full_errors_total",
-			Disabled:   false,
+			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "full_errors_total",
@@ -100,7 +96,7 @@ func newMetrics() *Metrics {
 
 		FullReconciliationDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: metrics.Namespace + "_reconciler_full_duration_seconds",
-			Disabled:   false,
+			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "full_duration_seconds",

@@ -676,6 +676,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 				},
 				entry: MapStateEntry{
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -706,6 +707,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -759,6 +761,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -774,6 +777,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -843,6 +847,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -868,6 +873,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Egress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -903,6 +909,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Egress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -930,6 +937,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -940,6 +948,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -950,6 +959,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Egress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
@@ -985,6 +995,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Egress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
@@ -1019,6 +1030,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
 				},
@@ -1029,8 +1041,122 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: {
 					ProxyPort:        8080,
+					priority:         8080,
 					DerivedFromRules: nil,
 					IsDeny:           false,
+				},
+			},
+		}, {
+			name: "test-13 - L3-L4-L7 ingress allow should overwrite a L3-L4-L7 ingress allow due to lower priority",
+			ms: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort: 8080,
+					priority:  8080,
+					Listener:  "listener1",
+				},
+			}),
+			args: args{
+				key: Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				},
+				entry: MapStateEntry{
+					ProxyPort: 9090,
+					priority:  1,
+					Listener:  "listener2",
+				},
+			},
+			want: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort: 9090,
+					priority:  1,
+					Listener:  "listener2",
+				},
+			}),
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld: map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort: 8080,
+					priority:  8080,
+					Listener:  "listener1",
+				},
+			},
+		}, {
+			name: "test-14 - L4-L7 ingress allow should overwrite a L3-L4-L7 ingress allow due to lower priority on the same port",
+			ms: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort: 8080,
+					priority:  8080,
+					Listener:  "listener1",
+				},
+			}),
+			args: args{
+				key: Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				},
+				entry: MapStateEntry{
+					ProxyPort: 8080,
+					priority:  1,
+					Listener:  "listener1",
+				},
+			},
+			want: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort: 8080,
+					priority:  1,
+					Listener:  "listener1",
+				},
+			}),
+			wantAdds:    Keys{},
+			wantDeletes: Keys{},
+			wantOld: map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort: 8080,
+					priority:  8080,
+					Listener:  "listener1",
 				},
 			},
 		},
@@ -1041,7 +1167,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 			Deletes: make(Keys),
 			Old:     make(map[Key]MapStateEntry),
 		}
-		// copy the starging point
+		// copy the starting point
 		ms := newMapState(make(map[Key]MapStateEntry, tt.ms.Len()))
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
 			ms.Insert(k, v)
@@ -1117,8 +1243,11 @@ func denyEntry(proxyPort uint16, owners ...MapStateOwner) MapStateEntry {
 }
 
 func testEntry(proxyPort uint16, deny bool, authType AuthType, owners ...MapStateOwner) MapStateEntry {
+	listener := ""
 	entry := MapStateEntry{
 		ProxyPort: proxyPort,
+		priority:  proxyPort,
+		Listener:  listener,
 		AuthType:  authType,
 		IsDeny:    deny,
 	}
@@ -1465,10 +1594,14 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, denyRules, nil)
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
@@ -1682,10 +1815,14 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, x.hasAuth, x.authType)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, policyFeatures(0), nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, policyFeatures(0), nil)
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
@@ -1929,7 +2066,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		}),
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		visAdds: Keys{
 			HttpIngressKey(0):   {},
@@ -1978,7 +2115,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: newMapState(map[Key]MapStateEntry{
 			testIngressKey(235, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(235)),
@@ -2004,7 +2141,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: newMapState(map[Key]MapStateEntry{
 			testIngressKey(235, 0, 0): allowEntry(0, csFoo, csBar).WithDependents(HttpIngressKey(235)),
@@ -2029,7 +2166,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: newMapState(map[Key]MapStateEntry{
 			testIngressKey(235, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(235)),
@@ -2049,7 +2186,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: newMapState(map[Key]MapStateEntry{
 			testIngressKey(235, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(235)),
@@ -2069,7 +2206,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: newMapState(map[Key]MapStateEntry{
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
@@ -2090,7 +2227,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: newMapState(map[Key]MapStateEntry{
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
@@ -2111,15 +2248,15 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		visArgs: []visArgs{
 			{
 				redirectPort: 12345,
-				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			{
 				redirectPort: 12346,
-				visMeta:      VisibilityMetadata{Ingress: false, Port: 80, Proto: u8proto.TCP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 80, Proto: u8proto.TCP},
 			},
 			{
 				redirectPort: 12347,
-				visMeta:      VisibilityMetadata{Ingress: false, Port: 53, Proto: u8proto.UDP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 53, Proto: u8proto.UDP},
 			},
 		},
 		visAdds: Keys{
@@ -2158,15 +2295,15 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		visArgs: []visArgs{
 			{
 				redirectPort: 12345,
-				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			{
 				redirectPort: 12346,
-				visMeta:      VisibilityMetadata{Ingress: false, Port: 80, Proto: u8proto.TCP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 80, Proto: u8proto.TCP},
 			},
 			{
 				redirectPort: 12347,
-				visMeta:      VisibilityMetadata{Ingress: false, Port: 53, Proto: u8proto.UDP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 53, Proto: u8proto.UDP},
 			},
 		},
 		state: newMapState(map[Key]MapStateEntry{
@@ -2246,10 +2383,14 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, denyRules, nil)
 		changes = ChangeState{
 			Adds:    adds,
 			Deletes: deletes,
