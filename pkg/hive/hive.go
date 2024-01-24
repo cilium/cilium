@@ -54,7 +54,7 @@ type Hive struct {
 	startTimeout, stopTimeout time.Duration
 	flags                     *pflag.FlagSet
 	viper                     *viper.Viper
-	lifecycle                 *DefaultLifecycle
+	lifecycle                 cell.Lifecycle
 	populated                 bool
 	invokes                   []func() error
 	configOverrides           []any
@@ -78,7 +78,7 @@ func New(cells ...cell.Cell) *Hive {
 		startTimeout:    defaultStartTimeout,
 		stopTimeout:     defaultStopTimeout,
 		flags:           pflag.NewFlagSet("", pflag.ContinueOnError),
-		lifecycle:       &DefaultLifecycle{},
+		lifecycle:       &cell.DefaultLifecycle{},
 		shutdown:        make(chan error, 1),
 		configOverrides: nil,
 	}
@@ -89,10 +89,10 @@ func New(cells ...cell.Cell) *Hive {
 
 	// Use a single health provider for all cells, which is used to create
 	// module scoped health reporters.
-	if err := h.container.Provide(func(lc Lifecycle) cell.Health {
+	if err := h.container.Provide(func(lc cell.Lifecycle) cell.Health {
 		hp := cell.NewHealthProvider()
 		lc.Append(Hook{
-			OnStop: func(ctx HookContext) error {
+			OnStop: func(ctx cell.HookContext) error {
 				return hp.Stop(ctx)
 			},
 		})
@@ -147,7 +147,7 @@ type defaults struct {
 	dig.Out
 
 	Flags       *pflag.FlagSet
-	Lifecycle   Lifecycle
+	Lifecycle   cell.Lifecycle
 	Logger      logrus.FieldLogger
 	Shutdowner  Shutdowner
 	InvokerList cell.InvokerList
