@@ -20,8 +20,7 @@ fi
 if [[ ${1-} == "patch" ]] ; then
     # If user passed "patch" as first argument, print the latest patch version
     case ${patch} in
-        0|90)
-            # Patch release number 90 is used for preparing releases.
+        0)
             >&2 echo "ERROR: failed to deduce patch release previous to version '$VERSION'"
             exit 1
             ;;
