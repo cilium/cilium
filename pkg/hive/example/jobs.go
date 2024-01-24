@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/stream"
@@ -48,7 +47,7 @@ type exampleCell struct {
 }
 
 func newExampleCell(
-	lifecycle hive.Lifecycle,
+	lifecycle cell.Lifecycle,
 	logger logrus.FieldLogger,
 	registry job.Registry,
 	scope cell.Scope,

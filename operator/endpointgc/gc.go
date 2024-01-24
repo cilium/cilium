@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -31,7 +30,7 @@ type params struct {
 	cell.In
 
 	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 
 	Clientset       k8sClient.Clientset
 	CiliumEndpoints resource.Resource[*cilium_api_v2.CiliumEndpoint]
@@ -80,7 +79,7 @@ func registerGC(p params) {
 	p.Lifecycle.Append(gc)
 }
 
-func (g *GC) Start(ctx hive.HookContext) error {
+func (g *GC) Start(ctx cell.HookContext) error {
 	if g.once {
 		if !g.checkForCiliumEndpointCRD(ctx) {
 			// CEP GC set to once and CRD is not present, NOT starting GC
@@ -103,14 +102,14 @@ func (g *GC) Start(ctx hive.HookContext) error {
 	return nil
 }
 
-func (g *GC) Stop(ctx hive.HookContext) error {
+func (g *GC) Stop(ctx cell.HookContext) error {
 	if g.mgr != nil {
 		g.mgr.RemoveAllAndWait()
 	}
 	return nil
 }
 
-func (g *GC) checkForCiliumEndpointCRD(ctx hive.HookContext) bool {
+func (g *GC) checkForCiliumEndpointCRD(ctx cell.HookContext) bool {
 	_, err := g.clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
 		ctx, k8sconstv2.CEPName, metav1.GetOptions{ResourceVersion: "0"},
 	)

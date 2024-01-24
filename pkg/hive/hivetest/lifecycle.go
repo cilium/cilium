@@ -7,24 +7,23 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
-// lifecycle implements [hive.Lifecycle] for testing purposes.
+// lifecycle implements [cell.Lifecycle] for testing purposes.
 type lifecycle struct {
 	tb testing.TB
 }
 
 var _ (cell.Lifecycle) = (*lifecycle)(nil)
 
-// Lifecycle returns a [hive.Lifecycle] which executes start hooks immediately
+// Lifecycle returns a [cell.Lifecycle] which executes start hooks immediately
 // and queues stop hooks for the end of the test.
 func Lifecycle(tb testing.TB) *lifecycle {
 	return &lifecycle{tb}
 }
 
-func (lc *lifecycle) Append(hook hive.HookInterface) {
+func (lc *lifecycle) Append(hook cell.HookInterface) {
 	lc.tb.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())

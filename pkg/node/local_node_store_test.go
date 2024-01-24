@@ -54,9 +54,9 @@ func TestLocalNodeStore(t *testing.T) {
 
 	// update adds a start hook to the application that modifies
 	// the local node.
-	update := func(lc hive.Lifecycle, store *LocalNodeStore) {
-		lc.Append(hive.Hook{
-			OnStart: func(hive.HookContext) error {
+	update := func(lc cell.Lifecycle, store *LocalNodeStore) {
+		lc.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
 				// emit 2, 3, 4, 5
 				for _, i := range expected[1:] {
 					if i == 5 {

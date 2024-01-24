@@ -92,7 +92,7 @@ func (c *registry) NewGroup(scope cell.Scope, opts ...groupOpt) Group {
 	return g
 }
 
-// Group aims to streamline the management of work within a cell. Group implements hive.HookInterface and takes care
+// Group aims to streamline the management of work within a cell. Group implements cell.HookInterface and takes care
 // of proper start and stop behavior as expected by hive. A group allows you to add multiple types of jobs which
 // different kinds of logic. No matter the job type, the function provided to is always called with a context which
 // is bound to the lifecycle of the cell.
@@ -100,7 +100,7 @@ type Group interface {
 	Add(...Job)
 	// Scoped creates a scroped group, jobs added to this scoped group will appear as a sub scope in the health reporter
 	Scoped(name string) ScopedGroup
-	hive.HookInterface
+	cell.HookInterface
 }
 
 // Job in an interface that describes a unit of work which can be added to a Group. This interface contains unexported
@@ -147,10 +147,10 @@ func WithPprofLabels(pprofLabels pprof.LabelSet) groupOpt {
 	}
 }
 
-var _ hive.HookInterface = (*group)(nil)
+var _ cell.HookInterface = (*group)(nil)
 
-// Start implements the hive.HookInterface interface
-func (jg *group) Start(_ hive.HookContext) error {
+// Start implements the cell.HookInterface interface
+func (jg *group) Start(_ cell.HookContext) error {
 	jg.mu.Lock()
 	defer jg.mu.Unlock()
 
@@ -168,8 +168,8 @@ func (jg *group) Start(_ hive.HookContext) error {
 	return nil
 }
 
-// Stop implements the hive.HookInterface interface
-func (jg *group) Stop(stopCtx hive.HookContext) error {
+// Stop implements the cell.HookInterface interface
+func (jg *group) Stop(stopCtx cell.HookContext) error {
 	jg.mu.Lock()
 	defer jg.mu.Unlock()
 

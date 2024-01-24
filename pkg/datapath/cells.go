@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -124,7 +123,7 @@ var Cell = cell.Module(
 	ipcache.Cell,
 )
 
-func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *wg.Agent {
+func newWireguardAgent(lc cell.Lifecycle, localNodeStore *node.LocalNodeStore) *wg.Agent {
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
@@ -139,8 +138,8 @@ func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *
 			log.Fatalf("failed to initialize WireGuard: %s", err)
 		}
 
-		lc.Append(hive.Hook{
-			OnStop: func(hive.HookContext) error {
+		lc.Append(cell.Hook{
+			OnStop: func(cell.HookContext) error {
 				wgAgent.Close()
 				return nil
 			},
@@ -168,8 +167,8 @@ func newDatapath(params datapathParams) types.Datapath {
 		BWManager:      params.BandwidthManager,
 	}, datapathConfig)
 
-	params.LC.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	params.LC.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			datapath.NodeIDs().RestoreNodeIDs()
 			return nil
 		},
@@ -181,7 +180,7 @@ func newDatapath(params datapathParams) types.Datapath {
 type datapathParams struct {
 	cell.In
 
-	LC      hive.Lifecycle
+	LC      cell.Lifecycle
 	WgAgent *wg.Agent
 
 	// Force map initialisation before loader. You should not use these otherwise.

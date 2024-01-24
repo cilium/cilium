@@ -8,7 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -17,7 +17,7 @@ type Manager struct {
 	modulesList []string
 }
 
-func (m *Manager) Start(hive.HookContext) (err error) {
+func (m *Manager) Start(cell.HookContext) (err error) {
 	m.modulesList, err = listModules()
 	return err
 }
@@ -46,10 +46,10 @@ func (m *Manager) FindOrLoadModules(expectedNames ...string) error {
 	return nil
 }
 
-func newManager(lc hive.Lifecycle) *Manager {
+func newManager(lc cell.Lifecycle) *Manager {
 	m := &Manager{}
 
-	lc.Append(hive.Hook{OnStart: m.Start})
+	lc.Append(cell.Hook{OnStart: m.Start})
 
 	return m
 }

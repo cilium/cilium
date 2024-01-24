@@ -10,7 +10,6 @@ import (
 	"runtime/pprof"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -41,7 +40,7 @@ var _ DiffStore[*k8sRuntime.Unknown] = (*diffStore[*k8sRuntime.Unknown])(nil)
 type diffStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
-	Lifecycle   hive.Lifecycle
+	Lifecycle   cell.Lifecycle
 	Scope       cell.Scope
 	JobRegistry job.Registry
 	Resource    resource.Resource[T]

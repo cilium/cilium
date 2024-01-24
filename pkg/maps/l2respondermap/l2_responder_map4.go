@@ -12,7 +12,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -31,7 +30,7 @@ type Map interface {
 	IterateWithCallback(cb IterateCallback) error
 }
 
-func NewMap(lifecycle hive.Lifecycle) (Map, error) {
+func NewMap(lifecycle cell.Lifecycle) (Map, error) {
 	return newMap(lifecycle, DefaultMaxEntries)
 }
 
@@ -39,11 +38,11 @@ type l2ResponderMap struct {
 	*ebpf.Map
 }
 
-func newMap(lifecycle hive.Lifecycle, maxEntries int) (*l2ResponderMap, error) {
+func newMap(lifecycle cell.Lifecycle, maxEntries int) (*l2ResponderMap, error) {
 	outerMap := &l2ResponderMap{}
 
-	lifecycle.Append(hive.Hook{
-		OnStart: func(hc hive.HookContext) error {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
 			var (
 				m   *ebpf.Map
 				err error

@@ -11,7 +11,6 @@ import (
 
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
@@ -232,13 +231,13 @@ func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig) error {
 	return nil
 }
 
-func newBIGTCP(lc hive.Lifecycle, p params) (*Configuration, error) {
+func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
 	if err := validateConfig(p.UserConfig, p.DaemonConfig); err != nil {
 		return nil, err
 	}
 	cfg := newDefaultConfiguration(p.UserConfig)
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			return startBIGTCP(p, cfg)
 		},
 	})
