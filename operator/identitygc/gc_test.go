@@ -248,13 +248,13 @@ func setupCiliumEndpoint(clientset k8sClient.Clientset) error {
 }
 
 func setupCiliumEndpointWatcher(
-	lc hive.Lifecycle,
+	lc cell.Lifecycle,
 	params params,
 ) {
 	var wg sync.WaitGroup
 
-	lc.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			// identity gc internally depends on the global watchers.CiliumEndpointStore,
 			// so we have to create a mock one here (and run an informer) to get the gc
 			// to work properly.
@@ -310,7 +310,7 @@ func setupCiliumEndpointWatcher(
 
 			return nil
 		},
-		OnStop: func(ctx hive.HookContext) error {
+		OnStop: func(ctx cell.HookContext) error {
 			// force cleanup of goroutines run from initialization of watchers.nodeQueue
 			watchers.NodeQueueShutDown()
 			// wait for CiliumEndpointInformer goroutine to be cleaned up

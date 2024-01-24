@@ -1610,7 +1610,7 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
-	Lifecycle            hive.Lifecycle
+	Lifecycle            cell.Lifecycle
 	Clientset            k8sClient.Clientset
 	Datapath             datapath.Datapath
 	WGAgent              *wireguard.Agent `optional:"true"`
@@ -1659,8 +1659,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 	var daemon *Daemon
 	var wg sync.WaitGroup
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, &params)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
@@ -1680,7 +1680,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 			}
 			return nil
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			cancelDaemonCtx()
 			cleaner.Clean()
 			wg.Wait()

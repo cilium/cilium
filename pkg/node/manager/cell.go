@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -80,7 +79,7 @@ type ipsetManager interface {
 }
 
 func newAllNodeManager(
-	lc hive.Lifecycle,
+	lc cell.Lifecycle,
 	ipCache *ipcache.IPCache,
 	ipsetMgr ipsetManager,
 	nodeMetrics *nodeMetrics,

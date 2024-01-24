@@ -84,9 +84,9 @@ func main() {
 	}
 }
 
-func cfgAdapter(lc hive.Lifecycle, cfg kmopt.KVStoreMeshConfig) (types.ClusterIDName, error) {
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+func cfgAdapter(lc cell.Lifecycle, cfg kmopt.KVStoreMeshConfig) (types.ClusterIDName, error) {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			if err := types.ValidateClusterID(cfg.ClusterID); err != nil {
 				return err
 			}

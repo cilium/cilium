@@ -6,7 +6,6 @@ package node
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -39,7 +38,7 @@ var LocalNodeStoreCell = cell.Module(
 type LocalNodeStoreParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Init      LocalNodeInitializer `optional:"true"`
 }
 
@@ -73,8 +72,8 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 		Observable: src,
 	}
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if params.Init != nil {
@@ -93,7 +92,7 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 			emit(s.value)
 			return nil
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			s.mu.Lock()
 			s.complete(nil)
 			s.complete = nil

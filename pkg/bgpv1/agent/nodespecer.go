@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -31,7 +30,7 @@ type nodeSpecer interface {
 type localNodeStoreSpecerParams struct {
 	cell.In
 
-	Lifecycle          hive.Lifecycle
+	Lifecycle          cell.Lifecycle
 	Config             *option.DaemonConfig
 	NodeResource       k8s.LocalNodeResource
 	CiliumNodeResource k8s.LocalCiliumNodeResource
@@ -74,14 +73,14 @@ type kubernetesNodeSpecer struct {
 	signaler    Signaler
 }
 
-func (s *kubernetesNodeSpecer) Start(_ hive.HookContext) error {
+func (s *kubernetesNodeSpecer) Start(_ cell.HookContext) error {
 	s.workerpool = workerpool.New(1)
 	s.workerpool.Submit("kubernetes-node-specer-run", s.run)
 
 	return nil
 }
 
-func (s *kubernetesNodeSpecer) Stop(ctx hive.HookContext) error {
+func (s *kubernetesNodeSpecer) Stop(ctx cell.HookContext) error {
 	doneChan := make(chan struct{})
 
 	go func() {
@@ -156,14 +155,14 @@ type ciliumNodeSpecer struct {
 	signaler    Signaler
 }
 
-func (s *ciliumNodeSpecer) Start(_ hive.HookContext) error {
+func (s *ciliumNodeSpecer) Start(_ cell.HookContext) error {
 	s.workerpool = workerpool.New(1)
 	s.workerpool.Submit("cilium-node-specer-run", s.run)
 
 	return nil
 }
 
-func (s *ciliumNodeSpecer) Stop(ctx hive.HookContext) error {
+func (s *ciliumNodeSpecer) Stop(ctx cell.HookContext) error {
 	doneChan := make(chan struct{})
 
 	go func() {

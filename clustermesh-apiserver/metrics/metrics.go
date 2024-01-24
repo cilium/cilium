@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -45,7 +44,7 @@ type metricsManager struct {
 	server   http.Server
 }
 
-func registerMetricsManager(lc hive.Lifecycle, cfg MetricsConfig) error {
+func registerMetricsManager(lc cell.Lifecycle, cfg MetricsConfig) error {
 	manager := metricsManager{
 		registry: prometheus.NewPedanticRegistry(),
 		server:   http.Server{Addr: cfg.PrometheusServeAddr},
@@ -60,7 +59,7 @@ func registerMetricsManager(lc hive.Lifecycle, cfg MetricsConfig) error {
 	return nil
 }
 
-func (mm *metricsManager) Start(hive.HookContext) error {
+func (mm *metricsManager) Start(cell.HookContext) error {
 	log.Info("Registering metrics")
 
 	mm.registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
@@ -100,7 +99,7 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 	return nil
 }
 
-func (mm *metricsManager) Stop(ctx hive.HookContext) error {
+func (mm *metricsManager) Stop(ctx cell.HookContext) error {
 	log.Info("Stopping metrics server")
 
 	if err := mm.server.Shutdown(ctx); err != nil {

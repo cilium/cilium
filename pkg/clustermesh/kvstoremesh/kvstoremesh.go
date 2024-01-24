@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/internal"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -38,7 +37,7 @@ type params struct {
 	Metrics internal.Metrics
 }
 
-func newKVStoreMesh(lc hive.Lifecycle, params params) *KVStoreMesh {
+func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 	km := KVStoreMesh{backendPromise: params.BackendPromise}
 	km.internal = internal.NewClusterMesh(internal.Configuration{
 		Config:           params.Config,
@@ -56,7 +55,7 @@ func newKVStoreMesh(lc hive.Lifecycle, params params) *KVStoreMesh {
 	return &km
 }
 
-func (km *KVStoreMesh) Start(ctx hive.HookContext) error {
+func (km *KVStoreMesh) Start(ctx cell.HookContext) error {
 	backend, err := km.backendPromise.Await(ctx)
 	if err != nil {
 		return err
@@ -66,7 +65,7 @@ func (km *KVStoreMesh) Start(ctx hive.HookContext) error {
 	return nil
 }
 
-func (km *KVStoreMesh) Stop(hive.HookContext) error {
+func (km *KVStoreMesh) Stop(cell.HookContext) error {
 	return nil
 }
 

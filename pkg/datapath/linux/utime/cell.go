@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 )
@@ -27,11 +26,11 @@ var Cell = cell.Module(
 	cell.Invoke(initUtimeSync),
 )
 
-func initUtimeSync(lifecycle hive.Lifecycle, configMap configmap.Map) {
+func initUtimeSync(lifecycle cell.Lifecycle, configMap configmap.Map) {
 	controllerManager := controller.NewManager()
 
-	lifecycle.Append(hive.Hook{
-		OnStart: func(startCtx hive.HookContext) error {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(startCtx cell.HookContext) error {
 			ctrl := &utimeController{configMap: configMap}
 
 			// Add controller for keeping clock in sync for NTP time jumps and any difference
@@ -46,7 +45,7 @@ func initUtimeSync(lifecycle hive.Lifecycle, configMap configmap.Map) {
 			)
 			return nil
 		},
-		OnStop: func(stopCtx hive.HookContext) error {
+		OnStop: func(stopCtx cell.HookContext) error {
 			if err := controllerManager.RemoveController(syncControllerName); err != nil {
 				return fmt.Errorf("failed to remove controller: %w", err)
 			}

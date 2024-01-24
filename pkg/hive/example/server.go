@@ -72,7 +72,7 @@ type serverParams struct {
 
 	Config     serverConfig
 	Log        logrus.FieldLogger
-	Lifecycle  hive.Lifecycle
+	Lifecycle  cell.Lifecycle
 	Shutdowner hive.Shutdowner
 	Handlers   []HTTPHandler `group:"http-handlers"`
 }
@@ -99,12 +99,12 @@ func (s *simpleServer) ListenAddress() string {
 	return s.server.Addr
 }
 
-func (s *simpleServer) Start(ctx hive.HookContext) error {
+func (s *simpleServer) Start(ctx cell.HookContext) error {
 	go s.listenAndServe()
 	return nil
 }
 
-func (s *simpleServer) Stop(ctx hive.HookContext) error {
+func (s *simpleServer) Stop(ctx cell.HookContext) error {
 	// Stop the server. Waits for clients to finish.
 	return s.server.Shutdown(ctx)
 }

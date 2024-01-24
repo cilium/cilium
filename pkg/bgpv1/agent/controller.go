@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/workerpool"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -151,7 +150,7 @@ type Controller struct {
 type ControllerParams struct {
 	cell.In
 
-	Lifecycle      hive.Lifecycle
+	Lifecycle      cell.Lifecycle
 	Sig            Signaler
 	RouteMgr       BGPRouterManager
 	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
@@ -187,7 +186,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 }
 
 // Start is called by hive after all of our dependencies have been started.
-func (c *Controller) Start(startCtx hive.HookContext) error {
+func (c *Controller) Start(startCtx cell.HookContext) error {
 	store, err := c.PolicyResource.Store(startCtx)
 	if err != nil {
 		return fmt.Errorf("PolicyResource.Store(): %w", err)
@@ -220,7 +219,7 @@ func (c *Controller) Start(startCtx hive.HookContext) error {
 
 // Stop is called by hive upon shutdown, after all of our dependants have been stopped.
 // We should perform a graceful shutdown and return as soon as done or when the stop context is done.
-func (c *Controller) Stop(ctx hive.HookContext) error {
+func (c *Controller) Stop(ctx cell.HookContext) error {
 	doneChan := make(chan struct{})
 	go func() {
 		c.workerpool.Close()

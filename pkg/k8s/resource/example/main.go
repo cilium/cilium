@@ -57,14 +57,14 @@ var resourcesCell = cell.Module(
 	"Kubernetes Pod and Service resources",
 
 	cell.Provide(
-		func(lc hive.Lifecycle, c client.Clientset) resource.Resource[*corev1.Pod] {
+		func(lc cell.Lifecycle, c client.Clientset) resource.Resource[*corev1.Pod] {
 			if !c.IsEnabled() {
 				return nil
 			}
 			lw := utils.ListerWatcherFromTyped[*corev1.PodList](c.CoreV1().Pods(""))
 			return resource.New[*corev1.Pod](lc, lw, resource.WithMetric("Pod"))
 		},
-		func(lc hive.Lifecycle, c client.Clientset) resource.Resource[*corev1.Service] {
+		func(lc cell.Lifecycle, c client.Clientset) resource.Resource[*corev1.Service] {
 			if !c.IsEnabled() {
 				return nil
 			}
@@ -91,7 +91,7 @@ type PrintServices struct {
 type printServicesParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Pods      resource.Resource[*corev1.Pod]
 	Services  resource.Resource[*corev1.Service]
 }
@@ -108,7 +108,7 @@ func newPrintServices(p printServicesParams) (*PrintServices, error) {
 	return ps, nil
 }
 
-func (ps *PrintServices) Start(startCtx hive.HookContext) error {
+func (ps *PrintServices) Start(startCtx cell.HookContext) error {
 	ps.wp = workerpool.New(1)
 	ps.wp.Submit("processLoop", ps.processLoop)
 
@@ -120,7 +120,7 @@ func (ps *PrintServices) Start(startCtx hive.HookContext) error {
 	return nil
 }
 
-func (ps *PrintServices) Stop(hive.HookContext) error {
+func (ps *PrintServices) Stop(cell.HookContext) error {
 	ps.wp.Close()
 	return nil
 }

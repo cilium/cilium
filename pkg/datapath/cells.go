@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/maps"
@@ -73,7 +72,7 @@ var Cell = cell.Module(
 	}),
 )
 
-func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
+func newWireguardAgent(lc cell.Lifecycle) *wg.Agent {
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
@@ -88,8 +87,8 @@ func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 			log.Fatalf("failed to initialize wireguard: %s", err)
 		}
 
-		lc.Append(hive.Hook{
-			OnStop: func(hive.HookContext) error {
+		lc.Append(cell.Hook{
+			OnStop: func(cell.HookContext) error {
 				wgAgent.Close()
 				return nil
 			},
@@ -109,8 +108,8 @@ func newDatapath(params datapathParams) types.Datapath {
 
 	iptablesManager := &iptables.IptablesManager{}
 
-	params.LC.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	params.LC.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			// FIXME enableIPForwarding should not live here
 			if err := enableIPForwarding(); err != nil {
 				log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
@@ -122,8 +121,8 @@ func newDatapath(params datapathParams) types.Datapath {
 
 	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap)
 
-	params.LC.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	params.LC.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			datapath.NodeIDs().RestoreNodeIDs()
 			return nil
 		},
@@ -135,7 +134,7 @@ func newDatapath(params datapathParams) types.Datapath {
 type datapathParams struct {
 	cell.In
 
-	LC      hive.Lifecycle
+	LC      cell.Lifecycle
 	WgAgent *wg.Agent
 
 	// Force map initialisation before loader. You should not use these otherwise.

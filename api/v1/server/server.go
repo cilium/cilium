@@ -54,7 +54,7 @@ var Cell = cell.Module(
 type serverParams struct {
 	cell.In
 
-	Lifecycle  hive.Lifecycle
+	Lifecycle  cell.Lifecycle
 	Shutdowner hive.Shutdowner
 	Logger     logrus.FieldLogger
 	Spec       *Spec
@@ -389,7 +389,7 @@ func (s *Server) Serve() error {
 }
 
 // Start the server
-func (s *Server) Start(hive.HookContext) (err error) {
+func (s *Server) Start(cell.HookContext) (err error) {
 	s.ConfigureAPI()
 
 	if !s.hasListeners {
@@ -650,7 +650,7 @@ func (s *Server) Shutdown() error {
 	return s.Stop(ctx)
 }
 
-func (s *Server) Stop(ctx hive.HookContext) error {
+func (s *Server) Stop(ctx cell.HookContext) error {
 	// first execute the pre-shutdown hook
 	s.api.PreServerShutdown()
 

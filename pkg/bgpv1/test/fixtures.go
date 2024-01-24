@@ -128,19 +128,19 @@ func newFixture(conf fixtureConfig) *fixture {
 	// Construct a new Hive with mocked out dependency cells.
 	f.hive = hive.New(
 		// node resource
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) k8s.LocalNodeResource {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) k8s.LocalNodeResource {
 			lw := utils.ListerWatcherFromTyped[*slim_core_v1.NodeList](c.Slim().CoreV1().Nodes())
 			return k8s.LocalNodeResource(resource.New[*slim_core_v1.Node](lc, lw))
 		}),
 
 		// cilium node resource
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) k8s.LocalCiliumNodeResource {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) k8s.LocalCiliumNodeResource {
 			lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](c.CiliumV2().CiliumNodes())
 			return k8s.LocalCiliumNodeResource(resource.New[*cilium_api_v2.CiliumNode](lc, lw))
 		}),
 
 		// service
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_core_v1.Service] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_core_v1.Service] {
 			return resource.New[*slim_core_v1.Service](
 				lc, utils.ListerWatcherFromTyped[*slim_core_v1.ServiceList](
 					c.Slim().CoreV1().Services(""),

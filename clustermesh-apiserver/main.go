@@ -142,9 +142,9 @@ type parameters struct {
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 }
 
-func registerHooks(lc hive.Lifecycle, params parameters) error {
-	lc.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+func registerHooks(lc cell.Lifecycle, params parameters) error {
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			if !params.Clientset.IsEnabled() {
 				return errors.New("Kubernetes client not configured, cannot continue.")
 			}
@@ -519,7 +519,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 	}
 }
 
-func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backend kvstore.BackendOperations, resources apiserverK8s.Resources) {
+func startServer(startCtx cell.HookContext, clientset k8sClient.Clientset, backend kvstore.BackendOperations, resources apiserverK8s.Resources) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
 		"cluster-id":   cfg.clusterID,
