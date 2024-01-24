@@ -80,6 +80,7 @@ func buildTree(n *node, raw string) error {
 		return err
 	}
 	build(n, &sn)
+
 	return nil
 }
 
@@ -104,13 +105,16 @@ func build(n *node, sn *cell.StatusNode) {
 	meta += fmt.Sprintf(" (%s, x%d)", ToAgeHuman(sn.UpdateTimestamp), sn.Count)
 	pp := strings.Split(sn.Name, ".")
 	current := ensurePath(n, pp)
-	if len(sn.SubStatuses) == 0 {
+	if needsMeta(sn) {
 		current.meta = meta
-		return
 	}
 	for _, s := range sn.SubStatuses {
 		build(current, s)
 	}
+}
+
+func needsMeta(sn *cell.StatusNode) bool {
+	return sn.Message != "" || sn.Error != ""
 }
 
 // ToAgeHuman converts time to duration.
