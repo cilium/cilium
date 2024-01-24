@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
@@ -116,7 +115,7 @@ type devicesController struct {
 	cancel context.CancelFunc // controller's context is cancelled when stopped.
 }
 
-func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route]) {
+func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route]) {
 	p.DB.RegisterTable(
 		p.DeviceTable,
 		p.RouteTable,
@@ -132,7 +131,7 @@ func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) (*device
 	return dc, p.DeviceTable, p.RouteTable
 }
 
-func (dc *devicesController) Start(startCtx hive.HookContext) error {
+func (dc *devicesController) Start(startCtx cell.HookContext) error {
 	if dc.params.NetlinkFuncs == nil {
 		var err error
 		dc.params.NetlinkFuncs, err = makeNetlinkFuncs(netns.None())
@@ -228,7 +227,7 @@ func (dc *devicesController) subscribeAndProcess(ctx context.Context) {
 	dc.processUpdates(addrUpdates, routeUpdates, linkUpdates)
 }
 
-func (dc *devicesController) Stop(hive.HookContext) error {
+func (dc *devicesController) Stop(cell.HookContext) error {
 	dc.cancel()
 
 	// Unfortunately vishvananda/netlink is buggy and does not return from Recvfrom even

@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -39,7 +38,7 @@ type mutualAuthParams struct {
 	EndpointManager endpointmanager.EndpointManager
 }
 
-func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
+func newMutualAuthHandler(logger logrus.FieldLogger, lc cell.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
 	if cfg.MutualAuthListenerPort == 0 {
 		logger.Info("Mutual authentication handler is disabled as no port is configured")
 		return authHandlerResult{}
@@ -55,7 +54,7 @@ func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg Mutu
 		endpointManager: params.EndpointManager,
 	}
 
-	lc.Append(hive.Hook{OnStart: mAuthHandler.onStart, OnStop: mAuthHandler.onStop})
+	lc.Append(cell.Hook{OnStart: mAuthHandler.onStart, OnStop: mAuthHandler.onStop})
 
 	return authHandlerResult{
 		AuthHandler: mAuthHandler,
@@ -244,7 +243,7 @@ func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.Client
 	return m.cert.GetCertificateForIdentity(id)
 }
 
-func (m *mutualAuthHandler) onStart(ctx hive.HookContext) error {
+func (m *mutualAuthHandler) onStart(ctx cell.HookContext) error {
 	m.log.Info("Starting mutual auth handler")
 
 	listenCtx, cancel := context.WithCancel(context.Background())
@@ -256,7 +255,7 @@ func (m *mutualAuthHandler) onStart(ctx hive.HookContext) error {
 	return nil
 }
 
-func (m *mutualAuthHandler) onStop(ctx hive.HookContext) error {
+func (m *mutualAuthHandler) onStop(ctx cell.HookContext) error {
 	m.log.Info("Stopping mutual auth handler")
 	m.cancelSocketListen()
 	return nil

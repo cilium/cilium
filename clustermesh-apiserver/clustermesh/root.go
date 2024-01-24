@@ -82,9 +82,9 @@ type parameters struct {
 	SyncState      *SyncState
 }
 
-func registerHooks(lc hive.Lifecycle, params parameters) error {
-	lc.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+func registerHooks(lc cell.Lifecycle, params parameters) error {
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			if !params.Clientset.IsEnabled() {
 				return errors.New("Kubernetes client not configured, cannot continue.")
 			}
@@ -370,7 +370,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 }
 
 func startServer(
-	startCtx hive.HookContext,
+	startCtx cell.HookContext,
 	cinfo cmtypes.ClusterInfo,
 	allServices bool,
 	clientset k8sClient.Clientset,

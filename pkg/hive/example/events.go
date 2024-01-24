@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/workerpool"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/stream"
 )
@@ -42,13 +41,13 @@ type exampleEventSource struct {
 	complete func(error)        // Completes 'src'
 }
 
-func (es *exampleEventSource) Start(hive.HookContext) error {
+func (es *exampleEventSource) Start(cell.HookContext) error {
 	es.wp = workerpool.New(1)
 	// Start the emitter
 	return es.wp.Submit("emitter", es.emitter)
 }
 
-func (es *exampleEventSource) Stop(hive.HookContext) error {
+func (es *exampleEventSource) Stop(cell.HookContext) error {
 	defer es.complete(nil)
 
 	// Cancel all background workers and wait for them to stop
@@ -89,7 +88,7 @@ func makeEvent() ExampleEvent {
 	}
 }
 
-func newExampleEvents(lc hive.Lifecycle) ExampleEvents {
+func newExampleEvents(lc cell.Lifecycle) ExampleEvents {
 	es := &exampleEventSource{}
 	// Multicast() constructs a one-to-many observable to which items can be emitted.
 	es.Observable, es.emit, es.complete = stream.Multicast[ExampleEvent]()

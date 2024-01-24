@@ -27,7 +27,7 @@ type params struct {
 	cell.In
 
 	Logger     logrus.FieldLogger
-	Lifecycle  hive.Lifecycle
+	Lifecycle  cell.Lifecycle
 	Shutdowner hive.Shutdowner
 
 	Cfg       Config
@@ -45,7 +45,7 @@ type metricsManager struct {
 	metrics []metric.WithMetadata
 }
 
-func (mm *metricsManager) Start(ctx hive.HookContext) error {
+func (mm *metricsManager) Start(ctx cell.HookContext) error {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
 	mm.server.Handler = mux
@@ -61,7 +61,7 @@ func (mm *metricsManager) Start(ctx hive.HookContext) error {
 	return nil
 }
 
-func (mm *metricsManager) Stop(ctx hive.HookContext) error {
+func (mm *metricsManager) Stop(ctx cell.HookContext) error {
 	if err := mm.server.Shutdown(ctx); err != nil {
 		mm.logger.WithError(err).Error("Shutdown operator metrics server failed")
 		return err

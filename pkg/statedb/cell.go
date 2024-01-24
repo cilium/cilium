@@ -4,7 +4,6 @@
 package statedb
 
 import (
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -25,7 +24,7 @@ var Cell = cell.Module(
 	cell.Metric(NewMetrics),
 )
 
-func newHiveDB(lc hive.Lifecycle, metrics Metrics) (*DB, error) {
+func newHiveDB(lc cell.Lifecycle, metrics Metrics) (*DB, error) {
 	db, err := NewDB(nil, metrics)
 	if err != nil {
 		return nil, err

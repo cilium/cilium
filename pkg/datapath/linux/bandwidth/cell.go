@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -62,7 +61,7 @@ func newReconcilerConfig(log logrus.FieldLogger, bwm types.BandwidthManager) rec
 	}
 }
 
-func newBandwidthManager(lc hive.Lifecycle, p bandwidthManagerParams) (types.BandwidthManager, defines.NodeFnOut) {
+func newBandwidthManager(lc cell.Lifecycle, p bandwidthManagerParams) (types.BandwidthManager, defines.NodeFnOut) {
 	m := &manager{params: p}
 
 	if !option.Config.DryMode {
@@ -72,7 +71,7 @@ func newBandwidthManager(lc hive.Lifecycle, p bandwidthManagerParams) (types.Ban
 	return m, defines.NewNodeFnOut(m.defines)
 }
 
-func (m *manager) Start(hive.HookContext) error {
+func (m *manager) Start(cell.HookContext) error {
 	err := m.probe()
 	if err != nil {
 		return err
@@ -83,7 +82,7 @@ func (m *manager) Start(hive.HookContext) error {
 	return m.init()
 }
 
-func (*manager) Stop(hive.HookContext) error {
+func (*manager) Stop(cell.HookContext) error {
 	return nil
 }
 

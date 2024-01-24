@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -114,7 +113,7 @@ type ClusterMesh struct {
 
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
-func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
+func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 	if c.ClusterInfo.ID == 0 || c.ClusterMeshConfig == "" {
 		return nil
 	}

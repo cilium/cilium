@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -66,7 +65,7 @@ var Cell = cell.Module(
 	cell.Config(SpireDelegateConfig{}),
 )
 
-func newSpireDelegateClient(lc hive.Lifecycle, cfg SpireDelegateConfig, log logrus.FieldLogger) certs.CertificateProvider {
+func newSpireDelegateClient(lc cell.Lifecycle, cfg SpireDelegateConfig, log logrus.FieldLogger) certs.CertificateProvider {
 	if cfg.SpireAdminSocketPath == "" {
 		log.Info("Spire Delegate API Client is disabled as no socket path is configured")
 		return nil
@@ -79,7 +78,7 @@ func newSpireDelegateClient(lc hive.Lifecycle, cfg SpireDelegateConfig, log logr
 		logLimiter:            logging.NewLimiter(10*time.Second, 3),
 	}
 
-	lc.Append(hive.Hook{OnStart: client.onStart, OnStop: client.onStop})
+	lc.Append(cell.Hook{OnStart: client.onStart, OnStop: client.onStop})
 
 	return client
 }
@@ -90,7 +89,7 @@ func (cfg SpireDelegateConfig) Flags(flags *pflag.FlagSet) {
 	flags.IntVar(&cfg.RotatedQueueSize, "mesh-auth-rotated-identities-queue-size", 1024, "The size of the queue for signaling rotated identities.")
 }
 
-func (s *SpireDelegateClient) onStart(ctx hive.HookContext) error {
+func (s *SpireDelegateClient) onStart(ctx cell.HookContext) error {
 	s.log.Info("Spire Delegate API Client is running")
 
 	listenCtx, cancel := context.WithCancel(context.Background())
@@ -101,7 +100,7 @@ func (s *SpireDelegateClient) onStart(ctx hive.HookContext) error {
 	return nil
 }
 
-func (s *SpireDelegateClient) onStop(ctx hive.HookContext) error {
+func (s *SpireDelegateClient) onStop(ctx cell.HookContext) error {
 	s.log.Info("SPIFFE Delegate API Client is stopping")
 
 	s.cancelListenForUpdates()

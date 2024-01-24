@@ -4,7 +4,7 @@
 package egressgateway
 
 import (
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -13,7 +13,7 @@ import (
 
 type Policy = v2.CiliumEgressGatewayPolicy
 
-func newPolicyResource(lc hive.Lifecycle, c client.Clientset) resource.Resource[*Policy] {
+func newPolicyResource(lc cell.Lifecycle, c client.Clientset) resource.Resource[*Policy] {
 	if !c.IsEnabled() {
 		return nil
 	}

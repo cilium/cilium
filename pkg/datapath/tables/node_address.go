@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ip"
@@ -173,7 +172,7 @@ type nodeAddressControllerParams struct {
 	HealthScope     cell.Scope
 	Log             logrus.FieldLogger
 	Config          NodeAddressConfig
-	Lifecycle       hive.Lifecycle
+	Lifecycle       cell.Lifecycle
 	Jobs            job.Registry
 	DB              *statedb.DB
 	Devices         statedb.Table[*Device]
@@ -207,8 +206,8 @@ func (n *nodeAddressController) register() {
 	g.Add(job.OneShot("node-address-update", n.run))
 
 	n.Lifecycle.Append(
-		hive.Hook{
-			OnStart: func(ctx hive.HookContext) error {
+		cell.Hook{
+			OnStart: func(ctx cell.HookContext) error {
 				txn := n.DB.WriteTxn(n.NodeAddresses, n.Devices /* for delete tracker */)
 				defer txn.Abort()
 

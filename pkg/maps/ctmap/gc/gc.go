@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -39,7 +38,7 @@ type PerClusterCTMapsRetriever func() []*ctmap.Map
 type parameters struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
 
 	DaemonConfig    *option.DaemonConfig
@@ -77,9 +76,9 @@ func New(params parameters) *GC {
 
 		controllerManager: controller.NewManager(),
 	}
-	params.Lifecycle.Append(hive.Hook{
+	params.Lifecycle.Append(cell.Hook{
 		// OnStart not yet defined pending further modularization of CT map GC.
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			gc.controllerManager.RemoveAllAndWait()
 			return nil
 		},

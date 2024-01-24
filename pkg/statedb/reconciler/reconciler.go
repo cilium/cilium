@@ -11,7 +11,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -59,7 +58,7 @@ type Params[Obj comparable] struct {
 	cell.In
 
 	Config    Config[Obj]
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Log       logrus.FieldLogger
 	DB        *statedb.DB
 	Table     statedb.RWTable[Obj]

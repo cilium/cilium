@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -34,7 +33,7 @@ type watchParams struct {
 	cell.In
 
 	Logger      logrus.FieldLogger
-	Lifecycle   hive.Lifecycle
+	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
 	Scope       cell.Scope
 
