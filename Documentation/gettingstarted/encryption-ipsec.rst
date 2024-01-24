@@ -297,6 +297,9 @@ Limitations
     * Transparent encryption is not currently supported when chaining Cilium on
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
+    * IPsec encryption does not work when using :ref:`kube-proxy replacement
+      <kubeproxy-free>`. Be aware that other features may require a kube-proxy
+      free environment in which case they are mutual exclusive.
     * IPsec encryption is not supported on clusters or clustermeshes with more
       than 65535 nodes.
     * Decryption with Cilium IPsec is limited to a single CPU core per IPsec
