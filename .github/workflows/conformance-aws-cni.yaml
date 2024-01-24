@@ -270,23 +270,44 @@ jobs:
         if: ${{ !success() }}
         uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
         with:
-          name: cilium-sysdumps
+          name: cilium-sysdumps-${{ matrix.version }}
           path: cilium-sysdump-*.zip
-          retention-days: 5
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
         uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
         with:
-          name: cilium-junits
+          name: cilium-junits-${{ matrix.version }}
           path: cilium-junits/*.xml
-          retention-days: 5
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-latest
+    needs: installation-and-connectivity
+    steps:
+      - name: Merge Sysdumps
+        if: ${{ needs.installation-and-connectivity.result == 'failure' }}
+        uses: actions/upload-artifact/merge@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        with:
+          name: cilium-sysdumps
+          pattern: cilium-sysdumps-*
+          retention-days: 5
+          delete-merged: true
+        continue-on-error: true
+      - name: Merge JUnits
+        uses: actions/upload-artifact/merge@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          retention-days: 5
+          delete-merged: true
 
   commit-status-final:
     if: ${{ always() }}
