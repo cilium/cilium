@@ -30,7 +30,7 @@ import (
 
 func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
-	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewTestEndpointWithState(c, do, do, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
 		return "", nil
 	})
@@ -93,7 +93,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		//t.Logf("allocated label %s id %d", labelKeys, id.ID) // commented out for speed
+		// t.Logf("allocated label %s id %d", labelKeys, id.ID) // commented out for speed
 
 		wg := &sync.WaitGroup{}
 		repo.GetSelectorCache().UpdateIdentities(cache.IdentityCache{

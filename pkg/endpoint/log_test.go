@@ -21,7 +21,7 @@ import (
 func (s *EndpointSuite) TestEndpointLogFormat(c *C) {
 	// Default log format is text
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
-	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewTestEndpointWithState(c, do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	_, ok := ep.getLogger().Logger.Formatter.(*logrus.TextFormatter)
 	c.Assert(ok, Equals, true)
@@ -32,7 +32,7 @@ func (s *EndpointSuite) TestEndpointLogFormat(c *C) {
 		logging.SetLogFormat(logging.LogFormatText)
 	}()
 	do = &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
-	ep = NewEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep = NewTestEndpointWithState(c, do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	_, ok = ep.getLogger().Logger.Formatter.(*logrus.JSONFormatter)
 	c.Assert(ok, Equals, true)
@@ -40,7 +40,7 @@ func (s *EndpointSuite) TestEndpointLogFormat(c *C) {
 
 func (s *EndpointSuite) TestPolicyLog(c *C) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
-	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewTestEndpointWithState(c, do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	// Initially nil
 	policyLogger := ep.getPolicyLogger()
