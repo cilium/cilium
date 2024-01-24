@@ -1029,8 +1029,10 @@ fib_ipv4:
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
-declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
-			 is_defined(IS_BPF_LXC)),
+declare_tailcall_if(__or3(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+			  __and(is_defined(ENABLE_HOST_FIREWALL),
+				is_defined(IS_BPF_HOST)),
+			  is_defined(IS_BPF_LXC)),
 		    CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
 {
@@ -1114,7 +1116,9 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ctx_skip_host_fw_set(ctx);
 # endif
 
-	ret = invoke_traced_tailcall_if(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+	ret = invoke_traced_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+					     __and(is_defined(ENABLE_HOST_FIREWALL),
+						   is_defined(IS_BPF_HOST))),
 					CILIUM_CALL_IPV6_NODEPORT_REVNAT,
 					nodeport_rev_dnat_ingress_ipv6,
 					&trace, &ext_err);
@@ -2496,8 +2500,10 @@ redirect:
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
-declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
-			 is_defined(IS_BPF_LXC)),
+declare_tailcall_if(__or3(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+			  __and(is_defined(ENABLE_HOST_FIREWALL),
+				is_defined(IS_BPF_HOST)),
+			  is_defined(IS_BPF_LXC)),
 		    CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 int tail_nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx)
 {
@@ -2597,7 +2603,9 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Also let nodeport_rev_dnat_ingress_ipv4() redirect EgressGW
 	 * reply traffic into tunnel (see there for details).
 	 */
-	ret = invoke_traced_tailcall_if(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+	ret = invoke_traced_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+					     __and(is_defined(ENABLE_HOST_FIREWALL),
+						   is_defined(IS_BPF_HOST))),
 					CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 					nodeport_rev_dnat_ingress_ipv4,
 					&trace, &ext_err);
