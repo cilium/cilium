@@ -2,8 +2,8 @@
 /* Copyright Authors of Cilium */
 
 static __always_inline void
-ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
-		     __u32 tunnel_ep, __u8 spi)
+__ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
+		       __u32 tunnel_ep, __u8 spi, bool flag_skip_tunnel)
 {
 	struct ipcache_key key = {
 		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V4_CACHE_KEY_LEN),
@@ -16,13 +16,28 @@ ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 	value.sec_identity = sec_identity;
 	value.tunnel_endpoint = tunnel_ep;
 	value.key = spi;
+	value.flag_skip_tunnel = flag_skip_tunnel;
 
 	map_update_elem(&IPCACHE_MAP, &key, &value, BPF_ANY);
 }
 
 static __always_inline void
-ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
+ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 		     __u32 tunnel_ep, __u8 spi)
+{
+	__ipcache_v4_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, false);
+}
+
+static __always_inline void
+ipcache_v4_add_entry_with_flags(__be32 addr, __u8 cluster_id, __u32 sec_identity,
+				__u32 tunnel_ep, __u8 spi, bool flag_skip_tunnel)
+{
+	__ipcache_v4_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, flag_skip_tunnel);
+}
+
+static __always_inline void
+__ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
+		       __u32 tunnel_ep, __u8 spi, bool flag_skip_tunnel)
 {
 	struct ipcache_key key = {
 		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V6_CACHE_KEY_LEN),
@@ -34,8 +49,23 @@ ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identi
 	value.sec_identity = sec_identity;
 	value.tunnel_endpoint = tunnel_ep;
 	value.key = spi;
+	value.flag_skip_tunnel = flag_skip_tunnel;
 
 	memcpy(&key.ip6, addr, sizeof(*addr));
 
 	map_update_elem(&IPCACHE_MAP, &key, &value, BPF_ANY);
+}
+
+static __always_inline void
+ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
+		     __u32 tunnel_ep, __u8 spi)
+{
+	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, false);
+}
+
+static __always_inline void
+ipcache_v6_add_entry_with_flags(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
+				__u32 tunnel_ep, __u8 spi, bool flag_skip_tunnel)
+{
+	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, tunnel_ep, spi, flag_skip_tunnel);
 }
