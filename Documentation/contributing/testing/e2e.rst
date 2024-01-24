@@ -211,3 +211,15 @@ has been resolved):
     # make modules_install
 
 Finally, you can use the instructions from :ref:`the previous chapter<test_cilium_on_lvh>` to run and to test Cilium.
+
+Cleaning up tests
+^^^^^^^^^^^^^^^^^
+
+If the connectivity tests are interrupted or timeout, that will leave the test pods deployed.
+To clean this up, simply delete the connectivity tests namespace:
+
+.. code-block:: shell-session
+
+    $ kubectl delete ns cilium-test
+
+If you specified the test namespace with ``--test-namespace``, make sure to replace ``cilium-test`` (default).
