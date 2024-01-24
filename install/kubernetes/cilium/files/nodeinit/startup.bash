@@ -100,7 +100,7 @@ then
     # Since that version containerd no longer allows missing configuration for the CNI,
     # not even for pods with hostNetwork set to true. Thus, we add a temporary one.
     # This will be replaced with the real config by the agent pod.
-    echo -e "{\n\t"cniVersion": "0.3.1",\n\t"name": "cilium",\n\t"type": "cilium-cni"\n}" > /etc/cni/net.d/05-cilium.conf
+    echo -e '{\n\t"cniVersion": "0.3.1",\n\t"name": "cilium",\n\t"type": "cilium-cni"\n}' > /etc/cni/net.d/05-cilium.conf
   fi
 
   # Start containerd. It won't create it's CNI configuration file anymore.
