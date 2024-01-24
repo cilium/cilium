@@ -213,7 +213,7 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	if qa {
 		testEndpointID = testQAEndpointID
 	}
-	e := endpoint.NewEndpointWithState(ds.d, ds.d, testipcache.NewMockIPCache(), ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
+	e := endpoint.NewTestEndpointWithState(c, ds.d, ds.d, testipcache.NewMockIPCache(), ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
 	if qa {
 		e.IPv6 = QAIPv6Addr
 		e.IPv4 = QAIPv4Addr
