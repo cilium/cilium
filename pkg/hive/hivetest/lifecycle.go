@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // lifecycle implements [hive.Lifecycle] for testing purposes.
@@ -15,7 +16,7 @@ type lifecycle struct {
 	tb testing.TB
 }
 
-var _ (hive.Lifecycle) = (*lifecycle)(nil)
+var _ (cell.Lifecycle) = (*lifecycle)(nil)
 
 // Lifecycle returns a [hive.Lifecycle] which executes start hooks immediately
 // and queues stop hooks for the end of the test.
@@ -43,4 +44,19 @@ func (lc *lifecycle) Append(hook hive.HookInterface) {
 			lc.tb.Fatal("Execute stop hook:", err)
 		}
 	})
+}
+
+// PrintHooks implements cell.Lifecycle.
+func (*lifecycle) PrintHooks() {
+	panic("unimplemented")
+}
+
+// Start implements cell.Lifecycle.
+func (*lifecycle) Start(context.Context) error {
+	panic("unimplemented")
+}
+
+// Stop implements cell.Lifecycle.
+func (*lifecycle) Stop(context.Context) error {
+	panic("unimplemented")
 }

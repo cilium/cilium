@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package hive_test
+package cell_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 var (
@@ -18,48 +18,48 @@ var (
 
 	errLifecycle = errors.New("nope")
 
-	goodHook = hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	goodHook = cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			started++
 			return nil
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			stopped++
 			return nil
 		},
 	}
 
-	badStartHook = hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	badStartHook = cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			return errLifecycle
 		},
 	}
 
-	badStopHook = hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	badStopHook = cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			started++
 			return nil
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			return errLifecycle
 		},
 	}
 
-	nilHook = hive.Hook{nil, nil}
+	nilHook = cell.Hook{nil, nil}
 )
 
 func TestLifecycle(t *testing.T) {
-	var lc hive.DefaultLifecycle
+	var lc cell.DefaultLifecycle
 
 	// Test without any hooks
-	lc = hive.DefaultLifecycle{}
+	lc = cell.DefaultLifecycle{}
 	err := lc.Start(context.TODO())
 	assert.NoError(t, err, "expected Start to succeed")
 	err = lc.Stop(context.TODO())
 	assert.NoError(t, err, "expected Stop to succeed")
 
 	// Test with 3 good, 1 nil hook, all successful.
-	lc = hive.DefaultLifecycle{}
+	lc = cell.DefaultLifecycle{}
 	lc.Append(goodHook)
 	lc.Append(goodHook)
 	lc.Append(goodHook)
@@ -77,7 +77,7 @@ func TestLifecycle(t *testing.T) {
 
 	// Test with 2 good, 1 bad start. Should see
 	// the good ones stopped.
-	lc = hive.DefaultLifecycle{}
+	lc = cell.DefaultLifecycle{}
 	lc.Append(goodHook)
 	lc.Append(goodHook)
 	lc.Append(badStartHook)
@@ -90,7 +90,7 @@ func TestLifecycle(t *testing.T) {
 	stopped = 0
 
 	// Test with 2 good, 1 bad stop. Stop should return the error.
-	lc = hive.DefaultLifecycle{}
+	lc = cell.DefaultLifecycle{}
 	lc.Append(goodHook)
 	lc.Append(goodHook)
 	lc.Append(badStopHook)
@@ -107,9 +107,9 @@ func TestLifecycle(t *testing.T) {
 	stopped = 0
 
 	// Test that one can have hook with a stop and no start.
-	lc = hive.DefaultLifecycle{}
-	lc.Append(hive.Hook{
-		OnStop: func(hive.HookContext) error { stopped++; return nil },
+	lc = cell.DefaultLifecycle{}
+	lc.Append(cell.Hook{
+		OnStop: func(cell.HookContext) error { stopped++; return nil },
 	})
 	err = lc.Start(context.TODO())
 	assert.NoError(t, err, "expected Start to succeed")
@@ -126,9 +126,9 @@ func TestLifecycleCancel(t *testing.T) {
 	cancel()
 
 	// Test cancellation in start hook
-	lc := hive.DefaultLifecycle{}
-	lc.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	lc := cell.DefaultLifecycle{}
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			<-ctx.Done()
 			return ctx.Err()
 		},
@@ -140,9 +140,9 @@ func TestLifecycleCancel(t *testing.T) {
 	expectedErr := errors.New("stop cancelled")
 	ctx, cancel = context.WithCancel(context.Background())
 	inStop := make(chan struct{})
-	lc = hive.DefaultLifecycle{}
-	lc.Append(hive.Hook{
-		OnStop: func(ctx hive.HookContext) error {
+	lc = cell.DefaultLifecycle{}
+	lc.Append(cell.Hook{
+		OnStop: func(ctx cell.HookContext) error {
 			close(inStop)
 			<-ctx.Done()
 			assert.ErrorIs(t, ctx.Err(), context.Canceled)
@@ -150,7 +150,7 @@ func TestLifecycleCancel(t *testing.T) {
 		},
 	})
 
-	// Only cancel once we're inside stop as hive.Stop() short-circuits
+	// Only cancel once we're inside stop as cell.Stop() short-circuits
 	// when context is cancelled.
 	go func() {
 		<-inStop

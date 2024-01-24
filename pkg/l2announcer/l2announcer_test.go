@@ -70,7 +70,7 @@ func newFixture() *fixture {
 
 	params := l2AnnouncerParams{
 		Logger:    logrus.New(),
-		Lifecycle: &hive.DefaultLifecycle{},
+		Lifecycle: &cell.DefaultLifecycle{},
 		DaemonConfig: &option.DaemonConfig{
 			K8sNamespace:             "kube_system",
 			EnableL2Announcements:    true,

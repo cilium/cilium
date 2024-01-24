@@ -12,7 +12,7 @@ import (
 // operator instance is elected leader. It implements hive.Lifecycle allowing cells
 // to use it.
 type LeaderLifecycle struct {
-	hive.DefaultLifecycle
+	cell.DefaultLifecycle
 }
 
 func WithLeaderLifecycle(cells ...cell.Cell) cell.Cell {
