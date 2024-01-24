@@ -32,10 +32,8 @@ runs:
     - name: Perform Conn Disrupt Test
       shell: bash
       run: |
-        # Skip test node-to-node-encryption until we've solved https://github.com/cilium/cilium/issues/29351
         ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
           --include-conn-disrupt-test \
-          --test '!node-to-node-encryption' \
           --flush-ct \
           --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
           --sysdump-output-filename "cilium-sysdump-${{ inputs.job-name }}-<ts>" \
