@@ -129,7 +129,6 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 		}).Info("Received own node information from API server")
 
 		useNodeCIDR(n)
-		restoreRouterHostIPs(n, log)
 	} else {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested
@@ -141,30 +140,4 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 	// Annotate addresses will occur later since the user might
 	// want to specify them manually
 	return nil
-}
-
-// restoreRouterHostIPs restores (sets) the router IPs found from the
-// Kubernetes resource.
-//
-// Note that it does not validate the correctness of the IPs, as that is done
-// later in the daemon initialization when node.AutoComplete() is called.
-func restoreRouterHostIPs(n *nodeTypes.Node, log logrus.FieldLogger) {
-	if !option.Config.EnableHostIPRestore {
-		return
-	}
-
-	router4 := n.GetCiliumInternalIP(false)
-	router6 := n.GetCiliumInternalIP(true)
-	if router4 != nil {
-		node.SetInternalIPv4Router(router4)
-	}
-	if router6 != nil {
-		node.SetIPv6Router(router6)
-	}
-	if router4 != nil || router6 != nil {
-		log.WithFields(logrus.Fields{
-			logfields.IPv4: router4,
-			logfields.IPv6: router6,
-		}).Info("Restored router IPs from node information")
-	}
 }
