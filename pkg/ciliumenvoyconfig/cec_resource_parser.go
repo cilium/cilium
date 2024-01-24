@@ -24,7 +24,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -46,7 +45,7 @@ type parserParams struct {
 	cell.In
 
 	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 
 	Proxy          *proxy.Proxy
 	LocalNodeStore *node.LocalNodeStore
@@ -60,8 +59,8 @@ func newCECResourceParser(params parserParams) *cecResourceParser {
 
 	// Retrieve Ingress IPs from local Node.
 	// It's assumed that these don't change.
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			localNode, err := params.LocalNodeStore.Get(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get LocalNodeStore: %w", err)

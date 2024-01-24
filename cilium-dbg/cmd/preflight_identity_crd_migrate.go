@@ -53,9 +53,9 @@ func migrateIdentityCmd() *cobra.Command {
 	hive := hive.New(
 		k8sClient.Cell,
 		agentK8s.LocalNodeCell,
-		cell.Invoke(func(lc hive.Lifecycle, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources, shutdowner hive.Shutdowner) {
-			lc.Append(hive.Hook{
-				OnStart: func(ctx hive.HookContext) error {
+		cell.Invoke(func(lc cell.Lifecycle, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources, shutdowner hive.Shutdowner) {
+			lc.Append(cell.Hook{
+				OnStart: func(ctx cell.HookContext) error {
 					return migrateIdentities(ctx, clientset, resources, shutdowner)
 				},
 			})
@@ -96,7 +96,7 @@ func migrateIdentityCmd() *cobra.Command {
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
-func migrateIdentities(ctx hive.HookContext, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources, shutdowner hive.Shutdowner) error {
+func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources, shutdowner hive.Shutdowner) error {
 	defer shutdowner.Shutdown(nil)
 
 	// Setup global configuration

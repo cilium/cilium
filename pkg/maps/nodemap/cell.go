@@ -5,7 +5,6 @@ package nodemap
 
 import (
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -17,14 +16,14 @@ var Cell = cell.Module(
 	cell.Provide(newNodeMap),
 )
 
-func newNodeMap(lifecycle hive.Lifecycle) bpf.MapOut[Map] {
+func newNodeMap(lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 	nodeMap := newMap(MapName)
 
-	lifecycle.Append(hive.Hook{
-		OnStart: func(context hive.HookContext) error {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(context cell.HookContext) error {
 			return nodeMap.init()
 		},
-		OnStop: func(context hive.HookContext) error {
+		OnStop: func(context cell.HookContext) error {
 			return nodeMap.close()
 		},
 	})

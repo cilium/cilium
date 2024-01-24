@@ -14,7 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -54,7 +53,7 @@ type params struct {
 	Metrics []metric.WithMetadata `group:"hive-metrics"`
 }
 
-func registerMetricsManager(lc hive.Lifecycle, params params) error {
+func registerMetricsManager(lc cell.Lifecycle, params params) error {
 	manager := metricsManager{
 		logger:   params.Logger,
 		registry: prometheus.NewPedanticRegistry(),
@@ -71,7 +70,7 @@ func registerMetricsManager(lc hive.Lifecycle, params params) error {
 	return nil
 }
 
-func (mm *metricsManager) Start(hive.HookContext) error {
+func (mm *metricsManager) Start(cell.HookContext) error {
 	mm.logger.Info("Registering metrics")
 
 	mm.registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
@@ -113,7 +112,7 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 	return nil
 }
 
-func (mm *metricsManager) Stop(ctx hive.HookContext) error {
+func (mm *metricsManager) Stop(ctx cell.HookContext) error {
 	mm.logger.Info("Stopping metrics server")
 
 	if err := mm.server.Shutdown(ctx); err != nil {

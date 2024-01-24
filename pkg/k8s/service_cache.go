@@ -17,7 +17,6 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -135,14 +134,14 @@ func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
 	}
 }
 
-func newServiceCache(lc hive.Lifecycle, nodeAddressing types.NodeAddressing, cfg ServiceCacheConfig, lns *node.LocalNodeStore) *ServiceCache {
+func newServiceCache(lc cell.Lifecycle, nodeAddressing types.NodeAddressing, cfg ServiceCacheConfig, lns *node.LocalNodeStore) *ServiceCache {
 	sc := NewServiceCache(nodeAddressing)
 	sc.config = cfg
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
-	lc.Append(hive.Hook{
-		OnStart: func(hc hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
 			if !cfg.EnableServiceTopology {
 				return nil
 			}
@@ -159,7 +158,7 @@ func newServiceCache(lc hive.Lifecycle, nodeAddressing types.NodeAddressing, cfg
 
 			return err
 		},
-		OnStop: func(hc hive.HookContext) error {
+		OnStop: func(hc cell.HookContext) error {
 			cancel()
 			wg.Wait()
 			return nil

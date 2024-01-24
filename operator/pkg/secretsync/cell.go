@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -38,7 +37,7 @@ type secretSyncParams struct {
 	cell.In
 
 	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Registrations      []*SecretSyncRegistration `group:"secretSyncRegistrations"`

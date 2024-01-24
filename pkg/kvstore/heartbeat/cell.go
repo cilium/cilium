@@ -7,7 +7,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/promise"
@@ -19,12 +18,12 @@ var Cell = cell.Module(
 	"kvstore-heartbeat-updater",
 	"KVStore Heartbeat Updater",
 
-	cell.Invoke(func(lc hive.Lifecycle, backendPromise promise.Promise[kvstore.BackendOperations]) {
+	cell.Invoke(func(lc cell.Lifecycle, backendPromise promise.Promise[kvstore.BackendOperations]) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
 
-		lc.Append(hive.Hook{
-			OnStart: func(hive.HookContext) error {
+		lc.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
@@ -41,7 +40,7 @@ var Cell = cell.Module(
 				return nil
 			},
 
-			OnStop: func(ctx hive.HookContext) error {
+			OnStop: func(ctx cell.HookContext) error {
 				cancel()
 				wg.Wait()
 				return nil

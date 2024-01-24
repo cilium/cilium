@@ -22,7 +22,7 @@ import (
 	"github.com/tidwall/sjson"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/time"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
@@ -175,7 +175,7 @@ var cniControllerGroup = controller.NewGroup("write-cni-file")
 // - cni-exlusive -- if true, then remove other existing CNI configurations
 // - cni-log-file=PATH -- A file for the CNI plugin to use for logging
 // - debug -- Whether or not the CNI plugin binary should be verbose
-func (c *cniConfigManager) Start(hive.HookContext) error {
+func (c *cniConfigManager) Start(cell.HookContext) error {
 	if c.config.WriteCNIConfWhenReady == "" {
 		return nil
 	}
@@ -218,7 +218,7 @@ func (c *cniConfigManager) Start(hive.HookContext) error {
 	return nil
 }
 
-func (c *cniConfigManager) Stop(hive.HookContext) error {
+func (c *cniConfigManager) Stop(cell.HookContext) error {
 	c.doneFunc()
 	c.controller.RemoveAllAndWait()
 

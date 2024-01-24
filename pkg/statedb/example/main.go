@@ -43,7 +43,7 @@ func main() {
 	}
 }
 
-func reportHealth(health cell.Health, log logrus.FieldLogger, scope cell.Scope, jobs job.Registry, lc hive.Lifecycle) {
+func reportHealth(health cell.Health, log logrus.FieldLogger, scope cell.Scope, jobs job.Registry, lc cell.Lifecycle) {
 	g := jobs.NewGroup(scope)
 	reportHealth := func(ctx context.Context) error {
 		for _, status := range health.All() {

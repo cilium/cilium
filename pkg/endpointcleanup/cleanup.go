@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointstate"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -41,7 +40,7 @@ type params struct {
 	cell.In
 
 	Logger              logrus.FieldLogger
-	Lifecycle           hive.Lifecycle
+	Lifecycle           cell.Lifecycle
 	JobRegistry         job.Registry
 	Scope               cell.Scope
 	CiliumEndpoint      resource.Resource[*types.CiliumEndpoint]

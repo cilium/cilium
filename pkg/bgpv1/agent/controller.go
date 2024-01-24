@@ -78,7 +78,7 @@ type Controller struct {
 type ControllerParams struct {
 	cell.In
 
-	Lifecycle               hive.Lifecycle
+	Lifecycle               cell.Lifecycle
 	Scope                   cell.Scope
 	JobRegistry             job.Registry
 	Shutdowner              hive.Shutdowner

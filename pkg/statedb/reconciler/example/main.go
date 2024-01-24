@@ -143,7 +143,7 @@ func NewReconcilerConfig(ops reconciler.Operations[*Memo]) reconciler.Config[*Me
 const maxMemoSize = 1024
 
 func registerHTTPServer(
-	lc hive.Lifecycle,
+	lc cell.Lifecycle,
 	log logrus.FieldLogger,
 	db *statedb.DB,
 	memos statedb.RWTable[*Memo]) {
@@ -206,13 +206,13 @@ func registerHTTPServer(
 		Handler: mux,
 	}
 
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			log.Infof("Serving API at %s", server.Addr)
 			go server.ListenAndServe()
 			return nil
 		},
-		OnStop: func(ctx hive.HookContext) error {
+		OnStop: func(ctx cell.HookContext) error {
 			return server.Shutdown(ctx)
 		},
 	})

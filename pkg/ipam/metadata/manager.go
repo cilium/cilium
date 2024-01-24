@@ -11,7 +11,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -61,7 +61,7 @@ type Manager struct {
 	podStore          resource.Store[*slim_core_v1.Pod]
 }
 
-func (m *Manager) Start(ctx hive.HookContext) (err error) {
+func (m *Manager) Start(ctx cell.HookContext) (err error) {
 	m.namespaceStore, err = m.namespaceResource.Store(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to obtain namespace store: %w", err)
@@ -75,7 +75,7 @@ func (m *Manager) Start(ctx hive.HookContext) (err error) {
 	return nil
 }
 
-func (m *Manager) Stop(ctx hive.HookContext) error {
+func (m *Manager) Stop(ctx cell.HookContext) error {
 	m.namespaceStore = nil
 	m.podStore = nil
 	return nil

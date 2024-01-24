@@ -12,7 +12,6 @@ import (
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -27,7 +26,7 @@ type params struct {
 	cell.In
 
 	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 
 	Clientset           k8sClient.Clientset
 	CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]

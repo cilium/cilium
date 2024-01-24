@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/rate"
@@ -31,7 +30,7 @@ type reconcilerParams struct {
 
 	Backends  statedb.RWTable[Backend]
 	DB        *statedb.DB
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Log       logrus.FieldLogger
 	Registry  job.Registry
 	Scope     cell.Scope

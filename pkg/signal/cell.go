@@ -4,7 +4,6 @@
 package signal
 
 import (
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 )
@@ -17,16 +16,16 @@ var Cell = cell.Module(
 	cell.Provide(provideSignalManager),
 )
 
-func provideSignalManager(lifecycle hive.Lifecycle, signalMap signalmap.Map) SignalManager {
+func provideSignalManager(lifecycle cell.Lifecycle, signalMap signalmap.Map) SignalManager {
 	sm := newSignalManager(signalMap)
 
 	log.Debugf("newSignalManager: %v", sm)
 
-	lifecycle.Append(hive.Hook{
-		OnStart: func(startCtx hive.HookContext) error {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(startCtx cell.HookContext) error {
 			return sm.start()
 		},
-		OnStop: func(stopCtx hive.HookContext) error {
+		OnStop: func(stopCtx cell.HookContext) error {
 			return sm.stop()
 		},
 	})

@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/node"
@@ -46,7 +45,7 @@ type deviceReloader struct {
 // or the devices change. This leads to potentially inconsistent, observable state when the device
 // changes have not yet propagated to the NodeAddress changes. Components which depend on both need
 // to live with this fact and come up with component-specific strategies to deal with it.
-func registerDeviceReloader(lc hive.Lifecycle, p deviceReloaderParams) {
+func registerDeviceReloader(lc cell.Lifecycle, p deviceReloaderParams) {
 	if !p.Config.EnableRuntimeDeviceDetection {
 		return
 	}
@@ -55,7 +54,7 @@ func registerDeviceReloader(lc hive.Lifecycle, p deviceReloaderParams) {
 }
 
 // Start listening to changed devices if requested.
-func (d *deviceReloader) Start(ctx hive.HookContext) error {
+func (d *deviceReloader) Start(ctx cell.HookContext) error {
 	if !d.params.Config.AreDevicesRequired() {
 		log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
 		return nil
@@ -72,7 +71,7 @@ func (d *deviceReloader) Start(ctx hive.HookContext) error {
 	return jg.Start(ctx)
 }
 
-func (d *deviceReloader) Stop(ctx hive.HookContext) error {
+func (d *deviceReloader) Stop(ctx cell.HookContext) error {
 	if d.jg != nil {
 		return d.jg.Stop(ctx)
 	}

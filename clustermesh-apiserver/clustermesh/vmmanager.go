@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -64,7 +63,7 @@ func (def ExternalWorkloadsConfig) Flags(flags *pflag.FlagSet) {
 }
 
 func externalWorkloadsProvider(
-	lc hive.Lifecycle,
+	lc cell.Lifecycle,
 
 	cfg ExternalWorkloadsConfig,
 	clusterInfo cmtypes.ClusterInfo,
@@ -86,8 +85,8 @@ func externalWorkloadsProvider(
 		ciliumClient: clientset,
 	}
 
-	lc.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			synced.SyncCRDs(ctx, clientset, synced.ClusterMeshAPIServerResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 
 			ewstore, err := ciliumExternalWorkloads.Store(ctx)

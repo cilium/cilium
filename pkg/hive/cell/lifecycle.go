@@ -189,7 +189,7 @@ func (lc augmentedLifecycle) Append(hook HookInterface) {
 
 func getHookFuncName(hook HookInterface, start bool) (name string, hasHook bool) {
 	// Ok, we need to get a bit fancy here as runtime.FuncForPC does
-	// not return what we want: we get "hive.Hook.Stop()" when we want
+	// not return what we want: we get "cell.Hook.Stop()" when we want
 	// "*foo.Stop(). We do know the concrete type, and we do know
 	// the method name, so we check here whether we're dealing with
 	// "Hook" the struct, or an object implementing HookInterface.

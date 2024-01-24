@@ -14,7 +14,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -45,7 +44,7 @@ type BGPParams struct {
 	cell.In
 
 	Logger       logrus.FieldLogger
-	LC           hive.Lifecycle
+	LC           cell.Lifecycle
 	Clientset    k8s_client.Clientset
 	DaemonConfig *option.DaemonConfig
 	JobRegistry  job.Registry
@@ -65,7 +64,7 @@ type BGPParams struct {
 type BGPResourceManager struct {
 	logger    logrus.FieldLogger
 	clientset k8s_client.Clientset
-	lc        hive.Lifecycle
+	lc        cell.Lifecycle
 	jobs      job.Registry
 	scope     cell.Scope
 

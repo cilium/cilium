@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -35,17 +34,17 @@ type Map interface {
 	MapName() string
 }
 
-func newMap(log logrus.FieldLogger, lifecycle hive.Lifecycle) bpf.MapOut[Map] {
+func newMap(log logrus.FieldLogger, lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 	possibleCPUs := common.GetNumPossibleCPUs(log)
 	signalmap := initMap(possibleCPUs)
 
 	log.Debugf("signalmap.newMap: %v", signalmap)
 
-	lifecycle.Append(hive.Hook{
-		OnStart: func(startCtx hive.HookContext) error {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(startCtx cell.HookContext) error {
 			return signalmap.open()
 		},
-		OnStop: func(stopCtx hive.HookContext) error {
+		OnStop: func(stopCtx cell.HookContext) error {
 			return signalmap.close()
 		},
 	})

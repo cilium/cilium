@@ -9,7 +9,6 @@ import (
 
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -49,7 +48,7 @@ var LocalNodeStoreCell = cell.Module(
 type LocalNodeStoreParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Sync      LocalNodeSynchronizer `optional:"true"`
 }
 
@@ -92,8 +91,8 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 	bctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if params.Sync != nil {
@@ -119,7 +118,7 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 			emit(s.value)
 			return nil
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			// Stop the synchronization process (no-op if it had not been started)
 			cancel()
 			wg.Wait()

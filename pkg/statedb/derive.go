@@ -6,7 +6,6 @@ package statedb
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 )
@@ -23,7 +22,7 @@ const (
 type DeriveParams[In, Out any] struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Jobs      job.Registry
 	Scope     cell.Scope
 	DB        *DB

@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock/lockfile"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,7 +27,7 @@ type deletionQueue struct {
 	daemonPromise promise.Promise[*Daemon]
 }
 
-func (dq *deletionQueue) Start(ctx hive.HookContext) error {
+func (dq *deletionQueue) Start(ctx cell.HookContext) error {
 	d, err := dq.daemonPromise.Await(ctx)
 	if err != nil {
 		return err
@@ -45,11 +44,11 @@ func (dq *deletionQueue) Start(ctx hive.HookContext) error {
 
 }
 
-func (dq *deletionQueue) Stop(ctx hive.HookContext) error {
+func (dq *deletionQueue) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func newDeletionQueue(lc hive.Lifecycle, p promise.Promise[*Daemon]) *deletionQueue {
+func newDeletionQueue(lc cell.Lifecycle, p promise.Promise[*Daemon]) *deletionQueue {
 	dq := &deletionQueue{daemonPromise: p}
 	lc.Append(dq)
 	return dq
@@ -111,9 +110,9 @@ func (dq *deletionQueue) processQueuedDeletes(d *Daemon, ctx context.Context) er
 // unlockAfterAPIServer registers a start hook that runs after API server
 // has started and the deletion queue has been drained to unlock the
 // delete queue and thus allow CNI plugin to proceed.
-func unlockAfterAPIServer(lc hive.Lifecycle, _ *server.Server, dq *deletionQueue) {
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+func unlockAfterAPIServer(lc cell.Lifecycle, _ *server.Server, dq *deletionQueue) {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			if dq.lf != nil {
 				dq.lf.Unlock()
 				dq.lf.Close()

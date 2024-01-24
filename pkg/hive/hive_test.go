@@ -397,9 +397,9 @@ func TestProvideHealthReporter(t *testing.T) {
 		testCell,
 		testCell2,
 		unknown,
-		cell.Invoke(func(lc hive.Lifecycle, _ hive.Shutdowner, hp cell.Health) {
-			lc.Append(hive.Hook{
-				OnStop: func(hive.HookContext) error {
+		cell.Invoke(func(lc cell.Lifecycle, _ hive.Shutdowner, hp cell.Health) {
+			lc.Append(cell.Hook{
+				OnStop: func(cell.HookContext) error {
 					chp = hp
 					return nil
 				}})
@@ -514,9 +514,9 @@ func TestShutdown(t *testing.T) {
 
 	// Test from a start hook
 	h := hive.New(
-		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
-			lc.Append(hive.Hook{
-				OnStart: func(hive.HookContext) error {
+		cell.Invoke(func(lc cell.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(cell.Hook{
+				OnStart: func(cell.HookContext) error {
 					shutdowner.Shutdown()
 					return nil
 				}})
@@ -526,9 +526,9 @@ func TestShutdown(t *testing.T) {
 
 	// Test from a goroutine forked from start hook
 	h = hive.New(
-		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
-			lc.Append(hive.Hook{
-				OnStart: func(hive.HookContext) error {
+		cell.Invoke(func(lc cell.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(cell.Hook{
+				OnStart: func(cell.HookContext) error {
 					go shutdowner.Shutdown()
 					return nil
 				}})
@@ -538,7 +538,7 @@ func TestShutdown(t *testing.T) {
 
 	// Test from an invoke. Shouldn't really be used, but should still work.
 	h = hive.New(
-		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
+		cell.Invoke(func(lc cell.Lifecycle, shutdowner hive.Shutdowner) {
 			shutdowner.Shutdown()
 		}),
 	)
@@ -552,9 +552,9 @@ func TestShutdown(t *testing.T) {
 
 	// Test from a start hook
 	h = hive.New(
-		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
-			lc.Append(hive.Hook{
-				OnStart: func(hive.HookContext) error {
+		cell.Invoke(func(lc cell.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(cell.Hook{
+				OnStart: func(cell.HookContext) error {
 					shutdowner.Shutdown(hive.ShutdownWithError(shutdownErr))
 					return nil
 				}})
@@ -566,24 +566,24 @@ func TestShutdown(t *testing.T) {
 func TestRunRollback(t *testing.T) {
 	var started, stopped int
 	h := hive.New(
-		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
-			lc.Append(hive.Hook{
-				OnStart: func(ctx hive.HookContext) error {
+		cell.Invoke(func(lc cell.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(cell.Hook{
+				OnStart: func(ctx cell.HookContext) error {
 					started++
 					return nil
 				},
-				OnStop: func(ctx hive.HookContext) error {
+				OnStop: func(ctx cell.HookContext) error {
 					stopped++
 					return nil
 				},
 			})
-			lc.Append(hive.Hook{
-				OnStart: func(ctx hive.HookContext) error {
+			lc.Append(cell.Hook{
+				OnStart: func(ctx cell.HookContext) error {
 					started++
 					<-ctx.Done()
 					return ctx.Err()
 				},
-				OnStop: func(hive.HookContext) error {
+				OnStop: func(cell.HookContext) error {
 					// Should not be called.
 					t.Fatal("unexpected call to second OnStop")
 					return nil
@@ -602,9 +602,9 @@ func TestRunRollback(t *testing.T) {
 	assert.Equal(t, 1, stopped)
 }
 
-var shutdownOnStartCell = cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+var shutdownOnStartCell = cell.Invoke(func(lc cell.Lifecycle, shutdowner hive.Shutdowner) {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			shutdowner.Shutdown()
 			return nil
 		}})

@@ -226,16 +226,16 @@ func benchWithListeners(listener *MockMonitorListener, b *testing.B) {
 }
 
 func BenchmarkLogNotifierWithNoListeners(b *testing.B) {
-	bench := cell.Invoke(func(lc hive.Lifecycle, monitor agent.Agent) error {
+	bench := cell.Invoke(func(lc cell.Lifecycle, monitor agent.Agent) error {
 		notifier := NewMockLogNotifier(monitor)
 		SetNotifier(notifier)
 
-		lc.Append(hive.Hook{
-			OnStart: func(ctx hive.HookContext) error {
+		lc.Append(cell.Hook{
+			OnStart: func(ctx cell.HookContext) error {
 				benchWithoutListeners(b)
 				return nil
 			},
-			OnStop: func(ctx hive.HookContext) error { return nil },
+			OnStop: func(ctx cell.HookContext) error { return nil },
 		})
 
 		return nil
@@ -256,18 +256,18 @@ func BenchmarkLogNotifierWithNoListeners(b *testing.B) {
 }
 
 func BenchmarkLogNotifierWithListeners(b *testing.B) {
-	bench := cell.Invoke(func(lc hive.Lifecycle, monitor agent.Agent, cfg agent.AgentConfig, em eventsmap.Map) error {
+	bench := cell.Invoke(func(lc cell.Lifecycle, monitor agent.Agent, cfg agent.AgentConfig, em eventsmap.Map) error {
 		listener := NewMockMonitorListener(cfg.MonitorQueueSize)
 		notifier := NewMockLogNotifier(monitor)
 		notifier.RegisterNewListener(listener)
 		SetNotifier(notifier)
 
-		lc.Append(hive.Hook{
-			OnStart: func(ctx hive.HookContext) error {
+		lc.Append(cell.Hook{
+			OnStart: func(ctx cell.HookContext) error {
 				benchWithListeners(listener, b)
 				return nil
 			},
-			OnStop: func(ctx hive.HookContext) error { return nil },
+			OnStop: func(ctx cell.HookContext) error { return nil },
 		})
 
 		return nil

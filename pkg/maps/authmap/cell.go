@@ -5,7 +5,6 @@ package authmap
 
 import (
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -21,14 +20,14 @@ var Cell = cell.Module(
 	cell.Provide(newAuthMap),
 )
 
-func newAuthMap(lifecycle hive.Lifecycle) bpf.MapOut[Map] {
+func newAuthMap(lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 	authMap := newMap(option.Config.AuthMapEntries)
 
-	lifecycle.Append(hive.Hook{
-		OnStart: func(context hive.HookContext) error {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(context cell.HookContext) error {
 			return authMap.init()
 		},
-		OnStop: func(context hive.HookContext) error {
+		OnStop: func(context cell.HookContext) error {
 			return authMap.close()
 		},
 	})

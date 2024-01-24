@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
@@ -101,7 +101,7 @@ type Resource[T k8sRuntime.Object] interface {
 //		"example",
 //	 	cell.Provide(
 //		 	// Provide `Resource[*slim_corev1.Pod]` to the hive:
-//		 	func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_corev1.Pod] {
+//		 	func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_corev1.Pod] {
 //				lw := utils.ListerWatcherFromTyped[*slim_corev1.PodList](
 //					c.Slim().CoreV1().Pods(""),
 //				)
@@ -135,7 +135,7 @@ type Resource[T k8sRuntime.Object] interface {
 //	}
 //
 // See also pkg/k8s/resource/example/main.go for a runnable example.
-func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ...ResourceOption) Resource[T] {
+func New[T k8sRuntime.Object](lc cell.Lifecycle, lw cache.ListerWatcher, opts ...ResourceOption) Resource[T] {
 	r := &resource[T]{
 		lw: lw,
 	}
@@ -312,7 +312,7 @@ func (r *resource[T]) metricEventReceived(action string, valid, equal bool) {
 	metrics.KubernetesEventReceived.WithLabelValues(r.opts.metricScope, action, validStr, equalStr).Inc()
 }
 
-func (r *resource[T]) Start(hive.HookContext) error {
+func (r *resource[T]) Start(cell.HookContext) error {
 	r.start()
 	return nil
 }
@@ -380,7 +380,7 @@ func (r *resource[T]) startWhenNeeded() {
 	}
 }
 
-func (r *resource[T]) Stop(stopCtx hive.HookContext) error {
+func (r *resource[T]) Stop(stopCtx cell.HookContext) error {
 	if r.opts.releasable {
 		// grab the refs lock to avoid a concurrent restart for releasable resource
 		r.refsMu.Lock()

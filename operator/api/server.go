@@ -41,7 +41,7 @@ type params struct {
 	OperatorAPISpec *operatorApi.Spec
 
 	Logger     logrus.FieldLogger
-	Lifecycle  hive.Lifecycle
+	Lifecycle  cell.Lifecycle
 	Shutdowner hive.Shutdowner
 }
 
@@ -81,7 +81,7 @@ func newServer(
 	return server, nil
 }
 
-func (s *server) Start(ctx hive.HookContext) error {
+func (s *server) Start(ctx cell.HookContext) error {
 	spec, err := loads.Analyzed(operatorApi.SwaggerJSON, "")
 	if err != nil {
 		return err
@@ -172,7 +172,7 @@ func (s *server) Start(ctx hive.HookContext) error {
 // setsockoptReuseAddrAndPort sets the SO_REUSEADDR and SO_REUSEPORT socket options on c's
 // underlying socket in order to improve the chance to re-bind to the same address and port
 // upon restart.
-func (s *server) Stop(ctx hive.HookContext) error {
+func (s *server) Stop(ctx cell.HookContext) error {
 	for _, srv := range s.httpSrvs {
 		if srv.server == nil {
 			continue

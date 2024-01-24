@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -29,11 +28,11 @@ var (
 
 type Map interface{}
 
-func newEventsMap(log logrus.FieldLogger, lifecycle hive.Lifecycle) bpf.MapOut[Map] {
+func newEventsMap(log logrus.FieldLogger, lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 	eventsMap := &eventsMap{}
 
-	lifecycle.Append(hive.Hook{
-		OnStart: func(context hive.HookContext) error {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(context cell.HookContext) error {
 			cpus := common.GetNumPossibleCPUs(log)
 			err := eventsMap.init(cpus)
 			if err != nil {
@@ -41,7 +40,7 @@ func newEventsMap(log logrus.FieldLogger, lifecycle hive.Lifecycle) bpf.MapOut[M
 			}
 			return nil
 		},
-		OnStop: func(context hive.HookContext) error {
+		OnStop: func(context cell.HookContext) error {
 			// We don't currently care for cleaning up.
 			return nil
 		},

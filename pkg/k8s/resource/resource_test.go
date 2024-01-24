@@ -298,7 +298,7 @@ func TestResource_RepeatedDelete(t *testing.T) {
 
 	hive := hive.New(
 		cell.Provide(
-			func(lc hive.Lifecycle) resource.Resource[*corev1.Node] {
+			func(lc cell.Lifecycle) resource.Resource[*corev1.Node] {
 				return resource.New[*corev1.Node](lc, &lw)
 			}),
 
@@ -468,7 +468,7 @@ func TestResource_WithTransform(t *testing.T) {
 	hive := hive.New(
 		cell.Provide(
 			func() k8sClient.Clientset { return cs },
-			func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*StrippedNode] {
+			func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*StrippedNode] {
 				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
 				return resource.New[*StrippedNode](lc, lw, resource.WithTransform(strip))
 			}),
@@ -530,7 +530,7 @@ func TestResource_WithoutIndexers(t *testing.T) {
 	hive := hive.New(
 		cell.Provide(func() k8sClient.Clientset { return cs }),
 		cell.Provide(
-			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+			func(lc cell.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
 				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
 				return resource.New[*corev1.Node](lc, lw)
 			},
@@ -647,7 +647,7 @@ func TestResource_WithIndexers(t *testing.T) {
 	hive := hive.New(
 		cell.Provide(func() k8sClient.Clientset { return cs }),
 		cell.Provide(
-			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+			func(lc cell.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
 				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
 				return resource.New[*corev1.Node](
 					lc, lw,
@@ -743,7 +743,7 @@ func TestResource_Retries(t *testing.T) {
 
 	hive := hive.New(
 		cell.Provide(func() k8sClient.Clientset { return cs }),
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*corev1.Node] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*corev1.Node] {
 			nodesLW := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
 			return resource.New[*corev1.Node](lc, nodesLW)
 		}),
@@ -939,7 +939,7 @@ func TestResource_Releasable(t *testing.T) {
 	hive := hive.New(
 		cell.Provide(func() k8sClient.Clientset { return cs }),
 		cell.Provide(
-			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+			func(lc cell.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
 				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
 				return resource.New[*corev1.Node](
 					lc, lw,
@@ -1077,7 +1077,7 @@ func TestResource_ReleasableCtxCanceled(t *testing.T) {
 	hive := hive.New(
 		cell.Provide(func() k8sClient.Clientset { return cs }),
 		cell.Provide(
-			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+			func(lc cell.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
 				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
 				return resource.New[*corev1.Node](
 					lc, lw,
@@ -1183,7 +1183,7 @@ func BenchmarkResource(b *testing.B) {
 	)
 
 	hive := hive.New(
-		cell.Provide(func(lc hive.Lifecycle) resource.Resource[*corev1.Node] {
+		cell.Provide(func(lc cell.Lifecycle) resource.Resource[*corev1.Node] {
 			return resource.New[*corev1.Node](lc, lw)
 		}),
 		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
@@ -1296,7 +1296,7 @@ func TestResource_SkippedDonePanics(t *testing.T) {
 //
 
 var nodesResource = cell.Provide(
-	func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*corev1.Node] {
+	func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*corev1.Node] {
 		lw := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
 		return resource.New[*corev1.Node](lc, lw)
 	},
