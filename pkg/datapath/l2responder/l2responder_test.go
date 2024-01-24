@@ -59,7 +59,7 @@ func newFixture() *fixture {
 
 	return &fixture{
 		reconciler: NewL2ResponderReconciler(params{
-			Lifecycle:           &hive.DefaultLifecycle{},
+			Lifecycle:           &cell.DefaultLifecycle{},
 			Logger:              logrus.New(),
 			L2AnnouncementTable: tbl,
 			StateDB:             db,
