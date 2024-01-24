@@ -7,7 +7,6 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -35,10 +34,10 @@ type mtuParams struct {
 	TunnelConfig tunnel.Config
 }
 
-func newForCell(lc hive.Lifecycle, p mtuParams) MTU {
+func newForCell(lc cell.Lifecycle, p mtuParams) MTU {
 	c := &Configuration{}
-	lc.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			node, err := p.LocalNode.Get(ctx)
 			if err != nil {
 				return err

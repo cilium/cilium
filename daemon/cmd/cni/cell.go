@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -66,7 +65,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(option.CNIExternalRouting, defaultConfig.CNIExternalRouting, "Whether the chained CNI plugin handles routing on the node")
 }
 
-func enableConfigManager(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {
+func enableConfigManager(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {
 	c := newConfigManager(log, cfg, dcfg.Debug)
 	lc.Append(c)
 	return c

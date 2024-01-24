@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -258,13 +257,13 @@ func New(c Configuration, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *n
 	return m, nil
 }
 
-func (m *manager) Start(hive.HookContext) error {
+func (m *manager) Start(cell.HookContext) error {
 	m.workerpool = workerpool.New(numBackgroundWorkers)
 	return m.workerpool.Submit("backgroundSync", m.backgroundSync)
 }
 
 // Stop shuts down a node manager
-func (m *manager) Stop(hive.HookContext) error {
+func (m *manager) Stop(cell.HookContext) error {
 	if m.workerpool != nil {
 		if err := m.workerpool.Close(); err != nil {
 			return err

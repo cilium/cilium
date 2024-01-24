@@ -117,9 +117,9 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 			}
 		}),
 
-		cell.Invoke(func(lc hive.Lifecycle, metrics *testMetrics, hf http.HandlerFunc) {
-			lc.Append(hive.Hook{
-				OnStart: func(hive.HookContext) error {
+		cell.Invoke(func(lc cell.Lifecycle, metrics *testMetrics, hf http.HandlerFunc) {
+			lc.Append(cell.Hook{
+				OnStart: func(cell.HookContext) error {
 					// set values for some metrics
 					metrics.MetricA.
 						WithLabelValues("success").

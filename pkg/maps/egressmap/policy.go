@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -72,7 +71,7 @@ type policyMap struct {
 func createPolicyMapFromDaemonConfig(in struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	*option.DaemonConfig
 	PolicyConfig
 }) (out struct {
@@ -97,11 +96,11 @@ func createPolicyMapFromDaemonConfig(in struct {
 // CreatePrivatePolicyMap creates an unpinned policy map.
 //
 // Useful for testing.
-func CreatePrivatePolicyMap(lc hive.Lifecycle, cfg PolicyConfig) PolicyMap {
+func CreatePrivatePolicyMap(lc cell.Lifecycle, cfg PolicyConfig) PolicyMap {
 	return createPolicyMap(lc, cfg, ebpf.PinNone)
 }
 
-func createPolicyMap(lc hive.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {
+func createPolicyMap(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {
 	m := ebpf.NewMap(&ebpf.MapSpec{
 		Name:       PolicyMapName,
 		Type:       ebpf.LPMTrie,
@@ -111,11 +110,11 @@ func createPolicyMap(lc hive.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) 
 		Pinning:    pinning,
 	})
 
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			return m.OpenOrCreate()
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			return m.Close()
 		},
 	})

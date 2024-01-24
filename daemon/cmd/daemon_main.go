@@ -1617,7 +1617,7 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
-	Lifecycle            hive.Lifecycle
+	Lifecycle            cell.Lifecycle
 	Clientset            k8sClient.Clientset
 	Datapath             datapath.Datapath
 	WGAgent              *wireguard.Agent `optional:"true"`
@@ -1683,8 +1683,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 	var daemon *Daemon
 	var wg sync.WaitGroup
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, &params)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
@@ -1698,7 +1698,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 
 			return nil
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			cancelDaemonCtx()
 			if daemon.statusCollector != nil {
 				daemon.statusCollector.Close()
@@ -1886,10 +1886,10 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 }
 
-func newRestorerPromise(lc hive.Lifecycle, daemonPromise promise.Promise[*Daemon]) promise.Promise[endpointstate.Restorer] {
+func newRestorerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon]) promise.Promise[endpointstate.Restorer] {
 	resolver, promise := promise.New[endpointstate.Restorer]()
-	lc.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			daemon, err := daemonPromise.Await(context.Background())
 			if err != nil {
 				resolver.Reject(err)

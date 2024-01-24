@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -162,7 +161,7 @@ type Params struct {
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 }
 
 func NewEgressGatewayManager(p Params) (out struct {
@@ -261,8 +260,8 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
-	p.Lifecycle.Append(hive.Hook{
-		OnStart: func(hc hive.HookContext) error {
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
 			if probes.HaveLargeInstructionLimit() != nil {
 				return fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 			}
@@ -271,7 +270,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 
 			return nil
 		},
-		OnStop: func(hc hive.HookContext) error {
+		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
 			wg.Wait()

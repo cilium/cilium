@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -45,9 +46,9 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 	return rootCmd
 }
 
-func registerClusterInfoValidator(lc hive.Lifecycle, cinfo types.ClusterInfo) {
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+func registerClusterInfoValidator(lc cell.Lifecycle, cinfo types.ClusterInfo) {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			if err := cinfo.InitClusterIDMax(); err != nil {
 				return err
 			}

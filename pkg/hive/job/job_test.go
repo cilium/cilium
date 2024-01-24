@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m, goleak.Cleanup(cleanup))
 }
 
-func fixture(fn func(Registry, cell.Scope, hive.Lifecycle)) *hive.Hive {
+func fixture(fn func(Registry, cell.Scope, cell.Lifecycle)) *hive.Hive {
 	logging.SetLogLevel(logrus.DebugLevel)
 	return hive.New(
 		Cell,
@@ -48,7 +48,7 @@ func fixture(fn func(Registry, cell.Scope, hive.Lifecycle)) *hive.Hive {
 func TestOneShot_ShortRun(t *testing.T) {
 	stop := make(chan struct{})
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -72,7 +72,7 @@ func TestOneShot_LongRun(t *testing.T) {
 	started := make(chan struct{})
 	stopped := make(chan struct{})
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -103,7 +103,7 @@ func TestOneShot_RetryFail(t *testing.T) {
 
 	const retries = 3
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -164,7 +164,7 @@ func testOneShot_RetryBackoff() (bool, error) {
 
 	const retries = 6
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -215,7 +215,7 @@ func TestOneShot_RetryRecover(t *testing.T) {
 
 	const retries = 3
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -251,7 +251,7 @@ func TestOneShot_RetryRecover(t *testing.T) {
 // This tests asserts that returning an error on a one shot job with the WithShutdown option will shutdown the hive.
 func TestOneShot_Shutdown(t *testing.T) {
 	targetErr := errors.New("Always error")
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -277,7 +277,7 @@ func TestOneShot_RetryFailShutdown(t *testing.T) {
 	const retries = 3
 
 	targetErr := errors.New("Always error")
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -312,7 +312,7 @@ func TestOneShot_RetryRecoverNoShutdown(t *testing.T) {
 
 	const retries = 5
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -365,7 +365,7 @@ func TestOneShot_RetryWhileShuttingDown(t *testing.T) {
 	started := make(chan struct{})
 	shutdown := make(chan struct{})
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -404,7 +404,7 @@ func TestTimer_OnInterval(t *testing.T) {
 	stop := make(chan struct{})
 	i := 0
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -440,7 +440,7 @@ func TestTimer_Trigger(t *testing.T) {
 
 	trigger := NewTrigger()
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -486,7 +486,7 @@ func TestTimer_DoubleTrigger(t *testing.T) {
 
 	trigger := NewTrigger()
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -529,7 +529,7 @@ func TestTimer_DoubleTrigger(t *testing.T) {
 // This test asserts that the timer will stop as soon as the lifecycle has stopped, when waiting for an interval pulse
 func TestTimer_ExitOnClose(t *testing.T) {
 	var i int
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -560,7 +560,7 @@ func TestTimer_ExitOnClose(t *testing.T) {
 func TestTimer_ExitOnCloseFnCtx(t *testing.T) {
 	var i int
 	started := make(chan struct{})
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -602,7 +602,7 @@ func TestObserver_ShortStream(t *testing.T) {
 
 	streamSlice := []string{"a", "b", "c"}
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -641,7 +641,7 @@ func TestObserver_LongStream(t *testing.T) {
 
 	inChan := make(chan struct{})
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -674,7 +674,7 @@ func TestObserver_CtxClose(t *testing.T) {
 	i := 0
 	streamSlice := []string{"a", "b", "c"}
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -710,7 +710,7 @@ func TestRegistry(t *testing.T) {
 		g2 Group
 	)
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		r1 = r
 		g1 = r.NewGroup(s)
 		g2 = r.NewGroup(s)
@@ -727,7 +727,7 @@ func TestRegistry(t *testing.T) {
 
 // This test asserts that jobs are queued, until the hive has been started
 func TestGroup_JobQueue(t *testing.T) {
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 		g.Add(
 			OneShot("queued1", func(ctx context.Context, health cell.HealthReporter) error { return nil }),
@@ -753,7 +753,7 @@ func TestGroup_JobRuntime(t *testing.T) {
 		i int
 	)
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 		l.Append(g)
 	})
