@@ -316,6 +316,7 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
 	defer cancel()
 
+	var lines int
 	for {
 		select {
 		case <-ctx.Done():
@@ -331,9 +332,18 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 		}
 		if !k.statusIsReady(s) && k.params.Wait {
 			time.Sleep(defaults.WaitRetryInterval)
+			statusFmt := s.Format()
+			for i := 1; i < lines; i++ {
+				fmt.Print("\033[A\033[2K")
+			}
+			lines = len(strings.Split(statusFmt, "\n"))
+			fmt.Print(statusFmt)
 			continue
 		}
 
+		for i := 1; i < lines; i++ {
+			fmt.Print("\033[A\033[2K")
+		}
 		return mostRecentStatus, nil
 	}
 }
