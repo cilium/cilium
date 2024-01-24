@@ -16,6 +16,9 @@
             type: string
             description: "The stable branch version."
 
+    permissions:
+      contents: read
+
     jobs:
       backport-label-updater:
         name: Update labels of backported PRs

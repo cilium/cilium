@@ -1,4 +1,4 @@
-FROM docker.io/library/ubuntu:20.04 as builder
+FROM docker.io/library/ubuntu:20.04@sha256:f2034e7195f61334e6caff6ecf2e965f92d11e888309065da85ff50c617732b8 as builder
 
 # Install dependencies
 ENV DEBIAN_FRONTEND=noninteractive
@@ -27,7 +27,7 @@ RUN python3 -m grpc_tools.protoc \
     --grpc_python_out=. \
     ../../../examples/protos/cloudcity.proto
 
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/library/ubuntu@sha256:e6173d4dc55e76b87c4af8db8821b1feae4146dd47341e4d431118c7dd060a74
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
