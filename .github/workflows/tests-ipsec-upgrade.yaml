@@ -174,12 +174,8 @@ jobs:
           else
             # Upgrade from / downgrade to patch release.
             # In some cases we expect to fail to get the version number, do not
-            # fail the workflow in such case. This includes:
-            # - on main branch where we don't have preceeding patch releases
-            # - on stable branches on top of release preparation commits, where
-            #   we bump the patch version number to 90 and we can't easily
-            #   derive the number of the previous patch release version from
-            #   that.
+            # fail the workflow in such case. This is typically the case on
+            # main branch where we don't have preceeding patch releases.
             CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh patch || true)
             # Pass an empty tag to the cilium-config action to fall back to the
             # default release image, without crafting an image path with the
