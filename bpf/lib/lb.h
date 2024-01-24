@@ -1055,10 +1055,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		old_sip = tuple->saddr;
 		tuple->saddr = new_sip = nat->address;
 	} else {
-		ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
-		if (IS_ERR(ret))
-			return ret;
-
+		if (ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4) < 0)
+			return DROP_INVALID;
 		new_sip = nat->address;
 	}
 
@@ -1071,9 +1069,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		 */
 		__be32 old_dip;
 
-		ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
-		if (IS_ERR(ret))
-			return ret;
+		if (ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4) < 0)
+			return DROP_INVALID;
 
 		cilium_dbg_lb(ctx, DBG_LB4_LOOPBACK_SNAT_REV, old_dip, old_sip);
 
