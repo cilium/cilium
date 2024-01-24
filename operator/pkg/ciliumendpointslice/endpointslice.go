@@ -13,7 +13,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -125,7 +125,7 @@ func (c *Controller) getAndResetCESProcessingDelay(ces CESName) float64 {
 }
 
 // start the worker thread, reconciles the modified CESs with api-server
-func (c *Controller) Start(ctx hive.HookContext) error {
+func (c *Controller) Start(ctx cell.HookContext) error {
 	c.logger.Info("Bootstrap ces controller")
 	c.context, c.contextCancel = context.WithCancel(context.Background())
 	defer utilruntime.HandleCrash()
@@ -153,7 +153,7 @@ func (c *Controller) Start(ctx hive.HookContext) error {
 	return nil
 }
 
-func (c *Controller) Stop(ctx hive.HookContext) error {
+func (c *Controller) Stop(ctx cell.HookContext) error {
 	c.wp.Close()
 	c.queue.ShutDown()
 	c.contextCancel()

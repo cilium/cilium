@@ -15,7 +15,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fswatcher"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -71,7 +70,7 @@ type usersManager struct {
 }
 
 func registerUsersManager(
-	lc hive.Lifecycle,
+	lc cell.Lifecycle,
 	cfg UsersManagementConfig,
 	cinfo cmtypes.ClusterInfo,
 	clientPromise promise.Promise[kvstore.BackendOperationsUserMgmt],
@@ -95,7 +94,7 @@ func registerUsersManager(
 	return nil
 }
 
-func (us *usersManager) Start(hive.HookContext) error {
+func (us *usersManager) Start(cell.HookContext) error {
 	log.WithField(logfields.Path, us.ClusterUsersConfigPath).
 		Info("Starting managing etcd users based on configuration")
 
@@ -133,7 +132,7 @@ func (us *usersManager) Start(hive.HookContext) error {
 	return nil
 }
 
-func (us *usersManager) Stop(hive.HookContext) error {
+func (us *usersManager) Stop(cell.HookContext) error {
 	log.WithField(logfields.Path, us.ClusterUsersConfigPath).
 		Info("Stopping managing etcd users based on configuration")
 

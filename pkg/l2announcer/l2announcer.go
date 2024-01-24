@@ -17,7 +17,6 @@ import (
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -52,7 +51,7 @@ var Cell = cell.Module(
 	cell.Provide(l2AnnouncementPolicyResource),
 )
 
-func l2AnnouncementPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
+func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -65,7 +64,7 @@ func l2AnnouncementPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resou
 type l2AnnouncerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
 
 	DaemonConfig         *option.DaemonConfig

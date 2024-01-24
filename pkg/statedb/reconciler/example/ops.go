@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
@@ -26,7 +26,7 @@ type MemoOps struct {
 }
 
 // NewMemoOps creates the memo operations.
-func NewMemoOps(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) reconciler.Operations[*Memo] {
+func NewMemoOps(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) reconciler.Operations[*Memo] {
 	ops := &MemoOps{directory: cfg.Directory, log: log}
 
 	// Register the Start and Stop methods to be called when the application
@@ -99,12 +99,12 @@ func (ops *MemoOps) Update(ctx context.Context, txn statedb.ReadTxn, memo *Memo,
 
 var _ reconciler.Operations[*Memo] = &MemoOps{}
 
-func (ops *MemoOps) Start(hive.HookContext) error {
+func (ops *MemoOps) Start(cell.HookContext) error {
 	return os.MkdirAll(ops.directory, 0755)
 }
 
-func (*MemoOps) Stop(hive.HookContext) error {
+func (*MemoOps) Stop(cell.HookContext) error {
 	return nil
 }
 
-var _ hive.HookInterface = &MemoOps{}
+var _ cell.HookInterface = &MemoOps{}

@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/node"
@@ -37,7 +36,7 @@ type custodianParameters struct {
 	LocalNodeStore *node.LocalNodeStore
 }
 
-func newKeyCustodian(lc hive.Lifecycle, p custodianParameters) types.IPsecKeyCustodian {
+func newKeyCustodian(lc cell.Lifecycle, p custodianParameters) types.IPsecKeyCustodian {
 	group := p.JobRegistry.NewGroup(
 		p.Scope,
 		job.WithLogger(p.Logger),
@@ -54,7 +53,7 @@ func newKeyCustodian(lc hive.Lifecycle, p custodianParameters) types.IPsecKeyCus
 	return ipsec
 }
 
-func (kc *keyCustodian) Start(hive.HookContext) error {
+func (kc *keyCustodian) Start(cell.HookContext) error {
 	if !option.Config.EncryptNode {
 		DeleteIPsecEncryptRoute()
 	}
@@ -91,7 +90,7 @@ func (kc *keyCustodian) StartBackgroundJobs(handler types.NodeHandler) error {
 	return nil
 }
 
-func (kc *keyCustodian) Stop(hive.HookContext) error {
+func (kc *keyCustodian) Stop(cell.HookContext) error {
 	return nil
 }
 

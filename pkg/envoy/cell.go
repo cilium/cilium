@@ -12,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -62,7 +61,7 @@ func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
 type xdsServerParams struct {
 	cell.In
 
-	Lifecycle          hive.Lifecycle
+	Lifecycle          cell.Lifecycle
 	IPCache            *ipcache.IPCache
 	LocalEndpointStore *LocalEndpointStore
 
@@ -87,14 +86,14 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		return xdsServer, nil
 	}
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(startContext hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(startContext cell.HookContext) error {
 			if err := xdsServer.start(); err != nil {
 				return fmt.Errorf("failed to start Envoy xDS server: %w", err)
 			}
 			return nil
 		},
-		OnStop: func(stopContext hive.HookContext) error {
+		OnStop: func(stopContext cell.HookContext) error {
 			xdsServer.stop()
 			return nil
 		},
@@ -117,7 +116,7 @@ func newEnvoyAdminClient() *EnvoyAdminClient {
 type accessLogServerParams struct {
 	cell.In
 
-	Lifecycle          hive.Lifecycle
+	Lifecycle          cell.Lifecycle
 	LocalEndpointStore *LocalEndpointStore
 }
 
@@ -129,14 +128,14 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 
 	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.LocalEndpointStore)
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(startContext hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(startContext cell.HookContext) error {
 			if err := accessLogServer.start(); err != nil {
 				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
 			}
 			return nil
 		},
-		OnStop: func(stopContext hive.HookContext) error {
+		OnStop: func(stopContext cell.HookContext) error {
 			accessLogServer.stop()
 			return nil
 		},
@@ -148,7 +147,7 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 type versionCheckParams struct {
 	cell.In
 
-	Lifecycle        hive.Lifecycle
+	Lifecycle        cell.Lifecycle
 	Logger           logrus.FieldLogger
 	JobRegistry      job.Registry
 	Scope            cell.Scope
@@ -194,14 +193,14 @@ func newLocalEndpointStore() *LocalEndpointStore {
 	}
 }
 
-func newArtifactCopier(lifecycle hive.Lifecycle) *ArtifactCopier {
+func newArtifactCopier(lifecycle cell.Lifecycle) *ArtifactCopier {
 	artifactCopier := &ArtifactCopier{
 		sourcePath: "/envoy-artifacts",
 		targetPath: filepath.Join(option.Config.RunDir, "envoy", "artifacts"),
 	}
 
-	lifecycle.Append(hive.Hook{
-		OnStart: func(startContext hive.HookContext) error {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(startContext cell.HookContext) error {
 			if err := artifactCopier.Copy(); err != nil {
 				return fmt.Errorf("failed to copy artifacts to envoy: %w", err)
 			}
@@ -216,7 +215,7 @@ type syncerParams struct {
 	cell.In
 
 	Logger      logrus.FieldLogger
-	Lifecycle   hive.Lifecycle
+	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
 	Scope       cell.Scope
 
@@ -271,7 +270,7 @@ func registerSecretSyncer(params syncerParams) error {
 	return nil
 }
 
-func newK8sSecretResource(lc hive.Lifecycle, cs client.Clientset, namespace string) resource.Resource[*slim_corev1.Secret] {
+func newK8sSecretResource(lc cell.Lifecycle, cs client.Clientset, namespace string) resource.Resource[*slim_corev1.Secret] {
 	if !cs.IsEnabled() {
 		return nil
 	}

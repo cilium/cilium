@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -69,7 +68,7 @@ func (d *Daemon) initPolicy() error {
 type policyParams struct {
 	cell.In
 
-	Lifecycle       hive.Lifecycle
+	Lifecycle       cell.Lifecycle
 	EndpointManager endpointmanager.EndpointManager
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
@@ -127,12 +126,12 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		CacheStatus:       params.CacheStatus,
 	})
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hc hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
 			iao.policy.Start()
 			return nil
 		},
-		OnStop: func(hc hive.HookContext) error {
+		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
 			// Preserve the order of shutdown but still propagate the error

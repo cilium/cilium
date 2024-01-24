@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -36,7 +35,7 @@ type syncNodePort interface {
 type serviceReconcilerParams struct {
 	cell.In
 
-	Lifecycle      hive.Lifecycle
+	Lifecycle      cell.Lifecycle
 	Jobs           job.Registry
 	Scope          cell.Scope
 	DB             *statedb.DB

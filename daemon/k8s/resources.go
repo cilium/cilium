@@ -7,7 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -53,7 +52,7 @@ var (
 		"Agent Kubernetes local node resources",
 
 		cell.Provide(
-			func(lc hive.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
+			func(lc cell.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
 				return k8s.NodeResource(
 					lc, cs,
 					func(opts *metav1.ListOptions) {
@@ -61,7 +60,7 @@ var (
 					},
 				)
 			},
-			func(lc hive.Lifecycle, cs client.Clientset) (LocalCiliumNodeResource, error) {
+			func(lc cell.Lifecycle, cs client.Clientset) (LocalCiliumNodeResource, error) {
 				return k8s.CiliumNodeResource(
 					lc, cs,
 					func(opts *metav1.ListOptions) {
@@ -69,7 +68,7 @@ var (
 					},
 				)
 			},
-			func(lc hive.Lifecycle, cs client.Clientset) (LocalPodResource, error) {
+			func(lc cell.Lifecycle, cs client.Clientset) (LocalPodResource, error) {
 				return k8s.PodResource(
 					lc, cs,
 					func(opts *metav1.ListOptions) {

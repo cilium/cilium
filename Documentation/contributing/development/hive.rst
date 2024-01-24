@@ -70,7 +70,7 @@ would leverage hive:
         RegisterHandler(path string, fn http.HandlerFunc)
     }
 
-    func New(lc hive.Lifecycle, cfg ServerConfig) Server { 
+    func New(lc cell.Lifecycle, cfg ServerConfig) Server { 
       // Initialize http.Server, register Start and Stop hooks to Lifecycle 
       // for starting and stopping the server and return an implementation of
       // 'Server' for other cells for registering handlers.
@@ -236,7 +236,7 @@ hive to unpack them:
     
         A A
         B B
-        Lifecycle hive.Lifecycle
+        Lifecycle cell.Lifecycle
     }
     
     type out struct {
@@ -588,7 +588,7 @@ or using the Hook struct. Lifecycle is accessible from any cell:
     func (e *Example) Start(ctx HookContext) error { /* ... */ }
     func (e *Example) Stop(ctx HookContext) error { /* ... */ }
     
-    func New(lc hive.Lifecycle) *Example {
+    func New(lc cell.Lifecycle) *Example {
         e := &Example{}
         lc.Append(e)
         return e
@@ -702,7 +702,7 @@ been registered with cobra:
              }
  
              🚧 client.newClientset (cell.go:109):
-                 ⇨ client.Config, hive.Lifecycle, logrus.FieldLogger 
+                 ⇨ client.Config, cell.Lifecycle, logrus.FieldLogger 
                  ⇦ client.Clientset 
     ...
 
@@ -911,7 +911,7 @@ See also the runnable example in `pkg/k8s/resource/example <https://github.com/c
     import "github.com/cilium/cilium/pkg/k8s/resource"
 
     var nodesCell = cell.Provide(
-        func(lc hive.Lifecycle, cs client.Clientset) resource.Resource[v1.Node] {
+        func(lc cell.Lifecycle, cs client.Clientset) resource.Resource[v1.Node] {
             lw := utils.ListerWatcherFromTyped[*v1.NodeList](cs.CoreV1().Nodes())
             return resource.New[*v1.Node](lc, lw) 
         },

@@ -50,7 +50,7 @@ func newFixture() *fixture {
 	f.bgpaClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPAdvertisements()
 
 	f.hive = hive.New(
-		cell.Provide(func(lc hive.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig] {
+		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig] {
 			return resource.New[*cilium_api_v2alpha1.CiliumBGPClusterConfig](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPClusterConfigList](
 					c.CiliumV2alpha1().CiliumBGPClusterConfigs(),
@@ -58,7 +58,7 @@ func newFixture() *fixture {
 			)
 		}),
 
-		cell.Provide(func(lc hive.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy] {
+		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy] {
 			return resource.New[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPPeeringPolicyList](
 					c.CiliumV2alpha1().CiliumBGPPeeringPolicies(),
@@ -66,7 +66,7 @@ func newFixture() *fixture {
 			)
 		}),
 
-		cell.Provide(func(lc hive.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig] {
+		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig] {
 			return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfig](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPNodeConfigList](
 					c.CiliumV2alpha1().CiliumBGPNodeConfigs(),
@@ -74,7 +74,7 @@ func newFixture() *fixture {
 			)
 		}),
 
-		cell.Provide(func(lc hive.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride] {
+		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride] {
 			return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverrideList](
 					c.CiliumV2alpha1().CiliumBGPNodeConfigOverrides(),
@@ -82,7 +82,7 @@ func newFixture() *fixture {
 			)
 		}),
 
-		cell.Provide(func(lc hive.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPAdvertisement] {
+		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPAdvertisement] {
 			return resource.New[*cilium_api_v2alpha1.CiliumBGPAdvertisement](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPAdvertisementList](
 					c.CiliumV2alpha1().CiliumBGPAdvertisements(),
@@ -90,7 +90,7 @@ func newFixture() *fixture {
 			)
 		}),
 
-		cell.Provide(func(lc hive.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig] {
+		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig] {
 			return resource.New[*cilium_api_v2alpha1.CiliumBGPPeerConfig](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPPeerConfigList](
 					c.CiliumV2alpha1().CiliumBGPPeerConfigs(),
@@ -98,7 +98,7 @@ func newFixture() *fixture {
 			)
 		}),
 
-		cell.Provide(func(lc hive.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2.CiliumNode] {
+		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_api_v2.CiliumNode] {
 			return resource.New[*cilium_api_v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](
 					c.CiliumV2().CiliumNodes(),
