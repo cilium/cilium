@@ -806,7 +806,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				if !ok {
 					return controller.NewExitReason("Failed to convert node IPv4 address")
 				}
-				key := node.GetIPsecKeyIdentity()
+				key := node.GetEndpointEncryptKeyIndex()
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
