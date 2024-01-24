@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -133,6 +134,10 @@ func computeMaxLevel(level int, n *node) int {
 }
 
 func dumpNodes(w io.Writer, level, maxLevel int, levelsEnded []int, nodes []*node) {
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].val < nodes[j].val
+	})
+
 	for i, node := range nodes {
 		edge := mid
 		if i == len(nodes)-1 {
