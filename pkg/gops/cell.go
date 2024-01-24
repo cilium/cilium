@@ -36,11 +36,11 @@ func (def GopsConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint16(option.GopsPort, def.GopsPort, "Port for gops server to listen on")
 }
 
-func registerGopsHooks(lc hive.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {
+func registerGopsHooks(lc cell.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {
 	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
 	addrField := logrus.Fields{"address": addr, logfields.LogSubsys: "gops"}
 	log = log.WithFields(addrField)
-	lc.Append(hive.Hook{
+	lc.Append(cell.Hook{
 		OnStart: func(hive.HookContext) error {
 			log.Info("Started gops server")
 			return gopsAgent.Listen(gopsAgent.Options{
