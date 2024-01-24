@@ -33,7 +33,7 @@ func TestCompile(t *testing.T) {
 	} {
 		name := fmt.Sprintf("%s:%s", prog.OutputType, prog.Output)
 		t.Run(name, func(t *testing.T) {
-			path, err := compile(context.Background(), prog, dirs)
+			path, err := doCompile(context.Background(), prog, dirs)
 			require.Nil(t, err)
 
 			stat, err := os.Stat(path)

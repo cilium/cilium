@@ -21,6 +21,7 @@ import (
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
@@ -399,7 +401,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		var veth *netlink.Veth
 		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU),
 			int(driver.conf.GROMaxSize), int(driver.conf.GSOMaxSize),
-			int(driver.conf.GROIPV4MaxSize), int(driver.conf.GSOIPV4MaxSize), endpoint)
+			int(driver.conf.GROIPV4MaxSize), int(driver.conf.GSOIPV4MaxSize), endpoint, sysctlDisable)
 		defer removeLinkOnErr(veth)
 	}
 	if err != nil {
@@ -523,4 +525,12 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	emptyResponse(w)
+}
+
+func sysctlDisable(name, val string) error {
+	path, err := sysctl.ParameterPath("/proc", name)
+	if err != nil {
+		return err
+	}
+	return sysctl.WriteSysctl(afero.NewOsFs(), path, "0")
 }

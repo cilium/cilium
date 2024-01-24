@@ -23,7 +23,6 @@ var Cell = cell.Module(
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
 			NodeIpsetNeeded:                 cfg.NodeIpsetNeeded(),
-			Devices:                         cfg.GetDevices(),
 			IptablesMasqueradingIPv4Enabled: cfg.IptablesMasqueradingIPv4Enabled(),
 			IptablesMasqueradingIPv6Enabled: cfg.IptablesMasqueradingIPv6Enabled(),
 			IPv4NativeRoutingCIDR:           cfg.GetIPv4NativeRoutingCIDR(),
@@ -76,7 +75,6 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type SharedConfig struct {
 	TunnelingEnabled                bool
 	NodeIpsetNeeded                 bool
-	Devices                         []string
 	IptablesMasqueradingIPv4Enabled bool
 	IptablesMasqueradingIPv6Enabled bool
 	IPv4NativeRoutingCIDR           *cidr.CIDR

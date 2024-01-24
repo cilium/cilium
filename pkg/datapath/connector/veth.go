@@ -32,7 +32,7 @@ func SetupVethRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) error {
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
-func SetupVeth(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, string, error) {
+func SetupVeth(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest, sysctlDisable func(name, val string) error) (*netlink.Veth, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -41,14 +41,14 @@ func SetupVeth(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, g
 	tmpIfName := Endpoint2TempIfName(id)
 
 	veth, link, err := SetupVethWithNames(lxcIfName, tmpIfName, mtu,
-		groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize, ep)
+		groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize, ep, sysctlDisable)
 	return veth, link, tmpIfName, err
 }
 
 // SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the peer link and error if something fails.
-func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, error) {
+func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest, sysctlDisable func(name, val string) error) (*netlink.Veth, netlink.Link, error) {
 	// systemd 242+ tries to set a "persistent" MAC addr for any virtual device
 	// by default (controlled by MACAddressPolicy). As setting happens
 	// asynchronously after a device has been created, ep.Mac and ep.HostMac
@@ -92,8 +92,7 @@ func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIP
 	// Disable reverse path filter on the host side veth peer to allow
 	// container addresses to be used as source address when the linux
 	// stack performs routing.
-	err = DisableRpFilter(lxcIfName)
-	if err != nil {
+	if err := sysctlDisable(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", lxcIfName), "0"); err != nil {
 		return nil, nil, err
 	}
 

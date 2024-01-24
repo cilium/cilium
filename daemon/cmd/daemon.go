@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -32,12 +33,11 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -222,7 +222,7 @@ type Daemon struct {
 
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
-	bwManager    bandwidth.Manager
+	bwManager    datapath.BandwidthManager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -238,12 +238,6 @@ func (d *Daemon) DebugEnabled() bool {
 // GetOptions returns the datapath configuration options of the daemon.
 func (d *Daemon) GetOptions() *option.IntOptions {
 	return option.Config.Opts
-}
-
-// GetCompilationLock returns the mutex responsible for synchronizing compilation
-// of BPF programs.
-func (d *Daemon) GetCompilationLock() *lock.RWMutex {
-	return d.compilationMutex
 }
 
 func (d *Daemon) init() error {
@@ -365,7 +359,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	if err := initKubeProxyReplacementOptions(params.TunnelConfig); err != nil {
+	if err := initKubeProxyReplacementOptions(params.Sysctl, params.TunnelConfig); err != nil {
 		log.WithError(err).Error("unable to initialize kube-proxy replacement options")
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
@@ -747,7 +741,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.l2announcer.DevicesChanged(devices)
 	}
 
-	if err := finishKubeProxyReplacementInit(); err != nil {
+	_, nativeDevices, _ := d.getDevices()
+	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
@@ -783,11 +778,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.Error("BPF masquerading does not yet support masquerading to source IP from routing layer")
 			return nil, nil, fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
 		}
-		// TODO(brb) nodeport constraints will be lifted once the SNAT BPF code has been refactored
-		if err := node.InitBPFMasqueradeAddrs(option.Config.GetDevices()); err != nil {
-			log.WithError(err).Error("failed to determine BPF masquerade addrs")
-			return nil, nil, fmt.Errorf("failed to determine BPF masquerade addrs: %w", err)
-		}
 	} else if option.Config.EnableIPMasqAgent {
 		log.WithError(err).Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
@@ -795,7 +785,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
 		return nil, nil, fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
-	if len(option.Config.GetDevices()) == 0 {
+	if len(devices) == 0 {
 		if option.Config.EnableHostFirewall {
 			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
 			log.WithError(err).Errorf(msg, option.Devices)
@@ -1004,8 +994,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, err
 	}
 
-	if err := loader.RestoreTemplates(option.Config.StateDir); err != nil {
-		log.WithError(err).Error("Unable to restore previous BPF templates")
+	// Simplest implementation: Just garbage-collect everything.
+	// In future we should make this smarter.
+	path := filepath.Join(option.Config.StateDir, defaults.TemplatesDir)
+	err = os.RemoveAll(path)
+	if err != nil && os.IsNotExist(err) {
+		log.WithError(&os.PathError{
+			Op:   "failed to remove old BPF templates",
+			Path: path,
+			Err:  err,
+		}).Error("Unable to restore previous BPF templates")
 	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
@@ -1114,4 +1112,11 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 
 type endpointMetadataFetcher interface {
 	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
+}
+
+// getDevices is a temporary helper to retrieve the device names
+// from the devices table.
+func (d *Daemon) getDevices() ([]string, []*tables.Device, <-chan struct{}) {
+	devices, watch := tables.SelectedDevices(d.devices, d.db.ReadTxn())
+	return tables.DeviceNames(devices), devices, watch
 }

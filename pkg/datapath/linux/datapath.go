@@ -4,11 +4,13 @@
 package linux
 
 import (
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
-	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -19,8 +21,6 @@ type DatapathConfiguration struct {
 
 	// TunnelDevice is the name of the tunnel device (if any).
 	TunnelDevice string
-
-	ProcFs string
 }
 
 type linuxDatapath struct {
@@ -29,20 +29,26 @@ type linuxDatapath struct {
 	node           *linuxNodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
-	loader         *loader.Loader
+	loader         datapath.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
-	bwmgr          bandwidth.Manager
+	bwmgr          datapath.BandwidthManager
 }
 
 type DatapathParams struct {
+	cell.In
+
+	Lifecycle      hive.Lifecycle
 	ConfigWriter   datapath.ConfigWriter
 	RuleManager    datapath.IptablesManager
 	WGAgent        datapath.WireguardAgent
 	NodeMap        nodemap.Map
-	BWManager      bandwidth.Manager
+	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
+	Loader         datapath.Loader
+	DB             *statedb.DB
+	Devices        statedb.Table[*tables.Device]
 }
 
 // NewDatapath creates a new Linux datapath
@@ -52,13 +58,20 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
 		config:          cfg,
-		loader:          loader.NewLoader(),
 		wgAgent:         p.WGAgent,
+		loader:          p.Loader,
 		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.DB, p.Devices)
+
+	p.Lifecycle.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			dp.NodeIDs().RestoreNodeIDs()
+			return nil
+		},
+	})
 	return dp
 }
 
@@ -93,15 +106,11 @@ func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {
 	return l.wgAgent
 }
 
-func (l *linuxDatapath) Procfs() string {
-	return l.config.ProcFs
-}
-
 func (l *linuxDatapath) LBMap() datapath.LBMap {
 	return l.lbmap
 }
 
-func (l *linuxDatapath) BandwidthManager() bandwidth.Manager {
+func (l *linuxDatapath) BandwidthManager() datapath.BandwidthManager {
 	return l.bwmgr
 }
 

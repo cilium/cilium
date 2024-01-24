@@ -35,7 +35,7 @@ type children sets.Set[string]
 //
 // HealthReporting is not intendeds to capture high frequency events, but rather provide
 // a structured view of the health of the system.
-var reporterMinTimeout = time.Millisecond * 500
+var reporterMinTimeout = time.Millisecond * 50
 
 // Scope provides a node in the structured health reporter tree that is
 // serves only as a parent for other nodes (scopes or reporters), and is

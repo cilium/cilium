@@ -91,10 +91,12 @@ func init() {
 	StatedbCmd.AddCommand(
 		statedbDumpCmd,
 
-		statedbTableCommand[*tables.Device]("devices"),
-		statedbTableCommand[*tables.Route]("routes"),
-		statedbTableCommand[*tables.L2AnnounceEntry]("l2-announce"),
-		statedbTableCommand[tables.NodeAddress]("node-addresses"),
+		statedbTableCommand[*tables.Device](tables.DeviceTableName),
+		statedbTableCommand[*tables.Route](tables.RouteTableName),
+		statedbTableCommand[*tables.L2AnnounceEntry](tables.L2AnnounceTableName),
+		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
+		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
+		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

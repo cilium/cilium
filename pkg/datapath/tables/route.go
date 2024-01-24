@@ -13,6 +13,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const RouteTableName = "routes"
+
 var (
 	RouteIDIndex = statedb.Index[*Route, RouteID]{
 		Name: "id",
@@ -40,7 +42,7 @@ var (
 
 func NewRouteTable() (statedb.RWTable[*Route], error) {
 	return statedb.NewTable[*Route](
-		"routes",
+		RouteTableName,
 		RouteIDIndex,
 		RouteLinkIndex,
 	)

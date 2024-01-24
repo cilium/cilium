@@ -7,10 +7,12 @@ import (
 	"context"
 	"io"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
@@ -32,8 +34,10 @@ func newDatapath(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
 		node:           NewNodeHandler(),
 		nodeAddressing: na,
-		loader:         &fakeLoader{},
-		lbmap:          mockmaps.NewLBMockMap(),
+		loader: &fakeLoader{
+			compilationLock: &lock.RWMutex{},
+		},
+		lbmap: mockmaps.NewLBMockMap(),
 	}
 }
 
@@ -112,10 +116,6 @@ func (f *FakeDatapath) WireguardAgent() datapath.WireguardAgent {
 	return nil
 }
 
-func (f *FakeDatapath) Procfs() string {
-	return "/proc"
-}
-
 func (f *FakeDatapath) LBMap() datapath.LBMap {
 	return f.lbmap
 }
@@ -124,12 +124,13 @@ func (f *FakeDatapath) LBMockMap() *mockmaps.LBMockMap {
 	return f.lbmap
 }
 
-func (f *FakeDatapath) BandwidthManager() bandwidth.Manager {
+func (f *FakeDatapath) BandwidthManager() datapath.BandwidthManager {
 	return &BandwidthManager{}
 }
 
 // Loader is an interface to abstract out loading of datapath programs.
 type fakeLoader struct {
+	compilationLock *lock.RWMutex
 }
 
 func (f *fakeLoader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
@@ -166,4 +167,24 @@ func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwn
 
 func (f *fakeLoader) HostDatapathInitialized() <-chan struct{} {
 	return nil
+}
+
+func (f *fakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeLoader) ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
+	return make(map[string]uint64), make(map[string]string)
+}
+
+func (f *fakeLoader) SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
+	panic("implement me")
+}
+
+func (f *fakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+	return nil
+}
+
+func (f *fakeLoader) GetCompilationLock() *lock.RWMutex {
+	return f.compilationLock
 }

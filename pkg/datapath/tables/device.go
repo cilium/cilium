@@ -14,6 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
+const DeviceTableName = "devices"
+
 var (
 	DeviceIDIndex = statedb.Index[*Device, int]{
 		Name: "id",
@@ -43,7 +45,7 @@ var (
 
 func NewDeviceTable() (statedb.RWTable[*Device], error) {
 	return statedb.NewTable[*Device](
-		"devices",
+		DeviceTableName,
 		DeviceIDIndex,
 		DeviceNameIndex,
 		DeviceSelectedIndex,

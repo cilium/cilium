@@ -10,8 +10,8 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -46,9 +46,11 @@ var Cell = cell.Module(
 		func() egressmap.PolicyMap { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() *iptables.Manager { return &iptables.Manager{} },
-		func() bandwidth.Manager { return &BandwidthManager{} },
+		func() types.BandwidthManager { return &BandwidthManager{} },
 		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
 		func() mtu.MTU { return &MTU{} },
+		func() types.Loader { return &fakeLoader{} },
+		func() sysctl.Sysctl { return &Sysctl{} },
 
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,

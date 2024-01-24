@@ -9,6 +9,7 @@ import (
 	. "github.com/cilium/checkmate"
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/option"
@@ -63,7 +64,7 @@ func (cfg *kprConfig) set() {
 }
 
 func (cfg *kprConfig) verify(c *C, tc tunnel.Config) {
-	err := initKubeProxyReplacementOptions(tc)
+	err := initKubeProxyReplacementOptions(sysctl.NewTestSysctl(c.T), tc)
 	if err != nil || cfg.expectedErrorRegex != "" {
 		c.Assert(err, ErrorMatches, cfg.expectedErrorRegex)
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {

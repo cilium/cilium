@@ -4,10 +4,10 @@
 package iptables
 
 import (
-	"github.com/cilium/cilium/pkg/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 )
 
-func enableIPForwarding(ipv6 bool) error {
+func enableIPForwarding(sysctl sysctl.Sysctl, ipv6 bool) error {
 	if err := sysctl.Enable("net.ipv4.ip_forward"); err != nil {
 		return err
 	}

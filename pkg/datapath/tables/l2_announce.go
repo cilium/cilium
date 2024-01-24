@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
+const L2AnnounceTableName = "l2-announce"
+
 type L2AnnounceKey struct {
 	// IP and network interface are the primary key of this entry
 	IP               netip.Addr
@@ -60,7 +62,7 @@ var (
 
 func NewL2AnnounceTable() (statedb.RWTable[*L2AnnounceEntry], error) {
 	return statedb.NewTable[*L2AnnounceEntry](
-		"l2-announce",
+		L2AnnounceTableName,
 		L2AnnounceIDIndex,
 		L2AnnounceOriginIndex,
 	)

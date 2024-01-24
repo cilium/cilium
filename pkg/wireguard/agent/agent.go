@@ -34,6 +34,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -41,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -71,6 +71,7 @@ type Agent struct {
 	ipCache        *ipcache.IPCache
 	listenPort     int
 	privKey        wgtypes.Key
+	sysctl         sysctl.Sysctl
 
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
@@ -84,7 +85,7 @@ type Agent struct {
 }
 
 // NewAgent creates a new WireGuard Agent
-func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, error) {
+func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore, sysctl sysctl.Sysctl) (*Agent, error) {
 	key, err := loadOrGeneratePrivKey(privKeyPath)
 	if err != nil {
 		return nil, err
@@ -112,6 +113,7 @@ func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, 
 		wgClient:       wgClient,
 		privKey:        key,
 		listenPort:     listenPort,
+		sysctl:         sysctl,
 
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
@@ -246,7 +248,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
 	}
 
 	if option.Config.EnableIPv4 {
-		if err := sysctl.Disable(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", types.IfaceName)); err != nil {
+		if err := a.sysctl.Disable(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", types.IfaceName)); err != nil {
 			return fmt.Errorf("failed to disable rp_filter: %w", err)
 		}
 	}

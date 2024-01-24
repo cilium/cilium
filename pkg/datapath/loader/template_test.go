@@ -10,6 +10,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -21,10 +24,22 @@ func (s *LoaderTestSuite) TestWrap(c *C) {
 
 	realEP := testutils.NewTestEndpoint()
 	template := wrap(&realEP, nil)
-	cfg := &config.HeaderfileWriter{}
+	devices := statedb.MustNewTable[*tables.Device]("devices", tables.DeviceIDIndex, tables.DeviceNameIndex, tables.DeviceSelectedIndex)
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		c.Fatalf("failed to create statedb: %v", err)
+	}
+	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
+		DB:      db,
+		Devices: devices,
+		Sysctl:  sysctl.NewTestSysctl(c),
+	})
+	if err != nil {
+		c.Fatalf("failed to create header file writer: %v", err)
+	}
 
 	// Write the configuration that should be the same, and verify it is.
-	err := cfg.WriteTemplateConfig(&realEPBuffer, &realEP)
+	err = cfg.WriteTemplateConfig(&realEPBuffer, &realEP)
 	c.Assert(err, IsNil)
 	err = cfg.WriteTemplateConfig(&templateBuffer, template)
 	c.Assert(err, IsNil)

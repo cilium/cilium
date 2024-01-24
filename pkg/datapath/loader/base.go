@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -32,13 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
-	"github.com/cilium/cilium/pkg/sysctl"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
-
-// firstInitialization is true when Reinitialize() is called for the first
-// time. It can only be accessed when GetCompilationLock() is being held.
-var firstInitialization = true
 
 const (
 	// netdevHeaderFileName is the name of the header file used for bpf_host.c and bpf_overlay.c.
@@ -47,7 +43,7 @@ const (
 	preFilterHeaderFileName = "filter_config.h"
 )
 
-func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
+func (l *loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
 	headerPath := filepath.Join(dir, netdevHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
@@ -64,7 +60,7 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 	return nil
 }
 
-func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
+func (l *loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 	nodeConfigPath := option.Config.GetNodeConfigPath()
 	f, err := os.Create(nodeConfigPath)
 	if err != nil {
@@ -79,7 +75,7 @@ func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 }
 
 // Must be called with option.Config.EnablePolicyMU locked.
-func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
+func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string, devices []string) error {
 	headerPath := filepath.Join(dir, preFilterHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
@@ -91,14 +87,14 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.GetDevices(), " "))
+	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(devices, " "))
 	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.NodePortAcceleration)
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
 	return fw.Flush()
 }
 
-func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
+func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
 	// AWS ENI mode requires symmetric routing, see
 	// iptables.addCiliumENIRules().
 	// The default AWS daemonset installs the following rules that are used
@@ -125,7 +121,7 @@ func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
 		return nil, fmt.Errorf("failed to find interface with default route: %w", err)
 	}
 
-	retSettings := append(sysSettings, sysctl.Setting{
+	retSettings := append(sysSettings, tables.Sysctl{
 		Name:      fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface.Attrs().Name),
 		Val:       "2",
 		IgnoreErr: false,
@@ -143,8 +139,8 @@ func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
 	return retSettings, nil
 }
 
-func cleanIngressQdisc() error {
-	for _, iface := range option.Config.GetDevices() {
+func cleanIngressQdisc(devices []string) error {
+	for _, iface := range devices {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
@@ -169,7 +165,7 @@ func cleanIngressQdisc() error {
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
-func (l *Loader) reinitializeIPSec(ctx context.Context) error {
+func (l *loader) reinitializeIPSec(ctx context.Context) error {
 	if !option.Config.EnableIPSec {
 		return nil
 	}
@@ -203,7 +199,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
 	var errs error
 	for _, iface := range interfaces {
-		if err := connector.DisableRpFilter(iface); err != nil {
+		if err := connector.DisableRpFilter(l.sysctl, iface); err != nil {
 			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
 		}
 
@@ -226,7 +222,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	return nil
 }
 
-func (l *Loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
+func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
 	// tunnelConfig.Protocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.Protocol() == tunnel.Disabled {
@@ -263,12 +259,12 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 	return nil
 }
 
-func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode, bpf.CiliumPath())
+func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string) error {
+	maybeUnloadObsoleteXDPPrograms(devices, option.Config.XDPMode, bpf.CiliumPath())
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
-	for _, dev := range option.Config.GetDevices() {
+	for _, dev := range devices {
 		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
@@ -291,18 +287,22 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 // ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
-	o.GetCompilationLock().Lock()
-	defer o.GetCompilationLock().Unlock()
-	return l.reinitializeXDPLocked(ctx, extraCArgs)
+func (l *loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+	// TODO: react to changes (using the currently ignored watch channel)
+	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
+	devices := tables.DeviceNames(nativeDevices)
+
+	l.compilationLock.Lock()
+	defer l.compilationLock.Unlock()
+	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
 }
 
 // Reinitialize (re-)configures the base datapath configuration including global
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	sysSettings := []sysctl.Setting{
+func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
 		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
@@ -311,9 +311,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Lock so that endpoints cannot be built while we are compile base programs.
-	o.GetCompilationLock().Lock()
-	defer o.GetCompilationLock().Unlock()
-	defer func() { firstInitialization = false }()
+	l.compilationLock.Lock()
+	defer l.compilationLock.Unlock()
+	defer func() { l.firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
 
@@ -327,11 +327,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
 		sysSettings = append(sysSettings,
-			sysctl.Setting{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
+			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
 	}
 
 	// Datapath initialization
-	hostDev1, _, err := SetupBaseDevice(deviceMTU)
+	hostDev1, _, err := l.SetupBaseDevice(deviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
@@ -339,16 +339,16 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	if option.Config.EnableHealthDatapath {
 		sysSettings = append(
 			sysSettings,
-			sysctl.Setting{
+			tables.Sysctl{
 				Name: "net.core.fb_tunnels_only_for_init_net", Val: "2", IgnoreErr: true,
 			},
 		)
-		if err := setupIPIPDevices(option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
+		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
 			return fmt.Errorf("unable to create ipip encapsulation devices for health datapath")
 		}
 	}
 
-	if err := setupTunnelDevice(tunnelConfig.Protocol(), tunnelConfig.Port(), deviceMTU); err != nil {
+	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(), deviceMTU); err != nil {
 		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.Protocol(), err)
 	}
 
@@ -360,7 +360,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Any code that relies on sysctl settings being applied needs to be called after this.
-	if err := sysctl.ApplySettings(sysSettings); err != nil {
+	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
 		return err
 	}
 
@@ -369,7 +369,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
 	}
 
-	if err := cleanIngressQdisc(); err != nil {
+	// TODO: react to changes (using the currently ignored watch channel)
+	nativeDevices, _ := tables.SelectedDevices(l.devices, l.db.ReadTxn())
+	devices := tables.DeviceNames(nativeDevices)
+	if err := cleanIngressQdisc(devices); err != nil {
 		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
 		return err
 	}
@@ -385,7 +388,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if option.Config.EnableXDPPrefilter {
-		scopedLog := log.WithField(logfields.Devices, option.Config.GetDevices())
+		scopedLog := log.WithField(logfields.Devices, devices)
 
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
@@ -393,7 +396,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			return err
 		}
 
-		if err := writePreFilterHeader(preFilter, "./"); err != nil {
+		if err := writePreFilterHeader(preFilter, "./", devices); err != nil {
 			scopedLog.WithError(err).Warn("Unable to write prefilter header")
 			return err
 		}
@@ -406,10 +409,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
-		if err := CompileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
+		if err := compileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
 			log.WithError(err).Fatal("failed to compile bpf_sock.c")
 		}
-		if err := socketlb.Enable(); err != nil {
+		if err := socketlb.Enable(l.sysctl); err != nil {
 			return err
 		}
 	} else {
@@ -419,12 +422,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := l.reinitializeXDPLocked(ctx, extraArgs); err != nil {
+	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")
 	}
 
 	// Compile alignchecker program
-	if err := Compile(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
+	if err := compile(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
 		log.WithError(err).Fatal("alignchecker compile failed")
 	}
 	// Validate alignments of C and Go equivalent structs
@@ -441,7 +444,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			return err
 		}
 
-		if firstInitialization {
+		if l.firstInitialization {
 			// Start a background worker to reinitialize IPsec if links change.
 			l.reloadIPSecOnLinkChanges()
 		}
@@ -455,7 +458,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if err := iptMgr.InstallRules(ctx, defaults.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
+	if err := iptMgr.InstallRules(ctx, defaults.HostDevice, l.firstInitialization, option.Config.InstallIptRules); err != nil {
 		return err
 	}
 

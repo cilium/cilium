@@ -187,7 +187,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
 	ds.OnQueueEndpointBuild = nil
-	ds.OnGetCompilationLock = ds.d.GetCompilationLock
+	ds.OnGetCompilationLock = ds.d.Datapath().Loader().GetCompilationLock
 	ds.OnSendNotification = ds.d.SendNotification
 	ds.OnGetCIDRPrefixLengths = nil
 
@@ -284,13 +284,6 @@ func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (fun
 	}
 
 	return nil, nil
-}
-
-func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
-	if ds.OnGetCompilationLock != nil {
-		return ds.OnGetCompilationLock()
-	}
-	panic("GetCompilationLock should not have been called")
 }
 
 func (ds *DaemonSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
