@@ -13,7 +13,6 @@ import (
 	authIdentity "github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -29,7 +28,7 @@ type params struct {
 	cell.In
 
 	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 
 	Clientset          k8sClient.Clientset
 	Identity           resource.Resource[*v2.CiliumIdentity]
@@ -107,8 +106,8 @@ func registerGC(p params) {
 			clusterID:    p.SharedCfg.ClusterID,
 		},
 	}
-	p.Lifecycle.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			gc.wp = workerpool.New(1)
 
 			switch gc.allocationMode {
@@ -120,7 +119,7 @@ func registerGC(p params) {
 				return fmt.Errorf("unknown Cilium identity allocation mode: %q", gc.allocationMode)
 			}
 		},
-		OnStop: func(ctx hive.HookContext) error {
+		OnStop: func(ctx cell.HookContext) error {
 			if gc.allocationMode == option.IdentityAllocationModeCRD {
 				// CRD mode GC runs in an additional goroutine
 				gc.mgr.RemoveAllAndWait()

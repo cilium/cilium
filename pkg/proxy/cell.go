@@ -8,7 +8,6 @@ import (
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -31,7 +30,7 @@ var Cell = cell.Module(
 type proxyParams struct {
 	cell.In
 
-	Lifecycle            hive.Lifecycle
+	Lifecycle            cell.Lifecycle
 	IPCache              *ipcache.IPCache
 	Datapath             datapath.Datapath
 	EndpointInfoRegistry logger.EndpointInfoRegistry
@@ -52,8 +51,8 @@ func newProxy(params proxyParams) (*Proxy, error) {
 	// FIXME: Make the port range configurable.
 	proxy := createProxy(10000, 20000, option.Config.RunDir, params.Datapath, params.IPCache, params.EndpointInfoRegistry)
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(startContext hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(startContext cell.HookContext) error {
 			xdsServer, err := envoy.StartXDSServer(proxy.ipcache, envoy.GetSocketDir(proxy.runDir))
 			if err != nil {
 				return fmt.Errorf("failed to start Envoy xDS server: %w", err)
@@ -68,7 +67,7 @@ func newProxy(params proxyParams) (*Proxy, error) {
 
 			return nil
 		},
-		OnStop: func(stopContext hive.HookContext) error {
+		OnStop: func(stopContext cell.HookContext) error {
 			if proxy.XDSServer != nil {
 				proxy.XDSServer.Stop()
 			}

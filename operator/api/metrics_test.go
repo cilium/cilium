@@ -100,9 +100,9 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 			}
 		}),
 
-		cell.Invoke(func(lc hive.Lifecycle, hf http.HandlerFunc) {
-			lc.Append(hive.Hook{
-				OnStart: func(hive.HookContext) error {
+		cell.Invoke(func(lc cell.Lifecycle, hf http.HandlerFunc) {
+			lc.Append(cell.Hook{
+				OnStart: func(cell.HookContext) error {
 					// registering the metrics for the operator will start the
 					// prometheus server. To avoid port clashing while testing,
 					// let the kernel pick an available port.
@@ -127,7 +127,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 
 					return nil
 				},
-				OnStop: func(ctx hive.HookContext) error {
+				OnStop: func(ctx cell.HookContext) error {
 					// unregister metrics for cilium-operator
 					operatorMetrics.Unregister()
 

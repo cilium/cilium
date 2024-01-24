@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
@@ -149,9 +148,9 @@ func init() {
 				})
 
 			validateLNSInit = cell.Invoke(
-				func(lc hive.Lifecycle, lns *node.LocalNodeStore) {
-					lc.Append(hive.Hook{
-						OnStart: func(hive.HookContext) error {
+				func(lc cell.Lifecycle, lns *node.LocalNodeStore) {
+					lc.Append(cell.Hook{
+						OnStart: func(cell.HookContext) error {
 							return validateLocalNodeInit(lns)
 						},
 					})

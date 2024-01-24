@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fswatcher"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -66,7 +65,7 @@ type usersManager struct {
 	wg   sync.WaitGroup
 }
 
-func registerUsersManager(lc hive.Lifecycle, cfg UsersManagementConfig, clientPromise promise.Promise[kvstore.BackendOperationsUserMgmt]) error {
+func registerUsersManager(lc cell.Lifecycle, cfg UsersManagementConfig, clientPromise promise.Promise[kvstore.BackendOperationsUserMgmt]) error {
 	if !cfg.ClusterUsersEnabled {
 		log.Info("etcd users management disabled")
 		return nil
@@ -86,7 +85,7 @@ func registerUsersManager(lc hive.Lifecycle, cfg UsersManagementConfig, clientPr
 	return nil
 }
 
-func (us *usersManager) Start(hive.HookContext) error {
+func (us *usersManager) Start(cell.HookContext) error {
 	log.WithField(logfields.Path, us.ClusterUsersConfigPath).
 		Info("Starting managing etcd users based on configuration")
 
@@ -123,7 +122,7 @@ func (us *usersManager) Start(hive.HookContext) error {
 	return nil
 }
 
-func (us *usersManager) Stop(hive.HookContext) error {
+func (us *usersManager) Stop(cell.HookContext) error {
 	log.WithField(logfields.Path, us.ClusterUsersConfigPath).
 		Info("Stopping managing etcd users based on configuration")
 

@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/util/connrotation"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
@@ -109,7 +108,7 @@ type compositeClientset struct {
 	restConfig    *rest.Config
 }
 
-func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
+func newClientset(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
 	if !cfg.isEnabled() {
 		return &compositeClientset{disabled: true}, nil
 	}
@@ -174,7 +173,7 @@ func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) (Client
 		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
 	}
 
-	lc.Append(hive.Hook{
+	lc.Append(cell.Hook{
 		OnStart: client.onStart,
 		OnStop:  client.onStop,
 	})
@@ -209,7 +208,7 @@ func (c *compositeClientset) RestConfig() *rest.Config {
 	return rest.CopyConfig(c.restConfig)
 }
 
-func (c *compositeClientset) onStart(startCtx hive.HookContext) error {
+func (c *compositeClientset) onStart(startCtx cell.HookContext) error {
 	if !c.IsEnabled() {
 		return nil
 	}
@@ -234,7 +233,7 @@ func (c *compositeClientset) onStart(startCtx hive.HookContext) error {
 	return nil
 }
 
-func (c *compositeClientset) onStop(stopCtx hive.HookContext) error {
+func (c *compositeClientset) onStop(stopCtx cell.HookContext) error {
 	if c.IsEnabled() {
 		c.controller.RemoveAllAndWait()
 		c.closeAllConns()

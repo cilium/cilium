@@ -20,7 +20,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -163,7 +162,7 @@ type Params struct {
 	IdentityAllocator identityCache.IdentityAllocator
 	PolicyMap         egressmap.PolicyMap
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 }
 
 func NewEgressGatewayManager(p Params) (*Manager, error) {
@@ -214,8 +213,8 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
-	p.Lifecycle.Append(hive.Hook{
-		OnStart: func(hc hive.HookContext) error {
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
 			if probes.HaveLargeInstructionLimit() != nil {
 				return fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 			}
@@ -224,7 +223,7 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 			manager.processCiliumEndpoints(ctx, &wg)
 			return nil
 		},
-		OnStop: func(hc hive.HookContext) error {
+		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
 			wg.Wait()

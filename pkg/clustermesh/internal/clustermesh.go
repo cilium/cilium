@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -78,7 +78,7 @@ func NewClusterMesh(c Configuration) ClusterMesh {
 	}
 }
 
-func (cm *ClusterMesh) Start(hive.HookContext) error {
+func (cm *ClusterMesh) Start(cell.HookContext) error {
 	w, err := createConfigDirectoryWatcher(cm.conf.ClusterMeshConfig, cm)
 	if err != nil {
 		return fmt.Errorf("unable to create config directory watcher: %w", err)
@@ -95,7 +95,7 @@ func (cm *ClusterMesh) Start(hive.HookContext) error {
 
 // Close stops watching for remote cluster configuration files to appear and
 // will close all connections to remote clusters
-func (cm *ClusterMesh) Stop(hive.HookContext) error {
+func (cm *ClusterMesh) Stop(cell.HookContext) error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 

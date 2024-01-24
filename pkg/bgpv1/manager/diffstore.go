@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
@@ -31,7 +30,7 @@ var _ DiffStore[*k8sRuntime.Unknown] = (*diffStore[*k8sRuntime.Unknown])(nil)
 type diffStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Resource  resource.Resource[T]
 	Signaler  agent.Signaler
 }
@@ -74,8 +73,8 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 	return ds
 }
 
-// Start implements hive.HookInterface
-func (ds *diffStore[T]) Start(ctx hive.HookContext) error {
+// Start implements cell.HookInterface
+func (ds *diffStore[T]) Start(ctx cell.HookContext) error {
 	var err error
 	ds.Store, err = ds.resource.Store(ctx)
 	if err != nil {
@@ -86,8 +85,8 @@ func (ds *diffStore[T]) Start(ctx hive.HookContext) error {
 	return nil
 }
 
-// Stop implements hive.HookInterface
-func (ds *diffStore[T]) Stop(stopCtx hive.HookContext) error {
+// Stop implements cell.HookInterface
+func (ds *diffStore[T]) Stop(stopCtx cell.HookContext) error {
 	ds.cancel()
 
 	select {

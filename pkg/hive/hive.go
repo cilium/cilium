@@ -91,7 +91,7 @@ func New(cells ...cell.Cell) *Hive {
 	// module scoped health reporters.
 	if err := h.container.Provide(func(lc cell.Lifecycle) cell.Health {
 		hp := cell.NewHealthProvider()
-		lc.Append(Hook{
+		lc.Append(cell.Hook{
 			OnStop: func(ctx cell.HookContext) error {
 				return hp.Stop(ctx)
 			},

@@ -85,7 +85,7 @@ func TestUsersManagement(t *testing.T) {
 			}
 		}),
 
-		cell.Provide(func(lc hive.Lifecycle) promise.Promise[kvstore.BackendOperationsUserMgmt] {
+		cell.Provide(func(lc cell.Lifecycle) promise.Promise[kvstore.BackendOperationsUserMgmt] {
 			resolver, promise := promise.New[kvstore.BackendOperationsUserMgmt]()
 			resolver.Resolve(&client)
 			return promise

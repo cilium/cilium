@@ -36,7 +36,7 @@ var Cell = func(defaultBackend string) cell.Cell {
 			KVStorePeriodicSync:        defaults.KVstorePeriodicSync,
 		}),
 
-		cell.Provide(func(lc hive.Lifecycle, shutdowner hive.Shutdowner, cfg config, opts *ExtraOptions) promise.Promise[BackendOperations] {
+		cell.Provide(func(lc cell.Lifecycle, shutdowner hive.Shutdowner, cfg config, opts *ExtraOptions) promise.Promise[BackendOperations] {
 			resolver, promise := promise.New[BackendOperations]()
 			if cfg.KVStore == "" {
 				log.Info("Skipping connection to kvstore, as not configured")
@@ -54,8 +54,8 @@ var Cell = func(defaultBackend string) cell.Cell {
 			ctx, cancel := context.WithCancel(context.Background())
 			var wg sync.WaitGroup
 
-			lc.Append(hive.Hook{
-				OnStart: func(hive.HookContext) error {
+			lc.Append(cell.Hook{
+				OnStart: func(cell.HookContext) error {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
@@ -76,7 +76,7 @@ var Cell = func(defaultBackend string) cell.Cell {
 					}()
 					return nil
 				},
-				OnStop: func(hive.HookContext) error {
+				OnStop: func(cell.HookContext) error {
 					cancel()
 					wg.Wait()
 
@@ -124,13 +124,13 @@ var GlobalUserMgmtClientPromiseCell = cell.Module(
 	"global-kvstore-users-client",
 	"Global KVStore Users Management Client Promise",
 
-	cell.Provide(func(lc hive.Lifecycle, backendPromise promise.Promise[BackendOperations]) promise.Promise[BackendOperationsUserMgmt] {
+	cell.Provide(func(lc cell.Lifecycle, backendPromise promise.Promise[BackendOperations]) promise.Promise[BackendOperationsUserMgmt] {
 		resolver, promise := promise.New[BackendOperationsUserMgmt]()
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
 
-		lc.Append(hive.Hook{
-			OnStart: func(hive.HookContext) error {
+		lc.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
 				wg.Add(1)
 				go func() {
 					backend, err := backendPromise.Await(ctx)
@@ -143,7 +143,7 @@ var GlobalUserMgmtClientPromiseCell = cell.Module(
 				}()
 				return nil
 			},
-			OnStop: func(hive.HookContext) error {
+			OnStop: func(cell.HookContext) error {
 				cancel()
 				wg.Wait()
 				return nil

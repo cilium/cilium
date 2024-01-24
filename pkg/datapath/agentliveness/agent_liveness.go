@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/maps/configmap"
@@ -43,7 +42,7 @@ func (alc agentLivenessConfig) Flags(flags *pflag.FlagSet) {
 
 func newAgentLivenessUpdater(
 	logger logrus.FieldLogger,
-	lifecycle hive.Lifecycle,
+	lifecycle cell.Lifecycle,
 	jobRegistry job.Registry,
 	configMap configmap.Map,
 	agentLivenessConfig agentLivenessConfig,

@@ -30,7 +30,7 @@ type LBIPAMParams struct {
 
 	Logger logrus.FieldLogger
 
-	LC          hive.Lifecycle
+	LC          cell.Lifecycle
 	Shutdowner  hive.Shutdowner
 	JobRegistry job.Registry
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 
@@ -66,7 +66,7 @@ type policyMap struct {
 	m *ebpf.Map
 }
 
-func createPolicyMapFromDaemonConfig(daemonConfig *option.DaemonConfig, lc hive.Lifecycle, cfg PolicyConfig) bpf.MapOut[PolicyMap] {
+func createPolicyMapFromDaemonConfig(daemonConfig *option.DaemonConfig, lc cell.Lifecycle, cfg PolicyConfig) bpf.MapOut[PolicyMap] {
 	if !daemonConfig.EnableIPv4EgressGateway {
 		return bpf.NewMapOut[PolicyMap](nil)
 	}
@@ -74,11 +74,11 @@ func createPolicyMapFromDaemonConfig(daemonConfig *option.DaemonConfig, lc hive.
 	return bpf.NewMapOut(CreatePolicyMap(lc, cfg))
 }
 
-func CreatePolicyMap(lc hive.Lifecycle, cfg PolicyConfig) PolicyMap {
+func CreatePolicyMap(lc cell.Lifecycle, cfg PolicyConfig) PolicyMap {
 	return createPolicyMap(lc, cfg, ebpf.PinByName)
 }
 
-func createPolicyMap(lc hive.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {
+func createPolicyMap(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {
 	m := ebpf.NewMap(&ebpf.MapSpec{
 		Name:       PolicyMapName,
 		Type:       ebpf.LPMTrie,
@@ -88,11 +88,11 @@ func createPolicyMap(lc hive.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) 
 		Pinning:    pinning,
 	})
 
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			return m.OpenOrCreate()
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			return m.Close()
 		},
 	})

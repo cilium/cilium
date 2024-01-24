@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
@@ -40,7 +39,7 @@ var Cell = cell.Module(
 type params struct {
 	cell.In
 
-	Lifecycle           hive.Lifecycle
+	Lifecycle           cell.Lifecycle
 	Logger              logrus.FieldLogger
 	L2AnnouncementTable statedb.Table[*tables.L2AnnounceEntry]
 	StateDB             statedb.DB

@@ -114,14 +114,14 @@ func mkTestFixture(pools []*cilium_api_v2alpha1.CiliumLoadBalancerIPPool, ipv4, 
 	// Construct a new Hive with mocked out dependency cells.
 	fixture.hive = hive.New(
 		// Create a resource from the mocked clients
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool] {
 			return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumLoadBalancerIPPoolList](
 					c.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
 				),
 			)
 		}),
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_core_v1.Service] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_core_v1.Service] {
 			return resource.New[*slim_core_v1.Service](
 				lc, utils.ListerWatcherFromTyped[*slim_core_v1.ServiceList](
 					c.Slim().CoreV1().Services(""),

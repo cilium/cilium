@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 )
@@ -48,7 +47,7 @@ func (def AgentConfig) Flags(flags *pflag.FlagSet) {
 type agentParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Log       logrus.FieldLogger
 	Config    AgentConfig
 	EventsMap eventsmap.Map `optional:"true"`
@@ -58,8 +57,8 @@ func newMonitorAgent(params agentParams) Agent {
 	ctx, cancel := context.WithCancel(context.Background())
 	agent := newAgent(ctx)
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			if params.EventsMap == nil {
 				// If there's no event map, function only for agent events.
 				log.Info("No eventsmap: monitor works only for agent events.")
@@ -89,7 +88,7 @@ func newMonitorAgent(params agentParams) Agent {
 			}
 			return err
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			cancel()
 			return nil
 		},

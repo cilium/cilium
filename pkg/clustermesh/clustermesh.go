@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/internal"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -132,7 +131,7 @@ func (cm *ClusterMeshUsedIDs) releaseClusterID(clusterID uint32) {
 
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
-func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
+func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 	if c.ClusterID == 0 || c.ClusterMeshConfig == "" {
 		return nil
 	}

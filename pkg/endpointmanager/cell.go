@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -181,7 +180,7 @@ var (
 type endpointManagerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Config    EndpointManagerConfig
 	Clientset client.Clientset
 }
@@ -200,12 +199,12 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset})
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
-		p.Lifecycle.Append(hive.Hook{
-			OnStart: func(hive.HookContext) error {
+		p.Lifecycle.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
 				mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
 				return nil
 			},
-			OnStop: func(hive.HookContext) error {
+			OnStop: func(cell.HookContext) error {
 				cancel()
 				mgr.controllers.RemoveAllAndWait()
 				return nil
