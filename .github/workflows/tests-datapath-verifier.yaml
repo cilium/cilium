@@ -79,6 +79,9 @@ jobs:
           - kernel: '5.4-20231220.153727'
             ci-kernel: '54'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          - kernel: 'rhel8-20240123.175813'
+            ci-kernel: '54'
+          # renovate: datasource=docker depName=quay.io/lvh-images/kind
           - kernel: '5.10-20231220.153727'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
