@@ -482,29 +482,19 @@ func NewFakeClientset() (*FakeClientset, Clientset) {
 	return &client, &client
 }
 
-type standaloneLifecycle struct {
-	hooks []hive.HookInterface
-}
-
-func (s *standaloneLifecycle) Append(hook hive.HookInterface) {
-	s.hooks = append(s.hooks, hook)
-}
-
 // NewStandaloneClientset creates a clientset outside hive. To be removed once
 // remaining uses of k8s.Init()/k8s.Client()/etc. have been converted.
 func NewStandaloneClientset(cfg Config) (Clientset, error) {
 	log := logging.DefaultLogger
-	lc := &standaloneLifecycle{}
+	lc := &cell.DefaultLifecycle{}
 
 	clientset, err := newClientset(lc, log, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, hook := range lc.hooks {
-		if err := hook.Start(context.Background()); err != nil {
-			return nil, err
-		}
+	if err := lc.Start(context.Background()); err != nil {
+		return nil, err
 	}
 
 	return clientset, err

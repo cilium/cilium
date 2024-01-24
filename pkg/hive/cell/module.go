@@ -60,12 +60,33 @@ func (m *module) moduleScopedStatusReporter(p Health) HealthReporter {
 	return p.forModule(m.id)
 }
 
+func (m *module) lifecycle(lc Lifecycle) Lifecycle {
+	switch lc := lc.(type) {
+	case *DefaultLifecycle:
+		return &augmentedLifecycle{
+			lc,
+			m.id,
+		}
+	case *augmentedLifecycle:
+		return &augmentedLifecycle{
+			lc.DefaultLifecycle,
+			m.id,
+		}
+	default:
+		return lc
+	}
+}
+
 func (m *module) Apply(c container) error {
 	scope := c.Scope(m.id)
 
 	// Provide module scoped status reporter, used for reporting module level
 	// health status.
 	if err := scope.Provide(m.moduleScopedStatusReporter, dig.Export(false)); err != nil {
+		return err
+	}
+
+	if err := scope.Decorate(m.lifecycle); err != nil {
 		return err
 	}
 
