@@ -470,7 +470,7 @@ Services that have the same sharing key annotation will share the same IP or set
 
 .. code-block:: shell-session
 
-  $ kubeclt -n example get svc
+  $ kubectl -n example get svc
   NAME           TYPE           CLUSTER-IP     EXTERNAL-IP               PORT(S)          AGE
   service-blue   LoadBalancer   10.96.26.105   20.0.10.100               1234:30363/TCP   43s
   service-red    LoadBalancer   10.96.26.106   20.0.10.100               2345:30131/TCP   43s
