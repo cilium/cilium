@@ -271,10 +271,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				// Update the endpoint API model to report that Cilium manages a
 				// redirect for that port.
 				statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, redirectPort)
-				e.proxyStatisticsMutex.Lock()
-				proxyStats := e.getProxyStatisticsLocked(statsKey, string(l4.L7Parser), dstPort, l4.Ingress)
-				proxyStats.AllocatedProxyPort = int64(redirectPort)
-				e.proxyStatisticsMutex.Unlock()
+				proxyStats := e.getProxyStatistics(statsKey, string(l4.L7Parser), dstPort, l4.Ingress, redirectPort)
 
 				updatedStats = append(updatedStats, proxyStats)
 			}
@@ -359,10 +356,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		// Update the endpoint API model to report that Cilium manages a
 		// redirect for that port.
 		statsKey := policy.ProxyStatsKey(visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, redirectPort)
-		e.proxyStatisticsMutex.Lock()
-		proxyStats := e.getProxyStatisticsLocked(statsKey, string(visMeta.Parser), visMeta.Port, visMeta.Ingress)
-		proxyStats.AllocatedProxyPort = int64(redirectPort)
-		e.proxyStatisticsMutex.Unlock()
+		proxyStats := e.getProxyStatistics(statsKey, string(visMeta.Parser), visMeta.Port, visMeta.Ingress, redirectPort)
 
 		updatedStats = append(updatedStats, proxyStats)
 

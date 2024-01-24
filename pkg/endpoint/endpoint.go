@@ -1552,10 +1552,12 @@ func (e *Endpoint) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {
 	e.DNSRules = rules
 }
 
-// getProxyStatisticsLocked gets the ProxyStatistics for the flows with the
+// getProxyStatistics gets the ProxyStatistics for the flows with the
 // given characteristics, or adds a new one and returns it.
-// Must be called with e.proxyStatisticsMutex held.
-func (e *Endpoint) getProxyStatisticsLocked(key string, l7Protocol string, port uint16, ingress bool) *models.ProxyStatistics {
+func (e *Endpoint) getProxyStatistics(key string, l7Protocol string, port uint16, ingress bool, redirectPort uint16) *models.ProxyStatistics {
+	e.proxyStatisticsMutex.Lock()
+	defer e.proxyStatisticsMutex.Unlock()
+
 	if e.proxyStatistics == nil {
 		e.proxyStatistics = make(map[string]*models.ProxyStatistics)
 	}
@@ -1580,6 +1582,8 @@ func (e *Endpoint) getProxyStatisticsLocked(key string, l7Protocol string, port 
 
 		e.proxyStatistics[key] = proxyStats
 	}
+
+	proxyStats.AllocatedProxyPort = int64(redirectPort)
 
 	return proxyStats
 }
