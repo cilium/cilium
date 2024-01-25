@@ -63,19 +63,18 @@ type ModifyInstanceMetadataOptionsInput struct {
 	// Integers from 1 to 64
 	HttpPutResponseHopLimit *int32
 
-	// IMDSv2 uses token-backed sessions. Set the use of HTTP tokens to optional (in
-	// other words, set the use of IMDSv2 to optional ) or required (in other words,
-	// set the use of IMDSv2 to required ).
-	//   - optional - When IMDSv2 is optional, you can choose to retrieve instance
-	//   metadata with or without a session token in your request. If you retrieve the
-	//   IAM role credentials without a token, the IMDSv1 role credentials are returned.
-	//   If you retrieve the IAM role credentials using a valid session token, the IMDSv2
-	//   role credentials are returned.
-	//   - required - When IMDSv2 is required, you must send a session token with any
-	//   instance metadata retrieval requests. In this state, retrieving the IAM role
+	// Indicates whether IMDSv2 is required.
+	//   - optional - IMDSv2 is optional. You can choose whether to send a session
+	//   token in your instance metadata retrieval requests. If you retrieve IAM role
+	//   credentials without a session token, you receive the IMDSv1 role credentials. If
+	//   you retrieve IAM role credentials using a valid session token, you receive the
+	//   IMDSv2 role credentials.
+	//   - required - IMDSv2 is required. You must send a session token in your
+	//   instance metadata retrieval requests. With this option, retrieving the IAM role
 	//   credentials always returns IMDSv2 credentials; IMDSv1 credentials are not
 	//   available.
-	// Default: optional
+	// Default: If the value of ImdsSupport for the Amazon Machine Image (AMI) for
+	// your instance is v2.0 , the default is required .
 	HttpTokens types.HttpTokensState
 
 	// Set to enabled to allow access to instance tags from the instance metadata. Set

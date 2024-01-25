@@ -582,6 +582,7 @@ const (
 	AvailabilityZoneStateInformation AvailabilityZoneState = "information"
 	AvailabilityZoneStateImpaired    AvailabilityZoneState = "impaired"
 	AvailabilityZoneStateUnavailable AvailabilityZoneState = "unavailable"
+	AvailabilityZoneStateConstrained AvailabilityZoneState = "constrained"
 )
 
 // Values returns all known values for AvailabilityZoneState. Note that this can
@@ -593,6 +594,7 @@ func (AvailabilityZoneState) Values() []AvailabilityZoneState {
 		"information",
 		"impaired",
 		"unavailable",
+		"constrained",
 	}
 }
 
@@ -7292,8 +7294,9 @@ type SubnetState string
 
 // Enum values for SubnetState
 const (
-	SubnetStatePending   SubnetState = "pending"
-	SubnetStateAvailable SubnetState = "available"
+	SubnetStatePending     SubnetState = "pending"
+	SubnetStateAvailable   SubnetState = "available"
+	SubnetStateUnavailable SubnetState = "unavailable"
 )
 
 // Values returns all known values for SubnetState. Note that this can be expanded
@@ -7303,6 +7306,7 @@ func (SubnetState) Values() []SubnetState {
 	return []SubnetState{
 		"pending",
 		"available",
+		"unavailable",
 	}
 }
 
