@@ -989,6 +989,20 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			Context:     d.ctx,
 		})
 
+	if option.Config.EnableVTEP {
+		// Start controller to setup and periodically verify VTEP
+		// endpoints and routes.
+		syncVTEPControllerGroup := controller.NewGroup("sync-vtep")
+		d.controllers.UpdateController(
+			syncVTEPControllerGroup.Name,
+			controller.ControllerParams{
+				Group:       syncVTEPControllerGroup,
+				DoFunc:      syncVTEP,
+				RunInterval: time.Minute,
+				Context:     d.ctx,
+			})
+	}
+
 	// Wait for the initial sync and check that it succeeded.
 	if err := <-syncErrs; err != nil {
 		return nil, nil, err
