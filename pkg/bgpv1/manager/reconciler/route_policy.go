@@ -9,8 +9,12 @@ import (
 	"fmt"
 	"net/netip"
 	"sort"
+	"strconv"
+	"strings"
 
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -264,16 +268,15 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 	sort.Slice(v4Prefixes, v4Prefixes.Less)
 	sort.Slice(v6Prefixes, v6Prefixes.Less)
 
-	// sort communities to have consistent order for DeepEqual
+	// dedup + sort communities to have consistent order for DeepEqual
 	var communities, largeCommunities []string
 	if attrs.Communities != nil {
-		for _, c := range attrs.Communities.Standard {
-			communities = append(communities, string(c))
+		communities, err = mergeAndDedupCommunities(attrs.Communities.Standard, attrs.Communities.WellKnown)
+		if err != nil {
+			return nil, err
 		}
+		largeCommunities = dedupLargeCommunities(attrs.Communities.Large)
 		sort.Strings(communities)
-		for _, c := range attrs.Communities.Large {
-			largeCommunities = append(largeCommunities, string(c))
-		}
 		sort.Strings(largeCommunities)
 	}
 
@@ -360,4 +363,66 @@ func peerAddressFromPolicy(p *types.RoutePolicy) string {
 		}
 	}
 	return ""
+}
+
+// mergeAndDedupCommunities merges numeric standard community and well-known community strings,
+// deduplicated by their actual community values.
+func mergeAndDedupCommunities(standard []v2alpha1api.BGPStandardCommunity, wellKnown []v2alpha1api.BGPWellKnownCommunity) ([]string, error) {
+	var res []string
+	existing := sets.New[uint32]()
+	for _, c := range standard {
+		val, err := parseCommunity(string(c))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse standard BGP community: %w", err)
+		}
+		if existing.Has(val) {
+			continue
+		}
+		existing.Insert(val)
+		res = append(res, string(c))
+	}
+	for _, c := range wellKnown {
+		val, ok := bgp.WellKnownCommunityValueMap[string(c)]
+		if !ok {
+			return nil, fmt.Errorf("invalid well-known community value '%s'", c)
+		}
+		if existing.Has(uint32(val)) {
+			continue
+		}
+		existing.Insert(uint32(val))
+		res = append(res, string(c))
+	}
+	return res, nil
+}
+
+func parseCommunity(communityStr string) (uint32, error) {
+	// parse as <0-65535>:<0-65535>
+	if elems := strings.Split(communityStr, ":"); len(elems) == 2 {
+		fst, err := strconv.ParseUint(elems[0], 10, 16)
+		if err != nil {
+			return 0, err
+		}
+		snd, err := strconv.ParseUint(elems[1], 10, 16)
+		if err != nil {
+			return 0, err
+		}
+		return uint32(fst<<16 | snd), nil
+	}
+	// parse as a single decimal number
+	c, err := strconv.ParseUint(communityStr, 10, 32)
+	return uint32(c), err
+}
+
+// dedupLargeCommunities returns deduplicated large communities as a string slice.
+func dedupLargeCommunities(communities []v2alpha1api.BGPLargeCommunity) []string {
+	var res []string
+	existing := sets.New[string]()
+	for _, c := range communities {
+		if existing.Has(string(c)) {
+			continue
+		}
+		existing.Insert(string(c))
+		res = append(res, string(c))
+	}
+	return res
 }
