@@ -128,6 +128,11 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/
+            clang --version
+            clang --version
+            clang --version
+            clang --version
+            clang --version
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 go${{ env.go-version }} test -v -parallel=1 ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
 
