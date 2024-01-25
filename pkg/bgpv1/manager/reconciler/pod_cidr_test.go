@@ -135,10 +135,15 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				},
 			}
 
-			// run the reconciler
-			err = exportPodCIDRReconciler.Reconcile(context.Background(), params)
-			if err != nil {
-				t.Fatalf("failed to reconcile new pod cidr advertisements: %v", err)
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = exportPodCIDRReconciler.Reconcile(context.Background(), params)
+					if err != nil {
+						t.Fatalf("failed to reconcile new pod cidr advertisements: %v", err)
+					}
+				})
 			}
 			podCIDRAnnouncements = reconciler.getMetadata(testSC)
 
