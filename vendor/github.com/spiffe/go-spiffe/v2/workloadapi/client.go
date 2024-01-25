@@ -538,10 +538,10 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 		hints[svid.Hint] = struct{}{}
 
 		s, err := jwtsvid.ParseInsecure(svid.Svid, audience)
-		s.Hint = svid.Hint
 		if err != nil {
 			return nil, err
 		}
+		s.Hint = svid.Hint
 		svids = append(svids, s)
 	}
 
