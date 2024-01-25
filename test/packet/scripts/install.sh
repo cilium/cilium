@@ -6,7 +6,7 @@ set -e
 export DEBIAN_FRONTEND=noninteractive
 
 # renovate: datasource=golang-version depName=go
-GOLANG_VERSION="1.19.13"
+GOLANG_VERSION="1.21.6"
 VAGRANT_VERSION="2.2.16"
 PACKER_VERSION="1.3.5"
 
