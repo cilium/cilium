@@ -66,11 +66,11 @@ type wireguardClient interface {
 // the public key of peer discovered via the node manager.
 type Agent struct {
 	lock.RWMutex
-	localNodeStore *node.LocalNodeStore
-	wgClient       wireguardClient
-	ipCache        *ipcache.IPCache
-	listenPort     int
-	privKey        wgtypes.Key
+
+	wgClient   wireguardClient
+	ipCache    *ipcache.IPCache
+	listenPort int
+	privKey    wgtypes.Key
 
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
@@ -108,10 +108,9 @@ func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, 
 	})
 
 	return &Agent{
-		localNodeStore: localNodeStore,
-		wgClient:       wgClient,
-		privKey:        key,
-		listenPort:     listenPort,
+		wgClient:   wgClient,
+		privKey:    key,
+		listenPort: listenPort,
 
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
