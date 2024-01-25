@@ -132,9 +132,13 @@ func TestPreflightReconciler(t *testing.T) {
 				},
 			}
 
-			err = preflightReconciler(context.Background(), testSC, newc, cstate)
-			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("wanted error: %v", (tt.err == nil))
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = preflightReconciler(context.Background(), testSC, newc, cstate)
+					if (tt.err == nil) != (err == nil) {
+						t.Fatalf("wanted error: %v", (tt.err == nil))
+					}
+				})
 			}
 			if tt.shouldRecreate && testSC.Server == originalServer {
 				t.Fatalf("preflightReconciler did not recreate server")
@@ -496,9 +500,13 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				IPv4:     netip.MustParseAddr("127.0.0.1"),
 			}
 
-			err = exportPodCIDRReconciler(context.Background(), testSC, newc, &newcstate)
-			if err != nil {
-				t.Fatalf("failed to reconcile new pod cidr advertisements: %v", err)
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = exportPodCIDRReconciler(context.Background(), testSC, newc, &newcstate)
+					if err != nil {
+						t.Fatalf("failed to reconcile new pod cidr advertisements: %v", err)
+					}
+				})
 			}
 
 			// if we disable exports of pod cidr ensure no advertisements are
@@ -1101,13 +1109,17 @@ func TestLBServiceReconciler(t *testing.T) {
 			}
 
 			reconciler := NewLBServiceReconciler(diffstore, epDiffStore)
-			err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
-				Server: testSC,
-				NewC:   newc,
-				CState: &newcstate,
-			})
-			if err != nil {
-				t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
+						Server: testSC,
+						NewC:   newc,
+						CState: &newcstate,
+					})
+					if err != nil {
+						t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)
+					}
+				})
 			}
 
 			// if we disable exports of pod cidr ensure no advertisements are
@@ -1230,12 +1242,16 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 
 	diffstore.Upsert(obj)
 	reconciler := NewLBServiceReconciler(diffstore, epDiffStore)
-	err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
-		Server: testSC,
-		NewC:   newc,
-		CState: cstate,
-	})
-	require.NoError(t, err)
+	for i := 0; i < 2; i++ {
+		t.Run(t.Name(), func(t *testing.T) {
+			err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
+				Server: testSC,
+				NewC:   newc,
+				CState: cstate,
+			})
+			require.NoError(t, err)
+		})
+	}
 
 	// update server config, this is done outside of reconcilers
 	testSC.Config = newc
@@ -1260,12 +1276,16 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 
 	// Update LB service
 	reconciler = NewLBServiceReconciler(diffstore, epDiffStore)
-	err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
-		Server: testSC,
-		NewC:   newc,
-		CState: cstate,
-	})
-	require.NoError(t, err)
+	for i := 0; i < 2; i++ {
+		t.Run(t.Name(), func(t *testing.T) {
+			err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
+				Server: testSC,
+				NewC:   newc,
+				CState: cstate,
+			})
+			require.NoError(t, err)
+		})
+	}
 }
 
 // hostPrefixLen returns addr/32 for ipv4 address and addr/128 for ipv6 address
