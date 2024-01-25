@@ -101,7 +101,7 @@ jobs:
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+        uses: cilium/little-vm-helper@e3a52481eb6cbdf2d8923e0054ad528a1350879f # Test commit
         with:
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
@@ -120,7 +120,7 @@ jobs:
             go${{ env.go-version }} download
 
       - name: Run verifier tests
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+        uses: cilium/little-vm-helper@e3a52481eb6cbdf2d8923e0054ad528a1350879f # Test commit
         with:
           provision: 'false'
           cmd: |
