@@ -100,6 +100,27 @@ jobs:
           ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false
 
+      - name: Checkout LVH pull request branch (NOT TRUSTED)
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: cilium/little-vm-helper
+          ref: e3a52481eb6cbdf2d8923e0054ad528a1350879f
+          persist-credentials: false
+          path: ./little-vm-helper
+
+      - name: Install Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.21.6
+
+      - name: Build custom LVH CLI (override provision below)
+        run: |
+          cd little-vm-helper
+          make little-vm-helper
+          chmod +x lvh
+          sudo mv lvh /bin/lvh
+
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
         with:
