@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/netip"
@@ -289,17 +290,6 @@ func (d *Daemon) syncHostIPs() error {
 	}
 	metrics.EndpointMaxIfindex.Set(float64(maxIfindex))
 
-	if option.Config.EnableVTEP {
-		err := setupVTEPMapping()
-		if err != nil {
-			return err
-		}
-		err = setupRouteToVtepCidr()
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -469,6 +459,20 @@ func (d *Daemon) initMaps() error {
 	return nil
 }
 
+func syncVTEP(context.Context) error {
+	if option.Config.EnableVTEP {
+		err := setupVTEPMapping()
+		if err != nil {
+			return err
+		}
+		err = setupRouteToVtepCidr()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func setupVTEPMapping() error {
 	for i, ep := range option.Config.VtepEndpoints {
 		log.WithFields(logrus.Fields{
@@ -479,10 +483,8 @@ func setupVTEPMapping() error {
 		if err != nil {
 			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
 		}
-
 	}
 	return nil
-
 }
 
 func setupRouteToVtepCidr() error {
