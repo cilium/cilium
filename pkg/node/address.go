@@ -784,9 +784,8 @@ func GetEndpointEncryptKeyIndex() uint8 {
 	case option.Config.EnableIPSec:
 		return getLocalNode().EncryptionKey
 	case option.Config.EnableWireguard:
-		if len(GetWireguardPubKey()) > 0 {
-			return wgTypes.StaticEncryptKey
-		}
+		return wgTypes.StaticEncryptKey
+
 	}
 	return 0
 }
