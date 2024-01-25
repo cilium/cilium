@@ -9,7 +9,6 @@ import (
 	"net"
 
 	"golang.org/x/exp/maps"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -18,12 +17,12 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 type localNodeSynchronizerParams struct {
@@ -32,6 +31,8 @@ type localNodeSynchronizerParams struct {
 	Config             *option.DaemonConfig
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
+
+	WireGuard *wg.Agent `optional:"true"`
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
@@ -54,6 +55,11 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 	if err := ini.initFromK8s(ctx, n); err != nil {
 		return err
 	}
+
+	if ini.WireGuard != nil {
+		ini.WireGuard.InitLocalNodeFromWireGuard(n)
+	}
+
 	return nil
 }
 
@@ -196,12 +202,6 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 		}
 	} else {
 		log.Info("no local ciliumnode found, will not restore cilium internal and health ips from k8s")
-	}
-	if ini.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(node.Labels)) {
-		log.WithField(logfields.Selector, ini.Config.NodeEncryptionOptOutLabels).
-			Infof("Opting out from node-to-node encryption on this node as per '%s' label selector",
-				option.NodeEncryptionOptOutLabels)
-		node.OptOutNodeEncryption = true
 	}
 
 	return nil
