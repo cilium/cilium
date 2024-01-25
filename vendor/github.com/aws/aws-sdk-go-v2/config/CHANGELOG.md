@@ -1,3 +1,16 @@
+# v1.26.6 (2024-01-22)
+
+* **Bug Fix**: Remove invalid escaping of shared config values. All values in the shared config file will now be interpreted literally, save for fully-quoted strings which are unwrapped for legacy reasons.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.26.5 (2024-01-18)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.26.4 (2024-01-16)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.26.3 (2024-01-04)
 
 * **Dependency Update**: Updated to the latest SDK module versions

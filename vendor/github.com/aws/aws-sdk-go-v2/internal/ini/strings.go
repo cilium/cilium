@@ -67,12 +67,8 @@ func unquote(s string) string {
 
 // applies various legacy conversions to property values:
 //   - remote wrapping single/doublequotes
-//   - expand escaped quote and newline sequences
 func legacyStrconv(s string) string {
 	s = unquote(s)
-	s = strings.ReplaceAll(s, `\"`, `"`)
-	s = strings.ReplaceAll(s, `\'`, `'`)
-	s = strings.ReplaceAll(s, `\n`, "\n")
 	return s
 }
 
