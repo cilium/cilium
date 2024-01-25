@@ -536,6 +536,7 @@ Makefile* @cilium/build
 /plugins/cilium-docker/ @cilium/docker
 /README.rst @cilium/docs-structure
 /SECURITY.md @cilium/contributing
+/SECURITY-INSIGHTS.yml @cilium/security
 /stable.txt @cilium/tophat
 /test/ @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
