@@ -701,6 +701,59 @@ func Test_AdvertisedPathAttributes(t *testing.T) {
 				},
 			},
 		},
+		{
+			description: "advertise service IP with well-known community",
+			op:          "add",
+			lbService: &lbSrvConfig{
+				name:      "service-b",
+				ingressIP: "10.100.1.112",
+			},
+			advertiseAttributes: []v2alpha1.CiliumBGPPathAttributes{
+				{
+					SelectorType: v2alpha1.CiliumLoadBalancerIPPoolSelectorName,
+					Communities: &v2alpha1.BGPCommunities{
+						WellKnown: []v2alpha1.BGPWellKnownCommunity{v2alpha1.BGPWellKnownCommunity("no-export")},
+					},
+				},
+			},
+			expectedRouteEvent: routeEvent{
+				sourceASN:   ciliumASN,
+				prefix:      "10.100.1.112",
+				prefixLen:   32,
+				isWithdrawn: false,
+				extraPathAttributes: []bgp.PathAttributeInterface{
+					bgp.NewPathAttributeLocalPref(100),
+					bgp.NewPathAttributeCommunities([]uint32{parseCommunity("65535:65281")}), // = no-export
+				},
+			},
+		},
+		{
+			description: "advertise service IP with duplicate well-known community",
+			op:          "add",
+			lbService: &lbSrvConfig{
+				name:      "service-c",
+				ingressIP: "10.100.1.113",
+			},
+			advertiseAttributes: []v2alpha1.CiliumBGPPathAttributes{
+				{
+					SelectorType: v2alpha1.CiliumLoadBalancerIPPoolSelectorName,
+					Communities: &v2alpha1.BGPCommunities{
+						Standard:  []v2alpha1.BGPStandardCommunity{v2alpha1.BGPStandardCommunity("65535:65281")}, // = no-export
+						WellKnown: []v2alpha1.BGPWellKnownCommunity{v2alpha1.BGPWellKnownCommunity("no-export")},
+					},
+				},
+			},
+			expectedRouteEvent: routeEvent{
+				sourceASN:   ciliumASN,
+				prefix:      "10.100.1.113",
+				prefixLen:   32,
+				isWithdrawn: false,
+				extraPathAttributes: []bgp.PathAttributeInterface{
+					bgp.NewPathAttributeLocalPref(100),
+					bgp.NewPathAttributeCommunities([]uint32{parseCommunity("65535:65281")}), // = no-export
+				},
+			},
+		},
 	}
 
 	testCtx, testDone := context.WithTimeout(context.Background(), maxTestDuration)

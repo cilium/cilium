@@ -61,6 +61,23 @@ func (in *BGPCommunities) DeepEqual(other *BGPCommunities) bool {
 		}
 	}
 
+	if ((in.WellKnown != nil) && (other.WellKnown != nil)) || ((in.WellKnown == nil) != (other.WellKnown == nil)) {
+		in, other := &in.WellKnown, &other.WellKnown
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.Large != nil) && (other.Large != nil)) || ((in.Large == nil) != (other.Large == nil)) {
 		in, other := &in.Large, &other.Large
 		if other == nil {
