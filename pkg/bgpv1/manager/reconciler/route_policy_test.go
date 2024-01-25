@@ -109,9 +109,9 @@ var (
 
 	peerAddress = "172.16.0.1/32"
 
-	standardCommunity = "64125:100"
-
-	largeCommunity = "64125:4294967295:100"
+	standardCommunity  = "64125:100"
+	wellKnownCommunity = "no-advertise"
+	largeCommunity     = "64125:4294967295:100"
 
 	attrSelectLBPool = v2alpha1api.CiliumBGPPathAttributes{
 		SelectorType: v2alpha1api.CiliumLoadBalancerIPPoolSelectorName,
@@ -121,8 +121,9 @@ var (
 			},
 		},
 		Communities: &v2alpha1api.BGPCommunities{
-			Standard: []v2alpha1api.BGPStandardCommunity{v2alpha1api.BGPStandardCommunity(standardCommunity)},
-			Large:    []v2alpha1api.BGPLargeCommunity{v2alpha1api.BGPLargeCommunity(largeCommunity)},
+			Standard:  []v2alpha1api.BGPStandardCommunity{v2alpha1api.BGPStandardCommunity(standardCommunity)},
+			WellKnown: []v2alpha1api.BGPWellKnownCommunity{v2alpha1api.BGPWellKnownCommunity(wellKnownCommunity)},
+			Large:     []v2alpha1api.BGPLargeCommunity{v2alpha1api.BGPLargeCommunity(largeCommunity)},
 		},
 	}
 
@@ -134,8 +135,9 @@ var (
 			},
 		},
 		Communities: &v2alpha1api.BGPCommunities{
-			Standard: []v2alpha1api.BGPStandardCommunity{v2alpha1api.BGPStandardCommunity(standardCommunity)},
-			Large:    []v2alpha1api.BGPLargeCommunity{v2alpha1api.BGPLargeCommunity(largeCommunity)},
+			Standard:  []v2alpha1api.BGPStandardCommunity{v2alpha1api.BGPStandardCommunity(standardCommunity)},
+			WellKnown: []v2alpha1api.BGPWellKnownCommunity{v2alpha1api.BGPWellKnownCommunity(wellKnownCommunity)},
+			Large:     []v2alpha1api.BGPLargeCommunity{v2alpha1api.BGPLargeCommunity(largeCommunity)},
 		},
 	}
 
@@ -223,7 +225,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -246,7 +248,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -263,7 +265,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -327,7 +329,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -365,7 +367,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -410,7 +412,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -427,7 +429,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -473,7 +475,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -495,7 +497,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 								},
 								Actions: types.RoutePolicyActions{
 									RouteAction:         types.RoutePolicyActionNone,
-									AddCommunities:      []string{standardCommunity},
+									AddCommunities:      []string{standardCommunity, wellKnownCommunity},
 									AddLargeCommunities: []string{largeCommunity},
 								},
 							},
@@ -676,5 +678,77 @@ func validatePoliciesMatch(t *testing.T, actual map[string]*types.RoutePolicy, e
 		policy := actual[expPolicy.Name]
 		require.NotNil(t, policy)
 		require.EqualValues(t, policy, expPolicy)
+	}
+}
+
+func TestCommunityDeduplication(t *testing.T) {
+	var table = []struct {
+		name      string
+		standard  []v2alpha1api.BGPStandardCommunity
+		wellKnown []v2alpha1api.BGPWellKnownCommunity
+		large     []v2alpha1api.BGPLargeCommunity
+		expected  []string
+		expectErr bool
+	}{
+		{
+			name:     "single standard",
+			standard: []v2alpha1api.BGPStandardCommunity{"64125:100"},
+			expected: []string{"64125:100"},
+		},
+		{
+			name:      "single well-known",
+			wellKnown: []v2alpha1api.BGPWellKnownCommunity{"no-advertise"},
+			expected:  []string{"no-advertise"},
+		},
+		{
+			name:     "single large",
+			large:    []v2alpha1api.BGPLargeCommunity{"64125:4294967295:100"},
+			expected: []string{"64125:4294967295:100"},
+		},
+		{
+			name:     "duplicate standard",
+			standard: []v2alpha1api.BGPStandardCommunity{"0:100", "100", "0:101", "0:100"},
+			expected: []string{"0:100", "0:101"},
+		},
+		{
+			name:      "duplicate well-known",
+			wellKnown: []v2alpha1api.BGPWellKnownCommunity{"no-export", "no-advertise", "no-export"},
+			expected:  []string{"no-export", "no-advertise"},
+		},
+		{
+			name:      "invalid standard",
+			standard:  []v2alpha1api.BGPStandardCommunity{"64125:100", "999999:999999", "64125:101"},
+			expectErr: true,
+		},
+		{
+			name:      "invalid well-known",
+			wellKnown: []v2alpha1api.BGPWellKnownCommunity{"no-export", "NON-EXISTING"},
+			expectErr: true,
+		},
+		{
+			name:     "duplicate large",
+			large:    []v2alpha1api.BGPLargeCommunity{"64125:4294967295:100", "64125:4294967295:200", "64125:4294967295:200"},
+			expected: []string{"64125:4294967295:100", "64125:4294967295:200"},
+		},
+		{
+			name:      "standard + well-known duplicated",
+			standard:  []v2alpha1api.BGPStandardCommunity{"64125:100", "64125:101", "65535:65282"},
+			wellKnown: []v2alpha1api.BGPWellKnownCommunity{"no-export", "no-advertise"}, // no-advertise = "65535:65282"
+			expected:  []string{"64125:100", "64125:101", "65535:65282", "no-export"},
+		},
+	}
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := mergeAndDedupCommunities(tt.standard, tt.wellKnown)
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			res2 := dedupLargeCommunities(tt.large)
+
+			require.EqualValues(t, tt.expected, append(res, res2...))
+		})
 	}
 }

@@ -51,6 +51,11 @@ func (in *BGPCommunities) DeepCopyInto(out *BGPCommunities) {
 		*out = make([]BGPStandardCommunity, len(*in))
 		copy(*out, *in)
 	}
+	if in.WellKnown != nil {
+		in, out := &in.WellKnown, &out.WellKnown
+		*out = make([]BGPWellKnownCommunity, len(*in))
+		copy(*out, *in)
+	}
 	if in.Large != nil {
 		in, out := &in.Large, &out.Large
 		*out = make([]BGPLargeCommunity, len(*in))
