@@ -624,13 +624,18 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				},
 			}
 
-			// initial reconcile
-			err = policyReconciler.Reconcile(context.Background(), params)
-			if tt.expectError {
-				require.Error(t, err)
-				return
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name+"-init", func(t *testing.T) {
+					err = policyReconciler.Reconcile(context.Background(), params)
+					if tt.expectError {
+						require.Error(t, err)
+						return
+					}
+					require.NoError(t, err)
+				})
 			}
-			require.NoError(t, err)
 
 			// validate cached vs. expected policies
 			validatePoliciesMatch(t, policyReconciler.getMetadata(testSC), tt.initial.expectedPolicies)
@@ -649,8 +654,14 @@ func TestRoutePolicyReconciler(t *testing.T) {
 			for _, obj := range tt.updated.PodPools {
 				podStore.Upsert(obj)
 			}
-			err = policyReconciler.Reconcile(context.Background(), params)
-			require.NoError(t, err)
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name+"-follow-up", func(t *testing.T) {
+					err = policyReconciler.Reconcile(context.Background(), params)
+					require.NoError(t, err)
+				})
+			}
 
 			// validate cached vs. expected policies
 			validatePoliciesMatch(t, policyReconciler.getMetadata(testSC), tt.updated.expectedPolicies)
