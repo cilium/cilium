@@ -633,17 +633,23 @@ func TestLBServiceReconciler(t *testing.T) {
 				ServiceSelector: tt.newServiceSelector,
 			}
 
-			err = reconciler.Reconcile(context.Background(), ReconcileParams{
-				CurrentServer: testSC,
-				DesiredConfig: newc,
-				CiliumNode: &v2api.CiliumNode{
-					ObjectMeta: meta_v1.ObjectMeta{
-						Name: "node1",
-					},
-				},
-			})
-			if err != nil {
-				t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = reconciler.Reconcile(context.Background(), ReconcileParams{
+						CurrentServer: testSC,
+						DesiredConfig: newc,
+						CiliumNode: &v2api.CiliumNode{
+							ObjectMeta: meta_v1.ObjectMeta{
+								Name: "node1",
+							},
+						},
+					})
+					if err != nil {
+						t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)
+					}
+				})
 			}
 
 			// if we disable exports of pod cidr ensure no advertisements are

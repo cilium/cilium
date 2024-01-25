@@ -139,9 +139,15 @@ func TestPreflightReconciler(t *testing.T) {
 				},
 			}
 
-			err = preflightReconciler.Reconcile(context.Background(), params)
-			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("wanted error: %v", (tt.err == nil))
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = preflightReconciler.Reconcile(context.Background(), params)
+					if (tt.err == nil) != (err == nil) {
+						t.Fatalf("wanted error: %v", (tt.err == nil))
+					}
+				})
 			}
 			if tt.shouldRecreate && testSC.Server == originalServer {
 				t.Fatalf("preflightReconciler did not recreate server")
