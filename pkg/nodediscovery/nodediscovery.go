@@ -532,11 +532,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		}
 	}
 
-	if option.Config.EnableIPSec || (option.Config.EnableWireguard && option.Config.EncryptNode && !node.GetOptOutNodeEncryption()) {
-		nodeResource.Spec.Encryption.Key = int(node.GetEncryptKeyIndex())
-	} else {
-		nodeResource.Spec.Encryption.Key = 0
-	}
+	nodeResource.Spec.Encryption.Key = int(n.localNode.EncryptionKey)
 
 	nodeResource.Spec.HealthAddressing.IPv4 = ""
 	if ip := n.localNode.IPv4HealthIP; ip != nil {

@@ -25,8 +25,10 @@ import (
 	"golang.zx2c4.com/wireguard/tun"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -77,12 +79,13 @@ type Agent struct {
 
 	cleanup []func()
 
+	// initialized in InitLocalNodeFromWireGuard
 	optOut                 bool
 	requireNodesInPeerList bool
 }
 
-// NewAgent creates a new Wireguard Agent
-func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, error) {
+// NewAgent creates a new WireGuard Agent
+func NewAgent(privKeyPath string) (*Agent, error) {
 	key, err := loadOrGeneratePrivKey(privKeyPath)
 	if err != nil {
 		return nil, err
@@ -92,12 +95,6 @@ func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, 
 	if err != nil {
 		return nil, err
 	}
-
-	optOut := false
-	localNodeStore.Update(func(localNode *node.LocalNode) {
-		optOut = localNode.OptOutNodeEncryption
-		localNode.WireguardPubKey = key.PublicKey().String()
-	})
 
 	return &Agent{
 		wgClient:   wgClient,
@@ -110,15 +107,6 @@ func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, 
 		restoredPubKeys:  map[wgtypes.Key]struct{}{},
 
 		cleanup: []func(){},
-
-		optOut: optOut,
-		requireNodesInPeerList: (option.Config.EncryptNode && !optOut) ||
-			// Enapsulated pkt is encrypted in tunneling mode. So, outer
-			// src/dst IP (= nodes IP) needs to be in the WG peer list.
-			// This is for forward-compatibility with making this behavior
-			// mandatory in v1.15. In v1.14, it's optional (controlled by
-			// --wireguard-encapsulate).
-			option.Config.TunnelingEnabled(),
 	}, nil
 }
 
@@ -132,6 +120,45 @@ func (a *Agent) Close() error {
 	}
 
 	return a.wgClient.Close()
+}
+
+// InitLocalNodeFromWireGuard configures the fields on the local node. Called from
+// the LocalNodeSynchronizer _before_ the local node is published in the K8s
+// CiliumNode CRD or the kvstore.
+//
+// This method does the following:
+//   - It sets the local WireGuard public key (to be read by other nodes).
+//   - It reads the local node's labels to determine if the local node wants to
+//     opt-out of node-to-node encryption.
+//   - If the local node opts out of node-to-node encryption, we set the
+//     localNode.EncryptKey to zero. This indicates to other nodes that they
+//     should not encrypt node-to-node traffic with us.
+func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
+	a.Lock()
+	defer a.Unlock()
+
+	log.Debug("Initializing local node store with WireGuard public key and settings")
+
+	localNode.EncryptionKey = types.StaticEncryptKey
+	localNode.WireguardPubKey = a.privKey.PublicKey().String()
+	localNode.Annotations[annotation.WireguardPubKey] = localNode.WireguardPubKey
+
+	if option.Config.EncryptNode && option.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(localNode.Labels)) {
+		log.WithField(logfields.Selector, option.Config.NodeEncryptionOptOutLabels).
+			Infof("Opting out from node-to-node encryption on this node as per '%s' label selector",
+				option.NodeEncryptionOptOutLabels)
+		localNode.OptOutNodeEncryption = true
+		localNode.EncryptionKey = 0
+	}
+
+	a.optOut = localNode.OptOutNodeEncryption
+	a.requireNodesInPeerList = (option.Config.EncryptNode && !localNode.OptOutNodeEncryption) ||
+		// Enapsulated pkt is encrypted in tunneling mode. So, outer
+		// src/dst IP (= nodes IP) needs to be in the WG peer list.
+		// This is for forward-compatibility with making this behavior
+		// mandatory in v1.15. In v1.14, it's optional (controlled by
+		// --wireguard-encapsulate).
+		option.Config.TunnelingEnabled()
 }
 
 func (a *Agent) initUserspaceDevice(linkMTU int) (netlink.Link, error) {
