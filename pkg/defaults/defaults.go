@@ -114,10 +114,6 @@ const (
 	// the agent and the CNI plugin processes
 	DeleteQueueLockfile = DeleteQueueDir + "/lockfile"
 
-	// EnableHostIPRestore controls whether the host IP should be restored
-	// from previous state automatically
-	EnableHostIPRestore = true
-
 	// BPFFSRoot is the default path where BPFFS should be mounted
 	BPFFSRoot = "/sys/fs/bpf"
 

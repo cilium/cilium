@@ -1422,10 +1422,6 @@ type DaemonConfig struct {
 	// RestoreState enables restoring the state from previous running daemons.
 	RestoreState bool
 
-	// EnableHostIPRestore enables restoring the host IPs based on state
-	// left behind by previous Cilium runs.
-	EnableHostIPRestore bool
-
 	KeepConfig bool // Keep configuration of existing endpoints when starting up.
 
 	// AllowLocalhost defines when to allows the local stack to local endpoints
@@ -2425,7 +2421,6 @@ var (
 		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
 		IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
-		EnableHostIPRestore:             defaults.EnableHostIPRestore,
 		EnableHealthChecking:            defaults.EnableHealthChecking,
 		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
 		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
