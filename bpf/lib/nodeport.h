@@ -59,19 +59,6 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 # endif
 }
 
-static __always_inline bool
-bpf_skip_recirculation(const struct __ctx_buff *ctx __maybe_unused)
-{
-	/* From XDP layer, we do not go through an egress hook from
-	 * here, hence nothing to be skipped.
-	 */
-#if __ctx_is == __ctx_skb
-	return ctx->tc_index & TC_INDEX_F_SKIP_RECIRCULATION;
-#else
-	return false;
-#endif
-}
-
 #ifdef HAVE_ENCAP
 static __always_inline int
 nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
@@ -1051,7 +1038,7 @@ int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
 		goto drop;
 
 	if (ret == CTX_ACT_OK) {
-		if (bpf_skip_recirculation(ctx)) {
+		if (is_defined(IS_BPF_LXC)) {
 			ret = DROP_NAT_NO_MAPPING;
 			goto drop;
 		}
@@ -2526,7 +2513,10 @@ int tail_nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 
 	if (ret == CTX_ACT_OK) {
-		if (bpf_skip_recirculation(ctx)) {
+		/* When called by bpf_lxc to handle a reply by local backend,
+		 * the packet *must* be redirected.
+		 */
+		if (is_defined(IS_BPF_LXC)) {
 			ret = DROP_NAT_NO_MAPPING;
 			goto drop_err;
 		}
