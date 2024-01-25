@@ -92,11 +92,13 @@ jobs:
             encryption: 'disabled'
             kube-proxy: 'iptables'
             external-kvstore: false
+            max-connected-clusters: 255
 
           - name: '2'
             encryption: 'disabled'
             kube-proxy: 'none'
             external-kvstore: false
+            max-connected-clusters: 511
 
           # Currently, ipsec requires to synchronously regenerate the host
           # endpoint to ensure ordering (#25735). Given that this is a blocking
@@ -112,11 +114,13 @@ jobs:
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             external-kvstore: true
+            max-connected-clusters: 255
 
           - name: '4'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             external-kvstore: false
+            max-connected-clusters: 511
 
     steps:
       - name: Checkout context ref (trusted)
@@ -157,6 +161,7 @@ jobs:
             --set=ipv4.enabled=true \
             --set=ipv6.enabled=true \
             --set=clustermesh.useAPIServer=${{ !matrix.external-kvstore }} \
+            --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
             --set=clustermesh.config.enabled=true \
             --set=extraConfig.clustermesh-ip-identities-sync-timeout=10m"
 
@@ -268,7 +273,7 @@ jobs:
 
           CILIUM_INSTALL_CLUSTER2=" \
             --set cluster.name=${{ env.clusterName2 }} \
-            --set cluster.id=255 \
+            --set cluster.id=${{ matrix.max-connected-clusters }} \
             --set clustermesh.apiserver.service.nodePort=$PORT2 \
           "
 
