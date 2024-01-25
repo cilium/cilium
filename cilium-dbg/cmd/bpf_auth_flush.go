@@ -20,7 +20,7 @@ var bpfAuthFlushCmd = &cobra.Command{
 	Use:     "flush",
 	Short:   "Deletes all entries for authenticated connections between identities",
 	Long:    "Deletes all entries for authenticated connections between identities",
-	Aliases: []string{"ls"},
+	Aliases: []string{},
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf auth flush")
 
