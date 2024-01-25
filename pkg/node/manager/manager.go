@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var (
@@ -396,7 +397,7 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 		option.Config.EnableHostFirewall || option.Config.JoinCluster
 }
 
-func (m *manager) nodeAddressHasEncryptKey(address nodeTypes.Address) bool {
+func (m *manager) nodeAddressHasEncryptKey() bool {
 	// If we are doing encryption, but not node based encryption, then do not
 	// add a key to the nodeIPs so that we avoid a trip through stack and attempting
 	// to encrypt something we know does not have an encryption policy installed
@@ -406,6 +407,22 @@ func (m *manager) nodeAddressHasEncryptKey(address nodeTypes.Address) bool {
 		// Also ignore any remote node's key if the local node opted to not perform
 		// node-to-node encryption
 		!node.GetOptOutNodeEncryption()
+}
+
+// endpointEncryptionKey returns the encryption key index to use for the health
+// and ingress endpoints of a node. This is needed for WireGuard where the
+// node's EncryptionKey and the endpoint's EncryptionKey are not the same if
+// a node has opted out of node-to-node encryption by zeroing n.EncryptionKey.
+// With WireGuard, we always want to encrypt pod-to-pod traffic, thus we return
+// a static non-zero encrypt key here.
+// With IPSec (or no encryption), the node's encryption key index and the
+// encryption key of the endpoint on that node are the same.
+func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptKey {
+	if option.Config.EnableWireguard {
+		return ipcacheTypes.EncryptKey(types.StaticEncryptKey)
+	}
+
+	return ipcacheTypes.EncryptKey(n.EncryptionKey)
 }
 
 func (m *manager) nodeAddressSkipsIPCache(address nodeTypes.Address) bool {
@@ -494,7 +511,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		}
 
 		var key uint8
-		if m.nodeAddressHasEncryptKey(address) {
+		if m.nodeAddressHasEncryptKey() {
 			key = n.EncryptionKey
 		}
 
@@ -548,7 +565,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.ipcache.UpsertMetadata(healthIP, n.Source, resource,
 			labels.LabelHealth,
 			ipcacheTypes.TunnelPeer{Addr: nodeIP},
-			ipcacheTypes.EncryptKey(n.EncryptionKey))
+			m.endpointEncryptionKey(&n))
 		healthIPsAdded = append(healthIPsAdded, healthIP)
 	}
 
@@ -564,7 +581,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.ipcache.UpsertMetadata(ingressIP, n.Source, resource,
 			labels.LabelIngress,
 			ipcacheTypes.TunnelPeer{Addr: nodeIP},
-			ipcacheTypes.EncryptKey(n.EncryptionKey))
+			m.endpointEncryptionKey(&n))
 		ingressIPsAdded = append(ingressIPsAdded, ingressIP)
 	}
 
@@ -679,7 +696,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		}
 
 		var oldKey uint8
-		if m.nodeAddressHasEncryptKey(address) {
+		if m.nodeAddressHasEncryptKey() {
 			oldKey = oldNode.EncryptionKey
 		}
 
@@ -702,7 +719,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		m.ipcache.RemoveMetadata(healthIP, resource,
 			labels.LabelHealth,
 			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
-			ipcacheTypes.EncryptKey(oldNode.EncryptionKey))
+			m.endpointEncryptionKey(&oldNode))
 	}
 
 	// Delete the old ingress IP addresses if they have changed in this node.
@@ -715,7 +732,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		m.ipcache.RemoveMetadata(ingressIP, resource,
 			labels.LabelIngress,
 			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
-			ipcacheTypes.EncryptKey(oldNode.EncryptionKey))
+			m.endpointEncryptionKey(&oldNode))
 	}
 }
 
