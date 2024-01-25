@@ -38,6 +38,11 @@ type CreateNetworkAclInput struct {
 	// This member is required.
 	VpcId *string
 
+	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
+	// the request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
+	// .
+	ClientToken *string
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
@@ -51,6 +56,10 @@ type CreateNetworkAclInput struct {
 }
 
 type CreateNetworkAclOutput struct {
+
+	// Unique, case-sensitive identifier to ensure the idempotency of the request.
+	// Only returned if a client token was provided in the request.
+	ClientToken *string
 
 	// Information about the network ACL.
 	NetworkAcl *types.NetworkAcl
@@ -116,6 +125,9 @@ func (c *Client) addOperationCreateNetworkAclMiddlewares(stack *middleware.Stack
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addIdempotencyToken_opCreateNetworkAclMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateNetworkAclValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -138,6 +150,39 @@ func (c *Client) addOperationCreateNetworkAclMiddlewares(stack *middleware.Stack
 		return err
 	}
 	return nil
+}
+
+type idempotencyToken_initializeOpCreateNetworkAcl struct {
+	tokenProvider IdempotencyTokenProvider
+}
+
+func (*idempotencyToken_initializeOpCreateNetworkAcl) ID() string {
+	return "OperationIdempotencyTokenAutoFill"
+}
+
+func (m *idempotencyToken_initializeOpCreateNetworkAcl) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	if m.tokenProvider == nil {
+		return next.HandleInitialize(ctx, in)
+	}
+
+	input, ok := in.Parameters.(*CreateNetworkAclInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *CreateNetworkAclInput ")
+	}
+
+	if input.ClientToken == nil {
+		t, err := m.tokenProvider.GetIdempotencyToken()
+		if err != nil {
+			return out, metadata, err
+		}
+		input.ClientToken = &t
+	}
+	return next.HandleInitialize(ctx, in)
+}
+func addIdempotencyToken_opCreateNetworkAclMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateNetworkAcl{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
 }
 
 func newServiceMetadataMiddleware_opCreateNetworkAcl(region string) *awsmiddleware.RegisterServiceMetadata {
