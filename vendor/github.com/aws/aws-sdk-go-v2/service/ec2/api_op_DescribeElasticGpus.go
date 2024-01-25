@@ -12,8 +12,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the Elastic Graphics accelerator associated with your instances. For
-// more information about Elastic Graphics, see Amazon Elastic Graphics (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-graphics.html)
+// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
+// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
+// G4dn, or G5 instances. Describes the Elastic Graphics accelerator associated
+// with your instances. For more information about Elastic Graphics, see Amazon
+// Elastic Graphics (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-graphics.html)
 // .
 func (c *Client) DescribeElasticGpus(ctx context.Context, params *DescribeElasticGpusInput, optFns ...func(*Options)) (*DescribeElasticGpusOutput, error) {
 	if params == nil {

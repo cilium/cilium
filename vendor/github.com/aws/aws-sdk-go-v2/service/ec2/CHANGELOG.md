@@ -1,3 +1,15 @@
+# v1.145.0 (2024-01-24)
+
+* **Feature**: Introduced a new clientToken request parameter on CreateNetworkAcl and CreateRouteTable APIs. The clientToken parameter allows idempotent operations on the APIs.
+
+# v1.144.1 (2024-01-22)
+
+* **Documentation**: Documentation updates for Amazon EC2.
+
+# v1.144.0 (2024-01-11)
+
+* **Feature**: This release adds support for adding an ElasticBlockStorage volume configurations in ECS RunTask/StartTask/CreateService/UpdateService APIs. The configuration allows for attaching EBS volumes to ECS Tasks.
+
 # v1.143.0 (2024-01-08)
 
 * **Feature**: Amazon EC2 R7iz bare metal instances are powered by custom 4th generation Intel Xeon Scalable processors.

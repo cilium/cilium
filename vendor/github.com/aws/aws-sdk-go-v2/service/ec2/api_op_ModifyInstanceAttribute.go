@@ -53,9 +53,10 @@ type ModifyInstanceAttributeInput struct {
 	// Modifies the DeleteOnTermination attribute for volumes that are currently
 	// attached. The volume must be owned by the caller. If no value is specified for
 	// DeleteOnTermination , the default is true and the volume is deleted when the
-	// instance is terminated. To add instance store volumes to an Amazon EBS-backed
-	// instance, you must add them when you launch the instance. For more information,
-	// see Update the block device mapping when launching an instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html#Using_OverridingAMIBDM)
+	// instance is terminated. You can't modify the DeleteOnTermination attribute for
+	// volumes that are attached to Fargate tasks. To add instance store volumes to an
+	// Amazon EBS-backed instance, you must add them when you launch the instance. For
+	// more information, see Update the block device mapping when launching an instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html#Using_OverridingAMIBDM)
 	// in the Amazon EC2 User Guide.
 	BlockDeviceMappings []types.InstanceBlockDeviceMappingSpecification
 

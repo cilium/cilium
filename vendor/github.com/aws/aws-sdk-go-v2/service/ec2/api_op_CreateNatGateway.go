@@ -61,7 +61,7 @@ type CreateNatGatewayInput struct {
 	AllocationId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// the request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
 	// . Constraint: Maximum 64 ASCII characters.
 	ClientToken *string
 

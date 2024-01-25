@@ -30,8 +30,9 @@ func (c *Client) EnableAwsNetworkPerformanceMetricSubscription(ctx context.Conte
 
 type EnableAwsNetworkPerformanceMetricSubscriptionInput struct {
 
-	// The target Region or Availability Zone that the metric subscription is enabled
-	// for. For example, eu-west-1 .
+	// The target Region (like us-east-2 ) or Availability Zone ID (like use2-az2 )
+	// that the metric subscription is enabled for. If you use Availability Zone IDs,
+	// the Source and Destination Availability Zones must be in the same Region.
 	Destination *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -43,8 +44,9 @@ type EnableAwsNetworkPerformanceMetricSubscriptionInput struct {
 	// The metric used for the enabled subscription.
 	Metric types.MetricType
 
-	// The source Region or Availability Zone that the metric subscription is enabled
-	// for. For example, us-east-1 .
+	// The source Region (like us-east-1 ) or Availability Zone ID (like use1-az1 )
+	// that the metric subscription is enabled for. If you use Availability Zone IDs,
+	// the Source and Destination Availability Zones must be in the same Region.
 	Source *string
 
 	// The statistic used for the enabled subscription.

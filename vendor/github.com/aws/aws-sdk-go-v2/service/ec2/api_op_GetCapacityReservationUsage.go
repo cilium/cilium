@@ -45,11 +45,10 @@ type GetCapacityReservationUsageInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The maximum number of results to return for the request in a single page. The
-	// remaining results can be seen by sending another request with the returned
-	// nextToken value. This value can be between 5 and 500. If maxResults is given a
-	// larger value than 500, you receive an error. Valid range: Minimum value of 1.
-	// Maximum value of 1000.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
 	// The token to use to retrieve the next page of results.
