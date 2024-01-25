@@ -84,7 +84,8 @@ all: format $(addsuffix -el.elf,$(TARGETS)) $(addsuffix -eb.elf,$(TARGETS)) gene
 	ln -srf testdata/loader-$(CLANG)-eb.elf testdata/loader-eb.elf
 
 generate:
-	go generate ./...
+	go generate -run "internal/cmd/gentypes" ./...
+	go generate -skip "internal/cmd/gentypes" ./...
 
 testdata/loader-%-el.elf: testdata/loader.c
 	$* $(CFLAGS) -target bpfel -c $< -o $@
@@ -103,6 +104,7 @@ testdata/loader-%-eb.elf: testdata/loader.c
 	$(STRIP) -g $@
 
 .PHONY: update-kernel-deps
-update-kernel-deps: export KERNEL_VERSION?=6.6
+update-kernel-deps: export KERNEL_VERSION?=6.7
 update-kernel-deps:
 	./testdata/sh/update-kernel-deps.sh
+	$(MAKE) container-all

@@ -54,10 +54,10 @@ type DescribeAvailabilityZonesInput struct {
 	//   - message - The Zone message.
 	//   - opt-in-status - The opt-in status ( opted-in | not-opted-in |
 	//   opt-in-not-required ).
-	//   - parent-zoneID - The ID of the zone that handles some of the Local Zone and
+	//   - parent-zone-id - The ID of the zone that handles some of the Local Zone and
 	//   Wavelength Zone control plane operations, such as API calls.
-	//   - parent-zoneName - The ID of the zone that handles some of the Local Zone and
-	//   Wavelength Zone control plane operations, such as API calls.
+	//   - parent-zone-name - The ID of the zone that handles some of the Local Zone
+	//   and Wavelength Zone control plane operations, such as API calls.
 	//   - region-name - The name of the Region for the Zone (for example, us-east-1 ).
 	//   - state - The state of the Availability Zone, the Local Zone, or the
 	//   Wavelength Zone ( available ).

@@ -147,11 +147,9 @@ type RunInstancesInput struct {
 	// apply when using an EBS-optimized instance. Default: false
 	EbsOptimized *bool
 
-	// An elastic GPU to associate with the instance. An Elastic GPU is a GPU resource
-	// that you can attach to your Windows instance to accelerate the graphics
-	// performance of your applications. For more information, see Amazon EC2 Elastic
-	// GPUs (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-graphics.html)
-	// in the Amazon EC2 User Guide.
+	// Deprecated. Amazon Elastic Graphics reached end of life on January 8, 2024. For
+	// workloads that require graphics acceleration, we recommend that you use Amazon
+	// EC2 G4ad, G4dn, or G5 instances.
 	ElasticGpuSpecification []types.ElasticGpuSpecification
 
 	// An elastic inference accelerator to associate with the instance. Elastic
@@ -310,7 +308,6 @@ type RunInstancesInput struct {
 	// can specify tags for the following resources only:
 	//   - Instances
 	//   - Volumes
-	//   - Elastic graphics
 	//   - Spot Instance requests
 	//   - Network interfaces
 	// To tag a resource after it has been created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html)
