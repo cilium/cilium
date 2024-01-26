@@ -251,30 +251,24 @@ func TestNeighborReconciler(t *testing.T) {
 			t.Cleanup(func() {
 				testSC.Server.Stop()
 			})
-			// create current vRouter config and add neighbors
-			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
-				LocalASN:  64125,
-				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
-			}
+
+			r := NewNeighborReconciler(tt.secretStore, &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"}).Reconciler
+
+			neighborReconciler := r.(*NeighborReconciler)
+
 			for _, n := range tt.neighbors {
 				n.SetDefaults()
-				oldc.Neighbors = append(oldc.Neighbors, n)
-				// create a temp. reconciler so we can get secrets.
-				neighborReconciler := NewNeighborReconciler(tt.secretStore, &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"}).Reconciler.(*NeighborReconciler)
 
 				tcpPassword, err := neighborReconciler.fetchPeerPassword(testSC, &n)
-				if err != nil {
-					t.Fatalf("Failed to fetch peer password for oldc: %v", err)
-				}
-				if tcpPassword != "" {
-					neighborReconciler.updatePeerPassword(testSC, &n, tcpPassword)
-				}
+				require.NoError(t, err)
+
+				neighborReconciler.updateMetadata(testSC, n.DeepCopy(), tcpPassword)
+
 				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: &n,
 					Password: tcpPassword,
 				})
 			}
-			testSC.Config = oldc
 
 			// create new virtual router config with desired neighbors
 			newc := &v2alpha1api.CiliumBGPVirtualRouter{
@@ -284,15 +278,20 @@ func TestNeighborReconciler(t *testing.T) {
 			newc.Neighbors = append(newc.Neighbors, tt.newNeighbors...)
 			newc.SetDefaults()
 
-			neighborReconciler := NewNeighborReconciler(tt.secretStore, &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"}).Reconciler
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
 			}
 
-			err = neighborReconciler.Reconcile(context.Background(), params)
-			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("want error: %v, got: %v", (tt.err == nil), err)
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = neighborReconciler.Reconcile(context.Background(), params)
+					if (tt.err == nil) != (err == nil) {
+						t.Fatalf("want error: %v, got: %v", (tt.err == nil), err)
+					}
+				})
 			}
 
 			// clear out secret ref if one isn't expected
