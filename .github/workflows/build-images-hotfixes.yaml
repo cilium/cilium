@@ -114,7 +114,7 @@ jobs:
         shell: bash
         env:
           # renovate: datasource=github-releases depName=kubernetes-sigs/bom
-          BOM_VERSION: v0.5.1
+          BOM_VERSION: v0.6.0
         run: |
           curl -L https://github.com/kubernetes-sigs/bom/releases/download/${{ env.BOM_VERSION }}/bom-amd64-linux -o bom
           sudo mv ./bom /usr/local/bin/bom
