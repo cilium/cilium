@@ -171,6 +171,7 @@ func preflightReconciler(
 	// Clear the shadow state since any advertisements will be gone now that the server has been recreated.
 	sc.PodCIDRAnnouncements = nil
 	sc.ServiceAnnouncements = make(map[resource.Key][]types.Advertisement)
+	sc.NeighborReconcilerMetadata = NeighborReconcilerMetadata{}
 
 	return nil
 }
@@ -218,14 +219,17 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcilePara
 		toCreate []*v2alpha1api.CiliumBGPNeighbor
 		toRemove []*v2alpha1api.CiliumBGPNeighbor
 		toUpdate []*v2alpha1api.CiliumBGPNeighbor
-		curNeigh []v2alpha1api.CiliumBGPNeighbor = nil
+		curNeigh []*v2alpha1api.CiliumBGPNeighbor = nil
 	)
 	newNeigh := newc.Neighbors
 	l.Debugf("Begin reconciling peers for virtual router with local ASN %v", newc.LocalASN)
 
-	// sc.Config can be nil if there is no previous configuration.
-	if sc.Config != nil {
-		curNeigh = sc.Config.Neighbors
+	metaMap := r.getMetadata(params.Server)
+	if len(metaMap) > 0 {
+		curNeigh = []*v2alpha1api.CiliumBGPNeighbor{}
+		for _, meta := range metaMap {
+			curNeigh = append(curNeigh, meta.currentConfig)
+		}
 	}
 
 	// an nset member which book keeps which universe it exists in.
@@ -253,19 +257,19 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcilePara
 	}
 
 	// populate set from universe of current neighbors
-	for i, n := range curNeigh {
+	for _, n := range curNeigh {
 		var (
-			key = r.neighborID(&n)
+			key = r.neighborID(n)
 			h   *member
 			ok  bool
 		)
 		if h, ok = nset[key]; !ok {
 			nset[key] = &member{
-				cur: &curNeigh[i],
+				cur: n,
 			}
 			continue
 		}
-		h.cur = &curNeigh[i]
+		h.cur = n
 	}
 
 	for _, m := range nset {
@@ -297,6 +301,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcilePara
 		if err := sc.Server.AddNeighbor(ctx, types.NeighborRequest{Neighbor: n, VR: newc}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
+		r.updateMetadata(sc, n)
 	}
 
 	// update neighbors
@@ -305,6 +310,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcilePara
 		if err := sc.Server.UpdateNeighbor(ctx, types.NeighborRequest{Neighbor: n, VR: newc}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
+		r.updateMetadata(sc, n)
 	}
 
 	// remove neighbors
@@ -313,10 +319,33 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcilePara
 		if err := sc.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n, VR: newc}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
+		r.deleteMetadata(sc, n)
 	}
 
 	l.Infof("Done reconciling peers for virtual router with local ASN %v", newc.LocalASN)
 	return nil
+}
+
+// NeighborReconcilerMetadata keeps a map of peers to passwords, fetched from
+// secrets. Key is PeerAddress+PeerASN.
+type NeighborReconcilerMetadata map[string]neighborReconcilerMetadata
+
+type neighborReconcilerMetadata struct {
+	currentConfig *v2alpha1api.CiliumBGPNeighbor
+}
+
+func (r *NeighborReconciler) getMetadata(sc *ServerWithConfig) NeighborReconcilerMetadata {
+	return sc.NeighborReconcilerMetadata
+}
+
+func (r *NeighborReconciler) updateMetadata(sc *ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor) {
+	r.getMetadata(sc)[r.neighborID(n)] = neighborReconcilerMetadata{
+		currentConfig: n.DeepCopy(),
+	}
+}
+
+func (r *NeighborReconciler) deleteMetadata(sc *ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor) {
+	delete(r.getMetadata(sc), r.neighborID(n))
 }
 
 func (r *NeighborReconciler) neighborID(n *v2alpha1api.CiliumBGPNeighbor) string {
