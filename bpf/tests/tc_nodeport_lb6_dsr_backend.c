@@ -248,6 +248,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
+static __always_inline
 int build_reply(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip = BACKEND_IP;
@@ -276,6 +277,7 @@ int build_reply(struct __ctx_buff *ctx)
 	return 0;
 }
 
+static __always_inline
 int check_reply(const struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IP;

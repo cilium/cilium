@@ -252,7 +252,8 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 #endif /* ENABLE_IPV4 || ENABLE_IPV6 */
 
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
-declare_tailcall_if(CONDITION, ID)						\
+__section_tail(CILIUM_MAP_CALLS, ID)						\
+static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
 	struct ct_buffer4 ct_buffer = {};					\
@@ -297,7 +298,8 @@ int NAME(struct __ctx_buff *ctx)						\
 }
 
 #define TAIL_CT_LOOKUP6(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
-declare_tailcall_if(CONDITION, ID)						\
+__section_tail(CILIUM_MAP_CALLS, ID)						\
+static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
 	struct ct_buffer6 ct_buffer = {};					\
@@ -726,7 +728,8 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(is_defined(ENABLE_PER_PACKET_LB), CILIUM_CALL_IPV6_FROM_LXC_CONT)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC_CONT)
+static __always_inline
 int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 {
 	__u32 dst_sec_identity = 0;
@@ -1288,7 +1291,8 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(is_defined(ENABLE_PER_PACKET_LB), CILIUM_CALL_IPV4_FROM_LXC_CONT)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC_CONT)
+static __always_inline
 int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 {
 	__u32 dst_sec_identity = 0;
@@ -1616,8 +1620,8 @@ skip_policy_enforcement:
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-		    CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
+static __always_inline
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
 	struct ipv6_ct_tuple tuple = {};
@@ -1977,8 +1981,8 @@ skip_policy_enforcement:
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-		    CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
+static __always_inline
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
 	struct ipv4_ct_tuple tuple = {};
