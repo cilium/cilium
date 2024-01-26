@@ -271,6 +271,8 @@ Makefile* @cilium/build
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/encrypt.h @cilium/ipsec
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
+/bpf/lib/ids.h @cilium/loader
+/bpf/include/bpf/tailcall.h @cilium/loader
 /bugtool/ @cilium/tophat
 /bugtool/cmd/ @cilium/cli
 /cilium-dbg/ @cilium/cli

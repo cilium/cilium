@@ -17,6 +17,10 @@
  * convention, so even if we don't end up using r0, r4, r5, we need
  * to mark them as clobber so that LLVM doesn't end up using them
  * before / after the call.
+ *
+ * WARNING: The loader relies on the exact instruction sequence
+ * emitted by this macro. Consult with the loader team before
+ * changing this macro.
  */
 #define tail_call_static(ctx_ptr, map, slot)				\
 {								\
