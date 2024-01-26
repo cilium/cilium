@@ -950,11 +950,11 @@ struct ct_entry {
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
-	      proxy_redirect:1, /* Connection is redirected to a proxy */
-	      dsr:1,
-	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
-	      reserved1:1, /* Was auth_required, not used in production anywhere */
-	      from_tunnel:1, /* Connection is over tunnel */
+	      proxy_redirect:1,	/* Connection is redirected to a proxy */
+	      dsr_internal:1,	/* DSR is k8s service related */
+	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
+	      reserved1:1,	/* Was auth_required, not used in production anywhere */
+	      from_tunnel:1,	/* Connection is over tunnel */
 	      reserved:5;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
@@ -1143,12 +1143,12 @@ struct ct_state {
 	__u16 loopback_disabled:1,
 #endif
 	      node_port:1,
-	      dsr:1,
 	      syn:1,
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
+	      dsr_internal:1,
 	      reserved:8;
 	__u32 src_sec_id;
 #ifndef HAVE_FIB_IFINDEX

@@ -795,7 +795,7 @@ create_ct:
 			return DROP_INVALID;
 
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
-		ct_state_new.dsr = 1;
+		ct_state_new.dsr_internal = 1;
 		ct_state_new.proxy_redirect = false;
 		ct_state_new.from_l7lb = false;
 
@@ -2320,7 +2320,7 @@ create_ct:
 			return DROP_INVALID;
 
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
-		ct_state_new.dsr = 1;
+		ct_state_new.dsr_internal = 1;
 		ct_state_new.proxy_redirect = 0;
 		ct_state_new.from_l7lb = 0;
 
