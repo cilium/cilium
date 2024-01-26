@@ -7,10 +7,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
+
+	"github.com/cilium/cilium/pkg/maps/callsmap"
 )
 
 const globalDataMap = ".rodata.config"
@@ -30,6 +33,10 @@ func LoadCollectionSpec(path string) (*ebpf.CollectionSpec, error) {
 		return nil, err
 	}
 
+	if err := removeUnreachableTailcalls(spec); err != nil {
+		return nil, err
+	}
+
 	if err := iproute2Compat(spec); err != nil {
 		return nil, err
 	}
@@ -39,6 +46,130 @@ func LoadCollectionSpec(path string) (*ebpf.CollectionSpec, error) {
 	}
 
 	return spec, nil
+}
+
+func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
+	type TailCall struct {
+		referenced bool
+		visited    bool
+		spec       *ebpf.ProgramSpec
+	}
+
+	entrypoints := make([]*ebpf.ProgramSpec, 0)
+	tailcalls := make(map[uint32]*TailCall)
+
+	for _, prog := range spec.Programs {
+		var id, slot uint32
+		// Consider any program that doesn't follow the tailcall naming convention
+		// x/y to be an entrypoint.
+		if _, err := fmt.Sscanf(prog.SectionName, "%d/%v", &id, &slot); err != nil {
+			log.Debugf("section '%s' / prog '%s', not a tailcall, considering an entrypoint", prog.SectionName, prog.Name)
+			entrypoints = append(entrypoints, prog)
+			continue
+		}
+
+		const (
+			cilium_calls_map = 2
+		)
+
+		// Any program that does follow the x/y naming convention but not part
+		// of the cilium_calls map is also considered an entrypoint.
+		if id != cilium_calls_map {
+			log.Debugf("section '%s' / prog '%s', not a cilium_calls, considering an entrypoint", prog.SectionName, prog.Name)
+			entrypoints = append(entrypoints, prog)
+			continue
+		}
+
+		if tailcalls[slot] != nil {
+			return fmt.Errorf("duplicate tail call index %d", slot)
+		}
+
+		tailcalls[slot] = &TailCall{
+			spec: prog,
+		}
+	}
+
+	// Discover all tailcalls that are reachable from the given program.
+	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*TailCall) error {
+		log.Debugf("visiting section '%s' / prog '%s'", prog.SectionName, prog.Name)
+		for i := 3; i < len(prog.Instructions); i++ {
+			// The `tail_call_static` C function is always used to call tail calls when
+			// the map index is known at compile time.
+			// Due to inline ASM this generates the following instructions:
+			//   Mov R1, Rx
+			//   Mov R2, <map>
+			//   Mov R3, <index>
+			//   call tail_call
+
+			// Find the tail call instruction.
+			inst := prog.Instructions[i]
+			if !inst.IsBuiltinCall() || inst.Constant != int64(asm.FnTailCall) {
+				continue
+			}
+
+			// Check that the previous instruction is a mov of the tail call index.
+			movIdx := prog.Instructions[i-1]
+			if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
+				log.Debugf("found tail call @ %d, R3 mismatch, skipping", i)
+				continue
+			}
+
+			// Check that the instruction before that is the load of the tail call map.
+			movR2 := prog.Instructions[i-2]
+			if movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
+				log.Debugf("found tail call @ %d, R2 mismatch, skipping", i)
+				continue
+			}
+
+			ref := movR2.Reference()
+
+			// Ignore static tail calls made to maps that are not the calls map
+			if !strings.Contains(ref, callsmap.MapName) || strings.Contains(ref, callsmap.CustomCallsMapName) {
+				log.Debugf("found tail call @ %d, reference '%s', not a calls map, skipping", i, ref)
+				continue
+			}
+
+			tc := tailcalls[uint32(movIdx.Constant)]
+			if tc == nil {
+				return fmt.Errorf("tail call to unknown index @ %d, potential missed tailcall", i)
+			}
+
+			log.Debugf("found tail call @ %d, referencing section '%s' / prog '%s'", i, tc.spec.SectionName, tc.spec.Name)
+			tc.referenced = true
+		}
+
+		return nil
+	}
+
+	// Discover all tailcalls that are reachable from the entrypoints.
+	for _, prog := range entrypoints {
+		if err := visit(prog, tailcalls); err != nil {
+			return err
+		}
+	}
+
+	// Keep visiting tailcalls until no more are discovered.
+outer:
+	for {
+		for _, tailcall := range tailcalls {
+			if tailcall.referenced && !tailcall.visited {
+				visit(tailcall.spec, tailcalls)
+				tailcall.visited = true
+				continue outer
+			}
+		}
+		break
+	}
+
+	// Remove all tailcalls that are not referenced.
+	for _, tailcall := range tailcalls {
+		if !tailcall.referenced {
+			log.Debugf("section '%s' / prog '%s', unreferenced, deleting", tailcall.spec.SectionName, tailcall.spec.Name)
+			delete(spec.Programs, tailcall.spec.Name)
+		}
+	}
+
+	return nil
 }
 
 // iproute2Compat parses the Extra field of each MapSpec in the CollectionSpec.
