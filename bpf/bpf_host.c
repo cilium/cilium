@@ -418,13 +418,15 @@ tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 	return ret;
 }
 
-declare_tailcall_if(is_defined(ENABLE_HOST_FIREWALL), CILIUM_CALL_IPV6_CONT_FROM_HOST)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_CONT_FROM_HOST)
+static __always_inline
 int tail_handle_ipv6_cont_from_host(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv6_cont(ctx, true);
 }
 
-declare_tailcall_if(is_defined(ENABLE_HOST_FIREWALL), CILIUM_CALL_IPV6_CONT_FROM_NETDEV)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_CONT_FROM_NETDEV)
+static __always_inline
 int tail_handle_ipv6_cont_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv6_cont(ctx, false);
@@ -872,13 +874,15 @@ tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 	return ret;
 }
 
-declare_tailcall_if(is_defined(ENABLE_HOST_FIREWALL), CILIUM_CALL_IPV4_CONT_FROM_HOST)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_CONT_FROM_HOST)
+static __always_inline
 int tail_handle_ipv4_cont_from_host(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4_cont(ctx, true);
 }
 
-declare_tailcall_if(is_defined(ENABLE_HOST_FIREWALL), CILIUM_CALL_IPV4_CONT_FROM_NETDEV)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_CONT_FROM_NETDEV)
+static __always_inline
 int tail_handle_ipv4_cont_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4_cont(ctx, false);
@@ -1547,8 +1551,8 @@ out:
 
 #if defined(ENABLE_HOST_FIREWALL)
 #ifdef ENABLE_IPV6
-declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-			 is_defined(DEBUG)), CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
+static __always_inline
 int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 {
 	struct trace_ctx __maybe_unused trace = {
@@ -1568,8 +1572,8 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-			 is_defined(DEBUG)), CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
+static __always_inline
 int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 {
 	struct trace_ctx __maybe_unused trace = {
