@@ -133,12 +133,10 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
-	p.SelectorCache.mutex.RLock()
 	calculatedPolicy.toMapState()
 	if !isHost {
 		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
 	}
-	p.SelectorCache.mutex.RUnlock()
 
 	return calculatedPolicy
 }
@@ -207,10 +205,6 @@ func (p *EndpointPolicy) UpdateRedirects(ingress bool, createRedirects createRed
 }
 
 func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedirects createRedirectsFunc, changes ChangeState) {
-	// Selectorcache needs to be locked for toMapState (GetLabels()) call
-	p.SelectorCache.mutex.RLock()
-	defer p.SelectorCache.mutex.RUnlock()
-
 	for _, l4 := range l4policy.PortRules {
 		if l4.IsRedirect() {
 			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies

@@ -538,6 +538,13 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		}
 	}
 
+	// SelectorCache must be locked when SelectorCache.GetNetsLocked is called from
+	// MapState.denyPreferredInsertWithChanges.
+	// Unlike in EndpointPolicy.ConsumeMapChanges, where the SelectorCache is locked before
+	// calling MapState.denyPreferredInsertWithChanges, here we wrap it with a SelectorCacheWrapper
+	// to make sure that it will be properly locked when GetNetsLocked is called.
+	sc := SelectorCacheWrapper{p.SelectorCache}
+
 	keyToAdd := Key{
 		Identity:         0,    // Set in the loop below (if not wildcard)
 		DestPort:         port, // NOTE: Port is in host byte-order!
@@ -590,7 +597,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
-			p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+			p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, &sc, features, changes)
 
 			if port == 0 {
 				// Allow-all
@@ -618,15 +625,15 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		}
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
-			p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+			p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, &sc, features, changes)
 			// If Cilium is in dual-stack mode then the "World" identity
 			// needs to be split into two identities to represent World
 			// IPv6 and IPv4 traffic distinctly from one another.
 			if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
 				keyToAdd.Identity = identity.ReservedIdentityWorldIPv4.Uint32()
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, &sc, features, changes)
 				keyToAdd.Identity = identity.ReservedIdentityWorldIPv6.Uint32()
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, &sc, features, changes)
 			}
 		}
 	}

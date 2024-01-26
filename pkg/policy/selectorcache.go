@@ -626,3 +626,20 @@ func (sc *SelectorCache) GetNetsLocked(id identity.NumericIdentity) []*net.IPNet
 	}
 	return ident.nets
 }
+
+// SelectorCacheWrapper wraps a pointer to SelectorCache.
+// It overloads the GetNetsLocked method, satisfying the Identities interface and locking the wrapped SelectorCache
+// before calling the method.
+// It is meant to be used in all code paths where SelectorCache is not already locked (e.g: L4Filter.ToMapState)
+// but need to be in the lower layers when GetNetsLocked is called.
+// Using the wrapper it is possible to narrow the critical section at a minimum, without locking the SelectorCache
+// beforehand reducing concurrency.
+type SelectorCacheWrapper struct {
+	*SelectorCache
+}
+
+func (scw *SelectorCacheWrapper) GetNetsLocked(id identity.NumericIdentity) []*net.IPNet {
+	scw.mutex.RLock()
+	defer scw.mutex.RUnlock()
+	return scw.SelectorCache.GetNetsLocked(id)
+}
