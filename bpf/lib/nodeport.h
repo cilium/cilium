@@ -795,7 +795,7 @@ create_ct:
 			return DROP_INVALID;
 
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
-		ct_state_new.dsr = 1;
+		ct_state_new.dsr_internal = 1;
 		ct_state_new.proxy_redirect = false;
 		ct_state_new.from_l7lb = false;
 
@@ -2320,7 +2320,7 @@ create_ct:
 			return DROP_INVALID;
 
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
-		ct_state_new.dsr = 1;
+		ct_state_new.dsr_internal = 1;
 		ct_state_new.proxy_redirect = 0;
 		ct_state_new.from_l7lb = 0;
 
@@ -3054,7 +3054,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
      defined(IS_BPF_OVERLAY) &&						\
      DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 		/* For HS IPCache, we also need to revDNAT the OuterSrcIP: */
-		if (ct_state.dsr) {
+		if (ct_state.dsr_internal) {
 			struct bpf_tunnel_key key;
 
 			if (ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0)

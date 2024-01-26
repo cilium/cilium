@@ -542,7 +542,7 @@ ct_recreate6:
 #ifdef ENABLE_NODEPORT
 # ifdef ENABLE_DSR
 		/* See comment in handle_ipv4_from_lxc(). */
-		if (ct_state->dsr) {
+		if (ct_state->dsr_internal) {
 			ret = xlate_dsr_v6(ctx, tuple, l4_off);
 			if (ret != 0)
 				return ret;
@@ -992,7 +992,7 @@ ct_recreate4:
 		 * needed for old connections that were established prior to
 		 * the bpf_host support:
 		 */
-		if (ct_state->dsr) {
+		if (ct_state->dsr_internal) {
 			ret = xlate_dsr_v4(ctx, tuple, l4_off, has_l4_header);
 			if (ret != 0)
 				return ret;
@@ -1575,7 +1575,7 @@ skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 # ifdef ENABLE_DSR
-		if (ret == CT_REOPENED && ct_state->dsr)
+		if (ret == CT_REOPENED && ct_state->dsr_internal)
 			ct_update_dsr(get_ct_map6(tuple), tuple, false);
 # endif /* ENABLE_DSR */
 		{
@@ -1934,8 +1934,8 @@ skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 # ifdef ENABLE_DSR
-		/* Clear .dsr flag for old connections: */
-		if (ret == CT_REOPENED && ct_state->dsr)
+		/* Clear .dsr_internal flag for old connections: */
+		if (ret == CT_REOPENED && ct_state->dsr_internal)
 			ct_update_dsr(get_ct_map4(tuple), tuple, false);
 # endif /* ENABLE_DSR */
 		{
