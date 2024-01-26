@@ -197,17 +197,11 @@ func (r *NeighborReconciler) Priority() int {
 	return 60
 }
 
+// Reconcile reconciles the peers of the provided BGP server with the provided
+// CiliumBGPVirtualRouter.
 func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
-	return neighborReconciler(ctx, params.Server, params.NewC, params.CState)
-}
-
-// neighborReconciler is a ConfigReconcilerFunc which reconciles the peers of
-// the provided BGP server with the provided CiliumBGPVirtualRouter.
-func neighborReconciler(
-	ctx context.Context,
-	sc *ServerWithConfig,
-	newc *v2alpha1api.CiliumBGPVirtualRouter,
-	_ *agent.ControlPlaneState) error {
+	newc := params.NewC
+	sc := params.Server
 
 	if newc == nil {
 		return fmt.Errorf("attempted neighbor reconciliation with nil CiliumBGPPeeringPolicy")
@@ -245,7 +239,7 @@ func neighborReconciler(
 	// populate set from universe of new neighbors
 	for i, n := range newNeigh {
 		var (
-			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
+			key = r.neighborID(&n)
 			h   *member
 			ok  bool
 		)
@@ -261,7 +255,7 @@ func neighborReconciler(
 	// populate set from universe of current neighbors
 	for i, n := range curNeigh {
 		var (
-			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
+			key = r.neighborID(&n)
 			h   *member
 			ok  bool
 		)
@@ -323,6 +317,10 @@ func neighborReconciler(
 
 	l.Infof("Done reconciling peers for virtual router with local ASN %v", newc.LocalASN)
 	return nil
+}
+
+func (r *NeighborReconciler) neighborID(n *v2alpha1api.CiliumBGPNeighbor) string {
+	return fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
 }
 
 type ExportPodCIDRReconcilerOut struct {
