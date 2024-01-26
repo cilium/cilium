@@ -544,13 +544,14 @@ type CtEntry struct {
 	Lifetime  uint32 `align:"lifetime"`
 	Flags     uint16 `align:"rx_closing"`
 	// RevNAT is in network byte order
-	RevNAT           uint16 `align:"rev_nat_index"`
-	IfIndex          uint16 `align:"ifindex"`
-	TxFlagsSeen      uint8  `align:"tx_flags_seen"`
-	RxFlagsSeen      uint8  `align:"rx_flags_seen"`
-	SourceSecurityID uint32 `align:"src_sec_id"`
-	LastTxReport     uint32 `align:"last_tx_report"`
-	LastRxReport     uint32 `align:"last_rx_report"`
+	RevNAT           uint16    `align:"rev_nat_index"`
+	IfIndex          uint16    `align:"ifindex"`
+	TxFlagsSeen      uint8     `align:"tx_flags_seen"`
+	RxFlagsSeen      uint8     `align:"rx_flags_seen"`
+	SourceSecurityID uint32    `align:"src_sec_id"`
+	LastTxReport     uint32    `align:"last_tx_report"`
+	LastRxReport     uint32    `align:"last_rx_report"`
+	MaybeExtDSR      [18]uint8 `align:"$union0"`
 }
 
 const SizeofCtEntry = int(unsafe.Sizeof(CtEntry{}))
@@ -567,6 +568,7 @@ const (
 	FromL7LB
 	Reserved1
 	FromTunnel
+	DSRExternal
 	MaxFlags
 )
 
@@ -601,6 +603,9 @@ func (c *CtEntry) flagsString() string {
 	}
 	if (c.Flags & DSRInternal) != 0 {
 		sb.WriteString("DSR ")
+	}
+	if (c.Flags & DSRExternal) != 0 {
+		sb.WriteString("DSRExt ")
 	}
 	if (c.Flags & FromL7LB) != 0 {
 		sb.WriteString("FromL7LB ")

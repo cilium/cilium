@@ -105,6 +105,7 @@ cilium-agent [flags]
       --enable-endpoint-health-checking                           Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                    Use per endpoint routes instead of routing via cilium_host
       --enable-envoy-config                                       Enable Envoy Config CRDs
+      --enable-external-dsr                                       Enable termination and DSR handling of external L4LBs
       --enable-external-ips                                       Enable k8s service externalIPs feature (requires enabling enable-node-port)
       --enable-health-check-loadbalancer-ip                       Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
       --enable-health-check-nodeport                              Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)

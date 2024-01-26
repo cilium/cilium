@@ -901,6 +901,16 @@ enum {
 	BE_STATE_MAINTENANCE,
 };
 
+struct lb6_reverse_nat {
+	union v6addr address;
+	__be16 port;
+} __packed;
+
+struct lb4_reverse_nat {
+	__be32 address;
+	__be16 port;
+} __packed;
+
 struct ipv6_ct_tuple {
 	/* Address fields are reversed, i.e.,
 	 * these field names are correct for reply direction traffic.
@@ -955,7 +965,8 @@ struct ct_entry {
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is over tunnel */
-	      reserved:5;
+	      dsr_external:1,	/* DSR is expected for a VIP from an external L4LB */
+	      reserved:4;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
@@ -976,6 +987,12 @@ struct ct_entry {
 	 */
 	__u32 last_tx_report;
 	__u32 last_rx_report;
+#ifdef ENABLE_DSR_EXTERNAL
+	union {
+		struct lb4_reverse_nat ext_dsr4;
+		struct lb6_reverse_nat ext_dsr6;
+	};
+#endif
 };
 
 struct lb6_key {
@@ -1017,11 +1034,6 @@ struct lb6_backend {
 struct lb6_health {
 	struct lb6_backend peer;
 };
-
-struct lb6_reverse_nat {
-	union v6addr address;
-	__be16 port;
-} __packed;
 
 struct ipv6_revnat_tuple {
 	__sock_cookie cookie;
@@ -1076,11 +1088,6 @@ struct lb4_backend {
 struct lb4_health {
 	struct lb4_backend peer;
 };
-
-struct lb4_reverse_nat {
-	__be32 address;
-	__be16 port;
-} __packed;
 
 struct ipv4_revnat_tuple {
 	__sock_cookie cookie;
@@ -1149,12 +1156,19 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      dsr_internal:1,
-	      reserved:8;
+	      dsr_external:1,
+	      reserved:7;
 	__u32 src_sec_id;
 #ifndef HAVE_FIB_IFINDEX
 	__u16 ifindex;
 #endif
 	__u32 backend_id;	/* Backend ID in lb4_backends */
+#ifdef ENABLE_DSR_EXTERNAL
+	union {
+		struct lb4_reverse_nat ext_dsr4;
+		struct lb6_reverse_nat ext_dsr6;
+	};
+#endif
 };
 
 static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
