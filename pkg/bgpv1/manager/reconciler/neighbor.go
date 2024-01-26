@@ -90,7 +90,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	// populate set from universe of new neighbors
 	for i, n := range newNeigh {
 		var (
-			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
+			key = r.neighborID(&n)
 			h   *member
 			ok  bool
 		)
@@ -106,7 +106,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	// populate set from universe of current neighbors
 	for i, n := range curNeigh {
 		var (
-			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
+			key = r.neighborID(&n)
 			h   *member
 			ok  bool
 		)
@@ -212,7 +212,7 @@ func (r *NeighborReconciler) fetchPeerPassword(sc *instance.ServerWithConfig, n 
 	)
 	if n.AuthSecretRef != nil {
 		secretRef := *n.AuthSecretRef
-		old := peerPasswords[fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)]
+		old := peerPasswords[r.neighborID(n)]
 
 		secret, ok, err := r.fetchSecret(secretRef)
 		if err != nil {
@@ -253,15 +253,15 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 
 func (r *NeighborReconciler) changedPeerPassword(sc *instance.ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor, tcpPassword string) bool {
 	peerPasswords := r.getMetadata(sc)
-
-	key := fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
-	old := peerPasswords[key]
+	old := peerPasswords[r.neighborID(n)]
 	return old != tcpPassword
 }
 
 func (r *NeighborReconciler) updatePeerPassword(sc *instance.ServerWithConfig, n *v2alpha1api.CiliumBGPNeighbor, tcpPassword string) {
 	peerPasswords := r.getMetadata(sc)
+	peerPasswords[r.neighborID(n)] = tcpPassword
+}
 
-	key := fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
-	peerPasswords[key] = tcpPassword
+func (r *NeighborReconciler) neighborID(n *v2alpha1api.CiliumBGPNeighbor) string {
+	return fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
 }
