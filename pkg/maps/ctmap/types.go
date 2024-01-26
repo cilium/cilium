@@ -563,15 +563,15 @@ const (
 	SeenNonSyn
 	NodePort
 	ProxyRedirect
-	DSR
+	DSRInternal
 	FromL7LB
 	Reserved1
 	FromTunnel
 	MaxFlags
 )
 
-func (c *CtEntry) isDsrEntry() bool {
-	return c.Flags&DSR != 0
+func (c *CtEntry) isDsrInternalEntry() bool {
+	return c.Flags&DSRInternal != 0
 }
 
 func (c *CtEntry) flagsString() string {
@@ -599,8 +599,8 @@ func (c *CtEntry) flagsString() string {
 	if (c.Flags & ProxyRedirect) != 0 {
 		sb.WriteString("ProxyRedirect ")
 	}
-	if (c.Flags & DSR) != 0 {
-		sb.WriteString("DSR ")
+	if (c.Flags & DSRInternal) != 0 {
+		sb.WriteString("DSRInternal ")
 	}
 	if (c.Flags & FromL7LB) != 0 {
 		sb.WriteString("FromL7LB ")

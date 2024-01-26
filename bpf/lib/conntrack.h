@@ -203,7 +203,7 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->loopback = entry->lb_loopback;
 #endif
 		state->node_port = entry->node_port;
-		state->dsr = entry->dsr;
+		state->dsr_internal = entry->dsr_internal;
 		state->proxy_redirect = entry->proxy_redirect;
 		state->from_l7lb = entry->from_l7lb;
 		state->from_tunnel = entry->from_tunnel;
@@ -264,7 +264,7 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 		return true;
 
 # ifdef ENABLE_DSR
-	if ((ct_entry_types & CT_ENTRY_DSR) && entry->dsr)
+	if ((ct_entry_types & CT_ENTRY_DSR) && entry->dsr_internal)
 		return true;
 # endif
 #endif
@@ -928,7 +928,7 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 		entry->lb_loopback = state->loopback;
 #endif
 		entry->node_port = state->node_port;
-		entry->dsr = state->dsr;
+		entry->dsr_internal = state->dsr_internal;
 		entry->from_tunnel = state->from_tunnel;
 #ifndef HAVE_FIB_IFINDEX
 		entry->ifindex = state->ifindex;
@@ -1096,7 +1096,7 @@ __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
 		return true;
 	}
 
-	return check_dsr && entry->dsr;
+	return check_dsr && entry->dsr_internal;
 }
 
 /* The function tries to determine whether the flow identified by the given
@@ -1137,7 +1137,7 @@ ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 	ingress_tuple->flags = prev_flags;
 
 	if (entry)
-		return entry->dsr;
+		return entry->dsr_internal;
 
 	return 0;
 }
@@ -1171,7 +1171,7 @@ ct_has_dsr_egress_entry6(const void *map, struct ipv6_ct_tuple *ingress_tuple)
 	ingress_tuple->flags = prev_flags;
 
 	if (entry)
-		return entry->dsr;
+		return entry->dsr_internal;
 
 	return 0;
 }
@@ -1199,7 +1199,7 @@ ct_update_dsr(const void *map, const void *tuple, const bool dsr)
 	if (!entry)
 		return;
 
-	entry->dsr = dsr;
+	entry->dsr_internal = dsr;
 }
 
 static __always_inline void
