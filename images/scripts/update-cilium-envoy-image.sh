@@ -21,7 +21,7 @@ envoy_version="$(curl -s https://raw.githubusercontent.com/"${github_repo}"/"${l
 
 image="quay.io/cilium/cilium-envoy"
 image_tag="${envoy_version//envoy-/v}-${latest_commit_sha}"
-if [ "${github_branch}" != "main" ]; then
+if [ "${github_branch}" != "main" ] && ! [[ "${github_branch}" =~ ^v1\.[0-9]+$ ]]; then
     image="quay.io/cilium/cilium-envoy-dev"
     image_tag="${latest_commit_sha}"
 fi
