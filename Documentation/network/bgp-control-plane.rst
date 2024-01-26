@@ -585,9 +585,16 @@ Configure graceful restart on per-neighbor basis, as follows:
            enabled: true           # <-- enable graceful restart
            restartTimeSeconds: 120 # <-- set RestartTime
 
-.. note::
+.. warning::
 
-   When enabled, graceful restart capability is advertised for IPv4 and IPv6 address families.
+   When enabled, graceful restart capability is advertised for IPv4 and IPv6
+   address families by default. From v1.15, we have a known issue where Cilium
+   takes long time (approximately 300s) to restart route advertisement after
+   graceful restart when Cilium advertises both IPv4 and IPv6 address families,
+   but a remote peer advertises only one of them. You can work around this
+   issue by aligning the address families advertised by Cilium and remote with
+   the `families field <bgp-control-plane-address-families_>`_. You can track
+   `#30367 <https://github.com/cilium/cilium/issues/30367/>`_ for updates.
 
 Optionally, you can use the ``RestartTime`` parameter. ``RestartTime`` is the time
 advertised to the peer within which Cilium BGP control plane is expected to re-establish
@@ -691,6 +698,8 @@ Once configured, the additional Path Attributes advertised with the routes for a
    VRouter   Prefix               NextHop     Age     Attrs
    64512     10.1.0.0/24          10.0.0.2    3m31s   [{Origin: i} {LocalPref: 150} {Nexthop: 10.0.0.2}]
    64512     192.168.100.190/32   10.0.0.2    3m32s   [{Origin: i} {LocalPref: 100} {Communities: 64512:100} {Nexthop: 10.0.0.2}]
+
+.. _bgp-control-plane-address-families:
 
 Address Families
 ^^^^^^^^^^^^^^^^
