@@ -256,8 +256,8 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR found");
-	if (!ct_entry->dsr)
-		test_fatal("CT entry doesn't have the .dsr flag set");
+	if (!ct_entry->dsr_internal)
+		test_fatal("CT entry doesn't have the .dsr_internal flag set");
 
 	struct ipv4_nat_entry *nat_entry;
 
@@ -519,8 +519,8 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR found");
-	if (!ct_entry->dsr)
-		test_fatal("CT entry doesn't have the .dsr flag set");
+	if (!ct_entry->dsr_internal)
+		test_fatal("CT entry doesn't have the .dsr_internal flag set");
 
 	struct ipv4_nat_entry *nat_entry;
 

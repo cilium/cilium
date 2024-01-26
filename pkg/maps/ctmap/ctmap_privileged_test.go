@@ -373,7 +373,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcDsr(c *C) {
 		TxPackets: 1,
 		TxBytes:   216,
 		Lifetime:  37459,
-		Flags:     DSR,
+		Flags:     DSRInternal,
 	}
 	err = ctMap.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -463,7 +463,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcLegacyDsr(c *C) {
 		TxPackets: 1,
 		TxBytes:   216,
 		Lifetime:  37459,
-		Flags:     DSR,
+		Flags:     DSRInternal,
 	}
 	err = ctMap.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -682,7 +682,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		TxPackets: 1,
 		TxBytes:   216,
 		Lifetime:  37459,
-		Flags:     DSR,
+		Flags:     DSRInternal,
 	}
 	err = ctMapTCP.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -779,7 +779,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		TxPackets: 1,
 		TxBytes:   216,
 		Lifetime:  37459,
-		Flags:     DSR,
+		Flags:     DSRInternal,
 	}
 	err = ctMapTCP.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
