@@ -347,7 +347,15 @@ func TestNeighborReconciler(t *testing.T) {
 			newc.Neighbors = append(newc.Neighbors, tt.newNeighbors...)
 			newc.SetDefaults()
 
-			err = neighborReconciler(context.Background(), testSC, newc, nil)
+			r := NeighborReconciler{}
+
+			err = r.Reconcile(
+				context.Background(),
+				ReconcileParams{
+					Server: testSC,
+					NewC:   newc,
+				},
+			)
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("want error: %v, got: %v", (tt.err == nil), err)
 			}
