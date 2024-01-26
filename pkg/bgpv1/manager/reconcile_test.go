@@ -324,20 +324,18 @@ func TestNeighborReconciler(t *testing.T) {
 			t.Cleanup(func() {
 				testSC.Server.Stop()
 			})
-			// create current vRouter config and add neighbors
-			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
-				LocalASN:  64125,
-				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
-			}
+
+			r := NewNeighborReconciler()
+
+			neighborReconciler := r.Reconciler.(*NeighborReconciler)
+
 			for _, n := range tt.neighbors {
 				n.SetDefaults()
-				oldc.Neighbors = append(oldc.Neighbors, n)
+				neighborReconciler.updateMetadata(testSC, n.DeepCopy())
 				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: &n,
-					VR:       oldc,
 				})
 			}
-			testSC.Config = oldc
 
 			// create new virtual router config with desired neighbors
 			newc := &v2alpha1api.CiliumBGPVirtualRouter{
@@ -347,17 +345,18 @@ func TestNeighborReconciler(t *testing.T) {
 			newc.Neighbors = append(newc.Neighbors, tt.newNeighbors...)
 			newc.SetDefaults()
 
-			r := NeighborReconciler{}
+			params := ReconcileParams{
+				Server: testSC,
+				NewC:   newc,
+			}
 
-			err = r.Reconcile(
-				context.Background(),
-				ReconcileParams{
-					Server: testSC,
-					NewC:   newc,
-				},
-			)
-			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("want error: %v, got: %v", (tt.err == nil), err)
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = neighborReconciler.Reconcile(context.Background(), params)
+					if (tt.err == nil) != (err == nil) {
+						t.Fatalf("want error: %v, got: %v", (tt.err == nil), err)
+					}
+				})
 			}
 
 			// check testSC for desired neighbors

@@ -36,6 +36,9 @@ type ServerWithConfig struct {
 
 	// Holds any announced Service routes.
 	ServiceAnnouncements map[resource.Key][]types.Advertisement
+
+	// Holds neighbor metadata
+	NeighborReconcilerMetadata NeighborReconcilerMetadata
 }
 
 // NewServerWithConfig will start an underlying BgpServer utilizing types.ServerParameters
@@ -53,9 +56,10 @@ func NewServerWithConfig(ctx context.Context, params types.ServerParameters, cst
 	}
 
 	return &ServerWithConfig{
-		Server:               s,
-		Config:               nil,
-		PodCIDRAnnouncements: []types.Advertisement{},
-		ServiceAnnouncements: make(map[resource.Key][]types.Advertisement),
+		Server:                     s,
+		Config:                     nil,
+		PodCIDRAnnouncements:       []types.Advertisement{},
+		ServiceAnnouncements:       make(map[resource.Key][]types.Advertisement),
+		NeighborReconcilerMetadata: NeighborReconcilerMetadata{},
 	}, nil
 }
