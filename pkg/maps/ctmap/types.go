@@ -558,7 +558,7 @@ const SizeofCtEntry = int(unsafe.Sizeof(CtEntry{}))
 const (
 	RxClosing = 1 << iota
 	TxClosing
-	Nat64
+	DSRExternal
 	LBLoopback
 	SeenNonSyn
 	NodePort
@@ -584,9 +584,6 @@ func (c *CtEntry) flagsString() string {
 	if (c.Flags & TxClosing) != 0 {
 		sb.WriteString("TxClosing ")
 	}
-	if (c.Flags & Nat64) != 0 {
-		sb.WriteString("Nat64 ")
-	}
 	if (c.Flags & LBLoopback) != 0 {
 		sb.WriteString("LBLoopback ")
 	}
@@ -601,6 +598,9 @@ func (c *CtEntry) flagsString() string {
 	}
 	if (c.Flags & DSRInternal) != 0 {
 		sb.WriteString("DSR ")
+	}
+	if (c.Flags & DSRExternal) != 0 {
+		sb.WriteString("DSRExt ")
 	}
 	if (c.Flags & FromL7LB) != 0 {
 		sb.WriteString("FromL7LB ")

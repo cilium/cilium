@@ -381,6 +381,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["ENABLE_MKE"] = "1"
 			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}
+		if option.Config.EnableExternalDSR {
+			cDefinesMap["ENABLE_DSR_EXTERNAL"] = "1"
+		}
 		if option.Config.EnableRecorder {
 			cDefinesMap["ENABLE_CAPTURE"] = "1"
 			if option.Config.EnableIPv4 {

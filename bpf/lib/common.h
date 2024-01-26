@@ -581,7 +581,7 @@ enum {
 #define DROP_CT_INVALID_HDR	-135
 #define DROP_FRAG_NEEDED	-136
 #define DROP_CT_UNKNOWN_PROTO	-137
-#define DROP_UNUSED4		-138 /* unused */
+#define DROP_READ_ERROR		-138
 #define DROP_UNKNOWN_L3		-139
 #define DROP_MISSED_TAIL_CALL	-140
 #define DROP_WRITE_ERROR	-141
@@ -901,6 +901,11 @@ enum {
 	BE_STATE_MAINTENANCE,
 };
 
+struct lb4_reverse_nat {
+	__be32 address;
+	__be16 port;
+} __packed;
+
 struct ipv6_ct_tuple {
 	/* Address fields are reversed, i.e.,
 	 * these field names are correct for reply direction traffic.
@@ -939,11 +944,12 @@ struct ct_entry {
 			__u64 packets;
 			__u64 bytes;
 		};
+		struct lb4_reverse_nat dsr4;
 	};
 	__u32 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
-	      unused_nat46:1,	/* unused since v1.12 / 81dee05e82fb */
+	      dsr_external:1,	/* DSR for a VIP from an external L4LB (dsr4) */
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
@@ -1074,11 +1080,6 @@ struct lb4_health {
 	struct lb4_backend peer;
 };
 
-struct lb4_reverse_nat {
-	__be32 address;
-	__be16 port;
-} __packed;
-
 struct ipv4_revnat_tuple {
 	__sock_cookie cookie;
 	__be32 address;
@@ -1146,12 +1147,18 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      dsr_internal:1,
-	      reserved:8;
+	      dsr_external:1,
+	      reserved:7;
 	__u32 src_sec_id;
 #ifndef HAVE_FIB_IFINDEX
 	__u16 ifindex;
 #endif
 	__u32 backend_id;	/* Backend ID in lb4_backends */
+#ifdef ENABLE_DSR_EXTERNAL
+	union {
+		struct lb4_reverse_nat dsr4;
+	};
+#endif
 };
 
 static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)

@@ -206,6 +206,11 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->proxy_redirect = entry->proxy_redirect;
 		state->from_l7lb = entry->from_l7lb;
 		state->from_tunnel = entry->from_tunnel;
+#ifdef ENABLE_DSR_EXTERNAL
+		state->dsr_external = entry->dsr_external;
+		if (state->dsr_external)
+			state->dsr4 = entry->dsr4;
+#endif
 #ifndef HAVE_FIB_IFINDEX
 		state->ifindex = entry->ifindex;
 #endif
@@ -910,6 +915,9 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 		entry->node_port = state->node_port;
 		entry->dsr_internal = state->dsr_internal;
 		entry->from_tunnel = state->from_tunnel;
+#ifdef ENABLE_DSR_EXTERNAL
+		entry->dsr_external = state->dsr_external;
+#endif
 #ifndef HAVE_FIB_IFINDEX
 		entry->ifindex = state->ifindex;
 #endif
@@ -988,8 +996,13 @@ static __always_inline int ct_create4(const void *map_main,
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
-	if (ct_state)
+	if (ct_state) {
 		ct_create_fill_entry(&entry, ct_state, dir);
+#ifdef ENABLE_DSR_EXTERNAL
+		if (entry.dsr_external)
+			entry.dsr4 = ct_state->dsr4;
+#endif
+	}
 
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);

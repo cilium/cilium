@@ -1155,6 +1155,14 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 			     loopback, has_l4_header);
 }
 
+static __always_inline int lb4_rev_dsr(struct __ctx_buff *ctx, int l3_off, int l4_off,
+				       struct lb4_reverse_nat *rev_dsr, bool loopback,
+				       struct ipv4_ct_tuple *tuple, int flags, bool has_l4_header)
+{
+	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, flags, rev_dsr,
+			     loopback, has_l4_header);
+}
+
 static __always_inline void
 lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
@@ -1178,8 +1186,10 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
-		  struct ipv4_ct_tuple *tuple)
+lb4_extract_tuple_and_vip(struct __ctx_buff *ctx, struct iphdr *ip4,
+			  int l3_off, int *l4_off, struct ipv4_ct_tuple *tuple,
+			  __be32 *external_vip __maybe_unused,
+			  bool *vip_found __maybe_unused)
 {
 	int ret;
 
@@ -1190,6 +1200,36 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4
 	*l4_off = l3_off + ipv4_hdrlen(ip4);
 
 	switch (tuple->nexthdr) {
+#ifdef ENABLE_DSR_EXTERNAL
+# if __ctx_is == __ctx_skb
+	case IPPROTO_IPIP: {
+		struct iphdr inner;
+
+		/* The initial packets hits the Cilium L4LB as:
+		 * - [ client-ip   -> l4lb-vip ]
+		 *
+		 * The IPIP packet from the Cilium L4LB looks as follows:
+		 * - outer: [ l4lb-rss-ip -> k8s-svc-ip ]
+		 * - inner: [ client-ip   -> l4lb-vip ]
+		 *
+		 * We extract [ client-ip -> k8s-svc-ip ] and later need
+		 * to reply with l4lb-vip as source. The l4lb-vip and
+		 * k8s-svc-ip ports are the same / must match.
+		 */
+		ctx_load_bytes(ctx, *l4_off, &inner, sizeof(inner));
+		tuple->nexthdr = inner.protocol;
+		tuple->saddr = inner.saddr;
+		if (external_vip) {
+			*external_vip = inner.daddr;
+			*vip_found = true;
+		}
+		if (ipv4_hdrlen(&inner) != sizeof(*ip4))
+			return DROP_NAT_UNSUPP_PROTO;
+		*l4_off += sizeof(*ip4);
+		fallthrough;
+	};
+# endif
+#endif
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
@@ -1197,7 +1237,6 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4
 #endif  /* ENABLE_SCTP */
 		ret = ipv4_load_l4_ports(ctx, ip4, *l4_off, CT_EGRESS,
 					 &tuple->dport, NULL);
-
 		if (IS_ERR(ret))
 			return ret;
 		return 0;
@@ -1206,6 +1245,14 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4
 	default:
 		return DROP_UNKNOWN_L4;
 	}
+}
+
+static __always_inline int
+lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
+		  struct ipv4_ct_tuple *tuple)
+{
+	return lb4_extract_tuple_and_vip(ctx, ip4, l3_off, l4_off, tuple,
+					 NULL, NULL);
 }
 
 static __always_inline
@@ -1366,6 +1413,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 {
 	const __be32 *new_daddr = &backend->address;
 	struct csum_offset csum_off = {};
+	__be32 old_daddr;
 	__be32 sum;
 	int ret;
 
@@ -1375,12 +1423,16 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 	if (skip_l3_xlate)
 		goto l4_xlate;
 
+	ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
+			     &old_daddr, 4);
+	if (unlikely(ret < 0))
+		return DROP_READ_ERROR;
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
 			      new_daddr, 4, 0);
-	if (ret < 0)
+	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(&key->address, 4, new_daddr, 4, 0);
+	sum = csum_diff(&old_daddr, 4, new_daddr, 4, 0);
 #ifndef DISABLE_LOOPBACK_LB
 	if (new_saddr && *new_saddr) {
 		cilium_dbg_lb(ctx, DBG_LB4_LOOPBACK_SNAT, *old_saddr, *new_saddr);
