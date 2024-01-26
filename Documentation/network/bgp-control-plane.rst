@@ -691,3 +691,38 @@ Once configured, the additional Path Attributes advertised with the routes for a
    VRouter   Prefix               NextHop     Age     Attrs
    64512     10.1.0.0/24          10.0.0.2    3m31s   [{Origin: i} {LocalPref: 150} {Nexthop: 10.0.0.2}]
    64512     192.168.100.190/32   10.0.0.2    3m32s   [{Origin: i} {LocalPref: 100} {Communities: 64512:100} {Nexthop: 10.0.0.2}]
+
+Address Families
+^^^^^^^^^^^^^^^^
+
+By default, the BGP Control Plane advertises IPv4 Unicast and IPv6 Unicast
+Multiprotocol Extensions Capability (`RFC-4760`_) as well as Graceful Restart
+address families (`RFC-4724`_) if enabled. If you wish to change the default
+behavior and advertise only specific address families, you can use the
+``families`` field. The ``families`` field is a list of AFI (Address Family
+Identifier) and SAFI (Subsequent Address Family Identifier) pairs. The only
+options currently supported are ``{afi: ipv4, safi: unicast}`` and ``{afi:
+ipv6, safi: unicast}``.
+
+Following example shows how to advertise only IPv4 Unicast address family:
+
+.. _RFC-4760 : https://www.rfc-editor.org/rfc/rfc4760.html
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   metadata:
+     name: rack0
+   spec:
+     nodeSelector:
+       matchLabels:
+         rack: rack0
+     virtualRouters:
+     - localASN: 64512
+       neighbors:
+       - peerAddress: '10.0.0.1/32'
+         peerASN: 64512
+         families:
+         - afi: ipv4
+           safi: unicast
