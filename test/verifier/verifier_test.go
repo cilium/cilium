@@ -22,9 +22,11 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -101,6 +103,8 @@ func readDatapathConfig(t *testing.T, r io.Reader) string {
 // regressions.
 func TestVerifier(t *testing.T) {
 	flag.Parse()
+
+	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 
 	if ciliumBasePath == nil || *ciliumBasePath == "" {
 		t.Skip("Please set -cilium-base-path to run verifier tests")

@@ -320,4 +320,6 @@ return false;
 #define IDENTITY_MAX 65535
 #endif
 
+#define CALLS_MAP test_cilium_calls_65535
+
 #endif /* __NODE_CONFIG__ */
