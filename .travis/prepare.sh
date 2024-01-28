@@ -8,6 +8,7 @@ case `uname -m` in
     CLANG_DIR="clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-18.04"
     ;;
   'aarch64' )
+  
     CLANG_DIR="clang+llvm-$CLANG_VERSION-aarch64-linux-gnu"
     ;;
 esac
