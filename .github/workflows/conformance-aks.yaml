@@ -337,6 +337,7 @@ jobs:
           pattern: cilium-sysdumps-*
           retention-days: 5
           delete-merged: true
+        continue-on-error: true
       - name: Merge JUnits
         uses: actions/upload-artifact/merge@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
         with:
