@@ -340,6 +340,12 @@ jobs:
             # TODO: After Cilium 1.15 release, update to cilium-dbg
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
+      - name: Fail
+        if: ${{ steps.vars.outputs.downgrade_version == '' }}
+        run: |
+          echo fail
+          exit 1
+
       - name: Fetch artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
         shell: bash

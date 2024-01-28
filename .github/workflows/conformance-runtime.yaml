@@ -397,6 +397,12 @@ jobs:
             journalctl --no-pager -xeu cilium.service
             systemctl status cilium.service
 
+      - name: fail
+        if: ${{ matrix.focus == 'privileged' }}
+        run: |
+          echo fail
+          exit 1
+
       - name: Fetch artifacts
         if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         shell: bash
