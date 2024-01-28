@@ -67,7 +67,8 @@ const (
 
 	CiliumIPAMMode Feature = "ipam"
 
-	IPsecEnabled Feature = "enable-ipsec"
+	IPsecEnabled                  Feature = "enable-ipsec"
+	ClusterMeshEnableEndpointSync Feature = "clustermesh-enable-endpoint-sync"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -283,6 +284,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[IPsecEnabled] = Status{
 		Enabled: cm.Data[string(IPsecEnabled)] == "true",
+	}
+
+	fs[ClusterMeshEnableEndpointSync] = Status{
+		Enabled: cm.Data[string(ClusterMeshEnableEndpointSync)] == "true",
 	}
 }
 

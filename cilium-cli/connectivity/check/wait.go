@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"golang.org/x/exp/slices"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -165,6 +166,11 @@ func WaitForService(ctx context.Context, log Logger, client Pod, service Service
 	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
 	defer cancel()
 
+	if service.Service.Spec.ClusterIP == corev1.ClusterIPNone {
+		// If the cluster is headless there is nothing to wait for here
+		return nil
+	}
+
 	for {
 		stdout, err := client.K8sClient.ExecInPod(ctx,
 			client.Namespace(), client.NameWithoutNamespace(), "",
@@ -203,6 +209,11 @@ func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service
 
 	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
 	defer cancel()
+
+	if service.Service.Spec.ClusterIP == corev1.ClusterIPNone {
+		// If the cluster is headless there is nothing to wait for here
+		return nil
+	}
 
 	for {
 		err := checkServiceEndpoints(ctx, agent, service, backends, families)
