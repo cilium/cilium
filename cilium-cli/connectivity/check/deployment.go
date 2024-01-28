@@ -43,15 +43,16 @@ const (
 
 	DNSTestServerContainerName = "dns-test-server"
 
-	echoSameNodeDeploymentName     = "echo-same-node"
-	echoOtherNodeDeploymentName    = "echo-other-node"
-	echoExternalNodeDeploymentName = "echo-external-node"
-	corednsConfigMapName           = "coredns-configmap"
-	corednsConfigVolumeName        = "coredns-config-volume"
-	kindEchoName                   = "echo"
-	kindEchoExternalNodeName       = "echo-external-node"
-	kindClientName                 = "client"
-	kindPerfName                   = "perf"
+	echoSameNodeDeploymentName                 = "echo-same-node"
+	echoOtherNodeDeploymentName                = "echo-other-node"
+	EchoOtherNodeDeploymentHeadlessServiceName = "echo-other-node-headless"
+	echoExternalNodeDeploymentName             = "echo-external-node"
+	corednsConfigMapName                       = "coredns-configmap"
+	corednsConfigVolumeName                    = "coredns-config-volume"
+	kindEchoName                               = "echo"
+	kindEchoExternalNodeName                   = "echo-external-node"
+	kindClientName                             = "client"
+	kindPerfName                               = "perf"
 
 	hostNetNSDeploymentName          = "host-netns"
 	hostNetNSDeploymentNameNonCilium = "host-netns-non-cilium" // runs on non-Cilium test nodes
@@ -524,14 +525,29 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 	if ct.params.MultiCluster != "" {
 		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
+		svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
+		svc.ObjectMeta.Annotations = map[string]string{}
+		svc.ObjectMeta.Annotations["service.cilium.io/global"] = "true"
+		svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
+
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoOtherNodeDeploymentName)
-			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
-			svc.ObjectMeta.Annotations = map[string]string{}
-			svc.ObjectMeta.Annotations["service.cilium.io/global"] = "true"
-			svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
-
 			_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, EchoOtherNodeDeploymentHeadlessServiceName, metav1.GetOptions{})
+		svcHeadless := svc.DeepCopy()
+		svcHeadless.Name = EchoOtherNodeDeploymentHeadlessServiceName
+		svcHeadless.Spec.ClusterIP = corev1.ClusterIPNone
+		svcHeadless.Spec.Type = corev1.ServiceTypeClusterIP
+		svcHeadless.ObjectMeta.Annotations["service.cilium.io/global-sync-endpoint-slices"] = "true"
+
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), EchoOtherNodeDeploymentHeadlessServiceName)
+			_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svcHeadless, metav1.CreateOptions{})
 			if err != nil {
 				return err
 			}
@@ -740,19 +756,35 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
 
 		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
+		svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
+		if ct.params.MultiCluster != "" {
+			svc.ObjectMeta.Annotations = map[string]string{}
+			svc.ObjectMeta.Annotations["service.cilium.io/global"] = "true"
+			svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
+		}
+
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying echo-other-node service...", ct.clients.dst.ClusterName())
-			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
-
-			if ct.params.MultiCluster != "" {
-				svc.ObjectMeta.Annotations = map[string]string{}
-				svc.ObjectMeta.Annotations["service.cilium.io/global"] = "true"
-				svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
-			}
-
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), echoOtherNodeDeploymentName)
 			_, err = ct.clients.dst.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
 			if err != nil {
 				return err
+			}
+		}
+
+		if ct.params.MultiCluster != "" {
+			svcHeadless := svc.DeepCopy()
+			svcHeadless.Name = EchoOtherNodeDeploymentHeadlessServiceName
+			svcHeadless.Spec.ClusterIP = corev1.ClusterIPNone
+			svcHeadless.Spec.Type = corev1.ServiceTypeClusterIP
+			svcHeadless.ObjectMeta.Annotations["service.cilium.io/global-sync-endpoint-slices"] = "true"
+			_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, EchoOtherNodeDeploymentHeadlessServiceName, metav1.GetOptions{})
+
+			if err != nil {
+				ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), EchoOtherNodeDeploymentHeadlessServiceName)
+				_, err = ct.clients.dst.CreateService(ctx, ct.params.TestNamespace, svcHeadless, metav1.CreateOptions{})
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -1055,6 +1087,7 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, client3DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteService(ctx, ct.params.TestNamespace, EchoOtherNodeDeploymentHeadlessServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.DeleteOptions{})
 	_ = client.DeleteNamespace(ctx, ct.params.TestNamespace, metav1.DeleteOptions{})
 
