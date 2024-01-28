@@ -236,13 +236,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
-            required:
-            - bgpInstances
             type: object
         required:
         - metadata
         - spec
-        - status
         type: object
     served: true
     storage: true

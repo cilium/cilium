@@ -15,6 +15,9 @@ var Cell = cell.Module(
 	"Service Manager",
 
 	cell.Provide(newServiceManager),
+
+	cell.ProvidePrivate(func(sm ServiceManager) syncNodePort { return sm }),
+	cell.Invoke(registerServiceReconciler),
 )
 
 type serviceManagerParams struct {

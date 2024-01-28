@@ -2057,42 +2057,33 @@ func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb
 	return preferredBackends, activeBackends, nonActiveBackends
 }
 
-// SyncServicesOnDeviceChange finds and adds missing load-balancing entries for
-// new devices.
-func (s *Service) SyncServicesOnDeviceChange(nodeAddressing datapathTypes.NodeAddressing) {
-	// Collect all frontend addresses
-	frontendAddrs := make(map[string]net.IP)
-
-	if option.Config.EnableIPv4 {
-		for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
-			frontendAddrs[ip.String()] = ip
-		}
-	}
-	if option.Config.EnableIPv6 {
-		for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {
-			frontendAddrs[ip.String()] = ip
-		}
-	}
-
+// SyncNodePortFrontends updates all NodePort services with a new set of frontend
+// IP addresses.
+func (s *Service) SyncNodePortFrontends(addrs sets.Set[netip.Addr]) error {
 	s.Lock()
 	defer s.Unlock()
 
-	existingFEs := make(map[string]bool)
+	existingFEs := sets.New[netip.Addr]()
 	removedFEs := make([]*svcInfo, 0)
 
 	// Find all NodePort services by finding the surrogate services, and find
 	// services with a removed frontend.
-	nodePortSvcs := make([]*svcInfo, 0)
+	v4Svcs := make([]*svcInfo, 0)
+	v6Svcs := make([]*svcInfo, 0)
 	for _, svc := range s.svcByID {
 		if svc.svcType != lb.SVCTypeNodePort {
 			continue
 		}
 
-		if svc.frontend.AddrCluster.IsUnspecified() {
-			nodePortSvcs = append(nodePortSvcs, svc)
-		} else {
-			existingFEs[svc.frontend.AddrCluster.String()] = true
-			if _, ok := frontendAddrs[svc.frontend.AddrCluster.String()]; !ok {
+		switch svc.frontend.AddrCluster.Addr() {
+		case netip.IPv4Unspecified():
+			v4Svcs = append(v4Svcs, svc)
+		case netip.IPv6Unspecified():
+			v6Svcs = append(v6Svcs, svc)
+		default:
+			addr := svc.frontend.AddrCluster.Addr()
+			existingFEs.Insert(addr)
+			if _, ok := addrs[addr]; !ok {
 				removedFEs = append(removedFEs, svc)
 			}
 		}
@@ -2105,18 +2096,28 @@ func (s *Service) SyncServicesOnDeviceChange(nodeAddressing datapathTypes.NodeAd
 			WithField(logfields.L3n4Addr, svc.frontend.L3n4Addr)
 
 		if err := s.deleteServiceLocked(svc); err != nil {
-			log.WithError(err).Warn("Could not delete service of removed frontend")
+			return fmt.Errorf("delete service: %w", err)
 		} else {
 			log.Debug("Deleted nodeport service of a removed frontend")
 		}
 	}
 
 	// Create services for the new frontends
-	for _, ip := range frontendAddrs {
-		if !existingFEs[ip.String()] {
+	for addr := range addrs {
+		if !existingFEs.Has(addr) {
 			// No services for this frontend, create them.
-			for _, svcInfo := range nodePortSvcs {
-				fe := lb.NewL3n4AddrID(svcInfo.frontend.Protocol, cmtypes.MustAddrClusterFromIP(ip), svcInfo.frontend.Port, svcInfo.frontend.Scope, 0)
+			svcs := v4Svcs
+			if addr.Is6() {
+				svcs = v6Svcs
+			}
+			for _, svcInfo := range svcs {
+				fe := lb.NewL3n4AddrID(
+					svcInfo.frontend.Protocol,
+					cmtypes.AddrClusterFrom(addr, svcInfo.frontend.AddrCluster.ClusterID()),
+					svcInfo.frontend.Port,
+					svcInfo.frontend.Scope,
+					0,
+				)
 				svc := svcInfo.deepCopyToLBSVC()
 				svc.Frontend = *fe
 
@@ -2125,11 +2126,12 @@ func (s *Service) SyncServicesOnDeviceChange(nodeAddressing datapathTypes.NodeAd
 					WithField(logfields.L3n4Addr, svc.Frontend.L3n4Addr)
 				_, _, err := s.upsertService(svc)
 				if err != nil {
-					log.WithError(err).Warn("Could not create service for frontend")
+					return fmt.Errorf("upsert service: %w", err)
 				} else {
 					log.Debug("Created nodeport service for new frontend")
 				}
 			}
 		}
 	}
+	return nil
 }

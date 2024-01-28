@@ -399,11 +399,11 @@ func setupVethPair(name, peerName string) error {
 	return nil
 }
 
-// SetupBaseDevice decides which and what kind of interfaces should be set up as
+// setupBaseDevice decides which and what kind of interfaces should be set up as
 // the first step of datapath initialization, then performs the setup (and
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
-func SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
+func setupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
 	if err := setupVethPair(defaults.HostDevice, defaults.SecondHostDevice); err != nil {
 		return nil, nil, err
 	}
@@ -437,7 +437,7 @@ func SetupBaseDevice(mtu int) (netlink.Link, netlink.Link, error) {
 // reloadIPSecOnLinkChanges subscribes to link changes to detect newly added devices
 // and reinitializes IPsec on changes. Only in effect for ENI mode in which we expect
 // new devices at runtime.
-func (l *Loader) reloadIPSecOnLinkChanges() {
+func (l *loader) reloadIPSecOnLinkChanges() {
 	// settleDuration is the amount of time to wait for further link updates
 	// before proceeding with reinitialization. This avoids back-to-back
 	// reinitialization when multiple link changes are made at once.
@@ -801,15 +801,15 @@ func renameDevice(from, to string) error {
 }
 
 // DeviceHasTCProgramLoaded checks whether a given device has tc filter/qdisc progs attached.
-func DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
+func (l *loader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
 	const bpfProgPrefix = "cil_"
 
-	l, err := netlink.LinkByName(hostInterface)
+	link, err := netlink.LinkByName(hostInterface)
 	if err != nil {
 		return false, fmt.Errorf("unable to find endpoint link by name: %w", err)
 	}
 
-	dd, err := netlink.QdiscList(l)
+	dd, err := netlink.QdiscList(link)
 	if err != nil {
 		return false, fmt.Errorf("unable to fetch qdisc list for endpoint: %w", err)
 	}
@@ -824,7 +824,7 @@ func DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, err
 		return false, nil
 	}
 
-	ff, err := netlink.FilterList(l, netlink.HANDLE_MIN_INGRESS)
+	ff, err := netlink.FilterList(link, netlink.HANDLE_MIN_INGRESS)
 	if err != nil {
 		return false, fmt.Errorf("unable to fetch ingress filter list: %w", err)
 	}
@@ -843,7 +843,7 @@ func DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, err
 		return true, nil
 	}
 
-	ff, err = netlink.FilterList(l, netlink.HANDLE_MIN_EGRESS)
+	ff, err = netlink.FilterList(link, netlink.HANDLE_MIN_EGRESS)
 	if err != nil {
 		return false, fmt.Errorf("unable to fetch egress filter list: %w", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -44,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 var (
@@ -105,6 +107,12 @@ var (
 		// DB provides an extendable in-memory database with rich transactions
 		// and multi-version concurrency control through immutable radix trees.
 		statedb.Cell,
+
+		// Reconciler provides a general utility for reconciling a statedb table
+		// with a target defined via set of operations. This cell provides the
+		// common objects used by all reconcilers such as the shared metrics.
+		reconciler.Cell,
+
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
@@ -172,6 +180,10 @@ var (
 		// It is used to provide support for Ingress, GatewayAPI and L7 network policies (e.g. HTTP).
 		envoy.Cell,
 
+		// CiliumEnvoyConfig provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
+		// and L7 loadbalancing.
+		ciliumenvoyconfig.Cell,
+
 		// Cilium REST API handlers
 		restapi.Cell,
 
@@ -236,5 +248,4 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, swaggerSpec 
 		}
 	}
 	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
-
 }

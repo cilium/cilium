@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -124,7 +123,7 @@ func (f *FakeDatapath) LBMockMap() *mockmaps.LBMockMap {
 	return f.lbmap
 }
 
-func (f *FakeDatapath) BandwidthManager() bandwidth.Manager {
+func (f *FakeDatapath) BandwidthManager() datapath.BandwidthManager {
 	return &BandwidthManager{}
 }
 
@@ -141,6 +140,10 @@ func (f *fakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, st
 }
 
 func (f *fakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+	panic("implement me")
+}
+
+func (f *fakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
 	panic("implement me")
 }
 
@@ -166,4 +169,12 @@ func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwn
 
 func (f *fakeLoader) HostDatapathInitialized() <-chan struct{} {
 	return nil
+}
+
+func (f *fakeLoader) RestoreTemplates(stateDir string) error {
+	return nil
+}
+
+func (f *fakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
+	return false, nil
 }

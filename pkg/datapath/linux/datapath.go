@@ -4,7 +4,6 @@
 package linux
 
 import (
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -29,10 +28,10 @@ type linuxDatapath struct {
 	node           *linuxNodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
-	loader         *loader.Loader
+	loader         loader.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
-	bwmgr          bandwidth.Manager
+	bwmgr          datapath.BandwidthManager
 }
 
 type DatapathParams struct {
@@ -40,9 +39,10 @@ type DatapathParams struct {
 	RuleManager    datapath.IptablesManager
 	WGAgent        datapath.WireguardAgent
 	NodeMap        nodemap.Map
-	BWManager      bandwidth.Manager
+	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
+	Loader         loader.Loader
 }
 
 // NewDatapath creates a new Linux datapath
@@ -52,7 +52,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
 		config:          cfg,
-		loader:          loader.NewLoader(),
+		loader:          p.Loader,
 		wgAgent:         p.WGAgent,
 		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
@@ -101,7 +101,7 @@ func (l *linuxDatapath) LBMap() datapath.LBMap {
 	return l.lbmap
 }
 
-func (l *linuxDatapath) BandwidthManager() bandwidth.Manager {
+func (l *linuxDatapath) BandwidthManager() datapath.BandwidthManager {
 	return l.bwmgr
 }
 

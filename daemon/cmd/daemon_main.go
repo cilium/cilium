@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -1650,7 +1649,6 @@ type daemonParams struct {
 	ServiceManager       service.ServiceManager
 	L7Proxy              *proxy.Proxy
 	EnvoyXdsServer       envoy.XDSServer
-	EnvoyBackendSyncer   *envoy.EnvoyServiceBackendSyncer
 	DB                   *statedb.DB
 	APILimiterSet        *rate.APILimiterSet
 	AuthManager          *auth.AuthManager
@@ -1668,7 +1666,7 @@ type daemonParams struct {
 	ClusterInfo         cmtypes.ClusterInfo
 	BigTCPConfig        *bigtcp.Configuration
 	TunnelConfig        tunnel.Config
-	BandwidthManager    bandwidth.Manager
+	BandwidthManager    datapath.BandwidthManager
 	IPsecKeyCustodian   datapath.IPsecKeyCustodian
 	MTU                 mtu.MTU
 }

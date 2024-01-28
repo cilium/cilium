@@ -37,9 +37,9 @@ func xdpConfigModeToFlag(xdpMode string) link.XDPAttachFlags {
 // These constant values are returned by the kernel when querying the XDP program attach mode.
 // Important: they differ from constants that are used when attaching an XDP program to a netlink device.
 const (
-	XDPAttachedNone uint32 = iota
-	XDPAttachedDriver
-	XDPAttachedGeneric
+	xdpAttachedNone uint32 = iota
+	xdpAttachedDriver
+	xdpAttachedGeneric
 )
 
 // xdpAttachedModeToFlag maps the attach mode that is returned in the metadata when
@@ -47,9 +47,9 @@ const (
 // xdp program attachement.
 func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 	switch mode {
-	case XDPAttachedDriver:
+	case xdpAttachedDriver:
 		return link.XDPDriverMode
-	case XDPAttachedGeneric:
+	case xdpAttachedGeneric:
 		return link.XDPGenericMode
 	}
 	return 0
@@ -60,7 +60,7 @@ func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 //
 // bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
-func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string) {
+func (l *loader) maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		log.WithError(err).Warn("Failed to list links for XDP unload")
@@ -88,7 +88,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string)
 			}
 		}
 		if !used {
-			if err := DetachXDP(link, bpffsBase, symbolFromHostNetdevXDP); err != nil {
+			if err := l.DetachXDP(link, bpffsBase, symbolFromHostNetdevXDP); err != nil {
 				log.WithError(err).Warn("Failed to detach obsolete XDP program")
 			}
 		}
@@ -253,7 +253,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 //
 // bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
 // during tests.
-func DetachXDP(iface netlink.Link, bpffsBase, progName string) error {
+func (l *loader) DetachXDP(iface netlink.Link, bpffsBase, progName string) error {
 	pin := filepath.Join(bpffsDeviceLinksDir(bpffsBase, iface), progName)
 	err := bpf.UnpinLink(pin)
 	if err == nil {

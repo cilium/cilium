@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -102,7 +101,7 @@ func writeConfig(c *C, header string, write writeFn) {
 		h := hive.New(
 			cell.Provide(
 				fake.NewNodeAddressing,
-				func() bandwidth.Manager { return &fake.BandwidthManager{} },
+				func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
 				NewHeaderfileWriter,
 			),
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
@@ -145,7 +144,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 
 	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint64, map[string]string) {
 		cfg := &HeaderfileWriter{}
-		varSub, stringSub := loader.ELFSubstitutions(t)
+		varSub, stringSub := loader.NewLoader().ELFSubstitutions(t)
 
 		var buf bytes.Buffer
 		cfg.writeStaticData(&buf, t)
@@ -230,7 +229,7 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg
 
-	varSub, stringSub := loader.ELFSubstitutions(ep)
+	varSub, stringSub := loader.NewLoader().ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
 	cfg.writeStaticData(&buf, ep)

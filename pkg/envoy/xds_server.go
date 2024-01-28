@@ -37,14 +37,15 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -318,7 +319,7 @@ func (s *xdsServer) stop() {
 	}
 }
 
-func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
+func GetCiliumHttpFilter() *envoy_config_http.HttpFilter {
 	return &envoy_config_http.HttpFilter{
 		Name: "cilium.l7policy",
 		ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
@@ -342,7 +343,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:    true,
 		HttpFilters: []*envoy_config_http.HttpFilter{
-			getCiliumHttpFilter(),
+			GetCiliumHttpFilter(),
 			{
 				Name: "envoy.filters.http.router",
 				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
@@ -387,7 +388,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 									Cluster: clusterName,
 								},
 								Timeout: &durationpb.Duration{Seconds: requestTimeout},
-								//IdleTimeout: &durationpb.Duration{Seconds: idleTimeout},
+								// IdleTimeout: &durationpb.Duration{Seconds: idleTimeout},
 								RetryPolicy: &envoy_config_route.RetryPolicy{
 									RetryOn:       "5xx",
 									NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
@@ -546,7 +547,7 @@ func getPublicListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.A
 	}
 }
 
-func getLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core.Address, []*envoy_config_listener.AdditionalAddress) {
+func GetLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core.Address, []*envoy_config_listener.AdditionalAddress) {
 	addresses := []*envoy_config_core.Address_SocketAddress{}
 
 	if ipv4 {
@@ -801,43 +802,13 @@ func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, callback)
 }
 
-// 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
 		BpfRoot:                  bpf.BPFFSRoot(),
-		IsL7Lb:                   l7lb,
+		IsL7Lb:                   false,
 		ProxyId:                  uint32(proxyPort),
-	}
-	// Set Ingress source addresses if configuring for L7 LB.  One of these will be used when
-	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
-	// (in such a case use of the original source address would lead to broken routing for the
-	// return traffic, as it would not be sent to the this node where upstream connection
-	// originates from).
-	//
-	// Note: This means that all non-local traffic will be identified by the destination to be
-	// coming from/via "Ingress", even if the listener is not an Ingress listener.
-	// We could refrain from using these ingress addresses in such cases, but then the upstream
-	// traffic would come from an (other) host IP, which is even worse.
-	//
-	// One solution to this dilemma would be to never configure these addresses if
-	// useOriginalSourceAddr is true and let such traffic fail.
-	if l7lb {
-		ingressIPv4 := node.GetIngressIPv4()
-		if ingressIPv4 != nil {
-			conf.Ipv4SourceAddress = ingressIPv4.String()
-			// Enforce ingress policy for Ingress
-			conf.EnforcePolicyOnL7Lb = true
-		}
-		ingressIPv6 := node.GetIngressIPv6()
-		if ingressIPv6 != nil {
-			conf.Ipv6SourceAddress = ingressIPv6.String()
-			// Enforce ingress policy for Ingress
-			conf.EnforcePolicyOnL7Lb = true
-		}
-		log.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
-		log.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())
 	}
 
 	return &envoy_config_listener.ListenerFilter{
@@ -857,7 +828,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		tlsClusterName = ingressTLSClusterName
 	}
 
-	addr, additionalAddr := getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+	addr, additionalAddr := GetLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 	listenerConf := &envoy_config_listener.Listener{
 		Name:                name,
 		Address:             addr,
@@ -871,7 +842,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false, port),
+			getListenerFilter(isIngress, mayUseOriginalSourceAddr, port),
 		},
 	}
 
@@ -987,7 +958,8 @@ func getL7Rules(l7Rules []api.PortRuleL7, l7Proto string) *cilium.L7NetworkPolic
 						value = &envoy_type_matcher.ValueMatcher{
 							MatchPattern: &envoy_type_matcher.ValueMatcher_PresentMatch{
 								PresentMatch: true,
-							}}
+							},
+						}
 					} else {
 						value = &envoy_type_matcher.ValueMatcher{
 							MatchPattern: &envoy_type_matcher.ValueMatcher_ListMatch{
@@ -1005,7 +977,8 @@ func getL7Rules(l7Rules []api.PortRuleL7, l7Proto string) *cilium.L7NetworkPolic
 										},
 									},
 								},
-							}}
+							},
+						}
 					}
 					rule.MetadataRule = append(rule.MetadataRule, &envoy_type_matcher.MetadataMatcher{
 						Filter: envoyFilterName,
@@ -1104,7 +1077,9 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 							Regex: h.Path,
 						},
 					},
-				}}})
+				},
+			},
+		})
 	}
 	if h.Method != "" {
 		headers = append(headers, &envoy_config_route.HeaderMatcher{
@@ -1116,7 +1091,9 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 							Regex: h.Method,
 						},
 					},
-				}}})
+				},
+			},
+		})
 	}
 	if h.Host != "" {
 		headers = append(headers, &envoy_config_route.HeaderMatcher{
@@ -1128,7 +1105,9 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 							Regex: h.Host,
 						},
 					},
-				}}})
+				},
+			},
+		})
 	}
 	for _, hdr := range h.Headers {
 		strs := strings.SplitN(hdr, " ", 2)
@@ -1136,7 +1115,8 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 			// Remove ':' in "X-Key: true"
 			key := strings.TrimRight(strs[0], ":")
 			// Header presence and matching (literal) value needed.
-			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: key,
+			headers = append(headers, &envoy_config_route.HeaderMatcher{
+				Name: key,
 				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
 					StringMatch: &envoy_type_matcher.StringMatcher{
 						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
@@ -1147,8 +1127,10 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 			})
 		} else {
 			// Only header presence needed
-			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: strs[0],
-				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
+			headers = append(headers, &envoy_config_route.HeaderMatcher{
+				Name:                 strs[0],
+				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
+			})
 		}
 	}
 
@@ -1173,7 +1155,8 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
 			// Envoy treats an empty exact match value as matching ANY value; adding
 			// InvertMatch: true here will cause this rule to NEVER match.
-			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
+			headers = append(headers, &envoy_config_route.HeaderMatcher{
+				Name: hdr.Name,
 				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
 					StringMatch: &envoy_type_matcher.StringMatcher{
 						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
@@ -1181,23 +1164,28 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 						},
 					},
 				},
-				InvertMatch: true})
+				InvertMatch: true,
+			})
 		} else {
 			// Header presence and matching (literal) value needed.
 			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
 				if value != "" {
-					headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
+					headers = append(headers, &envoy_config_route.HeaderMatcher{
+						Name: hdr.Name,
 						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
 							StringMatch: &envoy_type_matcher.StringMatcher{
 								MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
 									Exact: value,
 								},
 							},
-						}})
+						},
+					})
 				} else {
 					// Only header presence needed
-					headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
-						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
+					headers = append(headers, &envoy_config_route.HeaderMatcher{
+						Name:                 hdr.Name,
+						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
+					})
 				}
 			} else {
 				log.Debugf("HeaderMatches: Adding %s", hdr.Name)
@@ -1231,7 +1219,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
 }
 
-var ciliumXDS = &envoy_config_core.ConfigSource{
+var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
 	ResourceApiVersion: envoy_config_core.ApiVersion_V3,
 	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
 		ApiConfigSource: &envoy_config_core.ApiConfigSource{
@@ -1575,7 +1563,8 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, ips []string, l4Policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
+	ingressPolicyEnforced, egressPolicyEnforced bool,
+) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		EndpointIps:      ips,
 		EndpointId:       ep.GetID(),
@@ -1630,7 +1619,8 @@ func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 }
 
 func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup,
+) (error, func() error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1752,4 +1742,411 @@ func (s *xdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 		}
 	}
 	return networkPolicies, nil
+}
+
+// Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
+type Resources struct {
+	Listeners []*envoy_config_listener.Listener
+	Secrets   []*envoy_config_tls.Secret
+	Routes    []*envoy_config_route.RouteConfiguration
+	Clusters  []*envoy_config_cluster.Cluster
+	Endpoints []*envoy_config_endpoint.ClusterLoadAssignment
+
+	// Callback functions that are called if the corresponding Listener change was successfully acked by Envoy
+	PortAllocationCallbacks map[string]func(context.Context) error
+}
+
+// ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'
+// to 'new'
+func (old *Resources) ListenersAddedOrDeleted(new *Resources) bool {
+	// Typically the number of listeners in a CEC is small (e.g, one), so it should be OK to
+	// scan the slices like here
+	for _, nl := range new.Listeners {
+		found := false
+		for _, ol := range old.Listeners {
+			if ol.Name == nl.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true // a listener was added
+		}
+	}
+	for _, ol := range old.Listeners {
+		found := false
+		for _, nl := range new.Listeners {
+			if nl.Name == ol.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true // a listener was removed
+		}
+	}
+	return false
+}
+
+func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resources) error {
+	if option.Config.Debug {
+		msg := ""
+		sep := ""
+		if len(resources.Listeners) > 0 {
+			msg += fmt.Sprintf("%d listeners", len(resources.Listeners))
+			sep = ", "
+		}
+		if len(resources.Routes) > 0 {
+			msg += fmt.Sprintf("%s%d routes", sep, len(resources.Routes))
+			sep = ", "
+		}
+		if len(resources.Clusters) > 0 {
+			msg += fmt.Sprintf("%s%d clusters", sep, len(resources.Clusters))
+			sep = ", "
+		}
+		if len(resources.Endpoints) > 0 {
+			msg += fmt.Sprintf("%s%d endpoints", sep, len(resources.Endpoints))
+			sep = ", "
+		}
+		if len(resources.Secrets) > 0 {
+			msg += fmt.Sprintf("%s%d secrets", sep, len(resources.Secrets))
+		}
+
+		log.Debugf("UpsertEnvoyResources: Upserting %s...", msg)
+	}
+	var wg *completion.WaitGroup
+	// Listener config may fail if it refers to a cluster that has not been added yet, so we
+	// must wait for Envoy to ACK cluster config before adding Listeners to be sure Listener
+	// config does not fail for this reason.
+	// Enable wait before new Listeners are added if clusters are also added.
+	if len(resources.Listeners) > 0 && len(resources.Clusters) > 0 {
+		wg = completion.NewWaitGroup(ctx)
+	}
+	var revertFuncs xds.AckingResourceMutatorRevertFuncList
+	// Do not wait for the addition of routes, clusters, endpoints, routes,
+	// or secrets as there are no guarantees that these additions will be
+	// acked. For example, if the listener referring to was already deleted
+	// earlier, there are no references to the deleted resources anymore,
+	// in which case we could wait forever for the ACKs. This could also
+	// happen if there is no listener referring to these named
+	// resources to begin with.
+	// If both listeners and clusters are added then wait for clusters.
+	for _, r := range resources.Secrets {
+		log.Debugf("Envoy upsertSecret %s", r.Name)
+		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
+	}
+	for _, r := range resources.Endpoints {
+		log.Debugf("Envoy upsertEndpoint %s %v", r.ClusterName, r)
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil, nil))
+	}
+	for _, r := range resources.Clusters {
+		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
+	}
+	for _, r := range resources.Routes {
+		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
+	// Wait before new Listeners are added if clusters were also added above.
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpsertEnvoyResources: Waiting for cluster updates to complete...")
+		err := wg.Wait()
+		log.Debugf("UpsertEnvoyResources: Wait time for cluster updates %v (err: %s)", time.Since(start), err)
+
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
+			return err
+		}
+		wg = nil
+	}
+	// Wait only if new Listeners are added, as they will always be acked.
+	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
+	if len(resources.Listeners) > 0 {
+		wg = completion.NewWaitGroup(ctx)
+	}
+	for _, r := range resources.Listeners {
+		log.Debugf("Envoy upsertListener %s %v", r.Name, r)
+		listenerName := r.Name
+		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
+			// this callback is not called if there is no change
+			func(err error) {
+				if err == nil && resources.PortAllocationCallbacks[listenerName] != nil {
+					if callbackErr := resources.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+						log.WithError(callbackErr).Warn("Failure in port allocation callback")
+					}
+				}
+			}))
+	}
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpsertEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debugf("UpsertEnvoyResources: Wait time for proxy updates %v (err: %s)", time.Since(start), err)
+
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources) error {
+	waitForDelete := false
+	var wg *completion.WaitGroup
+	var revertFuncs xds.AckingResourceMutatorRevertFuncList
+	// Wait only if new Listeners are added, as they will always be acked.
+	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
+	if len(new.Listeners) > 0 {
+		wg = completion.NewWaitGroup(ctx)
+	}
+	// Delete old listeners not added in 'new' or if old and new listener have different ports
+	var deleteListeners []*envoy_config_listener.Listener
+	for _, oldListener := range old.Listeners {
+		found := false
+		port := uint32(0)
+		if addr := oldListener.Address.GetSocketAddress(); addr != nil {
+			port = addr.GetPortValue()
+		}
+		for _, newListener := range new.Listeners {
+			if newListener.Name == oldListener.Name {
+				if addr := newListener.Address.GetSocketAddress(); addr != nil && addr.GetPortValue() != port {
+					log.Debugf("UpdateEnvoyResources: %s port changing from %d to %d...", newListener.Name, port, addr.GetPortValue())
+					waitForDelete = true
+				} else {
+					// port is not changing, remove from new.PortAllocations to prevent acking an already acked port.
+					delete(new.PortAllocationCallbacks, newListener.Name)
+					found = true
+				}
+				break
+			}
+		}
+		if !found {
+			deleteListeners = append(deleteListeners, oldListener)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d listeners...", len(deleteListeners), len(new.Listeners))
+	for _, listener := range deleteListeners {
+		listenerName := listener.Name
+		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, wg,
+			func(err error) {
+				if err == nil && old.PortAllocationCallbacks[listenerName] != nil {
+					if callbackErr := old.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+						log.WithError(callbackErr).Warn("Failure in port allocation callback")
+					}
+				}
+			}))
+	}
+
+	// Do not wait for the deletion of routes, clusters, endpoints, or
+	// secrets as there are no quarantees that these deletions will be
+	// acked. For example, if the listener referring to was already deleted
+	// earlier, there are no references to the deleted resources any more,
+	// in which case we could wait forever for the ACKs. This could also
+	// happen if there is no listener referring to these other named
+	// resources to begin with.
+
+	// Delete old routes not added in 'new'
+	var deleteRoutes []*envoy_config_route.RouteConfiguration
+	for _, oldRoute := range old.Routes {
+		found := false
+		for _, newRoute := range new.Routes {
+			if newRoute.Name == oldRoute.Name {
+				found = true
+			}
+		}
+		if !found {
+			deleteRoutes = append(deleteRoutes, oldRoute)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d routes...", len(deleteRoutes), len(new.Routes))
+	for _, route := range deleteRoutes {
+		revertFuncs = append(revertFuncs, s.deleteRoute(route.Name, nil, nil))
+	}
+
+	// Delete old clusters not added in 'new'
+	var deleteClusters []*envoy_config_cluster.Cluster
+	for _, oldCluster := range old.Clusters {
+		found := false
+		for _, newCluster := range new.Clusters {
+			if newCluster.Name == oldCluster.Name {
+				found = true
+			}
+		}
+		if !found {
+			deleteClusters = append(deleteClusters, oldCluster)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d clusters...", len(deleteClusters), len(new.Clusters))
+	for _, cluster := range deleteClusters {
+		revertFuncs = append(revertFuncs, s.deleteCluster(cluster.Name, nil, nil))
+	}
+
+	// Delete old endpoints not added in 'new'
+	var deleteEndpoints []*envoy_config_endpoint.ClusterLoadAssignment
+	for _, oldEndpoint := range old.Endpoints {
+		found := false
+		for _, newEndpoint := range new.Endpoints {
+			if newEndpoint.ClusterName == oldEndpoint.ClusterName {
+				found = true
+			}
+		}
+		if !found {
+			deleteEndpoints = append(deleteEndpoints, oldEndpoint)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d endpoints...", len(deleteEndpoints), len(new.Endpoints))
+	for _, endpoint := range deleteEndpoints {
+		revertFuncs = append(revertFuncs, s.deleteEndpoint(endpoint.ClusterName, nil, nil))
+	}
+
+	// Delete old secrets not added in 'new'
+	var deleteSecrets []*envoy_config_tls.Secret
+	for _, oldSecret := range old.Secrets {
+		found := false
+		for _, newSecret := range new.Secrets {
+			if newSecret.Name == oldSecret.Name {
+				found = true
+			}
+		}
+		if !found {
+			deleteSecrets = append(deleteSecrets, oldSecret)
+		}
+	}
+	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d secrets...", len(deleteSecrets), len(new.Secrets))
+	for _, secret := range deleteSecrets {
+		revertFuncs = append(revertFuncs, s.deleteSecret(secret.Name, nil, nil))
+	}
+
+	// Have to wait for deletes to complete before adding new listeners if a listener's port number is changed.
+	if wg != nil && waitForDelete {
+		start := time.Now()
+		log.Debug("UpdateEnvoyResources: Waiting for proxy deletes to complete...")
+		err := wg.Wait()
+		if err != nil {
+			log.Debug("UpdateEnvoyResources: delete failed: ", err)
+		}
+		log.Debug("UpdateEnvoyResources: Wait time for proxy deletes: ", time.Since(start))
+		// new wait group for adds
+		wg = completion.NewWaitGroup(ctx)
+	}
+
+	// Add new Secrets
+	for _, r := range new.Secrets {
+		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
+	}
+	// Add new Endpoints
+	for _, r := range new.Endpoints {
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil, nil))
+	}
+	// Add new Clusters
+	for _, r := range new.Clusters {
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
+	}
+	// Add new Routes
+	for _, r := range new.Routes {
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
+	if wg != nil && len(new.Clusters) > 0 {
+		start := time.Now()
+		log.Debug("UpdateEnvoyResources: Waiting for cluster updates to complete...")
+		err := wg.Wait()
+		if err != nil {
+			log.Debug("UpdateEnvoyResources: cluster update failed: ", err)
+		}
+		log.Debug("UpdateEnvoyResources: Wait time for cluster updates: ", time.Since(start))
+		// new wait group for adds
+		wg = completion.NewWaitGroup(ctx)
+	}
+	// Add new Listeners
+	for _, r := range new.Listeners {
+		listenerName := r.Name
+		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
+			// this callback is not called if there is no change
+			func(err error) {
+				if err == nil && new.PortAllocationCallbacks[listenerName] != nil {
+					if callbackErr := new.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+						log.WithError(callbackErr).Warn("Failure in port allocation callback")
+					}
+				}
+			}))
+	}
+
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpdateEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debugf("UpdateEnvoyResources: Wait time for proxy updates %v (err: %s)", time.Since(start), err)
+
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("UpdateEnvoyResources: Finished reverting failed xDS transactions")
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resources) error {
+	log.Debugf("DeleteEnvoyResources: Deleting %d listeners, %d routes, %d clusters, %d endpoints, and %d secrets...",
+		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints), len(resources.Secrets))
+	var wg *completion.WaitGroup
+	var revertFuncs xds.AckingResourceMutatorRevertFuncList
+	// Wait only if new Listeners are added, as they will always be acked.
+	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
+	if len(resources.Listeners) > 0 {
+		wg = completion.NewWaitGroup(ctx)
+	}
+	for _, r := range resources.Listeners {
+		listenerName := r.Name
+		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg,
+			func(err error) {
+				if err == nil && resources.PortAllocationCallbacks[listenerName] != nil {
+					if callbackErr := resources.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+						log.WithError(callbackErr).Warn("Failure in port allocation callback")
+					}
+				}
+			}))
+	}
+
+	// Do not wait for the deletion of routes, clusters, or endpoints, as
+	// there are no guarantees that these deletions will be acked. For
+	// example, if the listener referring to was already deleted earlier,
+	// there are no references to the deleted resources anymore, in which
+	// case we could wait forever for the ACKs. This could also happen if
+	// there is no listener referring to other named resources to
+	// begin with.
+	for _, r := range resources.Routes {
+		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, nil, nil))
+	}
+	for _, r := range resources.Clusters {
+		revertFuncs = append(revertFuncs, s.deleteCluster(r.Name, nil, nil))
+	}
+	for _, r := range resources.Endpoints {
+		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, nil, nil))
+	}
+	for _, r := range resources.Secrets {
+		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, nil, nil))
+	}
+
+	if wg != nil {
+		start := time.Now()
+		log.Debug("DeleteEnvoyResources: Waiting for proxy updates to complete...")
+		err := wg.Wait()
+		log.Debugf("DeleteEnvoyResources: Wait time for proxy updates %v (err: %s)", time.Since(start), err)
+
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("DeleteEnvoyResources: Finished reverting failed xDS transactions")
+		}
+		return err
+	}
+	return nil
 }

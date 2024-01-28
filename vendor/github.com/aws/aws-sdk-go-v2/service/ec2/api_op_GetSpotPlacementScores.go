@@ -79,8 +79,7 @@ type GetSpotPlacementScoresInput struct {
 	// into a single Availability Zone.
 	SingleAvailabilityZone *bool
 
-	// The unit for the target capacity. Default: units (translates to number of
-	// instances)
+	// The unit for the target capacity.
 	TargetCapacityUnitType types.TargetCapacityUnitType
 
 	noSmithyDocumentSerde

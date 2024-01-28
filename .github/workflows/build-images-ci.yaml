@@ -108,7 +108,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
@@ -142,7 +142,7 @@ jobs:
         shell: bash
         env:
           # renovate: datasource=github-releases depName=kubernetes-sigs/bom
-          BOM_VERSION: v0.5.1
+          BOM_VERSION: v0.6.0
         run: |
           curl -L https://github.com/kubernetes-sigs/bom/releases/download/${{ env.BOM_VERSION }}/bom-amd64-linux -o bom
           sudo mv ./bom /usr/local/bin/bom
@@ -187,7 +187,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:98dea50d165d236ffd2c829196ab58df9326c495@sha256:5e307ffbdc5552dc3d6f94d7ba1e5afe6a22c19af765777f4ea48f0522baf147
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:f3cffdf9b9fa4033adddfaee3f2eba8515725a5e@sha256:bd7d1b10a66d94f5af301ac34f1d390ab713ec41f68fd685ebf7ae2f8239561d
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -321,7 +321,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:98dea50d165d236ffd2c829196ab58df9326c495@sha256:5e307ffbdc5552dc3d6f94d7ba1e5afe6a22c19af765777f4ea48f0522baf147
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:f3cffdf9b9fa4033adddfaee3f2eba8515725a5e@sha256:bd7d1b10a66d94f5af301ac34f1d390ab713ec41f68fd685ebf7ae2f8239561d
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}

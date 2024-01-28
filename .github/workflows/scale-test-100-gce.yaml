@@ -28,8 +28,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=github-releases depName=kubernetes/kops
-  kops_version: v1.28.1
   # renovate: datasource=golang-version depName=go
   go_version: 1.21.6
   # Adding k8s.local to the end makes kops happy-
@@ -94,17 +92,15 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@8a522b9d71254b6f6615c296e41a70610c9615ea # main
-        with:
-          release_version: ${{ env.kops_version }}
+        uses: cilium/scale-tests-action/install-kops@238d773bd07754bfd693a6b22c94eddf3a12778d # main
 
       - name: Setup gcloud credentials
-        uses: google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591 # v2.0.0
+        uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # v2.1.0
         with:
           credentials_json: '${{ secrets.GCP_PERF_SA_KEY }}'
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@825196879a077b7efa50db2e88409f44de4635c2 # v2.0.0
+        uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: "405.0.0"
@@ -112,8 +108,8 @@ jobs:
       - name: Clone ClusterLoader2
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: cilium/perf-tests
-          ref: 6f1bf283e22aa4c29d5db2a7b52501b091a0912e # master
+          repository: kubernetes/perf-tests
+          ref: 82036a7e9bdb803b5b133c2d83cfec710819f9ab # master
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
@@ -131,7 +127,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@8a522b9d71254b6f6615c296e41a70610c9615ea # main
+        uses: cilium/scale-tests-action/create-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -143,7 +139,7 @@ jobs:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
 
       - name: Create Instance Group for resource heavy deployments
-        uses: cilium/scale-tests-action/create-instance-group@8a522b9d71254b6f6615c296e41a70610c9615ea # main
+        uses: cilium/scale-tests-action/create-instance-group@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -153,7 +149,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@8a522b9d71254b6f6615c296e41a70610c9615ea # main
+        uses: cilium/scale-tests-action/setup-firewall@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
@@ -162,7 +158,7 @@ jobs:
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@8a522b9d71254b6f6615c296e41a70610c9615ea # main
+        uses: cilium/scale-tests-action/validate-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -185,8 +181,11 @@ jobs:
           export CL2_ALLOWED_SLOW_API_CALLS=1
           export CL2_SCHEDULER_THROUGHPUT_THRESHOLD=0
 
+          # CL2 needs ssh access to control plane nodes
+          gcloud compute config-ssh
+
           go run ./cmd/clusterloader.go \
-            -v=4 \
+            -v=2 \
             --testconfig=./testing/load/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
@@ -197,6 +196,7 @@ jobs:
             --kubeconfig=$HOME/.kube/config \
             --testoverrides=./testing/overrides/load_throughput.yaml \
             --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             2>&1 | tee cl2-output.txt
 
       - name: Get sysdump
@@ -207,14 +207,14 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@8a522b9d71254b6f6615c296e41a70610c9615ea # main
+        uses: cilium/scale-tests-action/cleanup-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@8a522b9d71254b6f6615c296e41a70610c9615ea # main
+        uses: cilium/scale-tests-action/export-results@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         with:
           test_name: ${{ env.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}

@@ -107,7 +107,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo runtime from GH cache
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -262,14 +262,14 @@ jobs:
           test-name: runtime-tests
           install-dependencies: true
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          image-version: "bpf-next-20231220.153727@sha256:fed459646e99b13418bd3c293a062920a094f1f2eaefd9da15db409d1bbeab4e"
+          image-version: "bpf-next-20240122.013132@sha256:9bc701b955f5d54f86b23b45a1f8fe394fbf566925dbb6151aaf6531c5d392c4"
           host-mount: ./
           cpu: 4
           mem: 12G
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
-        uses: actions/cache/restore@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache/restore@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
         id: cache
         with:
           path: /tmp/.ginkgo-build/
