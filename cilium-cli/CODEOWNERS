@@ -48,6 +48,7 @@
 /connectivity/builder/no_ipsec_xfrm_errors.go @cilium/sig-encryption
 /connectivity/builder/node_to_node_encryption.go @cilium/sig-encryption
 /connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
+/connectivity/tests/clustermesh-endpointslice-sync.go @cilium/sig-clustermesh
 /connectivity/tests/egressgateway.go @cilium/egress-gateway
 /connectivity/tests/encryption.go @cilium/sig-encryption
 /connectivity/tests/errors.go @cilium/sig-agent @cilium/sig-datapath

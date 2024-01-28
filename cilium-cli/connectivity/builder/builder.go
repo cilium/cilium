@@ -116,6 +116,7 @@ var (
 		clientEgressToEchoServiceAccountDeny{},
 		clientEgressToCidrDeny{},
 		clientEgressToCidrDenyDefault{},
+		clusterMeshEndpointSliceSync{},
 		health{},
 		northSouthLoadbalancing{},
 		podToPodEncryption{},

@@ -1049,6 +1049,17 @@ func (ct *ConnectivityTest) DigCommand(peer TestPeer, ipFam features.IPFamily) [
 	return cmd
 }
 
+func (ct *ConnectivityTest) DigCommandService(peer TestPeer, ipFam features.IPFamily) []string {
+	cmd := []string{"dig"}
+	if ipFam == features.IPFamilyV4 {
+		cmd = append(cmd, "A")
+	} else if ipFam == features.IPFamilyV6 {
+		cmd = append(cmd, "AAAA")
+	}
+	cmd = append(cmd, "+time=2", peer.Name())
+	return cmd
+}
+
 func (ct *ConnectivityTest) RandomClientPod() *Pod {
 	for _, p := range ct.clientPods {
 		return &p
@@ -1108,7 +1119,19 @@ func (ct *ConnectivityTest) EchoPods() map[string]Pod {
 	return ct.echoPods
 }
 
+// EchoServices returns all the non headless services
 func (ct *ConnectivityTest) EchoServices() map[string]Service {
+	svcs := map[string]Service{}
+	for name, svc := range ct.echoServices {
+		if svc.Service.Spec.ClusterIP == corev1.ClusterIPNone {
+			continue
+		}
+		svcs[name] = svc
+	}
+	return svcs
+}
+
+func (ct *ConnectivityTest) EchoServicesAll() map[string]Service {
 	return ct.echoServices
 }
 
