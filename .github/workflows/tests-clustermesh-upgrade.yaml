@@ -76,7 +76,7 @@ jobs:
 
   upgrade-and-downgrade:
     name: "Upgrade and Downgrade Test"
-    runs-on: ubuntu-latest-4cores-16gb
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
