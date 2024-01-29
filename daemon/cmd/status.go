@@ -185,7 +185,8 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
 	}
 
-	s.Devices = option.Config.GetDevices()
+	devs, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())
+	s.Devices = datapathTables.DeviceNames(devs)
 	return s
 }
 
@@ -202,9 +203,10 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	if option.Config.EnableHostFirewall {
 		mode = models.HostFirewallModeEnabled
 	}
+	devs, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())
 	return &models.HostFirewall{
 		Mode:    mode,
-		Devices: option.Config.GetDevices(),
+		Devices: datapathTables.DeviceNames(devs),
 	}
 }
 
