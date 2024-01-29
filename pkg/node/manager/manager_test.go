@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -393,7 +393,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 
 func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 	ipcacheMock := newIPcacheMock()
-	dp := fake.NewNodeHandler()
+	dp := fakeTypes.NewNodeHandler()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
@@ -414,7 +414,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 
 func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	ipcacheMock := newIPcacheMock()
-	dp := fake.NewNodeHandler()
+	dp := fakeTypes.NewNodeHandler()
 	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
