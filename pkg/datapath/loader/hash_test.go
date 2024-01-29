@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -19,7 +20,7 @@ import (
 
 var (
 	dummyNodeCfg = datapath.LocalNodeConfiguration{
-		MtuConfig: &fake.MTU{},
+		MtuConfig: &types.MTU{},
 	}
 	dummyDevCfg = testutils.NewTestEndpoint()
 	dummyEPCfg  = testutils.NewTestEndpoint()

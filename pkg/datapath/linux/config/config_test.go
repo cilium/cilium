@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -40,7 +41,7 @@ var (
 	_ = Suite(&ConfigSuite{})
 
 	dummyNodeCfg = datapath.LocalNodeConfiguration{
-		MtuConfig: &fake.MTU{},
+		MtuConfig: &fakeTypes.MTU{},
 	}
 	dummyDevCfg   = testutils.NewTestEndpoint()
 	dummyEPCfg    = testutils.NewTestEndpoint()
