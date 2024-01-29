@@ -93,7 +93,7 @@ jobs:
              --wait \
              --namespace kube-system \
              --set nodeinit.enabled=true \
-             --set kubeProxyReplacement=true \
+             --set kubeProxyReplacement=false \
              --set socketLB.enabled=false \
              --set externalIPs.enabled=true \
              --set nodePort.enabled=true \
