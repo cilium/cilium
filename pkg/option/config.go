@@ -2406,12 +2406,14 @@ func (c *DaemonConfig) SetIPv6NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Unlock()
 }
 
+// Deprecated: Use the devices table instead, which allows reacting to changes.
 func (c *DaemonConfig) SetDevices(devices []string) {
 	c.devicesMu.Lock()
 	c.devices = devices
 	c.devicesMu.Unlock()
 }
 
+// Deprecated: Use the devices table instead, which allows reacting to changes.
 func (c *DaemonConfig) GetDevices() []string {
 	c.devicesMu.RLock()
 	defer c.devicesMu.RUnlock()
