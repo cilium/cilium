@@ -46,20 +46,13 @@ spec:
             cilium-dbg preflight validate-cnp;
             touch /tmp/ready-validate-cnp;
             sleep 1h;
-          livenessProbe:
-            exec:
-              command:
-              - cat
-              - /tmp/ready-validate-cnp
-            initialDelaySeconds: 5
-            periodSeconds: 5
           readinessProbe:
             exec:
               command:
               - cat
               - /tmp/ready-validate-cnp
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: {{ .Values.preflight.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.preflight.readinessProbe.periodSeconds }}
           {{- with .Values.preflight.extraVolumeMounts }}
           volumeMounts:
           {{- toYaml . | nindent 10 }}
