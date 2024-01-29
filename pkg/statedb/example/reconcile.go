@@ -65,7 +65,6 @@ func (r *reconciler) reconcileLoop(ctx context.Context, health cell.HealthReport
 	defer deleteTracker.Close()
 
 	txn := r.DB.ReadTxn()
-	minRevision := statedb.Revision(0)
 
 	// Limit processing rate to 10 op/s.
 	burst := int64(10)
@@ -78,14 +77,12 @@ func (r *reconciler) reconcileLoop(ctx context.Context, health cell.HealthReport
 	}
 
 	for {
-		tableRevision := r.Backends.Revision(txn)
-		r.Log.WithField("minRevision", minRevision).Info("Reconciling backends")
+		r.Log.Info("Reconciling backends")
 
 		// Process upserts and deletions between minRevision..maxRevision.
 		// Returns the new revision to run the next query from.
-		newRevision, watch, processErr := deleteTracker.Process(
+		watch, processErr := deleteTracker.IterateWithError(
 			txn,
-			minRevision,
 			func(be Backend, deleted bool, rev statedb.Revision) error {
 				if err := limiter.Wait(ctx); err != nil {
 					return err
@@ -106,18 +103,15 @@ func (r *reconciler) reconcileLoop(ctx context.Context, health cell.HealthReport
 			},
 		)
 
-		minRevision = newRevision
-
 		if processErr != nil {
-			r.Reporter.Degraded(fmt.Sprintf("Failure at revision %d, latest is %d", minRevision, tableRevision), processErr)
+			r.Reporter.Degraded("Failure to process", processErr)
 			if err := backoff.Wait(ctx); err != nil {
 				return err
 			}
 		} else {
 			backoff.Reset()
-			r.Reporter.OK(fmt.Sprintf("All processed up to %d", minRevision))
+			r.Reporter.OK("OK")
 
-			fmt.Printf(">>> validate revision %d\n", newRevision)
 			r.validate(txn)
 		}
 

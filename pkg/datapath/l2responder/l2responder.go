@@ -104,13 +104,13 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.HealthRepor
 	defer tracker.Close()
 
 	// At startup, do an initial full reconciliation
-	maxRev, err := p.fullReconciliation()
+	_, err = p.fullReconciliation()
 	if err != nil {
 		log.WithError(err).Error("Error(s) while reconciling l2 responder map")
 	}
 
 	for ctx.Err() == nil {
-		maxRev = p.cycle(ctx, tracker, maxRev, ticker.C)
+		p.cycle(ctx, tracker, ticker.C)
 	}
 
 	return nil
@@ -119,9 +119,8 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.HealthRepor
 func (p *l2ResponderReconciler) cycle(
 	ctx context.Context,
 	tracker *statedb.DeleteTracker[*tables.L2AnnounceEntry],
-	maxRevIn statedb.Revision,
 	fullReconciliation <-chan time.Time,
-) (maxRev statedb.Revision) {
+) {
 	arMap := p.params.L2ResponderMap
 	rtx := p.params.StateDB.ReadTxn()
 	log := p.params.Logger
@@ -129,7 +128,7 @@ func (p *l2ResponderReconciler) cycle(
 	lr := cachingLinkResolver{nl: p.params.NetLink}
 
 	// Partial reconciliation
-	maxRev, invalid, err := tracker.Process(rtx, maxRevIn, func(e *tables.L2AnnounceEntry, deleted bool, rev uint64) error {
+	invalid, err := tracker.IterateWithError(rtx, func(e *tables.L2AnnounceEntry, deleted bool, rev uint64) error {
 		// Ignore IPv6 addresses, L2 is IPv4 only
 		if e.IP.Is6() {
 			return nil
@@ -168,23 +167,22 @@ func (p *l2ResponderReconciler) cycle(
 	select {
 	case <-ctx.Done():
 		// Shutdown
-		return 0
+		return
 
 	case <-invalid:
 		// There are pending changes in the table, return from the cycle
-		return maxRev
 
 	case <-fullReconciliation:
 		// Full reconciliation timer fired, perform full reconciliation
 
 		// The existing `iter` is the result of a `All` query, so this will return all
 		// entries in the table for full reconciliation.
-		maxRev, err = p.fullReconciliation()
+		newRev, err := p.fullReconciliation()
 		if err != nil {
 			log.WithError(err).Error("Error(s) while full reconciling l2 responder map")
 		}
+		tracker.Mark(newRev)
 
-		return maxRev
 	}
 }
 
