@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -47,7 +48,7 @@ var Cell = cell.Module(
 		func() *iptables.Manager { return &iptables.Manager{} },
 		func() types.BandwidthManager { return &BandwidthManager{} },
 		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
-		func() mtu.MTU { return &MTU{} },
+		func() mtu.MTU { return &fakeTypes.MTU{} },
 
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
