@@ -239,10 +239,9 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 	defer n.tracker.Close()
 
 	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
-	revision := statedb.Revision(0)
 	for {
 		txn := n.DB.WriteTxn(n.NodeAddresses)
-		process := func(dev *Device, deleted bool, rev statedb.Revision) error {
+		process := func(dev *Device, deleted bool, rev statedb.Revision) {
 			// Note: prefix match! existing may contain node addresses from devices with names
 			// prefixed by dev. See https://github.com/cilium/cilium/issues/29324.
 			addrIter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(dev.Name))
@@ -252,10 +251,8 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 				new = n.getAddressesFromDevice(dev)
 			}
 			n.update(txn, existing, new, reporter, dev.Name)
-			return nil
 		}
-		var watch <-chan struct{}
-		revision, watch, _ = n.tracker.Process(txn, revision, process)
+		watch := n.tracker.Iterate(txn, process)
 		txn.Commit()
 
 		select {

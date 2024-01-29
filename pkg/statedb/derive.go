@@ -79,14 +79,12 @@ func (d derive[In, Out]) loop(ctx context.Context, health cell.HealthReporter) e
 	}
 	wtxn.Commit()
 	defer tracker.Close()
-	revision := Revision(0)
 	for {
 		wtxn := d.DB.WriteTxn(out)
 
 		var watch <-chan struct{}
-		revision, watch, err = tracker.Process(
+		watch, err = tracker.IterateWithError(
 			wtxn,
-			revision,
 			func(obj In, deleted bool, rev Revision) (err error) {
 				outObj, result := d.transform(obj, deleted)
 				switch result {
