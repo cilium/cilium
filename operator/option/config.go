@@ -17,8 +17,6 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
 
-var IngressLBAnnotationsDefault = []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"}
-
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
 	EndpointGCIntervalDefault = 5 * time.Minute

@@ -29,7 +29,7 @@ var Cell = cell.Module(
 		EnableIngressProxyProtocol:  false,
 		EnableIngressSecretsSync:    true,
 		IngressSecretsNamespace:     "cilium-secrets",
-		IngressLBAnnotationPrefixes: []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"},
+		IngressLBAnnotationPrefixes: []string{"lbipam.cilium.io", "service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"},
 		IngressSharedLBServiceName:  "cilium-ingress",
 		IngressDefaultLBMode:        "dedicated",
 	}),
