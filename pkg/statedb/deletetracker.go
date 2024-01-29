@@ -15,7 +15,11 @@ type DeleteTracker[Obj any] struct {
 	db          *DB
 	trackerName string
 	table       Table[Obj]
-	revision    atomic.Uint64
+
+	// revision is the last observed revision. Starts out at zero
+	// in which case the garbage collector will not care about this
+	// tracker when considering which objects to delete.
+	revision atomic.Uint64
 }
 
 // setRevision is called to set the starting low watermark when
@@ -75,23 +79,23 @@ func (dt *DeleteTracker[Obj]) Close() {
 
 }
 
-// Process is a helper to iterate updates and deletes to a table in revision order.
+// IterateWithError iterates updates and deletes to a table in revision order.
 //
 // The 'processFn' is called for each updated or deleted object in order. If an error
-// is returned by the function the iteration is stopped and the revision at which
-// processing failed and the error is returned. The caller can then retry processing
-// again from this revision by providing it as the 'minRevision'.
-func (dt *DeleteTracker[Obj]) Process(txn ReadTxn, minRevision Revision, processFn func(obj Obj, deleted bool, rev Revision) error) (Revision, <-chan struct{}, error) {
+// is returned by the function the iteration is stopped and the error is returned.
+// On further calls the processing continues from the next unprocessed (or error'd) revision.
+func (dt *DeleteTracker[Obj]) IterateWithError(txn ReadTxn, processFn func(obj Obj, deleted bool, rev Revision) error) (<-chan struct{}, error) {
 	upTo := dt.table.Revision(txn)
+	lastRevision := dt.revision.Load()
 
 	// Get all new and updated objects with revision number equal or
 	// higher than 'minRevision'.
 	// The returned watch channel watches the whole table and thus
 	// is closed when either insert or delete happens.
-	updatedIter, watch := dt.table.LowerBound(txn, ByRevision[Obj](minRevision))
+	updatedIter, watch := dt.table.LowerBound(txn, ByRevision[Obj](lastRevision+1))
 
 	// Get deleted objects with revision equal or higher than 'minRevision'.
-	deletedIter := dt.Deleted(txn.getTxn(), minRevision)
+	deletedIter := dt.Deleted(txn.getTxn(), lastRevision+1)
 
 	// Combine the iterators into one. This can be done as insert and delete
 	// both assign the object a new fresh monotonically increasing revision
@@ -106,9 +110,7 @@ func (dt *DeleteTracker[Obj]) Process(txn ReadTxn, minRevision Revision, process
 			dt.Mark(rev - 1)
 
 			// Processing failed, stop here and try again from this same revision.
-			closedWatch := make(chan struct{})
-			close(closedWatch)
-			return rev, closedWatch, err
+			return closedWatchChannel, err
 		}
 
 	}
@@ -116,5 +118,20 @@ func (dt *DeleteTracker[Obj]) Process(txn ReadTxn, minRevision Revision, process
 	// Fully processed up to latest table revision. GC deleted objects
 	// and return the next revision.
 	dt.Mark(upTo)
-	return upTo + 1, watch, nil
+	return watch, nil
 }
+
+// Iterate over updated and deleted objects in revision order.
+func (dt *DeleteTracker[Obj]) Iterate(txn ReadTxn, iterateFn func(obj Obj, deleted bool, rev Revision)) <-chan struct{} {
+	watch, _ := dt.IterateWithError(txn, func(obj Obj, deleted bool, rev Revision) error {
+		iterateFn(obj, deleted, rev)
+		return nil
+	})
+	return watch
+}
+
+var closedWatchChannel = func() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}()

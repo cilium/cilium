@@ -92,7 +92,6 @@ func TestEmptyMapAddPartialSync(t *testing.T) {
 	fix := newFixture()
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
-	rev := fix.proxyNeighborTable.Revision(txn)
 	tracker, err := fix.proxyNeighborTable.DeleteTracker(txn, "l2-responder-reconciler")
 	assert.NoError(t, err)
 	txn.Commit()
@@ -120,7 +119,7 @@ func TestEmptyMapAddPartialSync(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	fix.reconciler.cycle(ctx, tracker, rev, nil)
+	fix.reconciler.cycle(ctx, tracker, nil)
 
 	stats, err := fix.respondermap.Lookup(ip1, ifidx1)
 	assert.NoError(t, err)
@@ -134,7 +133,6 @@ func TestEmptyMapAddDelPartialSync(t *testing.T) {
 	fix := newFixture()
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
-	rev := fix.proxyNeighborTable.Revision(txn)
 	tracker, err := fix.proxyNeighborTable.DeleteTracker(txn, "l2-responder-reconciler")
 	assert.NoError(t, err)
 	txn.Commit()
@@ -179,7 +177,7 @@ func TestEmptyMapAddDelPartialSync(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	fix.reconciler.cycle(ctx, tracker, rev, nil)
+	fix.reconciler.cycle(ctx, tracker, nil)
 
 	// Added entry should be present
 	stats, err := fix.respondermap.Lookup(ip1, ifidx1)
@@ -282,7 +280,6 @@ func Test1RougeAddPartialSync(t *testing.T) {
 	fix := newFixture()
 
 	txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
-	rev := fix.proxyNeighborTable.Revision(txn)
 	tracker, err := fix.proxyNeighborTable.DeleteTracker(txn, "l2-responder-reconciler")
 	assert.NoError(t, err)
 	txn.Commit()
@@ -313,7 +310,7 @@ func Test1RougeAddPartialSync(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	fix.reconciler.cycle(ctx, tracker, rev, nil)
+	fix.reconciler.cycle(ctx, tracker, nil)
 
 	// Added entry should be present
 	stats, err := fix.respondermap.Lookup(ip1, ifidx1)

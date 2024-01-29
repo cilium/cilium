@@ -38,24 +38,21 @@ func (to *observable[Obj]) Observe(ctx context.Context, next func(Event[Obj]), c
 			complete(err)
 			return
 		}
+		defer dt.Close()
+		defer complete(nil)
 
-		revision := Revision(0)
 		for {
-			var watch <-chan struct{}
-			revision, watch, _ = dt.Process(to.db.ReadTxn(), revision,
-				func(obj Obj, deleted bool, rev uint64) error {
+			watch := dt.Iterate(to.db.ReadTxn(),
+				func(obj Obj, deleted bool, rev uint64) {
 					next(Event[Obj]{
 						Object:   obj,
 						Revision: rev,
 						Deleted:  deleted,
 					})
-					return nil
 				})
 
 			select {
 			case <-ctx.Done():
-				dt.Close()
-				complete(nil)
 				return
 			case <-watch:
 			}

@@ -272,7 +272,6 @@ func (txn *txn) addDeleteTracker(meta TableMeta, trackerName string, dt deleteTr
 	if !ok {
 		return tableError(meta.Name(), ErrTableNotLockedForWriting)
 	}
-	dt.setRevision(table.revision)
 	table.deleteTrackers, _, _ = table.deleteTrackers.Insert([]byte(trackerName), dt)
 	txn.db.metrics.TableDeleteTrackerCount.With(prometheus.Labels{
 		"table": meta.Name(),
