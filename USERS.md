@@ -422,6 +422,11 @@ Users (Alphabetically)
       L: https://mux.com
       Q: @dilyevsky
 
+    * N: NETWAYS Web Services
+      D: NETWAYS Web Services offers Cilium to their clients as CNI option for their Managed Kubernetes clusters.
+      U: Networking (CNI), Observability (Hubble)
+      L: https://nws.netways.de/managed-kubernetes/
+
     * N: New York Times (the)
       D: The New York Times is using Cilium on EKS to build multi-region multi-tenant shared clusters
       U: Networking (CNI, EKS IPAM, Maglev, kube-proxy replacement, Direct Routing),  Observability (Network metrics with Hubble, policy troubleshooting) and Security (Network Policy)
