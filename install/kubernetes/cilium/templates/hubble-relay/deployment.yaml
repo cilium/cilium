@@ -31,6 +31,10 @@ spec:
         {{- with .Values.hubble.relay.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- if and .Values.hubble.relay.prometheus.enabled (not .Values.hubble.relay.prometheus.serviceMonitor.enabled) }}
+        prometheus.io/port: { { .Values.hubble.relay.prometheus.port | quote } }
+        prometheus.io/scrape: "true"
+        {{- end }}
       labels:
         k8s-app: hubble-relay
         app.kubernetes.io/name: hubble-relay
