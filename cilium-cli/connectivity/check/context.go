@@ -295,10 +295,18 @@ func (ct *ConnectivityTest) MustGetTest(name string) *Test {
 	return test
 }
 
+// SetupHooks defines the extension hooks executed during the setup of the connectivity tests.
+type SetupHooks interface {
+	// DetectFeatures is an hook to perform the detection of extra features.
+	DetectFeatures(ctx context.Context, ct *ConnectivityTest) error
+	// SetupAndValidate is an hook to setup additional connectivity test dependencies.
+	SetupAndValidate(ctx context.Context, ct *ConnectivityTest) error
+}
+
 // SetupAndValidate sets up and validates the connectivity test infrastructure
 // such as the client pods and validates the deployment of them along with
 // Cilium. This must be run before Run() is called.
-func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValidateExtras func(ctx context.Context, ct *ConnectivityTest) error) error {
+func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHooks) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -322,8 +330,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 	if err := ct.detectFeatures(ctx); err != nil {
 		return err
 	}
-	// Setup and validate all the extras coming from extended functionalities.
-	if err := setupAndValidateExtras(ctx, ct); err != nil {
+	if err := extra.DetectFeatures(ctx, ct); err != nil {
 		return err
 	}
 
@@ -373,7 +380,9 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 			return fmt.Errorf("unable to detect K8s CIDR: %w", err)
 		}
 	}
-	return nil
+
+	// Setup and validate all the extras coming from extended functionalities.
+	return extra.SetupAndValidate(ctx, ct)
 }
 
 // Run kicks off execution of all Tests registered to the ConnectivityTest.
