@@ -818,14 +818,6 @@ const (
 	// endpoints that are no longer alive and healthy.
 	EndpointGCInterval = "endpoint-gc-interval"
 
-	// This option turns off switching from full pods informer to node's local pods informer
-	// when CEP CRD is disabled and kvstore is used.
-	// Switching from full pods informer to node's local pods informer is considered default behaviour
-	// and this option allows us to change it back to having full pods informer all the time.
-	// It's meant to be mitigation only in case if endpoint synchronization from kvstore has some bugs
-	// and we actually need to watch all pods all the time.
-	LegacyTurnOffK8sEventHandover = "legacy-turn-off-k8s-event-handover"
-
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 = "ipv4-service-loopback-address"
 
@@ -1757,7 +1749,6 @@ type DaemonConfig struct {
 	KVStoreOpt                    map[string]string
 	LabelPrefixFile               string
 	Labels                        []string
-	LegacyTurnOffK8sEventHandover bool
 	LogDriver                     []string
 	LogOpt                        map[string]string
 	Logstash                      bool
@@ -3075,7 +3066,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))
-	c.LegacyTurnOffK8sEventHandover = vp.GetBool(LegacyTurnOffK8sEventHandover)
 	c.K8sSyncTimeout = vp.GetDuration(K8sSyncTimeoutName)
 	c.AllocatorListTimeout = vp.GetDuration(AllocatorListTimeoutName)
 	c.K8sWatcherEndpointSelector = vp.GetString(K8sWatcherEndpointSelector)

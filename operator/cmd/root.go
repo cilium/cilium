@@ -668,22 +668,16 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			log.WithError(err).Fatal("Unable to setup cilium node synchronizer")
 		}
 
-		if operatorOption.Config.SkipCNPStatusStartupClean {
-			log.Info("Skipping clean up of CNP and CCNP node status updates")
-		} else {
-			// If CNP status updates are disabled, we clean up all the
-			// possible updates written when the option was enabled.
-			// This is done to avoid accumulating stale updates and thus
-			// hindering scalability for large clusters.
-			RunCNPStatusNodesCleaner(
-				legacy.ctx,
-				legacy.clientset,
-				xrate.NewLimiter(
-					xrate.Limit(operatorOption.Config.CNPStatusCleanupQPS),
-					operatorOption.Config.CNPStatusCleanupBurst,
-				),
-			)
-		}
+		// This is done to avoid accumulating stale updates and thus
+		// hindering scalability for large clusters.
+		RunCNPStatusNodesCleaner(
+			legacy.ctx,
+			legacy.clientset,
+			xrate.NewLimiter(
+				xrate.Limit(operatorOption.Config.CNPStatusCleanupQPS),
+				operatorOption.Config.CNPStatusCleanupBurst,
+			),
+		)
 
 		if operatorOption.Config.NodesGCInterval != 0 {
 			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore, operatorOption.Config.NodesGCInterval)

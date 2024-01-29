@@ -65,10 +65,6 @@ const (
 	// compatible with MetalLB's configuration.
 	BGPConfigPath = "bgp-config-path"
 
-	// SkipCNPStatusStartupClean specifies if the cleanup of all the CNP
-	// NodeStatus updates at startup must be skipped.
-	SkipCNPStatusStartupClean = "skip-cnp-status-startup-clean"
-
 	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
 	// nodes updates in CNPs is carried out. It is expressed as queries per second,
 	// and for each query a single CNP status update will be deleted.
@@ -263,10 +259,6 @@ type OperatorConfig struct {
 
 	// NodesGCInterval is the GC interval for CiliumNodes
 	NodesGCInterval time.Duration
-
-	// SkipCNPStatusStartupClean disables the cleanup of all the CNP
-	// NodeStatus updates at startup.
-	SkipCNPStatusStartupClean bool
 
 	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
 	// nodes updates in CNPs is carried out. It is expressed as queries per second,
@@ -465,7 +457,6 @@ type OperatorConfig struct {
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
-	c.SkipCNPStatusStartupClean = vp.GetBool(SkipCNPStatusStartupClean)
 	c.CNPStatusCleanupQPS = vp.GetFloat64(CNPStatusCleanupQPS)
 	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
