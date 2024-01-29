@@ -9,78 +9,166 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_nodeStatusFromString(t *testing.T) {
+func Test_nodeStatusFromOutput(t *testing.T) {
 	testCases := []struct {
 		name               string
-		nodeName           string
 		inputString        string
-		expectedNodeStatus nodeStatus
+		expectedNodeStatus EncryptionStatus
 	}{
 		{
 			name:        "Node with no encryption",
-			nodeName:    "node1",
 			inputString: "Encryption: Disabled",
-			expectedNodeStatus: nodeStatus{
-				NodeName:       "node1",
-				EncryptionType: "Disabled",
-				XfrmErrors:     make(map[string]int),
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "Disabled",
+				Ipsec: &IPsecStatus{
+					DecryptInterfaces: make([]string, 0),
+					XfrmErrors:        make(map[string]int64),
+				},
+				Wireguard: &WireguardStatus{
+					Interfaces: make([]*WireguardInterface, 0),
+				},
 			},
 		},
 		{
-			name:     "Node with IPsec encryption and without max seq. num and errors",
-			nodeName: "node2",
+			name: "Node with no encryption, JSON output",
+			inputString: `{
+  "mode": "Disabled"
+}`,
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "Disabled",
+			},
+		},
+		{
+			name: "Node with IPsec encryption and without max seq. num and errors",
 			inputString: `Encryption: IPsec
 Decryption interface(s):
 Keys in use: 1
 Max Seq. Number: N/A
 Errors: 0`,
-			expectedNodeStatus: nodeStatus{
-				NodeName:       "node2",
-				EncryptionType: "IPsec",
-				IPsecMaxSeqNum: "N/A",
-				IPsecKeysInUse: 1,
-				XfrmErrors:     make(map[string]int),
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "IPsec",
+				Ipsec: &IPsecStatus{
+					MaxSeqNumber:      "N/A",
+					KeysInUse:         1,
+					DecryptInterfaces: make([]string, 0),
+					XfrmErrors:        make(map[string]int64),
+				},
+				Wireguard: &WireguardStatus{
+					Interfaces: make([]*WireguardInterface, 0),
+				},
 			},
 		},
 		{
-			name:     "Node with IPsec encryption, with max seq. num and without errors",
-			nodeName: "node3",
+			name: "Node with IPsec encryption and without max seq. num and errors, JSON output",
+			inputString: `{
+  "ipsec": {
+    "decrypt-interfaces": [],
+    "keys-in-use": 1,
+    "max-seq-number": "N/A"
+  },
+  "mode": "IPsec"
+}`,
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "IPsec",
+				Ipsec: &IPsecStatus{
+					MaxSeqNumber:      "N/A",
+					KeysInUse:         1,
+					DecryptInterfaces: make([]string, 0),
+				},
+			},
+		},
+		{
+			name: "Node with IPsec encryption, with max seq. num and without errors",
 			inputString: `Encryption: IPsec
 Decryption interface(s):
 Keys in use: 1
 Max Seq. Number: 0x66c/0xffffffff
 Errors: 0`,
-			expectedNodeStatus: nodeStatus{
-				NodeName:       "node3",
-				EncryptionType: "IPsec",
-				IPsecMaxSeqNum: "0x66c/0xffffffff",
-				IPsecKeysInUse: 1,
-				XfrmErrors:     make(map[string]int),
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "IPsec",
+				Ipsec: &IPsecStatus{
+					MaxSeqNumber:      "0x66c/0xffffffff",
+					KeysInUse:         1,
+					DecryptInterfaces: make([]string, 0),
+					XfrmErrors:        make(map[string]int64),
+				},
+				Wireguard: &WireguardStatus{
+					Interfaces: make([]*WireguardInterface, 0),
+				},
 			},
 		},
 		{
-			name:     "Node with IPsec encryption, with max seq. num and IPsec error",
-			nodeName: "node4",
+			name: "Node with IPsec encryption, with max seq. num and without errors, JSON output",
+			inputString: `{
+  "ipsec": {
+    "decrypt-interfaces": [],
+    "keys-in-use": 1,
+    "max-seq-number": "0x66c/0xffffffff"
+  },
+  "mode": "IPsec"
+}`,
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "IPsec",
+				Ipsec: &IPsecStatus{
+					MaxSeqNumber:      "0x66c/0xffffffff",
+					KeysInUse:         1,
+					DecryptInterfaces: make([]string, 0),
+				},
+			},
+		},
+		{
+			name: "Node with IPsec encryption, with max seq. num and IPsec error",
 			inputString: `Encryption: IPsec
 Decryption interface(s):
 Keys in use: 2
 Max Seq. Number: 0x66c/0xffffffff
 Errors: 2
     XfrmInNoState: 2`,
-			expectedNodeStatus: nodeStatus{
-				NodeName:       "node4",
-				EncryptionType: "IPsec",
-				IPsecMaxSeqNum: "0x66c/0xffffffff",
-				IPsecKeysInUse: 2,
-				IPsecErrCount:  2,
-				XfrmErrors: map[string]int{
-					"XfrmInNoState": 2,
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "IPsec",
+				Ipsec: &IPsecStatus{
+					MaxSeqNumber:      "0x66c/0xffffffff",
+					KeysInUse:         2,
+					ErrorCount:        2,
+					DecryptInterfaces: make([]string, 0),
+					XfrmErrors: map[string]int64{
+						"XfrmInNoState": 2,
+					},
+				},
+				Wireguard: &WireguardStatus{
+					Interfaces: make([]*WireguardInterface, 0),
 				},
 			},
 		},
 		{
-			name:     "Node with IPsec encryption, with max seq. num and IPsec errors",
-			nodeName: "node5",
+			name: "Node with IPsec encryption, with max seq. num and IPsec error, JSON output",
+			inputString: `{
+  "ipsec": {
+    "decrypt-interfaces": [],
+    "keys-in-use": 2,
+    "max-seq-number": "0x66c/0xffffffff",
+    "error-count": 2,
+    "xfrm-errors": {
+      "XfrmInNoState": 2
+    }
+  },
+  "mode": "IPsec"
+}`,
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "IPsec",
+				Ipsec: &IPsecStatus{
+					MaxSeqNumber:      "0x66c/0xffffffff",
+					KeysInUse:         2,
+					ErrorCount:        2,
+					DecryptInterfaces: make([]string, 0),
+					XfrmErrors: map[string]int64{
+						"XfrmInNoState": 2,
+					},
+				},
+			},
+		},
+		{
+			name: "Node with IPsec encryption, with max seq. num and IPsec errors",
 			inputString: `Encryption: IPsec
 Decryption interface(s):
 Keys in use: 2
@@ -88,33 +176,83 @@ Max Seq. Number: 0x66c/0xffffffff
 Errors: 3
     XfrmInNoState: 2
     XfrmInHdrError: 1`,
-			expectedNodeStatus: nodeStatus{
-				NodeName:       "node5",
-				EncryptionType: "IPsec",
-				IPsecMaxSeqNum: "0x66c/0xffffffff",
-				IPsecKeysInUse: 2,
-				IPsecErrCount:  3,
-				XfrmErrors: map[string]int{
-					"XfrmInNoState":  2,
-					"XfrmInHdrError": 1,
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "IPsec",
+				Ipsec: &IPsecStatus{
+					MaxSeqNumber:      "0x66c/0xffffffff",
+					KeysInUse:         2,
+					ErrorCount:        3,
+					DecryptInterfaces: make([]string, 0),
+					XfrmErrors: map[string]int64{
+						"XfrmInNoState":  2,
+						"XfrmInHdrError": 1,
+					},
+				},
+				Wireguard: &WireguardStatus{
+					Interfaces: make([]*WireguardInterface, 0),
+				},
+			},
+		},
+		{
+			name: "Node with IPsec encryption, with max seq. num and IPsec errors, JSON output",
+			inputString: `{
+  "ipsec": {
+    "decrypt-interfaces": [],
+    "keys-in-use": 2,
+    "max-seq-number": "0x66c/0xffffffff",
+    "error-count": 3,
+    "xfrm-errors": {
+      "XfrmInNoState": 2,
+      "XfrmInHdrError": 1
+    }
+  },
+  "mode": "IPsec"
+}`,
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "IPsec",
+				Ipsec: &IPsecStatus{
+					MaxSeqNumber:      "0x66c/0xffffffff",
+					KeysInUse:         2,
+					ErrorCount:        3,
+					DecryptInterfaces: make([]string, 0),
+					XfrmErrors: map[string]int64{
+						"XfrmInNoState":  2,
+						"XfrmInHdrError": 1,
+					},
 				},
 			},
 		},
 		{
 			name:        "Node with Wireguard encryption",
-			nodeName:    "node6",
 			inputString: "Encryption: Wireguard",
-			expectedNodeStatus: nodeStatus{
-				NodeName:       "node6",
-				EncryptionType: "Wireguard",
-				XfrmErrors:     make(map[string]int),
+			expectedNodeStatus: EncryptionStatus{
+				Mode: "Wireguard",
+				Ipsec: &IPsecStatus{
+					DecryptInterfaces: make([]string, 0),
+					XfrmErrors:        make(map[string]int64),
+				},
+				Wireguard: &WireguardStatus{
+					Interfaces: make([]*WireguardInterface, 0),
+				},
+			},
+		},
+		{
+			name: "Node with Wireguard encryption, JSON output",
+			inputString: `{
+  "mode": "Wireguard",
+  "wireguard": {
+  }
+}`,
+			expectedNodeStatus: EncryptionStatus{
+				Mode:      "Wireguard",
+				Wireguard: &WireguardStatus{},
 			},
 		},
 	}
 
 	for _, tt := range testCases {
 		// function to test
-		actualNodeStatus, err := nodeStatusFromString(tt.nodeName, tt.inputString)
+		actualNodeStatus, err := nodeStatusFromOutput(tt.inputString)
 
 		require.NoError(t, err)
 		require.Equal(t, tt.expectedNodeStatus, actualNodeStatus)
@@ -124,94 +262,92 @@ Errors: 3
 func Test_clusterNodeStatus(t *testing.T) {
 	testCases := []struct {
 		name                  string
-		nodeStatusMap         map[string]nodeStatus
+		nodeStatusMap         map[string]EncryptionStatus
 		expectedClusterStatus clusterStatus
 	}{
 		{
 			name: "Nodes with no encryption",
-			nodeStatusMap: map[string]nodeStatus{
+			nodeStatusMap: map[string]EncryptionStatus{
 				"node1": {
-					NodeName:       "node1",
-					EncryptionType: "Disabled",
-					XfrmErrors:     make(map[string]int),
+					Mode: "Disabled",
 				},
 				"node2": {
-					NodeName:       "node2",
-					EncryptionType: "Disabled",
-					XfrmErrors:     make(map[string]int),
+					Mode: "Disabled",
 				},
 			},
 			expectedClusterStatus: clusterStatus{
 				TotalNodeCount:          2,
 				EncDisabledNodeCount:    2,
-				IPsecKeysInUseNodeCount: make(map[int]int),
-				XfrmErrors:              make(map[string]int),
-				XfrmErrorNodeCount:      make(map[string]int),
+				IPsecKeysInUseNodeCount: make(map[int64]int64),
+				XfrmErrors:              make(map[string]int64),
+				XfrmErrorNodeCount:      make(map[string]int64),
 			},
 		},
 		{
 			name: "Nodes with IPsec encryption without errors",
-			nodeStatusMap: map[string]nodeStatus{
+			nodeStatusMap: map[string]EncryptionStatus{
 				"node1": {
-					NodeName:       "node1",
-					EncryptionType: "IPsec",
-					IPsecMaxSeqNum: "0x66c/0xffffffff",
-					IPsecKeysInUse: 1,
-					XfrmErrors:     make(map[string]int),
+					Mode: "IPsec",
+					Ipsec: &IPsecStatus{
+						KeysInUse:    1,
+						MaxSeqNumber: "0x66c/0xffffffff",
+					},
 				},
 				"node2": {
-					NodeName:       "node2",
-					EncryptionType: "IPsec",
-					IPsecMaxSeqNum: "0x77c/0xffffffff",
-					IPsecKeysInUse: 1,
-					XfrmErrors:     make(map[string]int),
+					Mode: "IPsec",
+					Ipsec: &IPsecStatus{
+						KeysInUse:    1,
+						MaxSeqNumber: "0x77c/0xffffffff",
+					},
 				},
 			},
 			expectedClusterStatus: clusterStatus{
 				TotalNodeCount:          2,
 				EncIPsecNodeCount:       2,
-				IPsecKeysInUseNodeCount: map[int]int{1: 2},
+				IPsecKeysInUseNodeCount: map[int64]int64{1: 2},
 				IPsecMaxSeqNum:          "0x77c/0xffffffff",
-				XfrmErrors:              make(map[string]int),
-				XfrmErrorNodeCount:      make(map[string]int),
+				XfrmErrors:              make(map[string]int64),
+				XfrmErrorNodeCount:      make(map[string]int64),
 			},
 		},
 		{
 			name: "Nodes with IPsec encryption with errors",
-			nodeStatusMap: map[string]nodeStatus{
+			nodeStatusMap: map[string]EncryptionStatus{
 				"node1": {
-					NodeName:       "node1",
-					EncryptionType: "IPsec",
-					IPsecMaxSeqNum: "0x66c/0xffffffff",
-					IPsecKeysInUse: 1,
-					IPsecErrCount:  2,
-					XfrmErrors: map[string]int{
-						"XfrmInNoState": 2,
+					Mode: "IPsec",
+					Ipsec: &IPsecStatus{
+						KeysInUse:    1,
+						ErrorCount:   2,
+						MaxSeqNumber: "0x66c/0xffffffff",
+						XfrmErrors: map[string]int64{
+							"XfrmInNoState": 2,
+						},
 					},
 				},
 				"node2": {
-					NodeName:       "node2",
-					EncryptionType: "IPsec",
-					IPsecMaxSeqNum: "0x77c/0xffffffff",
-					IPsecKeysInUse: 2,
-					IPsecErrCount:  3,
-					XfrmErrors: map[string]int{
-						"XfrmInHdrError": 1,
-						"XfrmInNoState":  2,
+					Mode: "IPsec",
+					Ipsec: &IPsecStatus{
+						KeysInUse:    2,
+						ErrorCount:   3,
+						MaxSeqNumber: "0x77c/0xffffffff",
+						XfrmErrors: map[string]int64{
+							"XfrmInHdrError": 1,
+							"XfrmInNoState":  2,
+						},
 					},
 				},
 			},
 			expectedClusterStatus: clusterStatus{
 				TotalNodeCount:          2,
 				EncIPsecNodeCount:       2,
-				IPsecKeysInUseNodeCount: map[int]int{1: 1, 2: 1},
+				IPsecKeysInUseNodeCount: map[int64]int64{1: 1, 2: 1},
 				IPsecMaxSeqNum:          "0x77c/0xffffffff",
 				IPsecErrCount:           5,
-				XfrmErrors: map[string]int{
+				XfrmErrors: map[string]int64{
 					"XfrmInHdrError": 1,
 					"XfrmInNoState":  4,
 				},
-				XfrmErrorNodeCount: map[string]int{
+				XfrmErrorNodeCount: map[string]int64{
 					"XfrmInHdrError": 1,
 					"XfrmInNoState":  2,
 				},
@@ -219,46 +355,46 @@ func Test_clusterNodeStatus(t *testing.T) {
 		},
 		{
 			name: "Nodes with Disabled and IPsec encryption with errors",
-			nodeStatusMap: map[string]nodeStatus{
+			nodeStatusMap: map[string]EncryptionStatus{
 				"node1": {
-					NodeName:       "node1",
-					EncryptionType: "IPsec",
-					IPsecMaxSeqNum: "0x66c/0xffffffff",
-					IPsecKeysInUse: 1,
-					IPsecErrCount:  2,
-					XfrmErrors: map[string]int{
-						"XfrmInNoState": 2,
+					Mode: "IPsec",
+					Ipsec: &IPsecStatus{
+						KeysInUse:    1,
+						ErrorCount:   2,
+						MaxSeqNumber: "0x66c/0xffffffff",
+						XfrmErrors: map[string]int64{
+							"XfrmInNoState": 2,
+						},
 					},
 				},
 				"node2": {
-					NodeName:       "node2",
-					EncryptionType: "IPsec",
-					IPsecMaxSeqNum: "0x77c/0xffffffff",
-					IPsecKeysInUse: 2,
-					IPsecErrCount:  3,
-					XfrmErrors: map[string]int{
-						"XfrmInHdrError": 1,
-						"XfrmInNoState":  2,
+					Mode: "IPsec",
+					Ipsec: &IPsecStatus{
+						KeysInUse:    2,
+						ErrorCount:   3,
+						MaxSeqNumber: "0x77c/0xffffffff",
+						XfrmErrors: map[string]int64{
+							"XfrmInHdrError": 1,
+							"XfrmInNoState":  2,
+						},
 					},
 				},
 				"node3": {
-					NodeName:       "node3",
-					EncryptionType: "Disabled",
-					XfrmErrors:     make(map[string]int),
+					Mode: "Disabled",
 				},
 			},
 			expectedClusterStatus: clusterStatus{
 				TotalNodeCount:          3,
 				EncDisabledNodeCount:    1,
 				EncIPsecNodeCount:       2,
-				IPsecKeysInUseNodeCount: map[int]int{1: 1, 2: 1},
+				IPsecKeysInUseNodeCount: map[int64]int64{1: 1, 2: 1},
 				IPsecMaxSeqNum:          "0x77c/0xffffffff",
 				IPsecErrCount:           5,
-				XfrmErrors: map[string]int{
+				XfrmErrors: map[string]int64{
 					"XfrmInHdrError": 1,
 					"XfrmInNoState":  4,
 				},
-				XfrmErrorNodeCount: map[string]int{
+				XfrmErrorNodeCount: map[string]int64{
 					"XfrmInHdrError": 1,
 					"XfrmInNoState":  2,
 				},
