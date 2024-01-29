@@ -195,9 +195,15 @@ var (
 	client2Label = map[string]string{"name": "client2"}
 )
 
-func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*check.ConnectivityTest) error,
-	addExtraSetup func(context.Context, *check.ConnectivityTest) error) error {
-	if err := ct.SetupAndValidate(ctx, addExtraSetup); err != nil {
+// Hooks defines the extension hooks provided by connectivity tests.
+type Hooks interface {
+	check.SetupHooks
+	// AddConnectivityTests is an hook to register additional connectivity tests.
+	AddConnectivityTests(ct *check.ConnectivityTest) error
+}
+
+func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
+	if err := ct.SetupAndValidate(ctx, extra); err != nil {
 		return err
 	}
 
@@ -1222,7 +1228,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	// Tests with DNS redirects to the proxy (e.g., client-egress-l7, dns-only,
 	// and to-fqdns) should always be executed last. See #367 for details.
 
-	if err := addExtraTests(ct); err != nil {
+	if err := extra.AddConnectivityTests(ct); err != nil {
 		return err
 	}
 
