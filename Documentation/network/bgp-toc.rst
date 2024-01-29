@@ -14,6 +14,7 @@ BGP
    :glob:
 
    bgp-control-plane
+   bgp-control-plane-troubleshooting
    lb-ipam
    bgp
    kube-router
