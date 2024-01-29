@@ -281,7 +281,7 @@ setting the ``--devices`` agent option accordingly.
 .. warning::
 
    The ``egressIP`` and ``interface`` properties cannot both be specified in the ``egressGateway`` spec. Egress Gateway Policies that contain both of these properties will be ignored by Cilium.
-           
+
 Example policy
 --------------
 
@@ -331,6 +331,23 @@ labels in the ``default`` namespace and destined to ``0.0.0.0/0`` (i.e. all
 traffic leaving the cluster) to be routed through the gateway node with the
 ``node.kubernetes.io/name: a-specific-node`` label, which will then SNAT said
 traffic with the ``10.168.60.100`` egress IP.
+
+Selection of the egress network interface
+=========================================
+
+For gateway nodes with multiple network interfaces, Cilium selects the egress
+network interface based on the node's routing setup
+(``ip route get <externalIP> from <egressIP>``).
+
+.. warning::
+
+   Redirecting to the correct egress network interface can fail under certain
+   conditions when using a pre-5.10 kernel. In this case Cilium falls back to
+   the current (== default) network interface.
+
+   For environments that strictly require traffic to leave through the
+   correct egress interface (for example EKS in ENI mode), it is recommended to use
+   a 5.10 kernel or newer.
 
 Testing the egress gateway feature
 ==================================
