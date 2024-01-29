@@ -54,9 +54,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(vp, option.ConfigDir)
 
-	flags.Bool(operatorOption.SkipCNPStatusStartupClean, false, `If set to true, the operator will not clean up CNP node status updates at startup`)
-	option.BindEnv(vp, operatorOption.SkipCNPStatusStartupClean)
-
 	flags.Float64(operatorOption.CNPStatusCleanupQPS, operatorOption.CNPStatusCleanupQPSDefault,
 		"Rate used for limiting the clean up of the status nodes updates in CNP, expressed as qps")
 	option.BindEnv(vp, operatorOption.CNPStatusCleanupQPS)

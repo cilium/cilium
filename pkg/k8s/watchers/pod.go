@@ -204,10 +204,6 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 			close(k.podStoreSet)
 		})
 
-		if option.Config.LegacyTurnOffK8sEventHandover {
-			return
-		}
-
 		// Replace pod controller by only receiving events from our own
 		// node once we are connected to the kvstore.
 		<-kvstore.Connected()

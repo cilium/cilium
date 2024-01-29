@@ -252,7 +252,6 @@ func init() {
 			StartAgent(func(_ *option.DaemonConfig) {}).
 			StartOperator(
 				func(operatorCfg *operatorOption.OperatorConfig) {
-					operatorCfg.SkipCNPStatusStartupClean = true
 				},
 				func(vp *viper.Viper) {
 					vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
@@ -273,7 +272,6 @@ func init() {
 			StartAgent(func(_ *option.DaemonConfig) {}).
 			StartOperator(
 				func(operatorCfg *operatorOption.OperatorConfig) {
-					operatorCfg.SkipCNPStatusStartupClean = false
 				},
 				func(vp *viper.Viper) {
 					vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
