@@ -137,7 +137,7 @@ func skipAddress(elem *ciliumModels.NodeAddressingElement) bool {
 // resolveIP attempts to sanitize 'node' and 'ip', and if successful, returns
 // the name of the node and the IP address specified in the addressing element.
 // If validation fails or this IP should not be pinged, 'ip' is returned as nil.
-func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
+func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, primary bool) (string, *net.IPAddr) {
 	node := n.NodeElement
 	network := "ip6:icmp"
 	if isIPv4(addr.IP) {
@@ -152,7 +152,6 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 			logfields.NodeName: node.Name,
 			logfields.IPAddr:   addr.IP,
 			"primary":          primary,
-			"protocol":         proto,
 		})
 	}
 
@@ -201,7 +200,7 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 
 	for _, n := range added {
 		for elem, primary := range n.Addresses() {
-			_, addr := resolveIP(&n, elem, "icmp", primary)
+			_, addr := resolveIP(&n, elem, primary)
 			if addr == nil {
 				continue
 			}
@@ -279,7 +278,7 @@ func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
 		}
 		nodes[node.Name] = []*net.IPAddr{}
 		for elem, primary := range node.Addresses() {
-			if _, addr := resolveIP(&node, elem, "http", primary); addr != nil {
+			if _, addr := resolveIP(&node, elem, primary); addr != nil {
 				nodes[node.Name] = append(nodes[node.Name], addr)
 			}
 		}
