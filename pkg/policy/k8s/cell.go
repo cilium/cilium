@@ -45,10 +45,6 @@ var Cell = cell.Module(
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-k8s-watcher")
-
-	importMetadataCache = ruleImportMetadataCache{
-		ruleImportMetadataMap: make(map[string]policyImportMetadata),
-	}
 )
 
 type PolicyManager interface {

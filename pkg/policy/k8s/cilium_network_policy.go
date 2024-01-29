@@ -18,55 +18,12 @@ import (
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-// ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
-// (namespace and name) to metadata about the importing of the rule into the
-// agent's policy repository at the time said rule was imported (revision
-// number, and if any error occurred while importing).
-type ruleImportMetadataCache struct {
-	mutex                 lock.RWMutex
-	ruleImportMetadataMap map[string]policyImportMetadata
-}
-
-type policyImportMetadata struct {
-	revision          uint64
-	policyImportError error
-}
-
-func (r *ruleImportMetadataCache) upsert(cnp *types.SlimCNP, revision uint64, importErr error) {
-	if cnp == nil {
-		return
-	}
-
-	meta := policyImportMetadata{
-		revision:          revision,
-		policyImportError: importErr,
-	}
-	podNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
-
-	r.mutex.Lock()
-	r.ruleImportMetadataMap[podNSName] = meta
-	r.mutex.Unlock()
-}
-
-func (r *ruleImportMetadataCache) delete(cnp *types.SlimCNP) {
-	if cnp == nil {
-		return
-	}
-	podNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
-
-	r.mutex.Lock()
-	delete(r.ruleImportMetadataMap, podNSName)
-	r.mutex.Unlock()
-}
 
 type PolicyWatcher struct {
 	k8sResourceSynced *k8sSynced.Resources
@@ -298,15 +255,13 @@ func (p *PolicyWatcher) addCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecv
 
 	scopedLog.Debug("Adding CiliumNetworkPolicy")
 
-	var rev uint64
-
 	rules, policyImportErr := cnp.Parse()
 	if policyImportErr == nil {
 		policyImportErr = k8s.PreprocessRules(rules, p.K8sSvcCache)
 		// Replace all rules with the same name, namespace and
 		// resourceTypeCiliumNetworkPolicy
 		if policyImportErr == nil {
-			rev, policyImportErr = p.policyManager.PolicyAdd(rules, &policy.AddOptions{
+			_, policyImportErr = p.policyManager.PolicyAdd(rules, &policy.AddOptions{
 				ReplaceWithLabels:   cnp.GetIdentityLabels(),
 				Source:              source.CustomResource,
 				ProcessingStartTime: initialRecvTime,
@@ -321,11 +276,6 @@ func (p *PolicyWatcher) addCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecv
 		scopedLog.Info("Imported CiliumNetworkPolicy")
 	}
 
-	// Upsert to rule revision cache outside of controller, because upsertion
-	// *must* be synchronous so that if we get an update for the CNP, the cache
-	// is populated by the time updateCiliumNetworkPolicyV2 is invoked.
-	importMetadataCache.upsert(cnp, rev, policyImportErr)
-
 	return policyImportErr
 }
 
@@ -337,8 +287,6 @@ func (p *PolicyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 	})
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
-
-	importMetadataCache.delete(cnp)
 
 	_, err := p.policyManager.PolicyDelete(cnp.GetIdentityLabels(), &policy.DeleteOptions{
 		Source:   source.CustomResource,
