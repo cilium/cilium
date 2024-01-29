@@ -2782,6 +2782,11 @@ preflight:
   #     cpu: 100m
   #     memory: 512Mi
 
+  readinessProbe:
+    # -- For how long kubelet should wait before performing the first probe
+    initialDelaySeconds: 5
+    # -- interval between checks of the readiness probe
+    periodSeconds: 5
   # -- Security context to be added to preflight pods
   securityContext: {}
   #   runAsUser: 0

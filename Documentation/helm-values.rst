@@ -2788,6 +2788,14 @@
      - The priority class to use for the preflight pod.
      - string
      - ``""``
+   * - :spelling:ignore:`preflight.readinessProbe.initialDelaySeconds`
+     - For how long kubelet should wait before performing the first probe
+     - int
+     - ``5``
+   * - :spelling:ignore:`preflight.readinessProbe.periodSeconds`
+     - interval between checks of the readiness probe
+     - int
+     - ``5``
    * - :spelling:ignore:`preflight.resources`
      - preflight resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
      - object

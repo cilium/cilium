@@ -382,6 +382,7 @@ impactful
 ingressing
 init
 initContainer
+initialDelaySeconds
 inlined
 inlines
 inlining
