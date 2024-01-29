@@ -56,6 +56,7 @@ cilium-operator [flags]
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-metrics                                       Enable Prometheus metrics
+      --enable-node-port                                     Enable NodePort type services by Cilium
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --eni-gc-interval duration                             Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)
       --eni-gc-tags map                                      Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected
@@ -85,6 +86,7 @@ cilium-operator [flags]
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                                 Name of the Kubernetes namespace in which Cilium Operator is deployed in
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
+      --kube-proxy-replacement string                        Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --kvstore string                                       Key-value store type
       --kvstore-opt map                                      Key-value store options e.g. etcd.address=127.0.0.1:4001
       --leader-election-lease-duration duration              Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)

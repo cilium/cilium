@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell manages the Gateway API related controllers.
@@ -48,11 +49,17 @@ var requiredGVK = []schema.GroupVersionKind{
 }
 
 type gatewayApiConfig struct {
+	KubeProxyReplacement string
+	EnableNodePort       bool
+
 	EnableGatewayAPISecretsSync bool
 	GatewayAPISecretsNamespace  string
 }
 
 func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
+	flags.String("kube-proxy-replacement", r.KubeProxyReplacement, "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
+	flags.Bool("enable-node-port", r.EnableNodePort, "Enable NodePort type services by Cilium")
+
 	flags.Bool("enable-gateway-api-secrets-sync", r.EnableGatewayAPISecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag)")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 }
@@ -70,6 +77,11 @@ type gatewayAPIParams struct {
 
 func initGatewayAPIController(params gatewayAPIParams) error {
 	if !operatorOption.Config.EnableGatewayAPI {
+		return nil
+	}
+
+	if params.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue && !params.Config.EnableNodePort {
+		params.Logger.Warn("Gateway API support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil
 	}
 
