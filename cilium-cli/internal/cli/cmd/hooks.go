@@ -4,11 +4,9 @@
 package cmd
 
 import (
-	"context"
-
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium-cli/sysdump"
 )
 
@@ -20,9 +18,9 @@ type Hooks interface {
 
 // ConnectivityTestHooks to extend cilium-cli with additional connectivity tests and related flags.
 type ConnectivityTestHooks interface {
-	SetupAndValidate(ctx context.Context, ct *check.ConnectivityTest) error
+	connectivity.Hooks
+	// AddConnectivityTestFlags is an hook to register additional connectivity test flags.
 	AddConnectivityTestFlags(flags *pflag.FlagSet)
-	AddConnectivityTests(ct *check.ConnectivityTest) error
 }
 
 // SysdumpHooks to extend cilium-cli with additional sysdump tasks and related flags.
