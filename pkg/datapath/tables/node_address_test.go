@@ -18,7 +18,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
@@ -72,7 +71,7 @@ var nodeAddressTests = []struct {
 		addrs: []DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 		},
 		wantAddrs: []net.IP{
@@ -93,7 +92,7 @@ var nodeAddressTests = []struct {
 		addrs: []DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 		},
 		wantAddrs: []net.IP{
@@ -114,11 +113,11 @@ var nodeAddressTests = []struct {
 		addrs: []DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: RT_SCOPE_UNIVERSE,
 			},
 		},
 
@@ -144,16 +143,16 @@ var nodeAddressTests = []struct {
 		addrs: []DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.1.1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: RT_SCOPE_UNIVERSE,
 			},
 			{
 				Addr:  netip.MustParseAddr("10.0.2.2"),
-				Scope: unix.RT_SCOPE_LINK,
+				Scope: RT_SCOPE_LINK,
 			},
 			{
 				Addr:      netip.MustParseAddr("10.0.3.3"),
 				Secondary: true,
-				Scope:     unix.RT_SCOPE_HOST,
+				Scope:     RT_SCOPE_HOST,
 			},
 		},
 
@@ -180,16 +179,16 @@ var nodeAddressTests = []struct {
 		addrs: []DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: RT_SCOPE_UNIVERSE,
 			},
 			{
 				Addr:      netip.MustParseAddr("10.0.0.2"),
-				Scope:     unix.RT_SCOPE_UNIVERSE,
+				Scope:     RT_SCOPE_UNIVERSE,
 				Secondary: true,
 			},
 			{
 				Addr:  netip.MustParseAddr("1.1.1.1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: RT_SCOPE_UNIVERSE,
 			},
 		},
 
@@ -215,16 +214,16 @@ var nodeAddressTests = []struct {
 		addrs: []DeviceAddress{
 			{ // Second public address
 				Addr:  netip.MustParseAddr("2600:beef::2"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 			{ // First public address
 				Addr:  netip.MustParseAddr("2600:beef::3"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: RT_SCOPE_UNIVERSE,
 			},
 
 			{ // First private address (preferred for NodePort)
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: RT_SCOPE_UNIVERSE,
 			},
 		},
 
@@ -261,8 +260,8 @@ func TestNodeAddress(t *testing.T) {
 		Name:  "cilium_host",
 		Flags: net.FlagUp,
 		Addrs: []DeviceAddress{
-			{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: unix.RT_SCOPE_LINK},
+			{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
 		},
 		Selected: false,
 	})
@@ -271,8 +270,8 @@ func TestNodeAddress(t *testing.T) {
 		Name:  "lo",
 		Flags: net.FlagUp | net.FlagLoopback,
 		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("127.0.0.1"), Scope: unix.RT_SCOPE_HOST},
-			{Addr: netip.MustParseAddr("::1"), Scope: unix.RT_SCOPE_HOST},
+			{Addr: netip.MustParseAddr("127.0.0.1"), Scope: RT_SCOPE_HOST},
+			{Addr: netip.MustParseAddr("::1"), Scope: RT_SCOPE_HOST},
 		},
 		Selected: false,
 	})
@@ -349,7 +348,7 @@ func TestNodeAddress(t *testing.T) {
 func TestNodeAddressHostDevice(t *testing.T) {
 	t.Parallel()
 
-	db, devices, nodeAddrs := fixture(t, unix.RT_SCOPE_SITE, nil)
+	db, devices, nodeAddrs := fixture(t, int(RT_SCOPE_SITE), nil)
 
 	txn := db.WriteTxn(devices)
 	_, watch := nodeAddrs.All(txn)
@@ -360,11 +359,11 @@ func TestNodeAddressHostDevice(t *testing.T) {
 		Flags: net.FlagUp,
 		Addrs: []DeviceAddress{
 			// <SITE
-			{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
 			// >SITE, but included
-			{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: unix.RT_SCOPE_LINK},
+			{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
 			// >SITE, skipped
-			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: unix.RT_SCOPE_HOST},
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_HOST},
 		},
 		Selected: false,
 	})
@@ -399,11 +398,11 @@ var nodeAddressWhitelistTests = []struct {
 		addrs: []DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("11.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 		},
 		wantLocal: []net.IP{
@@ -425,11 +424,11 @@ var nodeAddressWhitelistTests = []struct {
 		addrs: []DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2600:beef::2"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 		},
 		wantLocal: []net.IP{
@@ -451,19 +450,19 @@ var nodeAddressWhitelistTests = []struct {
 		addrs: []DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("11.0.0.1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: RT_SCOPE_UNIVERSE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: RT_SCOPE_UNIVERSE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2600:beef::2"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: RT_SCOPE_SITE,
 			},
 		},
 
@@ -504,8 +503,8 @@ func TestNodeAddressWhitelist(t *testing.T) {
 				Name:  "cilium_host",
 				Flags: net.FlagUp,
 				Addrs: []DeviceAddress{
-					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: unix.RT_SCOPE_UNIVERSE},
-					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: unix.RT_SCOPE_LINK},
+					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
+					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
 				},
 				Selected: false,
 			})
@@ -639,42 +638,42 @@ func TestSortedAddresses(t *testing.T) {
 	testCases := [][]DeviceAddress{
 		// Primary vs Secondary
 		{
-			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: unix.RT_SCOPE_SITE},
-			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
+			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: RT_SCOPE_UNIVERSE, Secondary: true},
 		},
 		{
-			{Addr: netip.MustParseAddr("1002::1"), Scope: unix.RT_SCOPE_SITE},
-			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
+			{Addr: netip.MustParseAddr("1002::1"), Scope: RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_UNIVERSE, Secondary: true},
 		},
 
 		// Scope
 		{
-			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: unix.RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: RT_SCOPE_SITE},
 		},
 		{
-			{Addr: netip.MustParseAddr("1002::1"), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("1002::1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_SITE},
 		},
 
 		// Public vs private
 		{
-			{Addr: netip.MustParseAddr("200.0.0.1"), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: netip.MustParseAddr("192.168.1.1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("200.0.0.1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("192.168.1.1"), Scope: RT_SCOPE_UNIVERSE},
 		},
 		{
-			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: netip.MustParseAddr("100::1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("100::1"), Scope: RT_SCOPE_UNIVERSE},
 		},
 
 		// Address itself
 		{
-			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: RT_SCOPE_UNIVERSE},
 		},
 		{
-			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: netip.MustParseAddr("1002::1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1002::1"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	}
 
@@ -695,14 +694,14 @@ func TestFallbackAddresses(t *testing.T) {
 	f.update(&Device{
 		Index: 2,
 		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: unix.RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.1")
 	f.update(&Device{
 		Index: 3,
 		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv6.addr.Addr.String(), "1001::1")
@@ -711,7 +710,7 @@ func TestFallbackAddresses(t *testing.T) {
 	f.update(&Device{
 		Index: 4,
 		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.2")
@@ -720,7 +719,7 @@ func TestFallbackAddresses(t *testing.T) {
 	f.update(&Device{
 		Index: 1,
 		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("10.0.0.3"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("10.0.0.3"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.3")
@@ -729,7 +728,7 @@ func TestFallbackAddresses(t *testing.T) {
 	f.update(&Device{
 		Index: 5,
 		Addrs: []DeviceAddress{
-			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: unix.RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "20.0.0.1")

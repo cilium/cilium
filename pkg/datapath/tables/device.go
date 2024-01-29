@@ -131,7 +131,7 @@ func (d *Device) TableRow() []string {
 type DeviceAddress struct {
 	Addr      netip.Addr
 	Secondary bool
-	Scope     uint8 // Address scope, e.g. unix.RT_SCOPE_LINK, unix.RT_SCOPE_HOST etc.
+	Scope     RouteScope // Address scope, e.g. RT_SCOPE_LINK, RT_SCOPE_HOST etc.
 }
 
 func (d *DeviceAddress) AsIP() net.IP {
