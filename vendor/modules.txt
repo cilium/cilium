@@ -650,7 +650,7 @@ github.com/go-openapi/jsonreference/internal
 # github.com/go-openapi/loads v0.21.5
 ## explicit; go 1.19
 github.com/go-openapi/loads
-# github.com/go-openapi/runtime v0.27.0
+# github.com/go-openapi/runtime v0.27.1
 ## explicit; go 1.19
 github.com/go-openapi/runtime
 github.com/go-openapi/runtime/client

@@ -124,10 +124,16 @@ func CSVConsumer(opts ...CSVOpt) Consumer {
 				if err := pipeCSV(csvWriter, csvReader, o); err != nil {
 					return err
 				}
-				v.Grow(len(csvWriter.records))
-				v.SetCap(len(csvWriter.records)) // in case Grow was unnessary, trim down the capacity
-				v.SetLen(len(csvWriter.records))
-				reflect.Copy(v, reflect.ValueOf(csvWriter.records))
+
+				/*
+					// with go1.20:
+					v.Grow(len(csvWriter.records))
+					v.SetCap(len(csvWriter.records)) // in case Grow was unnessary, trim down the capacity
+					v.SetLen(len(csvWriter.records))
+					reflect.Copy(v, reflect.ValueOf(csvWriter.records))
+				*/
+				v.SetLen(0)
+				v.Set(reflect.AppendSlice(v, reflect.ValueOf(csvWriter.records)))
 
 				return nil
 
