@@ -23,10 +23,15 @@
       steps:
         - name: Get Branch
           id: get-branch
+          env:
+            LABELS: ${{ toJson(github.event.pull_request.labels) }}
           run: |
-            if echo ",${{ github.event.pull_request.labels.*.name }}," | grep -q ",backport/${{ matrix.branch }},"; then
-              echo "version=${{ matrix.branch }}" >> "$GITHUB_OUTPUT"
-            fi
+            echo "${LABELS}" | jq -c -r '.[].name' | while read -r label; do
+              if [ "${label}" = "backport/${{ matrix.branch }}" ]; then
+                echo "version=${{ matrix.branch }}" >> "$GITHUB_OUTPUT"
+                break
+              fi
+            done
 
     call-backport-label-updater:
       name: Update backport labels for upstream PR
