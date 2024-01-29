@@ -206,8 +206,6 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 			}
 
 			ip := ipString(elem.IP)
-			result := &models.ConnectivityStatus{}
-			result.Status = "Connection timed out"
 			p.AddIPAddr(addr)
 			p.nodes[ip] = n
 
@@ -216,8 +214,28 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 					IP: elem.IP,
 				}
 			}
-			p.results[ip].Icmp = result
 		}
+	}
+}
+
+func (p *prober) updateIcmpStatus() {
+	p.Lock()
+	defer p.Unlock()
+
+	for _, status := range p.results {
+		if status.Icmp == nil {
+			status.Icmp = &models.ConnectivityStatus{}
+			status.Icmp.Status = "Connection timed out"
+		}
+	}
+}
+
+func (p *prober) clearIcmpStatus() {
+	p.Lock()
+	defer p.Unlock()
+
+	for _, status := range p.results {
+		status.Icmp = nil
 	}
 }
 
@@ -337,6 +355,7 @@ func (p *prober) runHTTPProbe() {
 func (p *prober) Run() error {
 	err := p.Pinger.Run()
 	p.runHTTPProbe()
+	p.updateIcmpStatus()
 	return err
 }
 
@@ -359,6 +378,7 @@ func (p *prober) RunLoop() {
 
 	go func() {
 		tick := time.NewTicker(p.server.ProbeInterval)
+		p.runHTTPProbe()
 	loop:
 		for {
 			select {
