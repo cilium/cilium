@@ -747,7 +747,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.l2announcer.DevicesChanged(devices)
 	}
 
-	if err := finishKubeProxyReplacementInit(params.Sysctl); err != nil {
+	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())
+	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
@@ -787,7 +788,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
 		return nil, nil, fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
-	if len(option.Config.GetDevices()) == 0 {
+	if len(devices) == 0 {
 		if option.Config.EnableHostFirewall {
 			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
 			log.WithError(err).Errorf(msg, option.Devices)
