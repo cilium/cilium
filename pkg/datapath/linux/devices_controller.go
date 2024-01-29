@@ -378,7 +378,7 @@ func deviceAddressFromAddrUpdate(upd netlink.AddrUpdate) tables.DeviceAddress {
 		Secondary: upd.Flags&unix.IFA_F_SECONDARY != 0,
 
 		// ifaddrmsg.ifa_scope is uint8, vishvananda/netlink has wrong type
-		Scope: uint8(upd.Scope),
+		Scope: tables.RouteScope(upd.Scope),
 	}
 }
 
@@ -440,7 +440,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 					continue
 				}
 				r := tables.Route{
-					Table:     u.Table,
+					Table:     tables.RouteTable(u.Table),
 					LinkIndex: index,
 					Scope:     uint8(u.Scope),
 					Dst:       ipnetToPrefix(u.Family, u.Dst),
