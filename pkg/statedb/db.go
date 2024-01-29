@@ -6,6 +6,7 @@ package statedb
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"runtime"
 	"strings"
@@ -241,6 +242,20 @@ func (db *DB) Stop(stopCtx cell.HookContext) error {
 	case <-db.gcExited:
 	}
 	return nil
+}
+
+// ServeHTTP is an HTTP handler for dumping StateDB as JSON.
+//
+// Example usage:
+//
+//	var db *statedb.DB
+//
+//	http.Handle("/db", db)
+//	http.ListenAndServe(":8080", nil)
+func (db *DB) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	db.ReadTxn().WriteJSON(w)
 }
 
 // setGCRateLimitInterval can set the graveyard GC interval before DB is started.
