@@ -135,7 +135,7 @@ jobs:
           # to ensure coverage of that feature in cilium connectivity test
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cni.chainingMode=portmap \
-            --helm-set-string=kubeProxyReplacement=strict \
+            --helm-set-string=kubeProxyReplacement=true \
             --helm-set=sessionAffinity=true"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT

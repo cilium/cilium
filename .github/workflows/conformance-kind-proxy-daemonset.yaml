@@ -57,7 +57,7 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=hubble.relay.enabled=true
             --helm-set=cni.chainingMode=portmap \
-            --helm-set-string=kubeProxyReplacement=strict \
+            --helm-set-string=kubeProxyReplacement=true \
             --helm-set=loadBalancer.l7.backend=envoy \
             --helm-set=tls.secretsBackend=k8s \
             --helm-set=envoy.enabled=true \
