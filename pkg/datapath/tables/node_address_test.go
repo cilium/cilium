@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -70,7 +69,7 @@ var nodeAddressTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 		},
 		wantLocal: []net.IP{
@@ -87,7 +86,7 @@ var nodeAddressTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 		},
 		wantLocal: []net.IP{
@@ -104,11 +103,11 @@ var nodeAddressTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: tables.RT_SCOPE_UNIVERSE,
 			},
 		},
 
@@ -129,16 +128,16 @@ var nodeAddressTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.1.1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: tables.RT_SCOPE_UNIVERSE,
 			},
 			{
 				Addr:  netip.MustParseAddr("10.0.2.2"),
-				Scope: unix.RT_SCOPE_LINK,
+				Scope: tables.RT_SCOPE_LINK,
 			},
 			{
 				Addr:      netip.MustParseAddr("10.0.3.3"),
 				Secondary: true,
-				Scope:     unix.RT_SCOPE_HOST,
+				Scope:     tables.RT_SCOPE_HOST,
 			},
 		},
 
@@ -160,11 +159,11 @@ var nodeAddressTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: tables.RT_SCOPE_UNIVERSE,
 			},
 			{
 				Addr:      netip.MustParseAddr("10.0.0.2"),
-				Scope:     unix.RT_SCOPE_UNIVERSE,
+				Scope:     tables.RT_SCOPE_UNIVERSE,
 				Secondary: true,
 			},
 		},
@@ -185,11 +184,11 @@ var nodeAddressTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("2600:beef::2"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: tables.RT_SCOPE_UNIVERSE,
 			},
 		},
 
@@ -221,8 +220,8 @@ func TestNodeAddress(t *testing.T) {
 				Name:  "cilium_host",
 				Flags: net.FlagUp,
 				Addrs: []tables.DeviceAddress{
-					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: unix.RT_SCOPE_UNIVERSE},
-					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: unix.RT_SCOPE_LINK},
+					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: tables.RT_SCOPE_UNIVERSE},
+					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: tables.RT_SCOPE_LINK},
 				},
 				Selected: false,
 			})
@@ -264,7 +263,7 @@ func TestNodeAddress(t *testing.T) {
 func TestNodeAddressHostDevice(t *testing.T) {
 	t.Parallel()
 
-	db, devices, nodeAddrs := fixture(t, unix.RT_SCOPE_SITE, nil)
+	db, devices, nodeAddrs := fixture(t, int(tables.RT_SCOPE_SITE), nil)
 
 	txn := db.WriteTxn(devices)
 	_, watch := nodeAddrs.All(txn)
@@ -275,11 +274,11 @@ func TestNodeAddressHostDevice(t *testing.T) {
 		Flags: net.FlagUp,
 		Addrs: []tables.DeviceAddress{
 			// <SITE
-			{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: tables.RT_SCOPE_UNIVERSE},
 			// >SITE, but included
-			{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: unix.RT_SCOPE_LINK},
+			{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: tables.RT_SCOPE_LINK},
 			// >SITE, skipped
-			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: unix.RT_SCOPE_HOST},
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: tables.RT_SCOPE_HOST},
 		},
 		Selected: false,
 	})
@@ -313,11 +312,11 @@ var nodeAddressWhitelistTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("11.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 		},
 		wantLocal: []net.IP{
@@ -336,11 +335,11 @@ var nodeAddressWhitelistTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2600:beef::2"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 		},
 		wantLocal: []net.IP{
@@ -359,19 +358,19 @@ var nodeAddressWhitelistTests = []struct {
 		addrs: []tables.DeviceAddress{
 			{
 				Addr:  netip.MustParseAddr("10.0.0.1"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 			{
 				Addr:  netip.MustParseAddr("11.0.0.1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: tables.RT_SCOPE_UNIVERSE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2001:db8::1"),
-				Scope: unix.RT_SCOPE_UNIVERSE,
+				Scope: tables.RT_SCOPE_UNIVERSE,
 			},
 			{
 				Addr:  netip.MustParseAddr("2600:beef::2"),
-				Scope: unix.RT_SCOPE_SITE,
+				Scope: tables.RT_SCOPE_SITE,
 			},
 		},
 
@@ -408,8 +407,8 @@ func TestNodeAddressWhitelist(t *testing.T) {
 				Name:  "cilium_host",
 				Flags: net.FlagUp,
 				Addrs: []tables.DeviceAddress{
-					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: unix.RT_SCOPE_UNIVERSE},
-					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: unix.RT_SCOPE_LINK},
+					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: tables.RT_SCOPE_UNIVERSE},
+					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: tables.RT_SCOPE_LINK},
 				},
 				Selected: false,
 			})

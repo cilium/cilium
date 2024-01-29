@@ -9,8 +9,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
-
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -47,7 +45,7 @@ func NewRouteTable() (statedb.RWTable[*Route], error) {
 }
 
 type RouteID struct {
-	Table     int
+	Table     RouteTable
 	LinkIndex int
 	Dst       netip.Prefix
 }
@@ -62,7 +60,7 @@ func (id RouteID) Key() index.Key {
 }
 
 type Route struct {
-	Table     int
+	Table     RouteTable
 	LinkIndex int
 
 	Scope uint8
@@ -117,7 +115,7 @@ func HasDefaultRoute(tbl statedb.Table[*Route], rxn statedb.ReadTxn, linkIndex i
 	// with a zero destination.
 	for _, prefix := range []netip.Prefix{zeroPrefixV4, zeroPrefixV6} {
 		r, _, _ := tbl.First(rxn, RouteIDIndex.Query(RouteID{
-			unix.RT_TABLE_MAIN,
+			RT_TABLE_MAIN,
 			linkIndex,
 			prefix,
 		}))
@@ -131,4 +129,25 @@ func HasDefaultRoute(tbl statedb.Table[*Route], rxn statedb.ReadTxn, linkIndex i
 var (
 	zeroPrefixV4 = netip.PrefixFrom(netip.IPv4Unspecified(), 0)
 	zeroPrefixV6 = netip.PrefixFrom(netip.IPv6Unspecified(), 0)
+)
+
+type (
+	RouteScope uint8
+	RouteTable uint32
+)
+
+// Definitions for route scopes and tables. These are repeated here from the unix
+// package to keep the tables package buildable on non-Linux platforms.
+const (
+	RT_SCOPE_UNIVERSE = RouteScope(0x0)
+	RT_SCOPE_SITE     = RouteScope(0xc8)
+	RT_SCOPE_LINK     = RouteScope(0xfd)
+	RT_SCOPE_HOST     = RouteScope(0xfe)
+	RT_SCOPE_NOWHERE  = RouteScope(0xff)
+	RT_TABLE_UNSPEC   = RouteTable(0x0)
+	RT_TABLE_COMPAT   = RouteTable(0xfc)
+	RT_TABLE_DEFAULT  = RouteTable(0xfd)
+	RT_TABLE_MAIN     = RouteTable(0xfe)
+	RT_TABLE_LOCAL    = RouteTable(0xff)
+	RT_TABLE_MAX      = RouteTable(0xffffffff)
 )
