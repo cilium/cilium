@@ -362,7 +362,10 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 #endif
 
 #ifdef TUNNEL_MODE
-	if (info != NULL && info->tunnel_endpoint != 0) {
+	if (info && info->flag_skip_tunnel)
+		goto skip_tunnel;
+
+	if (info && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      encrypt_key, secctx, info->sec_identity,
 						      &trace);
@@ -378,6 +381,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
+skip_tunnel:
 #endif
 
 	if (!info || (!from_proxy &&
@@ -800,7 +804,10 @@ skip_vtep:
 #endif
 
 #ifdef TUNNEL_MODE
-	if (info != NULL && info->tunnel_endpoint != 0) {
+	if (info && info->flag_skip_tunnel)
+		goto skip_tunnel;
+
+	if (info && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      encrypt_key, secctx, info->sec_identity,
 						      &trace);
@@ -816,6 +823,7 @@ skip_vtep:
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
+skip_tunnel:
 #endif
 
 	if (!info || (!from_proxy &&
