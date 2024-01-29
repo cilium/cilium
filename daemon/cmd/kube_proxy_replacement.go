@@ -18,11 +18,11 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -359,7 +359,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl) error {
+func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Device) error {
 	if !(option.Config.EnableNodePort || option.Config.EnableWireguard) {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
@@ -429,13 +429,9 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl) error {
 	// the datapath needs to store it in our CT map, and the map's field is
 	// limited to 16 bit.
 	if probes.HaveFibIfindex() != nil {
-		for _, iface := range option.Config.GetDevices() {
-			link, err := netlink.LinkByName(iface)
-			if err != nil {
-				return fmt.Errorf("Cannot retrieve %s link: %w", iface, err)
-			}
-			if idx := link.Attrs().Index; idx > math.MaxUint16 {
-				return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+		for _, iface := range devices {
+			if idx := iface.Index; idx > math.MaxUint16 {
+				return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface.Name, iface.Index)
 			}
 		}
 	}
@@ -443,7 +439,7 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl) error {
 	if option.Config.EnableIPv4 &&
 		!option.Config.TunnelingEnabled() &&
 		option.Config.LoadBalancerUsesDSR() &&
-		len(option.Config.GetDevices()) > 1 {
+		len(devices) > 1 {
 
 		// In the case of the multi-dev NodePort DSR, if a request from an
 		// external client was sent to a device which is not used for direct

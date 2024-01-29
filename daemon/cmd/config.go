@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -153,7 +154,8 @@ func getConfigHandler(d *Daemon, params GetConfigParams) middleware.Responder {
 	option.Config.ConfigPatchMutex.RUnlock()
 
 	// Manually add fields that are behind accessors.
-	m["Devices"] = option.Config.GetDevices()
+	devs, _ := tables.SelectedDevices(d.devices, d.db.ReadTxn())
+	m["Devices"] = tables.DeviceNames(devs)
 
 	spec := &models.DaemonConfigurationSpec{
 		Options:           *option.Config.Opts.GetMutableModel(),
