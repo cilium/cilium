@@ -2596,10 +2596,6 @@
      - Taint nodes where Cilium is scheduled but not running. This prevents pods from being scheduled to nodes where Cilium is not the default CNI provider.
      - string
      - same as removeNodeTaints
-   * - :spelling:ignore:`operator.skipCNPStatusStartupClean`
-     - Skip CNP node status clean up at operator startup.
-     - bool
-     - ``false``
    * - :spelling:ignore:`operator.skipCRDCreation`
      - Skip CRDs creation for cilium-operator
      - bool

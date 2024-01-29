@@ -148,10 +148,6 @@ data:
   cilium-endpoint-gc-interval: {{ include "validateDuration" .Values.operator.endpointGCInterval | quote }}
   nodes-gc-interval: {{ include "validateDuration" .Values.operator.nodeGCInterval | quote }}
 
-{{- if hasKey .Values.operator "skipCNPStatusStartupClean" }}
-  skip-cnp-status-startup-clean: "{{ .Values.operator.skipCNPStatusStartupClean }}"
-{{- end }}
-
 {{- if eq .Values.disableEndpointCRD true }}
   # Disable the usage of CiliumEndpoint CRD
   disable-endpoint-crd: "true"
