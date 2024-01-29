@@ -25,11 +25,14 @@ if [[ ${1-} == "patch" ]] ; then
             exit 1
             ;;
         *)
-            ((patch--))
             echo "v${major}.${minor}.${patch}${TAG_SUFFIX:-}"
             ;;
     esac
 else
+    if [[ "${minor}" == "0" ]] ; then
+        >&2 echo "ERROR: failed to deduce release previous to version '$VERSION'"
+        exit 1
+    fi
     # Else print the previous stable version by decrementing the minor version
     # and trimming the patch version.
     ((minor--))
