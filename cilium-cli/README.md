@@ -43,7 +43,7 @@ binary releases.
 
 | Release                                                                | Maintained | Compatible Cilium Versions |
 |------------------------------------------------------------------------|------------|----------------------------|
-| [v0.15.20](https://github.com/cilium/cilium-cli/releases/tag/v0.15.20) | Yes        | Cilium 1.14 and newer      |
+| [v0.15.21](https://github.com/cilium/cilium-cli/releases/tag/v0.15.21) | Yes        | Cilium 1.14 and newer      |
 | [v0.14.8](https://github.com/cilium/cilium-cli/releases/tag/v0.14.8)   | Yes        | Cilium 1.12 and 1.13       |
 
 Please see [`helm` installation mode](#helm-installation-mode) section
