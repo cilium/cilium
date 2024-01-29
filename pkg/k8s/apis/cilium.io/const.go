@@ -70,10 +70,6 @@ const (
 	// completion index.
 	IndexedJobCompletionIndexLabel = "batch.kubernetes.io/job-completion-index"
 
-	// CtrlPrefixPolicyStatus is the prefix used for the controllers set up
-	// to sync the CNP with kube-apiserver.
-	CtrlPrefixPolicyStatus = "sync-cnp-policy-status"
-
 	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
 	CiliumIdentityAnnotationDeprecated = "cilium-identity"
 )

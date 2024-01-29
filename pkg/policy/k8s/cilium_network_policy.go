@@ -339,13 +339,8 @@ func (p *PolicyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
 
 	importMetadataCache.delete(cnp)
-	ctrlName := cnp.GetControllerName()
-	err := k8sCM.RemoveControllerAndWait(ctrlName)
-	if err != nil {
-		log.WithError(err).Debugf("Unable to remove controller %s", ctrlName)
-	}
 
-	_, err = p.policyManager.PolicyDelete(cnp.GetIdentityLabels(), &policy.DeleteOptions{
+	_, err := p.policyManager.PolicyDelete(cnp.GetIdentityLabels(), &policy.DeleteOptions{
 		Source:   source.CustomResource,
 		Resource: resourceID,
 	})
