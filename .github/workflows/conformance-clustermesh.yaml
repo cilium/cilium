@@ -265,7 +265,8 @@ jobs:
           CILIUM_INSTALL_INGRESS=""
           if [ "${{ matrix.kube-proxy }}" == "none" ]; then
             # The ingress controller requires KPR to be enabled.
-            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true"
+            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true \
+              --helm-set-string=kubeProxyReplacement=true"
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \

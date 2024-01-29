@@ -18,6 +18,7 @@ import (
 	ingressTranslation "github.com/cilium/cilium/operator/pkg/model/translation/ingress"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell manages the Kubernetes Ingress related controllers.
@@ -40,6 +41,8 @@ var Cell = cell.Module(
 )
 
 type ingressConfig struct {
+	KubeProxyReplacement          string
+	EnableNodePort                bool
 	EnableIngressController       bool
 	EnforceIngressHTTPS           bool
 	EnableIngressProxyProtocol    bool
@@ -53,6 +56,8 @@ type ingressConfig struct {
 }
 
 func (r ingressConfig) Flags(flags *pflag.FlagSet) {
+	flags.String("kube-proxy-replacement", r.KubeProxyReplacement, "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
+	flags.Bool("enable-node-port", r.EnableNodePort, "Enable NodePort type services by Cilium")
 	flags.Bool("enable-ingress-controller", r.EnableIngressController, "Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.")
 	flags.Bool("enforce-ingress-https", r.EnforceIngressHTTPS, "Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header.")
 	flags.Bool("enable-ingress-proxy-protocol", r.EnableIngressProxyProtocol, "Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
@@ -75,6 +80,11 @@ type ingressParams struct {
 
 func registerReconciler(params ingressParams) error {
 	if !params.Config.EnableIngressController {
+		return nil
+	}
+
+	if params.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue && !params.Config.EnableNodePort {
+		params.Logger.Warn("Ingress Controller support requires either kube-proxy-replacement or enable-node-port enabled")
 		return nil
 	}
 
