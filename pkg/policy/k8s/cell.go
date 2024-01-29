@@ -6,7 +6,6 @@ package k8s
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -50,8 +49,6 @@ var (
 	importMetadataCache = ruleImportMetadataCache{
 		ruleImportMetadataMap: make(map[string]policyImportMetadata),
 	}
-
-	k8sCM = controller.NewManager()
 )
 
 type PolicyManager interface {
