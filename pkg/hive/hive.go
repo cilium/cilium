@@ -325,8 +325,14 @@ func (h *Hive) Start(ctx context.Context) error {
 	defer close(h.fatalOnTimeout(ctx))
 
 	log.Info("Starting")
-
-	return h.lifecycle.Start(ctx)
+	start := time.Now()
+	err := h.lifecycle.Start(ctx)
+	if err == nil {
+		log.WithField("duration", time.Since(start)).Info("Started")
+	} else {
+		log.WithError(err).WithField("duration", time.Since(start)).Error("Start failed")
+	}
+	return err
 }
 
 // Stop stops the hive. The context allows cancelling the stop.
