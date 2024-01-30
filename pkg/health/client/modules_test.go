@@ -31,7 +31,7 @@ func TestGetAndFormatModulesHealth(t *testing.T) {
 		},
 		"happy": {
 			h: newTestMHappy(),
-			e: "Modules Health:\tStopped(0) Degraded(1) OK(1) Unknown(0)",
+			e: "Modules Health:\tStopped(0) Degraded(1) OK(1)",
 		},
 		"happy-verbose": {
 			h: newTestMHappy(),
