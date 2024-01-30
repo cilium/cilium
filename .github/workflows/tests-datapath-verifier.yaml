@@ -103,6 +103,7 @@ jobs:
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
           image-version: ${{ matrix.kernel }}
@@ -122,6 +123,7 @@ jobs:
       - name: Run verifier tests
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host/
@@ -132,6 +134,7 @@ jobs:
         if: ${{ !success() }}
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host

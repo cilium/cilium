@@ -259,6 +259,7 @@ jobs:
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           test-name: runtime-tests
           install-dependencies: true
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -318,6 +319,7 @@ jobs:
         timeout-minutes: 10
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             mkdir -p /root/go/src/github.com/cilium/
@@ -372,6 +374,7 @@ jobs:
         timeout-minutes: 30
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host
@@ -392,6 +395,7 @@ jobs:
         timeout-minutes: 10
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             journalctl --no-pager -xeu cilium.service

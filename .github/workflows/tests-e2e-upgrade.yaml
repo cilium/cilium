@@ -302,6 +302,7 @@ jobs:
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           test-name: ipsec-upgrade
           image-version: ${{ matrix.kernel }}
           host-mount: ./
@@ -314,6 +315,7 @@ jobs:
       - name: Setup K8s cluster
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host/
@@ -359,6 +361,7 @@ jobs:
       - name: Install Cilium ${{ env.cilium_stable_version }}
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host/
@@ -373,6 +376,7 @@ jobs:
       - name: Start conn-disrupt-test
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host/
@@ -386,6 +390,7 @@ jobs:
       - name: Upgrade Cilium
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host/
@@ -400,6 +405,7 @@ jobs:
       - name: Test Cilium after upgrade
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host/
@@ -426,6 +432,7 @@ jobs:
       - name: Downgrade Cilium ${{ env.cilium_stable_version }}
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host/
@@ -440,6 +447,7 @@ jobs:
       - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }}
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host/
@@ -464,6 +472,7 @@ jobs:
         if: ${{ !success() }}
         uses: cilium/little-vm-helper@e1c8135d459ee77c569f4586c1c7954244d9fa69 # v0.0.15
         with:
+          lvh-version: v0.0.15
           provision: 'false'
           cmd: |
             cd /host
