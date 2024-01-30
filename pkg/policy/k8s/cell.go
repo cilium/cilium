@@ -6,6 +6,8 @@ package k8s
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -15,8 +17,6 @@ import (
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -43,10 +43,6 @@ var Cell = cell.Module(
 	cell.Invoke(startK8sPolicyWatcher),
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-k8s-watcher")
-)
-
 type PolicyManager interface {
 	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
 	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
@@ -59,6 +55,7 @@ type PolicyWatcherParams struct {
 
 	ClientSet client.Clientset
 	Config    *option.DaemonConfig
+	Logger    logrus.FieldLogger
 
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
@@ -90,6 +87,7 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 
 			ctx, cancel = context.WithCancel(context.Background())
 			w := &PolicyWatcher{
+				log:                              p.Logger,
 				k8sResourceSynced:                p.K8sResourceSynced,
 				k8sAPIGroups:                     p.K8sAPIGroups,
 				K8sSvcCache:                      p.ServiceCache,

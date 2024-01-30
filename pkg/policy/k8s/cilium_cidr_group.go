@@ -69,7 +69,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 			continue
 		}
 
-		log.WithFields(logrus.Fields{
+		p.log.WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicyName: cnp.Name,
 			logfields.K8sAPIVersion:           cnp.APIVersion,
 			logfields.K8sNamespace:            cnp.Namespace,
@@ -84,7 +84,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 		cnpCpy := cnp.DeepCopy()
 
 		translationStart := time.Now()
-		translatedCNP := resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
+		translatedCNP := p.resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
 		metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 		resourceKind := ipcacheTypes.ResourceKindCNP
@@ -106,7 +106,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 	return errors.Join(errs...)
 }
 
-func resolveCIDRGroupRef(cnp *types.SlimCNP, cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup) *types.SlimCNP {
+func (p *PolicyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP, cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup) *types.SlimCNP {
 	refs := getCIDRGroupRefs(cnp)
 	if len(refs) == 0 {
 		return cnp
@@ -114,7 +114,7 @@ func resolveCIDRGroupRef(cnp *types.SlimCNP, cidrGroupCache map[string]*cilium_v
 
 	cidrsSets, err := cidrGroupRefsToCIDRsSets(refs, cidrGroupCache)
 	if err != nil {
-		log.WithFields(logrus.Fields{
+		p.log.WithFields(logrus.Fields{
 			logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
 			logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 			logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,

@@ -26,6 +26,8 @@ import (
 )
 
 type PolicyWatcher struct {
+	log logrus.FieldLogger
+
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
 
@@ -211,7 +213,7 @@ func (p *PolicyWatcher) onUpsert(
 	cnpCpy := cnp.DeepCopy()
 
 	translationStart := time.Now()
-	translatedCNP := resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
+	translatedCNP := p.resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
 	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 	var err error
@@ -247,7 +249,7 @@ func (p *PolicyWatcher) onDelete(
 }
 
 func (p *PolicyWatcher) addCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
-	scopedLog := log.WithFields(logrus.Fields{
+	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
@@ -280,7 +282,7 @@ func (p *PolicyWatcher) addCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecv
 }
 
 func (p *PolicyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID) error {
-	scopedLog := log.WithFields(logrus.Fields{
+	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
@@ -311,11 +313,11 @@ func (p *PolicyWatcher) updateCiliumNetworkPolicyV2(
 		// update to the new policy will be skipped.
 		switch {
 		case ns != "" && !errors.Is(err, cilium_v2.ErrEmptyCNP):
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
+			p.log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 				Warn("Error parsing old CiliumNetworkPolicy rule")
 			return err
 		case ns == "" && !errors.Is(err, cilium_v2.ErrEmptyCCNP):
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
+			p.log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 				Warn("Error parsing old CiliumClusterwideNetworkPolicy rule")
 			return err
 		}
@@ -323,12 +325,12 @@ func (p *PolicyWatcher) updateCiliumNetworkPolicyV2(
 
 	_, err = newRuleCpy.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
+		p.log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
 		return err
 	}
 
-	log.WithFields(logrus.Fields{
+	p.log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:                    oldRuleCpy.TypeMeta.APIVersion,
 		logfields.CiliumNetworkPolicyName + ".old": oldRuleCpy.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old":            oldRuleCpy.ObjectMeta.Namespace,

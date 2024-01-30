@@ -49,7 +49,7 @@ func (p *PolicyWatcher) networkPolicyEventLoop(ctx context.Context, synced *atom
 }
 
 func (p *PolicyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
-	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
+	scopedLog := p.log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
 	rules, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
@@ -90,10 +90,10 @@ func (p *PolicyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.Networ
 	labels := k8s.GetPolicyLabelsv1(k8sNP)
 
 	if labels == nil {
-		log.Fatalf("provided v1 NetworkPolicy is nil, so cannot delete it")
+		p.log.Fatalf("provided v1 NetworkPolicy is nil, so cannot delete it")
 	}
 
-	scopedLog := log.WithFields(logrus.Fields{
+	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace:         k8sNP.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
