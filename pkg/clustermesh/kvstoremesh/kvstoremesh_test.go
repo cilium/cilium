@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -197,7 +198,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				kvs:               tt.kvs,
 			}
 			st := store.NewFactory(store.MetricsProvider())
-			km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st}
+			km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st, logger: logrus.New()}
 			rc := km.newRemoteCluster("foo", nil)
 			ready := make(chan error)
 
