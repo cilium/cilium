@@ -39,7 +39,6 @@ func TestHashDatapath(t *testing.T) {
 		provideNodemap,
 		cell.Provide(
 			fakeTypes.NewNodeAddressing,
-			func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 			func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
 			config.NewHeaderfileWriter,
 		),
