@@ -495,6 +495,8 @@ endif
 	$(QUIET) contrib/scripts/rand-check.sh
 	@$(ECHO_CHECK) contrib/scripts/check-time.sh
 	$(QUIET) contrib/scripts/check-time.sh
+	@$(ECHO_CHECK) contrib/scripts/check-go-testdata.sh
+	$(QUIET) contrib/scripts/check-go-testdata.sh
 
 check-sources:
 	@$(ECHO_CHECK) pkg/datapath/loader/check-sources.sh
