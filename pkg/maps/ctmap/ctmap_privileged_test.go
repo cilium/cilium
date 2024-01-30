@@ -74,10 +74,8 @@ func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 		},
 	}
 	value := &CtEntry{
-		RxPackets:        4,
-		RxBytes:          216,
-		TxPackets:        4,
-		TxBytes:          216,
+		Packets:          4 + 4,
+		Bytes:            216 + 216,
 		Lifetime:         37459,
 		Flags:            SeenNonSyn | RxClosing,
 		RevNAT:           0,
@@ -151,9 +149,9 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		},
 	}
 	ctVal := &CtEntry{
-		TxPackets: 1,
-		TxBytes:   216,
-		Lifetime:  37459,
+		Packets:  1,
+		Bytes:    216,
+		Lifetime: 37459,
 	}
 	err = ctMap.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -261,9 +259,9 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcTcp(c *C) {
 		},
 	}
 	ctVal := &CtEntry{
-		TxPackets: 1,
-		TxBytes:   216,
-		Lifetime:  37459,
+		Packets:  1,
+		Bytes:    216,
+		Lifetime: 37459,
 	}
 	err = ctMap.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -370,10 +368,10 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcDsr(c *C) {
 		},
 	}
 	ctVal := &CtEntry{
-		TxPackets: 1,
-		TxBytes:   216,
-		Lifetime:  37459,
-		Flags:     DSRInternal,
+		Packets:  1,
+		Bytes:    216,
+		Lifetime: 37459,
+		Flags:    DSRInternal,
 	}
 	err = ctMap.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -460,10 +458,10 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcLegacyDsr(c *C) {
 		},
 	}
 	ctVal := &CtEntry{
-		TxPackets: 1,
-		TxBytes:   216,
-		Lifetime:  37459,
-		Flags:     DSRInternal,
+		Packets:  1,
+		Bytes:    216,
+		Lifetime: 37459,
+		Flags:    DSRInternal,
 	}
 	err = ctMap.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -573,9 +571,9 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	ctVal := &CtEntry{
-		TxPackets: 1,
-		TxBytes:   216,
-		Lifetime:  37459,
+		Packets:  1,
+		Bytes:    216,
+		Lifetime: 37459,
 	}
 	err = ctMapAny.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -679,10 +677,10 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	ctVal = &CtEntry{
-		TxPackets: 1,
-		TxBytes:   216,
-		Lifetime:  37459,
-		Flags:     DSRInternal,
+		Packets:  1,
+		Bytes:    216,
+		Lifetime: 37459,
+		Flags:    DSRInternal,
 	}
 	err = ctMapTCP.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -776,10 +774,10 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	ctVal = &CtEntry{
-		TxPackets: 1,
-		TxBytes:   216,
-		Lifetime:  37459,
-		Flags:     DSRInternal,
+		Packets:  1,
+		Bytes:    216,
+		Lifetime: 37459,
+		Flags:    DSRInternal,
 	}
 	err = ctMapTCP.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
@@ -974,10 +972,8 @@ func populateFakeDataCTMap4(tb testing.TB, m CtMap, size int) map[*CtKey4Global]
 		}
 	}
 	value := &CtEntry{
-		RxPackets:        4,
-		RxBytes:          216,
-		TxPackets:        4,
-		TxBytes:          216,
+		Packets:          4 + 4,
+		Bytes:            216 + 216,
 		Lifetime:         37459,
 		Flags:            SeenNonSyn | RxClosing,
 		RevNAT:           0,

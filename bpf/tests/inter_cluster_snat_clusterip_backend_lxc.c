@@ -323,7 +323,7 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 	if (!entry)
 		test_fatal("couldn't find egress conntrack entry");
 
-	if (entry->tx_packets != 1)
+	if (entry->packets != 1)
 		test_fatal("tx packet didn't hit conntrack entry");
 
 	test_finish();
@@ -416,7 +416,7 @@ int overlay_to_lxc_ack_check(struct __ctx_buff *ctx)
 	if (!entry)
 		test_fatal("couldn't find ingress conntrack entry");
 
-	if (entry->rx_packets != 2)
+	if (entry->packets != 2)
 		test_fatal("rx packet didn't hit conntrack entry");
 
 	test_finish();

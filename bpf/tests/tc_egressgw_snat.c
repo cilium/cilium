@@ -100,8 +100,7 @@ int egressgw_snat1_check(const struct __ctx_buff *ctx)
 {
 	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
 			.test = TEST_SNAT1,
-			.tx_packets = 1,
-			.rx_packets = 0,
+			.packets = 1,
 			.status_code = CTX_ACT_OK
 		});
 }
@@ -136,8 +135,7 @@ int egressgw_snat1_2_reply_check(const struct __ctx_buff *ctx)
 	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
 			.test = TEST_SNAT1,
 			.dir = CT_INGRESS,
-			.tx_packets = 1,
-			.rx_packets = 1,
+			.packets = 2,
 			.status_code = CTX_ACT_REDIRECT,
 		});
 }
@@ -164,8 +162,7 @@ int egressgw_snat2_check(struct __ctx_buff *ctx)
 {
 	int ret = egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
 			.test = TEST_SNAT2,
-			.tx_packets = 1,
-			.rx_packets = 0,
+			.packets = 1,
 			.status_code = CTX_ACT_OK
 		});
 
@@ -280,8 +277,7 @@ int egressgw_fib_redirect_check(const struct __ctx_buff *ctx __maybe_unused)
 	int ret = egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
 			.test = TEST_FIB,
 			.redirect = true,
-			.tx_packets = 1,
-			.rx_packets = 0,
+			.packets = 1,
 			.status_code = CTX_ACT_REDIRECT,
 		});
 

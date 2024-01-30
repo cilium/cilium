@@ -292,19 +292,11 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 #endif
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
-
 		if (ct_state)
 			ct_lookup_fill_state(ct_state, entry, dir, syn);
-
 #ifdef CONNTRACK_ACCOUNTING
-		/* FIXME: This is slow, per-cpu counters? */
-		if (dir == CT_INGRESS) {
-			__sync_fetch_and_add(&entry->rx_packets, 1);
-			__sync_fetch_and_add(&entry->rx_bytes, ctx_full_len(ctx));
-		} else if (dir == CT_EGRESS || dir == CT_SERVICE) {
-			__sync_fetch_and_add(&entry->tx_packets, 1);
-			__sync_fetch_and_add(&entry->tx_bytes, ctx_full_len(ctx));
-		}
+		__sync_fetch_and_add(&entry->packets, 1);
+		__sync_fetch_and_add(&entry->bytes, ctx_full_len(ctx));
 #endif
 		switch (action) {
 		case ACTION_CREATE:
@@ -948,15 +940,9 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
 #ifdef CONNTRACK_ACCOUNTING
-	if (dir == CT_INGRESS) {
-		entry.rx_packets = 1;
-		entry.rx_bytes = ctx_full_len(ctx);
-	} else if (dir == CT_EGRESS || dir == CT_SERVICE) {
-		entry.tx_packets = 1;
-		entry.tx_bytes = ctx_full_len(ctx);
-	}
+	entry.packets = 1;
+	entry.bytes = ctx_full_len(ctx);
 #endif
-
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index,
 		    entry.src_sec_id, 0);
 
@@ -1009,15 +995,9 @@ static __always_inline int ct_create4(const void *map_main,
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
 #ifdef CONNTRACK_ACCOUNTING
-	if (dir == CT_INGRESS) {
-		entry.rx_packets = 1;
-		entry.rx_bytes = ctx_full_len(ctx);
-	} else if (dir == CT_EGRESS || dir == CT_SERVICE) {
-		entry.tx_packets = 1;
-		entry.tx_bytes = ctx_full_len(ctx);
-	}
+	entry.packets = 1;
+	entry.bytes = ctx_full_len(ctx);
 #endif
-
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
 		    entry.src_sec_id, 0);
 

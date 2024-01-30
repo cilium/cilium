@@ -32,8 +32,7 @@ struct egressgw_test_ctx {
 	__u16 test;
 	enum ct_dir dir;
 	bool redirect;
-	__u64 tx_packets;
-	__u64 rx_packets;
+	__u64 packets;
 	__u32 status_code;
 };
 
@@ -222,13 +221,9 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 
 	if (!ct_entry)
 		test_fatal("no CT entry found");
-
-	if (ct_entry->tx_packets != test_ctx.tx_packets)
-		test_fatal("bad TX packet count (expected %u, actual %u)",
-			   test_ctx.tx_packets, ct_entry->tx_packets)
-	if (ct_entry->rx_packets != test_ctx.rx_packets)
-		test_fatal("bad RX packet count (expected %u, actual %u)",
-			   test_ctx.rx_packets, ct_entry->rx_packets)
+	if (ct_entry->packets != test_ctx.packets)
+		test_fatal("bad packet count (expected %u, actual %u)",
+			   test_ctx.packets, ct_entry->packets)
 
 	tuple.saddr = CLIENT_IP;
 	tuple.daddr = EXTERNAL_SVC_IP;

@@ -932,17 +932,14 @@ struct ipv4_ct_tuple {
 } __packed;
 
 struct ct_entry {
-	__u64 rx_packets;
-	/* Previously, the rx_bytes field was not used for entries with
-	 * the dir=CT_SERVICE (see GH#7060). Therefore, we can safely abuse
-	 * this field to save the backend_id.
-	 */
 	union {
-		__u64 rx_bytes;
-		__u64 backend_id;
+		struct {
+			__u64 reserved0;
+			__u64 backend_id;
+			__u64 packets;
+			__u64 bytes;
+		};
 	};
-	__u64 tx_packets;
-	__u64 tx_bytes;
 	__u32 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
