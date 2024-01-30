@@ -37,7 +37,7 @@ var GatewayInvalidTLSConfiguration = suite.ConformanceTest{
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
 	},
-	Manifests: []string{"tests/gateway-invalid-tls-certificateref.yaml"},
+	Manifests: []string{"tests/gateway-invalid-tls-configuration.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		listeners := []v1.ListenerStatus{{
 			Name: v1.SectionName("https"),

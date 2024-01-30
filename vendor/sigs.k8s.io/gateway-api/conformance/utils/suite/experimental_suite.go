@@ -19,6 +19,7 @@ package suite
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -109,39 +110,37 @@ func NewExperimentalConformanceTestSuite(s ExperimentalConformanceOptions) (*Exp
 	// conformance profile or at least some specific features they support.
 	if s.EnableAllSupportedFeatures {
 		s.SupportedFeatures = AllFeatures
-	} else {
-		if s.SupportedFeatures == nil {
-			s.SupportedFeatures = sets.New[SupportedFeature]()
-		}
+	} else if s.SupportedFeatures == nil {
+		s.SupportedFeatures = sets.New[SupportedFeature]()
+	}
 
-		for _, conformanceProfileName := range s.ConformanceProfiles.UnsortedList() {
-			conformanceProfile, err := getConformanceProfileForName(conformanceProfileName)
-			if err != nil {
-				return nil, fmt.Errorf("failed to retrieve conformance profile: %w", err)
+	for _, conformanceProfileName := range s.ConformanceProfiles.UnsortedList() {
+		conformanceProfile, err := getConformanceProfileForName(conformanceProfileName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve conformance profile: %w", err)
+		}
+		// the use of a conformance profile implicitly enables any features of
+		// that profile which are supported at a Core level of support.
+		for _, f := range conformanceProfile.CoreFeatures.UnsortedList() {
+			if !s.SupportedFeatures.Has(f) {
+				s.SupportedFeatures.Insert(f)
 			}
-			// the use of a conformance profile implicitly enables any features of
-			// that profile which are supported at a Core level of support.
-			for _, f := range conformanceProfile.CoreFeatures.UnsortedList() {
-				if !s.SupportedFeatures.Has(f) {
-					s.SupportedFeatures.Insert(f)
+		}
+		for _, f := range conformanceProfile.ExtendedFeatures.UnsortedList() {
+			if s.SupportedFeatures.Has(f) {
+				if suite.extendedSupportedFeatures[conformanceProfileName] == nil {
+					suite.extendedSupportedFeatures[conformanceProfileName] = sets.New[SupportedFeature]()
 				}
+				suite.extendedSupportedFeatures[conformanceProfileName].Insert(f)
+			} else {
+				if suite.extendedUnsupportedFeatures[conformanceProfileName] == nil {
+					suite.extendedUnsupportedFeatures[conformanceProfileName] = sets.New[SupportedFeature]()
+				}
+				suite.extendedUnsupportedFeatures[conformanceProfileName].Insert(f)
 			}
-			for _, f := range conformanceProfile.ExtendedFeatures.UnsortedList() {
-				if s.SupportedFeatures.Has(f) {
-					if suite.extendedSupportedFeatures[conformanceProfileName] == nil {
-						suite.extendedSupportedFeatures[conformanceProfileName] = sets.New[SupportedFeature]()
-					}
-					suite.extendedSupportedFeatures[conformanceProfileName].Insert(f)
-				} else {
-					if suite.extendedUnsupportedFeatures[conformanceProfileName] == nil {
-						suite.extendedUnsupportedFeatures[conformanceProfileName] = sets.New[SupportedFeature]()
-					}
-					suite.extendedUnsupportedFeatures[conformanceProfileName].Insert(f)
-				}
-				// Add Exempt Features into unsupported features list
-				if s.ExemptFeatures.Has(f) {
-					suite.extendedUnsupportedFeatures[conformanceProfileName].Insert(f)
-				}
+			// Add Exempt Features into unsupported features list
+			if s.ExemptFeatures.Has(f) {
+				suite.extendedUnsupportedFeatures[conformanceProfileName].Insert(f)
 			}
 		}
 	}
@@ -257,10 +256,19 @@ func (suite *ExperimentalConformanceTestSuite) Report() (*confv1a1.ConformanceRe
 	}
 	defer suite.lock.RUnlock()
 
+	testNames := make([]string, 0, len(suite.results))
+	for tN := range suite.results {
+		testNames = append(testNames, tN)
+	}
+	sort.Strings(testNames)
 	profileReports := newReports()
-	for _, testResult := range suite.results {
-		conformanceProfiles := getConformanceProfilesForTest(testResult.test, suite.conformanceProfiles)
-		for _, profile := range conformanceProfiles.UnsortedList() {
+	for _, tN := range testNames {
+		testResult := suite.results[tN]
+		conformanceProfiles := getConformanceProfilesForTest(testResult.test, suite.conformanceProfiles).UnsortedList()
+		sort.Slice(conformanceProfiles, func(i, j int) bool {
+			return conformanceProfiles[i].Name < conformanceProfiles[j].Name
+		})
+		for _, profile := range conformanceProfiles {
 			profileReports.addTestResults(*profile, testResult)
 		}
 	}

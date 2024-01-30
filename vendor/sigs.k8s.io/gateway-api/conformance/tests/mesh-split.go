@@ -33,6 +33,7 @@ var MeshTrafficSplit = suite.ConformanceTest{
 	Description: "A mesh client can send traffic to a Service which is split between two versions",
 	Features: []suite.SupportedFeature{
 		suite.SupportMesh,
+		suite.SupportHTTPRoute,
 	},
 	Manifests: []string{"tests/mesh-split.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

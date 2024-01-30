@@ -56,8 +56,8 @@ type GatewayList struct {
 // GatewaySpec defines the desired state of Gateway.
 //
 // Not all possible combinations of options specified in the Spec are
-// valid. Some invalid configurations can be caught synchronously via a
-// webhook, but there are many cases that will require asynchronous
+// valid. Some invalid configurations can be caught synchronously via CRD
+// validation, but there are many cases that will require asynchronous
 // signaling via the GatewayStatus block.
 type GatewaySpec struct {
 	// GatewayClassName used for this Gateway. This is the name of a
@@ -188,6 +188,7 @@ type GatewaySpec struct {
 	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:validation:XValidation:message="tls must be specified for protocols ['HTTPS', 'TLS']",rule="self.all(l, l.protocol in ['HTTPS', 'TLS'] ? has(l.tls) : true)"
 	// +kubebuilder:validation:XValidation:message="tls must not be specified for protocols ['HTTP', 'TCP', 'UDP']",rule="self.all(l, l.protocol in ['HTTP', 'TCP', 'UDP'] ? !has(l.tls) : true)"
+	// +kubebuilder:validation:XValidation:message="tls mode must be Terminate for protocol HTTPS",rule="self.all(l, (l.protocol == 'HTTPS' && has(l.tls)) ? (l.tls.mode == '' || l.tls.mode == 'Terminate') : true)"
 	// +kubebuilder:validation:XValidation:message="hostname must not be specified for protocols ['TCP', 'UDP']",rule="self.all(l, l.protocol in ['TCP', 'UDP']  ? (!has(l.hostname) || l.hostname == '') : true)"
 	// +kubebuilder:validation:XValidation:message="Listener name must be unique within the Gateway",rule="self.all(l1, self.exists_one(l2, l1.name == l2.name))"
 	// +kubebuilder:validation:XValidation:message="Combination of port, protocol and hostname must be unique for each listener",rule="self.all(l1, self.exists_one(l2, l1.port == l2.port && l1.protocol == l2.protocol && (has(l1.hostname) && has(l2.hostname) ? l1.hostname == l2.hostname : !has(l1.hostname) && !has(l2.hostname))))"

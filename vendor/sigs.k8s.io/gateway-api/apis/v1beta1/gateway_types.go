@@ -48,8 +48,8 @@ type GatewayList struct {
 // GatewaySpec defines the desired state of Gateway.
 //
 // Not all possible combinations of options specified in the Spec are
-// valid. Some invalid configurations can be caught synchronously via a
-// webhook, but there are many cases that will require asynchronous
+// valid. Some invalid configurations can be caught synchronously via CRD
+// validation, but there are many cases that will require asynchronous
 // signaling via the GatewayStatus block.
 // +k8s:deepcopy-gen=false
 type GatewaySpec = v1.GatewaySpec

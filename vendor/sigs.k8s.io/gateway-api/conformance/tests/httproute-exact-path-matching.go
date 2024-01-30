@@ -27,11 +27,11 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, HTTPExactPathMatching)
+	ConformanceTests = append(ConformanceTests, HTTPRouteExactPathMatching)
 }
 
-var HTTPExactPathMatching = suite.ConformanceTest{
-	ShortName:   "HTTPExactPathMatching",
+var HTTPRouteExactPathMatching = suite.ConformanceTest{
+	ShortName:   "HTTPRouteExactPathMatching",
 	Description: "A single HTTPRoute with exact path matching for different backends",
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
