@@ -2654,6 +2654,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u8 cluster_id __maybe_unused = (__u8)ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	struct remote_endpoint_info *info;
 	__be32 tunnel_endpoint = 0;
 	__u32 dst_sec_identity = 0;
@@ -2667,12 +2668,16 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	has_l4_header = ipv4_has_l4_header(ip4);
 
 #ifdef TUNNEL_MODE
-	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
 	if (info && info->tunnel_endpoint != 0) {
 		tunnel_endpoint = info->tunnel_endpoint;
 		dst_sec_identity = info->sec_identity;
 
 		target.addr = IPV4_GATEWAY;
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+		if (cluster_id && cluster_id != CLUSTER_ID)
+			target.addr = IPV4_INTER_CLUSTER_SNAT;
+#endif
 	}
 #endif
 
@@ -2987,6 +2992,7 @@ redo:
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR, ext_err);
 	} else {
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+		ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS,
 					  ext_err);
 	}
