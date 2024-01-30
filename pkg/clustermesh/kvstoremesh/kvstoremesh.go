@@ -5,6 +5,10 @@ package kvstoremesh
 
 import (
 	"context"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -13,41 +17,63 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/promise"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
+type Config struct {
+	PerClusterReadyTimeout time.Duration
+}
+
+var DefaultConfig = Config{
+	PerClusterReadyTimeout: 15 * time.Second,
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Duration("per-cluster-ready-timeout", def.PerClusterReadyTimeout, "Remote clusters will be disregarded for readiness checks if a connection cannot be established within this duration")
+}
+
 // KVStoreMesh is a cache of multiple remote clusters
 type KVStoreMesh struct {
 	common common.ClusterMesh
+	config Config
 
 	// backend is the interface to operate the local kvstore
 	backend        kvstore.BackendOperations
 	backendPromise promise.Promise[kvstore.BackendOperations]
 
 	storeFactory store.Factory
+
+	logger logrus.FieldLogger
 }
 
 type params struct {
 	cell.In
 
-	ClusterInfo types.ClusterInfo
-	common.Config
+	Config
+
+	ClusterInfo  types.ClusterInfo
+	CommonConfig common.Config
 
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 
 	Metrics      common.Metrics
 	StoreFactory store.Factory
+
+	Logger logrus.FieldLogger
 }
 
 func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 	km := KVStoreMesh{
+		config:         params.Config,
 		backendPromise: params.BackendPromise,
 		storeFactory:   params.StoreFactory,
+		logger:         params.Logger,
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
-		Config:           params.Config,
+		Config:           params.CommonConfig,
 		ClusterInfo:      params.ClusterInfo,
 		NewRemoteCluster: km.newRemoteCluster,
 		Metrics:          params.Metrics,
@@ -79,17 +105,23 @@ func (km *KVStoreMesh) Stop(cell.HookContext) error {
 func (km *KVStoreMesh) newRemoteCluster(name string, _ common.StatusFunc) common.RemoteCluster {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	synced := newSynced()
+	defer synced.resources.Stop()
+
 	rc := &remoteCluster{
 		name:         name,
 		localBackend: km.backend,
 
 		cancel: cancel,
 
-		nodes:        newReflector(km.backend, name, nodeStore.NodeStorePrefix, km.storeFactory),
-		services:     newReflector(km.backend, name, serviceStore.ServiceStorePrefix, km.storeFactory),
-		identities:   newReflector(km.backend, name, identityCache.IdentitiesPath, km.storeFactory),
-		ipcache:      newReflector(km.backend, name, ipcache.IPIdentitiesPath, km.storeFactory),
+		nodes:        newReflector(km.backend, name, nodeStore.NodeStorePrefix, km.storeFactory, synced.resources),
+		services:     newReflector(km.backend, name, serviceStore.ServiceStorePrefix, km.storeFactory, synced.resources),
+		identities:   newReflector(km.backend, name, identityCache.IdentitiesPath, km.storeFactory, synced.resources),
+		ipcache:      newReflector(km.backend, name, ipcache.IPIdentitiesPath, km.storeFactory, synced.resources),
 		storeFactory: km.storeFactory,
+		synced:       synced,
+		readyTimeout: km.config.PerClusterReadyTimeout,
+		logger:       km.logger.WithField(logfields.ClusterName, name),
 	}
 
 	run := func(fn func(context.Context)) {
@@ -104,6 +136,8 @@ func (km *KVStoreMesh) newRemoteCluster(name string, _ common.StatusFunc) common
 	run(rc.services.syncer.Run)
 	run(rc.identities.syncer.Run)
 	run(rc.ipcache.syncer.Run)
+
+	run(rc.waitForConnection)
 
 	return rc
 }

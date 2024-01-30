@@ -8,13 +8,18 @@ import (
 	"fmt"
 	"path"
 	"sync"
+	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
+	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/lock"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
@@ -35,9 +40,25 @@ type remoteCluster struct {
 	wg     sync.WaitGroup
 
 	storeFactory store.Factory
+
+	// synced tracks the initial synchronization of the remote cluster.
+	synced synced
+	// readyTimeout is the duration to wait for a connection to be established
+	// before removing the cluster from readiness checks.
+	readyTimeout time.Duration
+
+	logger logrus.FieldLogger
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg *types.CiliumClusterConfig, ready chan<- error) {
+	// Closing the synced.connected channel cancels the timeout goroutine.
+	// Ensure we do not attempt to close the channel more than once.
+	select {
+	case <-rc.synced.connected:
+	default:
+		close(rc.synced.connected)
+	}
+
 	dstcfg := types.CiliumClusterConfig{
 		Capabilities: types.CiliumClusterConfigCapabilities{
 			SyncedCanaries: true,
@@ -105,6 +126,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 func (rc *remoteCluster) Stop() {
 	rc.cancel()
+	rc.synced.Stop()
 	rc.wg.Wait()
 }
 
@@ -115,6 +137,26 @@ func (rc *remoteCluster) Remove() {
 
 func (rc *remoteCluster) ClusterConfigRequired() bool { return false }
 
+// waitForConnection waits for a connection to be established to the remote cluster.
+// If the connection is not established within the timeout, the remote cluster is
+// removed from readiness checks.
+func (rc *remoteCluster) waitForConnection(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+	case <-rc.synced.connected:
+	case <-time.After(rc.readyTimeout):
+		rc.logger.Info("Remote cluster did not connect within timeout, removing from readiness checks")
+		for {
+			select {
+			case <-rc.synced.resources.WaitChannel():
+				return
+			default:
+				rc.synced.resources.Done()
+			}
+		}
+	}
+}
+
 type reflector struct {
 	watcher store.WatchStore
 	syncer  syncer
@@ -122,6 +164,7 @@ type reflector struct {
 
 type syncer struct {
 	store.SyncStore
+	synced *lock.StoppableWaitGroup
 }
 
 func (o *syncer) OnUpdate(key store.Key) {
@@ -133,14 +176,16 @@ func (o *syncer) OnDelete(key store.NamedKey) {
 }
 
 func (o *syncer) OnSync(ctx context.Context) {
-	o.Synced(ctx)
+	o.Synced(ctx, func(context.Context) { o.synced.Done() })
 }
 
-func newReflector(local kvstore.BackendOperations, cluster, prefix string, factory store.Factory) reflector {
+func newReflector(local kvstore.BackendOperations, cluster, prefix string, factory store.Factory, synced *lock.StoppableWaitGroup) reflector {
+	synced.Add()
 	prefix = kvstore.StateToCachePrefix(prefix)
 	syncer := syncer{
 		SyncStore: factory.NewSyncStore(cluster, local, path.Join(prefix, cluster),
 			store.WSSWithSyncedKeyOverride(prefix)),
+		synced: synced,
 	}
 
 	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer,
@@ -151,4 +196,22 @@ func newReflector(local kvstore.BackendOperations, cluster, prefix string, facto
 		syncer:  syncer,
 		watcher: watcher,
 	}
+}
+
+type synced struct {
+	wait.SyncedCommon
+	resources *lock.StoppableWaitGroup
+	connected chan struct{}
+}
+
+func newSynced() synced {
+	return synced{
+		SyncedCommon: wait.NewSyncedCommon(),
+		resources:    lock.NewStoppableWaitGroup(),
+		connected:    make(chan struct{}),
+	}
+}
+
+func (s *synced) Resources(ctx context.Context) error {
+	return s.Wait(ctx, s.resources.WaitChannel())
 }
