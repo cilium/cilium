@@ -26,10 +26,11 @@ import (
 // the ephemeral (source) ports. As this range is configurable, ideally, we should
 // use the IANA-assigned ports below 1024 (e.g. 179) or mock GoBGP in these tests.
 // See https://github.com/cilium/cilium/issues/26209 for more info.
+// Note these ports should be different from the ports used in the pkg/bgpv1/manager/reconciler
 const (
-	localListenPort  = 1793
-	localListenPort2 = 1794
-	localListenPort3 = 1795
+	localListenPort  = 1780
+	localListenPort2 = 1781
+	localListenPort3 = 1782
 )
 
 // TestPreflightReconciler ensures if a BgpServer must be recreated, due to
