@@ -35,7 +35,6 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/release"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -489,7 +488,6 @@ type Parameters struct {
 	All                  bool
 	ConfigOverwrites     []string
 	Retries              int
-	HelmValuesSecretName string
 	Output               string
 
 	// EnableExternalWorkloads indicates whether externalWorkloads.enabled Helm value
@@ -1849,30 +1847,7 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 		k.params.Retries = 1
 	}
 
-	var ciliumVer semver.Version
-
-	helmState, err := k.client.GetHelmState(ctx, k.params.Namespace, k.params.HelmValuesSecretName)
-	if err != nil {
-		// Try to retrieve version from image tag
-		v, err := k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
-		if err != nil {
-			return err
-		}
-		ciliumVer, err = utils.ParseCiliumVersion(v)
-		if err != nil {
-			return fmt.Errorf("failed to parse Cilium version %s: %w", v, err)
-		}
-
-	} else {
-		ciliumVer = helmState.Version
-	}
-
 	sockLBOpt := "--bpf-lb-sock"
-	if ciliumVer.LT(versioncheck.MustVersion("1.12.0")) {
-		// Before 1.12, the socket LB was enabled via --enable-host-reachable-services flag
-		sockLBOpt = "--enable-host-reachable-services"
-	}
-
 	fmt.Fprintf(writer, installScriptFmt,
 		daemonSet.Spec.Template.Spec.Containers[0].Image, clusterAddr,
 		configOverwrites,
