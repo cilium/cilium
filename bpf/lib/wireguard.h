@@ -12,6 +12,7 @@
 #include "tailcall.h"
 #include "common.h"
 #include "overloadable.h"
+#include "identity.h"
 
 static __always_inline int
 wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
