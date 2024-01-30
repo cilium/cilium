@@ -5,12 +5,12 @@ package clustermesh
 
 import (
 	"context"
-	"errors"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -181,47 +181,34 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 	return cm.common.NumReadyClusters()
 }
 
-// SyncedWaitFn is the type of a function to wait for the initial synchronization
-// of a given resource type from all remote clusters.
-type SyncedWaitFn func(ctx context.Context) error
-
 // NodesSynced returns after that the initial list of nodes has been received
 // from all remote clusters, and synchronized with the different subscribers.
 func (cm *ClusterMesh) NodesSynced(ctx context.Context) error {
-	return cm.synced(ctx, func(rc *remoteCluster) SyncedWaitFn { return rc.synced.Nodes })
+	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.Nodes })
 }
 
 // ServicesSynced returns after that the initial list of shared services has been
 // received from all remote clusters, and synchronized with the BPF datapath.
 func (cm *ClusterMesh) ServicesSynced(ctx context.Context) error {
-	return cm.synced(ctx, func(rc *remoteCluster) SyncedWaitFn { return rc.synced.Services })
+	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.Services })
 }
 
 // IPIdentitiesSynced returns after that the initial list of ipcache entries and
 // identities has been received from all remote clusters, and synchronized with
 // the BPF datapath.
 func (cm *ClusterMesh) IPIdentitiesSynced(ctx context.Context) error {
-	return cm.synced(ctx, func(rc *remoteCluster) SyncedWaitFn { return rc.synced.IPIdentities })
+	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.IPIdentities })
 }
 
-func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) SyncedWaitFn) error {
-	waiters := make([]SyncedWaitFn, 0)
+func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) wait.Fn) error {
+	waiters := make([]wait.Fn, 0)
 	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
 		rc := rci.(*remoteCluster)
 		waiters = append(waiters, toWaitFn(rc))
 		return nil
 	})
 
-	for _, wait := range waiters {
-		err := wait(ctx)
-
-		// Ignore the error in case the given cluster was disconnected in
-		// the meanwhile, as we do not longer care about it.
-		if err != nil && !errors.Is(err, ErrRemoteClusterDisconnected) {
-			return err
-		}
-	}
-	return nil
+	return wait.ForAll(ctx, waiters)
 }
 
 // Status returns the status of the ClusterMesh subsystem
