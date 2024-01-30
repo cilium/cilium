@@ -108,7 +108,7 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
-          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
+          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
 
           CILIUM_IMAGE_SETTINGS=" \
             --chart-directory=./untrusted/cilium-newest/install/kubernetes/cilium \
