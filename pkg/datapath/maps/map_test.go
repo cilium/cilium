@@ -10,7 +10,7 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
@@ -60,7 +60,7 @@ func newTestEPManager() *testEPManager {
 }
 
 func newTestBWManager() types.BandwidthManager {
-	return &fake.BandwidthManager{}
+	return &fakeTypes.BandwidthManager{}
 }
 
 func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
