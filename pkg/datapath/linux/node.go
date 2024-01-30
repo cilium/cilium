@@ -668,6 +668,7 @@ func (n *linuxNodeHandler) insertNeighborCommon(ctx context.Context, nextHop Nex
 			HardwareAddr: nil,
 		}
 		if err := netlink.NeighSet(&neighInit); err != nil {
+			// EINVAL is expected (see above)
 			errs = errors.Join(errs, fmt.Errorf("next hop insert failed for %+v: %w", neighInit, err))
 		}
 	}
