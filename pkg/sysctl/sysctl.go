@@ -93,6 +93,15 @@ func writeSysctl(name string, value string) error {
 	if err != nil {
 		return err
 	}
+	// Check if the value is already set to the desired value.
+	val, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("could not read the sysctl file %s: %s", path, err)
+	}
+	// If the value is already set, return.
+	if strings.TrimRight(string(val), "\n") == value {
+		return nil
+	}
 	f, err := os.OpenFile(path, os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("could not open the sysctl file %s: %s",
