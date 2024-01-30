@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/ebpf/rlimit"
 
-	"github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -102,7 +101,7 @@ func writeConfig(c *C, header string, write writeFn) {
 		h := hive.New(
 			cell.Provide(
 				fakeTypes.NewNodeAddressing,
-				func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
+				func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 				NewHeaderfileWriter,
 			),
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
@@ -384,7 +383,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
 		},
-		BandwidthManager: &fake.BandwidthManager{},
+		BandwidthManager: &fakeTypes.BandwidthManager{},
 	})
 	require.NoError(t, err)
 
@@ -399,7 +398,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
 		},
-		BandwidthManager: &fake.BandwidthManager{},
+		BandwidthManager: &fakeTypes.BandwidthManager{},
 	})
 	require.NoError(t, err)
 
@@ -418,7 +417,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
-		BandwidthManager:   &fake.BandwidthManager{},
+		BandwidthManager:   &fakeTypes.BandwidthManager{},
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -427,7 +426,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
-		BandwidthManager:   &fake.BandwidthManager{},
+		BandwidthManager:   &fakeTypes.BandwidthManager{},
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))

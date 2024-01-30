@@ -9,7 +9,6 @@ import (
 	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -33,7 +32,7 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 	hv := hive.New(
 		cell.Provide(
 			fakeTypes.NewNodeAddressing,
-			func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
+			func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 			config.NewHeaderfileWriter,
 		),
 		cell.Invoke(func(writer_ datapath.ConfigWriter) {

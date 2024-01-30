@@ -46,7 +46,7 @@ var Cell = cell.Module(
 		func() egressmap.PolicyMap { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() *iptables.Manager { return &iptables.Manager{} },
-		func() types.BandwidthManager { return &BandwidthManager{} },
+		func() types.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 
