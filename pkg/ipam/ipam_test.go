@@ -13,7 +13,7 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/option"
@@ -128,7 +128,7 @@ func (f fakePoolAllocator) Capacity() uint64 {
 func (f fakePoolAllocator) RestoreFinished() {}
 
 func (s *IPAMSuite) TestLock(c *C) {
-	fakeAddressing := fake.NewNodeAddressing()
+	fakeAddressing := fakeTypes.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	// Since the IPs we have allocated to the endpoints might or might not
@@ -150,7 +150,7 @@ func (s *IPAMSuite) TestLock(c *C) {
 }
 
 func (s *IPAMSuite) TestExcludeIP(c *C) {
-	fakeAddressing := fake.NewNodeAddressing()
+	fakeAddressing := fakeTypes.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
@@ -181,7 +181,7 @@ func (s *IPAMSuite) TestDeriveFamily(c *C) {
 }
 
 func (s *IPAMSuite) TestIPAMMetadata(c *C) {
-	fakeAddressing := fake.NewNodeAddressing()
+	fakeAddressing := fakeTypes.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 	ipam.IPv4Allocator = newFakePoolAllocator(map[string]string{
 		"default": "10.10.0.0/16",
@@ -258,7 +258,7 @@ func (s *IPAMSuite) TestLegacyAllocatorIPAMMetadata(c *C) {
 	// IPAM pools. We assert that in this scenario, the pool returned in the
 	// AllocationResult is always set to PoolDefault(), regardless of the requested
 	// pool
-	fakeAddressing := fake.NewNodeAddressing()
+	fakeAddressing := fakeTypes.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 	ipam.WithMetadata(fakeMetadataFunc(func(owner string, family Family) (pool string, err error) {
 		return "some-pool", nil

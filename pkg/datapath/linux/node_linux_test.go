@@ -21,7 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -123,17 +123,17 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpTest(c *check.C) {
-	addressing := fake.NewIPv6OnlyNodeAddressing()
+	addressing := fakeTypes.NewIPv6OnlyNodeAddressing()
 	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, true, false)
 }
 
 func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpTest(c *check.C) {
-	addressing := fake.NewIPv4OnlyNodeAddressing()
+	addressing := fakeTypes.NewIPv4OnlyNodeAddressing()
 	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, false, true)
 }
 
 func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
-	addressing := fake.NewNodeAddressing()
+	addressing := fakeTypes.NewNodeAddressing()
 	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, true, true)
 }
 

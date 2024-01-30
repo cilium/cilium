@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -17,7 +17,7 @@ import (
 var _ datapath.Datapath = (*FakeDatapath)(nil)
 
 type FakeDatapath struct {
-	node           *types.FakeNodeHandler
+	node           *fakeTypes.FakeNodeHandler
 	nodeAddressing datapath.NodeAddressing
 	loader         datapath.Loader
 	lbmap          *mockmaps.LBMockMap
@@ -25,12 +25,12 @@ type FakeDatapath struct {
 
 // NewDatapath returns a new fake datapath
 func NewDatapath() *FakeDatapath {
-	return newDatapath(NewNodeAddressing())
+	return newDatapath(fakeTypes.NewNodeAddressing())
 }
 
 func newDatapath(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
-		node:           types.NewNodeHandler(),
+		node:           fakeTypes.NewNodeHandler(),
 		nodeAddressing: na,
 		loader:         &fakeLoader{},
 		lbmap:          mockmaps.NewLBMockMap(),
@@ -50,7 +50,7 @@ func (f *FakeDatapath) NodeNeighbors() datapath.NodeNeighbors {
 	return f.node
 }
 
-func (f *FakeDatapath) FakeNode() *types.FakeNodeHandler {
+func (f *FakeDatapath) FakeNode() *fakeTypes.FakeNodeHandler {
 	return f.node
 }
 
