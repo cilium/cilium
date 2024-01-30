@@ -49,10 +49,8 @@ var (
 		},
 	}
 	ctValue = ctmap.CtEntry{
-		RxPackets:        1,
-		RxBytes:          512,
-		TxPackets:        4,
-		TxBytes:          2048,
+		Packets:          4 + 1,
+		Bytes:            2048 + 512,
 		Lifetime:         12345,
 		Flags:            3,
 		RevNAT:           byteorder.HostToNetwork16(27),

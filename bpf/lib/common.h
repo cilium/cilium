@@ -932,30 +932,23 @@ struct ipv4_ct_tuple {
 } __packed;
 
 struct ct_entry {
-	__u64 rx_packets;
-	/* Previously, the rx_bytes field was not used for entries with
-	 * the dir=CT_SERVICE (see GH#7060). Therefore, we can safely abuse
-	 * this field to save the backend_id.
-	 */
-	union {
-		__u64 rx_bytes;
-		__u64 backend_id;
-	};
-	__u64 tx_packets;
-	__u64 tx_bytes;
+	__u64 reserved0;	/* unused since v1.16 */
+	__u64 backend_id;
+	__u64 packets;
+	__u64 bytes;
 	__u32 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
-	      unused_nat46:1,	/* unused since v1.12 / 81dee05e82fb */
+	      reserved1:1,	/* unused since v1.12 */
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      dsr_internal:1,	/* DSR is k8s service related, cluster internal */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved1:1,	/* Was auth_required, not used in production anywhere */
+	      reserved2:1,	/* unused since v1.14 */
 	      from_tunnel:1,	/* Connection is over tunnel */
-	      reserved:5;
+	      reserved3:5;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).

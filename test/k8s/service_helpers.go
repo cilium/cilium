@@ -287,7 +287,7 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	// Atoi() throws an error and simply consider we have 0
 	// packets.
 
-	// Field #7 is "RxPackets=<n>"
+	// Field #7 is "Packets=<n>"
 	cmdIn := "cilium-dbg bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
 
 	endpointK8s1 := net.JoinHostPort(dstPodIPK8s1, fmt.Sprintf("%d", dstPodPort))
@@ -302,8 +302,8 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
 	countInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 
-	// Field #11 is "TxPackets=<n>"
-	cmdOut := "cilium-dbg bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $11); print $11 }'"
+	// Field #7 is "Packets=<n>"
+	cmdOut := "cilium-dbg bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
 
 	if !hasDNAT {
 		// If kube-proxy is enabled, we see packets in ctmap with the
