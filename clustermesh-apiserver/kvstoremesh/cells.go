@@ -21,6 +21,7 @@ var Cell = cell.Module(
 	"Cilium KVStoreMesh",
 
 	cell.Config(option.DefaultLegacyKVStoreMeshConfig),
+	cell.Config(kvstoremesh.DefaultConfig),
 
 	cell.Config(cmtypes.DefaultClusterInfo),
 	cell.Invoke(registerClusterInfoValidator),
