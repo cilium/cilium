@@ -150,12 +150,12 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
-          # We need to be able to check the existence of the tag we want to
-          # downgrade to, in case we're on a release preparation commit and the
-          # value in VERSION does not correspond to an existing tag yet. In
-          # that case, print-downgrade-version.sh needs to adjust the patch
-          # release number to downgrade to.
-          fetch-tags: true
+          # We need some context on the last commit to determine whether we're
+          # on a release preparation commit, in which case the value in VERSION
+          # does not correspond to an existing tag yet and the script
+          # print-downgrade-version.sh needs to adjust the patch release number
+          # to downgrade to.
+          fetch-depth: 2
           persist-credentials: false
 
       - name: Set Environment Variables
@@ -183,6 +183,11 @@ jobs:
             # default release image, without crafting an image path with the
             # "-ci" suffix
             IMAGE_TAG=''
+          fi
+          echo "CILIUM_DOWNGRADE_VERSION: ${CILIUM_DOWNGRADE_VERSION}"
+          echo "IMAGE_TAG: ${IMAGE_TAG}"
+          if [ -z "${CILIUM_DOWNGRADE_VERSION}" ]; then
+            echo "::notice::No CILIUM_DOWNGRADE_VERSION returned; skipping remaining steps"
           fi
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
