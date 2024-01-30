@@ -106,7 +106,6 @@ func writeConfig(c *C, header string, write writeFn) {
 			statedb.Cell,
 			cell.Provide(
 				fakeTypes.NewNodeAddressing,
-				func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
 				tables.NewDeviceTable,
 				func(_ *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
@@ -440,8 +439,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
 		},
-		BandwidthManager: &fakeTypes.BandwidthManager{},
-		Sysctl:           sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	require.NoError(t, err)
 
@@ -458,8 +456,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
 		},
-		BandwidthManager: &fakeTypes.BandwidthManager{},
-		Sysctl:           sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	require.NoError(t, err)
 
@@ -484,7 +481,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
-		BandwidthManager:   &fakeTypes.BandwidthManager{},
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 
@@ -496,7 +492,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
-		BandwidthManager:   &fakeTypes.BandwidthManager{},
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	require.NoError(t, err)

@@ -21,7 +21,6 @@ type WriterParams struct {
 	NodeAddressing     datapath.NodeAddressing
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
-	BandwidthManager   datapath.BandwidthManager
 	Sysctl             sysctl.Sysctl
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
