@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -119,4 +120,29 @@ func TestInlineGlobalData(t *testing.T) {
 	if want, got := 0x7f00000000000000, int(insns[2].Constant); want != got {
 		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
 	}
+}
+
+func TestRemoveUnreachableTailcalls(t *testing.T) {
+	spec, err := ebpf.LoadCollectionSpec("testdata/unreachable-tailcall.o")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Contains(t, spec.Programs, "cil_entry")
+	assert.Contains(t, spec.Programs, "a")
+	assert.Contains(t, spec.Programs, "b")
+	assert.Contains(t, spec.Programs, "c")
+	assert.Contains(t, spec.Programs, "d")
+	assert.Contains(t, spec.Programs, "e")
+
+	if err := removeUnreachableTailcalls(spec); err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Contains(t, spec.Programs, "cil_entry")
+	assert.Contains(t, spec.Programs, "a")
+	assert.Contains(t, spec.Programs, "b")
+	assert.Contains(t, spec.Programs, "c")
+	assert.NotContains(t, spec.Programs, "d")
+	assert.NotContains(t, spec.Programs, "e")
 }
