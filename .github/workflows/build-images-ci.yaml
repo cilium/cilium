@@ -108,7 +108,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
@@ -443,7 +443,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@6b208ae046db98c579e8a3aa621ab581ff575935 # v4.1.1
         with:
           path: image-digest/
 
