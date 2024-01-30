@@ -79,8 +79,8 @@ func fakeDevices(db *statedb.DB, devices statedb.RWTable[*tables.Device]) stated
 		HardwareAddr: []byte{1, 2, 3, 4, 5, 6},
 		Flags:        net.FlagUp,
 		Addrs: []tables.DeviceAddress{
-			{Addr: ip.MustAddrFromIP(IPv4NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(IPv6NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: ip.MustAddrFromIP(fakeTypes.IPv4NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: ip.MustAddrFromIP(fakeTypes.IPv6NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
 		},
 		Type:     "test",
 		Selected: true,
@@ -93,8 +93,8 @@ func fakeDevices(db *statedb.DB, devices statedb.RWTable[*tables.Device]) stated
 		HardwareAddr: []byte{2, 3, 4, 5, 6, 7},
 		Flags:        net.FlagUp,
 		Addrs: []tables.DeviceAddress{
-			{Addr: ip.MustAddrFromIP(IPv4InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(IPv6InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: ip.MustAddrFromIP(fakeTypes.IPv4InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: ip.MustAddrFromIP(fakeTypes.IPv6InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
 
 			{Addr: netip.MustParseAddr("10.0.0.4"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
 			{Addr: netip.MustParseAddr("f00d::3"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},

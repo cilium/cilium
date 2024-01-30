@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -32,7 +32,7 @@ var (
 		nodeConfig: datapath.LocalNodeConfiguration{
 			MtuConfig: &mtuConfig,
 		},
-		nodeAddressing: fake.NewNodeAddressing(),
+		nodeAddressing: fakeTypes.NewNodeAddressing(),
 		datapathConfig: DatapathConfiguration{
 			HostDevice: "host_device",
 		},
@@ -76,7 +76,7 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 		HostDevice: "host_device",
 	}
 
-	fakeNodeAddressing := fake.NewNodeAddressing()
+	fakeNodeAddressing := fakeTypes.NewNodeAddressing()
 
 	nodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing, nil, &mtuConfig)
 

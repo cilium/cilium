@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -91,7 +91,7 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = dummyResource
 	}
 
-	fakeAddressing := fake.NewNodeAddressing()
+	fakeAddressing := fakeTypes.NewNodeAddressing()
 	conf := testConfigurationCRD
 	initNodeStore.Do(func() {
 		sharedNodeStore = newFakeNodeStore(conf, c)

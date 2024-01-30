@@ -13,7 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -44,7 +44,7 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 		},
 	}
 
-	cache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	cache := NewServiceCache(fakeTypes.NewNodeAddressing())
 	cache.services = map[ServiceID]*Service{
 		svcID1: {
 			FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
@@ -188,7 +188,7 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 func testServiceCache(c *check.C,
 	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup)) {
 
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -333,7 +333,7 @@ func (s *K8sSuite) TestCacheActionString(c *check.C) {
 func (s *K8sSuite) TestServiceMutators(c *check.C) {
 	var m1, m2 int
 
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
 	svcCache.ServiceMutators = append(svcCache.ServiceMutators,
 		func(svc *slim_corev1.Service, svcInfo *Service) { m1++ },
 		func(svc *slim_corev1.Service, svcInfo *Service) { m2++ },
@@ -354,7 +354,7 @@ func (s *K8sSuite) TestServiceMutators(c *check.C) {
 }
 
 func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -716,7 +716,7 @@ func (s *K8sSuite) TestExternalServiceDeletion(c *check.C) {
 	id2 := ServiceID{Cluster: cluster, Namespace: "bar", Name: "foo"}
 
 	swg := lock.NewStoppableWaitGroup()
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
 
 	// Store the service with the non-cluster-aware ID
 	svcCache.services[id1] = &svc
@@ -776,7 +776,7 @@ func (s *K8sSuite) TestExternalServiceDeletion(c *check.C) {
 }
 
 func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
 	swgSvcs := lock.NewStoppableWaitGroup()
 	swgEps := lock.NewStoppableWaitGroup()
 
@@ -844,7 +844,7 @@ func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
 }
 
 func (s *K8sSuite) TestNonSharedService(c *check.C) {
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -968,7 +968,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 		},
 	})
 
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1186,7 +1186,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 		},
 	})
 
-	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache := NewServiceCache(fakeTypes.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1399,7 +1399,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 	store := node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{
 		Labels: map[string]string{v1.LabelTopologyZone: "test-zone-2"},
 	}})
-	svcCache := newServiceCache(hivetest.Lifecycle(c), fakeDatapath.NewNodeAddressing(),
+	svcCache := newServiceCache(hivetest.Lifecycle(c), fakeTypes.NewNodeAddressing(),
 		ServiceCacheConfig{EnableServiceTopology: true}, store)
 
 	swg := lock.NewStoppableWaitGroup()
