@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
-	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -73,7 +73,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	clusterName2 := s.randomName + "2"
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
-	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
+	s.svcCache = k8s.NewServiceCache(fakeTypes.NewNodeAddressing())
 
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.

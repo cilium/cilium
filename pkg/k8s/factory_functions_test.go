@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
-	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -901,7 +901,7 @@ func (s *K8sSuite) Test_EqualV1Service(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := EqualV1Services(tt.args.o1, tt.args.o2, fakeDatapath.NewNodeAddressing())
+		got := EqualV1Services(tt.args.o1, tt.args.o2, fakeTypes.NewNodeAddressing())
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
