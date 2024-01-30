@@ -25,19 +25,6 @@ cilium status --wait
 # Make sure the 'aws-node' DaemonSet exists but has no scheduled pods
 [[ $(kubectl -n kube-system get ds/aws-node -o jsonpath='{.status.currentNumberScheduled}') == 0 ]]
 
-# Clean up stale AWS-CNI iptables rules, which break host to pod connectivity (cilium/cilium#25804)
-CLEANUP_CMD="\
-    iptables -t nat -F AWS-SNAT-CHAIN-0 && \
-    iptables -t nat -F AWS-SNAT-CHAIN-1 && \
-    iptables -t nat -F AWS-CONNMARK-CHAIN-0 && \
-    iptables -t nat -F AWS-CONNMARK-CHAIN-1"
-kubectl get pod \
-    -n kube-system \
-    -l app.kubernetes.io/name=cilium-agent \
-    -o custom-columns=name:metadata.name --no-headers \
-    | xargs -I{} kubectl exec {} -n kube-system -c cilium-agent \
-      -- sh -c "$CLEANUP_CMD"
-
 # Port forward Relay
 cilium hubble port-forward&
 sleep 10s
