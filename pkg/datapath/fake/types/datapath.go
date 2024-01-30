@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package fake
+package types
 
 import (
 	"context"
 	"io"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -17,7 +16,7 @@ import (
 var _ datapath.Datapath = (*FakeDatapath)(nil)
 
 type FakeDatapath struct {
-	node           *fakeTypes.FakeNodeHandler
+	node           *FakeNodeHandler
 	nodeAddressing datapath.NodeAddressing
 	loader         datapath.Loader
 	lbmap          *mockmaps.LBMockMap
@@ -25,12 +24,12 @@ type FakeDatapath struct {
 
 // NewDatapath returns a new fake datapath
 func NewDatapath() *FakeDatapath {
-	return newDatapath(fakeTypes.NewNodeAddressing())
+	return NewDatapathWithNodeAddressing(NewNodeAddressing())
 }
 
-func newDatapath(na datapath.NodeAddressing) *FakeDatapath {
+func NewDatapathWithNodeAddressing(na datapath.NodeAddressing) *FakeDatapath {
 	return &FakeDatapath{
-		node:           fakeTypes.NewNodeHandler(),
+		node:           NewNodeHandler(),
 		nodeAddressing: na,
 		loader:         &fakeLoader{},
 		lbmap:          mockmaps.NewLBMockMap(),
@@ -50,7 +49,7 @@ func (f *FakeDatapath) NodeNeighbors() datapath.NodeNeighbors {
 	return f.node
 }
 
-func (f *FakeDatapath) FakeNode() *fakeTypes.FakeNodeHandler {
+func (f *FakeDatapath) FakeNode() *FakeNodeHandler {
 	return f.node
 }
 
@@ -125,7 +124,7 @@ func (f *FakeDatapath) LBMockMap() *mockmaps.LBMockMap {
 }
 
 func (f *FakeDatapath) BandwidthManager() datapath.BandwidthManager {
-	return &fakeTypes.BandwidthManager{}
+	return &BandwidthManager{}
 }
 
 // Loader is an interface to abstract out loading of datapath programs.

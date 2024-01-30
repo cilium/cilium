@@ -12,7 +12,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -165,7 +164,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		},
 	}
 
-	dp := fakeDatapath.NewDatapath()
+	dp := fakeTypes.NewDatapath()
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -489,7 +488,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		},
 	}
 
-	dp := fakeDatapath.NewDatapath()
+	dp := fakeTypes.NewDatapath()
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -642,7 +641,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		},
 	}
 
-	dp := fakeDatapath.NewDatapath()
+	dp := fakeTypes.NewDatapath()
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -1124,7 +1123,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		},
 	}
 
-	dp := fakeDatapath.NewDatapath()
+	dp := fakeTypes.NewDatapath()
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -1440,7 +1439,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		},
 	}
 
-	dp := fakeDatapath.NewDatapath()
+	dp := fakeTypes.NewDatapath()
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -1749,7 +1748,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		},
 	}
 
-	dp := fakeDatapath.NewDatapath()
+	dp := fakeTypes.NewDatapath()
 	w := NewK8sWatcher(
 		nil,
 		nil,
@@ -2672,7 +2671,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		},
 	}
 
-	dp := fakeDatapath.NewDatapath()
+	dp := fakeTypes.NewDatapath()
 	w := NewK8sWatcher(
 		nil,
 		nil,
