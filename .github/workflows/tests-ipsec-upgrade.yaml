@@ -152,13 +152,14 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
-          # We need to be able to check the existence of the tag we want to
-          # downgrade to, in case we're on a release preparation commit and the
-          # value in VERSION does not correspond to an existing tag yet. In
-          # that case, print-downgrade-version.sh needs to adjust the patch
-          # release number to downgrade to.
-          fetch-tags: true
-          persist-credentials: false
+          # We keep the credentials here, to make sure we're able to run
+          # "git fetch" in print-downgrade-version.sh in a few steps below.
+          # We'll call it again to remove the credentials before pulling the
+          # untrusted branch from the PR. We remain in a trusted context while
+          # credentials persist.
+          # This remains faster than downloading the full project history to
+          # make tags available to print-downgrade-version.sh.
+          persist-credentials: true
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
@@ -173,7 +174,7 @@ jobs:
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
           if [ "${{ matrix.mode }}" = "minor" ]; then
-            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
+            CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
             IMAGE_TAG=${CILIUM_DOWNGRADE_VERSION}
           else
             # Upgrade from / downgrade to patch release.
@@ -186,8 +187,36 @@ jobs:
             # "-ci" suffix
             IMAGE_TAG=''
           fi
+          echo "CILIUM_DOWNGRADE_VERSION: ${CILIUM_DOWNGRADE_VERSION}"
+          echo "IMAGE_TAG: ${IMAGE_TAG}"
+          if [ -z "${CILIUM_DOWNGRADE_VERSION}" ]; then
+            echo "::notice::No CILIUM_DOWNGRADE_VERSION returned; skipping remaining steps"
+          fi
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
+
+      - name: Call actions/checkout again to remove credentials
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Check we effectively removed Git credentials
+        shell: bash
+        run: |
+          # For private repositories requiring authentication, check that we
+          # can no longer fetch from the repository.
+          if ! curl -sL \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}" | \
+            jq --exit-status '.private == false'; then
+            echo 'Checking whether "git fetch" succeeds'
+            if git fetch origin HEAD; then
+              echo "::error::Git credentials not removed, aborting now."
+              false
+            fi
+          fi
 
       - name: Derive stable Cilium installation config
         id: cilium-stable-config

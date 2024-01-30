@@ -142,7 +142,7 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
+          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo "downgrade_version=${CILIUM_DOWNGRADE_VERSION}" >> $GITHUB_OUTPUT
 
           # * Hubble is disabled to avoid the performance penalty in the testing
