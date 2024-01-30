@@ -24,7 +24,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -72,12 +71,12 @@ func NewGatewayRef(nn types.NamespacedName, listenerNames ...string) GatewayRef 
 	}
 }
 
-// GWCMustBeAcceptedConditionTrue waits until the specified GatewayClass has an Accepted condition set with a status value equal to True.
+// GWCMustHaveAcceptedConditionTrue waits until the specified GatewayClass has an Accepted condition set with a status value equal to True.
 func GWCMustHaveAcceptedConditionTrue(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, gwcName string) string {
 	return gwcMustBeAccepted(t, c, timeoutConfig, gwcName, string(metav1.ConditionTrue))
 }
 
-// GWCMustBeAcceptedConditionAny waits until the specified GatewayClass has an Accepted condition set with a status set to any value.
+// GWCMustHaveAcceptedConditionAny waits until the specified GatewayClass has an Accepted condition set with a status set to any value.
 func GWCMustHaveAcceptedConditionAny(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, gwcName string) string {
 	return gwcMustBeAccepted(t, c, timeoutConfig, gwcName, "")
 }
@@ -410,9 +409,8 @@ func WaitForGatewayAddress(t *testing.T, client client.Client, timeoutConfig con
 
 		port = strconv.FormatInt(int64(gw.Spec.Listeners[0].Port), 10)
 
-		// TODO: Support more than IPAddress
 		for _, address := range gw.Status.Addresses {
-			if address.Type != nil && *address.Type == gatewayv1.IPAddressType {
+			if address.Type != nil && (*address.Type == gatewayv1.IPAddressType || *address.Type == v1alpha2.HostnameAddressType) {
 				ipAddr = address.Value
 				return true, nil
 			}
@@ -429,34 +427,25 @@ func WaitForGatewayAddress(t *testing.T, client client.Client, timeoutConfig con
 func GatewayListenersMustHaveConditions(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, gwName types.NamespacedName, conditions []metav1.Condition) {
 	t.Helper()
 
-	var wg sync.WaitGroup
-	wg.Add(len(conditions))
+	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GatewayListenersMustHaveConditions, true, func(ctx context.Context) (bool, error) {
+		var gw gatewayv1.Gateway
+		if err := client.Get(ctx, gwName, &gw); err != nil {
+			return false, fmt.Errorf("error fetching Gateway: %w", err)
+		}
 
-	for _, condition := range conditions {
-		go func(condition metav1.Condition) {
-			defer wg.Done()
-
-			waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GatewayListenersMustHaveCondition, true, func(ctx context.Context) (bool, error) {
-				var gw gatewayv1.Gateway
-				if err := client.Get(ctx, gwName, &gw); err != nil {
-					return false, fmt.Errorf("error fetching Gateway: %w", err)
+		for _, condition := range conditions {
+			for _, listener := range gw.Status.Listeners {
+				if !findConditionInList(t, listener.Conditions, condition.Type, string(condition.Status), condition.Reason) {
+					t.Logf("gateway %s doesn't have %s condition set to %s on %s listener", gwName, condition.Type, condition.Status, listener.Name)
+					return false, nil
 				}
+			}
+		}
 
-				for _, listener := range gw.Status.Listeners {
-					if !findConditionInList(t, listener.Conditions, condition.Type, string(condition.Status), condition.Reason) {
-						return false, nil
-					}
-				}
+		return true, nil
+	})
 
-				return true, nil
-			})
-
-			require.NoErrorf(t, waitErr, "error waiting for Gateway status to have the %s condition set to %s on all listeners",
-				condition.Type, condition.Status)
-		}(condition)
-	}
-
-	wg.Wait()
+	require.NoErrorf(t, waitErr, "error waiting for Gateway status to have conditions matching expectations on all listeners")
 }
 
 // GatewayMustHaveZeroRoutes validates that the gateway has zero routes attached.  The status

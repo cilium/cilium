@@ -45,7 +45,7 @@ var HTTPRouteBackendProtocolWebSocket = suite.ConformanceTest{
 		suite.SupportHTTPRouteBackendProtocolWebSocket,
 	},
 	Manifests: []string{
-		"tests/httproute-backend-protocol-ws.yaml",
+		"tests/httproute-backend-protocol-websocket.yaml",
 	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"

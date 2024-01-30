@@ -167,19 +167,19 @@ func CalculateHost(t *testing.T, gwAddr, scheme string) string {
 		return gwAddr
 	}
 	if strings.ToLower(scheme) == "http" && port == "80" {
-		return ipv6SafeHost(host)
+		return Ipv6SafeHost(host)
 	}
 	if strings.ToLower(scheme) == "https" && port == "443" {
-		return ipv6SafeHost(host)
+		return Ipv6SafeHost(host)
 	}
 	return gwAddr
 }
 
-func ipv6SafeHost(host string) string {
-	// We assume that host is a literal IPv6 address if host has
-	// colons.
-	// Per https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2.
-	// This is like net.JoinHostPort, but we don't need a port.
+// Ipv6SafeHost returns a safe representation for an ipv6 address to be used with a port
+// We assume that host is a literal IPv6 address if host has colons.
+// Per https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2.
+// This is like net.JoinHostPort, but we don't need a port.
+func Ipv6SafeHost(host string) string {
 	if strings.Contains(host, ":") {
 		return "[" + host + "]"
 	}
@@ -366,7 +366,9 @@ func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.
 			if strings.ToLower(cRes.RedirectRequest.Scheme) == "https" && gotPort != "443" && gotPort != "" {
 				return fmt.Errorf("for https scheme, expected redirected port to be 443 or not set, got %q", gotPort)
 			}
-			t.Logf("Can't validate redirectPort for unrecognized scheme %v", cRes.RedirectRequest.Scheme)
+			if strings.ToLower(cRes.RedirectRequest.Scheme) != "http" || strings.ToLower(cRes.RedirectRequest.Scheme) != "https" {
+				t.Logf("Can't validate redirectPort for unrecognized scheme %v", cRes.RedirectRequest.Scheme)
+			}
 		} else if expected.RedirectRequest.Port != gotPort {
 			// An expected port was specified in the tests but it didn't match with
 			// gotPort.
