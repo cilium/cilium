@@ -40,7 +40,7 @@ var HTTPRoutePartiallyInvalidViaInvalidReferenceGrant = suite.ConformanceTest{
 		suite.SupportHTTPRoute,
 		suite.SupportReferenceGrant,
 	},
-	Manifests: []string{"tests/httproute-partially-invalid-via-reference-grant.yaml"},
+	Manifests: []string{"tests/httproute-partially-invalid-via-invalid-reference-grant.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		routeNN := types.NamespacedName{Name: "invalid-reference-grant", Namespace: "gateway-conformance-infra"}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}

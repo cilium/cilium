@@ -45,15 +45,14 @@ var GatewayModifyListeners = suite.ConformanceTest{
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		t.Run("should be able to add a listener that then becomes available for routing traffic", func(t *testing.T) {
 			gwNN := types.NamespacedName{Name: "gateway-add-listener", Namespace: "gateway-conformance-infra"}
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-
 			namespaces := []string{"gateway-conformance-infra"}
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
 
 			// verify that the implementation is tracking the most recent resource changes
 			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
 
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
 			original := &v1.Gateway{}
 			err := s.Client.Get(ctx, gwNN, original)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
@@ -137,15 +136,14 @@ var GatewayModifyListeners = suite.ConformanceTest{
 
 		t.Run("should be able to remove listeners, which would then stop routing the relevant traffic", func(t *testing.T) {
 			gwNN := types.NamespacedName{Name: "gateway-remove-listener", Namespace: "gateway-conformance-infra"}
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-
 			namespaces := []string{"gateway-conformance-infra"}
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
 
 			// verify that the implementation is tracking the most recent resource changes
 			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
 
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
 			original := &v1.Gateway{}
 			err := s.Client.Get(ctx, gwNN, original)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)

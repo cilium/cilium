@@ -39,7 +39,7 @@ var HTTPRouteInvalidNonExistentBackendRef = suite.ConformanceTest{
 		suite.SupportGateway,
 		suite.SupportHTTPRoute,
 	},
-	Manifests: []string{"tests/httproute-invalid-backendref-nonexistent.yaml"},
+	Manifests: []string{"tests/httproute-invalid-nonexistent-backendref.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		routeNN := types.NamespacedName{Name: "invalid-nonexistent-backend-ref", Namespace: "gateway-conformance-infra"}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
