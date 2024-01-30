@@ -139,6 +139,91 @@ e.g.:
    Proxy Status:           OK, ip 10.0.28.238, port-range 10000-20000
    Hubble:                 Ok      Current/Max Flows: 2542/4096 (62.06%), Flows/s: 164.21      Metrics: Disabled
    Cluster health:         2/2 reachable   (2018-04-11T15:41:01Z)
+   Modules Health:         Stopped(0) Degraded(0) OK(12)
+
+Modular Health Status
+---------------------
+
+Modular health status provides a snapshot on the reconciliation status of various components of Cilium Agent.
+One of the core tasks of Cilium Agent is to transform and reconcile configuration (such as K8s CRDS) into Ciliums network datapath.
+The health status provides a tree like structure of various reconciliation tasks.
+
+This status will either be ``OK``, indicating that the component is in a synchronized state or ``Degraded`` indicating that there was a failure with synchronization.
+
+Note that modular health status does not have full coverage for all components of Cilium.
+This means that not all degradations are guarenteed to appear in the health status output.
+However the health status is useful as a means of getting a structured view into the runtime of Cilium.
+
+To view the health status of an agent by run:
+
+.. code-block:: shell-session
+  $ kubectl -n kube-system exec cilium-kg8lv -- cilium-dbg --verbose
+  [...]
+  Modules Health:
+  agent
+  ├── datapath
+  │   ├── agent-liveness-updater
+  │   │   └── timer-job-agent-liveness-updater                [OK] OK (19.82µs) (5m22s, x1)
+  │   ├── l2-responder
+  │   │   └── job-l2-responder-reconciler                     [OK] Running (5m22s, x1)
+  │   └── node-address
+  │       └── job-node-address-update                         [OK] 10.244.1.140 (cilium_host), fd00:10:244:1::c050 (cilium_host), fe80::5483:77ff:fe9d:1baf (cilium_host) (5m23s, x1)
+  └── controlplane
+      ├── stale-endpoint-cleanup                              [OK]  (5m23s, x1)
+      ├── envoy-proxy
+      │   └── timer-job-version-check                         [OK] OK (19.181242ms) (5m22s, x1)
+      ├── service-manager
+      │   └── job-ServiceReconciler                           [OK] 2 NodePort frontend addresses (5m22s, x1)
+      ├── endpoint-manager
+      │   ├── cilium-endpoint-2367 (kube-system/coredns-5d78c9869d-sg68j)
+      │   │   ├── cep-k8s-sync                                [OK] sync-to-k8s-ciliumendpoint (2367) (5m17s, x33)
+      │   │   ├── datapath-regenerate                         [OK] Endpoint regeneration successful (5m17s, x3)
+      │   │   └── policymap-sync                              [OK] sync-policymap-2367 (5m17s, x1)
+      │   ├── cilium-endpoint-1232 (kube-system/coredns-5d78c9869d-wkqrh)
+      │   │   ├── cep-k8s-sync                                [OK] sync-to-k8s-ciliumendpoint (1232) (5m17s, x33)
+      │   │   ├── datapath-regenerate                         [OK] Endpoint regeneration successful (5m17s, x3)
+      │   │   └── policymap-sync                              [OK] sync-policymap-1232 (5m17s, x1)
+      │   ├── cilium-endpoint-1105 (local-path-storage/local-path-provisioner-6bc4bddd6b-znrp2)
+      │   │   ├── cep-k8s-sync                                [OK] sync-to-k8s-ciliumendpoint (1105) (5m17s, x33)
+      │   │   ├── datapath-regenerate                         [OK] Endpoint regeneration successful (5m17s, x3)
+      │   │   └── policymap-sync                              [OK] sync-policymap-1105 (5m17s, x1)
+      │   ├── endpoint-gc                                     [OK] endpoint-gc (5m23s, x2)
+      │   ├── cilium-endpoint-512
+      │   │   ├── datapath-regenerate                         [OK] Endpoint regeneration successful (5m22s, x4)
+      │   │   └── policymap-sync                              [OK] sync-policymap-512 (5m20s, x1)
+      │   └── cilium-endpoint-2896
+      │       ├── policymap-sync                              [OK] sync-policymap-2896 (5m19s, x1)
+      │       └── datapath-regenerate                         [OK] Endpoint regeneration successful (5m21s, x4)
+      ├── bgp-cp
+      │   └── job-diffstore-events                            [OK] Running (5m23s, x2)
+      ├── auth
+      │   ├── observer-job-auth request-authentication        [OK] Primed (5m23s, x1)
+      │   ├── observer-job-auth gc-identity-events            [OK] Primed (5m23s, x1)
+      │   └── timer-job-auth gc-cleanup                       [OK] OK (32.96µs) (5m23s, x1)
+      ├── l2-announcer
+      │   └── leader-election                                 [OK]  (5m23s, x1)
+      ├── node-manager
+      │   ├── background-sync                                 [OK] Node validation successful (5m23s, x6)
+      │   └── nodes-add                                       [OK] Node adds successful (5m23s, x2)
+      └── daemon
+          └── ep-bpf-prog-watchdog                            [OK] ep-bpf-prog-watchdog (5m22s, x11)
+
+Modular health status can cover various parts of Ciliums functionality, for high level debugging useful sections to look at may include:
+
+`agent.controlplane.endpoint-manager`:
+  Sub-components of this module represent the reconciliation status of Ciliums endpoint reconciliation, issues here may indicate scheduling or connectivity problems.
+
+`agent.controlplane.node-manager`:
+  Node manager controls the implementation of node level configuration into Ciliums datapath, in particular this is important for connectivity as well as IPSec (if enabled) functionality.
+
+`agent.controlplane.bgp-cp`:
+  Status' here are related to the health of Ciliums BGP control plane.
+
+`agent.controlplane.daemon.ep-bpf-prog-watchdog`:
+  BPF watchdog is a task that runs to ensure that implemented endpoint configuration/programming have not diverged.
+
+`agent.controlplane.envoy-proxy`:
+  Envoy Proxy is related to L7 policy implementation, degradations here could signal failures with programming L7 policy.
 
 .. _hubble_troubleshooting:
 
