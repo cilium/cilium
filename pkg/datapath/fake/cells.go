@@ -36,8 +36,8 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func(na types.NodeAddressing) (*FakeDatapath, types.Datapath, types.NodeIDHandler) {
-			dp := newDatapath(na)
+		func(na types.NodeAddressing) (*fakeTypes.FakeDatapath, types.Datapath, types.NodeIDHandler) {
+			dp := fakeTypes.NewDatapathWithNodeAddressing(na)
 			return dp, dp, dp.NodeIDs()
 		},
 

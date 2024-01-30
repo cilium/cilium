@@ -9,7 +9,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane"
@@ -61,7 +61,7 @@ func validate(test *suite.ControlPlaneTest, goldenFile string) error {
 	return nil
 }
 
-func validateExternalTrafficPolicyLocal(dp *fake.FakeDatapath) error {
+func validateExternalTrafficPolicyLocal(dp *fakeTypes.FakeDatapath) error {
 	lbmap := dp.LBMockMap()
 	lbmap.Lock()
 	defer lbmap.Unlock()
