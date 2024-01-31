@@ -324,6 +324,7 @@ contributors across the globe, there is almost always someone available to help.
 | eni.updateEC2AdapterLimitViaAPI | bool | `true` | Update ENI Adapter limits from the EC2 API |
 | envoy.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-envoy. |
 | envoy.annotations | object | `{}` | Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy) |
+| envoy.baseID | int | `0` |  Set Envoy'--base-id' to use when allocating shared memory regions. Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0' |
 | envoy.connectTimeoutSeconds | int | `2` | Time in seconds after which a TCP connection attempt times out |
 | envoy.dnsPolicy | string | `nil` | DNS policy for Cilium envoy pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy |
 | envoy.enabled | bool | `false` | Enable Envoy Proxy in standalone DaemonSet. |
