@@ -12,7 +12,6 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
-	. "github.com/cilium/cilium/api/v1/server/restapi/statedb"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/statedb"
 	"github.com/cilium/cilium/pkg/api"
 )
@@ -27,7 +26,7 @@ type dumpHandler struct {
 	db *DB
 }
 
-func (h *dumpHandler) Handle(params GetStatedbDumpParams) middleware.Responder {
+func (h *dumpHandler) Handle(params restapi.GetStatedbDumpParams) middleware.Responder {
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
 		h.db.ReadTxn().WriteJSON(w)
 	})
@@ -44,20 +43,20 @@ type queryHandler struct {
 }
 
 // /statedb/query
-func (h *queryHandler) Handle(params GetStatedbQueryTableParams) middleware.Responder {
+func (h *queryHandler) Handle(params restapi.GetStatedbQueryTableParams) middleware.Responder {
 	queryKey, err := base64.StdEncoding.DecodeString(params.Key)
 	if err != nil {
-		return api.Error(GetStatedbQueryTableBadRequestCode, fmt.Errorf("Invalid key: %w", err))
+		return api.Error(restapi.GetStatedbQueryTableBadRequestCode, fmt.Errorf("Invalid key: %w", err))
 	}
 
 	txn := h.db.ReadTxn()
 	indexTxn, err := txn.getTxn().indexReadTxn(params.Table, params.Index)
 	if err != nil {
-		return api.Error(GetStatedbQueryTableNotFoundCode, err)
+		return api.Error(restapi.GetStatedbQueryTableNotFoundCode, err)
 	}
 
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
-		w.WriteHeader(GetStatedbDumpOKCode)
+		w.WriteHeader(restapi.GetStatedbDumpOKCode)
 		enc := gob.NewEncoder(w)
 		onObject := func(obj object) error {
 			if err := enc.Encode(obj.revision); err != nil {

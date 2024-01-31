@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
@@ -354,7 +353,7 @@ func CiliumSlimEndpointResource(lc cell.Lifecycle, cs client.Clientset, _ *node.
 		"localNode": ciliumEndpointLocalPodIndexFunc,
 	}
 	return resource.New[*types.CiliumEndpoint](lc, lw,
-		resource.WithLazyTransform(func() runtime.Object {
+		resource.WithLazyTransform(func() k8sRuntime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
 		}, TransformToCiliumEndpoint),
 		resource.WithMetric("CiliumEndpoint"),

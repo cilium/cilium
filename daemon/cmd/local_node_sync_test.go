@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -87,7 +86,7 @@ func TestLocalNodeSync(t *testing.T) {
 			Config: &option.DaemonConfig{
 				IPv4NodeAddr:               "1.2.3.4",
 				IPv6NodeAddr:               "fd00::1",
-				NodeEncryptionOptOutLabels: labels.Nothing(),
+				NodeEncryptionOptOutLabels: k8sLabels.Nothing(),
 			},
 			K8sLocalNode: fln,
 			K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{

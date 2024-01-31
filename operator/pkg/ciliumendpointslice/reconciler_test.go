@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -53,10 +52,10 @@ func TestReconcileCreate(t *testing.T) {
 	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cepStore, _ := ciliumEndpoint.Store(context.Background())
 
-	var createdSlice *v2alpha1.CiliumEndpointSlice
+	var createdSlice *cilium_v2a1.CiliumEndpointSlice
 	fakeClient.CiliumFakeClientset.PrependReactor("create", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
 		pa := action.(k8sTesting.CreateAction)
-		createdSlice = pa.GetObject().(*v2alpha1.CiliumEndpointSlice)
+		createdSlice = pa.GetObject().(*cilium_v2a1.CiliumEndpointSlice)
 		return true, nil, nil
 	})
 
@@ -112,10 +111,10 @@ func TestReconcileUpdate(t *testing.T) {
 	cepStore, _ := ciliumEndpoint.Store(context.Background())
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
 
-	var updatedSlice *v2alpha1.CiliumEndpointSlice
+	var updatedSlice *cilium_v2a1.CiliumEndpointSlice
 	fakeClient.CiliumFakeClientset.PrependReactor("update", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
 		pa := action.(k8sTesting.UpdateAction)
-		updatedSlice = pa.GetObject().(*v2alpha1.CiliumEndpointSlice)
+		updatedSlice = pa.GetObject().(*cilium_v2a1.CiliumEndpointSlice)
 		return true, nil, nil
 	})
 
@@ -125,7 +124,7 @@ func TestReconcileUpdate(t *testing.T) {
 	cepStore.CacheStore().Add(cep2)
 	cep3 := createStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
-	ces1 := createStoreEndpointSlice("ces1", "ns", []v2alpha1.CoreCiliumEndpoint{createManagerEndpoint("cep1", 1), createManagerEndpoint("cep3", 2)})
+	ces1 := createStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{createManagerEndpoint("cep1", 1), createManagerEndpoint("cep3", 2)})
 	cesStore.CacheStore().Add(ces1)
 	m.mapping.insertCES(NewCESName("ces1"), "ns")
 	m.mapping.insertCES(NewCESName("ces2"), "ns")
@@ -188,7 +187,7 @@ func TestReconcileDelete(t *testing.T) {
 	cepStore.CacheStore().Add(cep2)
 	cep3 := createStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
-	ces1 := createStoreEndpointSlice("ces1", "ns", []v2alpha1.CoreCiliumEndpoint{createManagerEndpoint("cep1", 1), createManagerEndpoint("cep3", 2)})
+	ces1 := createStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{createManagerEndpoint("cep1", 1), createManagerEndpoint("cep3", 2)})
 	cesStore.CacheStore().Add(ces1)
 	m.mapping.insertCES(NewCESName("ces1"), "ns")
 	m.mapping.insertCES(NewCESName("ces2"), "ns")
