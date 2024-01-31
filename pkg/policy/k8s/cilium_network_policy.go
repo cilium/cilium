@@ -38,6 +38,17 @@ type PolicyWatcher struct {
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	CiliumCIDRGroups                 resource.Resource[*cilium_v2_alpha1.CiliumCIDRGroup]
 	NetworkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
+
+	// cnpCache contains both CNPs and CCNPs, stored using a common intermediate
+	// representation (*types.SlimCNP). The cache is indexed on resource.Key,
+	// that contains both the name and namespace of the resource, in order to
+	// avoid key clashing between CNPs and CCNPs.
+	// The cache contains CNPs and CCNPs in their "original form"
+	// (i.e: pre-translation of each CIDRGroupRef to a CIDRSet).
+	cnpCache       map[resource.Key]*types.SlimCNP
+	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup
+	// cidrGroupPolicies is the set of policies that are referencing CiliumCIDRGroup objects.
+	cidrGroupPolicies map[resource.Key]struct{}
 }
 
 func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
@@ -45,20 +56,7 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
 	go func() {
 		cnpEvents := p.CiliumNetworkPolicies.Events(ctx)
 		ccnpEvents := p.CiliumClusterwideNetworkPolicies.Events(ctx)
-
-		// cnpCache contains both CNPs and CCNPs, stored using a common intermediate
-		// representation (*types.SlimCNP). The cache is indexed on resource.Key,
-		// that contains both the name and namespace of the resource, in order to
-		// avoid key clashing between CNPs and CCNPs.
-		// The cache contains CNPs and CCNPs in their "original form"
-		// (i.e: pre-translation of each CIDRGroupRef to a CIDRSet).
-		cnpCache := make(map[resource.Key]*types.SlimCNP)
-
-		cidrGroupCache := make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup)
 		cidrGroupEvents := p.CiliumCIDRGroups.Events(ctx)
-
-		// cidrGroupPolicies is the set of policies that are referencing CiliumCIDRGroup objects.
-		cidrGroupPolicies := make(map[resource.Key]struct{})
 
 		for {
 			select {
@@ -91,9 +89,9 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, k8sAPIGroupCiliumNetworkPolicyV2, cidrGroupPolicies, resourceID)
+					err = p.onUpsert(slimCNP, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID)
 				case resource.Delete:
-					err = p.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, cidrGroupPolicies, resourceID)
+					err = p.onDelete(slimCNP, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID)
 				}
 				reportCNPChangeMetrics(err)
 				event.Done(err)
@@ -126,9 +124,9 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, cidrGroupPolicies, resourceID)
+					err = p.onUpsert(slimCNP, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resourceID)
 				case resource.Delete:
-					err = p.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, cidrGroupPolicies, resourceID)
+					err = p.onDelete(slimCNP, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resourceID)
 				}
 				reportCNPChangeMetrics(err)
 				event.Done(err)
@@ -147,9 +145,9 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsertCIDRGroup(event.Object, cidrGroupCache, cnpCache, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
+					err = p.onUpsertCIDRGroup(event.Object, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
 				case resource.Delete:
-					err = p.onDeleteCIDRGroup(event.Object.Name, cidrGroupCache, cnpCache, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
+					err = p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
 				}
 				event.Done(err)
 			}
@@ -172,11 +170,8 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
 
 func (p *PolicyWatcher) onUpsert(
 	cnp *types.SlimCNP,
-	cnpCache map[resource.Key]*types.SlimCNP,
 	key resource.Key,
-	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	apiGroup string,
-	cidrGroupPolicies map[resource.Key]struct{},
 	resourceID ipcacheTypes.ResourceID,
 ) error {
 	initialRecvTime := time.Now()
@@ -185,7 +180,7 @@ func (p *PolicyWatcher) onUpsert(
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
-	oldCNP, ok := cnpCache[key]
+	oldCNP, ok := p.cnpCache[key]
 	if ok {
 		if oldCNP.DeepEqual(cnp) {
 			return nil
@@ -199,13 +194,13 @@ func (p *PolicyWatcher) onUpsert(
 	// check if this cnp was referencing or is now referencing at least one non-empty
 	// CiliumCIDRGroup and update the relevant metric accordingly.
 	cidrGroupRefs := getCIDRGroupRefs(cnp)
-	cidrsSets, _ := cidrGroupRefsToCIDRsSets(cidrGroupRefs, cidrGroupCache)
+	cidrsSets, _ := p.cidrGroupRefsToCIDRsSets(cidrGroupRefs)
 	if len(cidrsSets) > 0 {
-		cidrGroupPolicies[key] = struct{}{}
+		p.cidrGroupPolicies[key] = struct{}{}
 	} else {
-		delete(cidrGroupPolicies, key)
+		delete(p.cidrGroupPolicies, key)
 	}
-	metrics.CIDRGroupsReferenced.Set(float64(len(cidrGroupPolicies)))
+	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
 
 	// We need to deepcopy this structure because we are writing
 	// fields.
@@ -213,7 +208,7 @@ func (p *PolicyWatcher) onUpsert(
 	cnpCpy := cnp.DeepCopy()
 
 	translationStart := time.Now()
-	translatedCNP := p.resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
+	translatedCNP := p.resolveCIDRGroupRef(cnpCpy)
 	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 	var err error
@@ -223,7 +218,7 @@ func (p *PolicyWatcher) onUpsert(
 		err = p.addCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 	}
 	if err == nil {
-		cnpCache[key] = cnpCpy
+		p.cnpCache[key] = cnpCpy
 	}
 
 	return err
@@ -231,17 +226,15 @@ func (p *PolicyWatcher) onUpsert(
 
 func (p *PolicyWatcher) onDelete(
 	cnp *types.SlimCNP,
-	cache map[resource.Key]*types.SlimCNP,
 	key resource.Key,
 	apiGroup string,
-	cidrGroupPolicies map[resource.Key]struct{},
 	resourceID ipcacheTypes.ResourceID,
 ) error {
 	err := p.deleteCiliumNetworkPolicyV2(cnp, resourceID)
-	delete(cache, key)
+	delete(p.cnpCache, key)
 
-	delete(cidrGroupPolicies, key)
-	metrics.CIDRGroupsReferenced.Set(float64(len(cidrGroupPolicies)))
+	delete(p.cidrGroupPolicies, key)
+	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
 
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 

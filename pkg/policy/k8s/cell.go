@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -96,6 +97,10 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 				CiliumClusterwideNetworkPolicies: p.CiliumClusterwideNetworkPolicies,
 				CiliumCIDRGroups:                 p.CiliumCIDRGroups,
 				NetworkPolicies:                  p.NetworkPolicies,
+
+				cnpCache:          make(map[resource.Key]*types.SlimCNP),
+				cidrGroupCache:    make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup),
+				cidrGroupPolicies: make(map[resource.Key]struct{}),
 			}
 
 			w.ciliumNetworkPoliciesInit(ctx)

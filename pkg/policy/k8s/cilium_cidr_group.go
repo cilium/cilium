@@ -11,7 +11,6 @@ import (
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -21,8 +20,6 @@ import (
 
 func (p *PolicyWatcher) onUpsertCIDRGroup(
 	cidrGroup *cilium_v2_alpha1.CiliumCIDRGroup,
-	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
-	cnpCache map[resource.Key]*types.SlimCNP,
 	apiGroup string,
 ) error {
 
@@ -30,28 +27,26 @@ func (p *PolicyWatcher) onUpsertCIDRGroup(
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
-	oldCidrGroup, ok := cidrGroupCache[cidrGroup.Name]
+	oldCidrGroup, ok := p.cidrGroupCache[cidrGroup.Name]
 	if ok && oldCidrGroup.Spec.DeepEqual(&cidrGroup.Spec) {
 		return nil
 	}
 
 	cidrGroupCpy := cidrGroup.DeepCopy()
-	cidrGroupCache[cidrGroup.Name] = cidrGroupCpy
+	p.cidrGroupCache[cidrGroup.Name] = cidrGroupCpy
 
-	err := p.updateCIDRGroupRefPolicies(cidrGroup.Name, cidrGroupCache, cnpCache)
+	err := p.updateCIDRGroupRefPolicies(cidrGroup.Name)
 
 	return err
 }
 
 func (p *PolicyWatcher) onDeleteCIDRGroup(
 	cidrGroupName string,
-	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
-	cnpCache map[resource.Key]*types.SlimCNP,
 	apiGroup string,
 ) error {
-	delete(cidrGroupCache, cidrGroupName)
+	delete(p.cidrGroupCache, cidrGroupName)
 
-	err := p.updateCIDRGroupRefPolicies(cidrGroupName, cidrGroupCache, cnpCache)
+	err := p.updateCIDRGroupRefPolicies(cidrGroupName)
 
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
@@ -60,11 +55,9 @@ func (p *PolicyWatcher) onDeleteCIDRGroup(
 
 func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 	cidrGroup string,
-	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
-	cnpCache map[resource.Key]*types.SlimCNP,
 ) error {
 	var errs []error
-	for key, cnp := range cnpCache {
+	for key, cnp := range p.cnpCache {
 		if !hasCIDRGroupRef(cnp, cidrGroup) {
 			continue
 		}
@@ -84,7 +77,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 		cnpCpy := cnp.DeepCopy()
 
 		translationStart := time.Now()
-		translatedCNP := p.resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
+		translatedCNP := p.resolveCIDRGroupRef(cnpCpy)
 		metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 		resourceKind := ipcacheTypes.ResourceKindCNP
@@ -98,7 +91,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 		)
 		err := p.updateCiliumNetworkPolicyV2(cnpCpy, translatedCNP, initialRecvTime, resourceID)
 		if err == nil {
-			cnpCache[key] = cnpCpy
+			p.cnpCache[key] = cnpCpy
 		}
 
 		errs = append(errs, err)
@@ -106,13 +99,13 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 	return errors.Join(errs...)
 }
 
-func (p *PolicyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP, cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup) *types.SlimCNP {
+func (p *PolicyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP) *types.SlimCNP {
 	refs := getCIDRGroupRefs(cnp)
 	if len(refs) == 0 {
 		return cnp
 	}
 
-	cidrsSets, err := cidrGroupRefsToCIDRsSets(refs, cidrGroupCache)
+	cidrsSets, err := p.cidrGroupRefsToCIDRsSets(refs)
 	if err != nil {
 		p.log.WithFields(logrus.Fields{
 			logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -180,11 +173,11 @@ func getCIDRGroupRefs(cnp *types.SlimCNP) []string {
 	return cidrGroupRefs
 }
 
-func cidrGroupRefsToCIDRsSets(cidrGroupRefs []string, cache map[string]*cilium_v2_alpha1.CiliumCIDRGroup) (map[string][]api.CIDR, error) {
+func (p *PolicyWatcher) cidrGroupRefsToCIDRsSets(cidrGroupRefs []string) (map[string][]api.CIDR, error) {
 	var errs []error
 	cidrsSet := make(map[string][]api.CIDR)
 	for _, cidrGroupRef := range cidrGroupRefs {
-		cidrGroup, found := cache[cidrGroupRef]
+		cidrGroup, found := p.cidrGroupCache[cidrGroupRef]
 		if !found {
 			errs = append(errs, fmt.Errorf("cidr group %q not found, skipping translation", cidrGroupRef))
 			continue
