@@ -12,6 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -23,7 +26,7 @@ func TestObjectCache(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	cache := newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
+	cache := newObjectCache(configWriterForTest(t), nil, tmpDir)
 	realEP := testutils.NewTestEndpoint()
 
 	// First run should compile and generate the object.
@@ -102,7 +105,7 @@ func TestObjectCacheParallel(t *testing.T) {
 		t.Logf("  %s", test.description)
 
 		results := make(chan buildResult, test.builds)
-		cache := newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
+		cache := newObjectCache(configWriterForTest(t), nil, tmpDir)
 		for i := 0; i < test.builds; i++ {
 			go func(i int) {
 				ep := testutils.NewTestEndpoint()
@@ -147,4 +150,25 @@ func TestObjectCacheParallel(t *testing.T) {
 			require.Equal(t, templateUseCount, test.divisor)
 		}
 	}
+}
+
+func configWriterForTest(t testing.TB) types.ConfigWriter {
+	t.Helper()
+
+	devices, err := tables.NewDeviceTable()
+	if err != nil {
+		t.Fatalf("failed to create device table: %v", err)
+	}
+	db, err := statedb.NewDB([]statedb.TableMeta{devices}, statedb.NewMetrics())
+	if err != nil {
+		t.Fatalf("failed to create statedb: %v", err)
+	}
+	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
+		DB:      db,
+		Devices: devices,
+	})
+	if err != nil {
+		t.Fatalf("failed to create header file writer: %v", err)
+	}
+	return cfg
 }
