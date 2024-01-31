@@ -34,6 +34,9 @@ var (
 	// ErrMultiplePolicies is a static error typed when the controller encounters
 	// multiple policies which apply to its host.
 	ErrMultiplePolicies = fmt.Errorf("more then one CiliumBGPPeeringPolicy applies to this node, please ensure only a single Policy matches this node's labels")
+
+	// ErrBGPControlPlaneDisabled is set when the BGP control plane is disabled
+	ErrBGPControlPlaneDisabled = fmt.Errorf("BGP control plane is disabled")
 )
 
 type policyLister interface {
