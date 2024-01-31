@@ -130,11 +130,10 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 				listener.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 			}
 
-			// Figure out if this is an internal listener
-			isInternalListener := listener.GetInternalListener() != nil
-
-			// Only inject Cilium filters if Cilium allocates listener address
-			injectCiliumFilters := listener.GetAddress() == nil && !isInternalListener
+			// Only inject Cilium filters if all of the following conditions are fulfilled
+			// * Cilium allocates listener address or it's a listener for a L7 loadbalancer
+			// * It's not an internal listener
+			injectCiliumFilters := (listener.GetAddress() == nil || isL7LB) && listener.GetInternalListener() == nil
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
@@ -202,16 +201,14 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 					default:
 						continue
 					}
-					if injectCiliumFilters {
-						if !foundCiliumNetworkFilter {
-							// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
-							fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
-							fc.Filters[i] = &envoy_config_listener.Filter{
-								Name: "cilium.network",
-								ConfigType: &envoy_config_listener.Filter_TypedConfig{
-									TypedConfig: toAny(&cilium.NetworkFilter{}),
-								},
-							}
+					if injectCiliumFilters && !foundCiliumNetworkFilter {
+						// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
+						fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
+						fc.Filters[i] = &envoy_config_listener.Filter{
+							Name: "cilium.network",
+							ConfigType: &envoy_config_listener.Filter_TypedConfig{
+								TypedConfig: toAny(&cilium.NetworkFilter{}),
+							},
 						}
 					}
 					break // Done with this filter chain
