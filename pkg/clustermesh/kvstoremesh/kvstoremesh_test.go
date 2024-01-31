@@ -15,11 +15,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/utils"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -199,6 +203,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			}
 			st := store.NewFactory(store.MetricsProvider())
 			km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st, logger: logrus.New()}
+
 			rc := km.newRemoteCluster("foo", nil)
 			ready := make(chan error)
 
@@ -248,6 +253,135 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// Assert that synced canaries have been watched if expected
 			require.Equal(t, tt.srccfg != nil && tt.srccfg.Capabilities.SyncedCanaries, remoteClient.syncedCanariesWatched)
+		})
+	}
+}
+
+// mockClusterMesh is a mock implementation of the common.ClusterMesh interface
+// allowing for direct manipulation of the clusters
+type mockClusterMesh struct {
+	clusters map[string]*remoteCluster
+}
+
+// ForEachRemoteCluster is a mirrored implementation of ClusterMesh.ForEachRemoteCluster that operates on the mocked clusters.
+func (m *mockClusterMesh) ForEachRemoteCluster(fn func(common.RemoteCluster) error) error {
+	for _, cluster := range m.clusters {
+		if err := fn(cluster); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *mockClusterMesh) NumReadyClusters() int {
+	return len(m.clusters)
+}
+
+func (m *mockClusterMesh) Start(cell.HookContext) error {
+	return nil
+}
+
+func (m *mockClusterMesh) Stop(cell.HookContext) error {
+	return nil
+}
+
+func TestRemoteClusterSync(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  Config
+		connect bool
+		sync    bool
+	}{
+		{
+			name:    "remote cluster successfully syncs",
+			config:  DefaultConfig,
+			connect: true,
+			sync:    true,
+		},
+		{
+			name: "remote cluster fails to connect",
+			// use very low timeouts to speed up the test since we expect failures
+			config:  Config{PerClusterReadyTimeout: 1 * time.Millisecond, GlobalReadyTimeout: 1 * time.Millisecond},
+			connect: false,
+			sync:    false,
+		},
+		{
+			name: "remote cluster connects but fails to sync",
+			// use a low timeout only for global sync to avoid racing the connected signal
+			config:  Config{PerClusterReadyTimeout: 5 * time.Second, GlobalReadyTimeout: 1 * time.Millisecond},
+			connect: true,
+			sync:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			mockClusterMesh := &mockClusterMesh{
+				clusters: make(map[string]*remoteCluster),
+			}
+			km := KVStoreMesh{
+				config: tt.config,
+				common: mockClusterMesh,
+				logger: logrus.New(),
+			}
+
+			rc := &remoteCluster{
+				name:         "foo",
+				synced:       newSynced(),
+				readyTimeout: tt.config.PerClusterReadyTimeout,
+				logger:       km.logger.WithField(logfields.ClusterName, "foo"),
+			}
+			rc.synced.resources.Add()
+			rc.synced.resources.Stop()
+
+			mockClusterMesh.clusters[rc.name] = rc
+
+			if tt.connect {
+				close(rc.synced.connected)
+			}
+
+			// trigger the readiness timeout
+			rc.waitForConnection(ctx)
+
+			clusterSyncComplete := func() bool {
+				select {
+				case <-rc.synced.resources.WaitChannel():
+					return true
+				default:
+					return false
+				}
+			}
+
+			if tt.connect {
+				require.False(t, clusterSyncComplete(), "Cluster sync should not be complete until all resources are done")
+				rc.synced.resources.Done()
+			}
+
+			require.NoError(t, rc.synced.Resources(ctx), "Still waiting for remote cluster resources")
+
+			ss := syncstate.SyncState{StoppableWaitGroup: lock.NewStoppableWaitGroup()}
+			require.False(t, ss.Complete())
+
+			markCompleted := ss.WaitForResource()
+			syncedCallback := func(ctx context.Context) {
+				markCompleted(ctx)
+				ss.Stop()
+			}
+
+			if !tt.sync {
+				// reset the cluster's synced object so we can simulate a resource never syncing
+				rc.synced = newSynced()
+				rc.synced.resources.Add()
+				rc.synced.resources.Stop()
+				require.ErrorIs(t, km.synced(ctx, syncedCallback), context.DeadlineExceeded, "Expected timeout waiting for sync")
+			} else {
+				require.NoError(t, km.synced(ctx, syncedCallback), "Sync should have completed")
+			}
+
+			require.True(t, ss.Complete(), "Global sync not completed")
 		})
 	}
 }

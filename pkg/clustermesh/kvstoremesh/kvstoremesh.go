@@ -10,9 +10,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -25,14 +28,17 @@ import (
 
 type Config struct {
 	PerClusterReadyTimeout time.Duration
+	GlobalReadyTimeout     time.Duration
 }
 
 var DefaultConfig = Config{
 	PerClusterReadyTimeout: 15 * time.Second,
+	GlobalReadyTimeout:     10 * time.Minute,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("per-cluster-ready-timeout", def.PerClusterReadyTimeout, "Remote clusters will be disregarded for readiness checks if a connection cannot be established within this duration")
+	flags.Duration("global-ready-timeout", def.GlobalReadyTimeout, "KVStoreMesh will be considered ready even if any remote clusters have failed to synchronize within this duration")
 }
 
 // KVStoreMesh is a cache of multiple remote clusters
@@ -88,6 +94,30 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 	return &km
 }
 
+type SyncWaiterParams struct {
+	cell.In
+
+	KVStoreMesh *KVStoreMesh
+	SyncState   syncstate.SyncState
+	Lifecycle   cell.Lifecycle
+	JobRegistry job.Registry
+	Scope       cell.Scope
+}
+
+func RegisterSyncWaiter(p SyncWaiterParams) {
+	syncedCallback := p.SyncState.WaitForResource()
+	p.SyncState.Stop()
+
+	jobGroup := p.JobRegistry.NewGroup(p.Scope)
+	jobGroup.Add(
+		job.OneShot("kvstoremesh-sync-waiter", func(ctx context.Context, health cell.HealthReporter) error {
+			return p.KVStoreMesh.synced(ctx, syncedCallback)
+		}),
+	)
+
+	p.Lifecycle.Append(jobGroup)
+}
+
 func (km *KVStoreMesh) Start(ctx cell.HookContext) error {
 	backend, err := km.backendPromise.Await(ctx)
 	if err != nil {
@@ -140,4 +170,29 @@ func (km *KVStoreMesh) newRemoteCluster(name string, _ common.StatusFunc) common
 	run(rc.waitForConnection)
 
 	return rc
+}
+
+// synced returns once all remote clusters have been synchronized or the global
+// timeout has been reached. The given syncCallback is always executed before
+// the function returns.
+func (km *KVStoreMesh) synced(ctx context.Context, syncCallback func(context.Context)) error {
+	ctx, cancel := context.WithTimeout(ctx, km.config.GlobalReadyTimeout)
+	defer func() {
+		syncCallback(ctx)
+		cancel()
+	}()
+
+	waiters := make([]wait.Fn, 0)
+	km.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
+		rc := rci.(*remoteCluster)
+		waiters = append(waiters, rc.synced.Resources)
+		return nil
+	})
+
+	if err := wait.ForAll(ctx, waiters); err != nil {
+		km.logger.WithError(err).Info("Failed to wait for synchronization. KVStoreMesh will now handle requests, but some clusters may not have been synchronized.")
+		return err
+	}
+
+	return nil
 }
