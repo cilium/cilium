@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/cilium/cilium/api/v1/flow"
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
@@ -105,7 +104,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var pvn *monitor.PolicyVerdictNotify
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
-	var authType flow.AuthType
+	var authType pb.AuthType
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -138,7 +137,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		}
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen
-		authType = flow.AuthType(pvn.GetAuthType())
+		authType = pb.AuthType(pvn.GetAuthType())
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
 		if err := monitor.DecodeDebugCapture(data, dbg); err != nil {

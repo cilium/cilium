@@ -8,15 +8,12 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -111,11 +108,11 @@ func (g *GC) Stop(ctx cell.HookContext) error {
 
 func (g *GC) checkForCiliumEndpointCRD(ctx cell.HookContext) bool {
 	_, err := g.clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
-		ctx, k8sconstv2.CEPName, metav1.GetOptions{ResourceVersion: "0"},
+		ctx, cilium_api_v2.CEPName, metav1.GetOptions{ResourceVersion: "0"},
 	)
 	if err == nil {
 		return true
-	} else if k8sErrors.IsNotFound(err) {
+	} else if k8serrors.IsNotFound(err) {
 		g.logger.WithError(err).Info("CiliumEndpoint CRD cannot be found, skipping garbage collection")
 	} else {
 		g.logger.WithError(err).Error(
@@ -243,15 +240,15 @@ func (g *GC) deleteCEP(cep *cilium_api_v2.CiliumEndpoint, scopedLog *logrus.Entr
 		logfields.EndpointID: cep.Status.ID,
 	})
 	scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
-	propagationPolicy := meta_v1.DeletePropagationBackground // because these are const strings but the API wants pointers
+	propagationPolicy := metav1.DeletePropagationBackground // because these are const strings but the API wants pointers
 	err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(
 		ctx,
 		cep.Name,
-		meta_v1.DeleteOptions{
+		metav1.DeleteOptions{
 			PropagationPolicy: &propagationPolicy,
 			// Set precondition to ensure we are only deleting CEPs owned by
 			// this agent.
-			Preconditions: &meta_v1.Preconditions{
+			Preconditions: &metav1.Preconditions{
 				UID: &cep.UID,
 			},
 		})
