@@ -674,10 +674,32 @@ There are three possible values of the ``SelectorType`` which define the object 
 There are two types of additional Path Attributes that can be advertised with the routes: ``Communities`` and ``LocalPreference``.
 
 ``Communities`` defines a set of community values advertised in the supported BGP Communities Path Attributes.
-The values can be of two types:
+The values can be of three types:
 
  - ``Standard``: represents a value of the "standard" 32-bit BGP Communities Attribute (`RFC-1997`_)
    as a 4-byte decimal number or two 2-byte decimal numbers separated by a colon (e.g. ``64512:100``).
+ - ``WellKnown``: represents a value of the "standard" 32-bit BGP Communities Attribute (`RFC-1997`_)
+   as a well-known string alias to its numeric value. Allowed values and their mapping to the numeric values:
+
+    =============================== ================= =================
+    Well-Known Value                Hexadecimal Value 16-bit Pair Value
+    ------------------------------- ----------------- -----------------
+    ``internet``                    ``0x00000000``    ``0:0``
+    ``planned-shut``                ``0xffff0000``    ``65535:0``
+    ``accept-own``                  ``0xffff0001``    ``65535:1``
+    ``route-filter-translated-v4``  ``0xffff0002``    ``65535:2``
+    ``route-filter-v4``             ``0xffff0003``    ``65535:3``
+    ``route-filter-translated-v6``  ``0xffff0004``    ``65535:4``
+    ``route-filter-v6``             ``0xffff0005``    ``65535:5``
+    ``llgr-stale``                  ``0xffff0006``    ``65535:6``
+    ``no-llgr``                     ``0xffff0007``    ``65535:7``
+    ``blackhole``                   ``0xffff029a``    ``65535:666``
+    ``no-export``                   ``0xffffff01``    ``65535:65281``
+    ``no-advertise``                ``0xffffff02``    ``65535:65282``
+    ``no-export-subconfed``         ``0xffffff03``    ``65535:65283``
+    ``no-peer``                     ``0xffffff04``    ``65535:65284``
+    =============================== ================= =================
+
  - ``Large``: represents a value of the BGP Large Communities Attribute (`RFC-8092`_),
    as three 4-byte decimal numbers separated by colons (e.g. ``64512:100:50``).
 
