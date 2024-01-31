@@ -33,6 +33,13 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 )
 
+const (
+	ciliumBPFMetadataListenerFilterName = "cilium.bpf_metadata"
+	ciliumNetworkFilterName             = "cilium.network"
+	ciliumL7FilterName                  = "cilium.l7policy"
+	envoyRouterFilterName               = "envoy.filters.http.router"
+)
+
 type cecResourceParser struct {
 	logger        logrus.FieldLogger
 	portAllocator PortAllocator
@@ -150,7 +157,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 				fillInTransportSocketXDS(cecNamespace, cecName, fc.TransportSocket)
 				foundCiliumNetworkFilter := false
 				for i, filter := range fc.Filters {
-					if filter.Name == "cilium.network" {
+					if filter.Name == ciliumNetworkFilterName {
 						foundCiliumNetworkFilter = true
 					}
 					tc := filter.GetTypedConfig()
@@ -215,7 +222,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 						// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
 						fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
 						fc.Filters[i] = &envoy_config_listener.Filter{
-							Name: "cilium.network",
+							Name: ciliumNetworkFilterName,
 							ConfigType: &envoy_config_listener.Filter_TypedConfig{
 								TypedConfig: toAny(&cilium.NetworkFilter{}),
 							},
@@ -397,7 +404,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			// This must be done after listener address/port is already set.
 			found := false
 			for _, lf := range listener.ListenerFilters {
-				if lf.Name == "cilium.bpf_metadata" {
+				if lf.Name == ciliumBPFMetadataListenerFilterName {
 					found = true
 					break
 				}
@@ -406,7 +413,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 				// Get the listener port from the listener's (main) address
 				port := uint16(listener.GetAddress().GetSocketAddress().GetPortValue())
 
-				listener.ListenerFilters = append(listener.ListenerFilters, r.getListenerFilter(useOriginalSourceAddr, isL7LB, port))
+				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port))
 			}
 		}
 
@@ -421,7 +428,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func (r *cecResourceParser) getListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
+func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr bool, l7lb bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                false,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
@@ -454,12 +461,12 @@ func (r *cecResourceParser) getListenerFilter(useOriginalSourceAddr bool, l7lb b
 			// Enforce ingress policy for Ingress
 			conf.EnforcePolicyOnL7Lb = true
 		}
-		r.logger.Debugf("cilium.bpf_metadata: ipv4_source_address: %s", conf.GetIpv4SourceAddress())
-		r.logger.Debugf("cilium.bpf_metadata: ipv6_source_address: %s", conf.GetIpv6SourceAddress())
+		r.logger.Debugf("%s: ipv4_source_address: %s", ciliumBPFMetadataListenerFilterName, conf.GetIpv4SourceAddress())
+		r.logger.Debugf("%s: ipv6_source_address: %s", ciliumBPFMetadataListenerFilterName, conf.GetIpv6SourceAddress())
 	}
 
 	return &envoy_config_listener.ListenerFilter{
-		Name: "cilium.bpf_metadata",
+		Name: ciliumBPFMetadataListenerFilterName,
 		ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
 			TypedConfig: toAny(conf),
 		},
@@ -532,9 +539,9 @@ func injectCiliumL7Filter(hcmConfig *envoy_config_http.HttpConnectionManager) bo
 
 	for j, httpFilter := range hcmConfig.HttpFilters {
 		switch httpFilter.Name {
-		case "cilium.l7policy":
+		case ciliumL7FilterName:
 			foundCiliumL7Filter = true
-		case "envoy.filters.http.router":
+		case envoyRouterFilterName:
 			if !foundCiliumL7Filter {
 				hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
 				hcmConfig.HttpFilters[j] = envoy.GetCiliumHttpFilter()
