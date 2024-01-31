@@ -17,10 +17,12 @@ import (
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type PolicyWatcher struct {
-	log logrus.FieldLogger
+	log    logrus.FieldLogger
+	config *option.DaemonConfig
 
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
@@ -45,15 +47,39 @@ type PolicyWatcher struct {
 	cidrGroupPolicies map[resource.Key]struct{}
 }
 
-func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
-	var cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
+func (p *PolicyWatcher) watchResources(ctx context.Context) {
+	var knpSynced, cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
 	go func() {
+		var knpEvents <-chan resource.Event[*slim_networking_v1.NetworkPolicy]
+		if p.config.EnableK8sNetworkPolicy {
+			knpEvents = p.NetworkPolicies.Events(ctx)
+		}
 		cnpEvents := p.CiliumNetworkPolicies.Events(ctx)
 		ccnpEvents := p.CiliumClusterwideNetworkPolicies.Events(ctx)
 		cidrGroupEvents := p.CiliumCIDRGroups.Events(ctx)
 
 		for {
 			select {
+			case event, ok := <-knpEvents:
+				if !ok {
+					knpEvents = nil
+					break
+				}
+
+				if event.Kind == resource.Sync {
+					knpSynced.Store(true)
+					event.Done(nil)
+					continue
+				}
+
+				var err error
+				switch event.Kind {
+				case resource.Upsert:
+					err = p.addK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core)
+				case resource.Delete:
+					err = p.deleteK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core)
+				}
+				event.Done(err)
 			case event, ok := <-cnpEvents:
 				if !ok {
 					cnpEvents = nil
@@ -145,12 +171,17 @@ func (p *PolicyWatcher) ciliumNetworkPoliciesInit(ctx context.Context) {
 				}
 				event.Done(err)
 			}
-			if cnpEvents == nil && ccnpEvents == nil && cidrGroupEvents == nil {
+			if knpEvents == nil && cnpEvents == nil && ccnpEvents == nil && cidrGroupEvents == nil {
 				return
 			}
 		}
 	}()
 
+	if p.config.EnableK8sNetworkPolicy {
+		p.registerResourceWithSyncFn(ctx, k8sAPIGroupNetworkingV1Core, func() bool {
+			return knpSynced.Load()
+		})
+	}
 	p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumNetworkPolicyV2, func() bool {
 		return cnpSynced.Load() && cidrGroupSynced.Load()
 	})
