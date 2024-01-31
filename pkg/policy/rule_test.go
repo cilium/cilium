@@ -2638,10 +2638,23 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 	c.Assert(hostRule.matches(selectedIdentity), Equals, false)
 	c.Assert(hostRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: false})
 
-	// host endpoint is selected by rule, so we it should be added to EndpointsSelected.
+	// host endpoint is selected by rule, but host labels are mutable, so don't cache them
 	c.Assert(hostRule.matches(hostIdentity), Equals, true)
 	c.Assert(hostRule.metadata.IdentitySelected, checker.DeepEquals,
-		map[identity.NumericIdentity]bool{selectedIdentity.ID: false, hostIdentity.ID: true})
+		map[identity.NumericIdentity]bool{selectedIdentity.ID: false})
+
+	// Assert that mutable host identities are handled
+	// First, add an additional label, ensure that match succeeds
+	hostLabels.MergeLabels(labels.NewLabelsFromModel([]string{"foo=bar"}))
+	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
+	c.Assert(hostRule.matches(hostIdentity), Equals, true)
+
+	// Then, change host to id=c, which is not selected, and ensure match is correct
+	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, labels.NewLabelsFromModel([]string{"id=c"}))
+	c.Assert(hostRule.matches(hostIdentity), Equals, false)
+	c.Assert(hostRule.metadata.IdentitySelected, checker.DeepEquals,
+		map[identity.NumericIdentity]bool{selectedIdentity.ID: false})
+
 }
 
 func BenchmarkRuleString(b *testing.B) {
