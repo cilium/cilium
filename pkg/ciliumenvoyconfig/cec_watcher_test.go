@@ -69,7 +69,7 @@ func TestParseEnvoySpec(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 	assert.True(t, useOriginalSourceAddress(&cec.ObjectMeta))
 
-	resources, err := parser.parseResources("", "name", cec.Spec.Resources, true, len(cec.Spec.Services) > 0, useOriginalSourceAddress(&cec.ObjectMeta), true)
+	resources, err := parser.parseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, useOriginalSourceAddress(&cec.ObjectMeta), true)
 	assert.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
