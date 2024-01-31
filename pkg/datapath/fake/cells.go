@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
+	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
@@ -49,6 +50,7 @@ var Cell = cell.Module(
 		func() types.BandwidthManager { return &fakeTypes.BandwidthManager{} },
 		func() types.IPsecKeyCustodian { return &ipsecKeyCustodian{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
+		func() *wg.Agent { return nil },
 
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,

@@ -32,7 +32,7 @@ type localNodeSynchronizerParams struct {
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
 
-	WireGuard *wg.Agent `optional:"true"`
+	WireGuard *wg.Agent // nil if WireGuard is disabled
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,

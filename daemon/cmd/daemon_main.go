@@ -1619,7 +1619,7 @@ type daemonParams struct {
 	Lifecycle            cell.Lifecycle
 	Clientset            k8sClient.Clientset
 	Datapath             datapath.Datapath
-	WGAgent              *wireguard.Agent `optional:"true"`
+	WGAgent              *wireguard.Agent
 	LocalNodeStore       *node.LocalNodeStore
 	BGPController        *bgpv1.Controller
 	Shutdowner           hive.Shutdowner
