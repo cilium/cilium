@@ -12,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/dig"
 
-	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -87,20 +86,37 @@ type reporterHooks struct {
 	rootScope *scope
 }
 
-func (r *reporterHooks) Start(ctx lifecycle.HookContext) error {
+func (r *reporterHooks) Start(ctx HookContext) error {
 	r.rootScope.start()
 	return nil
 }
 
-func (r *reporterHooks) Stop(ctx lifecycle.HookContext) error {
+func (r *reporterHooks) Stop(ctx HookContext) error {
 	flushAndClose(r.rootScope, "Hive shutting down")
 	return nil
 }
 
-func createStructedScope(id FullModuleID, p Health, lc lifecycle.Lifecycle) Scope {
+func createStructedScope(id FullModuleID, p Health, lc Lifecycle) Scope {
 	rs := rootScope(id, p.forModule(id))
 	lc.Append(&reporterHooks{rootScope: rs})
 	return rs
+}
+
+func (m *module) lifecycle(lc Lifecycle, fullID FullModuleID) Lifecycle {
+	switch lc := lc.(type) {
+	case *DefaultLifecycle:
+		return &augmentedLifecycle{
+			lc,
+			fullID,
+		}
+	case *augmentedLifecycle:
+		return &augmentedLifecycle{
+			lc.DefaultLifecycle,
+			fullID,
+		}
+	default:
+		return lc
+	}
 }
 
 func (m *module) Apply(c container) error {
@@ -117,6 +133,10 @@ func (m *module) Apply(c container) error {
 	// Provide module scoped status reporter, used for reporting module level
 	// health status.
 	if err := scope.Provide(createStructedScope, dig.Export(false)); err != nil {
+		return err
+	}
+
+	if err := scope.Decorate(m.lifecycle); err != nil {
 		return err
 	}
 

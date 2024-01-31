@@ -45,7 +45,7 @@ type RegistryParams struct {
 
 	Logger     logrus.FieldLogger
 	Shutdowner hive.Shutdowner
-	Lifecycle  hive.Lifecycle
+	Lifecycle  cell.Lifecycle
 
 	AutoMetrics []metricpkg.WithMetadata `group:"hive-metrics"`
 	Config      RegistryConfig
@@ -82,8 +82,8 @@ func NewRegistry(params RegistryParams) *Registry {
 			Handler: mux,
 		}
 
-		params.Lifecycle.Append(hive.Hook{
-			OnStart: func(hc hive.HookContext) error {
+		params.Lifecycle.Append(cell.Hook{
+			OnStart: func(hc cell.HookContext) error {
 				go func() {
 					params.Logger.Infof("Serving prometheus metrics on %s", params.Config.PrometheusServeAddr)
 					err := srv.ListenAndServe()
@@ -93,7 +93,7 @@ func NewRegistry(params RegistryParams) *Registry {
 				}()
 				return nil
 			},
-			OnStop: func(hc hive.HookContext) error {
+			OnStop: func(hc cell.HookContext) error {
 				return srv.Shutdown(hc)
 			},
 		})

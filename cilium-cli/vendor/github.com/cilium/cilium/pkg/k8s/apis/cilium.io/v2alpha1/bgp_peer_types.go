@@ -88,7 +88,7 @@ type CiliumBGPPeerConfigSpec struct {
 	// If not specified, the default families of IPv6/unicast and IPv4/unicast will be created.
 	//
 	// +kubebuilder:validation:Optional
-	Families []CiliumBGPFamily `json:"families,omitempty"`
+	Families []CiliumBGPFamilyWithAdverts `json:"families,omitempty"`
 }
 
 // CiliumBGPFamily represents a AFI/SAFI address family pair.
@@ -104,6 +104,11 @@ type CiliumBGPFamily struct {
 	// +kubebuilder:validation:Enum=unicast;multicast;mpls_label;encapsulation;vpls;evpn;ls;sr_policy;mup;mpls_vpn;mpls_vpn_multicast;route_target_constraints;flowspec_unicast;flowspec_vpn;key_value
 	// +kubebuilder:validation:Required
 	Safi string `json:"safi"`
+}
+
+// CiliumBGPFamilyWithAdverts represents a AFI/SAFI address family pair along with reference to BGP Advertisements.
+type CiliumBGPFamilyWithAdverts struct {
+	CiliumBGPFamily `json:",inline"`
 
 	// Advertisements selects group of BGP Advertisement(s) to advertise for this family.
 	//
