@@ -6,6 +6,7 @@ package bgpv1
 import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -37,6 +38,12 @@ var Cell = cell.Module(
 		newBGPPeeringPolicyResource,
 		// Secret resource provides secrets in the BGP secret namepsace
 		newSecretResource,
+		// CiliumLoadBalancerIPPool resource is used by the BGP CP to realize configured LB IP pools.
+		newLoadBalancerIPPoolResource,
+		// Provides the module with a stream of events for the CiliumPodIPPool resource.
+		newCiliumPodIPPoolResource,
+	),
+	cell.Provide(
 		// Create a slim Secret store for BGP secrets, which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*slim_core_v1.Secret],
 		// goBGP is currently the only supported RouterManager, if more are
@@ -46,17 +53,22 @@ var Cell = cell.Module(
 		store.NewDiffStore[*slim_core_v1.Service],
 		// Create a endpoints DiffStore
 		store.NewDiffStore[*k8s.Endpoints],
-		// CiliumLoadBalancerIPPool resource is used by the BGP CP to realize configured LB IP pools.
-		newLoadBalancerIPPoolResource,
 		// Create a CiliumLoadBalancerIPPool store which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool],
-		// Provides the module with a stream of events for the CiliumPodIPPool resource.
-		newCiliumPodIPPoolResource,
 		// Create a CiliumPodIPPool store which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*v2alpha1api.CiliumPodIPPool],
 	),
+	// BGP Rest API handlers
+	cell.Provide(
+		api.NewGetPeerHandler,
+		api.NewGetRoutesHandler,
+		api.NewGetRoutePoliciesHandler,
+	),
 	// Provides the reconcilers used by the route manager to update the config
 	reconciler.ConfigReconcilers,
+
+	// Invoke bgp controller to trigger the constructor.
+	cell.Invoke(func(*agent.Controller) {}),
 )
 
 func newBGPPeeringPolicyResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy] {
