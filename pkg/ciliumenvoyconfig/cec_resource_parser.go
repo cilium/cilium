@@ -92,7 +92,10 @@ type PortAllocator interface {
 // names.
 // Parameter `newResources` is passed as `true` when parsing resources that are being added or are the new version of the resources being updated,
 // and as `false` if the resources are being removed or are the old version of the resources being updated.
-func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, validate bool, isL7LB bool, useOriginalSourceAddr bool, newResources bool) (envoy.Resources, error) {
+func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, useOriginalSourceAddr bool, newResources bool) (envoy.Resources, error) {
+	// only validate new  resources - old ones are already applied
+	validate := newResources
+
 	resources := envoy.Resources{}
 	for _, res := range xdsResources {
 		// Skip empty TypeURLs, which are left behind when Unmarshaling resource JSON fails
