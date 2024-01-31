@@ -958,9 +958,16 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-
-		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
-				  &tuple, REV_NAT_F_TUPLE_SADDR);
+#ifdef ENABLE_DSR_EXTERNAL
+		if (ct_state.dsr_external) {
+			ret = lb6_rev_dsr(ctx, l4_off, &ct_state.dsr6,
+					  &tuple, REV_NAT_F_TUPLE_SADDR);
+		} else
+#endif
+		{
+			ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
+					  &tuple, REV_NAT_F_TUPLE_SADDR);
+		}
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1282,15 +1289,18 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple = {};
+	union v6addr external_vip = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
+	bool vip_found = false;
 	bool backend_local;
 	__u32 monitor = 0;
 
 	cilium_capture_in(ctx);
 
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	ret = lb6_extract_tuple_and_vip(ctx, ip6, ETH_HLEN, &l4_off, &tuple,
+					&external_vip, &vip_found);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
 			is_svc_proto = false;
@@ -1311,7 +1321,16 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 		if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
-
+#ifdef ENABLE_DSR_EXTERNAL
+		if (vip_found) {
+			if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip6),
+					     BPF_ADJ_ROOM_MAC,
+					     BPF_F_ADJ_ROOM_FIXED_GSO))
+				return DROP_UNSUPP_SERVICE_PROTO;
+			ipv6_addr_copy(&tuple.daddr, &external_vip);
+			l4_off -= sizeof(*ip6);
+		}
+#endif
 #if defined(ENABLE_L7_LB)
 		if (lb6_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
 			if (ctx_is_xdp())
@@ -1404,6 +1423,15 @@ skip_service_lookup:
 redo:
 			ct_state_new.src_sec_id = WORLD_IPV6_ID;
 			ct_state_new.node_port = 1;
+#ifdef ENABLE_DSR_EXTERNAL
+			ct_state_new.dsr_external = vip_found;
+			if (ct_state_new.dsr_external) {
+				ipv6_addr_copy(&ct_state_new.dsr6.address, &external_vip);
+				ct_state_new.dsr6.port = key.dport;
+			}
+#else
+			ct_state_new.dsr_external = 0;
+#endif
 #ifndef HAVE_FIB_IFINDEX
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 #endif

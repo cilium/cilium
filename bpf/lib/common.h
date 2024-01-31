@@ -17,6 +17,7 @@
 #include "mono.h"
 #include "config.h"
 #include "tunnel.h"
+#include "utils.h"
 
 #ifndef AF_INET
 #define AF_INET 2
@@ -906,6 +907,16 @@ struct lb4_reverse_nat {
 	__be16 port;
 } __packed;
 
+struct lb6_reverse_nat {
+	union v6addr address;
+	__be16 port;
+} __packed;
+
+struct lb_reverse_nat {
+	__u8 storage[____max(sizeof(struct lb4_reverse_nat),
+			     sizeof(struct lb6_reverse_nat))] __align_8;
+};
+
 struct ipv6_ct_tuple {
 	/* Address fields are reversed, i.e.,
 	 * these field names are correct for reply direction traffic.
@@ -945,11 +956,13 @@ struct ct_entry {
 			__u64 bytes;
 		};
 		struct lb4_reverse_nat dsr4;
+		struct lb6_reverse_nat dsr6;
+		struct lb_reverse_nat dsr_all;
 	};
 	__u32 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
-	      dsr_external:1,	/* DSR for a VIP from an external L4LB (dsr4) */
+	      dsr_external:1,	/* DSR for a VIP from an external L4LB (dsr4, dsr6) */
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
@@ -1020,11 +1033,6 @@ struct lb6_backend {
 struct lb6_health {
 	struct lb6_backend peer;
 };
-
-struct lb6_reverse_nat {
-	union v6addr address;
-	__be16 port;
-} __packed;
 
 struct ipv6_revnat_tuple {
 	__sock_cookie cookie;
@@ -1157,6 +1165,8 @@ struct ct_state {
 #ifdef ENABLE_DSR_EXTERNAL
 	union {
 		struct lb4_reverse_nat dsr4;
+		struct lb6_reverse_nat dsr6;
+		struct lb_reverse_nat dsr_all;
 	};
 #endif
 };

@@ -209,7 +209,7 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 #ifdef ENABLE_DSR_EXTERNAL
 		state->dsr_external = entry->dsr_external;
 		if (state->dsr_external)
-			state->dsr4 = entry->dsr4;
+			state->dsr_all = entry->dsr_all;
 #endif
 #ifndef HAVE_FIB_IFINDEX
 		state->ifindex = entry->ifindex;
@@ -941,8 +941,13 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
-	if (ct_state)
+	if (ct_state) {
 		ct_create_fill_entry(&entry, ct_state, dir);
+#ifdef ENABLE_DSR_EXTERNAL
+		if (entry.dsr_external)
+			entry.dsr6 = ct_state->dsr6;
+#endif
+	}
 
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);

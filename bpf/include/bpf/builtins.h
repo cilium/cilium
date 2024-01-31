@@ -17,7 +17,8 @@
  * of size <= 8 bytes and in case of > 8 bytes /only/ when 8 byte is not
  * the natural object alignment (e.g. __u8 foo[12]).
  */
-#define __align_stack_8		__aligned(8)
+#define __align_stack_8		__align_8
+#define __align_8		__aligned(8)
 
 /* Memory iterators used below. */
 #define __it_bwd(x, op) (x -= sizeof(__u##op))
