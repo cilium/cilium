@@ -2393,6 +2393,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct iphdr *ip4;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	__u32 src_sec_identity __maybe_unused = SECLABEL;
 	bool allow_neigh_map = true;
 	bool check_revdnat = true;
 	bool has_l4_header;
@@ -2467,7 +2468,7 @@ redirect:
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
 
 		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
-						tunnel_endpoint, SECLABEL, dst_sec_identity,
+						tunnel_endpoint, src_sec_identity, dst_sec_identity,
 						trace->reason, trace->monitor, &ifindex);
 		if (IS_ERR(ret))
 			return ret;
