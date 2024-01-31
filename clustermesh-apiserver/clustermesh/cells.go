@@ -5,6 +5,7 @@ package clustermesh
 
 import (
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
+	"github.com/cilium/cilium/clustermesh-apiserver/health"
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -49,7 +50,8 @@ var Cell = cell.Module(
 	store.Cell,
 
 	heartbeat.Cell,
-	healthAPIServerCell,
+	HealthAPIEndpointsCell,
+	health.HealthAPIServerCell,
 
 	cmmetrics.Cell,
 

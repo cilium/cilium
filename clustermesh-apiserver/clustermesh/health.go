@@ -4,81 +4,65 @@
 package clustermesh
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 
-	"github.com/spf13/pflag"
+	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/clustermesh-apiserver/health"
+	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/option"
 )
 
-type HealthAPIServerConfig struct {
-	ClusterMeshHealthPort int
-}
+var HealthAPIEndpointsCell = cell.Module(
+	"health-api-endpoints",
+	"ClusterMesh Health API Endpoints",
 
-func (HealthAPIServerConfig) Flags(flags *pflag.FlagSet) {
-	flags.Int(option.ClusterMeshHealthPort, defaults.ClusterMeshHealthPort, "TCP port for ClusterMesh apiserver health API")
-}
-
-var healthAPIServerCell = cell.Module(
-	"health-api-server",
-	"ClusterMesh Health API Server",
-
-	cell.Config(HealthAPIServerConfig{}),
-	cell.Provide(NewSyncState),
-	cell.Invoke(registerHealthAPIServer),
+	syncstate.Cell,
+	cell.Provide(healthEndpoints),
 )
 
-func registerHealthAPIServer(lc cell.Lifecycle, clientset k8sClient.Clientset, cfg HealthAPIServerConfig, syncState *SyncState) {
-	mux := http.NewServeMux()
+type healthParameters struct {
+	cell.In
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		statusCode := http.StatusOK
-		reply := "ok"
+	Clientset k8sClient.Clientset
+	SyncState syncstate.SyncState
+	Logger    logrus.FieldLogger
+}
 
-		if _, err := clientset.Discovery().ServerVersion(); err != nil {
-			statusCode = http.StatusInternalServerError
-			reply = err.Error()
-		}
-		w.WriteHeader(statusCode)
-		if _, err := w.Write([]byte(reply)); err != nil {
-			log.WithError(err).Error("Failed to respond to /healthz request")
-		}
-	})
+func healthEndpoints(params healthParameters) []health.EndpointFunc {
+	return []health.EndpointFunc{
+		{
+			Path: "/readyz",
+			HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				statusCode := http.StatusInternalServerError
+				reply := "NotReady"
 
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		statusCode := http.StatusInternalServerError
-		reply := "NotReady"
-
-		if syncState.Complete() {
-			statusCode = http.StatusOK
-			reply = "Ready"
-		}
-		w.WriteHeader(statusCode)
-		if _, err := w.Write([]byte(reply)); err != nil {
-			log.WithError(err).Error("Failed to respond to /readyz request")
-		}
-	})
-
-	srv := &http.Server{
-		Handler: mux,
-		Addr:    fmt.Sprintf(":%d", cfg.ClusterMeshHealthPort),
-	}
-
-	lc.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			go func() {
-				log.Info("Started health API")
-				if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-					log.WithError(err).Fatal("Unable to start health API")
+				if params.SyncState.Complete() {
+					statusCode = http.StatusOK
+					reply = "Ready"
 				}
-			}()
-			return nil
+				w.WriteHeader(statusCode)
+				if _, err := w.Write([]byte(reply)); err != nil {
+					params.Logger.WithError(err).Error("Failed to respond to /readyz request")
+				}
+			},
 		},
-		OnStop: func(ctx cell.HookContext) error { return srv.Shutdown(ctx) },
-	})
+		{
+			Path: "/healthz",
+			HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				statusCode := http.StatusOK
+				reply := "ok"
+
+				if _, err := params.Clientset.Discovery().ServerVersion(); err != nil {
+					statusCode = http.StatusInternalServerError
+					reply = err.Error()
+				}
+				w.WriteHeader(statusCode)
+				if _, err := w.Write([]byte(reply)); err != nil {
+					params.Logger.WithError(err).Error("Failed to respond to /healthz request")
+				}
+			},
+		},
+	}
 }
