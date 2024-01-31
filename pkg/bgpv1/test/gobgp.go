@@ -11,7 +11,6 @@ import (
 
 	gobgpapi "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/apiutil"
-	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	gobgpb "github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/server"
 )
@@ -151,7 +150,7 @@ type routeEvent struct {
 	prefix              string
 	prefixLen           uint8
 	isWithdrawn         bool
-	extraPathAttributes []bgp.PathAttributeInterface // non-standard path attributes (other than Origin / ASPath / NextHop / MpReachNLRI)
+	extraPathAttributes []gobgpb.PathAttributeInterface // non-standard path attributes (other than Origin / ASPath / NextHop / MpReachNLRI)
 }
 
 // peerEvent contains information about peer state change of gobgp
@@ -350,17 +349,17 @@ func (g *goBGP) getRouteEvents(ctx context.Context, numExpectedEvents int) ([]ro
 
 // filterStandardPathAttributes filters standard path attributes (usually present on all routes) from the
 // provided list of the path attributes.
-func (g *goBGP) filterStandardPathAttributes(attrs []bgp.PathAttributeInterface) []bgp.PathAttributeInterface {
-	var res []bgp.PathAttributeInterface
+func (g *goBGP) filterStandardPathAttributes(attrs []gobgpb.PathAttributeInterface) []gobgpb.PathAttributeInterface {
+	var res []gobgpb.PathAttributeInterface
 	for _, a := range attrs {
 		switch a.(type) {
-		case *bgp.PathAttributeOrigin:
+		case *gobgpb.PathAttributeOrigin:
 			continue
-		case *bgp.PathAttributeAsPath:
+		case *gobgpb.PathAttributeAsPath:
 			continue
-		case *bgp.PathAttributeNextHop:
+		case *gobgpb.PathAttributeNextHop:
 			continue
-		case *bgp.PathAttributeMpReachNLRI:
+		case *gobgpb.PathAttributeMpReachNLRI:
 			continue
 		}
 		res = append(res, a)

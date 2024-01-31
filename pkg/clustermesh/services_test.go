@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -85,7 +84,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	for i, cluster := range []string{clusterName1, clusterName2} {
 		config := cmtypes.CiliumClusterConfig{
 			ID: uint32(i + 1),
-			Capabilities: types.CiliumClusterConfigCapabilities{
+			Capabilities: cmtypes.CiliumClusterConfigCapabilities{
 				MaxConnectedClusters: 255,
 			},
 		}
@@ -108,7 +107,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	store := store.NewFactory(store.MetricsProvider())
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
-		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
+		ClusterInfo:           cmtypes.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
 		ServiceMerger:         s.svcCache,

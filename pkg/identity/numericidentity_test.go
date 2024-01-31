@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
@@ -20,7 +19,7 @@ func (s *IdentityTestSuite) TestLocalIdentity(c *C) {
 	localID := NumericIdentity(IdentityScopeLocal | 1)
 	c.Assert(localID.HasLocalScope(), Equals, true)
 
-	maxClusterID := NumericIdentity(types.ClusterIDMax | 1)
+	maxClusterID := NumericIdentity(cmtypes.ClusterIDMax | 1)
 	c.Assert(maxClusterID.HasLocalScope(), Equals, false)
 
 	c.Assert(ReservedIdentityWorld.HasLocalScope(), Equals, false)
@@ -48,12 +47,12 @@ func (s *IdentityTestSuite) TestClusterID(c *C) {
 			clusterID: 255,
 		},
 		{ // make sure we support min/max configuration values
-			identity:  types.ClusterIDMin << 16,
-			clusterID: types.ClusterIDMin,
+			identity:  cmtypes.ClusterIDMin << 16,
+			clusterID: cmtypes.ClusterIDMin,
 		},
 		{
-			identity:  types.ClusterIDMax << 16,
-			clusterID: types.ClusterIDMax,
+			identity:  cmtypes.ClusterIDMax << 16,
+			clusterID: cmtypes.ClusterIDMax,
 		},
 	}
 

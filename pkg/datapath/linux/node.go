@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -81,8 +80,8 @@ type linuxNodeHandler struct {
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
 
-	prefixClusterMutatorFn func(node *types.Node) []cmtypes.PrefixClusterOpts
-	enableEncapsulation    func(node *types.Node) bool
+	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
+	enableEncapsulation    func(node *nodeTypes.Node) bool
 }
 
 var (

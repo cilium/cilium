@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
@@ -477,12 +476,12 @@ type fakeK8sCiliumNodeAPIResource struct {
 	onDeleteEvent func(err error)
 }
 
-func (f *fakeK8sCiliumNodeAPIResource) Update(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+func (f *fakeK8sCiliumNodeAPIResource) Update(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
 	err := f.updateNode(ciliumNode)
 	return ciliumNode, err
 }
 
-func (f *fakeK8sCiliumNodeAPIResource) UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+func (f *fakeK8sCiliumNodeAPIResource) UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
 	err := f.updateNode(ciliumNode)
 	return ciliumNode, err
 }

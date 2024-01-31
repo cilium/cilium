@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -634,7 +633,7 @@ func Test_Cleanup(t *testing.T) {
 
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *cilium_api_v2.CiliumNode) {
 	_, err := f.nodeClient.Get(ctx, node.Name, meta_v1.GetOptions{})
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.nodeClient.Create(ctx, node, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
@@ -650,7 +649,7 @@ func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc
 	}
 
 	_, err := f.bgpcClient.Get(ctx, bgpcc.Name, meta_v1.GetOptions{})
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpcClient.Create(ctx, bgpcc, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
@@ -662,7 +661,7 @@ func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc
 
 func deleteBGPCC(req *require.Assertions, ctx context.Context, f *fixture, name string) {
 	_, err := f.bgpcClient.Get(ctx, name, meta_v1.GetOptions{})
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8sErrors.IsNotFound(err) {
 		return // already deleted
 	} else if err != nil {
 		req.Fail(err.Error())
@@ -674,7 +673,7 @@ func deleteBGPCC(req *require.Assertions, ctx context.Context, f *fixture, name 
 
 func upsertNodeOverrides(req *require.Assertions, ctx context.Context, f *fixture, nodeOverride *cilium_api_v2alpha1.CiliumBGPNodeConfigOverride) {
 	_, err := f.bgpncoClient.Get(ctx, nodeOverride.Name, meta_v1.GetOptions{})
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpncoClient.Create(ctx, nodeOverride, meta_v1.CreateOptions{})
 	} else {
 		_, err = f.bgpncoClient.Update(ctx, nodeOverride, meta_v1.UpdateOptions{})
