@@ -55,7 +55,7 @@ github.com/chai2010/gettext-go/po
 # github.com/cilium/charts v0.0.0-20240118151318-8589b2863cfa
 ## explicit; go 1.17
 github.com/cilium/charts
-# github.com/cilium/cilium v1.15.0-rc.1
+# github.com/cilium/cilium v1.15.0
 ## explicit; go 1.21.0
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/bgp
@@ -101,7 +101,6 @@ github.com/cilium/cilium/pkg/health/client
 github.com/cilium/cilium/pkg/health/defaults
 github.com/cilium/cilium/pkg/hive
 github.com/cilium/cilium/pkg/hive/cell
-github.com/cilium/cilium/pkg/hive/cell/lifecycle
 github.com/cilium/cilium/pkg/hive/internal
 github.com/cilium/cilium/pkg/hive/metrics
 github.com/cilium/cilium/pkg/iana
