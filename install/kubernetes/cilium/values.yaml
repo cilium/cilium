@@ -22,14 +22,14 @@ debug:
   # - envoy
   # - datapath
   # - policy
-  verbose: ~
+  verbose: ""
 
 rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true
 
 # -- Configure image pull secrets for pulling container images
-imagePullSecrets:
+imagePullSecrets: []
 # - name: "image-pull-secret"
 
 # -- (string) Kubernetes config path
@@ -151,7 +151,7 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   registry: gsoci.azurecr.io
-  override: ~
+  override: ""
   repository: "giantswarm/cilium"
   tag: "v1.14.5"
   pullPolicy: "IfNotPresent"
@@ -442,17 +442,17 @@ bpf:
 
   # -- (int) Configure the maximum number of entries in auth map.
   # @default -- `524288`
-  authMapMax: ~
+  authMapMax: 524288
 
   # -- (int) Configure the maximum number of entries in the TCP connection tracking
   # table.
   # @default -- `524288`
-  ctTcpMax: ~
+  ctTcpMax: 524288
 
   # -- (int) Configure the maximum number of entries for the non-TCP connection
   # tracking table.
   # @default -- `262144`
-  ctAnyMax: ~
+  ctAnyMax: 262144
 
   # -- Configure the maximum number of service entries in the
   # load balancer maps.
@@ -460,19 +460,19 @@ bpf:
 
   # -- (int) Configure the maximum number of entries for the NAT table.
   # @default -- `524288`
-  natMax: ~
+  natMax: 524288
 
   # -- (int) Configure the maximum number of entries for the neighbor table.
   # @default -- `524288`
-  neighMax: ~
+  neighMax: 524288
 
   # -- Configure the maximum number of entries in endpoint policy map (per endpoint).
-  policyMapMax: 65536
+  policyMapMax: 16384
 
   # -- (float64) Configure auto-sizing for all BPF maps based on available memory.
   # ref: https://docs.cilium.io/en/stable/network/ebpf/maps/
   # @default -- `0.0025`
-  mapDynamicSizeRatio: ~
+  mapDynamicSizeRatio: 0.0025
 
   # -- Configure the level of aggregation for monitor notifications.
   # Valid options are none, low, medium, maximum.
@@ -491,24 +491,24 @@ bpf:
 
   # -- (bool) Enable native IP masquerade support in eBPF
   # @default -- `false`
-  masquerade: ~
+  masquerade: false
 
   # -- (bool) Configure whether direct routing mode should route traffic via
   # host stack (true) or directly and more efficiently out of BPF (false) if
   # the kernel supports it. The latter has the implication that it will also
   # bypass netfilter in the host namespace.
   # @default -- `false`
-  hostLegacyRouting: ~
+  hostLegacyRouting: false
 
   # -- (bool) Configure the eBPF-based TPROXY to reduce reliance on iptables rules
   # for implementing Layer 7 policy.
   # @default -- `false`
-  tproxy: ~
+  tproxy: false
 
   # -- (list) Configure explicitly allowed VLAN id's for bpf logic bypass.
   # [0] will allow all VLAN id's without any filtering.
   # @default -- `[]`
-  vlanBypass: ~
+  vlanBypass: []
 
 # -- Enable BPF clock source probing for more efficient tick retrieval.
 bpfClockProbe: false
@@ -547,14 +547,14 @@ cni:
   #  - flannel
   #  - generic-veth
   #  - portmap
-  chainingMode: ~
+  chainingMode: ""
 
   # -- A CNI network name in to which the Cilium plugin should be added as a chained plugin.
   # This will cause the agent to watch for a CNI network with this network name. When it is
   # found, this will be used as the basis for Cilium's CNI configuration file. If this is
   # set, it assumes a chaining mode of generic-veth. As a special case, a chaining mode
   # of aws-cni implies a chainingTarget of aws-cni.
-  chainingTarget: ~
+  chainingTarget: ""
 
   # -- Make Cilium take ownership over the `/etc/cni/net.d` directory on the
   # node, renaming all non-Cilium CNI configurations to `*.cilium_bak`.
@@ -636,7 +636,7 @@ daemon:
   # The default is "config-map:cilium-config,cilium-node-config". For supported
   # values, see the help text for the build-config subcommand.
   # Note that this value should be a comma-separated string.
-  configSources: ~
+  configSources: ""
 
   # -- allowedConfigOverrides is a list of config-map keys that can be overridden.
   # That is to say, if this value is set, config sources (excepting the first one) can
@@ -646,7 +646,7 @@ daemon:
   #
   # By default, all keys may be overridden. To disable overrides, set this to "none" or
   # change the configSources variable.
-  allowedConfigOverrides: ~
+  allowedConfigOverrides: ""
 
   # -- blockedConfigOverrides is a list of config-map keys that may not be overridden.
   # In other words, if any of these keys appear in a configuration source excepting the
@@ -655,7 +655,7 @@ daemon:
   # This is ignored if allowedConfigOverrides is set.
   #
   # By default, all keys may be overridden.
-  blockedConfigOverrides: ~
+  blockedConfigOverrides: ""
 
 # -- Specify which network interfaces can run the eBPF datapath. This means
 # that a packet sent from a pod to a destination outside the cluster will be
@@ -728,10 +728,10 @@ ingressController:
   ingressLBAnnotationPrefixes: ['service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
 
   # -- Default secret namespace for ingresses without .spec.tls[].secretName set.
-  defaultSecretNamespace:
+  defaultSecretNamespace: ""
 
   # -- Default secret name for ingresses without .spec.tls[].secretName set.
-  defaultSecretName:
+  defaultSecretName: ""
 
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
   secretsNamespace:
@@ -757,16 +757,16 @@ ingressController:
     # -- Service type for the shared LB service
     type: LoadBalancer
     # -- Configure a specific nodePort for insecure HTTP traffic on the shared LB service
-    insecureNodePort: ~
+    insecureNodePort: 0
     # -- Configure a specific nodePort for secure HTTPS traffic on the shared LB service
-    secureNodePort : ~
+    secureNodePort : 0
     # -- Configure a specific loadBalancerClass on the shared LB service (requires Kubernetes 1.24+)
-    loadBalancerClass: ~
+    loadBalancerClass: ""
     # -- Configure a specific loadBalancerIP on the shared LB service
-    loadBalancerIP : ~
+    loadBalancerIP : ""
     # -- Configure if node port allocation is required for LB service
     # ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation
-    allocateLoadBalancerNodePorts: ~
+    allocateLoadBalancerNodePorts: true
 
 gatewayAPI:
   # -- Enable support for Gateway API in cilium
@@ -945,7 +945,7 @@ socketLB:
 # (re)generate any certificates not provided manually.
 certgen:
   image:
-    override: ~
+    override: ""
     repository: "giantswarm/cilium-certgen"
     tag: "v0.1.9@sha256:89a0847753686444daabde9474b48340993bd19c7bea66a46e45b2974b82041f"
     pullPolicy: "IfNotPresent"
@@ -1001,7 +1001,7 @@ hubble:
     #
     #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
     #
-    enabled: ~
+    enabled: ""
     # -- Enables exporting hubble metrics in OpenMetrics format.
     enableOpenMetrics: false
     # -- Configure the port the hubble metric server listens on.
@@ -1026,14 +1026,14 @@ hubble:
           targetLabel: node
           replacement: ${1}
       # -- Metrics relabeling configs for the ServiceMonitor hubble
-      metricRelabelings: ~
+      metricRelabelings: []
     # -- Grafana dashboards for hubble
     # grafana can import dashboards based on the label and value
     # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
     dashboards:
       enabled: false
       label: grafana_dashboard
-      namespace: ~
+      namespace: ""
       labelValue: "1"
       annotations: {}
 
@@ -1048,7 +1048,7 @@ hubble:
   preferIpv6: false
   # -- (bool) Skip Hubble events with unknown cgroup ids
   # @default -- `true`
-  skipUnknownCGroupIDs: ~
+  skipUnknownCGroupIDs: true
 
   peerService:
     # -- Service Port for the Peer service.
@@ -1119,7 +1119,7 @@ hubble:
 
     # -- Hubble-relay container image.
     image:
-      override: ~
+      override: ""
       repository: "giantswarm/hubble-relay"
       tag: "v1.14.5"
        # hubble-relay-digest
@@ -1173,9 +1173,9 @@ hubble:
       enabled: false
       # -- Minimum number/percentage of pods that should remain scheduled.
       # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
-      minAvailable: null
+      # minAvailable: null
       # -- Maximum number/percentage of pods that may be made unavailable
-      maxUnavailable: 1
+      maxUnavailable: "1"
 
     # -- The priority class to use for hubble-relay
     priorityClassName: ""
@@ -1249,18 +1249,18 @@ hubble:
         extraIpAddresses: []
 
     # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
-    dialTimeout: ~
+    dialTimeout: ""
 
     # -- Backoff duration to retry connecting to the local hubble instance in case of failure (e.g. "30s").
-    retryTimeout: ~
+    retryTimeout: ""
 
     # -- Max number of flows that can be buffered for sorting before being sent to the
     # client (per request) (e.g. 100).
-    sortBufferLenMax: ~
+    sortBufferLenMax: 100
 
     # -- When the per-request flows sort buffer is not full, a flow is drained every
     # time this timeout is reached (only affects requests in follow-mode) (e.g. "1s").
-    sortBufferDrainTimeout: ~
+    sortBufferDrainTimeout: ""
 
     # -- Port to use for the k8s service backed by hubble-relay pods.
     # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
@@ -1286,9 +1286,9 @@ hubble:
         # service monitors configured.
         # namespace: ""
         # -- Relabeling configs for the ServiceMonitor hubble-relay
-        relabelings: ~
+        relabelings: []
         # -- Metrics relabeling configs for the ServiceMonitor hubble-relay
-        metricRelabelings: ~
+        metricRelabelings: []
 
     gops:
       # -- Enable gops for hubble-relay
@@ -1347,7 +1347,7 @@ hubble:
     backend:
       # -- Hubble-ui backend image.
       image:
-        override: ~
+        override: ""
         repository: "giantswarm/hubble-ui-backend"
         tag: "v0.12.1"
         digest: "sha256:1f86f3400827a0451e6332262467f894eeb7caf0eb8779bd951e2caa9d027cbe"
@@ -1378,7 +1378,7 @@ hubble:
     frontend:
       # -- Hubble-ui frontend image.
       image:
-        override: ~
+        override: ""
         repository: "giantswarm/hubble-ui"
         tag: "v0.12.1"
         digest: "sha256:9e5f81ee747866480ea1ac4630eb6975ff9227f9782b7c93919c081c33f38267"
@@ -1426,9 +1426,9 @@ hubble:
       enabled: false
       # -- Minimum number/percentage of pods that should remain scheduled.
       # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
-      minAvailable: null
+      # minAvailable: null
       # -- Maximum number/percentage of pods that may be made unavailable
-      maxUnavailable: 1
+      maxUnavailable: "1"
 
     # -- Affinity for hubble-ui
     affinity: {}
@@ -1535,12 +1535,12 @@ ipam:
     # -- The maximum burst size when rate limiting access to external APIs.
     # Also known as the token bucket capacity.
     # @default -- `20`
-    externalAPILimitBurstSize: ~
+    externalAPILimitBurstSize: 20
     # -- The maximum queries per second when rate limiting access to
     # external APIs. Also known as the bucket refill rate, which is used to
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
-    externalAPILimitQPS: ~
+    externalAPILimitQPS: 4.0
 
 # -- Configure the eBPF-based ip-masq-agent
 ipMasqAgent:
@@ -1808,7 +1808,7 @@ prometheus:
         targetLabel: node
         replacement: ${1}
     # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
-    metricRelabelings: ~
+    metricRelabelings: []
     # -- Set to `true` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
     trustCRDsExist: false
 
@@ -1825,7 +1825,7 @@ prometheus:
 dashboards:
   enabled: false
   label: grafana_dashboard
-  namespace: ~
+  namespace: ""
   labelValue: "1"
   annotations: {}
 
@@ -1836,7 +1836,7 @@ proxy:
     # -- Deprecated in favor of envoy.prometheus.enabled
     enabled: true
     # -- Deprecated in favor of envoy.prometheus.port
-    port: ~
+    port: ""
   # -- Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
   sidecarImageRegex: "cilium/istio_proxy"
@@ -1864,7 +1864,7 @@ envoy:
 
   # -- Envoy container image.
   image:
-    override: ~
+    override: ""
     repository: "quay.io/cilium/cilium-envoy"
     tag: "v1.26.6-ad82c7c56e88989992fd25d8d67747de865c823b"
     pullPolicy: "IfNotPresent"
@@ -1996,11 +1996,11 @@ envoy:
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
   # -- The priority class to use for cilium-envoy.
-  priorityClassName: ~
+  priorityClassName: ""
 
   # -- DNS policy for Cilium envoy pods.
   # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
-  dnsPolicy: ~
+  dnsPolicy: ""
 
   prometheus:
     # -- Enable prometheus metrics for cilium-envoy
@@ -2025,7 +2025,7 @@ envoy:
           targetLabel: node
           replacement: ${1}
       # -- Metrics relabeling configs for the ServiceMonitor cilium-envoy
-      metricRelabelings: ~
+      metricRelabelings: []
     # -- Serve prometheus metrics for cilium-envoy on the configured port
     port: "9964"
 
@@ -2156,7 +2156,7 @@ etcd:
 
   # -- cilium-etcd-operator image.
   image:
-    override: ~
+    override: ""
     repository: "giantswarm/cilium-etcd-operator"
     tag: "v2.0.7@sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"
     pullPolicy: "IfNotPresent"
@@ -2209,9 +2209,9 @@ etcd:
     enabled: false
     # -- Minimum number/percentage of pods that should remain scheduled.
     # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
-    minAvailable: null
+    # minAvailable: null
     # -- Maximum number/percentage of pods that may be made unavailable
-    maxUnavailable: 1
+    maxUnavailable: "1"
 
   # -- cilium-etcd-operator resource limits & requests
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -2259,7 +2259,7 @@ operator:
 
   # -- cilium-operator image.
   image:
-    override: ~
+    override: ""
     repository: "giantswarm/cilium-operator"
     tag: "v1.14.5"
     # operator-generic-digest
@@ -2357,9 +2357,9 @@ operator:
     enabled: true
     # -- Minimum number/percentage of pods that should remain scheduled.
     # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
-    minAvailable: null
+    # minAvailable: null
     # -- Maximum number/percentage of pods that may be made unavailable
-    maxUnavailable: 1
+    maxUnavailable: "1"
 
   # -- cilium-operator resource limits & requests
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -2414,9 +2414,9 @@ operator:
       # -- Interval for scrape metrics.
       interval: "10s"
       # -- Relabeling configs for the ServiceMonitor cilium-operator
-      relabelings: ~
+      relabelings: []
       # -- Metrics relabeling configs for the ServiceMonitor cilium-operator
-      metricRelabelings: ~
+      metricRelabelings: []
 
   # -- Grafana dashboards for cilium-operator
   # grafana can import dashboards based on the label and value
@@ -2424,7 +2424,7 @@ operator:
   dashboards:
     enabled: false
     label: grafana_dashboard
-    namespace: ~
+    namespace: ""
     labelValue: "1"
     annotations: {}
 
@@ -2438,7 +2438,7 @@ operator:
   # -- Taint nodes where Cilium is scheduled but not running. This prevents pods
   # from being scheduled to nodes where Cilium is not the default CNI provider.
   # @default -- same as removeNodeTaints
-  setNodeTaints: ~
+  setNodeTaints: false
 
   # -- Set Node condition NetworkUnavailable to 'false' with the reason
   # 'CiliumIsUp' for nodes that have a healthy Cilium pod.
@@ -2457,7 +2457,7 @@ nodeinit:
 
   # -- node-init image.
   image:
-    override: ~
+    override: ""
     repository: "giantswarm/cilium-startup-script"
     tag: "62093c5c233ea914bfa26a10ba41f8780d9b737f"
     pullPolicy: "IfNotPresent"
@@ -2546,7 +2546,7 @@ preflight:
 
   # -- Cilium pre-flight image.
   image:
-    override: ~
+    override: ""
     repository: "giantswarm/cilium"
     tag: "v1.14.5"
     # cilium-digest
@@ -2619,9 +2619,9 @@ preflight:
     enabled: false
     # -- Minimum number/percentage of pods that should remain scheduled.
     # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
-    minAvailable: null
+    # minAvailable: null
     # -- Maximum number/percentage of pods that may be made unavailable
-    maxUnavailable: 1
+    maxUnavailable: "1"
 
   # -- preflight resource limits & requests
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -2696,7 +2696,7 @@ clustermesh:
   apiserver:
     # -- Clustermesh API server image.
     image:
-      override: ~
+      override: ""
       repository: "giantswarm/cilium-clustermesh-apiserver"
       tag: "v1.14.5"
       # clustermesh-apiserver-digest
@@ -2707,7 +2707,7 @@ clustermesh:
     etcd:
       # -- Clustermesh API server etcd image.
       image:
-        override: ~
+        override: ""
         repository: "giantswarm/etcd"
         tag: "v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
         pullPolicy: "IfNotPresent"
@@ -2741,7 +2741,7 @@ clustermesh:
 
       # -- KVStoreMesh image.
       image:
-        override: ~
+        override: ""
         repository: "quay.io/cilium/kvstoremesh"
         tag: "v1.14.5"
         # kvstoremesh-digest
@@ -2796,10 +2796,10 @@ clustermesh:
       annotations: {}
 
       # -- The externalTrafficPolicy of service used for apiserver access.
-      externalTrafficPolicy:
+      externalTrafficPolicy: Cluster
 
       # -- The internalTrafficPolicy of service used for apiserver access.
-      internalTrafficPolicy:
+      internalTrafficPolicy: Cluster
 
     # -- Number of replicas run for the clustermesh-apiserver deployment.
     replicas: 1
@@ -2835,9 +2835,9 @@ clustermesh:
       enabled: false
       # -- Minimum number/percentage of pods that should remain scheduled.
       # When it's set, maxUnavailable must be disabled by `maxUnavailable: null`
-      minAvailable: null
+      # minAvailable: null
       # -- Maximum number/percentage of pods that may be made unavailable
-      maxUnavailable: 1
+      maxUnavailable: "1"
 
     # -- Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as
     #     resources:
@@ -3018,25 +3018,25 @@ clustermesh:
         # -- Interval for scrape metrics (apiserver metrics)
         interval: "10s"
         # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
-        relabelings: ~
+        relabelings: []
         # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
-        metricRelabelings: ~
+        metricRelabelings: []
 
         kvstoremesh:
           # -- Interval for scrape metrics (KVStoreMesh metrics)
           interval: "10s"
           # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
-          relabelings: ~
+          relabelings: []
           # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
-          metricRelabelings: ~
+          metricRelabelings: []
 
         etcd:
           # -- Interval for scrape metrics (etcd metrics)
           interval: "10s"
           # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
-          relabelings: ~
+          relabelings: []
           # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
-          metricRelabelings: ~
+          metricRelabelings: []
 
 # -- Configure external workloads support
 externalWorkloads:
@@ -3200,7 +3200,7 @@ authentication:
             # -- Access mode of the SPIRE server data storage
             accessMode: ReadWriteOnce
             # -- StorageClass of the SPIRE server data storage
-            storageClass: null
+            storageClass: ""
           # SPIRE CA configuration
           ca:
             # -- SPIRE CA key type
@@ -3217,7 +3217,7 @@ authentication:
       # Cilium Operator will resolve its address by looking up the clusterIP from Service resource.
       #
       # Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
-      serverAddress: ~
+      serverAddress: ""
       # -- SPIFFE trust domain to use for fetching certificates
       trustDomain: spiffe.cilium
       # -- SPIRE socket path where the SPIRE delegated api agent is listening
