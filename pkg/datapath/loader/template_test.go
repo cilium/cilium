@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -21,7 +20,7 @@ func TestWrap(t *testing.T) {
 
 	realEP := testutils.NewTestEndpoint()
 	template := wrap(&realEP, nil)
-	cfg := &config.HeaderfileWriter{}
+	cfg := configWriterForTest(t)
 
 	// Write the configuration that should be the same, and verify it is.
 	err := cfg.WriteTemplateConfig(&realEPBuffer, &realEP)
