@@ -29,6 +29,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 				      __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
+	/* Good for to-netdev. Makes no sense for from-overlay. */
 	__u32 old_oif = ctx_get_ifindex(ctx);
 
 	*ext_err = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);

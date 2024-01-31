@@ -116,6 +116,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 				 struct bpf_fib_lookup_padded *fib_params,
 				 __s8 *ext_err)
 {
+	/* Ok, currently only used by to-netdev. */
 	int oif = NATIVE_DEV_IFINDEX;
 	int ret;
 
@@ -684,6 +685,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			.ifindex	= ctx_get_ifindex(ctx),
 		},
 	};
+	/* No good: */
 	int ret, oif = 0, ohead = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -840,6 +842,7 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC8215)
 int tail_nat_ipv46(struct __ctx_buff *ctx)
 {
+	/* No good: */
 	int ret, oif = 0, l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -871,6 +874,7 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC8215)
 int tail_nat_ipv64(struct __ctx_buff *ctx)
 {
+	/* No good: */
 	int ret, oif = 0, l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -922,6 +926,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__be16 src_port __maybe_unused = 0;
 	bool allow_neigh_map = true;
+	/* Ok. Without HAVE_FIB_INDEX, we get the ifindex from the CT entry below. */
 	int ifindex = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1153,6 +1158,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
+	/* Not ok. */
 	int ret, l4_off, oif = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -2229,6 +2235,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
+	/* No good: */
 	int ret, oif = 0;
 	__be16 ohead = 0;
 	__s8 ext_err = 0;
@@ -2391,6 +2398,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			.ifindex	= ctx_get_ifindex(ctx),
 		},
 	};
+	/* Ok. Without HAVE_FIB_INDEX, we get the ifindex from the CT entry below. */
 	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
@@ -2653,6 +2661,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
+	/* Not ok: */
 	int ret, l4_off, oif = 0;
 	void *data, *data_end;
 	bool has_l4_header;
