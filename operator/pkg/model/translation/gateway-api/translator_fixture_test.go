@@ -3579,7 +3579,7 @@ func toSocketOptions() []*envoy_config_core_v3.SocketOption {
 			Value: &envoy_config_core_v3.SocketOption_IntValue{
 				IntValue: 1,
 			},
-			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+			State: envoy_config_core_v3.SocketOption_STATE_PREBIND,
 		},
 		{
 			Description: "TCP keep-alive idle time (in seconds) (defaults to 10s)",
@@ -3588,7 +3588,7 @@ func toSocketOptions() []*envoy_config_core_v3.SocketOption {
 			Value: &envoy_config_core_v3.SocketOption_IntValue{
 				IntValue: 10,
 			},
-			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+			State: envoy_config_core_v3.SocketOption_STATE_PREBIND,
 		},
 		{
 			Description: "TCP keep-alive probe intervals (in seconds) (defaults to 5s)",
@@ -3597,7 +3597,7 @@ func toSocketOptions() []*envoy_config_core_v3.SocketOption {
 			Value: &envoy_config_core_v3.SocketOption_IntValue{
 				IntValue: 5,
 			},
-			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+			State: envoy_config_core_v3.SocketOption_STATE_PREBIND,
 		},
 		{
 			Description: "TCP keep-alive probe max failures.",
@@ -3606,7 +3606,7 @@ func toSocketOptions() []*envoy_config_core_v3.SocketOption {
 			Value: &envoy_config_core_v3.SocketOption_IntValue{
 				IntValue: 10,
 			},
-			State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+			State: envoy_config_core_v3.SocketOption_STATE_PREBIND,
 		},
 	}
 }
