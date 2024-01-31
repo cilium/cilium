@@ -20,7 +20,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/cell/lifecycle"
 	"github.com/cilium/cilium/pkg/hive/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -56,7 +55,7 @@ type Hive struct {
 	startTimeout, stopTimeout time.Duration
 	flags                     *pflag.FlagSet
 	viper                     *viper.Viper
-	lifecycle                 *DefaultLifecycle
+	lifecycle                 cell.Lifecycle
 	populated                 bool
 	invokes                   []func() error
 	configOverrides           []any
@@ -80,7 +79,7 @@ func New(cells ...cell.Cell) *Hive {
 		startTimeout:    defaultStartTimeout,
 		stopTimeout:     defaultStopTimeout,
 		flags:           pflag.NewFlagSet("", pflag.ContinueOnError),
-		lifecycle:       &DefaultLifecycle{},
+		lifecycle:       &cell.DefaultLifecycle{},
 		shutdown:        make(chan error, 1),
 		configOverrides: nil,
 	}
@@ -95,22 +94,22 @@ func New(cells ...cell.Cell) *Hive {
 
 	// Use a single health provider for all cells, which is used to create
 	// module scoped health reporters.
-	if err := h.container.Provide(func(healthMetrics *metrics.HealthMetrics, lc Lifecycle) cell.Health {
+	if err := h.container.Provide(func(healthMetrics *metrics.HealthMetrics, lc cell.Lifecycle) cell.Health {
 		hp := cell.NewHealthProvider()
 		updateStats := func() {
 			for l, c := range hp.Stats() {
 				healthMetrics.HealthStatusGauge.WithLabelValues(strings.ToLower(string(l))).Set(float64(c))
 			}
 		}
-		lc.Append(Hook{
-			OnStart: func(ctx HookContext) error {
+		lc.Append(cell.Hook{
+			OnStart: func(ctx cell.HookContext) error {
 				updateStats()
 				hp.Subscribe(ctx, func(u cell.Update) {
 					updateStats()
 				}, func(err error) {})
 				return nil
 			},
-			OnStop: func(ctx HookContext) error {
+			OnStop: func(ctx cell.HookContext) error {
 				return hp.Stop(ctx)
 			},
 		})
@@ -165,28 +164,11 @@ type defaults struct {
 	dig.Out
 
 	Flags             *pflag.FlagSet
-	Lifecycle         Lifecycle
-	LifecycleInternal lifecycle.Lifecycle
+	Lifecycle         cell.Lifecycle
 	Logger            logrus.FieldLogger
 	Shutdowner        Shutdowner
 	InvokerList       cell.InvokerList
 	EmptyFullModuleID cell.FullModuleID
-}
-
-type internalLifecycle struct {
-	Lifecycle
-}
-
-func (i *internalLifecycle) Append(hook lifecycle.HookInterface) {
-	h := Hook{
-		OnStart: func(ctx HookContext) error {
-			return hook.Start(ctx)
-		},
-		OnStop: func(ctx HookContext) error {
-			return hook.Stop(ctx)
-		},
-	}
-	i.Lifecycle.Append(h)
 }
 
 func (h *Hive) provideDefaults() error {
@@ -194,7 +176,6 @@ func (h *Hive) provideDefaults() error {
 		return defaults{
 			Flags:             h.flags,
 			Lifecycle:         h.lifecycle,
-			LifecycleInternal: &internalLifecycle{h.lifecycle},
 			Logger:            log,
 			Shutdowner:        h,
 			InvokerList:       h,
