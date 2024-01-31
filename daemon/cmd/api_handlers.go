@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 
-	"github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
@@ -87,10 +86,6 @@ type handlersOut struct {
 	ServiceGetServiceHandler      service.GetServiceHandler
 	ServiceGetServiceIDHandler    service.GetServiceIDHandler
 	ServicePutServiceIDHandler    service.PutServiceIDHandler
-
-	BgpGetBgpPeersHandler         bgp.GetBgpPeersHandler
-	BgpGetBgpRoutesHandler        bgp.GetBgpRoutesHandler
-	BgpGetBgpRoutePoliciesHandler bgp.GetBgpRoutePoliciesHandler
 }
 
 // apiHandler implements Handle() for the given parameter type.
@@ -242,15 +237,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /node/ids
 	out.DaemonGetNodeIdsHandler = wrapAPIHandler(dp, getNodeIDHandlerHandler)
-
-	// /bgp/peers
-	out.BgpGetBgpPeersHandler = wrapAPIHandler(dp, getBGPPeersHandler)
-
-	// /bgp/routes
-	out.BgpGetBgpRoutesHandler = wrapAPIHandler(dp, getBGPRoutesHandler)
-
-	// /bgp/route-policies
-	out.BgpGetBgpRoutePoliciesHandler = wrapAPIHandler(dp, getBGPRoutePoliciesHandler)
 
 	return
 }
