@@ -1783,6 +1783,10 @@ proxy:
 envoy:
   # -- Enable Envoy Proxy in standalone DaemonSet.
   enabled: false
+  # -- (int)
+  # Set Envoy'--base-id' to use when allocating shared memory regions.
+  # Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0'
+  baseID: 0
   log:
     # -- The format string to use for laying out the log message metadata of Envoy.
     format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"

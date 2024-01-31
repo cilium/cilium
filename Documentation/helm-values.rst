@@ -1096,6 +1096,10 @@
      - Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
      - object
      - ``{}``
+   * - :spelling:ignore:`envoy.baseID`
+     - Set Envoy'--base-id' to use when allocating shared memory regions. Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0'
+     - int
+     - ``0``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
      - Time in seconds after which a TCP connection attempt times out
      - int
