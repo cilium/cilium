@@ -11,12 +11,18 @@
 #include "time.h"
 #include "static_data.h"
 
+#define ____min(_x, _y)			\
+	_x < _y ? _x : _y
+
+#define ____max(_x, _y)			\
+	_x > _y ? _x : _y
+
 #define __min(t_x, t_y, x, y)		\
 ({					\
 	t_x _x = (x);			\
 	t_y _y = (y);			\
 	(void) (&_x == &_y);		\
-	_x < _y ? _x : _y;		\
+	____min(_x, _y);		\
 })
 
 #define __max(t_x, t_y, x, y)		\
@@ -24,7 +30,7 @@
 	t_x _x = (x);			\
 	t_y _y = (y);			\
 	(void) (&_x == &_y);		\
-	_x > _y ? _x : _y;		\
+	____max(_x, _y);		\
 })
 
 #define min(x, y)			\
