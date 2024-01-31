@@ -169,7 +169,7 @@ spec:
         {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
         - --max-connected-clusters={{ .Values.clustermesh.maxConnectedClusters }}
         {{- end }}
-        - --clustermesh-health-port={{ .Values.clustermesh.apiserver.healthPort }}
+        - --health-port={{ .Values.clustermesh.apiserver.healthPort }}
         {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
         - --cluster-users-enabled
         - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml

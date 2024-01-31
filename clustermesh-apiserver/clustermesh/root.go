@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
+	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
@@ -31,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -79,7 +79,7 @@ type parameters struct {
 	Resources      cmk8s.Resources
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 	StoreFactory   store.Factory
-	SyncState      *SyncState
+	SyncState      syncstate.SyncState
 }
 
 func registerHooks(lc cell.Lifecycle, params parameters) error {
@@ -99,35 +99,6 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 		},
 	})
 	return nil
-}
-
-func NewSyncState() *SyncState {
-	return &SyncState{StoppableWaitGroup: *lock.NewStoppableWaitGroup()}
-}
-
-// SyncState is a wrapper around lock.StoppableWaitGroup used to keep track of the synchronization
-// of various resources to the kvstore.
-type SyncState struct {
-	lock.StoppableWaitGroup
-}
-
-// Complete returns true if all resources have been synchronized to the kvstore.
-func (ss *SyncState) Complete() bool {
-	select {
-	case <-ss.WaitChannel():
-		return true
-	default:
-		return false
-	}
-}
-
-// WaitForResource adds a resource to the SyncState and returns a callback function that should be
-// called when the resource has been synchronized.
-func (ss *SyncState) WaitForResource() func(context.Context) {
-	ss.Add()
-	return func(_ context.Context) {
-		ss.Done()
-	}
 }
 
 type identitySynchronizer struct {
@@ -377,7 +348,7 @@ func startServer(
 	backend kvstore.BackendOperations,
 	resources cmk8s.Resources,
 	factory store.Factory,
-	syncState *SyncState,
+	syncState syncstate.SyncState,
 ) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cinfo.Name,
