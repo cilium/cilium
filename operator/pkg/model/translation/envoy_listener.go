@@ -50,7 +50,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 				Value: &envoy_config_core_v3.SocketOption_IntValue{
 					IntValue: tcpKeepAlive,
 				},
-				State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+				State: envoy_config_core_v3.SocketOption_STATE_PREBIND,
 			},
 			{
 				Description: "TCP keep-alive idle time (in seconds) (defaults to 10s)",
@@ -59,7 +59,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 				Value: &envoy_config_core_v3.SocketOption_IntValue{
 					IntValue: tcpKeepIdleInSeconds,
 				},
-				State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+				State: envoy_config_core_v3.SocketOption_STATE_PREBIND,
 			},
 			{
 				Description: "TCP keep-alive probe intervals (in seconds) (defaults to 5s)",
@@ -68,7 +68,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 				Value: &envoy_config_core_v3.SocketOption_IntValue{
 					IntValue: tcpKeepAliveProbeIntervalInSeconds,
 				},
-				State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+				State: envoy_config_core_v3.SocketOption_STATE_PREBIND,
 			},
 			{
 				Description: "TCP keep-alive probe max failures.",
@@ -77,7 +77,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 				Value: &envoy_config_core_v3.SocketOption_IntValue{
 					IntValue: tcpKeepAliveMaxFailures,
 				},
-				State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+				State: envoy_config_core_v3.SocketOption_STATE_PREBIND,
 			},
 		}
 		return listener
