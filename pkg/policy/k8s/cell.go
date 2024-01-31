@@ -89,6 +89,7 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 			ctx, cancel = context.WithCancel(context.Background())
 			w := &PolicyWatcher{
 				log:                              p.Logger,
+				config:                           p.Config,
 				k8sResourceSynced:                p.K8sResourceSynced,
 				k8sAPIGroups:                     p.K8sAPIGroups,
 				K8sSvcCache:                      p.ServiceCache,
@@ -103,10 +104,7 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 				cidrGroupPolicies: make(map[resource.Key]struct{}),
 			}
 
-			w.ciliumNetworkPoliciesInit(ctx)
-			if p.Config.EnableK8sNetworkPolicy {
-				w.networkPoliciesInit(ctx)
-			}
+			w.watchResources(ctx)
 
 			return nil
 		},
