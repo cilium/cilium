@@ -447,6 +447,7 @@ func finishKubeProxyReplacementInit() error {
 	}
 
 	option.Config.NodePortNat46X64 = option.Config.IsDualStack() &&
+		option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 		option.Config.NodePortMode == option.NodePortModeSNAT &&
 		probes.HaveLargeInstructionLimit() == nil
 
