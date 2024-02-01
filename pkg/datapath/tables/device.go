@@ -138,6 +138,10 @@ func (d *DeviceAddress) AsIP() net.IP {
 	return d.Addr.AsSlice()
 }
 
+func (d *DeviceAddress) String() string {
+	return fmt.Sprintf("%s (secondary=%v, scope=%d)", d.Addr, d.Secondary, d.Scope)
+}
+
 // SelectedDevices returns the external facing network devices to use for
 // load-balancing, host firewall and routing.
 //
