@@ -433,6 +433,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			tt.args.rule.Sanitize()
 			got := ParseToCiliumRule(tt.args.namespace, tt.name, tt.args.uid, tt.args.rule)
 
 			// Sanitize to set AggregatedSelectors field.

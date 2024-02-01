@@ -23,6 +23,19 @@ const (
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
 func (r *Rule) Sanitize() error {
+	// Fill in the default traffic posture of this Rule.
+	// Default posture is per-direction (ingress or egress),
+	// if there is a peer selector for that direction, the
+	// default is deny, else allow.
+	if r.EnableDefaultDeny.Egress == nil {
+		x := len(r.Egress) > 0 || len(r.EgressDeny) > 0
+		r.EnableDefaultDeny.Egress = &x
+	}
+	if r.EnableDefaultDeny.Ingress == nil {
+		x := len(r.Ingress) > 0 || len(r.IngressDeny) > 0
+		r.EnableDefaultDeny.Ingress = &x
+	}
+
 	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
 		return fmt.Errorf("rule must have one of EndpointSelector or NodeSelector")
 	}
