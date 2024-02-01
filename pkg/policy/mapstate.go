@@ -198,11 +198,11 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 		}
 		return e.cachedNets
 	}
-	// CIDR identities have a local scope, so we can skip the rest if id is not of local scope.
-	if !id.HasLocalScope() || identities == nil {
+	if identities == nil {
 		return nil
 	}
 	lbls := identities.GetLabels(id)
+	nets := make([]*net.IPNet, 0, 1)
 	var (
 		maskSize         int
 		mostSpecificCidr *net.IPNet
@@ -219,10 +219,10 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 		}
 	}
 	if mostSpecificCidr != nil {
-		e.cachedNets = []*net.IPNet{mostSpecificCidr}
-		return e.cachedNets
+		nets = append(nets, mostSpecificCidr)
 	}
-	return nil
+	e.cachedNets = nets
+	return nets
 }
 
 // AddDependent adds 'key' to the set of dependent keys.
