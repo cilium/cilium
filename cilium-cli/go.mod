@@ -13,7 +13,7 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20240118151318-8589b2863cfa
+	github.com/cilium/charts v0.0.0-20240131194518-c3dab910c790
 	github.com/cilium/cilium v1.15.0
 	github.com/cilium/hubble v0.13.0
 	github.com/cilium/tetragon/pkg/k8s v0.0.0-20231127174521-c97da4b42413
@@ -23,7 +23,7 @@ require (
 	github.com/go-openapi/strfmt v0.22.0
 	github.com/google/gops v0.3.28
 	github.com/mholt/archiver/v3 v3.5.1
-	github.com/osrg/gobgp/v3 v3.22.0
+	github.com/osrg/gobgp/v3 v3.23.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
