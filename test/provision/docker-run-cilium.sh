@@ -66,5 +66,8 @@ ${SUDO} docker cp cilium:/usr/bin/hubble /usr/bin/
 if ! command -v "clang" >/dev/null 2>&1; then
   ${SUDO} docker cp cilium:/usr/local/bin/clang /usr/bin/
   ${SUDO} docker cp cilium:/usr/local/bin/llc /usr/bin/
+fi
+
+if ! command -v "tc" >/dev/null 2>&1; then
   ${SUDO} docker cp cilium:/usr/local/bin/tc /usr/bin/
 fi
