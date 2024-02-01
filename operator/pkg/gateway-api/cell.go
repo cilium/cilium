@@ -33,8 +33,9 @@ var Cell = cell.Module(
 	"Manages the Gateway API controllers",
 
 	cell.Config(gatewayApiConfig{
-		EnableGatewayAPISecretsSync: true,
-		GatewayAPISecretsNamespace:  "cilium-secrets",
+		EnableGatewayAPISecretsSync:   true,
+		EnableGatewayAPIProxyProtocol: false,
+		GatewayAPISecretsNamespace:    "cilium-secrets",
 	}),
 	cell.Invoke(initGatewayAPIController),
 	cell.Provide(registerSecretSync),
@@ -50,12 +51,14 @@ var requiredGVK = []schema.GroupVersionKind{
 }
 
 type gatewayApiConfig struct {
-	EnableGatewayAPISecretsSync bool
-	GatewayAPISecretsNamespace  string
+	EnableGatewayAPISecretsSync   bool
+	EnableGatewayAPIProxyProtocol bool
+	GatewayAPISecretsNamespace    string
 }
 
 func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-secrets-sync", r.EnableGatewayAPISecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag)")
+	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 }
 
@@ -89,7 +92,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	cecTranslator := translation.NewCECTranslator(params.Config.GatewayAPISecretsNamespace, false, false, true, operatorOption.Config.ProxyIdleTimeoutSeconds)
+	cecTranslator := translation.NewCECTranslator(params.Config.GatewayAPISecretsNamespace, false, params.Config.EnableGatewayAPIProxyProtocol, true, operatorOption.Config.ProxyIdleTimeoutSeconds)
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator)
 
 	if err := registerReconcilers(
