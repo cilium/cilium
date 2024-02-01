@@ -79,7 +79,7 @@ jobs:
           # Define three config sets
           - config: '5.4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240125.104921'
+            kernel: '5.4-20240131.102043'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -87,7 +87,7 @@ jobs:
 
           - config: '5.10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240125.104921'
+            kernel: '5.10-20240131.102043'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -96,7 +96,7 @@ jobs:
 
           - config: '6.1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240125.104921'
+            kernel: '6.1-20240131.102043'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
