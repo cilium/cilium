@@ -263,3 +263,7 @@ fi
 echo "Kind is up! Time to install cilium:"
 echo "  make kind-image"
 echo "  make kind-install-cilium"
+echo ""
+echo "On Linux, the below can be used for faster feedback:"
+echo "  make kind-image-fast"
+echo "  make kind-install-cilium-fast"
