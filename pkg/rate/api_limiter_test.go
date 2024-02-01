@@ -806,3 +806,24 @@ func TestReservationCancel(t *testing.T) {
 		req2.Done()
 	}
 }
+
+func TestSetRateLimit(t *testing.T) {
+	a := NewAPILimiter("foo", APILimiterParameters{
+		RateLimit: 50.0,
+	}, nil)
+	require.Equal(t, rate.Limit(50.0), a.limiter.Limit())
+
+	a.SetRateLimit(100.0)
+	require.Equal(t, rate.Limit(100.0), a.limiter.Limit())
+}
+
+func TestSetRateBurst(t *testing.T) {
+	a := NewAPILimiter("foo", APILimiterParameters{
+		RateLimit: 50.0,
+		RateBurst: 50,
+	}, nil)
+	require.Equal(t, 50, a.limiter.Burst())
+
+	a.SetRateBurst(100)
+	require.Equal(t, 100, a.limiter.Burst())
+}
