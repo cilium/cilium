@@ -34,7 +34,7 @@ func newCmdEncryptStatus() *cobra.Command {
 		Long:  "This command returns encryption status from all nodes in the cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.CiliumNamespace = namespace
-			s := encrypt.NewStatus(k8sClient, params)
+			s := encrypt.NewEncrypt(k8sClient, params)
 			if err := s.GetEncryptStatus(context.Background()); err != nil {
 				fatalf("Unable to get encrypt status: %s", err)
 			}
@@ -57,7 +57,7 @@ func newCmdIPsecRotateKey() *cobra.Command {
 		Long:  "This command rotates IPsec encryption key in the cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.CiliumNamespace = namespace
-			s := encrypt.NewStatus(k8sClient, params)
+			s := encrypt.NewEncrypt(k8sClient, params)
 			if err := s.IPsecRotateKey(context.Background()); err != nil {
 				fatalf("Unable to rotate IPsec key: %s", err)
 			}
