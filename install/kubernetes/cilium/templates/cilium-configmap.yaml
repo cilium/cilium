@@ -268,6 +268,7 @@ data:
 {{- if .Values.gatewayAPI.enabled }}
   enable-gateway-api: "true"
   enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
+  enable-gateway-api-proxy-protocol: {{ .Values.gatewayAPI.enableProxyProtocol | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
 {{- end }}
 

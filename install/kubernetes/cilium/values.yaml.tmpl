@@ -671,6 +671,8 @@ gatewayAPI:
   # -- Enable support for Gateway API in cilium
   # This will automatically set enable-envoy-config as well.
   enabled: false
+  # -- Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
+  enableProxyProtocol: false
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
   secretsNamespace:
     # -- Create secrets namespace for Gateway API.
