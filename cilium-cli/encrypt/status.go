@@ -19,7 +19,7 @@ import (
 )
 
 // GetEncryptStatus gets encryption status from all/specific cilium agent pods.
-func (s *Status) GetEncryptStatus(ctx context.Context) error {
+func (s *Encrypt) GetEncryptStatus(ctx context.Context) error {
 	ctx, cancelFn := context.WithTimeout(ctx, s.params.WaitDuration)
 	defer cancelFn()
 
@@ -36,7 +36,7 @@ func (s *Status) GetEncryptStatus(ctx context.Context) error {
 	return s.writeStatus(res)
 }
 
-func (s *Status) fetchEncryptStatusConcurrently(ctx context.Context, pods []corev1.Pod) (map[string]EncryptionStatus, error) {
+func (s *Encrypt) fetchEncryptStatusConcurrently(ctx context.Context, pods []corev1.Pod) (map[string]EncryptionStatus, error) {
 	// res contains data returned from cilium pod
 	type res struct {
 		nodeName string
@@ -72,7 +72,7 @@ func (s *Status) fetchEncryptStatusConcurrently(ctx context.Context, pods []core
 	return data, err
 }
 
-func (s *Status) fetchEncryptStatusFromPod(ctx context.Context, pod corev1.Pod) (EncryptionStatus, error) {
+func (s *Encrypt) fetchEncryptStatusFromPod(ctx context.Context, pod corev1.Pod) (EncryptionStatus, error) {
 	cmd := []string{"cilium", "encrypt", "status", "-o", "json"}
 	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 	if err != nil {
@@ -149,7 +149,7 @@ func nodeStatusFromText(str string) (EncryptionStatus, error) {
 	return res, nil
 }
 
-func (s *Status) writeStatus(res map[string]EncryptionStatus) error {
+func (s *Encrypt) writeStatus(res map[string]EncryptionStatus) error {
 	if s.params.PerNodeDetails {
 		for nodeName, n := range res {
 			if err := printStatus(nodeName, n, s.params.Output); err != nil {

@@ -26,15 +26,15 @@ type Parameters struct {
 	Output           string
 }
 
-// Status is used to get encrypt status from cilium agents
-type Status struct {
+// Encrypt is used to get encrypt status from cilium agents
+type Encrypt struct {
 	client *k8s.Client
 	params Parameters
 }
 
-// NewStatus returns new encrypt.Status struct
-func NewStatus(client *k8s.Client, p Parameters) *Status {
-	return &Status{
+// NewEncrypt returns new encrypt.Encrypt struct
+func NewEncrypt(client *k8s.Client, p Parameters) *Encrypt {
+	return &Encrypt{
 		client: client,
 		params: p,
 	}
@@ -43,7 +43,7 @@ func NewStatus(client *k8s.Client, p Parameters) *Status {
 // fetchCiliumPods returns slice of cilium agent pods.
 // If option NodeName is specified then only that nodes' cilium-agent
 // pod is returned else all cilium-agents in the cluster are returned.
-func (s *Status) fetchCiliumPods(ctx context.Context) ([]corev1.Pod, error) {
+func (s *Encrypt) fetchCiliumPods(ctx context.Context) ([]corev1.Pod, error) {
 	opts := metav1.ListOptions{LabelSelector: s.params.AgentPodSelector}
 	if s.params.NodeName != "" {
 		opts.FieldSelector = fmt.Sprintf("spec.nodeName=%s", s.params.NodeName)
