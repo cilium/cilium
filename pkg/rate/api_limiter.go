@@ -397,6 +397,30 @@ func (l *APILimiter) Parameters() APILimiterParameters {
 	return l.params
 }
 
+// SetRateLimit sets the rate limit of the limiter. If limiter is unset, a new
+// Limiter is created using the rate burst set in the parameters.
+func (l *APILimiter) SetRateLimit(limit rate.Limit) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	if l.limiter != nil {
+		l.limiter.SetLimit(limit)
+	} else {
+		l.limiter = rate.NewLimiter(limit, l.params.RateBurst)
+	}
+}
+
+// SetRateBurst sets the rate burst of the limiter. If limiter is unset, a new
+// Limiter is created using the rate limit set in the parameters.
+func (l *APILimiter) SetRateBurst(burst int) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	if l.limiter != nil {
+		l.limiter.SetBurst(burst)
+	} else {
+		l.limiter = rate.NewLimiter(l.params.RateLimit, burst)
+	}
+}
+
 func (l *APILimiter) delayedAdjustment(current, min, max float64) (n float64) {
 	n = current * l.adjustmentFactor
 	n = current + ((n - current) * l.params.DelayedAdjustmentFactor)
