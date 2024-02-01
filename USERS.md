@@ -465,6 +465,13 @@ Users (Alphabetically)
       L: https://www.parseable.io/blog/ebpf-log-analytics
       Q: @nitisht
 
+    * N: Pionative
+      D: Pionative supplies all its clients across cloud providers with
+      Kubernetes running Cilium to deliver the best performance out there.
+      U: CNI, Networking, Security, eBPF
+      L: https://www.pionative.com
+      Q: @Pionerd
+
     * N: Plaid Inc
       D: Plaid is using Cilium as their CNI plugin in self-hosted Kubernetes on AWS.
       U: CNI, network policies
