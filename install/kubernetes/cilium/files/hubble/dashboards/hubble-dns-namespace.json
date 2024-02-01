@@ -484,7 +484,7 @@
           "includeAll": false,
           "label": "Data Source",
           "multi": false,
-          "name": "prometheus_datasource",
+          "name": "DS_PROMETHEUS",
           "options": [],
           "query": "prometheus",
           "queryValue": "",
