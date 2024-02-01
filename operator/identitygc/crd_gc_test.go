@@ -12,6 +12,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/k8s"
+	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -45,7 +46,7 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 	assertEqualIDs(t, wantIdentities, gotIdentities)
 
 	// 5 IDs in the store.
-	cesA := createCESWithIDs("cesA", []int64{1, 2, 3, 4, 5})
+	cesA := tu.CreateCESWithIDs("cesA", []int64{1, 2, 3, 4, 5})
 	fakeClient.CiliumV2alpha1().CiliumEndpointSlices().Create(context.Background(), cesA, meta_v1.CreateOptions{})
 	err = testutils.WaitUntil(isCESPresent("cesA", cesStore), time.Second)
 	if err != nil {
@@ -60,7 +61,7 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 	assertEqualIDs(t, wantIdentities, gotIdentities)
 
 	// 10 IDs in the store.
-	cesB := createCESWithIDs("cesB", []int64{10, 20, 30, 40, 50})
+	cesB := tu.CreateCESWithIDs("cesB", []int64{10, 20, 30, 40, 50})
 	fakeClient.CiliumV2alpha1().CiliumEndpointSlices().Create(context.Background(), cesB, meta_v1.CreateOptions{})
 	err = testutils.WaitUntil(isCESPresent("cesB", cesStore), time.Second)
 	if err != nil {
@@ -85,15 +86,6 @@ func isCESPresent(cesName string, cesStore resource.Store[*cilium_v2a1.CiliumEnd
 		_, exists, _ := cesStore.GetByKey(resource.Key{Name: cesName})
 		return exists
 	}
-}
-
-func createCESWithIDs(cesName string, ids []int64) *cilium_v2a1.CiliumEndpointSlice {
-	ces := &cilium_v2a1.CiliumEndpointSlice{ObjectMeta: meta_v1.ObjectMeta{Name: cesName}}
-	for _, id := range ids {
-		cep := cilium_v2a1.CoreCiliumEndpoint{IdentityID: id}
-		ces.Endpoints = append(ces.Endpoints, cep)
-	}
-	return ces
 }
 
 func assertEqualIDs(t *testing.T, wantIdentities, gotIdentities map[string]bool) {
