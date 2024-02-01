@@ -59,6 +59,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 			fooIngressRule1Label,
 		},
 	}
+	fooIngressRule1.Sanitize()
 
 	fooIngressRule2 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -75,6 +76,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 			fooIngressRule2Label,
 		},
 	}
+	fooIngressRule2.Sanitize()
 
 	fooEgressRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -91,6 +93,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 			fooEgressRule1Label,
 		},
 	}
+	fooEgressRule1.Sanitize()
 
 	fooEgressRule2 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -107,6 +110,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 			fooEgressRule2Label,
 		},
 	}
+	fooEgressRule2.Sanitize()
 
 	combinedRule := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -132,6 +136,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 			combinedLabel,
 		},
 	}
+	combinedRule.Sanitize()
 
 	ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no rules are in repository"))
@@ -253,15 +258,18 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
 		Labels:           lbls1,
 	}
+	rule1.Sanitize()
 	rule2 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Labels:           lbls1,
 	}
+	rule2.Sanitize()
 	lbls2 := labels.LabelArray{labels.ParseSelectLabel("tag3")}
 	rule3 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Labels:           lbls2,
 	}
+	rule3.Sanitize()
 
 	nextRevision := uint64(1)
 
@@ -2368,4 +2376,153 @@ func (ds *PolicyTestSuite) TestIterate(c *C) {
 	repo.Iterate(countEgressRules)
 
 	c.Assert(numWithEgress, Equals, numRules-numModified-numDeleted)
+}
+
+// TestDefaultAllow covers the defaulting logic in determining an identity's default rule
+// in the presence or absence of rules that do not enable default-deny mode.
+func (ds *PolicyTestSuite) TestDefaultAllow(c *C) {
+
+	// Cache policy enforcement value from when test was ran to avoid pollution
+	// across tests.
+	oldPolicyEnable := GetPolicyEnabled()
+	defer SetPolicyEnabled(oldPolicyEnable)
+
+	SetPolicyEnabled(option.DefaultEnforcement)
+
+	fooSelectLabel := labels.ParseSelectLabel("foo")
+	fooNumericIdentity := 9001
+	fooIdentity := identity.NewIdentity(identity.NumericIdentity(fooNumericIdentity), lbls)
+
+	genRule := func(ingress, defaultDeny bool) api.Rule {
+		name := fmt.Sprintf("%v_%v", ingress, defaultDeny)
+		r := api.Rule{
+			EndpointSelector: api.NewESFromLabels(fooSelectLabel),
+			Labels:           labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceAny)},
+		}
+
+		if ingress {
+			r.Ingress = []api.IngressRule{{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.NewESFromLabels(fooSelectLabel)}}}}
+		} else {
+			r.Egress = []api.EgressRule{{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{api.NewESFromLabels(fooSelectLabel)}}}}
+		}
+		if ingress {
+			r.EnableDefaultDeny.Ingress = &defaultDeny
+		} else {
+			r.EnableDefaultDeny.Egress = &defaultDeny
+		}
+		c.Assert(r.Sanitize(), IsNil)
+		return r
+	}
+
+	iDeny := genRule(true, true)   // ingress default deny
+	iAllow := genRule(true, false) // ingress default allow
+
+	eDeny := genRule(false, true)   // egress default deny
+	eAllow := genRule(false, false) // egress default allow
+
+	type testCase struct {
+		rules           []api.Rule
+		ingress, egress bool
+		ruleC           int // count of rules; indicates wildcard
+	}
+
+	ingressCases := []testCase{
+		{
+			rules: nil, // default case, everything disabled
+		},
+		{
+			rules:   []api.Rule{iDeny},
+			ingress: true,
+			ruleC:   1,
+		},
+		{
+			rules:   []api.Rule{iAllow}, // Just a default-allow rule
+			ingress: true,
+			ruleC:   2, // wildcard must be added
+		},
+		{
+			rules:   []api.Rule{iDeny, iAllow}, // default-deny takes precedence, no wildcard
+			ingress: true,
+			ruleC:   2,
+		},
+	}
+
+	egressCases := []testCase{
+		{
+			rules: nil, // default case, everything disabled
+		},
+		{
+			rules:  []api.Rule{eDeny},
+			egress: true,
+			ruleC:  1,
+		},
+		{
+			rules:  []api.Rule{eAllow}, // Just a default-allow rule
+			egress: true,
+			ruleC:  2, // wildcard must be added
+		},
+		{
+			rules:  []api.Rule{eDeny, eAllow}, // default-deny takes precedence, no wildcard
+			egress: true,
+			ruleC:  2,
+		},
+	}
+
+	// three test runs: ingress, egress, and ingress + egress cartesian
+	for i, tc := range ingressCases {
+		repo := NewPolicyRepository(nil, nil, nil, nil)
+		repo.selectorCache = testSelectorCache
+
+		for _, rule := range tc.rules {
+			_, _, err := repo.Add(rule)
+			c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+		}
+
+		ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+		c.Assert(ing, Equals, tc.ingress, Commentf("case %d: ingress should match", i))
+		c.Assert(egr, Equals, tc.egress, Commentf("case %d: egress should match", i))
+		c.Assert(len(matchingRules), Equals, tc.ruleC, Commentf("case %d: rule count should match", i))
+	}
+
+	for i, tc := range egressCases {
+		repo := NewPolicyRepository(nil, nil, nil, nil)
+		repo.selectorCache = testSelectorCache
+
+		for _, rule := range tc.rules {
+			_, _, err := repo.Add(rule)
+			c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+		}
+
+		ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+		c.Assert(ing, Equals, tc.ingress, Commentf("case %d: ingress should match", i))
+		c.Assert(egr, Equals, tc.egress, Commentf("case %d: egress should match", i))
+		c.Assert(len(matchingRules), Equals, tc.ruleC, Commentf("case %d: rule count should match", i))
+	}
+
+	// test all combinations of ingress + egress cases
+	for e, etc := range egressCases {
+		for i, itc := range ingressCases {
+			repo := NewPolicyRepository(nil, nil, nil, nil)
+			repo.selectorCache = testSelectorCache
+
+			for _, rule := range etc.rules {
+				_, _, err := repo.Add(rule)
+				c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+			}
+
+			for _, rule := range itc.rules {
+				_, _, err := repo.Add(rule)
+				c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
+			}
+
+			ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+			c.Assert(ing, Equals, itc.ingress, Commentf("case ingress %d + egress %d: ingress should match", i, e))
+			c.Assert(egr, Equals, etc.egress, Commentf("case ingress %d + egress %d: egress should match", i, e))
+			c.Assert(len(matchingRules), Equals, itc.ruleC+etc.ruleC, Commentf("case ingress %d + egress %d: rule count should match", i, e))
+		}
+	}
 }

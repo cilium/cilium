@@ -467,6 +467,10 @@ func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
 // AddList inserts a rule into the policy repository. It is used for
 // unit-testing purposes only.
 func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
+	for i := range rules {
+		// FIXME(GH-31162): Many unit tests provide invalid rules
+		_ = rules[i].Sanitize()
+	}
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	return p.AddListLocked(rules)
@@ -598,38 +602,6 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 
 		if ingressMatch && egressMatch {
 			return
-		}
-	}
-	return
-}
-
-// getMatchingRules returns whether any of the rules in a repository contain a
-// rule with labels matching the given security identity, as well as
-// a slice of all rules which match.
-//
-// Must be called with p.Mutex held
-func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
-	ingressMatch, egressMatch bool,
-	matchingRules ruleSlice) {
-
-	matchingRules = []*rule{}
-	for _, r := range p.rules {
-		isNode := securityIdentity.ID == identity.ReservedIdentityHost
-		selectsNode := r.NodeSelector.LabelSelector != nil
-		if selectsNode != isNode {
-			continue
-		}
-		if ruleMatches := r.matches(securityIdentity); ruleMatches {
-			// Don't need to update whether ingressMatch is true if it already
-			// has been determined to be true - allows us to not have to check
-			// lenth of slice.
-			if !ingressMatch {
-				ingressMatch = len(r.Ingress) > 0 || len(r.IngressDeny) > 0
-			}
-			if !egressMatch {
-				egressMatch = len(r.Egress) > 0 || len(r.EgressDeny) > 0
-			}
-			matchingRules = append(matchingRules, r)
 		}
 	}
 	return
@@ -789,27 +761,117 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
 		return false, false, nil
 	}
-	switch GetPolicyEnabled() {
-	case option.AlwaysEnforce:
-		_, _, matchingRules = p.getMatchingRules(securityIdentity)
-		// If policy enforcement is enabled for the daemon, then it has to be
-		// enabled for the endpoint.
-		return true, true, matchingRules
-	case option.DefaultEnforcement:
-		ingress, egress, matchingRules = p.getMatchingRules(securityIdentity)
-		// If the endpoint has the reserved:init label, i.e. if it has not yet
-		// received any labels, always enforce policy (default deny).
-		if lbls.Has(labels.IDNameInit) {
-			return true, true, matchingRules
-		}
 
-		// Default mode means that if rules contain labels that match this
-		// endpoint, then enable policy enforcement for this endpoint.
-		return ingress, egress, matchingRules
-	default:
-		// If policy enforcement isn't enabled, we do not enable policy
-		// enforcement for the endpoint. We don't care about returning any
-		// rules that match.
+	policyMode := GetPolicyEnabled()
+	// If policy enforcement isn't enabled, we do not enable policy
+	// enforcement for the endpoint. We don't care about returning any
+	// rules that match.
+	if policyMode == option.NeverEnforce {
 		return false, false, nil
 	}
+
+	matchingRules = []*rule{}
+	for _, r := range p.rules {
+		if r.matches(securityIdentity) {
+			matchingRules = append(matchingRules, r)
+		}
+	}
+
+	// If policy enforcement is enabled for the daemon, then it has to be
+	// enabled for the endpoint.
+	// If the endpoint has the reserved:init label, i.e. if it has not yet
+	// received any labels, always enforce policy (default deny).
+	if policyMode == option.AlwaysEnforce || lbls.Has(labels.IDNameInit) {
+		return true, true, matchingRules
+	}
+
+	// Determine the default policy for each direction.
+	//
+	// By default, endpoints have no policy and all traffic is allowed.
+	// If any rules select the endpoint, then the endpoint switches to a
+	// default-deny mode (same as traffic being enabled), per-direction.
+	//
+	// Rules, however, can optionally be configure to not enable default deny mode.
+	// If no rules enable default-deny, then all traffic is allowed except that explicitly
+	// denied by a Deny rule.
+	//
+	// There are three possible cases _per direction_:
+	// 1: No rules are present,
+	// 2: At least one default-deny rule is present. Then, policy is enabled
+	// 3: Only non-default-deny rules are present. Then, policy is enabled, but we must insert
+	//    an additional allow-all rule. We must do this, even if all traffic is allowed, because
+	//    rules may have additional effects such as enabling L7 proxy.
+	hasIngressDefaultDeny := false
+	hasEgressDefaultDeny := false
+	for _, r := range matchingRules {
+		if !ingress || !hasIngressDefaultDeny { // short-circuit len()
+			if len(r.Ingress) > 0 || len(r.IngressDeny) > 0 {
+				ingress = true
+				if *r.EnableDefaultDeny.Ingress {
+					hasIngressDefaultDeny = true
+				}
+			}
+		}
+
+		if !egress || !hasEgressDefaultDeny { // short-circuit len()
+			if len(r.Egress) > 0 || len(r.EgressDeny) > 0 {
+				egress = true
+				if *r.EnableDefaultDeny.Egress {
+					hasEgressDefaultDeny = true
+				}
+			}
+		}
+		if ingress && egress && hasIngressDefaultDeny && hasEgressDefaultDeny {
+			break
+		}
+	}
+
+	// If there only ingress default-allow rules, then insert a wildcard rule
+	if !hasIngressDefaultDeny && ingress {
+		log.WithField(logfields.Identity, securityIdentity).Info("Only default-allow policies, synthesizing ingress wildcard-allow rule")
+		matchingRules = append(matchingRules, wildcardRule(securityIdentity.LabelArray, true /*ingress*/))
+	}
+
+	// Same for egress -- synthesize a wildcard rule
+	if !hasEgressDefaultDeny && egress {
+		log.WithField(logfields.Identity, securityIdentity).Info("Only default-allow policies, synthesizing egress wildcard-allow rule")
+		matchingRules = append(matchingRules, wildcardRule(securityIdentity.LabelArray, false /*egress*/))
+	}
+
+	return
+}
+
+// wildcardRule generates a wildcard rule that only selects the given identity.
+func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
+	r := &rule{
+		metadata: newRuleMetadata(),
+	}
+
+	if ingress {
+		r.Ingress = []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEntities: []api.Entity{api.EntityAll},
+				},
+			},
+		}
+	} else {
+		r.Egress = []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEntities: []api.Entity{api.EntityAll},
+				},
+			},
+		}
+	}
+
+	es := api.NewESFromLabels(lbls...)
+	if lbls.Has(labels.IDNameHost) {
+		r.NodeSelector = es
+	} else {
+		r.EndpointSelector = es
+	}
+	_ = r.Sanitize()
+
+	return r
 }
