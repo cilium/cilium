@@ -12,6 +12,7 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/operator/k8s"
+	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -59,11 +60,11 @@ func TestReconcileCreate(t *testing.T) {
 		return true, nil, nil
 	})
 
-	cep1 := createStoreEndpoint("cep1", "ns", 1)
+	cep1 := tu.CreateStoreEndpoint("cep1", "ns", 1)
 	cepStore.CacheStore().Add(cep1)
-	cep2 := createStoreEndpoint("cep2", "ns", 2)
+	cep2 := tu.CreateStoreEndpoint("cep2", "ns", 2)
 	cepStore.CacheStore().Add(cep2)
-	cep3 := createStoreEndpoint("cep3", "ns", 2)
+	cep3 := tu.CreateStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
 	m.mapping.insertCES(NewCESName("ces1"), "ns")
 	m.mapping.insertCES(NewCESName("ces2"), "ns")
@@ -118,13 +119,13 @@ func TestReconcileUpdate(t *testing.T) {
 		return true, nil, nil
 	})
 
-	cep1 := createStoreEndpoint("cep1", "ns", 1)
+	cep1 := tu.CreateStoreEndpoint("cep1", "ns", 1)
 	cepStore.CacheStore().Add(cep1)
-	cep2 := createStoreEndpoint("cep2", "ns", 2)
+	cep2 := tu.CreateStoreEndpoint("cep2", "ns", 2)
 	cepStore.CacheStore().Add(cep2)
-	cep3 := createStoreEndpoint("cep3", "ns", 2)
+	cep3 := tu.CreateStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
-	ces1 := createStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{createManagerEndpoint("cep1", 1), createManagerEndpoint("cep3", 2)})
+	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{tu.CreateManagerEndpoint("cep1", 1), tu.CreateManagerEndpoint("cep3", 2)})
 	cesStore.CacheStore().Add(ces1)
 	m.mapping.insertCES(NewCESName("ces1"), "ns")
 	m.mapping.insertCES(NewCESName("ces2"), "ns")
@@ -181,13 +182,13 @@ func TestReconcileDelete(t *testing.T) {
 		return true, nil, nil
 	})
 
-	cep1 := createStoreEndpoint("cep1", "ns", 1)
+	cep1 := tu.CreateStoreEndpoint("cep1", "ns", 1)
 	cepStore.CacheStore().Add(cep1)
-	cep2 := createStoreEndpoint("cep2", "ns", 2)
+	cep2 := tu.CreateStoreEndpoint("cep2", "ns", 2)
 	cepStore.CacheStore().Add(cep2)
-	cep3 := createStoreEndpoint("cep3", "ns", 2)
+	cep3 := tu.CreateStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
-	ces1 := createStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{createManagerEndpoint("cep1", 1), createManagerEndpoint("cep3", 2)})
+	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{tu.CreateManagerEndpoint("cep1", 1), tu.CreateManagerEndpoint("cep3", 2)})
 	cesStore.CacheStore().Add(ces1)
 	m.mapping.insertCES(NewCESName("ces1"), "ns")
 	m.mapping.insertCES(NewCESName("ces2"), "ns")
@@ -236,11 +237,11 @@ func TestReconcileNoop(t *testing.T) {
 		return true, nil, nil
 	})
 
-	cep1 := createStoreEndpoint("cep1", "ns", 1)
+	cep1 := tu.CreateStoreEndpoint("cep1", "ns", 1)
 	cepStore.CacheStore().Add(cep1)
-	cep2 := createStoreEndpoint("cep2", "ns", 2)
+	cep2 := tu.CreateStoreEndpoint("cep2", "ns", 2)
 	cepStore.CacheStore().Add(cep2)
-	cep3 := createStoreEndpoint("cep3", "ns", 2)
+	cep3 := tu.CreateStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
 	m.mapping.insertCES(NewCESName("ces1"), "ns")
 	m.mapping.insertCES(NewCESName("ces2"), "ns")
