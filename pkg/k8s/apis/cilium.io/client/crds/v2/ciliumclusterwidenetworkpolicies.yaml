@@ -1381,6 +1381,28 @@ spec:
                       type: array
                   type: object
                 type: array
+              enableDefaultDeny:
+                description: "EnableDefaultDeny determines whether this policy configures
+                  the subject endpoint(s) to have a default deny mode. If enabled,
+                  this causes all traffic not explicitly allowed by a network policy
+                  to be dropped. \n If not specified, the default is true for each
+                  traffic direction that has rules, and false otherwise. For example,
+                  if a policy only has Ingress or IngressDeny rules, then the default
+                  for ingress is true and egress is false. \n If multiple policies
+                  apply to an endpoint, that endpoint's default deny will be enabled
+                  if any policy requests it. \n This is useful for creating broad-based
+                  network policies that will not cause endpoints to enter default-deny
+                  mode."
+                properties:
+                  egress:
+                    description: Whether or not the endpoint should have a default-deny
+                      rule applied to egress traffic.
+                    type: boolean
+                  ingress:
+                    description: Whether or not the endpoint should have a default-deny
+                      rule applied to ingress traffic.
+                    type: boolean
+                type: object
               endpointSelector:
                 description: EndpointSelector selects all endpoints which should be
                   subject to this rule. EndpointSelector and NodeSelector cannot be
@@ -3931,6 +3953,28 @@ spec:
                         type: array
                     type: object
                   type: array
+                enableDefaultDeny:
+                  description: "EnableDefaultDeny determines whether this policy configures
+                    the subject endpoint(s) to have a default deny mode. If enabled,
+                    this causes all traffic not explicitly allowed by a network policy
+                    to be dropped. \n If not specified, the default is true for each
+                    traffic direction that has rules, and false otherwise. For example,
+                    if a policy only has Ingress or IngressDeny rules, then the default
+                    for ingress is true and egress is false. \n If multiple policies
+                    apply to an endpoint, that endpoint's default deny will be enabled
+                    if any policy requests it. \n This is useful for creating broad-based
+                    network policies that will not cause endpoints to enter default-deny
+                    mode."
+                  properties:
+                    egress:
+                      description: Whether or not the endpoint should have a default-deny
+                        rule applied to egress traffic.
+                      type: boolean
+                    ingress:
+                      description: Whether or not the endpoint should have a default-deny
+                        rule applied to ingress traffic.
+                      type: boolean
+                  type: object
                 endpointSelector:
                   description: EndpointSelector selects all endpoints which should
                     be subject to this rule. EndpointSelector and NodeSelector cannot
