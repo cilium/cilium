@@ -28,7 +28,7 @@ type ipsecKey struct {
 }
 
 // IPsecRotateKey rotates IPsec key.
-func (s *Status) IPsecRotateKey(ctx context.Context) error {
+func (s *Encrypt) IPsecRotateKey(ctx context.Context) error {
 	ctx, cancelFn := context.WithTimeout(ctx, s.params.WaitDuration)
 	defer cancelFn()
 
