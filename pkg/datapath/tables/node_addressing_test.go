@@ -103,7 +103,7 @@ func TestNodeAddressing(t *testing.T) {
 				require.NoError(t, err, "IPv6().LocalAddresses()")
 				got := ipStrings(append(v4, v6...))
 
-				want := ipStrings(tt.wantLocal)
+				want := ipStrings(tt.wantAddrs)
 				require.ElementsMatch(t, got, want, "LocalAddresses() do not match")
 			}
 			{
