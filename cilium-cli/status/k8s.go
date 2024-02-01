@@ -334,9 +334,7 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 			time.Sleep(defaults.WaitRetryInterval)
 			if k.params.Output != "json" {
 				statusFmt := s.Format()
-				for i := 1; i < lines; i++ {
-					fmt.Print("\033[A\033[2K")
-				}
+				cursorUp(lines)
 				lines = len(strings.Split(statusFmt, "\n"))
 				fmt.Print(statusFmt)
 			}
@@ -347,6 +345,12 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 			fmt.Print("\033[A\033[2K")
 		}
 		return mostRecentStatus, nil
+	}
+}
+
+func cursorUp(lines int) {
+	for i := 1; i < lines; i++ {
+		fmt.Print("\033[A\033[2K")
 	}
 }
 
