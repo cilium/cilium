@@ -35,17 +35,21 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 
 	switch (*ext_err) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
+		break;
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		if (old_oif == fib_params.l.ifindex)
+		/* Don't redirect if we can't update the L2 DMAC: */
+		if (!neigh_resolver_available())
+			return CTX_ACT_OK;
+
+		/* Don't redirect without a valid target ifindex: */
+		if (!is_defined(HAVE_FIB_IFINDEX))
 			return CTX_ACT_OK;
 		break;
 	default:
 		return DROP_NO_FIB;
 	}
 
-	/* Don't redirect if we can't update the L2 DMAC: */
-	if (*ext_err == BPF_FIB_LKUP_RET_NO_NEIGH &&
-	    !neigh_resolver_available())
+	if (old_oif == fib_params.l.ifindex)
 		return CTX_ACT_OK;
 
 	return fib_do_redirect(ctx, true, &fib_params, false, ext_err, (int *)&old_oif);
