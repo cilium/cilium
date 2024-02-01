@@ -70,18 +70,8 @@ Scaling Limitations
 
 * By default, the maximum number of clusters that can be connected together using Cluster Mesh is
   255. By using the option ``maxConnectedClusters`` this limit can be set to 511, at the expense of
-  lowering the maximum number of cluster-local identities. Valid configurations for this option are
-  255 and 511.
-
-* All clusters across a Cluster Mesh must be configured with the same ``maxConnectedClusters``
-  value.
-
- * ConfigMap option ``max-connected-clusters=511``
- * Helm option ``--set clustermesh.maxConnectedClusters=511``
- * ``cilium install`` option ``--set clustermesh.maxConnectedClusters=511``
-
-* This option controls the bit allocation of numeric identities and will affect the number of
-  identities that can be allocated per cluster:
+  lowering the maximum number of cluster-local identities. Reference the following table for valid
+  configurations and their corresponding cluster-local identity limits:
 
 +------------------------+------------+----------+----------+
 | MaxConnectedClusters   | Maximum cluster-local identities |
@@ -90,6 +80,20 @@ Scaling Limitations
 +------------------------+------------+----------+----------+
 | 511                    | 32767                            |
 +------------------------+------------+----------+----------+
+
+* All clusters across a Cluster Mesh must be configured with the same ``maxConnectedClusters``
+  value.
+
+ * ConfigMap option ``max-connected-clusters=511``
+ * Helm option ``--set clustermesh.maxConnectedClusters=511``
+ * ``cilium install`` option ``--set clustermesh.maxConnectedClusters=511``
+
+.. note::
+
+   This option controls the bit allocation of numeric identities and will affect the maximum number
+   of cluster-local identities that can be allocated. By default, cluster-local
+   :ref:`security_identities` are limited to 65535, regardless of whether Cluster Mesh is used or
+   not.
 
 .. warning::
   ``MaxConnectedClusters`` can only be set once during Cilium installation and should not be
