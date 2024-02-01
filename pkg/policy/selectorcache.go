@@ -162,9 +162,7 @@ type identitySelector interface {
 type scIdentity struct {
 	NID       identity.NumericIdentity
 	lbls      labels.LabelArray
-	nets      []*net.IPNet // Most specific CIDR for the identity, if any.
-	computed  bool         // nets has been computed
-	namespace string       // value of the namespace label, or ""
+	namespace string // value of the namespace label, or ""
 }
 
 // scIdentityCache is a cache of Identities keyed by the numeric identity
@@ -174,35 +172,8 @@ func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentit
 	return scIdentity{
 		NID:       nid,
 		lbls:      lbls,
-		nets:      getLocalScopeNets(nid, lbls),
 		namespace: lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
-		computed:  true,
 	}
-}
-
-// getLocalScopeNets returns the most specific CIDR for a local scope identity.
-func getLocalScopeNets(id identity.NumericIdentity, lbls labels.LabelArray) []*net.IPNet {
-	if id.HasLocalScope() {
-		var (
-			maskSize         int
-			mostSpecificCidr *net.IPNet
-		)
-		for _, lbl := range lbls {
-			if lbl.Source == labels.LabelSourceCIDR {
-				_, netIP, err := net.ParseCIDR(lbl.Key)
-				if err == nil {
-					if ms, _ := netIP.Mask.Size(); ms > maskSize {
-						mostSpecificCidr = netIP
-						maskSize = ms
-					}
-				}
-			}
-		}
-		if mostSpecificCidr != nil {
-			return []*net.IPNet{mostSpecificCidr}
-		}
-	}
-	return nil
 }
 
 func getIdentityCache(ids cache.IdentityCache) scIdentityCache {
@@ -1121,18 +1092,10 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 	sc.releaseIdentityMappings(identitiesToRelease)
 }
 
-// GetNetsLocked returns the most specific CIDR for an identity. For the "World" identity
-// it returns both IPv4 and IPv6.
-func (sc *SelectorCache) GetNetsLocked(id identity.NumericIdentity) []*net.IPNet {
+func (sc *SelectorCache) GetLabels(id identity.NumericIdentity) labels.LabelArray {
 	ident, ok := sc.idCache[id]
 	if !ok {
-		return nil
+		return labels.LabelArray{}
 	}
-	if !ident.computed {
-		log.WithFields(logrus.Fields{
-			logfields.Identity: id,
-			logfields.Labels:   ident.lbls,
-		}).Warning("GetNetsLocked: Identity with missing nets!")
-	}
-	return ident.nets
+	return ident.lbls
 }
