@@ -395,6 +395,10 @@ Changed Metrics
   met (e.g: NodePort service implementation in BPF is disabled or socket load-balancing
   is disabled), it will fail to initialize and will log an error instead of silently
   fall back to iptables based masquerading.
+* The Go types for Network policies have changed to accept both integers and strings in
+  the ICMP protocol type. Specifically, the ICMP ``type`` field can be either
+  the ICMP message type integer (for example, ``0`` for Echo Reply), or
+  the corresponding message type string (``Echo Reply``).
 
 .. _upgrade_cilium_cli_helm_mode:
 
