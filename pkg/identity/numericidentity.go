@@ -81,6 +81,10 @@ const (
 	// InvalidIdentity is the identity assigned if the identity is invalid
 	// or not determined yet
 	InvalidIdentity = NumericIdentity(0)
+
+	// 4096 (2^12) temp IDs to be available.
+	DefaultMinTempID = 1<<24 + 1<<16         // 2^24 + 2^16
+	DefaultMaxTempID = 1<<24 + 1<<16 + 1<<12 // 2^24 + 2^16 + 2^12
 )
 
 var (
@@ -636,6 +640,10 @@ func iterateReservedIdentityLabels(f func(_ NumericIdentity, _ labels.Labels)) {
 
 // HasLocalScope returns true if the identity is in the Local (CIDR) scope
 func (id NumericIdentity) HasLocalScope() bool {
+	if IsTempID(id) {
+		return false
+	}
+
 	return id.Scope() == IdentityScopeLocal
 }
 
@@ -665,4 +673,8 @@ func (id NumericIdentity) IsCluster() bool {
 		return false
 	}
 	return true
+}
+
+func IsTempID(numID NumericIdentity) bool {
+	return numID >= DefaultMinTempID && numID <= DefaultMaxTempID
 }
