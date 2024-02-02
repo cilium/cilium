@@ -19,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/cilium/cilium/operator/pkg/model/translation"
-	ingressTranslation "github.com/cilium/cilium/operator/pkg/model/translation/ingress"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -33,17 +32,12 @@ type ingressReconciler struct {
 	logger logrus.FieldLogger
 	client client.Client
 
-	maxRetries              int
-	enforcedHTTPS           bool
-	useProxyProtocol        bool
-	secretsNamespace        string
 	lbAnnotationPrefixes    []string
 	sharedResourcesName     string
 	ciliumNamespace         string
 	defaultLoadbalancerMode string
 	defaultSecretNamespace  string
 	defaultSecretName       string
-	idleTimeoutSeconds      int
 
 	cecTranslator       translation.CECTranslator
 	dedicatedTranslator translation.Translator
@@ -52,35 +46,28 @@ type ingressReconciler struct {
 func newIngressReconciler(
 	logger logrus.FieldLogger,
 	c client.Client,
+	cecTranslator translation.CECTranslator,
+	dedicatedIngressTranslator translation.Translator,
 	ciliumNamespace string,
-	enforceHTTPS bool,
-	useProxyProtocol bool,
-	secretsNamespace string,
 	lbAnnotationPrefixes []string,
 	sharedResourcesName string,
 	defaultLoadbalancerMode string,
 	defaultSecretNamespace string,
 	defaultSecretName string,
-	proxyIdleTimeoutSeconds int,
 ) *ingressReconciler {
 	return &ingressReconciler{
 		logger: logger,
 		client: c,
 
-		cecTranslator:       translation.NewCECTranslator(secretsNamespace, enforceHTTPS, useProxyProtocol, false, proxyIdleTimeoutSeconds),
-		dedicatedTranslator: ingressTranslation.NewDedicatedIngressTranslator(secretsNamespace, enforceHTTPS, useProxyProtocol, proxyIdleTimeoutSeconds),
+		cecTranslator:       cecTranslator,
+		dedicatedTranslator: dedicatedIngressTranslator,
 
-		maxRetries:              10,
-		enforcedHTTPS:           enforceHTTPS,
-		useProxyProtocol:        useProxyProtocol,
-		secretsNamespace:        secretsNamespace,
 		lbAnnotationPrefixes:    lbAnnotationPrefixes,
 		sharedResourcesName:     sharedResourcesName,
 		ciliumNamespace:         ciliumNamespace,
 		defaultLoadbalancerMode: defaultLoadbalancerMode,
 		defaultSecretNamespace:  defaultSecretNamespace,
 		defaultSecretName:       defaultSecretName,
-		idleTimeoutSeconds:      proxyIdleTimeoutSeconds,
 	}
 }
 

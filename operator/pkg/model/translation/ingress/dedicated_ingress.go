@@ -22,25 +22,19 @@ const (
 	ciliumIngressLabelKey = "cilium.io/ingress"
 )
 
-var _ translation.Translator = (*DedicatedIngressTranslator)(nil)
+var _ translation.Translator = (*dedicatedIngressTranslator)(nil)
 
-type DedicatedIngressTranslator struct {
-	secretsNamespace   string
-	enforceHTTPs       bool
-	useProxyProtocol   bool
-	idleTimeoutSeconds int
+type dedicatedIngressTranslator struct {
+	cecTranslator translation.CECTranslator
 }
 
-func NewDedicatedIngressTranslator(secretsNamespace string, enforceHTTPs bool, useProxyProtocol bool, idleTimeoutSeconds int) *DedicatedIngressTranslator {
-	return &DedicatedIngressTranslator{
-		secretsNamespace:   secretsNamespace,
-		enforceHTTPs:       enforceHTTPs,
-		useProxyProtocol:   useProxyProtocol,
-		idleTimeoutSeconds: idleTimeoutSeconds,
+func NewDedicatedIngressTranslator(cecTranslator translation.CECTranslator) *dedicatedIngressTranslator {
+	return &dedicatedIngressTranslator{
+		cecTranslator: cecTranslator,
 	}
 }
 
-func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
 	if m == nil || (len(m.HTTP) == 0 && len(m.TLS) == 0) {
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
 	}
@@ -67,8 +61,7 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	// The logic is same as what we have with default cecTranslator, but with a different model
 	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
-	cecTranslator := translation.NewCECTranslator(d.secretsNamespace, d.enforceHTTPs, d.useProxyProtocol, false, d.idleTimeoutSeconds)
-	cec, err := cecTranslator.Translate(namespace, name, m)
+	cec, err := d.cecTranslator.Translate(namespace, name, m)
 	if err != nil {
 		return nil, nil, nil, err
 	}

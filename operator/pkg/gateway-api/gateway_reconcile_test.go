@@ -14,11 +14,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
+	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 )
 
 var gwFixture = []client.Object{
@@ -233,7 +234,14 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		WithObjects(gwFixture...).
 		WithStatusSubresource(&gatewayv1.Gateway{}).
 		Build()
-	r := &gatewayReconciler{Client: c}
+
+	cecTranslator := translation.NewCECTranslator("", false, false, true, 60)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator)
+
+	r := &gatewayReconciler{
+		Client:     c,
+		translator: gatewayAPITranslator,
+	}
 
 	t.Run("non-existent gateway", func(t *testing.T) {
 		result, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -408,7 +416,6 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, "ResolvedRefs", gw.Status.Listeners[0].Conditions[2].Type)
 		require.Equal(t, "True", string(gw.Status.Listeners[0].Conditions[2].Status))
 	})
-
 }
 
 func Test_isValidPemFormat(t *testing.T) {

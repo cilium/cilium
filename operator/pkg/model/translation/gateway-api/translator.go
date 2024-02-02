@@ -17,28 +17,25 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
-var _ translation.Translator = (*translator)(nil)
+var _ translation.Translator = (*gatewayAPITranslator)(nil)
 
 const (
 	ciliumGatewayPrefix = "cilium-gateway-"
 	owningGatewayLabel  = "io.cilium.gateway/owning-gateway"
 )
 
-type translator struct {
-	secretsNamespace string
-
-	idleTimeoutSeconds int
+type gatewayAPITranslator struct {
+	cecTranslator translation.CECTranslator
 }
 
 // NewTranslator returns a new translator for Gateway API.
-func NewTranslator(secretsNamespace string, idleTimeoutSeconds int) translation.Translator {
-	return &translator{
-		secretsNamespace:   secretsNamespace,
-		idleTimeoutSeconds: idleTimeoutSeconds,
+func NewTranslator(cecTranslator translation.CECTranslator) translation.Translator {
+	return &gatewayAPITranslator{
+		cecTranslator: cecTranslator,
 	}
 }
 
-func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
 	listeners := m.GetListeners()
 	if len(listeners) == 0 || len(listeners[0].GetSources()) == 0 {
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
@@ -56,8 +53,7 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 		return nil, nil, nil, fmt.Errorf("model source name can't be empty")
 	}
 
-	cecTranslator := translation.NewCECTranslator(t.secretsNamespace, false, false, true, t.idleTimeoutSeconds)
-	cec, err := cecTranslator.Translate(source.Namespace, ciliumGatewayPrefix+source.Name, m)
+	cec, err := t.cecTranslator.Translate(source.Namespace, ciliumGatewayPrefix+source.Name, m)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -207,8 +208,8 @@ func Test_translator_Translate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &translator{
-				idleTimeoutSeconds: 60,
+			trans := &gatewayAPITranslator{
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, false, true, 60),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
@@ -308,8 +309,8 @@ func Test_translator_TranslateResource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &translator{
-				idleTimeoutSeconds: 60,
+			trans := &gatewayAPITranslator{
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, false, true, 60),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")

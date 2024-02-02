@@ -22,6 +22,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -35,17 +36,15 @@ const (
 // gatewayReconciler reconciles a Gateway object
 type gatewayReconciler struct {
 	client.Client
-	Scheme             *runtime.Scheme
-	SecretsNamespace   string
-	IdleTimeoutSeconds int
+	Scheme     *runtime.Scheme
+	translator translation.Translator
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, secretsNamespace string, idleTimeoutSeconds int) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator) *gatewayReconciler {
 	return &gatewayReconciler{
-		Client:             mgr.GetClient(),
-		Scheme:             mgr.GetScheme(),
-		SecretsNamespace:   secretsNamespace,
-		IdleTimeoutSeconds: idleTimeoutSeconds,
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		translator: translator,
 	}
 }
 
