@@ -12,15 +12,6 @@
 
 cnt = 0
 
-// We whitelist two ep_tail_call cases:
-// - One used in invoke_tailcall_if as we'll check invoke_tailcall_if itself.
-// - One used in _send_drop_notify() as we're already in the code that's
-//   supposed to be called after tail calls.
-def whitelist_tailcalls(p):
-    return p.current_element != "_send_drop_notify" and \
-           not p.file.endswith("lib/tailcall.h")
-
-
 @rule forall@
 position p : script:python() { whitelist_tailcalls(p[0]) };
 expression e1, e2, e3, e4, e5, x;
@@ -28,29 +19,12 @@ symbol ret;
 @@
 
 (
-  // Classic cases of send_drop_notify_error with DROP_MISSED_TAIL_CALL.
-  ep_tail_call(...);
-  ... when != return ...;
-  return \(send_drop_notify_error\|send_drop_notify_error_ext\)(e1, e2, DROP_MISSED_TAIL_CALL, ...);
-|
-  ep_tail_call(...);
-  <+... when != return ...;
-  x = DROP_MISSED_TAIL_CALL;
-  ...+>
-  return \(send_drop_notify_error\|send_drop_notify_error_ext\)(e1, e2, x, ...);
-|
   // We also whitelist any function returning DROP_MISSED_TAIL_CALL, assuming
   // this will be caught afterwards and transformed in call to
   // send_drop_notify_error().
-  \(ep_tail_call\|invoke_tailcall_if\)(...);
+  \(invoke_tailcall_if\)(...);
   ... when != return ...;
   return DROP_MISSED_TAIL_CALL;
-|
-  ep_tail_call(...);
-  <+... when != return ...;
-  x = DROP_MISSED_TAIL_CALL;
-  ...+>
-  return x;
 |
   // invoke_tailcall_if sets variable ret which should be used in subsequent
   // call to send_drop_notify{,_error}.
@@ -88,8 +62,6 @@ symbol ret;
       // that variable specifically.
       return ret;
     \)
-|
-  ep_tail_call@p(...);
 |
   invoke_tailcall_if@p(...);
 )
