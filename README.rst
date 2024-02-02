@@ -308,7 +308,7 @@ How they are selected and govern is outlined in our `governance document <https:
 Adopters
 --------
 A list of adopters of the Cilium project who are deploying it in production, and of their use cases,
-can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/main/USERS.md>`__.
+can be found in file `USERS.md <https://github.com/cilium/cilium/blob/main/USERS.md>`__.
 
 Roadmap
 -------
