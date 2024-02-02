@@ -4,7 +4,7 @@
   "egress": [{
     "icmps": [
       {"fields":[ {"type": 8, "family": "IPv4"}]},
-      {"fields":[ {"type": 128, "family": "IPv6"}]}
+      {"fields":[ {"type": "Echo Request", "family": "IPv6"}]}
     ]
   }]
 }]
