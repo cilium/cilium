@@ -20,6 +20,8 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
+	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -87,10 +89,12 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
+	cecTranslator := translation.NewCECTranslator(params.Config.GatewayAPISecretsNamespace, false, false, true, operatorOption.Config.ProxyIdleTimeoutSeconds)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator)
+
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
-		params.Config.GatewayAPISecretsNamespace,
-		operatorOption.Config.ProxyIdleTimeoutSeconds,
+		gatewayAPITranslator,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -154,12 +158,12 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 }
 
 // registerReconcilers registers the Gateway API reconcilers to the controller-runtime library manager.
-func registerReconcilers(mgr ctrlRuntime.Manager, secretsNamespace string, idleTimeoutSeconds int) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator) error {
 	reconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr),
-		newGatewayReconciler(mgr, secretsNamespace, idleTimeoutSeconds),
+		newGatewayReconciler(mgr, translator),
 		newReferenceGrantReconciler(mgr),
 		newHTTPRouteReconciler(mgr),
 		newGRPCRouteReconciler(mgr),

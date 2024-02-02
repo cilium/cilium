@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -229,11 +230,8 @@ func Test_translator_Translate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &DedicatedIngressTranslator{
-				secretsNamespace:   "cilium-secrets",
-				enforceHTTPs:       tt.args.enforceHTTPs,
-				useProxyProtocol:   tt.args.useProxyProtocol,
-				idleTimeoutSeconds: 60,
+			trans := &dedicatedIngressTranslator{
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", tt.args.enforceHTTPs, tt.args.useProxyProtocol, false, 60),
 			}
 
 			cec, _, _, err := trans.Translate(tt.args.m)
