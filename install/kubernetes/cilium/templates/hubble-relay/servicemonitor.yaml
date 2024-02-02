@@ -5,6 +5,7 @@ metadata:
   name: hubble-relay
   namespace: {{ .Values.hubble.relay.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
   labels:
+    release: prometheus
     {{- with .Values.hubble.relay.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
