@@ -56,8 +56,8 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 		return nil, nil, nil, fmt.Errorf("model source name can't be empty")
 	}
 
-	cecTranslator := translation.NewCECTranslator(ciliumGatewayPrefix+source.Name, source.Namespace, t.secretsNamespace, false, false, true, t.idleTimeoutSeconds)
-	cec, err := cecTranslator.Translate(m)
+	cecTranslator := translation.NewCECTranslator(t.secretsNamespace, false, false, true, t.idleTimeoutSeconds)
+	cec, err := cecTranslator.Translate(source.Namespace, ciliumGatewayPrefix+source.Name, m)
 	if err != nil {
 		return nil, nil, nil, err
 	}

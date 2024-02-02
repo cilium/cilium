@@ -67,8 +67,8 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	// The logic is same as what we have with default cecTranslator, but with a different model
 	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
-	cecTranslator := translation.NewCECTranslator(name, namespace, d.secretsNamespace, d.enforceHTTPs, d.useProxyProtocol, false, d.idleTimeoutSeconds)
-	cec, err := cecTranslator.Translate(m)
+	cecTranslator := translation.NewCECTranslator(d.secretsNamespace, d.enforceHTTPs, d.useProxyProtocol, false, d.idleTimeoutSeconds)
+	cec, err := cecTranslator.Translate(namespace, name, m)
 	if err != nil {
 		return nil, nil, nil, err
 	}

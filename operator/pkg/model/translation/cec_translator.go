@@ -31,8 +31,6 @@ var _ CECTranslator = (*cecTranslator)(nil)
 //     in-secure).
 //   - no LB service and endpoint
 type cecTranslator struct {
-	name             string
-	namespace        string
 	secretsNamespace string
 	enforceHTTPs     bool
 	useProxyProtocol bool
@@ -47,10 +45,8 @@ type cecTranslator struct {
 }
 
 // NewCECTranslator returns a new translator
-func NewCECTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) CECTranslator {
+func NewCECTranslator(secretsNamespace string, enforceHTTPs bool, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) CECTranslator {
 	return &cecTranslator{
-		name:                name,
-		namespace:           namespace,
 		secretsNamespace:    secretsNamespace,
 		enforceHTTPs:        enforceHTTPs,
 		useProxyProtocol:    useProxyProtocol,
@@ -59,11 +55,11 @@ func NewCECTranslator(name, namespace, secretsNamespace string, enforceHTTPs boo
 	}
 }
 
-func (i *cecTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
+func (i *cecTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
 	cec := &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      i.name,
-			Namespace: i.namespace,
+			Namespace: namespace,
+			Name:      name,
 			Labels: map[string]string{
 				k8s.UseOriginalSourceAddressLabel: "false",
 			},
@@ -71,7 +67,7 @@ func (i *cecTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConf
 	}
 
 	cec.Spec.BackendServices = i.getBackendServices(model)
-	cec.Spec.Services = i.getServices(model)
+	cec.Spec.Services = i.getServices(namespace, name)
 	cec.Spec.Resources = i.getResources(model)
 
 	return cec, nil
@@ -104,11 +100,11 @@ func (i *cecTranslator) getBackendServices(m *model.Model) []*ciliumv2.Service {
 	return res
 }
 
-func (i *cecTranslator) getServices(_ *model.Model) []*ciliumv2.ServiceListener {
+func (i *cecTranslator) getServices(namespace string, name string) []*ciliumv2.ServiceListener {
 	return []*ciliumv2.ServiceListener{
 		{
-			Name:      i.name,
-			Namespace: i.namespace,
+			Namespace: namespace,
+			Name:      name,
 		},
 	}
 }
