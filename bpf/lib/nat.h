@@ -603,7 +603,7 @@ skip_egress_gateway:
 		if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
 			return NAT_PUNT_TO_STACK;
 #endif
-#ifndef TUNNEL_MODE
+
 		/* In the tunnel mode, a packet from a local ep
 		 * to a remote node is not encap'd, and is sent
 		 * via a native dev. Therefore, such packet has
@@ -613,9 +613,11 @@ skip_egress_gateway:
 		 * by the remote node if its native dev's
 		 * rp_filter=1.
 		 */
-		if (identity_is_remote_node(remote_ep->sec_identity))
-			return NAT_PUNT_TO_STACK;
-#endif
+
+		if (!is_defined(TUNNEL_MODE) || remote_ep->flag_skip_tunnel) {
+			if (identity_is_remote_node(remote_ep->sec_identity))
+				return NAT_PUNT_TO_STACK;
+		}
 
 		/* If the packet is a reply it means that outside has
 		 * initiated the connection, so no need to SNAT the
@@ -1369,10 +1371,10 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			return NAT_PUNT_TO_STACK;
 #endif
 
-# ifndef TUNNEL_MODE
-		if (identity_is_remote_node(remote_ep->sec_identity))
-			return NAT_PUNT_TO_STACK;
-# endif /* TUNNEL_MODE */
+		if (!is_defined(TUNNEL_MODE) || remote_ep->flag_skip_tunnel) {
+			if (identity_is_remote_node(remote_ep->sec_identity))
+				return NAT_PUNT_TO_STACK;
+		}
 
 		if (!is_reply && local_ep) {
 			ipv6_addr_copy(&target->addr, &masq_addr);
