@@ -38,7 +38,7 @@ type ingressReconciler struct {
 	useProxyProtocol        bool
 	secretsNamespace        string
 	lbAnnotationPrefixes    []string
-	sharedLBServiceName     string
+	sharedResourcesName     string
 	ciliumNamespace         string
 	defaultLoadbalancerMode string
 	defaultSecretNamespace  string
@@ -57,7 +57,7 @@ func newIngressReconciler(
 	useProxyProtocol bool,
 	secretsNamespace string,
 	lbAnnotationPrefixes []string,
-	sharedLBServiceName string,
+	sharedResourcesName string,
 	defaultLoadbalancerMode string,
 	defaultSecretNamespace string,
 	defaultSecretName string,
@@ -67,7 +67,7 @@ func newIngressReconciler(
 		logger: logger,
 		client: c,
 
-		cecTranslator:       translation.NewCECTranslator(sharedLBServiceName, ciliumNamespace, secretsNamespace, enforceHTTPS, useProxyProtocol, false, proxyIdleTimeoutSeconds),
+		cecTranslator:       translation.NewCECTranslator(secretsNamespace, enforceHTTPS, useProxyProtocol, false, proxyIdleTimeoutSeconds),
 		dedicatedTranslator: ingressTranslation.NewDedicatedIngressTranslator(secretsNamespace, enforceHTTPS, useProxyProtocol, proxyIdleTimeoutSeconds),
 
 		maxRetries:              10,
@@ -75,7 +75,7 @@ func newIngressReconciler(
 		useProxyProtocol:        useProxyProtocol,
 		secretsNamespace:        secretsNamespace,
 		lbAnnotationPrefixes:    lbAnnotationPrefixes,
-		sharedLBServiceName:     sharedLBServiceName,
+		sharedResourcesName:     sharedResourcesName,
 		ciliumNamespace:         ciliumNamespace,
 		defaultLoadbalancerMode: defaultLoadbalancerMode,
 		defaultSecretNamespace:  defaultSecretNamespace,
@@ -190,11 +190,11 @@ func (r *ingressReconciler) enqueuePseudoIngress() handler.EventHandler {
 }
 
 func (r *ingressReconciler) forSharedLoadbalancerService() builder.WatchesOption {
-	return builder.WithPredicates(&matchesInstancePredicate{namespace: r.ciliumNamespace, name: r.sharedLBServiceName})
+	return builder.WithPredicates(&matchesInstancePredicate{namespace: r.ciliumNamespace, name: r.sharedResourcesName})
 }
 
 func (r *ingressReconciler) forSharedCiliumEnvoyConfig() builder.WatchesOption {
-	return builder.WithPredicates(&matchesInstancePredicate{namespace: r.ciliumNamespace, name: r.sharedLBServiceName})
+	return builder.WithPredicates(&matchesInstancePredicate{namespace: r.ciliumNamespace, name: r.sharedResourcesName})
 }
 
 func (r *ingressReconciler) forCiliumIngressClass() builder.WatchesOption {
