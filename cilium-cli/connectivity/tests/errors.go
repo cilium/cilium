@@ -82,11 +82,13 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 		client := info.client
 		for _, container := range info.containers {
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
-			logs, err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts)
-			if err != nil {
-				t.Fatalf("Error reading Cilium logs: %s", err)
-			}
-			n.checkErrorsInLogs(id, logs, t)
+			t.NewGenericAction(n, id).Run(func(a *check.Action) {
+				logs, err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts)
+				if err != nil {
+					a.Fatalf("Error reading Cilium logs: %s", err)
+				}
+				n.checkErrorsInLogs(id, logs, a)
+			})
 		}
 	}
 
@@ -187,7 +189,7 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) (containers []string) {
 	return containers
 }
 
-func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, t *check.Test) {
+func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, a *check.Action) {
 	uniqueFailures := make(map[string]int)
 	for _, msg := range strings.Split(logs, "\n") {
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
@@ -213,7 +215,7 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, t *check.Test
 			failures.WriteString(f)
 			failures.WriteString(fmt.Sprintf(" (%d occurrences)", c))
 		}
-		t.Failf("Found %d logs in %s matching list of errors that must be investigated:%s", len(uniqueFailures), id, failures.String())
+		a.Failf("Found %d logs in %s matching list of errors that must be investigated:%s", len(uniqueFailures), id, failures.String())
 	}
 }
 
