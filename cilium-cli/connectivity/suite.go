@@ -1233,7 +1233,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 	}
 
 	if versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion) || ct.Params().IncludeUnsafeTests {
-		ct.NewTest("check-log-errors").WithScenarios(tests.NoErrorsInLogs(ct.CiliumVersion))
+		ct.NewTest("check-log-errors").
+			WithSysdumpPolicy(check.SysdumpPolicyOnce).
+			WithScenarios(tests.NoErrorsInLogs(ct.CiliumVersion))
 	}
 
 	return ct.Run(ctx)
