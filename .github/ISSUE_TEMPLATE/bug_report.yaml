@@ -74,6 +74,13 @@ body:
     validations:
       required: false
   - type: checkboxes
+    id: users
+    attributes:
+      label: Cilium Users Document
+      options:
+        - label: Are you a user of Cilium? Please add yourself to the [Users doc](https://github.com/cilium/cilium/blob/main/USERS.md)
+          required: false
+  - type: checkboxes
     id: terms
     attributes:
       label: Code of Conduct
