@@ -25,8 +25,18 @@ func Uint64(n uint64) Key {
 	return buf
 }
 
+func Uint32(n uint32) Key {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, n)
+	return buf
+}
+
 func Uint16(n uint16) Key {
 	buf := make([]byte, 2)
 	binary.BigEndian.PutUint16(buf, n)
 	return buf
+}
+
+func Uint8(n uint8) Key {
+	return []byte{n}
 }
