@@ -11,5 +11,5 @@ spec:
     - fields:
       - type: 8
         family: IPv4
-      - type: 128
+      - type: Echo Request
         family: IPv6
