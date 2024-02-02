@@ -64,19 +64,19 @@ static volatile const __u8 mac_zero[] =  {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
 /* IPv6 addresses for pods in the cluster */
-static volatile const __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+static volatile const __section(".rodata") __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 1};
-static volatile const __u8 v6_pod_two[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+static volatile const __section(".rodata") __u8 v6_pod_two[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 2};
-static volatile const __u8 v6_pod_three[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+static volatile const __section(".rodata") __u8 v6_pod_three[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 3};
 
 /* IPv6 addresses for nodes in the cluster */
-static volatile const __u8 v6_node_one[] = {0xfd, 0x05, 0, 0, 0, 0, 0, 0,
+static volatile const __section(".rodata") __u8 v6_node_one[] = {0xfd, 0x05, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 1};
-static volatile const __u8 v6_node_two[] = {0xfd, 0x06, 0, 0, 0, 0, 0, 0,
+static volatile const __section(".rodata") __u8 v6_node_two[] = {0xfd, 0x06, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 2};
-static volatile const __u8 v6_node_three[] = {0xfd, 0x07, 0, 0, 0, 0, 0, 0,
+static volatile const __section(".rodata") __u8 v6_node_three[] = {0xfd, 0x07, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 3};
 
 /* Source port to be used by a client */
