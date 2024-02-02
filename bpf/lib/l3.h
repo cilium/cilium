@@ -124,8 +124,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, from_tunnel ? 1 : 0);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, cluster_id);
 
-	tail_call_dynamic(ctx, &POLICY_CALL_MAP, ep->lxc_id);
-	return DROP_MISSED_TAIL_CALL;
+	return tail_call_policy_dynamic(ctx, ep->lxc_id);
 #endif
 }
 
