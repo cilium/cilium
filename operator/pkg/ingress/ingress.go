@@ -45,7 +45,7 @@ type ingressReconciler struct {
 	defaultSecretName       string
 	idleTimeoutSeconds      int
 
-	sharedTranslator    translation.Translator
+	cecTranslator       translation.CECTranslator
 	dedicatedTranslator translation.Translator
 }
 
@@ -67,7 +67,7 @@ func newIngressReconciler(
 		logger: logger,
 		client: c,
 
-		sharedTranslator:    ingressTranslation.NewSharedIngressTranslator(sharedLBServiceName, ciliumNamespace, secretsNamespace, enforceHTTPS, useProxyProtocol, proxyIdleTimeoutSeconds),
+		cecTranslator:       translation.NewCECTranslator(sharedLBServiceName, ciliumNamespace, secretsNamespace, enforceHTTPS, useProxyProtocol, false, proxyIdleTimeoutSeconds),
 		dedicatedTranslator: ingressTranslation.NewDedicatedIngressTranslator(secretsNamespace, enforceHTTPS, useProxyProtocol, proxyIdleTimeoutSeconds),
 
 		maxRetries:              10,
