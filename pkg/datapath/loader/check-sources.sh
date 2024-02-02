@@ -8,26 +8,28 @@ set -efu
 # are currently assigned a numerical ID.
 #
 defined_files=$(
-	awk -F: '/^__source_file_name_to_id/{found=1; next}
-		/return 0/{exit}
+	echo ${BPF_SOURCE_NAMES_TO_IDS} | xargs -n1 \
+		awk -F: '/@@ source files list begin/{found=1; next}
+		/@@ source files list end/{exit}
 		{if (!found || !/_strcase_/) next}
 		{gsub(/.* |"|\)|;/, "", $1); print $1}
-		' bpf/source_names_to_ids.h | sort -u
+		' | sort -u
 )
 
 #
 # Now let's find all the names defined inside the go source file
 #
 defined_files_go=$(
-	awk '/sourceFileNames/{found=1; next}
+	echo ${GO_SOURCE_NAMES_TO_IDS} | xargs -n1 \
+		awk '/@@ source files list begin/{found=1; next}
 		{if (!found) next}
-		/}/{exit}
+		/@@ source files list end/{exit}
 		{if (!/: /) next}
 		{gsub(/"|,/, "", $2); print $2}
-		' pkg/monitor/datapath_drop.go | sort -u
+		' | sort -u
 )
 if [ "$defined_files" != "$defined_files_go" ]; then
-	echo "File lists in bpf/source_names_to_ids.h and pkg/monitor/datapath_drop.go aren't same, please sync" >&2
+	echo "File lists in ${BPF_SOURCE_NAMES_TO_IDS} and ${GO_SOURCE_NAMES_TO_IDS} aren't same, please sync" >&2
 	exit 1
 fi
 
@@ -54,7 +56,7 @@ required_files=$(
 retval=0
 for f in $required_files; do
 	if ! grep --silent -w "$f" <<<"$defined_files"; then
-		echo "$0: $f is not defined, please add its mapping to bpf/source_names_to_ids.h" >&2
+		echo "$0: $f is not defined, please add its mapping to ${BPF_SOURCE_NAMES_TO_IDS}" >&2
 		retval=1
 	fi
 done
@@ -64,7 +66,7 @@ done
 #
 for f in $defined_files; do
 	if ! grep --silent -w "$f" <<<"$required_files"; then
-		echo "$0: $f is not using send_drop_notify*, please remove it from bpf/source_names_to_ids.h" >&2
+		echo "$0: $f is not using send_drop_notify*, please remove it from ${BPF_SOURCE_NAMES_TO_IDS}" >&2
 		retval=1
 	fi
 done
