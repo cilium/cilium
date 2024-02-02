@@ -22,5 +22,5 @@ type Translator interface {
 // It might be used as the base for other Translator implementations.
 type CECTranslator interface {
 	// Translate translates the model to CiliumEnvoyConfig.
-	Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error)
+	Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error)
 }

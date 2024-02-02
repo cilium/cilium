@@ -158,13 +158,9 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 		name      string
 		namespace string
 	}
-	type args struct {
-		in0 *model.Model
-	}
 	tests := []struct {
 		name   string
 		fields fields
-		args   args
 		want   []*ciliumv2.ServiceListener
 	}{
 		{
@@ -183,11 +179,8 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &cecTranslator{
-				name:      tt.fields.name,
-				namespace: tt.fields.namespace,
-			}
-			got := i.getServices(tt.args.in0)
+			i := &cecTranslator{}
+			got := i.getServices(tt.fields.namespace, tt.fields.name)
 			require.Equal(t, tt.want, got)
 		})
 	}
@@ -195,8 +188,6 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 
 func TestSharedIngressTranslator_getHTTPRouteListenerProxy(t *testing.T) {
 	i := &cecTranslator{
-		name:             "cilium-ingress",
-		namespace:        "kube-system",
 		secretsNamespace: "cilium-secrets",
 		useProxyProtocol: true,
 	}
@@ -227,8 +218,6 @@ func TestSharedIngressTranslator_getHTTPRouteListenerProxy(t *testing.T) {
 
 func TestSharedIngressTranslator_getHTTPRouteListener(t *testing.T) {
 	i := &cecTranslator{
-		name:             "cilium-ingress",
-		namespace:        "kube-system",
 		secretsNamespace: "cilium-secrets",
 	}
 
@@ -429,10 +418,7 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 		},
 	}
 
-	defT := &cecTranslator{
-		name:      "cilium-ingress",
-		namespace: "kube-system",
-	}
+	defT := &cecTranslator{}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -613,9 +599,7 @@ func TestSharedIngressTranslator_getResources(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &cecTranslator{
-				name: "cilium-ingress",
-			}
+			i := &cecTranslator{}
 			got := i.getResources(tt.args.m)
 			require.Lenf(t, got, tt.expected, "expected %d resources, got %d", tt.expected, len(got))
 
