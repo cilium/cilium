@@ -137,7 +137,7 @@ func (s *SSHMeta) NetworkCreateWithOptions(name string, subnet string, ipv6 bool
 // specified subnet. It is a wrapper around `docker network create`.
 func (s *SSHMeta) NetworkCreate(name string, subnet string) *CmdRes {
 	if subnet == "" {
-		subnet = "::1/112"
+		subnet = "::/112"
 	}
 	return s.NetworkCreateWithOptions(name, subnet, true,
 		"--driver cilium --ipam-driver cilium")
