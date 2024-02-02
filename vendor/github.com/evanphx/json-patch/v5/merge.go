@@ -2,31 +2,34 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"reflect"
+
+	"github.com/evanphx/json-patch/v5/internal/json"
 )
 
-func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
-	curDoc, err := cur.intoDoc()
+func merge(cur, patch *lazyNode, mergeMerge bool, options *ApplyOptions) *lazyNode {
+	curDoc, err := cur.intoDoc(options)
 
 	if err != nil {
-		pruneNulls(patch)
+		pruneNulls(patch, options)
 		return patch
 	}
 
-	patchDoc, err := patch.intoDoc()
+	patchDoc, err := patch.intoDoc(options)
 
 	if err != nil {
 		return patch
 	}
 
-	mergeDocs(curDoc, patchDoc, mergeMerge)
+	mergeDocs(curDoc, patchDoc, mergeMerge, options)
 
 	return cur
 }
 
-func mergeDocs(doc, patch *partialDoc, mergeMerge bool) {
+func mergeDocs(doc, patch *partialDoc, mergeMerge bool, options *ApplyOptions) {
 	for k, v := range patch.obj {
 		if v == nil {
 			if mergeMerge {
@@ -42,60 +45,60 @@ func mergeDocs(doc, patch *partialDoc, mergeMerge bool) {
 				}
 				doc.obj[k] = nil
 			} else {
-				_ = doc.remove(k, &ApplyOptions{})
+				_ = doc.remove(k, options)
 			}
 		} else {
 			cur, ok := doc.obj[k]
 
 			if !ok || cur == nil {
 				if !mergeMerge {
-					pruneNulls(v)
+					pruneNulls(v, options)
 				}
-				_ = doc.set(k, v, &ApplyOptions{})
+				_ = doc.set(k, v, options)
 			} else {
-				_ = doc.set(k, merge(cur, v, mergeMerge), &ApplyOptions{})
+				_ = doc.set(k, merge(cur, v, mergeMerge, options), options)
 			}
 		}
 	}
 }
 
-func pruneNulls(n *lazyNode) {
-	sub, err := n.intoDoc()
+func pruneNulls(n *lazyNode, options *ApplyOptions) {
+	sub, err := n.intoDoc(options)
 
 	if err == nil {
-		pruneDocNulls(sub)
+		pruneDocNulls(sub, options)
 	} else {
 		ary, err := n.intoAry()
 
 		if err == nil {
-			pruneAryNulls(ary)
+			pruneAryNulls(ary, options)
 		}
 	}
 }
 
-func pruneDocNulls(doc *partialDoc) *partialDoc {
+func pruneDocNulls(doc *partialDoc, options *ApplyOptions) *partialDoc {
 	for k, v := range doc.obj {
 		if v == nil {
 			_ = doc.remove(k, &ApplyOptions{})
 		} else {
-			pruneNulls(v)
+			pruneNulls(v, options)
 		}
 	}
 
 	return doc
 }
 
-func pruneAryNulls(ary *partialArray) *partialArray {
+func pruneAryNulls(ary *partialArray, options *ApplyOptions) *partialArray {
 	newAry := []*lazyNode{}
 
-	for _, v := range *ary {
+	for _, v := range ary.nodes {
 		if v != nil {
-			pruneNulls(v)
+			pruneNulls(v, options)
 		}
 		newAry = append(newAry, v)
 	}
 
-	*ary = newAry
+	ary.nodes = newAry
 
 	return ary
 }
@@ -117,20 +120,34 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 }
 
 func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
-	doc := &partialDoc{}
+	if !json.Valid(docData) {
+		return nil, errBadJSONDoc
+	}
 
-	docErr := json.Unmarshal(docData, doc)
+	if !json.Valid(patchData) {
+		return nil, errBadJSONPatch
+	}
 
-	patch := &partialDoc{}
+	options := NewApplyOptions()
 
-	patchErr := json.Unmarshal(patchData, patch)
+	doc := &partialDoc{
+		opts: options,
+	}
+
+	docErr := doc.UnmarshalJSON(docData)
+
+	patch := &partialDoc{
+		opts: options,
+	}
+
+	patchErr := patch.UnmarshalJSON(patchData)
 
 	if isSyntaxError(docErr) {
 		return nil, errBadJSONDoc
 	}
 
 	if isSyntaxError(patchErr) {
-		return nil, errBadJSONPatch
+		return patchData, nil
 	}
 
 	if docErr == nil && doc.obj == nil {
@@ -138,7 +155,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	}
 
 	if patchErr == nil && patch.obj == nil {
-		return nil, errBadJSONPatch
+		return patchData, nil
 	}
 
 	if docErr != nil || patchErr != nil {
@@ -147,19 +164,23 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 			if mergeMerge {
 				doc = patch
 			} else {
-				doc = pruneDocNulls(patch)
+				doc = pruneDocNulls(patch, options)
 			}
 		} else {
 			patchAry := &partialArray{}
-			patchErr = json.Unmarshal(patchData, patchAry)
+			patchErr = unmarshal(patchData, &patchAry.nodes)
 
 			if patchErr != nil {
+				// Not an array either, a literal is the result directly.
+				if json.Valid(patchData) {
+					return patchData, nil
+				}
 				return nil, errBadJSONPatch
 			}
 
-			pruneAryNulls(patchAry)
+			pruneAryNulls(patchAry, options)
 
-			out, patchErr := json.Marshal(patchAry)
+			out, patchErr := json.Marshal(patchAry.nodes)
 
 			if patchErr != nil {
 				return nil, errBadJSONPatch
@@ -168,13 +189,19 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 			return out, nil
 		}
 	} else {
-		mergeDocs(doc, patch, mergeMerge)
+		mergeDocs(doc, patch, mergeMerge, options)
 	}
 
 	return json.Marshal(doc)
 }
 
 func isSyntaxError(err error) bool {
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
 	if _, ok := err.(*json.SyntaxError); ok {
 		return true
 	}
@@ -227,12 +254,12 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	originalDoc := map[string]interface{}{}
 	modifiedDoc := map[string]interface{}{}
 
-	err := json.Unmarshal(originalJSON, &originalDoc)
+	err := unmarshal(originalJSON, &originalDoc)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
 
-	err = json.Unmarshal(modifiedJSON, &modifiedDoc)
+	err = unmarshal(modifiedJSON, &modifiedDoc)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
@@ -245,6 +272,10 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	return json.Marshal(dest)
 }
 
+func unmarshal(data []byte, into interface{}) error {
+	return json.UnmarshalValid(data, into)
+}
+
 // createArrayMergePatch will return an array of merge-patch documents capable
 // of converting the original document to the modified document for each
 // pair of JSON documents provided in the arrays.
@@ -253,12 +284,12 @@ func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 	originalDocs := []json.RawMessage{}
 	modifiedDocs := []json.RawMessage{}
 
-	err := json.Unmarshal(originalJSON, &originalDocs)
+	err := unmarshal(originalJSON, &originalDocs)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
 
-	err = json.Unmarshal(modifiedJSON, &modifiedDocs)
+	err = unmarshal(modifiedJSON, &modifiedDocs)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
@@ -311,6 +342,11 @@ func matchesValue(av, bv interface{}) bool {
 	switch at := av.(type) {
 	case string:
 		bt := bv.(string)
+		if bt == at {
+			return true
+		}
+	case json.Number:
+		bt := bv.(json.Number)
 		if bt == at {
 			return true
 		}
@@ -377,7 +413,7 @@ func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 			if len(dst) > 0 {
 				into[key] = dst
 			}
-		case string, float64, bool:
+		case string, float64, bool, json.Number:
 			if !matchesValue(av, bv) {
 				into[key] = bv
 			}
