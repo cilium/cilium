@@ -1386,8 +1386,13 @@ func initEnv(vp *viper.Viper) {
 		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
 	}
 
-	if option.Config.TunnelingEnabled() && option.Config.EnableAutoDirectRouting {
-		log.Fatalf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName)
+	if option.Config.EnableAutoDirectRouting {
+		if option.Config.TunnelingEnabled() {
+			log.Fatalf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName)
+		}
+		if option.Config.IPAM != ipamOption.IPAMKubernetes {
+			log.Fatalf("%s can only be used with Kubernetes IPAM.", option.EnableAutoDirectRoutingName)
+		}
 	}
 
 	initClockSourceOption()
