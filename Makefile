@@ -55,6 +55,9 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 
 TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.datapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
+BPF_SOURCE_NAMES_TO_IDS ?= bpf/source_names_to_ids.h
+GO_SOURCE_NAMES_TO_IDS ?= pkg/monitor/datapath_drop.go
+
 build: check-sources $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
 build-container: check-sources ## Builds components required for cilium-agent container.
@@ -495,7 +498,7 @@ endif
 
 check-sources:
 	@$(ECHO_CHECK) pkg/datapath/loader/check-sources.sh
-	$(QUIET) pkg/datapath/loader/check-sources.sh
+	$(QUIET) BPF_SOURCE_NAMES_TO_IDS=$(BPF_SOURCE_NAMES_TO_IDS) GO_SOURCE_NAMES_TO_IDS=$(GO_SOURCE_NAMES_TO_IDS) pkg/datapath/loader/check-sources.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
