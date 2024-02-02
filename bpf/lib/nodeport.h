@@ -1175,7 +1175,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
-	if (info && info->tunnel_endpoint != 0) {
+	if (info && info->tunnel_endpoint != 0 && !info->flag_skip_tunnel) {
 		tunnel_endpoint = info->tunnel_endpoint;
 		dst_sec_identity = info->sec_identity;
 
@@ -2675,7 +2675,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 #ifdef TUNNEL_MODE
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
-	if (info && info->tunnel_endpoint != 0) {
+	if (info && info->tunnel_endpoint != 0 && !info->flag_skip_tunnel) {
 		tunnel_endpoint = info->tunnel_endpoint;
 		dst_sec_identity = info->sec_identity;
 
