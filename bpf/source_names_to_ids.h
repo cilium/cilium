@@ -19,6 +19,8 @@
 static __always_inline int
 __source_file_name_to_id(const char *const header_name)
 {
+	/* @@ source files list begin */
+
 	/* source files from bpf/ */
 	_strcase_(1, "bpf_host.c");
 	_strcase_(2, "bpf_lxc.c");
@@ -34,6 +36,8 @@ __source_file_name_to_id(const char *const header_name)
 	_strcase_(106, "lb.h");
 	_strcase_(107, "encrypt.h");
 	_strcase_(108, "mcast.h");
+
+	/* @@ source files list end */
 
 	return 0;
 }
