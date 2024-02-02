@@ -318,6 +318,9 @@ Helm Options
 
 * Deprecated helm option encryption.{keyFile,mountPath,secretName,interface} are removed
   in favor of encryption.ipsec.*.
+* Deprecated options ``proxy.prometheus.enabled`` and ``proxy.prometheus.port`` have been removed.
+  Please use ``envoy.prometheus.enabled`` and ``envoy.prometheus.port`` instead.
+
 
 Added Metrics
 ~~~~~~~~~~~~~
