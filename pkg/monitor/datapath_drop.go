@@ -47,6 +47,8 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 }
 
 var sourceFileNames = map[int]string{
+	// @@ source files list begin
+
 	// source files from bpf/
 	1: "bpf_host.c",
 	2: "bpf_lxc.c",
@@ -60,7 +62,8 @@ var sourceFileNames = map[int]string{
 	104: "icmp6.h",
 	105: "nodeport.h",
 	106: "encrypt.h",
-	//end
+
+	// @@ source files list end
 }
 
 func decodeBPFSourceFileName(fileId int) string {
