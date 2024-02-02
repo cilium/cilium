@@ -964,7 +964,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			struct remote_endpoint_info *info;
 
 			info = lookup_ip6_remote_endpoint(dst, 0);
-			if (info && info->tunnel_endpoint) {
+			if (info && info->tunnel_endpoint && !info->flag_skip_tunnel) {
 				tunnel_endpoint = info->tunnel_endpoint;
 				dst_sec_identity = info->sec_identity;
 				goto encap_redirect;
@@ -2452,7 +2452,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			struct remote_endpoint_info *info;
 
 			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-			if (info && info->tunnel_endpoint) {
+			if (info && info->tunnel_endpoint && !info->flag_skip_tunnel) {
 				tunnel_endpoint = info->tunnel_endpoint;
 				dst_sec_identity = info->sec_identity;
 			}
