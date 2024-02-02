@@ -39,6 +39,20 @@ struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
+
+static __always_inline __must_check int
+tail_call_policy_dynamic(struct __ctx_buff *ctx, __u16 endpoint_id)
+{
+	tail_call_dynamic(ctx, &POLICY_CALL_MAP, endpoint_id);
+	return DROP_MISSED_TAIL_CALL;
+}
+
+static __always_inline __must_check int
+tail_call_policy_static(struct __ctx_buff *ctx, __u16 endpoint_id)
+{
+	tail_call_static(ctx, POLICY_CALL_MAP, endpoint_id);
+	return DROP_MISSED_TAIL_CALL;
+}
 #endif /* SKIP_POLICY_MAP */
 
 #ifdef ENABLE_L7_LB
