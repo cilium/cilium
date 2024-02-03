@@ -40,6 +40,12 @@ type ExtraOptions struct {
 
 	// ClusterName is the name of each etcd cluster
 	ClusterName string
+
+	// BootstrapComplete is an optional channel that can be provided to signal
+	// to the client that bootstrap is complete. If provided, the client will
+	// have an initial rate limit equal to etcd.bootstrapQps and be updated to
+	// etcd.qps after this channel is closed.
+	BootstrapComplete <-chan struct{}
 }
 
 // StatusCheckInterval returns the interval of status checks depending on the

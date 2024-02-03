@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/health"
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
+	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -42,7 +43,11 @@ var Cell = cell.Module(
 	health.HealthAPIServerCell,
 
 	kvstore.Cell(kvstore.EtcdBackendName),
-	cell.Provide(func() *kvstore.ExtraOptions { return nil }),
+	cell.Provide(func(ss syncstate.SyncState) *kvstore.ExtraOptions {
+		return &kvstore.ExtraOptions{
+			BootstrapComplete: ss.WaitChannel(),
+		}
+	}),
 	kvstoremesh.Cell,
 
 	job.Cell,

@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
 	ciliumrate "github.com/cilium/cilium/pkg/rate"
@@ -51,6 +52,10 @@ const (
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
+
+	// EtcdBootstrapRateLimitOption specifies maximum kv operations per second
+	// during bootstrapping
+	EtcdBootstrapRateLimitOption = "etcd.bootstrapQps"
 
 	// EtcdMaxInflightOption specifies maximum inflight concurrent kv store operations
 	EtcdMaxInflightOption = "etcd.maxInflight"
@@ -133,6 +138,13 @@ func newEtcdModule() backendModule {
 					return err
 				},
 			},
+			EtcdBootstrapRateLimitOption: &backendOption{
+				description: "Rate limit in kv store operations per second during bootstrapping",
+				validate: func(v string) error {
+					_, err := strconv.Atoi(v)
+					return err
+				},
+			},
 			EtcdMaxInflightOption: &backendOption{
 				description: "Maximum inflight concurrent kv store operations; defaults to etcd.qps if unset",
 				validate: func(v string) error {
@@ -190,6 +202,7 @@ type clientOptions struct {
 	KeepAliveHeartbeat time.Duration
 	KeepAliveTimeout   time.Duration
 	RateLimit          int
+	BootstrapRateLimit int
 	MaxInflight        int
 	ListBatchSize      int
 }
@@ -206,6 +219,10 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 
 	if o, ok := e.opts[EtcdRateLimitOption]; ok && o.value != "" {
 		clientOptions.RateLimit, _ = strconv.Atoi(o.value)
+	}
+
+	if o, ok := e.opts[EtcdBootstrapRateLimitOption]; ok && o.value != "" {
+		clientOptions.BootstrapRateLimit, _ = strconv.Atoi(o.value)
 	}
 
 	if o, ok := e.opts[EtcdMaxInflightOption]; ok && o.value != "" {
@@ -557,12 +574,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 	errorChan := make(chan error)
 
-	limiter := ciliumrate.NewAPILimiter(makeSessionName("etcd", opts), ciliumrate.APILimiterParameters{
-		RateLimit:        rate.Limit(clientOptions.RateLimit),
-		RateBurst:        clientOptions.RateLimit,
-		ParallelRequests: clientOptions.MaxInflight,
-	}, ciliumratemetrics.APILimiterObserver())
-
 	ec := &etcdClient{
 		client:               c,
 		config:               config,
@@ -571,7 +582,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		latestStatusSnapshot: "Waiting for initial connection to be established",
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
-		limiter:              limiter,
 		listBatchSize:        clientOptions.ListBatchSize,
 		statusCheckErrors:    make(chan error, 128),
 		logger: log.WithFields(logrus.Fields{
@@ -579,6 +589,29 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 			"config":    cfgPath,
 		}),
 	}
+
+	initialLimit := clientOptions.RateLimit
+	// If BootstrapRateLimit and BootstrapComplete are provided, set the
+	// initial rate limit to BootstrapRateLimit and apply the standard rate limit
+	// once the caller has signaled that bootstrap is complete by closing the channel.
+	if clientOptions.BootstrapRateLimit > 0 && opts != nil && opts.BootstrapComplete != nil {
+		ec.logger.WithField(logfields.EtcdQPSLimit, clientOptions.BootstrapRateLimit).Info("Setting client QPS limit for bootstrap")
+		initialLimit = clientOptions.BootstrapRateLimit
+		go func() {
+			select {
+			case <-ec.client.Ctx().Done():
+			case <-opts.BootstrapComplete:
+				ec.logger.WithField(logfields.EtcdQPSLimit, clientOptions.RateLimit).Info("Bootstrap complete, updating client QPS limit")
+				ec.limiter.SetRateLimit(rate.Limit(clientOptions.RateLimit))
+			}
+		}()
+	}
+
+	ec.limiter = ciliumrate.NewAPILimiter(makeSessionName("etcd", opts), ciliumrate.APILimiterParameters{
+		RateLimit:        rate.Limit(initialLimit),
+		RateBurst:        clientOptions.RateLimit,
+		ParallelRequests: clientOptions.MaxInflight,
+	}, ciliumratemetrics.APILimiterObserver())
 
 	ec.logger.Info("Connecting to etcd server...")
 
