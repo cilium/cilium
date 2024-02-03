@@ -349,7 +349,7 @@ spec:
           mountPath: /run/xtables.lock
         {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ipsec") }}
         - name: cilium-ipsec-secrets
-          mountPath: {{ .Values.encryption.ipsec.mountPath | default .Values.encryption.mountPath }}
+          mountPath: {{ .Values.encryption.ipsec.mountPath }}
         {{- end }}
         {{- if .Values.kubeConfigPath }}
         - name: kube-config
@@ -912,7 +912,7 @@ spec:
       {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ipsec") }}
       - name: cilium-ipsec-secrets
         secret:
-          secretName: {{ .Values.encryption.ipsec.secretName | default .Values.encryption.secretName }}
+          secretName: {{ .Values.encryption.ipsec.secretName }}
       {{- end }}
       {{- if .Values.cni.configMap }}
       - name: cni-configuration
