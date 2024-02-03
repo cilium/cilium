@@ -754,4 +754,7 @@ const (
 
 	// State is the state of an individual component (apiserver, kvstore etc)
 	State = "state"
+
+	// EtcdQPSLimit is the QPS limit for an etcd client.
+	EtcdQPSLimit = "etcdQPSLimit"
 )
