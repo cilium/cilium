@@ -164,8 +164,9 @@ spec:
         {{- end }}
         - --cluster-name=$(CLUSTER_NAME)
         - --cluster-id=$(CLUSTER_ID)
-        - --kvstore-opt
-        - etcd.config=/var/lib/cilium/etcd-config.yaml
+        - --kvstore-opt=etcd.config=/var/lib/cilium/etcd-config.yaml
+        - --kvstore-opt=etcd.qps=20
+        - --kvstore-opt=etcd.bootstrapQps=10000
         {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
         - --max-connected-clusters={{ .Values.clustermesh.maxConnectedClusters }}
         {{- end }}
@@ -264,6 +265,7 @@ spec:
         - --cluster-id=$(CLUSTER_ID)
         - --kvstore-opt=etcd.config=/var/lib/cilium/etcd-config.yaml
         - --kvstore-opt=etcd.qps=100
+        - --kvstore-opt=etcd.bootstrapQps=10000
         - --kvstore-opt=etcd.maxInflight=10
         - --clustermesh-config=/var/lib/cilium/clustermesh
         {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
