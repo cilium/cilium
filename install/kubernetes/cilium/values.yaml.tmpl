@@ -704,11 +704,11 @@ encryption:
     allowRemoteNodeIdentities: false
   ipsec:
     # -- Name of the key file inside the Kubernetes secret configured via secretName.
-    keyFile: ""
+    keyFile: keys
     # -- Path to mount the secret inside the Cilium pod.
-    mountPath: ""
+    mountPath: /etc/ipsec
     # -- Name of the Kubernetes secret containing the encryption keys.
-    secretName: ""
+    secretName: cilium-ipsec-keys
     # -- The interface to use for encrypted traffic.
     interface: ""
     # -- Enable the key watcher. If disabled, a restart of the agent will be
@@ -722,22 +722,6 @@ encryption:
     userspaceFallback: false
     # -- Controls Wireguard PersistentKeepalive option. Set 0s to disable.
     persistentKeepalive: 0s
-  # -- Deprecated in favor of encryption.ipsec.keyFile. To be removed in 1.15.
-  # Name of the key file inside the Kubernetes secret configured via secretName.
-  # This option is only effective when encryption.type is set to ipsec.
-  keyFile: keys
-  # -- Deprecated in favor of encryption.ipsec.mountPath. To be removed in 1.15.
-  # Path to mount the secret inside the Cilium pod.
-  # This option is only effective when encryption.type is set to ipsec.
-  mountPath: /etc/ipsec
-  # -- Deprecated in favor of encryption.ipsec.secretName. To be removed in 1.15.
-  # Name of the Kubernetes secret containing the encryption keys.
-  # This option is only effective when encryption.type is set to ipsec.
-  secretName: cilium-ipsec-keys
-  # -- Deprecated in favor of encryption.ipsec.interface. To be removed in 1.15.
-  # The interface to use for encrypted traffic.
-  # This option is only effective when encryption.type is set to ipsec.
-  interface: ""
 endpointHealthChecking:
   # -- Enable connectivity health checking between virtual endpoints.
   enabled: true

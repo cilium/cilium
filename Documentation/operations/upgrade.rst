@@ -316,7 +316,8 @@ Removed Options
 Helm Options
 ~~~~~~~~~~~~
 
-* TBD
+* Deprecated helm option encryption.{keyFile,mountPath,secretName,interface} are removed
+  in favor of encryption.ipsec.*.
 
 Added Metrics
 ~~~~~~~~~~~~~

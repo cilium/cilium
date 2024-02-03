@@ -956,10 +956,6 @@
      - Enable transparent network encryption.
      - bool
      - ``false``
-   * - :spelling:ignore:`encryption.interface`
-     - Deprecated in favor of encryption.ipsec.interface. To be removed in 1.15. The interface to use for encrypted traffic. This option is only effective when encryption.type is set to ipsec.
-     - string
-     - ``""``
    * - :spelling:ignore:`encryption.ipsec.interface`
      - The interface to use for encrypted traffic.
      - string
@@ -967,7 +963,7 @@
    * - :spelling:ignore:`encryption.ipsec.keyFile`
      - Name of the key file inside the Kubernetes secret configured via secretName.
      - string
-     - ``""``
+     - ``"keys"``
    * - :spelling:ignore:`encryption.ipsec.keyRotationDuration`
      - Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.
      - string
@@ -979,27 +975,15 @@
    * - :spelling:ignore:`encryption.ipsec.mountPath`
      - Path to mount the secret inside the Cilium pod.
      - string
-     - ``""``
+     - ``"/etc/ipsec"``
    * - :spelling:ignore:`encryption.ipsec.secretName`
      - Name of the Kubernetes secret containing the encryption keys.
      - string
-     - ``""``
-   * - :spelling:ignore:`encryption.keyFile`
-     - Deprecated in favor of encryption.ipsec.keyFile. To be removed in 1.15. Name of the key file inside the Kubernetes secret configured via secretName. This option is only effective when encryption.type is set to ipsec.
-     - string
-     - ``"keys"``
-   * - :spelling:ignore:`encryption.mountPath`
-     - Deprecated in favor of encryption.ipsec.mountPath. To be removed in 1.15. Path to mount the secret inside the Cilium pod. This option is only effective when encryption.type is set to ipsec.
-     - string
-     - ``"/etc/ipsec"``
+     - ``"cilium-ipsec-keys"``
    * - :spelling:ignore:`encryption.nodeEncryption`
      - Enable encryption for pure node to node traffic. This option is only effective when encryption.type is set to "wireguard".
      - bool
      - ``false``
-   * - :spelling:ignore:`encryption.secretName`
-     - Deprecated in favor of encryption.ipsec.secretName. To be removed in 1.15. Name of the Kubernetes secret containing the encryption keys. This option is only effective when encryption.type is set to ipsec.
-     - string
-     - ``"cilium-ipsec-keys"``
    * - :spelling:ignore:`encryption.strictMode`
      - Configure the WireGuard Pod2Pod strict mode.
      - object
