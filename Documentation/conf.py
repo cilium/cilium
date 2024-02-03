@@ -213,6 +213,12 @@ html_extra_path = ['robots/robots.txt']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Ciliumdoc'
 
+# -- Options for Last Page Edit -------------------------------------------
+# If not None, a 'Last updated on:' timestamp is inserted at every page
+# bottom, using the given strftime format.
+# The empty string is equivalent to '%b %d, %Y'. 
+html_last_updated_fmt = '%b %d, %Y'
+
 
 # -- Options for LaTeX output ---------------------------------------------
 
