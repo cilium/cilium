@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -55,13 +56,12 @@ func (f *fakeProducer) Produce(w io.Writer, i any) error {
 }
 
 func Test_getMapNameEvents(t *testing.T) {
-	assert := assert.New(t)
 	eh := NewGetMapNameEventsHandler(&Daemon{}, &fakeMapGetter{
 		name: "test_map_name",
 		m:    &fakeMap{},
 	})
 	req, err := http.NewRequest(http.MethodGet, "https://localhost/v1/map/test_map_name/events", nil)
-	assert.NoError(err)
+	require.NoError(t, err)
 	restreq := restapi.GetMapNameEventsParams{
 		HTTPRequest: req,
 		Name:        "test_map_name",
@@ -74,18 +74,17 @@ func Test_getMapNameEvents(t *testing.T) {
 	fp := &fakeProducer{}
 	resp.WriteResponse(mw, fp)
 	d, err := safeio.ReadAllLimit(w.Body, safeio.MB)
-	assert.NoError(err)
-	assert.Equal(`{"action":"update","desired-action":"sync","key":"\u003cnil\u003e","last-error":"\u003cnil\u003e","timestamp":"2006-01-02T15:04:05.000Z","value":"\u003cnil\u003e"}`+"\n", string(d))
+	require.NoError(t, err)
+	assert.Equal(t, `{"action":"update","desired-action":"sync","key":"\u003cnil\u003e","last-error":"\u003cnil\u003e","timestamp":"2006-01-02T15:04:05.000Z","value":"\u003cnil\u003e"}`+"\n", string(d))
 }
 
 func Test_getMapNameEventsMapErrors(t *testing.T) {
-	assert := assert.New(t)
 	m := &fakeMap{err: fmt.Errorf("test0")}
 	eh := NewGetMapNameEventsHandler(&Daemon{}, &fakeMapGetter{
 		m: m,
 	})
 	req, err := http.NewRequest(http.MethodGet, "https://localhost/v1/map/test_map_name_fake/events", nil)
-	assert.NoError(err)
+	require.NoError(t, err)
 	restreq := restapi.GetMapNameEventsParams{
 		HTTPRequest: req,
 		Name:        "test_map_name_fake",
@@ -94,5 +93,5 @@ func Test_getMapNameEventsMapErrors(t *testing.T) {
 	w := httptest.NewRecorder()
 	fp := &fakeProducer{}
 	resp.WriteResponse(w, fp)
-	assert.Equal(http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }

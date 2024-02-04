@@ -6,7 +6,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -33,5 +33,5 @@ func TestAgentCell(t *testing.T) {
 
 	logging.SetLogLevelToDebug()
 	err := hive.New(Agent).Populate()
-	assert.NoError(t, err, "Populate()")
+	require.NoError(t, err, "Populate()")
 }

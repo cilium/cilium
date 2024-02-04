@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	timeRate "golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -27,7 +28,7 @@ func testRateLimiterConfig(t *testing.T, setConfig func(h *hive.Hive, limiter st
 	h := hive.New(rateLimiterCell, take)
 
 	setConfig(h, APIRequestEndpointCreate, "rate-limit:42/m,rate-burst:1234")
-	assert.Nil(t, h.Start(context.TODO()))
+	require.NoError(t, h.Start(context.TODO()))
 
 	l := limiterSet.Limiter(APIRequestEndpointCreate)
 	assert.NotNil(t, l)
@@ -35,7 +36,7 @@ func testRateLimiterConfig(t *testing.T, setConfig func(h *hive.Hive, limiter st
 	p := l.Parameters()
 	assert.Equal(t, timeRate.Limit(42.0/60.0), p.RateLimit)
 	assert.Equal(t, 1234, p.RateBurst)
-	assert.Nil(t, h.Stop(context.TODO()))
+	require.NoError(t, h.Stop(context.TODO()))
 }
 
 // TestRateLimiterConfigFlag checks that rateLimiterConfig is properly parsed from
@@ -46,7 +47,7 @@ func TestRateLimiterConfigFlag(t *testing.T) {
 			flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
 			h.RegisterFlags(flags)
 			err := flags.Parse([]string{"--api-rate-limit", limiter + "=" + limits})
-			assert.Nil(t, err, "failed to parse flags")
+			require.NoError(t, err, "failed to parse flags")
 		})
 }
 
@@ -58,6 +59,6 @@ func TestRateLimiterConfigFile(t *testing.T) {
 			cfg := fmt.Sprintf("api-rate-limit:\n  %s:%s\n", limiter, limits)
 			buf := bytes.NewReader([]byte(cfg))
 			err := h.Viper().ReadConfig(buf)
-			assert.Nil(t, err, "failed to ReadConfig with Viper")
+			require.NoError(t, err, "failed to ReadConfig with Viper")
 		})
 }
