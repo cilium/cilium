@@ -50,7 +50,7 @@ func (s IdentitiesModel) FromIdentityCache(cache IdentityCache) IdentitiesModel 
 // GetIdentityCache returns a cache of all known identities
 func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 	log.Debug("getting identity cache for identity allocator manager")
-	cache := IdentityCache{}
+	cache := m.GetLocalIdentityCache()
 
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
@@ -65,23 +65,12 @@ func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 		})
 	}
 
-	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		cache[ni] = id.Labels.LabelArray()
-	})
-
-	for _, identity := range m.localIdentities.GetIdentities() {
-		cache[identity.ID] = identity.Labels.LabelArray()
-	}
-	for _, identity := range m.localNodeIdentities.GetIdentities() {
-		cache[identity.ID] = identity.Labels.LabelArray()
-	}
-
 	return cache
 }
 
 // GetIdentities returns all known identities
 func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
-	identities := IdentitiesModel{}
+	identities := m.GetLocalIdentities()
 
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
@@ -92,22 +81,12 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 
 		})
 	}
-	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		identities = append(identities, identitymodel.CreateModel(id))
-	})
-
-	for _, v := range m.localIdentities.GetIdentities() {
-		identities = append(identities, identitymodel.CreateModel(v))
-	}
-	for _, v := range m.localNodeIdentities.GetIdentities() {
-		identities = append(identities, identitymodel.CreateModel(v))
-	}
 
 	return identities
 }
 
-type identityWatcher struct {
-	owner IdentityAllocatorOwner
+type IdentityWatcher struct {
+	Owner IdentityAllocatorOwner
 }
 
 // collectEvent records the 'event' as an added or deleted identity,
@@ -140,7 +119,7 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) 
 }
 
 // watch starts the identity watcher
-func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
+func (w *IdentityWatcher) Watch(events allocator.AllocatorEventRecvChan) {
 
 	go func() {
 		for {
@@ -188,7 +167,7 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 				}
 			}
 			// Issue collected updates
-			w.owner.UpdateIdentities(added, deleted) // disjoint sets
+			w.Owner.UpdateIdentities(added, deleted) // disjoint sets
 		}
 	}()
 }
@@ -210,15 +189,9 @@ func (m *CachingIdentityAllocator) isGlobalIdentityAllocatorInitialized() bool {
 // remote kvstores and finally fall back to the main kvstore.
 // May return nil for lookups if the allocator has not yet been synchronized.
 func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity {
-	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
-		return reservedIdentity
-	}
-
-	switch identity.ScopeForLabels(lbls) {
-	case identity.IdentityScopeLocal:
-		return m.localIdentities.lookup(lbls)
-	case identity.IdentityScopeRemoteNode:
-		return m.localNodeIdentities.lookup(lbls)
+	secID, completed := m.LookupLocalIdentity(ctx, lbls)
+	if completed {
+		return secID
 	}
 
 	if !m.isGlobalIdentityAllocatorInitialized() {
@@ -241,26 +214,14 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 	return identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), lblArray)
 }
 
-var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
-
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache, then the caches for remote kvstores and
 // finally fall back to the main kvstore
 // May return nil for lookups if the allocator has not yet been synchronized.
 func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity {
-	if id == identity.IdentityUnknown {
-		return unknownIdentity
-	}
-
-	if identity := identity.LookupReservedIdentity(id); identity != nil {
-		return identity
-	}
-
-	switch id.Scope() {
-	case identity.IdentityScopeLocal:
-		return m.localIdentities.lookupByID(id)
-	case identity.IdentityScopeRemoteNode:
-		return m.localNodeIdentities.lookupByID(id)
+	secID, completed := m.LookupLocalIdentityByID(ctx, id)
+	if completed {
+		return secID
 	}
 
 	if !m.isGlobalIdentityAllocatorInitialized() {

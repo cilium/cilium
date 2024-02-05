@@ -40,7 +40,7 @@ func (s *IdentityCacheTestSuite) SetUpSuite(c *C) {
 }
 
 func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(NewDummyOwner())
 	<-mgr.InitIdentityAllocator(nil)
 
 	hostID := identity.GetReservedID("host")

@@ -5,7 +5,6 @@ package cache
 
 import (
 	"context"
-	"time"
 
 	. "github.com/cilium/checkmate"
 
@@ -15,10 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -39,7 +36,7 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 	}
 
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(NewDummyOwner())
 	<-mgr.InitIdentityAllocator(nil)
 
 	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
@@ -116,77 +113,14 @@ func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy(c, "consul")
 }
 
-type dummyOwner struct {
-	updated chan identity.NumericIdentity
-	mutex   lock.Mutex
-	cache   IdentityCache
-}
-
-func newDummyOwner() *dummyOwner {
-	return &dummyOwner{
-		cache:   IdentityCache{},
-		updated: make(chan identity.NumericIdentity, 1024),
-	}
-}
-
-func (d *dummyOwner) UpdateIdentities(added, deleted IdentityCache) {
-	d.mutex.Lock()
-	log.Debugf("Dummy UpdateIdentities(added: %v, deleted: %v)", added, deleted)
-	for id, lbls := range added {
-		d.cache[id] = lbls
-		d.updated <- id
-	}
-	for id := range deleted {
-		delete(d.cache, id)
-		d.updated <- id
-	}
-	d.mutex.Unlock()
-}
-
-func (d *dummyOwner) GetIdentity(id identity.NumericIdentity) labels.LabelArray {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	return d.cache[id]
-}
-
-func (d *dummyOwner) GetNodeSuffix() string {
-	return "foo"
-}
-
-// WaitUntilID waits until an update event is received for the
-// 'target' identity and returns the number of events processed to get
-// there. Returns 0 in case of 'd.updated' channel is closed or
-// nothing is received from that channel in 60 seconds.
-func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
-	rounds := 0
-	timer, timerDone := inctimer.New()
-	defer timerDone()
-	for {
-		select {
-		case nid, ok := <-d.updated:
-			if !ok {
-				// updates channel closed
-				return 0
-			}
-			rounds++
-			if nid == target {
-				return rounds
-			}
-		case <-timer.After(60 * time.Second):
-			// Timed out waiting for KV-store events
-			return 0
-		}
-	}
-}
-
 func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
-	owner := newDummyOwner()
+	owner := NewDummyOwner()
 	events := make(allocator.AllocatorEventChan, 1024)
-	watcher := identityWatcher{
-		owner: owner,
+	watcher := IdentityWatcher{
+		Owner: owner,
 	}
 
-	watcher.watch(events)
+	watcher.Watch(events)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
 	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
@@ -235,7 +169,7 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(NewDummyOwner())
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -250,7 +184,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	lbls2 := labels.NewLabelsFromSortedList("id=bar;user=anna")
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
-	owner := newDummyOwner()
+	owner := NewDummyOwner()
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(owner)
@@ -334,8 +268,11 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 
 func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
+	lbls2 := labels.NewLabelsFromSortedList("cidr:192.0.2.4/32")
+	lbls3 := labels.NewLabelsFromSortedList("cidr:192.0.2.5/32")
+	lbls4 := labels.NewLabelsFromSortedList("cidr:192.0.2.6/32")
 
-	owner := newDummyOwner()
+	owner := NewDummyOwner()
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(owner)
@@ -352,6 +289,9 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(owner.WaitUntilID(id.ID), Not(Equals), 0)
 	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
 
+	expectedID := identity.IdentityScopeLocal + 1
+	c.Assert(id.ID, Equals, expectedID)
+
 	// reuse the same identity
 	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
 	c.Assert(id, Not(IsNil))
@@ -360,6 +300,43 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 
 	cache := mgr.GetIdentityCache()
 	c.Assert(cache[id.ID], Not(IsNil))
+
+	expectedID = identity.IdentityScopeLocal + 1
+	c.Assert(id.ID, Equals, expectedID)
+
+	// Test withhold identity
+	id2, isNew, err := mgr.AllocateIdentity(context.Background(), lbls2, true, identity.InvalidIdentity)
+	c.Assert(id2, Not(IsNil))
+	c.Assert(err, IsNil)
+	c.Assert(isNew, Equals, true)
+	c.Assert(id2.ID.HasLocalScope(), Equals, true)
+
+	expectedID = identity.IdentityScopeLocal + 2
+	c.Assert(id2.ID, Equals, expectedID)
+
+	// Withheld identity is skipped
+	mgr.WithholdLocalIdentities([]identity.NumericIdentity{identity.IdentityScopeLocal + 3, identity.IdentityScopeLocal + 5})
+
+	id3, isNew, err := mgr.AllocateIdentity(context.Background(), lbls3, true, identity.InvalidIdentity)
+	c.Assert(id3, Not(IsNil))
+	c.Assert(err, IsNil)
+	c.Assert(isNew, Equals, true)
+	c.Assert(id3.ID.HasLocalScope(), Equals, true)
+
+	expectedID = identity.IdentityScopeLocal + 4
+	c.Assert(id3.ID, Equals, expectedID)
+
+	// Unwithheld identity is used
+	mgr.UnwithholdLocalIdentities([]identity.NumericIdentity{identity.IdentityScopeLocal + 5})
+
+	id4, isNew, err := mgr.AllocateIdentity(context.Background(), lbls4, true, identity.InvalidIdentity)
+	c.Assert(id4, Not(IsNil))
+	c.Assert(err, IsNil)
+	c.Assert(isNew, Equals, true)
+	c.Assert(id4.ID.HasLocalScope(), Equals, true)
+
+	expectedID = identity.IdentityScopeLocal + 5
+	c.Assert(id4.ID, Equals, expectedID)
 
 	// 1st Release, not released
 	released, err := mgr.Release(context.Background(), id, true)
@@ -399,7 +376,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 // Test that we can close and reopen the allocator successfully.
 func (s *IdentityCacheTestSuite) TestAllocatorReset(c *C) {
 	labels := labels.NewLabelsFromSortedList("id=bar;user=anna")
-	owner := newDummyOwner()
+	owner := NewDummyOwner()
 	mgr := NewCachingIdentityAllocator(owner)
 	testAlloc := func() {
 		id1a, _, err := mgr.AllocateIdentity(context.Background(), labels, false, identity.InvalidIdentity)

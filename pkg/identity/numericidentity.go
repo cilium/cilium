@@ -185,6 +185,8 @@ var localNodeIdentity = struct {
 	identity: ReservedIdentityRemoteNode,
 }
 
+var UnknownIdentity = NewIdentity(IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
+
 type wellKnownIdentities map[NumericIdentity]wellKnownIdentity
 
 // wellKnownIdentitity is an identity for well-known security labels for which
