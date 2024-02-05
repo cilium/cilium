@@ -1,3 +1,7 @@
+# v1.146.0 (2024-01-29)
+
+* **Feature**: EC2 Fleet customers who use attribute based instance-type selection can now intuitively define their Spot instances price protection limit as a percentage of the lowest priced On-Demand instance type.
+
 # v1.145.0 (2024-01-24)
 
 * **Feature**: Introduced a new clientToken request parameter on CreateNetworkAcl and CreateRouteTable APIs. The clientToken parameter allows idempotent operations on the APIs.

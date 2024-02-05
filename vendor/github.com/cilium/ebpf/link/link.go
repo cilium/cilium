@@ -96,10 +96,14 @@ func wrapRawLink(raw *RawLink) (_ Link, err error) {
 		return &NetNsLink{*raw}, nil
 	case KprobeMultiType:
 		return &kprobeMultiLink{*raw}, nil
+	case UprobeMultiType:
+		return &uprobeMultiLink{*raw}, nil
 	case PerfEventType:
 		return nil, fmt.Errorf("recovering perf event fd: %w", ErrNotSupported)
 	case TCXType:
 		return &tcxLink{*raw}, nil
+	case NetfilterType:
+		return &netfilterLink{*raw}, nil
 	default:
 		return raw, nil
 	}
@@ -135,6 +139,7 @@ type CgroupInfo sys.CgroupLinkInfo
 type NetNsInfo sys.NetNsLinkInfo
 type XDPInfo sys.XDPLinkInfo
 type TCXInfo sys.TcxLinkInfo
+type NetfilterInfo sys.NetfilterLinkInfo
 
 // Tracing returns tracing type-specific link info.
 //
@@ -173,6 +178,14 @@ func (r Info) XDP() *XDPInfo {
 // Returns nil if the type-specific link info isn't available.
 func (r Info) TCX() *TCXInfo {
 	e, _ := r.extra.(*TCXInfo)
+	return e
+}
+
+// Netfilter returns netfilter type-specific link info.
+//
+// Returns nil if the type-specific link info isn't available.
+func (r Info) Netfilter() *NetfilterInfo {
+	e, _ := r.extra.(*NetfilterInfo)
 	return e
 }
 
@@ -324,10 +337,12 @@ func (l *RawLink) Info() (*Info, error) {
 	case XDPType:
 		extra = &XDPInfo{}
 	case RawTracepointType, IterType,
-		PerfEventType, KprobeMultiType:
+		PerfEventType, KprobeMultiType, UprobeMultiType:
 		// Extra metadata not supported.
 	case TCXType:
 		extra = &TCXInfo{}
+	case NetfilterType:
+		extra = &NetfilterInfo{}
 	default:
 		return nil, fmt.Errorf("unknown link info type: %d", info.Type)
 	}
