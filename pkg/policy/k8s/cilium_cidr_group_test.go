@@ -177,7 +177,7 @@ func TestHasCIDRGroupRef(t *testing.T) {
 			expected:  true,
 		},
 		{
-			name: "CIDR in Spec",
+			name: "CIDR in Spec (Ingress)",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 					TypeMeta: metav1.TypeMeta{
@@ -222,7 +222,7 @@ func TestHasCIDRGroupRef(t *testing.T) {
 			expected:  true,
 		},
 		{
-			name: "CIDRGroupRef in Specs",
+			name: "CIDRGroupRef in Specs (Ingress)",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 					TypeMeta: metav1.TypeMeta{
@@ -252,6 +252,81 @@ func TestHasCIDRGroupRef(t *testing.T) {
 								{
 									IngressCommonRule: api.IngressCommonRule{
 										FromCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			cidrGroup: "cidr-group-2",
+			expected:  true,
+		},
+		{
+			name: "CIDR in Spec (Egress)",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			cidrGroup: "cidr-group-1",
+			expected:  true,
+		},
+		{
+			name: "CIDRGroupRef in Specs (Egress)",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1",
+										},
+									},
+								},
+							},
+						},
+					},
+					Specs: api.Rules{
+						{
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
 											{
 												CIDRGroupRef: "cidr-group-2",
 											},
@@ -668,7 +743,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 			},
 		},
 		{
-			name: "nil FromCidrSet rule",
+			name: "nil FromCidrSet and ToCIDRSet rules",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 					TypeMeta: metav1.TypeMeta{
@@ -681,10 +756,12 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 					},
 					Spec: &api.Rule{
 						Ingress: []api.IngressRule{},
+						Egress:  []api.EgressRule{},
 					},
 					Specs: api.Rules{
 						{
 							Ingress: []api.IngressRule{},
+							Egress:  []api.EgressRule{},
 						},
 					},
 				},
@@ -702,10 +779,12 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 					},
 					Spec: &api.Rule{
 						Ingress: []api.IngressRule{},
+						Egress:  []api.EgressRule{},
 					},
 					Specs: api.Rules{
 						{
 							Ingress: []api.IngressRule{},
+							Egress:  []api.EgressRule{},
 						},
 					},
 				},
@@ -713,7 +792,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 		},
 
 		{
-			name: "with FromCidrSet rules",
+			name: "with FromCidrSet and ToCIDRSet rules",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 					TypeMeta: metav1.TypeMeta{
@@ -731,6 +810,17 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 									FromCIDRSet: api.CIDRRuleSlice{
 										{
 											CIDRGroupRef: "cidr-group-1",
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1-e",
 										},
 									},
 								},
@@ -759,14 +849,37 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 									},
 								},
 							},
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-2-e",
+											},
+										},
+									},
+								},
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-3-e",
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
 			},
 			cidrsSets: map[string][]api.CIDR{
-				"cidr-group-1": {"1.1.1.1/32", "2.2.2.2/32"},
-				"cidr-group-2": {"3.3.3.3/32", "4.4.4.4/32", "5.5.5.5/32"},
-				"cidr-group-3": {},
+				"cidr-group-1":   {"1.1.1.1/32", "2.2.2.2/32"},
+				"cidr-group-2":   {"3.3.3.3/32", "4.4.4.4/32", "5.5.5.5/32"},
+				"cidr-group-3":   {},
+				"cidr-group-1-e": {"11.11.11.11/32", "12.12.12.12/32"},
+				"cidr-group-2-e": {"13.13.13.13/32", "14.14.14.14/32", "15.15.15.15/32"},
+				"cidr-group-3-e": {},
 			},
 			expected: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
@@ -788,6 +901,20 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 										},
 										{
 											Cidr: "2.2.2.2/32",
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr: "11.11.11.11/32",
+										},
+										{
+											Cidr: "12.12.12.12/32",
 										},
 									},
 								},
@@ -818,13 +945,35 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 									},
 								},
 							},
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr: "13.13.13.13/32",
+											},
+											{
+												Cidr: "14.14.14.14/32",
+											},
+											{
+												Cidr: "15.15.15.15/32",
+											},
+										},
+									},
+								},
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: nil,
+									},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
 		{
-			name: "with mixed FromCidrSet rules",
+			name: "with mixed FromCidrSet and ToCIDRSet rules",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 					TypeMeta: metav1.TypeMeta{
@@ -854,6 +1003,29 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 										},
 										{
 											Cidr: "3.3.3.3/32",
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1-e",
+										},
+										{
+											Cidr: "11.11.11.11/32",
+										},
+										{
+											CIDRGroupRef: "cidr-group-2-e",
+										},
+										{
+											Cidr: "12.12.12.12/32",
+										},
+										{
+											Cidr: "13.13.13.13/32",
 										},
 									},
 								},
@@ -896,15 +1068,55 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 							},
 						},
+						{
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-3-e",
+											},
+											{
+												Cidr: "14.14.14.14/32",
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-4-e",
+											},
+											{
+												CIDRGroupRef: "cidr-group-5-e",
+											},
+											{
+												Cidr: "15.15.15.15/32",
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
 			cidrsSets: map[string][]api.CIDR{
-				"cidr-group-1": {"6.6.6.6/32", "7.7.7.7/32"},
-				"cidr-group-2": {"8.8.8.8/32"},
-				"cidr-group-3": {"9.9.9.9/32", "10.10.10.10/32"},
-				"cidr-group-4": {},
-				"cidr-group-5": {"11.11.11.11/32", "12.12.12.12/32"},
+				"cidr-group-1":   {"6.6.6.6/32", "7.7.7.7/32"},
+				"cidr-group-2":   {"8.8.8.8/32"},
+				"cidr-group-3":   {"9.9.9.9/32", "10.10.10.10/32"},
+				"cidr-group-4":   {},
+				"cidr-group-5":   {"11.11.11.11/32", "12.12.12.12/32"},
+				"cidr-group-1-e": {"16.16.16.16/32", "17.17.17.17/32"},
+				"cidr-group-2-e": {"18.18.18.18/32"},
+				"cidr-group-3-e": {"19.19.19.19/32", "110.110.110.110/32"},
+				"cidr-group-4-e": {},
+				"cidr-group-5-e": {"111.111.111.111/32", "112.112.112.112/32"},
 			},
 			expected: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
@@ -938,6 +1150,32 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 										},
 										{
 											Cidr: "8.8.8.8/32",
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr: "11.11.11.11/32",
+										},
+										{
+											Cidr: "12.12.12.12/32",
+										},
+										{
+											Cidr: "13.13.13.13/32",
+										},
+										{
+											Cidr: "16.16.16.16/32",
+										},
+										{
+											Cidr: "17.17.17.17/32",
+										},
+										{
+											Cidr: "18.18.18.18/32",
 										},
 									},
 								},
@@ -983,6 +1221,44 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 							},
 						},
+						{
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr: "14.14.14.14/32",
+											},
+											{
+												Cidr: "19.19.19.19/32",
+											},
+											{
+												Cidr: "110.110.110.110/32",
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr: "15.15.15.15/32",
+											},
+											{
+												Cidr: "111.111.111.111/32",
+											},
+											{
+												Cidr: "112.112.112.112/32",
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -1012,11 +1288,24 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 							},
 						},
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1-e",
+											ExceptCIDRs:  []api.CIDR{"110.96.0.0/12", "110.112.0.0/12"},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
 			cidrsSets: map[string][]api.CIDR{
-				"cidr-group-1": {"10.0.0.0/8"},
+				"cidr-group-1":   {"10.0.0.0/8"},
+				"cidr-group-1-e": {"110.0.0.0/8"},
 			},
 			expected: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
@@ -1036,6 +1325,18 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 										{
 											Cidr:        "10.0.0.0/8",
 											ExceptCIDRs: []api.CIDR{"10.96.0.0/12", "10.112.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr:        "110.0.0.0/8",
+											ExceptCIDRs: []api.CIDR{"110.96.0.0/12", "110.112.0.0/12"},
 										},
 									},
 								},
