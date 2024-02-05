@@ -158,25 +158,25 @@ var (
 	gatewayClass = schema.GroupVersionResource{
 		Group:    "gateway.networking.k8s.io",
 		Resource: "gatewayclasses",
-		Version:  "v1beta1",
+		Version:  "v1",
 	}
 
 	gateway = schema.GroupVersionResource{
 		Group:    "gateway.networking.k8s.io",
 		Resource: "gateways",
-		Version:  "v1beta1",
+		Version:  "v1",
 	}
 
 	referenceGrant = schema.GroupVersionResource{
 		Group:    "gateway.networking.k8s.io",
 		Resource: "referencegrants",
-		Version:  "v1alpha2",
+		Version:  "v1beta1",
 	}
 
 	httpRoute = schema.GroupVersionResource{
 		Group:    "gateway.networking.k8s.io",
 		Resource: "httproutes",
-		Version:  "v1beta1",
+		Version:  "v1",
 	}
 
 	tlsRoute = schema.GroupVersionResource{
