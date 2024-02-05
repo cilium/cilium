@@ -143,6 +143,13 @@ func specHasCIDRGroupRef(spec *api.Rule, cidrGroup string) bool {
 			}
 		}
 	}
+	for _, egress := range spec.Egress {
+		for _, rule := range egress.ToCIDRSet {
+			if string(rule.CIDRGroupRef) == cidrGroup {
+				return true
+			}
+		}
+	}
 	return false
 }
 
@@ -160,6 +167,16 @@ func getCIDRGroupRefs(cnp *types.SlimCNP) []string {
 	for _, spec := range specs {
 		for _, ingress := range spec.Ingress {
 			for _, rule := range ingress.FromCIDRSet {
+				// If CIDR is not set, then we assume CIDRGroupRef is set due
+				// to OneOf, even if CIDRGroupRef is empty, as that's still a
+				// valid reference (although useless from a user perspective).
+				if len(rule.Cidr) == 0 {
+					cidrGroupRefs = append(cidrGroupRefs, string(rule.CIDRGroupRef))
+				}
+			}
+		}
+		for _, egress := range spec.Egress {
+			for _, rule := range egress.ToCIDRSet {
 				// If CIDR is not set, then we assume CIDRGroupRef is set due
 				// to OneOf, even if CIDRGroupRef is empty, as that's still a
 				// valid reference (although useless from a user perspective).
@@ -236,5 +253,35 @@ func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 		}
 
 		spec.Ingress[i].FromCIDRSet = append(oldRules, newRules...)
+	}
+	for i := range spec.Egress {
+		var (
+			oldRules api.CIDRRuleSlice
+			refRules []api.CIDRRule
+		)
+
+		for _, rule := range spec.Egress[i].ToCIDRSet {
+			if rule.CIDRGroupRef == "" {
+				// keep rules without a cidr group reference
+				oldRules = append(oldRules, rule)
+				continue
+			}
+			// collect all rules with references to a cidr group
+			refRules = append(refRules, rule)
+		}
+
+		// add rules for each cidr in the referenced cidr groups
+		var newRules api.CIDRRuleSlice
+		for _, refRule := range refRules {
+			cidrs, found := cidrsSets[string(refRule.CIDRGroupRef)]
+			if !found || len(cidrs) == 0 {
+				continue
+			}
+			for _, cidr := range cidrs {
+				newRules = append(newRules, api.CIDRRule{Cidr: cidr, ExceptCIDRs: refRule.ExceptCIDRs})
+			}
+		}
+
+		spec.Egress[i].ToCIDRSet = append(oldRules, newRules...)
 	}
 }
