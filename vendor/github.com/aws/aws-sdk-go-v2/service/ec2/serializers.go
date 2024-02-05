@@ -42331,6 +42331,11 @@ func awsEc2query_serializeDocumentInstanceRequirements(v *types.InstanceRequirem
 		}
 	}
 
+	if v.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice != nil {
+		objectKey := object.Key("MaxSpotPriceAsPercentageOfOptimalOnDemandPrice")
+		objectKey.Integer(*v.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice)
+	}
+
 	if v.MemoryGiBPerVCpu != nil {
 		objectKey := object.Key("MemoryGiBPerVCpu")
 		if err := awsEc2query_serializeDocumentMemoryGiBPerVCpu(v.MemoryGiBPerVCpu, objectKey); err != nil {
@@ -42485,6 +42490,11 @@ func awsEc2query_serializeDocumentInstanceRequirementsRequest(v *types.InstanceR
 		if err := awsEc2query_serializeDocumentLocalStorageTypeSet(v.LocalStorageTypes, objectKey); err != nil {
 			return err
 		}
+	}
+
+	if v.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice != nil {
+		objectKey := object.Key("MaxSpotPriceAsPercentageOfOptimalOnDemandPrice")
+		objectKey.Integer(*v.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice)
 	}
 
 	if v.MemoryGiBPerVCpu != nil {

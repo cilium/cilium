@@ -101,9 +101,17 @@ type errorHelper struct {
 	// A collection of unexported helpers for error construction
 }
 
-func (h *errorHelper) sErr(err errors.Error) *Result {
+func (h *errorHelper) sErr(err errors.Error, recycle bool) *Result {
 	// Builds a Result from standard errors.Error
-	return &Result{Errors: []error{err}}
+	var result *Result
+	if recycle {
+		result = poolOfResults.BorrowResult()
+	} else {
+		result = new(Result)
+	}
+	result.Errors = []error{err}
+
+	return result
 }
 
 func (h *errorHelper) addPointerError(res *Result, err error, ref string, fromPath string) *Result {

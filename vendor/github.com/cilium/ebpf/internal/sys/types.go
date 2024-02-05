@@ -720,6 +720,26 @@ func LinkCreateKprobeMulti(attr *LinkCreateKprobeMultiAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
+type LinkCreateNetfilterAttr struct {
+	ProgFd         uint32
+	TargetFd       uint32
+	AttachType     AttachType
+	Flags          uint32
+	Pf             uint32
+	Hooknum        uint32
+	Priority       int32
+	NetfilterFlags uint32
+	_              [32]byte
+}
+
+func LinkCreateNetfilter(attr *LinkCreateNetfilterAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
 type LinkCreatePerfEventAttr struct {
 	ProgFd     uint32
 	TargetFd   uint32
@@ -768,6 +788,29 @@ type LinkCreateTracingAttr struct {
 }
 
 func LinkCreateTracing(attr *LinkCreateTracingAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
+type LinkCreateUprobeMultiAttr struct {
+	ProgFd           uint32
+	TargetFd         uint32
+	AttachType       AttachType
+	Flags            uint32
+	Path             Pointer
+	Offsets          Pointer
+	RefCtrOffsets    Pointer
+	Cookies          Pointer
+	Count            uint32
+	UprobeMultiFlags uint32
+	Pid              uint32
+	_                [4]byte
+}
+
+func LinkCreateUprobeMulti(attr *LinkCreateUprobeMultiAttr) (*FD, error) {
 	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
 	if err != nil {
 		return nil, err
@@ -1176,6 +1219,13 @@ type IterLinkInfo struct {
 type NetNsLinkInfo struct {
 	NetnsIno   uint32
 	AttachType AttachType
+}
+
+type NetfilterLinkInfo struct {
+	Pf       uint32
+	Hooknum  uint32
+	Priority int32
+	Flags    uint32
 }
 
 type RawTracepointLinkInfo struct {

@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.24.1
 	github.com/aws/aws-sdk-go-v2/config v1.26.6
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.11
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.145.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.146.0
 	github.com/aws/smithy-go v1.19.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bombsimon/logrusr/v4 v4.1.0
@@ -22,7 +22,7 @@ require (
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
 	github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
-	github.com/cilium/ebpf v0.12.4-0.20240124115601-f95957d1669c
+	github.com/cilium/ebpf v0.12.4-0.20240202143943-a8894b2143a2
 	github.com/cilium/fake v0.6.1
 	github.com/cilium/linters v0.0.0-20240116133705-4cd15cbd2bca
 	github.com/cilium/lumberjack/v2 v2.3.0
@@ -42,7 +42,7 @@ require (
 	github.com/go-openapi/spec v0.20.14
 	github.com/go-openapi/strfmt v0.22.0
 	github.com/go-openapi/swag v0.22.9
-	github.com/go-openapi/validate v0.22.6
+	github.com/go-openapi/validate v0.23.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/google/go-cmp v0.6.0
@@ -64,7 +64,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.30.0
-	github.com/osrg/gobgp/v3 v3.22.0
+	github.com/osrg/gobgp/v3 v3.23.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/client_model v0.5.0
@@ -172,7 +172,7 @@ require (
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/go-openapi/analysis v0.22.0 // indirect
+	github.com/go-openapi/analysis v0.22.2 // indirect
 	github.com/go-openapi/jsonpointer v0.20.2 // indirect
 	github.com/go-openapi/jsonreference v0.20.4 // indirect
 	github.com/gobuffalo/flect v1.0.2 // indirect

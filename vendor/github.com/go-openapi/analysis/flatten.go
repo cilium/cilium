@@ -267,6 +267,12 @@ func nameInlinedSchemas(opts *FlattenOpts) error {
 }
 
 func removeUnused(opts *FlattenOpts) {
+	for removeUnusedSinglePass(opts) {
+		// continue until no unused definition remains
+	}
+}
+
+func removeUnusedSinglePass(opts *FlattenOpts) (hasRemoved bool) {
 	expected := make(map[string]struct{})
 	for k := range opts.Swagger().Definitions {
 		expected[path.Join(definitionsPath, jsonpointer.Escape(k))] = struct{}{}
@@ -277,6 +283,7 @@ func removeUnused(opts *FlattenOpts) {
 	}
 
 	for k := range expected {
+		hasRemoved = true
 		debugLog("removing unused definition %s", path.Base(k))
 		if opts.Verbose {
 			log.Printf("info: removing unused definition: %s", path.Base(k))
@@ -285,6 +292,8 @@ func removeUnused(opts *FlattenOpts) {
 	}
 
 	opts.Spec.reload() // re-analyze
+
+	return hasRemoved
 }
 
 func importKnownRef(entry sortref.RefRevIdx, refStr, newName string, opts *FlattenOpts) error {
