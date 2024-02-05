@@ -26,20 +26,11 @@ func Test(t *testing.T) {
 
 func (s *LinkSuite) TestDeleteByName(c *C) {
 	testCases := []struct {
-		name        string
-		create      bool
-		expectError bool
+		name   string
+		create bool
 	}{
-		{
-			"foo",
-			true,
-			false,
-		},
-		{
-			"bar",
-			false,
-			true,
-		},
+		{"foo", true},
+		{"bar", false},
 	}
 	var err error
 
@@ -53,12 +44,7 @@ func (s *LinkSuite) TestDeleteByName(c *C) {
 			c.Assert(err, IsNil)
 		}
 
-		err = DeleteByName(tc.name)
-		if tc.expectError {
-			c.Assert(err, NotNil)
-		} else {
-			c.Assert(err, IsNil)
-		}
+		c.Assert(DeleteByName(tc.name), IsNil)
 	}
 }
 
