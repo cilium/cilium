@@ -74,7 +74,8 @@
       "matchPaths": [
         ".github/workflows/**"
       ],
-      excludeDepNames: [
+      "excludeDepNames": [
+        "cilium/little-vm-helper",
         "quay.io/lvh-images/complexity-test",
         "quay.io/lvh-images/kind",
         "quay.io/cilium/kindest-node"
@@ -429,6 +430,7 @@
       "groupName": "stable lvh-images",
       "groupSlug": "stable-lvh-images",
       "matchPackageNames": [
+        "cilium/little-vm-helper",
         "quay.io/lvh-images/complexity-test",
         "quay.io/lvh-images/kind"
       ],
@@ -444,6 +446,7 @@
       "groupName": "all lvh-images main",
       "groupSlug": "all-lvh-images-main",
       "matchPackageNames": [
+        "cilium/little-vm-helper",
         "quay.io/lvh-images/complexity-test",
         "quay.io/lvh-images/kind"
       ],
