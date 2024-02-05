@@ -5,6 +5,7 @@ package link
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -28,8 +29,14 @@ var (
 )
 
 // DeleteByName deletes the interface with the name ifName.
+//
+// Returns nil if the interface does not exist.
 func DeleteByName(ifName string) error {
 	iface, err := netlink.LinkByName(ifName)
+	if errors.As(err, &netlink.LinkNotFoundError{}) {
+		return nil
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
 	}
