@@ -767,21 +767,21 @@ which is defined as follows:
             // +kubebuilder:validation:Enum=IPv4;IPv6
             Family string `json:"family,omitempty"`
         
-            // Type is a ICMP-type.
-            // It should be an 8bit code (0-255), or it's name (for example, "Echo Reply").
-            // Allowed ICMP types are:
-            //     Ipv4: Echo Reply | Destination Unreachable | Redirect | Echo | Echo Request |
-            //				   Router Advertisement |Router Selection |Time Exceeded |Parameter Problem |
-            //					 Timestamp | Timestamp Reply | Photuris | Extended Echo Request | Extended Echo Reply
-            //     Ipv6: Destination Unreachable | Packet Too Big | Time Exceeded | Parameter Problem |
-            //					 Echo Request | Echo Reply | Multicast Listener Query| Multicast Listener Report |
-            // 					 Multicast Listener Done | Router Solicitation | Router Advertisement | Neighbor Solicitation |
-            // 					 Neighbor Advertisement | Redirect Message | Router Renumbering | ICMP Node Information Query |
-            // 					 ICMP Node Information Response | Inverse Neighbor Discovery Solicitation | Inverse Neighbor Discovery Advertisement |
-            // 					 Home Agent Address Discovery Request | Home Agent Address Discovery Reply | Mobile Prefix Solicitation |
-            // 					 Mobile Prefix Advertisement | Duplicate Address Request Code Suffix | Duplicate Address Confirmation Code Suffix |
-            // 					 Extended Echo Request | Extended Echo Reply
-            //
+	        // Type is a ICMP-type.
+	        // It should be an 8bit code (0-255), or it's name (for example, "Echo Reply").
+	        // Allowed ICMP types are:
+	        //     Ipv4: Echo Reply | Destination Unreachable | Redirect | Echo | Echo Request |
+	        //		     Router Advertisement |Router Selection |Time Exceeded |Parameter Problem |
+	        //			 Timestamp | Timestamp Reply | Photuris | Extended Echo Request | Extended Echo Reply
+	        //     Ipv6: Destination Unreachable | Packet Too Big | Time Exceeded | Parameter Problem |
+	        //			 Echo Request | Echo Reply | Multicast Listener Query| Multicast Listener Report |
+	        // 			 Multicast Listener Done | Router Solicitation | Router Advertisement | Neighbor Solicitation |
+	        // 			 Neighbor Advertisement | Redirect Message | Router Renumbering | ICMP Node Information Query |
+	        // 			 ICMP Node Information Response | Inverse Neighbor Discovery Solicitation | Inverse Neighbor Discovery Advertisement |
+	        // 			 Home Agent Address Discovery Request | Home Agent Address Discovery Reply | Mobile Prefix Solicitation |
+	        // 			 Mobile Prefix Advertisement | Duplicate Address Request Code Suffix | Duplicate Address Confirmation Code Suffix |
+	        // 			 Extended Echo Request | Extended Echo Reply
+	        //
             // +deepequal-gen=false
             // +kubebuilder:validation:XIntOrString
             // +kubebuilder:validation:Pattern="^([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]|Echo Reply|Destination Unreachable|Redirect|Echo|Router Advertisement|Router Selection|Time Exceeded|Parameter Problem|Timestamp|Timestamp Reply|Photuris|Extended Echo Request|Extended Echo Reply|Packet Too Big|Parameter Problem|Echo Request|Multicast Listener Query|Multicast Listener Report|Multicast Listener Done|Router Solicitation|Router Advertisement|Neighbor Solicitation|Neighbor Advertisement|Redirect Message|Router Renumbering|ICMP Node Information Query|ICMP Node Information Response|Inverse Neighbor Discovery Solicitation|Inverse Neighbor Discovery Advertisement|Home Agent Address Discovery Request|Home Agent Address Discovery Reply|Mobile Prefix Solicitation|Mobile Prefix Advertisement|Duplicate Address Request Code Suffix|Duplicate Address Confirmation Code Suffix)$"
