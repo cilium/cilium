@@ -85471,6 +85471,23 @@ func awsEc2query_deserializeDocumentInstanceRequirements(v **types.InstanceRequi
 				return err
 			}
 
+		case strings.EqualFold("maxSpotPriceAsPercentageOfOptimalOnDemandPrice", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice = ptr.Int32(int32(i64))
+			}
+
 		case strings.EqualFold("memoryGiBPerVCpu", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentMemoryGiBPerVCpu(&sv.MemoryGiBPerVCpu, nodeDecoder); err != nil {

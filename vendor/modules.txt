@@ -121,7 +121,7 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.7.3
 ## explicit; go 1.19
 github.com/aws/aws-sdk-go-v2/internal/ini
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.145.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.146.0
 ## explicit; go 1.19
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
@@ -201,7 +201,7 @@ github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
 ## explicit; go 1.18
 github.com/cilium/dns
-# github.com/cilium/ebpf v0.12.4-0.20240124115601-f95957d1669c
+# github.com/cilium/ebpf v0.12.4-0.20240202143943-a8894b2143a2
 ## explicit; go 1.20
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
@@ -627,7 +627,7 @@ github.com/go-logr/stdr
 ## explicit; go 1.12
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
-# github.com/go-openapi/analysis v0.22.0
+# github.com/go-openapi/analysis v0.22.2
 ## explicit; go 1.19
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal/debug
@@ -669,7 +669,7 @@ github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.22.9
 ## explicit; go 1.19
 github.com/go-openapi/swag
-# github.com/go-openapi/validate v0.22.6
+# github.com/go-openapi/validate v0.23.0
 ## explicit; go 1.19
 github.com/go-openapi/validate
 # github.com/gobuffalo/flect v1.0.2
@@ -998,7 +998,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
-# github.com/osrg/gobgp/v3 v3.22.0
+# github.com/osrg/gobgp/v3 v3.23.0
 ## explicit; go 1.20
 github.com/osrg/gobgp/v3/api
 github.com/osrg/gobgp/v3/internal/pkg/table
