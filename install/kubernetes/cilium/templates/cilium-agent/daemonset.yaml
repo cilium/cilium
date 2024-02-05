@@ -201,6 +201,7 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.memory
+              divisor: '1'
         {{- if .Values.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST
           value: {{ .Values.k8sServiceHost | quote }}
