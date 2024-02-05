@@ -172,8 +172,8 @@ spec:
                           cidrGroupRef:
                             description: CIDRGroupRef is a reference to a CiliumCIDRGroup
                               object. A CiliumCIDRGroup contains a list of CIDRs that
-                              the endpoint, subject to the rule, can (Ingress) or
-                              cannot (IngressDeny) receive connections from.
+                              the endpoint, subject to the rule, can (Ingress/Egress)
+                              or cannot (IngressDeny) receive connections from.
                             maxLength: 253
                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -1050,8 +1050,8 @@ spec:
                           cidrGroupRef:
                             description: CIDRGroupRef is a reference to a CiliumCIDRGroup
                               object. A CiliumCIDRGroup contains a list of CIDRs that
-                              the endpoint, subject to the rule, can (Ingress) or
-                              cannot (IngressDeny) receive connections from.
+                              the endpoint, subject to the rule, can (Ingress/Egress)
+                              or cannot (IngressDeny) receive connections from.
                             maxLength: 253
                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -1522,8 +1522,8 @@ spec:
                           cidrGroupRef:
                             description: CIDRGroupRef is a reference to a CiliumCIDRGroup
                               object. A CiliumCIDRGroup contains a list of CIDRs that
-                              the endpoint, subject to the rule, can (Ingress) or
-                              cannot (IngressDeny) receive connections from.
+                              the endpoint, subject to the rule, can (Ingress/Egress)
+                              or cannot (IngressDeny) receive connections from.
                             maxLength: 253
                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -2239,8 +2239,8 @@ spec:
                           cidrGroupRef:
                             description: CIDRGroupRef is a reference to a CiliumCIDRGroup
                               object. A CiliumCIDRGroup contains a list of CIDRs that
-                              the endpoint, subject to the rule, can (Ingress) or
-                              cannot (IngressDeny) receive connections from.
+                              the endpoint, subject to the rule, can (Ingress/Egress)
+                              or cannot (IngressDeny) receive connections from.
                             maxLength: 253
                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -2708,7 +2708,7 @@ spec:
                             cidrGroupRef:
                               description: CIDRGroupRef is a reference to a CiliumCIDRGroup
                                 object. A CiliumCIDRGroup contains a list of CIDRs
-                                that the endpoint, subject to the rule, can (Ingress)
+                                that the endpoint, subject to the rule, can (Ingress/Egress)
                                 or cannot (IngressDeny) receive connections from.
                               maxLength: 253
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -3601,7 +3601,7 @@ spec:
                             cidrGroupRef:
                               description: CIDRGroupRef is a reference to a CiliumCIDRGroup
                                 object. A CiliumCIDRGroup contains a list of CIDRs
-                                that the endpoint, subject to the rule, can (Ingress)
+                                that the endpoint, subject to the rule, can (Ingress/Egress)
                                 or cannot (IngressDeny) receive connections from.
                               maxLength: 253
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -4079,7 +4079,7 @@ spec:
                             cidrGroupRef:
                               description: CIDRGroupRef is a reference to a CiliumCIDRGroup
                                 object. A CiliumCIDRGroup contains a list of CIDRs
-                                that the endpoint, subject to the rule, can (Ingress)
+                                that the endpoint, subject to the rule, can (Ingress/Egress)
                                 or cannot (IngressDeny) receive connections from.
                               maxLength: 253
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -4808,7 +4808,7 @@ spec:
                             cidrGroupRef:
                               description: CIDRGroupRef is a reference to a CiliumCIDRGroup
                                 object. A CiliumCIDRGroup contains a list of CIDRs
-                                that the endpoint, subject to the rule, can (Ingress)
+                                that the endpoint, subject to the rule, can (Ingress/Egress)
                                 or cannot (IngressDeny) receive connections from.
                               maxLength: 253
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
