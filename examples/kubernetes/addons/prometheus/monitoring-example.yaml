@@ -4923,21 +4923,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_policy_l7_denied_total{k8s_app=\"cilium\", pod=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"denied\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "denied",
               "refId": "A"
             },
             {
-              "expr": "sum(rate(cilium_policy_l7_forwarded_total{k8s_app=\"cilium\", pod=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"forwarded\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "forwarded",
               "refId": "B"
             },
             {
-              "expr": "sum(rate(cilium_policy_l7_received_total{k8s_app=\"cilium\", pod=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"received\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "received",
@@ -5086,7 +5086,7 @@ data:
           "aliasColors": {
             "Max per node processingTime": "#e24d42",
             "Max per node upstreamTime": "#58140c",
-            "avg(cilium_policy_l7_parse_errors_total{pod=~\"cilium.*\"})": "#bf1b00",
+            "avg(cilium_policy_l7_total{pod=~\"cilium.*\", rule=\"parse_errors\"})": "#bf1b00",
             "parse errors": "#bf1b00"
           },
           "bars": true,
@@ -5142,7 +5142,7 @@ data:
               "yaxis": 2
             },
             {
-              "alias": "avg(cilium_policy_l7_parse_errors_total{pod=~\"cilium.*\"})",
+              "alias": "avg(cilium_policy_l7_total{pod=~\"cilium.*\", rule=\"parse_errors\"})",
               "yaxis": 2
             },
             {
@@ -5163,7 +5163,7 @@ data:
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_policy_l7_parse_errors_total{k8s_app=\"cilium\", pod=~\"$pod\"}) by (pod)",
+              "expr": "avg(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"parse_errors\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "parse errors",
@@ -5512,7 +5512,7 @@ data:
               "refId": "B"
             },
             {
-              "expr": "max(rate(cilium_policy_l7_parse_errors_total{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod)",
+              "expr": "max(rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"parse_errors\"}[1m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "parse errors",
