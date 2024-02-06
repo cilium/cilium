@@ -28,6 +28,7 @@ import (
 // Decoder is an interface for the parser.
 // It decodes a monitor event into a hubble event.
 type Decoder interface {
+	// Decode transforms a monitor event into a hubble event.
 	Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, error)
 }
 
