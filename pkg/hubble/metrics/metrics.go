@@ -53,6 +53,20 @@ var (
 	}, []string{labelSource})
 )
 
+// Metrics related to Hubble metrics HTTP requests handling
+var (
+	RequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: api.DefaultPrometheusNamespace,
+		Name:      "metrics_http_handler_requests_total",
+		Help:      "A counter for requests to Hubble metrics handler.",
+	}, []string{"code"})
+	RequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: api.DefaultPrometheusNamespace,
+		Name:      "metrics_http_handler_request_duration_seconds",
+		Help:      "A histogram of latencies of Hubble metrics handler.",
+	}, []string{"code"})
+)
+
 // ProcessFlow processes a flow and updates metrics
 func ProcessFlow(ctx context.Context, flow *pb.Flow) error {
 	if enabledMetrics != nil {
@@ -75,9 +89,12 @@ func initMetricHandlers(enabled api.Map) (*api.Handlers, error) {
 func initMetricsServer(address string, enableOpenMetrics bool, errChan chan error) {
 	go func() {
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 			EnableOpenMetrics: enableOpenMetrics,
-		}))
+		})
+		handler = promhttp.InstrumentHandlerCounter(RequestsTotal, handler)
+		handler = promhttp.InstrumentHandlerDuration(RequestDuration, handler)
+		mux.Handle("/metrics", handler)
 		srv := http.Server{
 			Addr:    address,
 			Handler: mux,
@@ -114,6 +131,8 @@ func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.S
 
 	registry.MustRegister(grpcMetrics)
 	registry.MustRegister(LostEvents)
+	registry.MustRegister(RequestsTotal)
+	registry.MustRegister(RequestDuration)
 
 	errChan := make(chan error, 1)
 
