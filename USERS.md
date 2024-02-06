@@ -421,7 +421,13 @@ Users (Alphabetically)
       U: Pod networking (CNI, IPAM, Host-reachable Services), Hubble, Cluster-mesh. TBD: Network Policy, Transparent Encryption (WG), Host Firewall.
       L: https://mux.com
       Q: @dilyevsky
-
+      
+    * N: NetBird
+      D: NetBird is an open-source WireGuard-based peer-to-peer private network and a centralized access control system.
+      U: Cross-platform DNS management and NAT traversal.
+      L: https://netbird.io
+      Q: @braginini
+      
     * N: NETWAYS Web Services
       D: NETWAYS Web Services offers Cilium to their clients as CNI option for their Managed Kubernetes clusters.
       U: Networking (CNI), Observability (Hubble)
