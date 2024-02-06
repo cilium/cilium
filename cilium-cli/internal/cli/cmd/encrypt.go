@@ -23,6 +23,7 @@ func newCmdEncrypt() *cobra.Command {
 	}
 	cmd.AddCommand(newCmdEncryptStatus())
 	cmd.AddCommand(newCmdIPsecRotateKey())
+	cmd.AddCommand(newCmdIPsecKeyStatus())
 	return cmd
 }
 
@@ -60,6 +61,26 @@ func newCmdIPsecRotateKey() *cobra.Command {
 			s := encrypt.NewEncrypt(k8sClient, params)
 			if err := s.IPsecRotateKey(context.Background()); err != nil {
 				fatalf("Unable to rotate IPsec key: %s", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
+	return cmd
+}
+
+func newCmdIPsecKeyStatus() *cobra.Command {
+	params := encrypt.Parameters{}
+	cmd := &cobra.Command{
+		Use:     "key-status",
+		Aliases: []string{"ks"},
+		Short:   "Display IPsec key",
+		Long:    "This command displays IPsec encryption key",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			params.CiliumNamespace = namespace
+			s := encrypt.NewEncrypt(k8sClient, params)
+			if err := s.IPsecKeyStatus(context.Background()); err != nil {
+				fatalf("Unable to display IPsec key: %s", err)
 			}
 			return nil
 		},
