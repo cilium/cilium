@@ -2914,6 +2914,15 @@ skip_service_lookup:
 			src_sec_identity = WORLD_IPV4_ID;
 #endif
 
+		 /* Before forwarding the identity, make sure it's not a CIDR
+		  * identity, as these are __u32 values, but transporting them
+		  * via the VNI field in the VXLAN / Geneve header allows for
+		  * only 24 bits.
+		  */
+
+		if (identity_is_cidr_range(src_sec_identity))
+			return DROP_INVALID_IDENTITY;
+
 		/* lookup with SCOPE_FORWARD: */
 		__ipv4_ct_tuple_reverse(&tuple);
 
