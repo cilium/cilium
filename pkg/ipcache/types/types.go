@@ -5,6 +5,7 @@ package types
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/netip"
 	"strconv"
@@ -41,12 +42,13 @@ type ResourceID string
 type ResourceKind string
 
 var (
-	ResourceKindCNP      = ResourceKind("cnp")
-	ResourceKindCCNP     = ResourceKind("ccnp")
-	ResourceKindDaemon   = ResourceKind("daemon")
-	ResourceKindEndpoint = ResourceKind("ep")
-	ResourceKindNetpol   = ResourceKind("netpol")
-	ResourceKindNode     = ResourceKind("node")
+	ResourceKindCNP          = ResourceKind("cnp")
+	ResourceKindCCNP         = ResourceKind("ccnp")
+	ResourceKindDaemon       = ResourceKind("daemon")
+	ResourceKindEndpoint     = ResourceKind("ep")
+	ResourceKindNetpol       = ResourceKind("netpol")
+	ResourceKindNode         = ResourceKind("node")
+	ResourceKindDaemonConfig = ResourceKind("daemonConfig")
 )
 
 // NewResourceID returns a ResourceID populated with the standard fields for
@@ -60,6 +62,15 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	str.WriteRune('/')
 	str.WriteString(name)
 	return ResourceID(str.String())
+}
+
+func GetResourceKindFromID(rid ResourceID) (ResourceKind, error) {
+	fields := strings.Split(string(rid), "/")
+	if len(fields) != 3 {
+		return "", errors.New("Invalid resource Id")
+	}
+
+	return ResourceKind(fields[0]), nil
 }
 
 // TunnelPeer is the IP address of the host associated with this prefix. This is

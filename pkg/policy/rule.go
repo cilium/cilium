@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache/types"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -27,15 +28,32 @@ type rule struct {
 type ruleMetadata struct {
 	// mutex protects all fields in this type.
 	Mutex lock.Mutex
-
+	// By default its disabled to enforce default deny when any network policy is deployed.
+	// this will be enabled only for cloud provider policy rules configurd via
+	// cilium config --deny-tuples
+	DefaultAllow bool
 	// IdentitySelected is a cache that maps from an identity to whether
 	// this rule selects that identity.
 	IdentitySelected map[identity.NumericIdentity]bool
 }
 
-func newRuleMetadata() *ruleMetadata {
+func newRuleMetadata(opts *AddOptions) *ruleMetadata {
+	var defaultAllow bool
+	if opts != nil {
+		resourceKind, err := types.GetResourceKindFromID(opts.Resource)
+		if err != nil {
+			log.WithField("error", err).Warn("GetResourceKindFromID returned error")
+		}
+
+		// Default Allow will be enabled only if rules is created via cilium config.
+		if resourceKind == types.ResourceKindDaemonConfig {
+			defaultAllow = true
+		}
+	}
+
 	return &ruleMetadata{
 		IdentitySelected: make(map[identity.NumericIdentity]bool),
+		DefaultAllow:     defaultAllow,
 	}
 }
 
