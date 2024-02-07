@@ -21,6 +21,8 @@ type Parameters struct {
 	AgentPodSelector string
 	NodeName         string
 	PerNodeDetails   bool
+	IPsecKeyAuthAlgo string
+	IPsecKeyPerNode  string
 	Writer           io.Writer
 	WaitDuration     time.Duration
 	Output           string

@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 type ipsecKey struct {
@@ -37,14 +38,22 @@ func (s *Encrypt) IPsecRotateKey(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch IPsec secret: %s", err)
 	}
 
-	key, err := ipsecKeyFromString(string(secret.Data["keys"]))
+	keyBytes, ok := secret.Data["keys"]
+	if !ok {
+		return fmt.Errorf("IPsec key not found in the secret: %s", defaults.EncryptionSecretName)
+	}
+	key, err := ipsecKeyFromString(string(keyBytes))
 	if err != nil {
 		return err
 	}
 
-	newKey, err := key.rotate()
+	newKey, err := rotateIPsecKey(key, s.params.IPsecKeyAuthAlgo)
 	if err != nil {
 		return fmt.Errorf("failed to rotate IPsec key: %s", err)
+	}
+
+	if s.params.IPsecKeyPerNode != "" {
+		newKey.spiSuffix = utils.MustParseBool(s.params.IPsecKeyPerNode)
 	}
 
 	patch := []byte(`{"stringData":{"keys":"` + newKey.String() + `"}}`)
@@ -153,12 +162,8 @@ func (k ipsecKey) rotate() (ipsecKey, error) {
 		}
 	}
 
-	spi := k.spi + 1
-	if spi >= maxIPsecSPI {
-		spi = 1
-	}
 	newKey := ipsecKey{
-		spi:        spi,
+		spi:        k.nextSPI(),
 		spiSuffix:  k.spiSuffix,
 		algo:       k.algo,
 		key:        key,
@@ -167,6 +172,14 @@ func (k ipsecKey) rotate() (ipsecKey, error) {
 		cipherKey:  cipherKey,
 	}
 	return newKey, nil
+}
+
+func (k ipsecKey) nextSPI() int {
+	spi := k.spi + 1
+	if spi >= maxIPsecSPI {
+		spi = 1
+	}
+	return spi
 }
 
 func generateRandomHex(size int) (string, error) {
