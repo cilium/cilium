@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -78,4 +79,12 @@ func BuildImagePath(userImage, userVersion, defaultImage, defaultVersion string)
 // IsInHelmMode returns true if cilium-cli is in "helm" mode. Otherwise, it returns false.
 func IsInHelmMode() bool {
 	return os.Getenv(CLIModeVariableName) != "classic"
+}
+
+func MustParseBool(v string) bool {
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse string [%s] to bool: %s", v, err))
+	}
+	return b
 }
