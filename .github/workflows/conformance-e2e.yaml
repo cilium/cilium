@@ -233,7 +233,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
-
+            ingress-controller: 'true'
 
     timeout-minutes: 60
     steps:
