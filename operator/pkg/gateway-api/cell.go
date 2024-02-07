@@ -37,6 +37,7 @@ var Cell = cell.Module(
 		EnableGatewayAPISecretsSync:   true,
 		EnableGatewayAPIProxyProtocol: false,
 		GatewayAPISecretsNamespace:    "cilium-secrets",
+		GatewayAPIXffNumTrustedHops:   0,
 
 		GatewayAPIHostnetworkEnabled:           false,
 		GatewayAPIHostnetworkNodelabelselector: "",
@@ -61,6 +62,7 @@ type gatewayApiConfig struct {
 	EnableGatewayAPISecretsSync   bool
 	EnableGatewayAPIProxyProtocol bool
 	GatewayAPISecretsNamespace    string
+	GatewayAPIXffNumTrustedHops   uint32
 
 	GatewayAPIHostnetworkEnabled           bool
 	GatewayAPIHostnetworkNodelabelselector string
@@ -72,6 +74,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool("enable-gateway-api-secrets-sync", r.EnableGatewayAPISecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag)")
 	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
+	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
 	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
@@ -123,6 +126,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		translation.ParseNodeLabelSelector(params.GatewayApiConfig.GatewayAPIHostnetworkNodelabelselector),
 		params.AgentConfig.EnableIPv4,
 		params.AgentConfig.EnableIPv6,
+		params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 	)
 
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, params.GatewayApiConfig.GatewayAPIHostnetworkEnabled)

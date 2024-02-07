@@ -47,18 +47,21 @@ type cecTranslator struct {
 	hostNameSuffixMatch bool
 
 	idleTimeoutSeconds int
+
+	xffNumTrustedHops uint32
 }
 
 // NewCECTranslator returns a new translator
 func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
 	hostNetworkEnabled bool, hostNetworkNodeLabelSelector *slim_metav1.LabelSelector, ipv4Enabled bool, ipv6Enabled bool,
+	xffNumTrustedHops uint32,
 ) CECTranslator {
 	return &cecTranslator{
-		secretsNamespace:    secretsNamespace,
-		useProxyProtocol:    useProxyProtocol,
-		hostNameSuffixMatch: hostNameSuffixMatch,
-		idleTimeoutSeconds:  idleTimeoutSeconds,
-
+		secretsNamespace:             secretsNamespace,
+		useProxyProtocol:             useProxyProtocol,
+		hostNameSuffixMatch:          hostNameSuffixMatch,
+		idleTimeoutSeconds:           idleTimeoutSeconds,
+		xffNumTrustedHops:            xffNumTrustedHops,
 		hostNetworkEnabled:           hostNetworkEnabled,
 		hostNetworkNodeLabelSelector: hostNetworkNodeLabelSelector,
 		ipv4Enabled:                  ipv4Enabled,
@@ -156,6 +159,10 @@ func (i *cecTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSResou
 
 	if i.hostNetworkEnabled {
 		mutatorFuncs = append(mutatorFuncs, WithHostNetworkPort(m.HTTP, i.ipv4Enabled, i.ipv6Enabled))
+	}
+
+	if i.xffNumTrustedHops > 0 {
+		mutatorFuncs = append(mutatorFuncs, WithXffNumTrustedHops(i.xffNumTrustedHops))
 	}
 
 	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap, mutatorFuncs...)

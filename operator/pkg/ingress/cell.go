@@ -112,6 +112,7 @@ func registerReconciler(params ingressParams) error {
 		translation.ParseNodeLabelSelector(params.IngressConfig.IngressHostnetworkNodelabelselector),
 		params.AgentConfig.EnableIPv4,
 		params.AgentConfig.EnableIPv6,
+		operatorOption.Config.IngressProxyXffNumTrustedHops,
 	)
 
 	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)

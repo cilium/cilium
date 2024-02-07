@@ -68,6 +68,73 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 	SocketOptions: toSocketOptions(),
 })
 
+func buildHTTPInsecureListenerXDSResourceWithXFF(routeName string, xffNumTrustedHops uint32) *anypb.Any {
+	return toAny(&envoy_config_listener.Listener{
+		Name: "listener",
+		FilterChains: []*envoy_config_listener.FilterChain{
+			{
+				FilterChainMatch: &envoy_config_listener.FilterChainMatch{TransportProtocol: "raw_buffer"},
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: "envoy.filters.network.http_connection_manager",
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(&http_connection_manager_v3.HttpConnectionManager{
+								StatPrefix: routeName,
+								RouteSpecifier: &http_connection_manager_v3.HttpConnectionManager_Rds{
+									Rds: &http_connection_manager_v3.Rds{RouteConfigName: routeName},
+								},
+								UpgradeConfigs: []*http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
+									{UpgradeType: "websocket"},
+								},
+								UseRemoteAddress:  &wrapperspb.BoolValue{Value: true},
+								SkipXffAppend:     false,
+								XffNumTrustedHops: xffNumTrustedHops,
+								HttpFilters: []*http_connection_manager_v3.HttpFilter{
+									{
+										Name: "envoy.filters.http.grpc_web",
+										ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+											TypedConfig: toAny(&grpc_web_v3.GrpcWeb{}),
+										},
+									},
+									{
+										Name: "envoy.filters.http.grpc_stats",
+										ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+											TypedConfig: toAny(&grpc_stats_v3.FilterConfig{
+												EmitFilterState:     true,
+												EnableUpstreamStats: true,
+											}),
+										},
+									},
+									{
+										Name: "envoy.filters.http.router",
+										ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+											TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+										},
+									},
+								},
+								CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+									MaxStreamDuration: &durationpb.Duration{
+										Seconds: 0,
+									},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
+		ListenerFilters: []*envoy_config_listener.ListenerFilter{
+			{
+				Name: "envoy.filters.listener.tls_inspector",
+				ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
+			},
+		},
+		SocketOptions: toSocketOptions(),
+	})
+}
+
 func httpInsecureHostPortListenerXDSResource(address string, port uint32) *anypb.Any {
 	return toAny(&envoy_config_listener.Listener{
 		Name: "listener",
@@ -172,6 +239,65 @@ var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		},
 		Resources: []ciliumv2.XDSResource{
 			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/bar",
+										},
+									},
+									Action: toRouteAction("default", "my-service", "8080"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: toAny(toEnvoyCluster("default", "my-service", "8080"))},
+		},
+	},
+}
+
+// basicHTTPListenersCiliumEnvoyConfigWithXff is the generated CiliumEnvoyConfig basic http listener model with XffNumTrustedHops.
+var basicHTTPListenersCiliumEnvoyConfigWithXff = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-my-gateway",
+		Namespace: "default",
+		Labels: map[string]string{
+			"cilium.io/use-original-source-address": "false",
+		},
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1",
+				Kind:       "Gateway",
+				Name:       "my-gateway",
+				Controller: model.AddressOf(true),
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-my-gateway",
+				Namespace: "default",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "my-service",
+				Namespace: "default",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: buildHTTPInsecureListenerXDSResourceWithXFF("listener-insecure", 2)},
 			{
 				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
 					Name: "listener-insecure",

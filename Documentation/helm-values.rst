@@ -1440,6 +1440,10 @@
      - Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
      - bool
      - ``true``
+   * - :spelling:ignore:`gatewayAPI.xffNumTrustedHops`
+     - The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
+     - int
+     - ``0``
    * - :spelling:ignore:`gke.enabled`
      - Enable Google Kubernetes Engine integration
      - bool

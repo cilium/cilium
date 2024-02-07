@@ -235,7 +235,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		WithStatusSubresource(&gatewayv1.Gateway{}).
 		Build()
 
-	cecTranslator := translation.NewCECTranslator("", false, true, 60, false, nil, false, false)
+	cecTranslator := translation.NewCECTranslator("", false, true, 60, false, nil, false, false, 0)
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, false)
 
 	r := &gatewayReconciler{
