@@ -250,6 +250,12 @@ spec:
           hostPort: {{ .Values.envoy.prometheus.port }}
           protocol: TCP
         {{- end }}
+        {{- if and .Values.envoy.debug.admin.port (not .Values.envoy.enabled) }}
+        - name: envoy-admin
+          containerPort: {{ .Values.envoy.debug.admin.port }}
+          hostPort: {{ .Values.envoy.debug.admin.port }}
+          protocol: TCP
+        {{- end }}
         {{- end }}
         {{- if .Values.hubble.metrics.enabled }}
         - name: hubble-metrics

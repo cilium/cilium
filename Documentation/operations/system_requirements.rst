@@ -417,6 +417,7 @@ Port Range / Protocol    Description
 9890/tcp                 cilium-agent gops server (listening on 127.0.0.1)
 9891/tcp                 operator gops server (listening on 127.0.0.1)
 9893/tcp                 Hubble Relay gops server (listening on 127.0.0.1)
+9901/tcp                 cilium-envoy Admin API (listening on 127.0.0.1)
 9962/tcp                 cilium-agent Prometheus metrics
 9963/tcp                 cilium-operator Prometheus metrics
 9964/tcp                 cilium-envoy Prometheus metrics

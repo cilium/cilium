@@ -321,6 +321,8 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.annotations | object | `{}` | Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy) |
 | envoy.baseID | int | `0` |  Set Envoy'--base-id' to use when allocating shared memory regions. Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0' |
 | envoy.connectTimeoutSeconds | int | `2` | Time in seconds after which a TCP connection attempt times out |
+| envoy.debug.admin.enabled | bool | `false` | Enable admin interface for cilium-envoy. This is useful for debugging and should not be enabled in production. |
+| envoy.debug.admin.port | int | `9901` | Port number (bound to loopback interface). kubectl port-forward can be used to access the admin interface. |
 | envoy.dnsPolicy | string | `nil` | DNS policy for Cilium envoy pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy |
 | envoy.enabled | bool | `true` | Enable Envoy Proxy in standalone DaemonSet. |
 | envoy.extraArgs | list | `[]` | Additional envoy container arguments. |

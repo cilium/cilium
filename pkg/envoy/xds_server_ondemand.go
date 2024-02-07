@@ -61,6 +61,13 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoy(wg *completion.WaitGroup) error 
 			// but then a failure to bind to the configured port would fail starting Envoy.
 			o.XDSServer.AddMetricsListener(uint16(option.Config.ProxyPrometheusPort), wg)
 		}
+
+		// Add Admin listener if the port is (properly) configured
+		if option.Config.ProxyAdminPort < 0 || option.Config.ProxyAdminPort > 65535 {
+			log.WithField(logfields.Port, option.Config.ProxyAdminPort).Error("Envoy: Invalid configured proxy-admin-port")
+		} else if option.Config.ProxyAdminPort != 0 {
+			o.XDSServer.AddAdminListener(uint16(option.Config.ProxyAdminPort), wg)
+		}
 	})
 
 	return startErr

@@ -228,6 +228,10 @@ data:
   {{- if .Values.envoy.prometheus.enabled }}
   proxy-prometheus-port: "{{ .Values.envoy.prometheus.port }}"
   {{- end }}
+
+  {{- if and .Values.envoy.debug.admin.enabled .Values.envoy.debug.admin.port }}
+  proxy-admin-port: "{{ .Values.envoy.debug.admin.port }}"
+  {{- end }}
 {{- end }}
 
 {{- if .Values.operator.prometheus.enabled }}
