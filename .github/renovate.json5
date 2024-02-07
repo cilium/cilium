@@ -10,6 +10,7 @@
   "includePaths": [
     ".github/actions/kvstore/**",
     ".github/actions/ginkgo/**",
+    ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
     ".github/workflows/**",
     ".github/kind-config.yaml",
