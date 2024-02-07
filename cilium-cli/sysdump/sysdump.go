@@ -2230,14 +2230,15 @@ func (c *Collector) SubmitTracingGopsSubtask(pods []*corev1.Pod, containerName s
 
 // SubmitLogsTasks submits tasks to collect kubernetes logs from pods.
 func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, limitBytes int64) error {
-	t := time.Now().Add(-since)
+	t := metav1.NewTime(time.Now().Add(-since))
 	for _, p := range pods {
 		p := p
 		allContainers := append(p.Spec.Containers, p.Spec.InitContainers...)
 		for _, d := range allContainers {
 			d := d
 			if err := c.Pool.Submit(fmt.Sprintf("logs-%s-%s", p.Name, d.Name), func(ctx context.Context) error {
-				l, err := c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name, t, limitBytes, false)
+				l, err := c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
+					corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Timestamps: true})
 				if err != nil {
 					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 				}
@@ -2254,7 +2255,8 @@ func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, lim
 				}
 				if previous {
 					c.logDebug("Collecting logs for restarted container %q in pod %q in namespace %q", d.Name, p.Name, p.Namespace)
-					u, err := c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name, t, limitBytes, true)
+					u, err := c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
+						corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Previous: true, Timestamps: true})
 					if err != nil {
 						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 					}
