@@ -7,17 +7,17 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-08-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/adal"
-	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v5"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -38,10 +38,10 @@ var (
 // Client represents an Azure API client
 type Client struct {
 	resourceGroup   string
-	interfaces      network.InterfacesClient
-	virtualnetworks network.VirtualNetworksClient
-	vmss            compute.VirtualMachineScaleSetVMsClient
-	vmscalesets     compute.VirtualMachineScaleSetsClient
+	interfaces      *armnetwork.InterfacesClient
+	virtualnetworks *armnetwork.VirtualNetworksClient
+	vmss            *armcompute.VirtualMachineScaleSetVMsClient
+	vmscalesets     *armcompute.VirtualMachineScaleSetsClient
 	limiter         *helpers.APILimiter
 	metricsAPI      MetricsAPI
 	usePrimary      bool
@@ -53,58 +53,88 @@ type MetricsAPI interface {
 	ObserveRateLimit(operation string, duration time.Duration)
 }
 
-func constructAuthorizer(env azure.Environment, userAssignedIdentityID string) (autorest.Authorizer, error) {
-	if userAssignedIdentityID != "" {
-		spToken, err := adal.NewServicePrincipalTokenFromManagedIdentity(env.ServiceManagementEndpoint, &adal.ManagedIdentityOptions{
-			ClientID: userAssignedIdentityID,
-		})
+var environments = map[string]cloud.Configuration{
+	"AZURECHINACLOUD":        cloud.AzureChina,
+	"AZURECLOUD":             cloud.AzurePublic,
+	"AZUREGERMANCLOUD":       cloud.AzurePublic,
+	"AZUREPUBLICCLOUD":       cloud.AzurePublic,
+	"AZUREUSGOVERNMENT":      cloud.AzureGovernment,
+	"AZUREUSGOVERNMENTCLOUD": cloud.AzureGovernment,
+}
+
+// cloudConfigurationFromName returns cloud configuration based on the common name specified.
+func cloudConfigurationFromName(name string) (cloud.Configuration, error) {
+	name = strings.ToUpper(name)
+	env, ok := environments[name]
+	if !ok {
+		return env, fmt.Errorf("There is no cloud configuration matching the name %q", name)
+	}
+
+	return env, nil
+}
+
+func constructCredential(policyClientOptions policy.ClientOptions, clientID string) (azcore.TokenCredential, error) {
+	if clientID != "" {
+		options := &azidentity.ManagedIdentityCredentialOptions{ClientOptions: policyClientOptions, ID: azidentity.ClientID(clientID)}
+		managedIdentityCredential, err := azidentity.NewManagedIdentityCredential(options)
 		if err != nil {
 			return nil, err
 		}
-
-		return autorest.NewBearerAuthorizer(spToken), nil
+		return azcore.TokenCredential(managedIdentityCredential), nil
 	} else {
-		// Authorizer based on file first and then environment variables
-		authorizer, err := auth.NewAuthorizerFromFile(env.ResourceManagerEndpoint)
-		if err == nil {
-			return authorizer, nil
+		options := &azidentity.EnvironmentCredentialOptions{ClientOptions: policyClientOptions}
+		environmentCredential, err := azidentity.NewEnvironmentCredential(options)
+		if err != nil {
+			return nil, err
 		}
-		return auth.NewAuthorizerFromEnvironment()
+		return azcore.TokenCredential(environmentCredential), nil
 	}
 }
 
 // NewClient returns a new Azure client
 func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID string, metrics MetricsAPI, rateLimit float64, burst int, usePrimary bool) (*Client, error) {
-	azureEnv, err := azure.EnvironmentFromName(cloudName)
+	cloudConfiguration, err := cloudConfigurationFromName(cloudName)
 	if err != nil {
 		return nil, err
+	}
+	telemetry := policy.TelemetryOptions{
+		ApplicationID: userAgent,
+	}
+	policyClientOptions := policy.ClientOptions{
+		Cloud:     cloudConfiguration,
+		Telemetry: telemetry,
+	}
+	credential, err := constructCredential(policyClientOptions, userAssignedIdentityID)
+	if err != nil {
+		return nil, err
+	}
+	options := &arm.ClientOptions{
+		ClientOptions: policyClientOptions,
 	}
 
 	c := &Client{
-		resourceGroup:   resourceGroup,
-		interfaces:      network.NewInterfacesClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
-		virtualnetworks: network.NewVirtualNetworksClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
-		vmss:            compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
-		vmscalesets:     compute.NewVirtualMachineScaleSetsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
-		metricsAPI:      metrics,
-		limiter:         helpers.NewAPILimiter(metrics, rateLimit, burst),
-		usePrimary:      usePrimary,
+		resourceGroup: resourceGroup,
+		metricsAPI:    metrics,
+		limiter:       helpers.NewAPILimiter(metrics, rateLimit, burst),
+		usePrimary:    usePrimary,
 	}
 
-	authorizer, err := constructAuthorizer(azureEnv, userAssignedIdentityID)
+	c.interfaces, err = armnetwork.NewInterfacesClient(subscriptionID, credential, options)
 	if err != nil {
 		return nil, err
 	}
-
-	c.interfaces.Authorizer = authorizer
-	c.interfaces.AddToUserAgent(userAgent)
-	c.virtualnetworks.Authorizer = authorizer
-	c.virtualnetworks.AddToUserAgent(userAgent)
-	c.vmss.Authorizer = authorizer
-	c.vmss.AddToUserAgent(userAgent)
-	c.vmscalesets.Authorizer = authorizer
-	c.vmscalesets.AddToUserAgent(userAgent)
-
+	c.virtualnetworks, err = armnetwork.NewVirtualNetworksClient(subscriptionID, credential, options)
+	if err != nil {
+		return nil, err
+	}
+	c.vmss, err = armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, credential, options)
+	if err != nil {
+		return nil, err
+	}
+	c.vmscalesets, err = armcompute.NewVirtualMachineScaleSetsClient(subscriptionID, credential, options)
+	if err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 
@@ -118,7 +148,7 @@ func deriveStatus(err error) string {
 }
 
 // describeNetworkInterfaces lists all Azure Interfaces in the client's resource group
-func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]network.Interface, error) {
+func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]armnetwork.Interface, error) {
 	networkInterfaces, err := c.vmssNetworkInterfaces(ctx)
 	if err != nil {
 		return nil, err
@@ -133,95 +163,76 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]network.Inter
 }
 
 // vmNetworkInterfaces list all interfaces of non-VMSS instances in the client's resource group
-func (c *Client) vmNetworkInterfaces(ctx context.Context) ([]network.Interface, error) {
-	var networkInterfaces []network.Interface
+func (c *Client) vmNetworkInterfaces(ctx context.Context) ([]armnetwork.Interface, error) {
+	var networkInterfaces []armnetwork.Interface
 
-	c.limiter.Limit(ctx, "Interfaces.ListComplete")
-	sinceStart := spanstat.Start()
-	result, err := c.interfaces.ListComplete(ctx, c.resourceGroup)
-	c.metricsAPI.ObserveAPICall("Interfaces.ListComplete", deriveStatus(err), sinceStart.Seconds())
-	if err != nil {
-		return nil, err
-	}
-
-	for result.NotDone() {
+	pager := c.interfaces.NewListPager(c.resourceGroup, nil)
+	for pager.More() {
+		c.limiter.Limit(ctx, "Interfaces.ListPager.NextPage")
+		sinceStart := spanstat.Start()
+		page, err := pager.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("Interfaces.ListPager.NextPage", deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
-		err = result.Next()
-
-		intf := result.Value()
-
-		if intf.Name == nil {
-			continue
+		for _, intf := range page.Value {
+			if intf.Name != nil {
+				networkInterfaces = append(networkInterfaces, *intf)
+			}
 		}
-		networkInterfaces = append(networkInterfaces, intf)
 	}
 
 	return networkInterfaces, nil
 }
 
 // vmssNetworkInterfaces list all interfaces from VMS in Scale Sets in the client's resource group
-func (c *Client) vmssNetworkInterfaces(ctx context.Context) ([]network.Interface, error) {
-	var networkInterfaces []network.Interface
+func (c *Client) vmssNetworkInterfaces(ctx context.Context) ([]armnetwork.Interface, error) {
+	var networkInterfaces []armnetwork.Interface
 
-	c.limiter.Limit(ctx, "VirtualMachineScaleSets.ListAll")
-	sinceStart := spanstat.Start()
-	result, err := c.vmscalesets.ListComplete(ctx, c.resourceGroup)
-	c.metricsAPI.ObserveAPICall("VirtualMachineScaleSets.ListAll", deriveStatus(err), sinceStart.Seconds())
-	if err != nil {
-		return nil, err
-	}
-
-	for result.NotDone() {
+	pager := c.vmscalesets.NewListPager(c.resourceGroup, nil)
+	for pager.More() {
+		c.limiter.Limit(ctx, "VirtualMachineScaleSets.ListPager.NextPage")
+		sinceStart := spanstat.Start()
+		page, err := pager.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("VirtualMachineScaleSets.ListPager.NextPage", deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
 
-		scaleset := result.Value()
-		err = result.Next()
-
-		if scaleset.Name == nil {
-			continue
-		}
-
-		c.limiter.Limit(ctx, "Interfaces.ListAll")
-		sinceStart := spanstat.Start()
-		result2, err2 := c.interfaces.ListVirtualMachineScaleSetNetworkInterfacesComplete(ctx, c.resourceGroup, *scaleset.Name)
-		c.metricsAPI.ObserveAPICall("Interfaces.ListVirtualMachineScaleSetNetworkInterfacesComplete", deriveStatus(err2), sinceStart.Seconds())
-		if err2 != nil {
-			// For scale set created by AKS node group (otherwise it will return an empty list) without any instances API will return not found. Then it can be skipped.
-			if v, ok := err2.(autorest.DetailedError); ok && v.StatusCode == http.StatusNotFound {
-				continue
+		for _, scaleset := range page.Value {
+			if scaleset.Name != nil {
+				pager2 := c.interfaces.NewListVirtualMachineScaleSetNetworkInterfacesPager(c.resourceGroup, *scaleset.Name, nil)
+				for pager2.More() {
+					c.limiter.Limit(ctx, "Interfaces.ListVirtualMachineScaleSetNetworkInterfacesPager.NextPage")
+					sinceStart := spanstat.Start()
+					page2, err2 := pager2.NextPage(ctx)
+					c.metricsAPI.ObserveAPICall("Interfaces.ListVirtualMachineScaleSetNetworkInterfacesPager.NextPage", deriveStatus(err2), sinceStart.Seconds())
+					if err2 != nil {
+						return nil, err2
+					}
+					for _, networkInterface := range page2.Value {
+						networkInterfaces = append(networkInterfaces, *networkInterface)
+					}
+				}
 			}
-			return nil, err2
-		}
-
-		for result2.NotDone() {
-			if err2 != nil {
-				return nil, err2
-			}
-
-			networkInterfaces = append(networkInterfaces, result2.Value())
-			err2 = result2.Next()
 		}
 	}
 
 	return networkInterfaces, nil
 }
 
-// parseInterfaces parses a network.Interface as returned by the Azure API
+// parseInterfaces parses a armnetwork.Interface as returned by the Azure API
 // converts it into a types.AzureInterface
-func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, i *types.AzureInterface) {
+func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, i *types.AzureInterface) {
 	i = &types.AzureInterface{}
 
-	if iface.VirtualMachine != nil && iface.VirtualMachine.ID != nil {
-		instanceID = strings.ToLower(*iface.VirtualMachine.ID)
+	if iface.Properties.VirtualMachine != nil && iface.Properties.VirtualMachine.ID != nil {
+		instanceID = strings.ToLower(*iface.Properties.VirtualMachine.ID)
 	}
 
-	if iface.MacAddress != nil {
+	if iface.Properties.MacAddress != nil {
 		// Azure API reports MAC addresses as AA-BB-CC-DD-EE-FF
-		i.MAC = strings.ReplaceAll(*iface.MacAddress, "-", ":")
+		i.MAC = strings.ReplaceAll(*iface.Properties.MacAddress, "-", ":")
 	}
 
 	if iface.ID != nil {
@@ -232,25 +243,25 @@ func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap, usePr
 		i.Name = *iface.Name
 	}
 
-	if iface.NetworkSecurityGroup != nil {
-		if iface.NetworkSecurityGroup.ID != nil {
-			i.SecurityGroup = *iface.NetworkSecurityGroup.ID
+	if iface.Properties.NetworkSecurityGroup != nil {
+		if iface.Properties.NetworkSecurityGroup.ID != nil {
+			i.SecurityGroup = *iface.Properties.NetworkSecurityGroup.ID
 		}
 	}
 
-	if iface.IPConfigurations != nil {
-		for _, ip := range *iface.IPConfigurations {
-			if !usePrimary && ip.Primary != nil && *ip.Primary {
+	if iface.Properties.IPConfigurations != nil {
+		for _, ip := range iface.Properties.IPConfigurations {
+			if !usePrimary && ip.Properties.Primary != nil && *ip.Properties.Primary {
 				continue
 			}
-			if ip.PrivateIPAddress != nil {
+			if ip.Properties.PrivateIPAddress != nil {
 				addr := types.AzureAddress{
-					IP:    *ip.PrivateIPAddress,
-					State: strings.ToLower(string(ip.ProvisioningState)),
+					IP:    *ip.Properties.PrivateIPAddress,
+					State: strings.ToLower(string(*ip.Properties.ProvisioningState)),
 				}
 
-				if ip.Subnet != nil {
-					addr.Subnet = *ip.Subnet.ID
+				if ip.Properties.Subnet != nil {
+					addr.Subnet = *ip.Properties.Subnet.ID
 					if subnet, ok := subnets[addr.Subnet]; ok {
 						if subnet.CIDR != nil {
 							i.CIDR = subnet.CIDR.String()
@@ -298,43 +309,39 @@ func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) 
 }
 
 // describeVpcs lists all VPCs
-func (c *Client) describeVpcs(ctx context.Context) ([]network.VirtualNetwork, error) {
-	c.limiter.Limit(ctx, "VirtualNetworks.List")
-
-	sinceStart := spanstat.Start()
-	result, err := c.virtualnetworks.ListAllComplete(ctx)
-	c.metricsAPI.ObserveAPICall("virtualnetworks.ListAll", deriveStatus(err), sinceStart.Seconds())
-	if err != nil {
-		return nil, err
-	}
-
-	var vpcs []network.VirtualNetwork
-	for result.NotDone() {
+func (c *Client) describeVpcs(ctx context.Context) ([]armnetwork.VirtualNetwork, error) {
+	pager := c.virtualnetworks.NewListAllPager(nil)
+	var vpcs []armnetwork.VirtualNetwork
+	for pager.More() {
+		c.limiter.Limit(ctx, "VirtualNetworks.ListAllPager.NextPage")
+		sinceStart := spanstat.Start()
+		page, err := pager.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("VirtualNetworks.ListAllPager.NextPage", deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
-
-		vpcs = append(vpcs, result.Value())
-		err = result.Next()
+		for _, vpc := range page.Value {
+			vpcs = append(vpcs, *vpc)
+		}
 	}
 
 	return vpcs, nil
 }
 
-func parseSubnet(subnet *network.Subnet) (s *ipamTypes.Subnet) {
+func parseSubnet(subnet *armnetwork.Subnet) (s *ipamTypes.Subnet) {
 	s = &ipamTypes.Subnet{ID: *subnet.ID}
 	if subnet.Name != nil {
 		s.Name = *subnet.Name
 	}
 
-	if subnet.AddressPrefix != nil {
-		c, err := cidr.ParseCIDR(*subnet.AddressPrefix)
+	if subnet.Properties.AddressPrefix != nil {
+		c, err := cidr.ParseCIDR(*subnet.Properties.AddressPrefix)
 		if err != nil {
 			return nil
 		}
 		s.CIDR = c
-		if subnet.IPConfigurations != nil {
-			s.AvailableAddresses = c.AvailableIPs() - len(*subnet.IPConfigurations)
+		if subnet.Properties.IPConfigurations != nil {
+			s.AvailableAddresses = c.AvailableIPs() - len(subnet.Properties.IPConfigurations)
 		}
 	}
 
@@ -359,12 +366,12 @@ func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetwor
 		vpc := &ipamTypes.VirtualNetwork{ID: *v.ID}
 		vpcs[vpc.ID] = vpc
 
-		if v.Subnets != nil {
-			for _, subnet := range *v.Subnets {
+		if v.Properties.Subnets != nil {
+			for _, subnet := range v.Properties.Subnets {
 				if subnet.ID == nil {
 					continue
 				}
-				if s := parseSubnet(&subnet); s != nil {
+				if s := parseSubnet(subnet); s != nil {
 					subnets[*subnet.ID] = s
 				}
 			}
@@ -380,21 +387,23 @@ func generateIpConfigName() string {
 
 // AssignPrivateIpAddressesVMSS assign a private IP to an interface attached to a VMSS instance
 func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error {
-	var netIfConfig *compute.VirtualMachineScaleSetNetworkConfiguration
+	var netIfConfig *armcompute.VirtualMachineScaleSetNetworkConfiguration
 
 	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.Get")
 	sinceStart := spanstat.Start()
-	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, compute.InstanceViewTypesInstanceView)
+	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView)})
 	c.metricsAPI.ObserveAPICall("VirtualMachineScaleSetVMs.Get", deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("failed to get VM %s from VMSS %s: %s", instanceID, vmssName, err)
 	}
 
+	parameters := result.VirtualMachineScaleSetVM
+
 	// Search for the existing network interface configuration
-	if result.NetworkProfileConfiguration != nil {
-		for _, networkInterfaceConfiguration := range *result.NetworkProfileConfiguration.NetworkInterfaceConfigurations {
-			if to.String(networkInterfaceConfiguration.Name) == interfaceName {
-				netIfConfig = &networkInterfaceConfiguration
+	if parameters.Properties.NetworkProfileConfiguration != nil {
+		for _, networkInterfaceConfiguration := range parameters.Properties.NetworkProfileConfiguration.NetworkInterfaceConfigurations {
+			if *networkInterfaceConfiguration.Name == interfaceName {
+				netIfConfig = networkInterfaceConfiguration
 				break
 			}
 		}
@@ -407,27 +416,27 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 	// All IPConfigurations on the NIC should reference the same set of Application Security Groups (ASGs).
 	// So we should first fetch the set of ASGs referenced by other IPConfigurations so that it can be
 	// added to the new IPConfigurations.
-	var appSecurityGroups *[]compute.SubResource
-	if ipConfigs := *netIfConfig.IPConfigurations; len(ipConfigs) > 0 {
-		appSecurityGroups = ipConfigs[0].ApplicationSecurityGroups
+	var appSecurityGroups []*armcompute.SubResource
+	if ipConfigs := netIfConfig.Properties.IPConfigurations; len(ipConfigs) > 0 {
+		appSecurityGroups = ipConfigs[0].Properties.ApplicationSecurityGroups
 	}
 
-	ipConfigurations := make([]compute.VirtualMachineScaleSetIPConfiguration, 0, addresses)
+	ipConfigurations := make([]*armcompute.VirtualMachineScaleSetIPConfiguration, 0, addresses)
 	for i := 0; i < addresses; i++ {
 		ipConfigurations = append(ipConfigurations,
-			compute.VirtualMachineScaleSetIPConfiguration{
-				Name: to.StringPtr(generateIpConfigName()),
-				VirtualMachineScaleSetIPConfigurationProperties: &compute.VirtualMachineScaleSetIPConfigurationProperties{
+			&armcompute.VirtualMachineScaleSetIPConfiguration{
+				Name: to.Ptr(generateIpConfigName()),
+				Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 					ApplicationSecurityGroups: appSecurityGroups,
-					PrivateIPAddressVersion:   compute.IPVersionIPv4,
-					Subnet:                    &compute.APIEntityReference{ID: to.StringPtr(subnetID)},
+					PrivateIPAddressVersion:   to.Ptr(armcompute.IPVersionIPv4),
+					Subnet:                    &armcompute.APIEntityReference{ID: to.Ptr(subnetID)},
 				},
 			},
 		)
 	}
 
-	ipConfigurations = append(*netIfConfig.IPConfigurations, ipConfigurations...)
-	netIfConfig.IPConfigurations = &ipConfigurations
+	ipConfigurations = append(netIfConfig.Properties.IPConfigurations, ipConfigurations...)
+	netIfConfig.Properties.IPConfigurations = ipConfigurations
 
 	// Unset imageReference, because if this contains a reference to an image from the
 	// Azure Compute Gallery, including this reference in an update to the VMSS instance
@@ -435,21 +444,21 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 	// subscription ID.
 	// Removing the image reference indicates to the API that we don't want to change it.
 	// See https://github.com/Azure/AKS/issues/1819.
-	if result.StorageProfile != nil {
-		result.StorageProfile.ImageReference = nil
+	if parameters.Properties.StorageProfile != nil {
+		parameters.Properties.StorageProfile.ImageReference = nil
 	}
 
-	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.Update")
+	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.BeginUpdate")
 	sinceStart = spanstat.Start()
-	future, err := c.vmss.Update(ctx, c.resourceGroup, vmssName, instanceID, result)
-	defer c.metricsAPI.ObserveAPICall("VirtualMachineScaleSetVMs.Update", deriveStatus(err), sinceStart.Seconds())
+	poller, err := c.vmss.BeginUpdate(ctx, c.resourceGroup, vmssName, instanceID, parameters, nil)
+	defer c.metricsAPI.ObserveAPICall("VirtualMachineScaleSetVMs.BeginUpdate", deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("unable to update virtualmachinescaleset: %s", err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, c.vmss.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("error while waiting for virtualmachinescalesets.Update() to complete: %s", err)
+		return fmt.Errorf("error while waiting for virtualmachinescalesets.BeginUpdate() to complete: %s", err)
 	}
 	return nil
 }
@@ -458,48 +467,49 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {
 	c.limiter.Limit(ctx, "Interfaces.Get")
 	sinceStart := spanstat.Start()
-	iface, err := c.interfaces.Get(ctx, c.resourceGroup, interfaceName, "")
+	iface, err := c.interfaces.Get(ctx, c.resourceGroup, interfaceName, nil)
 	c.metricsAPI.ObserveAPICall("Interfaces.Get", deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("failed to get standalone instance's interface %s: %s", interfaceName, err)
 	}
 
+	parameters := iface.Interface
 	// All IPConfigurations on the NIC should reference the same set of Application Security Groups (ASGs).
 	// So we should first fetch the set of ASGs referenced by other IPConfigurations so that it can be
 	// added to the new IPConfigurations.
-	var appSecurityGroups *[]network.ApplicationSecurityGroup
-	if ipConfigs := *iface.IPConfigurations; len(ipConfigs) > 0 {
-		appSecurityGroups = ipConfigs[0].ApplicationSecurityGroups
+	var appSecurityGroups []*armnetwork.ApplicationSecurityGroup
+	if ipConfigs := parameters.Properties.IPConfigurations; len(ipConfigs) > 0 {
+		appSecurityGroups = ipConfigs[0].Properties.ApplicationSecurityGroups
 	}
 
-	ipConfigurations := make([]network.InterfaceIPConfiguration, 0, addresses)
+	ipConfigurations := make([]*armnetwork.InterfaceIPConfiguration, 0, addresses)
 	for i := 0; i < addresses; i++ {
-		ipConfigurations = append(ipConfigurations, network.InterfaceIPConfiguration{
-			Name: to.StringPtr(generateIpConfigName()),
-			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
+		ipConfigurations = append(ipConfigurations, &armnetwork.InterfaceIPConfiguration{
+			Name: to.Ptr(generateIpConfigName()),
+			Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
 				ApplicationSecurityGroups: appSecurityGroups,
-				PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
-				Subnet: &network.Subnet{
-					ID: to.StringPtr(subnetID),
+				PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+				Subnet: &armnetwork.Subnet{
+					ID: to.Ptr(subnetID),
 				},
 			},
 		})
 	}
 
-	ipConfigurations = append(*iface.IPConfigurations, ipConfigurations...)
-	iface.IPConfigurations = &ipConfigurations
+	ipConfigurations = append(parameters.Properties.IPConfigurations, ipConfigurations...)
+	parameters.Properties.IPConfigurations = ipConfigurations
 
-	c.limiter.Limit(ctx, "Interfaces.CreateOrUpdate")
+	c.limiter.Limit(ctx, "Interfaces.BeginCreateOrUpdate")
 	sinceStart = spanstat.Start()
-	future, err := c.interfaces.CreateOrUpdate(ctx, c.resourceGroup, interfaceName, iface)
-	defer c.metricsAPI.ObserveAPICall("Interfaces.CreateOrUpdate", deriveStatus(err), sinceStart.Seconds())
+	poller, err := c.interfaces.BeginCreateOrUpdate(ctx, c.resourceGroup, interfaceName, parameters, nil)
+	defer c.metricsAPI.ObserveAPICall("Interfaces.BeginCreateOrUpdate", deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("unable to update interface %s: %s", interfaceName, err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, c.interfaces.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("error while waiting for interface.CreateOrUpdate() to complete for %s: %s", interfaceName, err)
+		return fmt.Errorf("error while waiting for interface.BeginCreateOrUpdate() to complete for %s: %s", interfaceName, err)
 	}
 
 	return nil

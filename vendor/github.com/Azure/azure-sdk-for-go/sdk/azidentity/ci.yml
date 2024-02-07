@@ -1,0 +1,34 @@
+# NOTE: Please refer to https://aka.ms/azsdk/engsys/ci-yaml before editing this file.
+trigger:
+  branches:
+    include:
+      - main
+      - feature/*
+      - hotfix/*
+      - release/*
+  paths:
+    include:
+    - sdk/azidentity/
+
+pr:
+  branches:
+    include:
+      - main
+      - feature/*
+      - hotfix/*
+      - release/*
+  paths:
+    include:
+    - sdk/azidentity/
+
+stages:
+- template: /eng/pipelines/templates/jobs/archetype-sdk-client.yml
+  parameters:
+    RunLiveTests: true
+    ServiceDirectory: 'azidentity'
+    CloudConfig:
+      Public:
+        SubscriptionConfigurations:
+          - $(sub-config-azure-cloud-test-resources)
+          # Contains alternate tenant, AAD app and cert info for testing
+          - $(sub-config-identity-test-resources)
