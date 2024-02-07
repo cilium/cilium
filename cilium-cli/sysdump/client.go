@@ -6,7 +6,6 @@ package sysdump
 import (
 	"bytes"
 	"context"
-	"time"
 
 	"github.com/blang/semver/v4"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -37,7 +36,7 @@ type KubernetesClient interface {
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
 	GetStatefulSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.StatefulSet, error)
 	GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error)
-	GetLogs(ctx context.Context, namespace, name, container string, sinceTime time.Time, limitBytes int64, previous bool) (string, error)
+	GetLogs(ctx context.Context, namespace, name, container string, opts corev1.PodLogOptions) (string, error)
 	GetPodsTable(ctx context.Context) (*metav1.Table, error)
 	ProxyGet(ctx context.Context, namespace, name, url string) (string, error)
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)

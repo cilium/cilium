@@ -7,11 +7,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/blang/semver/v4"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
@@ -72,18 +72,17 @@ type podInfo struct {
 }
 
 func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
-	var since time.Time
-
 	pods, err := n.allCiliumPods(ctx, t.Context())
 	if err != nil {
 		t.Fatalf("Error retrieving Cilium pods: %s", err)
 	}
 
+	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
 	for pod, info := range pods {
 		client := info.client
 		for _, container := range info.containers {
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
-			logs, err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, since, sysdump.DefaultLogsLimitBytes, false)
+			logs, err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts)
 			if err != nil {
 				t.Fatalf("Error reading Cilium logs: %s", err)
 			}
