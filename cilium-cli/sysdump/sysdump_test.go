@@ -338,7 +338,7 @@ func (c *fakeClient) GetDeployment(_ context.Context, _, _ string, _ metav1.GetO
 	return nil, nil
 }
 
-func (c *fakeClient) GetLogs(_ context.Context, _, _, _ string, _ time.Time, _ int64, _ bool) (string, error) {
+func (c *fakeClient) GetLogs(_ context.Context, _, _, _ string, _ corev1.PodLogOptions) (string, error) {
 	panic("implement me")
 }
 
