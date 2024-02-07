@@ -157,6 +157,9 @@ const (
 	// GopsPort is the TCP port for the gops server.
 	GopsPort = "gops-port"
 
+	// ProxyAdminPort specifies the port to serve Cilium Envoy Admin API on.
+	ProxyAdminPort = "proxy-admin-port"
+
 	// ProxyPrometheusPort specifies the port to serve Cilium host proxy metrics on.
 	ProxyPrometheusPort = "proxy-prometheus-port"
 
@@ -1596,6 +1599,9 @@ type DaemonConfig struct {
 	// ProxyGID specifies the group ID that has access to unix domain sockets opened by Cilium
 	// agent for proxy configuration and access logging.
 	ProxyGID int
+
+	// ProxyAdminPort specifies the port to serve Envoy admin on.
+	ProxyAdminPort int
 
 	// ProxyPrometheusPort specifies the port to serve Envoy metrics on.
 	ProxyPrometheusPort int
@@ -3105,6 +3111,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ProcFs = vp.GetString(ProcFs)
 	c.ProxyConnectTimeout = vp.GetInt(ProxyConnectTimeout)
 	c.ProxyGID = vp.GetInt(ProxyGID)
+	c.ProxyAdminPort = vp.GetInt(ProxyAdminPort)
 	c.ProxyPrometheusPort = vp.GetInt(ProxyPrometheusPort)
 	c.ProxyMaxRequestsPerConnection = vp.GetInt(ProxyMaxRequestsPerConnection)
 	c.ProxyMaxConnectionDuration = time.Duration(vp.GetInt64(ProxyMaxConnectionDuration))
