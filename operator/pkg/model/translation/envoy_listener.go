@@ -11,6 +11,7 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_extensions_listener_proxy_protocol_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/proxy_protocol/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
+	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/proto"
@@ -51,6 +52,37 @@ func WithProxyProtocol() ListenerMutator {
 			},
 		}
 		listener.ListenerFilters = append([]*envoy_config_listener.ListenerFilter{proxyListener}, listener.ListenerFilters...)
+		return listener
+	}
+}
+
+func WithXffNumTrustedHops(xff uint32) ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		if xff == 0 {
+			return listener
+		}
+		for _, filterChain := range listener.FilterChains {
+			for _, filter := range filterChain.Filters {
+				if filter.Name == httpConnectionManagerType {
+					tc := filter.GetTypedConfig()
+					switch tc.GetTypeUrl() {
+					case envoy.HttpConnectionManagerTypeURL:
+						hcm, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
+						}
+						hcmConfig, ok := hcm.(*httpConnectionManagerv3.HttpConnectionManager)
+						if !ok {
+							continue
+						}
+						hcmConfig.XffNumTrustedHops = xff
+						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(hcmConfig),
+						}
+					}
+				}
+			}
+		}
 		return listener
 	}
 }
@@ -135,7 +167,7 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 	insecureHttpConnectionManager, err := NewHTTPConnectionManager(
 		insecureHttpConnectionManagerName,
 		insecureHttpConnectionManagerName,
-		WithXffNumTrustedHops())
+	)
 	if err != nil {
 		return ciliumv2.XDSResource{}, err
 	}
@@ -156,8 +188,7 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
 		secureHttpConnectionManager, err := NewHTTPConnectionManager(
 			secureHttpConnectionManagerName,
-			secureHttpConnectionManagerName,
-			WithXffNumTrustedHops())
+			secureHttpConnectionManagerName)
 		if err != nil {
 			return ciliumv2.XDSResource{}, err
 		}
