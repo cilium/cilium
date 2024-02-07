@@ -6,11 +6,13 @@ package loadinfo
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/mackerelio/go-osstat/loadavg"
 	"github.com/mackerelio/go-osstat/memory"
-	"github.com/shirou/gopsutil/v3/process"
+	"github.com/prometheus/procfs"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -40,6 +42,34 @@ func toPercent(part uint64, total uint64) float64 {
 	return float64(part) / float64(total) * 100
 }
 
+func pids() (pids []int, err error) {
+	//scan /proc/*/exe to find all active processes
+	matches, err := filepath.Glob("/proc/[0-9]*/exe")
+	if err != nil {
+		return nil, err
+	}
+
+	pids = []int{}
+	for _, file := range matches {
+		//extract the pid from the path
+		pid := filepath.Base(filepath.Dir(file))
+		ipid, _ := strconv.Atoi(pid)
+		pids = append(pids, ipid)
+	}
+
+	return
+}
+
+func cpuPercent(stat procfs.ProcStat) float64 {
+	starttime, err := stat.StartTime()
+	if err != nil {
+		return 0
+	}
+
+	// calculate the percentage of CPU used since the process started
+	return (stat.CPUTime() / (float64(time.Now().Unix()) - starttime) * 100)
+}
+
 // LogCurrentSystemLoad logs the current system load and lists all processes
 // consuming more than cpuWatermark of the CPU
 func LogCurrentSystemLoad(logFunc LogFunc) {
@@ -58,25 +88,39 @@ func LogCurrentSystemLoad(logFunc LogFunc) {
 			toMB(memInfo.SwapTotal), toMB(memInfo.SwapUsed), toPercent(memInfo.SwapUsed, memInfo.SwapTotal), toMB(memInfo.SwapFree))
 	}
 
-	procs, err := process.Processes()
+	pids, err := pids()
 	if err == nil {
-		for _, p := range procs {
-			cpuPercent, _ := p.CPUPercent()
-			if cpuPercent > cpuWatermark {
-				name, _ := p.Name()
-				status, _ := p.Status()
-				memPercent, _ := p.MemoryPercent()
-				cmdline, _ := p.Cmdline()
+		for _, pid := range pids {
+			procfs, err := procfs.NewProc(pid)
+			if err != nil {
+				// Process might have exited in the meantime
+				continue
+			}
 
-				memExt := ""
-				if memInfo, err := p.MemoryInfo(); memInfo != nil && err == nil {
-					memExt = fmt.Sprintf("RSS: %d VMS: %d Data: %d Stack: %d Locked: %d Swap: %d",
-						toMB(memInfo.RSS), toMB(memInfo.VMS), toMB(memInfo.Data),
-						toMB(memInfo.Stack), toMB(memInfo.Locked), toMB(memInfo.Swap))
-				}
+			stat, err := procfs.Stat()
+			if err != nil {
+				// Process might have exited in the meantime
+				continue
+			}
+
+			psStatus, err := procfs.NewStatus()
+			if err != nil {
+				continue
+			}
+
+			cpuPercent := cpuPercent(stat)
+			if cpuPercent > cpuWatermark {
+				name, _ := procfs.Comm()
+				status := stat.State
+				memPercent := float64(psStatus.VmRSS) * 100 / float64(memInfo.Total)
+				cmdline, _ := procfs.CmdLine()
+
+				memExt := fmt.Sprintf("RSS: %d VMS: %d Data: %d Stack: %d Locked: %d Swap: %d",
+					toMB(psStatus.VmRSS), toMB(psStatus.VmSize), toMB(psStatus.VmData),
+					toMB(psStatus.VmStk), toMB(psStatus.VmLck), toMB(psStatus.VmSwap))
 
 				logFunc("NAME %s STATUS %s PID %d CPU: %.2f%% MEM: %.2f%% CMDLINE: %s MEM-EXT: %s",
-					name, status, p.Pid, cpuPercent, memPercent, cmdline, memExt)
+					name, status, pid, cpuPercent, memPercent, cmdline, memExt)
 			}
 		}
 	}
