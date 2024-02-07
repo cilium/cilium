@@ -1941,6 +1941,14 @@ envoy:
   # -- DNS policy for Cilium envoy pods.
   # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
   dnsPolicy: ~
+  debug:
+    admin:
+      # -- Enable admin interface for cilium-envoy.
+      # This is useful for debugging and should not be enabled in production.
+      enabled: false
+      # -- Port number (bound to loopback interface).
+      # kubectl port-forward can be used to access the admin interface.
+      port: 9901
   # -- Configure Cilium Envoy Prometheus options.
   # Note that some of these apply to either cilium-agent or cilium-envoy.
   prometheus:

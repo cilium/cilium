@@ -215,6 +215,10 @@ func (*fakeXdsServer) AddListener(name string, kind policy.L7ParserType, port ui
 	panic("unimplemented")
 }
 
+func (*fakeXdsServer) AddAdminListener(port uint16, wg *completion.WaitGroup) {
+	panic("unimplemented")
+}
+
 func (*fakeXdsServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }
