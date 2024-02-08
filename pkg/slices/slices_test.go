@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -63,10 +64,11 @@ func TestUnique(t *testing.T) {
 func TestUniqueFunc(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			input := slices.Clone(tc.input)
 			got := UniqueFunc(
-				tc.input,
+				input,
 				func(i int) int {
-					return tc.input[i]
+					return input[i]
 				},
 			)
 			assert.ElementsMatch(t, tc.expected, got)
@@ -77,7 +79,8 @@ func TestUniqueFunc(t *testing.T) {
 func TestSortedUnique(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := SortedUnique(tc.input)
+			input := slices.Clone(tc.input)
+			got := SortedUnique(input)
 			assert.ElementsMatch(t, tc.expected, got)
 		})
 	}
@@ -86,10 +89,11 @@ func TestSortedUnique(t *testing.T) {
 func TestSortedUniqueFunc(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			input := slices.Clone(tc.input)
 			got := SortedUniqueFunc(
-				tc.input,
+				input,
 				func(i, j int) bool {
-					return tc.input[i] < tc.input[j]
+					return input[i] < input[j]
 				},
 				func(a, b int) bool {
 					return a == b
