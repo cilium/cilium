@@ -488,6 +488,44 @@ func addRoute(p addRouteParams) error {
 	return nil
 }
 
+func delRoute(p addRouteParams) error {
+	link, err := netlink.LinkByName(p.iface)
+	if err != nil {
+		return err
+	}
+
+	var dst *net.IPNet
+	if p.dst != "" {
+		_, dst, err = net.ParseCIDR(p.dst)
+		if err != nil {
+			return err
+		}
+	}
+
+	var src net.IP
+	if p.src != "" {
+		src = net.ParseIP(p.src)
+	}
+
+	if p.table == 0 {
+		p.table = unix.RT_TABLE_MAIN
+	}
+
+	route := &netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Dst:       dst,
+		Src:       src,
+		Gw:        net.ParseIP(p.gw),
+		Table:     p.table,
+		Scope:     p.scope,
+	}
+	if err := netlink.RouteDel(route); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func delRoutes(iface string) error {
 	link, err := netlink.LinkByName(iface)
 	if err != nil {
