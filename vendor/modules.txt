@@ -589,9 +589,10 @@ github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v5.9.0+incompatible
 ## explicit
 github.com/evanphx/json-patch
-# github.com/evanphx/json-patch/v5 v5.7.0
+# github.com/evanphx/json-patch/v5 v5.9.0
 ## explicit; go 1.18
 github.com/evanphx/json-patch/v5
+github.com/evanphx/json-patch/v5/internal/json
 # github.com/fatih/color v1.16.0
 ## explicit; go 1.17
 github.com/fatih/color
