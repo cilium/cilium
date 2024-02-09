@@ -4,6 +4,7 @@
 package tables
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net/netip"
 
@@ -53,12 +54,12 @@ type RouteID struct {
 }
 
 func (id RouteID) Key() index.Key {
-	key := append(index.Uint64(uint64(id.Table)), '+')
-	key = append(key, index.Uint64(uint64(id.Table))...)
-	key = append(key, '+')
-	key = append(key, index.NetIPPrefix(id.Dst)...)
-	key = append(key, 0 /* termination */)
-	return key
+	key := make([]byte, 0, 4 /* table */ +4 /* link */ +17 /* prefix & bits */)
+	key = binary.BigEndian.AppendUint32(key, uint32(id.Table))
+	key = binary.BigEndian.AppendUint32(key, uint32(id.LinkIndex))
+	addrBytes := id.Dst.Addr().As16()
+	key = append(key, addrBytes[:]...)
+	return append(key, uint8(id.Dst.Bits()))
 }
 
 type Route struct {
