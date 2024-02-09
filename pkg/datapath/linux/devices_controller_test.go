@@ -7,6 +7,7 @@ package linux
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/netip"
@@ -84,13 +85,35 @@ func TestDevicesController(t *testing.T) {
 
 	logging.SetLogLevelToDebug()
 
-	routeExists := func(routes []*tables.Route, linkIndex int, dst, src string) bool {
+	addrToString := func(addr netip.Addr) string {
+		if !addr.IsValid() {
+			return ""
+		}
+		return addr.String()
+	}
+
+	routeExists := func(routes []*tables.Route, linkIndex int, dst, src, gw string) bool {
 		for _, r := range routes {
-			if r.LinkIndex == linkIndex && r.Dst.String() == dst && r.Src.String() == src {
+			// undefined IP will stringify as "invalid IP", turn them into "".
+			actualDst, actualSrc, actualGw := r.Dst.String(), addrToString(r.Src), addrToString(r.Gw)
+			/*fmt.Printf("%d %s %s %s -- %d %s %s %s\n",
+			r.LinkIndex, actualDst, actualSrc, actualGw,
+			linkIndex, dst, src, gw)*/
+			if r.LinkIndex == linkIndex && actualDst == dst && actualSrc == src &&
+				actualGw == gw {
 				return true
 			}
 		}
 		return false
+	}
+
+	v4Routes := func(routes []*tables.Route) (out []*tables.Route) {
+		for _, r := range routes {
+			if r.Dst.Addr().Is4() {
+				out = append(out, r)
+			}
+		}
+		return
 	}
 
 	orphanRoutes := func(devs []*tables.Device, routes []*tables.Route) bool {
@@ -126,7 +149,7 @@ func TestDevicesController(t *testing.T) {
 					devs[0].Name == "dummy0" &&
 					devs[0].Index > 0 &&
 					devs[0].Selected &&
-					routeExists(routes, devs[0].Index, "192.168.0.0/24", "192.168.0.1")
+					routeExists(routes, devs[0].Index, "192.168.0.0/24", "192.168.0.1", "")
 			},
 		},
 		{
@@ -134,17 +157,21 @@ func TestDevicesController(t *testing.T) {
 			func(t *testing.T) {
 				// Create another dummy to check that the table updates.
 				require.NoError(t, createDummy("dummy1", "192.168.1.1/24", false))
+
+				// Add a default route
+				assert.NoError(t,
+					addRoute(addRouteParams{iface: "dummy1", gw: "192.168.1.254", table: unix.RT_TABLE_MAIN}))
 			},
 			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
 				// Since we're indexing by ifindex, we expect these to be in the order
 				// they were added.
 				return len(devs) == 2 &&
 					"dummy0" == devs[0].Name &&
-					routeExists(routes, devs[0].Index, "192.168.0.0/24", "192.168.0.1") &&
+					routeExists(routes, devs[0].Index, "192.168.0.0/24", "192.168.0.1", "") &&
 					devs[0].Selected &&
 					"dummy1" == devs[1].Name &&
 					devs[1].Selected &&
-					routeExists(routes, devs[1].Index, "192.168.1.0/24", "192.168.1.1")
+					routeExists(routes, devs[1].Index, "192.168.1.0/24", "192.168.1.1", "")
 			},
 		},
 
@@ -178,32 +205,62 @@ func TestDevicesController(t *testing.T) {
 		},
 
 		{
+			"veth-with-default-gw",
+			func(t *testing.T) {
+				// Remove default route from dummy1
+				assert.NoError(t,
+					delRoute(addRouteParams{iface: "dummy1", gw: "192.168.1.254", table: unix.RT_TABLE_MAIN}))
+
+				// And add one for veth0.
+				assert.NoError(t,
+					addRoute(addRouteParams{iface: "veth0", gw: "192.168.4.254", table: unix.RT_TABLE_MAIN}))
+			},
+			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
+				return len(devs) == 3 &&
+					devs[0].Name == "dummy0" &&
+					devs[1].Name == "dummy1" &&
+					devs[2].Name == "veth0" &&
+					containsAddress(devs[2], "192.168.4.1", primaryAddress) &&
+					routeExists(routes, devs[2].Index, "0.0.0.0/0", "", "192.168.4.254")
+			},
+		},
+
+		{
+			"check-all-v4-routes",
+			func(t *testing.T) {},
+			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
+				routes = v4Routes(routes)
+				json, _ := json.Marshal(routes)
+				os.WriteFile("/tmp/routes.json", json, 0644)
+				return routeExists(routes, devs[0].Index, "192.168.0.0/24", "192.168.0.1", "") &&
+					routeExists(routes, devs[0].Index, "192.168.0.1/32", "192.168.0.1", "") &&
+					routeExists(routes, devs[0].Index, "192.168.0.255/32", "192.168.0.1", "") &&
+
+					routeExists(routes, devs[1].Index, "192.168.1.0/24", "192.168.1.1", "") &&
+					routeExists(routes, devs[1].Index, "192.168.1.1/32", "192.168.1.1", "") &&
+					routeExists(routes, devs[1].Index, "192.168.1.2/32", "192.168.1.1", "") &&
+					routeExists(routes, devs[1].Index, "192.168.1.255/32", "192.168.1.1", "") &&
+
+					routeExists(routes, devs[2].Index, "192.168.4.0/24", "192.168.4.1", "") &&
+					routeExists(routes, devs[2].Index, "192.168.4.1/32", "192.168.4.1", "") &&
+					routeExists(routes, devs[2].Index, "192.168.4.255/32", "192.168.4.1", "") &&
+					routeExists(routes, devs[2].Index, "0.0.0.0/0", "", "192.168.4.254") &&
+					len(routes) == 11
+			},
+		},
+
+		{
 			"delete-dummy0",
 			func(t *testing.T) {
 				require.NoError(t, deleteLink("dummy0"))
 			},
 			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
-				return len(devs) == 1 &&
+				return len(devs) == 2 &&
 					"dummy1" == devs[0].Name &&
-					containsAddress(devs[0], "192.168.1.1", primaryAddress)
+					"veth0" == devs[1].Name
 			},
 		},
 
-		{
-			"veth-with-default-gw",
-			func(t *testing.T) {
-				assert.NoError(t,
-					addRoute(addRouteParams{iface: "veth0", gw: "192.168.4.254", table: unix.RT_TABLE_MAIN}))
-			},
-			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
-				return len(devs) == 2 &&
-					devs[0].Name == "dummy1" &&
-					devs[0].Selected &&
-					devs[1].Name == "veth0" &&
-					containsAddress(devs[1], "192.168.4.1", primaryAddress) &&
-					devs[1].Selected
-			},
-		},
 		{
 			"bond-is-selected",
 			func(t *testing.T) {
