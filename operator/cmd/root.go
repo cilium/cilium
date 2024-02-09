@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cilium/cilium/operator/doublewrite"
 	"os"
 	"path/filepath"
 	"sync"
@@ -163,6 +164,16 @@ var (
 			}
 		}),
 
+		cell.Provide(func(
+			operatorCfg *operatorOption.OperatorConfig,
+			daemonCfg *option.DaemonConfig,
+		) endpointgc.SharedConfig {
+			return endpointgc.SharedConfig{
+				Interval:                 operatorCfg.EndpointGCInterval,
+				DisableCiliumEndpointCRD: daemonCfg.DisableCiliumEndpointCRD,
+			}
+		}),
+
 		api.HealthHandlerCell(
 			kvstoreEnabled,
 			isLeader.Load,
@@ -195,6 +206,10 @@ var (
 			// setup operations. This is a hacky workaround until the kvstore is
 			// refactored into a proper cell.
 			identitygc.Cell,
+
+			// When the Double Write Identity Allocation mode is enabled, the Double Write
+			// Metric Reporter helps with monitoring the state of identities in KVStore and CRD
+			doublewrite.Cell,
 
 			// CiliumEndpointSlice controller depends on the CiliumEndpoint and
 			// CiliumEndpointSlice resources. It reconciles the state of CESs in the
@@ -444,6 +459,7 @@ func kvstoreEnabled() bool {
 	}
 
 	return option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWrite ||
 		operatorOption.Config.SyncK8sServices ||
 		operatorOption.Config.SyncK8sNodes
 }
@@ -701,9 +717,9 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD || option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWrite {
 		if !legacy.clientset.IsEnabled() {
-			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
+			log.Fatalf("%s Identity allocation mode requires k8s to be configured.", option.Config.IdentityAllocationMode)
 		}
 		if operatorOption.Config.EndpointGCInterval == 0 {
 			log.Fatal("Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
