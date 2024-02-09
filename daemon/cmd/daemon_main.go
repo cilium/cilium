@@ -459,6 +459,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(vp, option.IdentityAllocationMode)
 
+	flags.Bool(option.IdentityAllocationModeDoubleWriteReadFromKVStore, true, "Whether to read from the KVStore when using the Double-Write identity allocation mode")
+	option.BindEnv(vp, option.IdentityAllocationModeDoubleWriteReadFromKVStore)
+
 	flags.String(option.IPAM, ipamOption.IPAMClusterPool, "Backend to use for IPAM")
 	option.BindEnv(vp, option.IPAM)
 

@@ -123,6 +123,16 @@ func registerGC(p params) {
 				return gc.startCRDModeGC(ctx)
 			case option.IdentityAllocationModeKVstore:
 				return gc.startKVStoreModeGC(ctx)
+			case option.IdentityAllocationModeDoubleWrite:
+				crdErr := gc.startCRDModeGC(ctx)
+				if crdErr != nil {
+					log.WithError(crdErr).Error("Unable to start CRD mode GC")
+				}
+				kvStoreErr := gc.startKVStoreModeGC(ctx)
+				if kvStoreErr != nil {
+					log.WithError(kvStoreErr).Error("Unable to start KVStore mode GC")
+				}
+				return nil
 			default:
 				return fmt.Errorf("unknown Cilium identity allocation mode: %q", gc.allocationMode)
 			}

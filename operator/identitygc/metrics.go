@@ -15,6 +15,9 @@ const (
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
 
+	// LabelIdentityType indicates the type of identity which was garbage collected (KVStore vs CRD)
+	LabelIdentityType = "identity_type"
+
 	// Label values
 
 	// LabelValueOutcomeSuccess is used as a successful outcome of an operation
@@ -28,6 +31,12 @@ const (
 
 	// LabelValueOutcomeDeleted is used as outcome of deleted identity entries
 	LabelValueOutcomeDeleted = "deleted"
+
+	// LabelIdentityTypeKVStore is used to indicate that the identity was garbage collected from the KVStore
+	LabelIdentityTypeKVStore = "kvstore"
+
+	// LabelIdentityTypeCRD is used to indicate that the identity which was garbage collected was a CRD object
+	LabelIdentityTypeCRD = "crd"
 )
 
 func NewMetrics() *Metrics {
@@ -36,13 +45,13 @@ func NewMetrics() *Metrics {
 			Namespace: metrics.CiliumOperatorNamespace,
 			Name:      "identity_gc_entries",
 			Help:      "The number of alive and deleted identities at the end of a garbage collector run",
-		}, []string{LabelStatus}),
+		}, []string{LabelStatus, LabelIdentityType}),
 
 		IdentityGCRuns: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Name:      "identity_gc_runs",
 			Help:      "The number of times identity garbage collector has run",
-		}, []string{LabelOutcome}),
+		}, []string{LabelOutcome, LabelIdentityType}),
 	}
 }
 
