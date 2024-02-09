@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -22,6 +23,18 @@ const (
 	// DefaultPrometheusNamespace is the default namespace (prefix) used
 	// for all Hubble related Prometheus metrics
 	DefaultPrometheusNamespace = "hubble"
+
+	// HubblePrefix is the common prefix for Hubble related labels.
+	HubblePrefix = "hubble.cilium.io"
+
+	// HubbleNoMetricsKey is the annotation name used to disable metrics for a given pod or namespace
+	HubbleNoMetricsKey = HubblePrefix + "/no-metrics"
+
+	// HubbleNoMetricsPodLabel is the label used to disable metrics for a given pod
+	HubbleNoMetricsPodLabel = "k8s:" + HubbleNoMetricsKey + "=true"
+
+	// HubbleNoMetricsNamespaceLabel is the label used to disable metrics for a given namespace
+	HubbleNoMetricsNamespaceLabel = "k8s:" + k8sConst.PodNamespaceMetaLabels + "." + HubbleNoMetricsKey + "=true"
 )
 
 // Map is a set of metrics with their corresponding options
@@ -145,4 +158,23 @@ var registry = NewRegistry(
 // DefaultRegistry returns the default registry of all available metric plugins
 func DefaultRegistry() *Registry {
 	return registry
+}
+
+// allowEndPointMetrics checks labels of the pod and namespace to determine if
+// metrics should be collected for the endpoint. If the pod or namespace has the
+// HubbleNoMetricsKey label set to true, then metrics are not collected.
+func allowEndPointMetrics(ep *pb.Endpoint) bool {
+	labels := ep.GetLabels()
+	if labels == nil {
+		return true
+	}
+
+	for _, label := range labels {
+		if label == HubbleNoMetricsPodLabel ||
+			label == HubbleNoMetricsNamespaceLabel {
+			return false
+		}
+	}
+
+	return true
 }

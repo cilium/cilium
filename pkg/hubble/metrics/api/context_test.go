@@ -285,6 +285,51 @@ func TestParseGetLabelValues(t *testing.T) {
 			"unknown",
 		},
 	)
+
+	sourceEndpoint1 := &pb.Endpoint{
+		Namespace: "foo-ns",
+		PodName:   "foo-deploy-pod",
+		Workloads: []*pb.Workload{{
+			Name: "foo-deploy",
+			Kind: "Deployment",
+		}},
+		Labels: []string{
+			"k8s:app=fooapp",
+			"k8s:io.cilium.k8s.namespace.labels.hubble.cilium.io/no-metrics=true",
+		},
+	}
+	destinationEndpoint1 := &pb.Endpoint{
+		Namespace: "bar-ns",
+		PodName:   "bar-deploy-pod",
+		Workloads: []*pb.Workload{{
+			Name: "bar-deploy",
+			Kind: "StatefulSet",
+		}},
+		Labels: []string{
+			"k8s:app=barapp",
+			"k8s:hubble.cilium.io/no-metrics=true",
+		},
+	}
+	flow1 := &pb.Flow{
+		IP: &pb.IP{
+			Source:      "1.2.3.4",
+			Destination: "5.6.7.8",
+		},
+		Source:           sourceEndpoint1,
+		Destination:      destinationEndpoint1,
+		TrafficDirection: pb.TrafficDirection_INGRESS,
+	}
+	assert.EqualValues(t,
+		mustGetLabelValues(opts, flow1),
+		[]string{
+			// source_ip, source_pod, source_namespace, source_workload, source_workload_kind , source_app
+			"1.2.3.4", "", "", "", "", "",
+			// destination_ip, destination_pod, destination_namespace, destination_workload, destination_workload_kind, destination_app
+			"5.6.7.8", "", "", "", "", "",
+			// traffic_direction
+			"ingress",
+		},
+	)
 }
 
 func Test_reservedIdentityContext(t *testing.T) {
@@ -315,6 +360,41 @@ func Test_workloadContext(t *testing.T) {
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
 		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
 	}), []string{"foo-ns/foo-deploy", "bar-ns/bar-deploy"})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{
+			Namespace: "foo-ns",
+			PodName:   "foo-deploy-pod",
+			Labels:    []string{"k8s:io.cilium.k8s.namespace.labels.hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}},
+		},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
+	}), []string{"", "bar-ns/bar-deploy"})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
+		Destination: &pb.Endpoint{
+			Namespace: "bar-ns",
+			PodName:   "bar-deploy-pod",
+			Labels:    []string{"k8s:hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}},
+		},
+	}), []string{"foo-ns/foo-deploy", ""})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{
+			Namespace: "foo-ns",
+			PodName:   "foo-deploy-pod",
+			Labels:    []string{"k8s:hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}},
+		},
+		Destination: &pb.Endpoint{
+			Namespace: "bar-ns",
+			PodName:   "bar-deploy-pod",
+			Labels:    []string{"k8s:io.cilium.k8s.namespace.labels.hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}},
+		},
+	}), []string{"", ""})
 }
 
 func Test_workloadNameContext(t *testing.T) {
@@ -328,6 +408,61 @@ func Test_workloadNameContext(t *testing.T) {
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
 		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
 	}), []string{"foo-deploy", "bar-deploy"})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{
+			Namespace: "foo-ns",
+			PodName:   "foo-deploy-pod",
+			Labels:    []string{"k8s:io.cilium.k8s.namespace.labels.hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}},
+		},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
+	}), []string{"", "bar-deploy"})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{
+			Namespace: "foo-ns",
+			PodName:   "foo-deploy-pod",
+			Labels:    []string{"k8s:hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}},
+		},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
+	}), []string{"", "bar-deploy"})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
+		Destination: &pb.Endpoint{
+			Namespace: "bar-ns",
+			PodName:   "bar-deploy-pod",
+			Labels:    []string{"k8s:io.cilium.k8s.namespace.labels.hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}},
+		},
+	}), []string{"foo-deploy", ""})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
+		Destination: &pb.Endpoint{
+			Namespace: "bar-ns",
+			PodName:   "bar-deploy-pod",
+			Labels:    []string{"k8s:hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}},
+		},
+	}), []string{"foo-deploy", ""})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{
+			Namespace: "foo-ns",
+			PodName:   "foo-deploy-pod",
+			Labels:    []string{"k8s:io.cilium.k8s.namespace.labels.hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}},
+		},
+		Destination: &pb.Endpoint{
+			Namespace: "bar-ns",
+			PodName:   "bar-deploy-pod",
+			Labels:    []string{"k8s:hubble.cilium.io/no-metrics=true"},
+			Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}},
+		},
+	}), []string{"", ""})
 }
 
 func Test_appContext(t *testing.T) {
@@ -341,6 +476,25 @@ func Test_appContext(t *testing.T) {
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Labels: []string{"k8s:app=fooapp"}},
 		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Labels: []string{"k8s:app=barapp"}},
 	}), []string{"fooapp", "barapp"})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source: &pb.Endpoint{
+			Namespace: "foo-ns",
+			PodName:   "foo-deploy-pod",
+			Labels:    []string{"k8s:app=fooapp", "k8s:io.cilium.k8s.namespace.labels.hubble.cilium.io/no-metrics=true"},
+		},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Labels: []string{"k8s:app=barapp"}},
+	}), []string{"", "barapp"})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Labels: []string{"k8s:app=fooapp"}},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Labels: []string{"k8s:app=barapp", "k8s:hubble.cilium.io/no-metrics=true"}},
+	}), []string{"fooapp", ""})
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Labels: []string{"k8s:app=fooapp", "k8s:hubble.cilium.io/no-metrics=true"}},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Labels: []string{"k8s:app=barapp", "k8s:io.cilium.k8s.namespace.labels.hubble.cilium.io/no-metrics=true"}},
+	}), []string{"", ""})
 }
 
 func Test_labelsSetString(t *testing.T) {
