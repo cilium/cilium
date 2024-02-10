@@ -417,6 +417,9 @@ not_esp:
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
 			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
 								daddr, ext_err);
+			if (ret == CTX_ACT_REDIRECT)
+				edt_set_aggregate(ctx, 0);
+
 			if (ret != CTX_ACT_OK)
 				return ret;
 
