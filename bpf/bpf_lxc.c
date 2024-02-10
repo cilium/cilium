@@ -1011,7 +1011,8 @@ ct_recreate4:
 		if (ct_state->rev_nat_index && ct_state->loopback) {
 			ret = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
 					  ct_state->rev_nat_index,
-					  true, tuple, 0, has_l4_header);
+					  true, tuple, REV_NAT_F_TUPLE_SADDR,
+					  has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
 		}
