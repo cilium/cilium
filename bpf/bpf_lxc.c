@@ -1529,7 +1529,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 			int ret2;
 
 			ret2 = lb6_rev_nat(ctx, l4_off,
-					   ct_state->rev_nat_index, tuple, 0);
+					   ct_state->rev_nat_index, tuple,
+					   REV_NAT_F_TUPLE_SADDR);
 			if (IS_ERR(ret2))
 				return ret2;
 		}
