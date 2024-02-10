@@ -184,7 +184,6 @@ struct {
 } LB_AFFINITY_MATCH_MAP __section_maps_btf;
 #endif
 
-#define REV_NAT_F_TUPLE_SADDR	1
 #ifndef DSR_XLATE_MODE
 # define DSR_XLATE_MODE		0
 # define DSR_XLATE_FRONTEND	1
@@ -441,7 +440,7 @@ lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
 
 #ifdef ENABLE_IPV6
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-					 struct ipv6_ct_tuple *tuple, int flags,
+					 struct ipv6_ct_tuple *tuple,
 					 struct lb6_reverse_nat *nat)
 {
 	struct csum_offset csum_off = {};
@@ -459,13 +458,8 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 			return ret;
 	}
 
-	if (flags & REV_NAT_F_TUPLE_SADDR) {
-		ipv6_addr_copy(&old_saddr, &tuple->saddr);
-		ipv6_addr_copy(&tuple->saddr, &nat->address);
-	} else {
-		if (ipv6_load_saddr(ctx, ETH_HLEN, &old_saddr) < 0)
-			return DROP_INVALID;
-	}
+	ipv6_addr_copy(&old_saddr, &tuple->saddr);
+	ipv6_addr_copy(&tuple->saddr, &nat->address);
 
 	ret = ipv6_store_saddr(ctx, nat->address.addr, ETH_HLEN);
 	if (IS_ERR(ret))
@@ -492,10 +486,9 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg l4_off		offset to L4
  * @arg index		reverse NAT index
  * @arg tuple		tuple
- * @arg saddr_tuple	If set, tuple address will be updated with new source address
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-				       __u16 index, struct ipv6_ct_tuple *tuple, int flags)
+				       __u16 index, struct ipv6_ct_tuple *tuple)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -503,7 +496,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, tuple, flags, nat);
+	return __lb6_rev_nat(ctx, l4_off, tuple, nat);
 }
 
 static __always_inline void
@@ -1053,22 +1046,16 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 
 #ifdef ENABLE_IPV4
 static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-					 struct ipv4_ct_tuple *tuple, int flags,
+					 struct ipv4_ct_tuple *tuple,
 					 const struct lb4_reverse_nat *nat,
 					 bool loopback __maybe_unused, bool has_l4_header)
 {
-	__be32 old_sip, sum = 0;
+	__be32 old_sip = tuple->saddr, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
-	if (flags & REV_NAT_F_TUPLE_SADDR) {
-		old_sip = tuple->saddr;
-		tuple->saddr = nat->address;
-	} else {
-		if (ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4) < 0)
-			return DROP_INVALID;
-	}
+	tuple->saddr = nat->address;
 
 #ifndef DISABLE_LOOPBACK_LB
 	if (loopback) {
@@ -1143,7 +1130,7 @@ lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  */
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
 				       __u16 index, bool loopback,
-				       struct ipv4_ct_tuple *tuple, int flags, bool has_l4_header)
+				       struct ipv4_ct_tuple *tuple, bool has_l4_header)
 {
 	struct lb4_reverse_nat *nat;
 
@@ -1151,7 +1138,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 	if (nat == NULL)
 		return 0;
 
-	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, flags, nat,
+	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, nat,
 			     loopback, has_l4_header);
 }
 

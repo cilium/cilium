@@ -951,7 +951,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			return ret;
 
 		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
-				  &tuple, REV_NAT_F_TUPLE_SADDR);
+				  &tuple);
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1504,8 +1504,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
-		ret = __lb6_rev_nat(ctx, l4_off, &tuple, REV_NAT_F_TUPLE_SADDR,
-				    nat_info);
+		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -2440,7 +2439,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
-				  &tuple, REV_NAT_F_TUPLE_SADDR, has_l4_header);
+				  &tuple, has_l4_header);
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -3068,8 +3067,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		trace->reason = TRACE_REASON_CT_REPLY;
 
 		ret = __lb4_rev_nat(ctx, l3_off, l4_off, &tuple,
-				    REV_NAT_F_TUPLE_SADDR, nat_info,
-				    false, has_l4_header);
+				    nat_info, false, has_l4_header);
 		if (IS_ERR(ret))
 			return ret;
 
