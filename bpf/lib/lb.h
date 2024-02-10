@@ -1065,10 +1065,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		 * current packet. We therefore need to make the current source
 		 * address the new destination address.
 		 */
-		__be32 old_dip;
-
-		if (ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4) < 0)
-			return DROP_INVALID;
+		__be32 old_dip = tuple->daddr;
 
 		cilium_dbg_lb(ctx, DBG_LB4_LOOPBACK_SNAT_REV, old_dip, old_sip);
 
