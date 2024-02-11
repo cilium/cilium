@@ -7,6 +7,7 @@ import (
 	"maps"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,7 +27,7 @@ func newGlobalService() *GlobalService {
 
 type GlobalServiceCache struct {
 	mutex  lock.RWMutex
-	byName map[string]*GlobalService
+	byName map[types.NamespacedName]*GlobalService
 
 	// metricTotalGlobalServices is the gauge metric for total of global services
 	metricTotalGlobalServices metric.Gauge
@@ -34,7 +35,7 @@ type GlobalServiceCache struct {
 
 func NewGlobalServiceCache(metricTotalGlobalServices metric.Gauge) *GlobalServiceCache {
 	return &GlobalServiceCache{
-		byName:                    map[string]*GlobalService{},
+		byName:                    map[types.NamespacedName]*GlobalService{},
 		metricTotalGlobalServices: metricTotalGlobalServices,
 	}
 }
@@ -54,11 +55,11 @@ func (c *GlobalServiceCache) Has(svc *serviceStore.ClusterService) bool {
 
 // GetService returns the service for a specific cluster. This function does not
 // make a copy of the cluster service object and should not be mutated.
-func (c *GlobalServiceCache) GetService(key string, clusterName string) *serviceStore.ClusterService {
+func (c *GlobalServiceCache) GetService(serviceNN types.NamespacedName, clusterName string) *serviceStore.ClusterService {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if globalSvc, ok := c.byName[key]; ok {
+	if globalSvc, ok := c.byName[serviceNN]; ok {
 		if svc, ok := globalSvc.ClusterServices[clusterName]; ok {
 			return svc
 		}
@@ -70,11 +71,11 @@ func (c *GlobalServiceCache) GetService(key string, clusterName string) *service
 // GetGlobalService returns a global service object. This function returns
 // a shallow copy of the GlobalService object, thus the ClusterService objects
 // should not be mutated.
-func (c *GlobalServiceCache) GetGlobalService(key string) *GlobalService {
+func (c *GlobalServiceCache) GetGlobalService(serviceNN types.NamespacedName) *GlobalService {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	if globalSvc, ok := c.byName[key]; ok {
+	if globalSvc, ok := c.byName[serviceNN]; ok {
 		// We copy the global service to make this thread safe
 		newGlobalSvc := newGlobalService()
 		newGlobalSvc.ClusterServices = maps.Clone(globalSvc.ClusterServices)
@@ -108,9 +109,9 @@ func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
 }
 
 // must be called with c.mutex held
-func (c *GlobalServiceCache) delete(globalService *GlobalService, clusterName, key string) bool {
+func (c *GlobalServiceCache) delete(globalService *GlobalService, clusterName string, serviceNN types.NamespacedName) bool {
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceName: key,
+		logfields.ServiceName: serviceNN.String(),
 		logfields.ClusterName: clusterName,
 	})
 
@@ -124,8 +125,8 @@ func (c *GlobalServiceCache) delete(globalService *GlobalService, clusterName, k
 
 	// After the last cluster service is removed, remove the global service
 	if len(globalService.ClusterServices) == 0 {
-		scopedLog.Debugf("Deleted global service %s", key)
-		delete(c.byName, key)
+		scopedLog.Debugf("Deleted global service %s", serviceNN.String())
+		delete(c.byName, serviceNN)
 		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
 	}
 
@@ -152,8 +153,8 @@ func (c *GlobalServiceCache) OnClusterDelete(clusterName string) {
 	scopedLog.Debugf("Cluster deletion event")
 
 	c.mutex.Lock()
-	for key, globalService := range c.byName {
-		c.delete(globalService, clusterName, key)
+	for serviceNN, globalService := range c.byName {
+		c.delete(globalService, clusterName, serviceNN)
 	}
 	c.mutex.Unlock()
 }
