@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -156,7 +157,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					StoreFactory:          store,
 					ClusterInfo:           types.ClusterInfo{MaxConnectedClusters: 255},
 				},
-				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
+				globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
 			}
 			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)

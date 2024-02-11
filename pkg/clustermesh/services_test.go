@@ -358,7 +358,7 @@ func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
 	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
-	cache := newGlobalServiceCache(metrics.NoOpGauge)
+	cache := common.NewGlobalServiceCache(metrics.NoOpGauge)
 	merger := fakeServiceMerger{}
 
 	observer := remoteServiceObserver{
@@ -376,7 +376,7 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	observer.OnUpdate(&svc2)
 
 	c.Assert(merger.updated[svc1.String()], Equals, 0)
-	c.Assert(cache.byName, HasLen, 0)
+	c.Assert(cache.Size(), Equals, 0)
 
 	// Observe a new service update (for a shared service), and assert it is correctly added to the cache
 	merger.init()
@@ -385,11 +385,10 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	c.Assert(merger.updated[svc1.String()], Equals, 1)
 	c.Assert(merger.deleted[svc1.String()], Equals, 0)
 
-	c.Assert(cache.byName, HasLen, 1)
-	gs, ok := cache.byName[svc1.NamespaceServiceName()]
-	c.Assert(ok, Equals, true)
-	c.Assert(gs.clusterServices, HasLen, 1)
-	found, ok := gs.clusterServices[svc1.Cluster]
+	c.Assert(cache.Size(), Equals, 1)
+	gs := cache.GetGlobalService(svc1.NamespaceServiceName())
+	c.Assert(gs.ClusterServices, HasLen, 1)
+	found, ok := gs.ClusterServices[svc1.Cluster]
 	c.Assert(ok, Equals, true)
 	c.Assert(found, checker.DeepEquals, &svc1)
 
@@ -399,7 +398,7 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 
 	c.Assert(merger.updated[svc1.String()], Equals, 0)
 	c.Assert(merger.deleted[svc1.String()], Equals, 1)
-	c.Assert(cache.byName, HasLen, 0)
+	c.Assert(cache.Size(), Equals, 0)
 
 	// Observe two service updates in sequence (first shared, then non-shared),
 	// and assert that at the end it is not present in the cache (equivalent to update, then delete).
@@ -409,5 +408,5 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 
 	c.Assert(merger.updated[svc1.String()], Equals, 1)
 	c.Assert(merger.deleted[svc1.String()], Equals, 1)
-	c.Assert(cache.byName, HasLen, 0)
+	c.Assert(cache.Size(), Equals, 0)
 }

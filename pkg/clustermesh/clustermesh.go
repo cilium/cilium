@@ -104,7 +104,7 @@ type ClusterMesh struct {
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
-	globalServices *globalServiceCache
+	globalServices *common.GlobalServiceCache
 
 	// nodeName is the name of the local node. This is used for logging and metrics
 	nodeName string
@@ -121,7 +121,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 	cm := &ClusterMesh{
 		conf:     c,
 		nodeName: nodeName,
-		globalServices: newGlobalServiceCache(
+		globalServices: common.NewGlobalServiceCache(
 			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterInfo.Name, nodeName),
 		),
 	}
@@ -227,7 +227,7 @@ func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 // Status returns the status of the ClusterMesh subsystem
 func (cm *ClusterMesh) Status() (status *models.ClusterMeshStatus) {
 	status = &models.ClusterMeshStatus{
-		NumGlobalServices: int64(cm.globalServices.size()),
+		NumGlobalServices: int64(cm.globalServices.Size()),
 	}
 
 	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
