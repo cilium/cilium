@@ -82,6 +82,21 @@ linters-settings:
 
   stylecheck:
     checks: ["ST1019"]
+  testifylint:
+    disable:
+      - float-compare
+      - go-require
+    enable:
+      - bool-compare
+      - compares
+      - empty
+      - error-is-as
+      - error-nil
+      - expected-actual
+      - len
+      - require-error
+      - suite-dont-use-pkg
+      - suite-extra-assert-call
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
@@ -102,23 +117,32 @@ issues:
     - path: "pkg/ipam/(cidrset|service)/.+\\.go"
       linters:
         - goheader
+    - linters: [testifylint]
+      path: operator
+    - linters: [testifylint]
+      path: pkg
+    - linters: [testifylint]
+      path: test
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 linters:
   disable-all: true
   enable:
     - goerr113
     - gofmt
+    - goheader
     - goimports
+    - gomodguard
+    - gosec
+    - gosimple
     - govet
     - ineffassign
     - misspell
     - staticcheck
     - stylecheck
+    - testifylint
     - unused
-    - goheader
-    - gosec
-    - gomodguard
-    - gosimple
 
 # To enable later if makes sense
 #    - deadcode

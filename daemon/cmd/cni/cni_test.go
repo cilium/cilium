@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
 
@@ -29,7 +30,7 @@ func TestInstallCNIConfFile(t *testing.T) {
 	touch(t, workdir, "05-cilium.conf") // older config file we no longer create
 
 	err := c.setupCNIConfFile()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	filenames := ls(t, workdir)
 
@@ -40,7 +41,7 @@ func TestInstallCNIConfFile(t *testing.T) {
 	})
 
 	data, err := os.ReadFile(path.Join(workdir, "05-cilium.conflist"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	val := gjson.GetBytes(data, "plugins.0.type")
 	assert.Equal(t, "cilium-cni", val.String())
 
@@ -55,7 +56,7 @@ func TestRenderCNIConfUnchained(t *testing.T) {
 	for mode := range cniConfigs {
 		c.config.CNIChainingMode = mode
 		conf, err := c.renderCNIConf()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		res := gjson.GetBytes(conf, `plugins.#(type=="cilium-cni").log-file`)
 		assert.True(t, res.Exists(), mode)
 		assert.Equal(t, `/opt"/cni.log`, res.String(), mode)
@@ -216,15 +217,15 @@ func TestRenderCNIConfChained(t *testing.T) {
 
 			if tc.cniConf != "" {
 				err := os.WriteFile(filepath.Join(workDir, tc.cniConfFilename), []byte(tc.cniConf), 0o644)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			result, err := c.renderCNIConf()
 			if tc.expected == "" {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.JSONEq(t, tc.expected, string(result))
 		})
 	}
@@ -248,7 +249,7 @@ func TestCleanupOtherCNI(t *testing.T) {
 	}
 
 	err := c.cleanupOtherCNI()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	filenames := ls(t, workdir)
 	assert.ElementsMatch(t, filenames, []string{
@@ -261,13 +262,13 @@ func TestCleanupOtherCNI(t *testing.T) {
 
 func touch(t *testing.T, dir, name string) {
 	f, err := os.Create(path.Join(dir, name))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	f.Close()
 }
 
 func ls(t *testing.T, dir string) []string {
 	files, err := os.ReadDir(dir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	filenames := []string{}
 	for _, f := range files {

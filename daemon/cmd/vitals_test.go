@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/health/client"
@@ -46,7 +47,7 @@ func TestVitalsToModuleHealth(t *testing.T) {
 	for k := range uu {
 		u := uu[k]
 		mh, err := toModuleHealth(u.s)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, u.e, mh)
 	}
 }
