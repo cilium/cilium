@@ -59,6 +59,7 @@ type K8sStatusCollector struct {
 
 type k8sImplementation interface {
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
+	CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
@@ -542,11 +543,13 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 				name: pod.Name,
 				task: func(ctx context.Context) error {
 					var s *models.StatusResponse
-					var err error
+					var eps []*models.Endpoint
+					var err, epserr error
 
 					if containerStatus != nil && containerStatus.State.Running != nil {
 						// if container is running, execute "cilium status" in the container and parse the result
 						s, err = k.client.CiliumStatus(ctx, k.params.Namespace, pod.Name)
+						eps, epserr = k.client.CiliumDbgEndpoints(ctx, k.params.Namespace, pod.Name)
 					} else {
 						// otherwise, generate a useful status message
 						desc := "is not running"
@@ -590,7 +593,9 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 					defer status.mutex.Unlock()
 
 					status.parseStatusResponse(defaults.AgentDaemonSetName, pod.Name, s, err)
+					status.parseEndpointsResponse(defaults.AgentDaemonSetName, pod.Name, eps, epserr)
 					status.CiliumStatus[pod.Name] = s
+					status.CiliumEndpoints[pod.Name] = eps
 
 					return nil
 				},

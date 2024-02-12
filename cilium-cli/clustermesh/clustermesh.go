@@ -444,6 +444,7 @@ type k8sClusterMeshImplementation interface {
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	AutodetectFlavor(ctx context.Context) k8s.Flavor
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
+	CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error)
 	ClusterName() string
 	ListCiliumExternalWorkloads(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error)
 	GetCiliumExternalWorkload(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumExternalWorkload, error)
