@@ -25,12 +25,14 @@ const (
 var _ translation.Translator = (*dedicatedIngressTranslator)(nil)
 
 type dedicatedIngressTranslator struct {
-	cecTranslator translation.CECTranslator
+	cecTranslator      translation.CECTranslator
+	hostNetworkEnabled bool
 }
 
-func NewDedicatedIngressTranslator(cecTranslator translation.CECTranslator) *dedicatedIngressTranslator {
+func NewDedicatedIngressTranslator(cecTranslator translation.CECTranslator, hostNetworkEnabled bool) *dedicatedIngressTranslator {
 	return &dedicatedIngressTranslator{
-		cecTranslator: cecTranslator,
+		cecTranslator:      cecTranslator,
+		hostNetworkEnabled: hostNetworkEnabled,
 	}
 }
 
@@ -68,11 +70,17 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	// Set the name to avoid any breaking change during upgrade.
 	cec.Name = cecName
-	return cec, getService(sourceResource, modelService), getEndpoints(sourceResource), err
+
+	return cec, d.getService(sourceResource, modelService), getEndpoints(sourceResource), err
 }
 
-func getService(resource model.FullyQualifiedResource, service *model.Service) *corev1.Service {
+func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedResource, service *model.Service) *corev1.Service {
 	serviceType := corev1.ServiceTypeLoadBalancer
+	clusterIP := ""
+	if d.hostNetworkEnabled {
+		serviceType = corev1.ServiceTypeClusterIP
+	}
+
 	ports := []corev1.ServicePort{
 		{
 			Name:     "http",
@@ -120,8 +128,9 @@ func getService(resource model.FullyQualifiedResource, service *model.Service) *
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:  serviceType,
-			Ports: ports,
+			Type:      serviceType,
+			ClusterIP: clusterIP,
+			Ports:     ports,
 		},
 	}
 }
