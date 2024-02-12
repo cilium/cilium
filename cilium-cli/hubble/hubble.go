@@ -69,6 +69,7 @@ type k8sHubbleImplementation interface {
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
 	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
+	CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetServerVersion() (*semver.Version, error)
 	GetHelmState(ctx context.Context, namespace string, secretName string) (*helm.State, error)

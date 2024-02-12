@@ -492,6 +492,19 @@ func (c *Client) CiliumStatus(ctx context.Context, namespace, pod string) (*mode
 	return &statusResponse, nil
 }
 
+func (c *Client) CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error) {
+	stdout, err := c.ExecInPod(ctx, namespace, pod, defaults.AgentContainerName, []string{"cilium", "endpoint", "list", "-o", "json"})
+	if err != nil {
+		return nil, err
+	}
+
+	var response []*models.Endpoint
+	if err := json.Unmarshal(stdout.Bytes(), &response); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal response: %w", err)
+	}
+	return response, nil
+}
+
 func (c *Client) CreateConfigMap(ctx context.Context, namespace string, config *corev1.ConfigMap, opts metav1.CreateOptions) (*corev1.ConfigMap, error) {
 	return c.Clientset.CoreV1().ConfigMaps(namespace).Create(ctx, config, opts)
 }
