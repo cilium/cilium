@@ -63,9 +63,6 @@ func newDiffStoreFixture() *DiffStoreFixture {
 		cell.Provide(NewDiffStore[*slimv1.Service]),
 
 		job.Cell,
-		cell.Provide(func() cell.Scope {
-			return cell.TestScope()
-		}),
 	)
 
 	return fixture

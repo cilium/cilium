@@ -5,6 +5,7 @@ package ciliumenvoyconfig
 
 import (
 	"fmt"
+	"log/slog"
 	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
@@ -36,6 +37,7 @@ var Cell = cell.Module(
 type reconcilerParams struct {
 	cell.In
 
+	Slog        *slog.Logger
 	Logger      logrus.FieldLogger
 	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
@@ -74,7 +76,7 @@ func registerCECK8sReconciler(params reconcilerParams) {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Scope,
-		job.WithLogger(params.Logger),
+		job.WithLogger(params.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "ciliumenvoyconfig")),
 	)
 	params.Lifecycle.Append(jobGroup)

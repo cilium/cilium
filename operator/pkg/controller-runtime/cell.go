@@ -6,6 +6,7 @@ package controllerruntime
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime/pprof"
 
 	"github.com/bombsimon/logrusr/v4"
@@ -51,6 +52,7 @@ func newScheme() (*runtime.Scheme, error) {
 type managerParams struct {
 	cell.In
 
+	Slog        *slog.Logger
 	Logger      logrus.FieldLogger
 	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
@@ -87,7 +89,7 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Scope,
-		job.WithLogger(params.Logger),
+		job.WithLogger(params.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "controller-runtime")),
 	)
 

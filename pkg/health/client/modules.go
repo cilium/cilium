@@ -4,17 +4,13 @@
 package client
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
-	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 const (
@@ -31,6 +27,8 @@ type ModulesHealth interface {
 
 // GetAndFormatModulesHealth retrieves modules health and formats output.
 func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
+	fmt.Fprintf(w, "FIXME modules health")
+	/* FIXME
 	fmt.Fprintf(w, "Modules Health:")
 	resp, err := clt.GetHealth(daemon.NewGetHealthParams())
 	if err != nil {
@@ -71,9 +69,10 @@ func GetAndFormatModulesHealth(w io.Writer, clt ModulesHealth, verbose bool) {
 		tally[cell.StatusOK],
 		cell.StatusUnknown,
 		tally[cell.StatusUnknown],
-	)
+	)*/
 }
 
+/* FIXME
 func buildTree(n *node, raw string) error {
 	var sn cell.StatusNode
 	if err := json.Unmarshal([]byte(raw), &sn); err != nil {
@@ -112,6 +111,7 @@ func build(n *node, sn *cell.StatusNode) {
 		build(current, s)
 	}
 }
+*/
 
 // ToAgeHuman converts time to duration.
 func ToAgeHuman(t time.Time) string {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -49,8 +50,7 @@ func newAgentLivenessUpdater(
 	agentLivenessConfig agentLivenessConfig,
 ) {
 	// Discard even debug logs since this particular job is very noisy
-	log := logrus.New()
-	log.Out = io.Discard
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	group := jobRegistry.NewGroup(scope, job.WithLogger(log))
 
 	group.Add(job.Timer("agent-liveness-updater", func(_ context.Context) error {

@@ -13,9 +13,9 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/util/workqueue"
 )
 
 // BGPCPResourceStore is a wrapper around the resource.Store for the BGP Control Plane reconcilers usage.
@@ -77,7 +77,7 @@ func NewBGPCPResourceStore[T k8sRuntime.Object](params bgpCPResourceStoreParams[
 				event.Done(nil)
 			}
 			return nil
-		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
+		}, job.WithRetry(3, &job.ExponentialBackoff{Min: time.Second, Max: time.Minute}), job.WithShutdown()),
 	)
 
 	params.Lifecycle.Append(jobGroup)

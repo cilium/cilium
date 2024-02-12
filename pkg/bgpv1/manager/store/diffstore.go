@@ -14,9 +14,9 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/util/workqueue"
 )
 
 var ErrStoreUninitialized = errors.New("the store has not initialized yet")
@@ -89,7 +89,7 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 				ds.handleEvent(event)
 			}
 			return nil
-		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
+		}, job.WithRetry(3, &job.ExponentialBackoff{Min: time.Second, Max: time.Minute}), job.WithShutdown()),
 	)
 
 	params.Lifecycle.Append(jobGroup)

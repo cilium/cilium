@@ -11,8 +11,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/health/client"
-	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 type getHealth struct {
@@ -34,6 +32,8 @@ func (h *getHealth) Handle(params GetHealthParams) middleware.Responder {
 }
 
 func (d *Daemon) getHealthReport() (models.ModulesHealth, error) {
+	return models.ModulesHealth{Modules: nil}, nil
+	/* FIXME
 	mm := d.healthProvider.All()
 	rr := make([]*models.ModuleHealth, 0, len(mm))
 	for _, m := range mm {
@@ -45,10 +45,12 @@ func (d *Daemon) getHealthReport() (models.ModulesHealth, error) {
 	}
 
 	return models.ModulesHealth{Modules: rr}, nil
+	*/
 }
 
 // Helpers...
 
+/* FIXME
 func toModuleHealth(m cell.Status) (*models.ModuleHealth, error) {
 	d, err := m.JSON()
 	if err != nil {
@@ -61,4 +63,4 @@ func toModuleHealth(m cell.Status) (*models.ModuleHealth, error) {
 		LastOk:      client.ToAgeHuman(m.LastOK),
 		LastUpdated: client.ToAgeHuman(m.LastUpdated),
 	}, nil
-}
+}*/

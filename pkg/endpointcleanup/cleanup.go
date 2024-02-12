@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
@@ -39,6 +40,7 @@ type localEndpointCache interface {
 type params struct {
 	cell.In
 
+	Slog                *slog.Logger
 	Logger              logrus.FieldLogger
 	Lifecycle           cell.Lifecycle
 	JobRegistry         job.Registry
@@ -81,7 +83,7 @@ func registerCleanup(p params) {
 
 	jobGroup := p.JobRegistry.NewGroup(
 		p.Scope,
-		job.WithLogger(p.Logger),
+		job.WithLogger(p.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "endpoint-cleanup")),
 	)
 

@@ -220,6 +220,13 @@ github.com/cilium/ebpf/rlimit
 # github.com/cilium/fake v0.6.1
 ## explicit; go 1.20
 github.com/cilium/fake
+# github.com/cilium/hive v0.0.0-20240213101536-f66fd1a696b2
+## explicit; go 1.21.3
+github.com/cilium/hive
+github.com/cilium/hive/cell
+github.com/cilium/hive/hivetest
+github.com/cilium/hive/internal
+github.com/cilium/hive/job
 # github.com/cilium/linters v0.0.0-20240116133705-4cd15cbd2bca
 ## explicit; go 1.20
 github.com/cilium/linters
@@ -476,6 +483,9 @@ github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 github.com/cilium/proxy/go/envoy/watchdog/v3
 github.com/cilium/proxy/pkg/policy/api/kafka
+# github.com/cilium/stream v0.0.0-20240209152734-a0792b51812d
+## explicit; go 1.21.3
+github.com/cilium/stream
 # github.com/cilium/workerpool v1.2.0
 ## explicit; go 1.15
 github.com/cilium/workerpool
