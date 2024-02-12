@@ -2,6 +2,7 @@ AArch
 AKS
 Alemayhu
 Alibaba
+Aquantia
 Attestor
 Bertin
 Blanco
@@ -34,6 +35,8 @@ Dockerfile
 Dockerfiles
 Donenfeld
 ENI
+Efx
+Engleder
 FIt
 Fastabend
 Fosdem
@@ -71,6 +74,7 @@ Lx
 Majkowski
 Marek
 Mbit
+Mediatek
 Mellanox
 Meltwater
 Menlo
@@ -93,7 +97,7 @@ Pfaff
 PodCIDR
 Polytechnique
 QCon
-Qlogic
+QLogic
 RuleParser
 SRv
 Sharma
@@ -116,6 +120,7 @@ Twilio
 Uncompress
 Uncordon
 VM
+VMware
 VNet
 VPC
 Vagrantcloud
@@ -147,6 +152,7 @@ apiserver
 arithmetics
 artii
 asm
+atlantic
 au
 auth
 autoMount
@@ -294,6 +300,8 @@ endian
 endianness
 endpointSelector
 endpointmanager
+enet
+enetc
 etcd
 eth
 ethernet
@@ -305,6 +313,7 @@ externalTrafficPolicy
 extraConfig
 facto
 failover
+fec
 filesystem
 filesystems
 firewalling
@@ -334,6 +343,7 @@ goroutine
 goroutines
 grafana
 graphviz
+gve
 hairpinned
 hardcode
 hardcoded
@@ -364,6 +374,8 @@ iBGP
 icmp
 ie
 ifindex
+igb
+igc
 impactful
 ingressing
 init
@@ -431,6 +443,7 @@ kubespray
 kvstore
 kvstoremesh
 kvstores
+lan
 latencies
 leia
 len
@@ -472,6 +485,7 @@ macOS
 maglev
 mainboard
 makefile
+mana
 masq
 matchPattern
 maxUnavailable
@@ -490,6 +504,7 @@ modularity
 modularizing
 mountPath
 mov
+mtk
 mul
 multicore
 multihoming
@@ -497,6 +512,7 @@ musl
 mutex
 mutexes
 mvneta
+mvpp
 myCA
 mysql
 nameError
@@ -510,6 +526,7 @@ netdevice
 netdevices
 netdevsim
 netfilter
+netfront
 netns
 netperf
 netsec
@@ -534,6 +551,7 @@ openSUSE
 openapi
 openssl
 originatingTLS
+otx
 pahole
 parsable
 parserfactory
@@ -642,6 +660,7 @@ stateful
 statefulset
 statsd
 stdout
+stmmac
 structs
 subclasses
 subcommand
@@ -693,6 +712,7 @@ tracepoint
 tracepoints
 tracestate
 transpiling
+tsne
 tunnelProtocol
 ubuntu
 udp
@@ -734,6 +754,7 @@ virtualbox
 virtualized
 vlan
 vmlinux
+vmxnet
 volumeMounts
 vrf
 vrouter
@@ -751,6 +772,7 @@ workqueue
 www
 xDS
 xdp
+xen
 xfrm
 xml
 xoring
