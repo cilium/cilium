@@ -26,12 +26,14 @@ const (
 
 type gatewayAPITranslator struct {
 	cecTranslator translation.CECTranslator
+
+	hostNetworkEnabled bool
 }
 
-// NewTranslator returns a new translator for Gateway API.
-func NewTranslator(cecTranslator translation.CECTranslator) translation.Translator {
+func NewTranslator(cecTranslator translation.CECTranslator, hostNetworkEnabled bool) translation.Translator {
 	return &gatewayAPITranslator{
-		cecTranslator: cecTranslator,
+		cecTranslator:      cecTranslator,
+		hostNetworkEnabled: hostNetworkEnabled,
 	}
 }
 
@@ -76,7 +78,14 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		allAnnotations = mergeMap(allAnnotations, l.GetAnnotations())
 		allLabels = mergeMap(allLabels, l.GetLabels())
 	}
-	return cec, getService(source, ports, allLabels, allAnnotations), getEndpoints(*source), err
+
+	lbSvc := getService(source, ports, allLabels, allAnnotations)
+
+	if t.hostNetworkEnabled {
+		lbSvc.Spec.Type = corev1.ServiceTypeClusterIP
+	}
+
+	return cec, lbSvc, getEndpoints(*source), err
 }
 
 func getService(resource *model.FullyQualifiedResource, allPorts []uint32, labels, annotations map[string]string) *corev1.Service {

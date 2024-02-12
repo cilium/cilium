@@ -263,6 +263,9 @@ data:
   ingress-default-secret-namespace: {{ .Values.ingressController.defaultSecretNamespace | quote }}
   ingress-default-secret-name: {{ .Values.ingressController.defaultSecretName | quote }}
   {{- end }}
+  ingress-hostnetwork-enabled: {{ .Values.ingressController.hostNetwork.enabled | quote }}
+  ingress-hostnetwork-shared-http-port: {{ .Values.ingressController.hostNetwork.sharedHTTPPort | quote }}
+  ingress-hostnetwork-shared-tlspassthrough-port: {{ .Values.ingressController.hostNetwork.sharedTLSPassthroughPort | quote }}
 {{- end }}
 
 {{- if .Values.gatewayAPI.enabled }}
@@ -270,6 +273,7 @@ data:
   enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
   enable-gateway-api-proxy-protocol: {{ .Values.gatewayAPI.enableProxyProtocol | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
 {{- end }}
 
 {{- if hasKey .Values "loadBalancer" }}

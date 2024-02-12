@@ -23,7 +23,11 @@ spec:
     port: 443
     protocol: TCP
     nodePort: {{ .Values.ingressController.service.secureNodePort }}
+  {{- if .Values.ingressController.hostNetwork.enabled }}
+  type: ClusterIP
+  {{- else }}
   type: {{ .Values.ingressController.service.type }}
+  {{- end }}
   {{- if semverCompare ">=1.24-0" .Capabilities.KubeVersion.Version -}}
   {{- if .Values.ingressController.service.loadBalancerClass }}
   loadBalancerClass: {{ .Values.ingressController.service.loadBalancerClass }}
