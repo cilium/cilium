@@ -1412,6 +1412,10 @@
      - Enable support for Gateway API in cilium This will automatically set enable-envoy-config as well.
      - bool
      - ``false``
+   * - :spelling:ignore:`gatewayAPI.hostNetwork.enabled`
+     - Configure whether the Envoy listeners should be exposed on the host network.
+     - bool
+     - ``false``
    * - :spelling:ignore:`gatewayAPI.secretsNamespace`
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object
@@ -2052,6 +2056,18 @@
      - Enforce https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header.
      - bool
      - ``true``
+   * - :spelling:ignore:`ingressController.hostNetwork.enabled`
+     - Configure whether the Envoy listeners should be exposed on the host network.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`ingressController.hostNetwork.sharedHTTPPort`
+     - Configure a specific port on the host network that gets used for the shared HTTP listener. This is used for HTTP and HTTPS.
+     - int
+     - ``0``
+   * - :spelling:ignore:`ingressController.hostNetwork.sharedTLSPassthroughPort`
+     - Configure a specific port on the host network that gets used for the shared TLS passthrough listener
+     - int
+     - ``0``
    * - :spelling:ignore:`ingressController.ingressLBAnnotationPrefixes`
      - IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service
      - list

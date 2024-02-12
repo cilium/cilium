@@ -90,6 +90,16 @@ Supported Ingress Annotations
        | Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``. If unspecified, a random
        | NodePort will be allocated by kubernetes.
      - unspecified
+   * - ``ingress.cilium.io/http-host-port``
+     - | The port to use for the HTTP listener (HTTP and HTTPS) on the host network.
+       | Applicable only for dedicated Ingress and if hostnetwork mode is enabled for IngressController.
+       | If unspecified, the default ports (80/443) are used.
+     - unspecified
+   * - ``ingress.cilium.io/tls-passthrough-host-port``
+     - | The port to use for the TLS passthrough listener on the host network.
+       | Applicable only for dedicated Ingress and if hostnetwork mode is enabled for IngressController.
+       | If unspecified, the default port (443) are used.
+     - unspecified
    * - ``ingress.cilium.io/tls-passthrough``
      - | Enable TLS Passthrough mode for this Ingress.
        | Applicable values are ``enabled`` and ``disabled``,

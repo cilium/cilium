@@ -67,39 +67,75 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 	SocketOptions: toSocketOptions(),
 })
 
-// basicHTTPListeners is the internal model representation of the simple HTTP listeners
-var basicHTTPListeners = []model.HTTPListener{
-	{
-		Name: "prod-web-gw",
-		Sources: []model.FullyQualifiedResource{
-			{
-				Name:      "my-gateway",
-				Namespace: "default",
-				Group:     "gateway.networking.k8s.io",
-				Version:   "v1beta1",
-				Kind:      "Gateway",
+func httpInsecureHostPortListenerXDSResource(address string, port uint32) *anypb.Any {
+	return toAny(&envoy_config_listener.Listener{
+		Name: "listener",
+		Address: &envoy_config_core_v3.Address{
+			Address: &envoy_config_core_v3.Address_SocketAddress{
+				SocketAddress: &envoy_config_core_v3.SocketAddress{
+					Protocol: envoy_config_core_v3.SocketAddress_TCP,
+					Address:  address,
+					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+						PortValue: port,
+					},
+				},
 			},
 		},
-		Address:  "",
-		Port:     80,
-		Hostname: "*",
-		Routes: []model.HTTPRoute{
+		FilterChains: []*envoy_config_listener.FilterChain{
 			{
-				PathMatch: model.StringMatch{
-					Prefix: "/bar",
+				FilterChainMatch: &envoy_config_listener.FilterChainMatch{TransportProtocol: "raw_buffer"},
+				Filters: []*envoy_config_listener.Filter{
+					toListenerFilter("listener-insecure"),
 				},
-				Backends: []model.Backend{
-					{
-						Name:      "my-service",
-						Namespace: "default",
-						Port: &model.BackendPort{
-							Port: 8080,
+			},
+		},
+		ListenerFilters: []*envoy_config_listener.ListenerFilter{
+			{
+				Name: "envoy.filters.listener.tls_inspector",
+				ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
+			},
+		},
+		SocketOptions: toSocketOptions(),
+	})
+}
+
+// basicHTTPListeners is the internal model representation of the simple HTTP listeners
+func basicHTTPListeners(port uint32) []model.HTTPListener {
+	return []model.HTTPListener{
+		{
+			Name: "prod-web-gw",
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "my-gateway",
+					Namespace: "default",
+					Group:     "gateway.networking.k8s.io",
+					Version:   "v1beta1",
+					Kind:      "Gateway",
+				},
+			},
+			Address:  "",
+			Port:     port,
+			Hostname: "*",
+			Routes: []model.HTTPRoute{
+				{
+					PathMatch: model.StringMatch{
+						Prefix: "/bar",
+					},
+					Backends: []model.Backend{
+						{
+							Name:      "my-service",
+							Namespace: "default",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
 						},
 					},
 				},
 			},
 		},
-	},
+	}
 }
 
 // basicHTTPListenersCiliumEnvoyConfig is the generated CiliumEnvoyConfig basic http listener model.
@@ -159,6 +195,67 @@ var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			{Any: toAny(toEnvoyCluster("default", "my-service", "8080"))},
 		},
 	},
+}
+
+// basicHostPortHTTPListenersCiliumEnvoyConfig is the generated CiliumEnvoyConfig basic http listener model.
+func basicHostPortHTTPListenersCiliumEnvoyConfig(address string, port uint32) *ciliumv2.CiliumEnvoyConfig {
+	return &ciliumv2.CiliumEnvoyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cilium-gateway-my-gateway",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cilium.io/use-original-source-address": "false",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "gateway.networking.k8s.io/v1",
+					Kind:       "Gateway",
+					Name:       "my-gateway",
+					Controller: model.AddressOf(true),
+				},
+			},
+		},
+		Spec: ciliumv2.CiliumEnvoyConfigSpec{
+			Services: []*ciliumv2.ServiceListener{
+				{
+					Name:      "cilium-gateway-my-gateway",
+					Namespace: "default",
+				},
+			},
+			BackendServices: []*ciliumv2.Service{
+				{
+					Name:      "my-service",
+					Namespace: "default",
+					Ports:     []string{"8080"},
+				},
+			},
+			Resources: []ciliumv2.XDSResource{
+				{Any: httpInsecureHostPortListenerXDSResource(address, port)},
+				{
+					Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+						Name: "listener-insecure",
+						VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+							{
+								Name:    "*",
+								Domains: []string{"*"},
+								Routes: []*envoy_config_route_v3.Route{
+									{
+										Match: &envoy_config_route_v3.RouteMatch{
+											PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+												PathSeparatedPrefix: "/bar",
+											},
+										},
+										Action: toRouteAction("default", "my-service", "8080"),
+									},
+								},
+							},
+						},
+					}),
+				},
+				{Any: toAny(toEnvoyCluster("default", "my-service", "8080"))},
+			},
+		},
+	}
 }
 
 // basicTLSListeners is the internal model representation of the simple TLS listeners

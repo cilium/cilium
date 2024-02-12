@@ -55,6 +55,20 @@ func WithProxyProtocol() ListenerMutator {
 	}
 }
 
+func WithHostNetworkPort[T model.Listener](listeners []T, ipv4Enabled bool, ipv6Enabled bool) ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		ports := []uint32{}
+
+		for _, hl := range listeners {
+			ports = append(ports, hl.GetPort())
+		}
+
+		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(slices.Unique(ports), ipv4Enabled, ipv6Enabled)
+
+		return listener
+	}
+}
+
 func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeIntervalInSeconds, tcpKeepAliveMaxFailures int64) ListenerMutator {
 	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
 		listener.SocketOptions = []*envoy_config_core_v3.SocketOption{
@@ -194,6 +208,50 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 			Value:   listenerBytes,
 		},
 	}, nil
+}
+
+func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bool) (*envoy_config_core_v3.Address, []*envoy_config_listener.AdditionalAddress) {
+	if len(ports) == 0 || (!ipv4Enabled && !ipv6Enabled) {
+		return nil, nil
+	}
+
+	bindAddresses := []string{}
+	if ipv4Enabled {
+		bindAddresses = append(bindAddresses, "0.0.0.0")
+	}
+	if ipv6Enabled {
+		bindAddresses = append(bindAddresses, "::")
+	}
+
+	addresses := []*envoy_config_core_v3.Address_SocketAddress{}
+
+	for _, p := range ports {
+		for _, a := range bindAddresses {
+			addresses = append(addresses, &envoy_config_core_v3.Address_SocketAddress{
+				SocketAddress: &envoy_config_core_v3.SocketAddress{
+					Protocol:      envoy_config_core_v3.SocketAddress_TCP,
+					Address:       a,
+					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{PortValue: p},
+				},
+			})
+		}
+	}
+
+	var additionalAddress []*envoy_config_listener.AdditionalAddress
+
+	if len(addresses) > 1 {
+		for _, a := range addresses[1:] {
+			additionalAddress = append(additionalAddress, &envoy_config_listener.AdditionalAddress{
+				Address: &envoy_config_core_v3.Address{
+					Address: a,
+				},
+			})
+		}
+	}
+
+	return &envoy_config_core_v3.Address{
+		Address: addresses[0],
+	}, additionalAddress
 }
 
 // NewSNIListenerWithDefaults same as NewSNIListener but with default mutators applied.

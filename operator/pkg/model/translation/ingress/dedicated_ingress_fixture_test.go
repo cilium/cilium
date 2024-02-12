@@ -202,7 +202,7 @@ func toInsecureListenerFilterChain() *envoy_config_listener.FilterChain {
 	}
 }
 
-func toHTTPListenerXDSResource(proxyProtocol bool) *anypb.Any {
+func toHTTPListenerXDSResource(proxyProtocol bool, address *string, port *uint32) *anypb.Any {
 	listenerFilters := []*envoy_config_listener.ListenerFilter{
 		{
 			Name: "envoy.filters.listener.tls_inspector",
@@ -220,15 +220,30 @@ func toHTTPListenerXDSResource(proxyProtocol bool) *anypb.Any {
 		}
 		listenerFilters = append([]*envoy_config_listener.ListenerFilter{proxyListener}, listenerFilters...)
 	}
-
-	return toAny(&envoy_config_listener.Listener{
+	l := &envoy_config_listener.Listener{
 		Name: "listener",
 		FilterChains: []*envoy_config_listener.FilterChain{
 			toInsecureListenerFilterChain(),
 		},
 		ListenerFilters: listenerFilters,
 		SocketOptions:   socketOptions,
-	})
+	}
+
+	if address != nil && port != nil {
+		l.Address = &envoy_config_core_v3.Address{
+			Address: &envoy_config_core_v3.Address_SocketAddress{
+				SocketAddress: &envoy_config_core_v3.SocketAddress{
+					Protocol: envoy_config_core_v3.SocketAddress_TCP,
+					Address:  *address,
+					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+						PortValue: *port,
+					},
+				},
+			},
+		}
+	}
+
+	return toAny(l)
 }
 
 func toBothListenersXDSResource(serverNames []string, certName string) *anypb.Any {
@@ -304,7 +319,7 @@ var defaultBackendListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			},
 		},
 		Resources: []ciliumv2.XDSResource{
-			{Any: toHTTPListenerXDSResource(false)},
+			{Any: toHTTPListenerXDSResource(false, nil, nil)},
 			{
 				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
 					Name: "listener-insecure",
@@ -961,7 +976,7 @@ var pathRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			},
 		},
 		Resources: []ciliumv2.XDSResource{
-			{Any: toHTTPListenerXDSResource(false)},
+			{Any: toHTTPListenerXDSResource(false, nil, nil)},
 			{
 				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
 					Name: "listener-insecure",
@@ -1096,6 +1111,36 @@ var proxyProtocolListeners = []model.HTTPListener{
 	},
 }
 
+func hostNetworkListeners(port uint32) []model.HTTPListener {
+	return []model.HTTPListener{
+		{
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      "load-balancing",
+					Namespace: "random-namespace",
+					Version:   "networking.k8s.io/v1",
+					Kind:      "Ingress",
+				},
+			},
+			Port:     port,
+			Hostname: "*",
+			Routes: []model.HTTPRoute{
+				{
+					Backends: []model.Backend{
+						{
+							Name:      "default-backend",
+							Namespace: "random-namespace",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 var proxyProtoListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-ingress-random-namespace-load-balancing",
@@ -1119,7 +1164,7 @@ var proxyProtoListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			},
 		},
 		Resources: []ciliumv2.XDSResource{
-			{Any: toHTTPListenerXDSResource(true)},
+			{Any: toHTTPListenerXDSResource(true, nil, nil)},
 			{
 				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
 					Name: "listener-insecure",
@@ -1144,6 +1189,58 @@ var proxyProtoListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			{Any: toAny(toEnvoyCluster("random-namespace", "default-backend", "8080"))},
 		},
 	},
+}
+
+func hostNetworkListenersCiliumEnvoyConfig(address string, port uint32) *ciliumv2.CiliumEnvoyConfig {
+	return &ciliumv2.CiliumEnvoyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cilium-ingress-random-namespace-load-balancing",
+			Namespace: "random-namespace",
+			Labels: map[string]string{
+				"cilium.io/use-original-source-address": "false",
+			},
+		},
+		Spec: ciliumv2.CiliumEnvoyConfigSpec{
+			Services: []*ciliumv2.ServiceListener{
+				{
+					Name:      "cilium-ingress-load-balancing",
+					Namespace: "random-namespace",
+				},
+			},
+			BackendServices: []*ciliumv2.Service{
+				{
+					Name:      "default-backend",
+					Namespace: "random-namespace",
+					Ports:     []string{"8080"},
+				},
+			},
+			Resources: []ciliumv2.XDSResource{
+				{Any: toHTTPListenerXDSResource(false, model.AddressOf(address), model.AddressOf(port))},
+				{
+					Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+						Name: "listener-insecure",
+						VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+							{
+								Name:    "*",
+								Domains: []string{"*"},
+								Routes: []*envoy_config_route_v3.Route{
+									{
+										Match: &envoy_config_route_v3.RouteMatch{
+											PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+												Prefix: "/",
+											},
+										},
+										Action: toRouteAction("random-namespace", "default-backend", "8080"),
+									},
+								},
+							},
+						},
+					}),
+				},
+				{Any: toAny(toEnvoyCluster("random-namespace", "default-backend", "8080"))},
+			},
+		},
+	}
 }
 
 func toAny(message proto.Message) *anypb.Any {

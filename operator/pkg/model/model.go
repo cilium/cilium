@@ -78,22 +78,22 @@ type HTTPListener struct {
 	ForceHTTPtoHTTPSRedirect bool
 }
 
-func (l *HTTPListener) GetSources() []FullyQualifiedResource {
+func (l HTTPListener) GetSources() []FullyQualifiedResource {
 	return l.Sources
 }
 
-func (l *HTTPListener) GetPort() uint32 {
+func (l HTTPListener) GetPort() uint32 {
 	return l.Port
 }
 
-func (l *HTTPListener) GetAnnotations() map[string]string {
+func (l HTTPListener) GetAnnotations() map[string]string {
 	if l.Infrastructure != nil {
 		return l.Infrastructure.Annotations
 	}
 	return nil
 }
 
-func (l *HTTPListener) GetLabels() map[string]string {
+func (l HTTPListener) GetLabels() map[string]string {
 	if l.Infrastructure != nil {
 		return l.Infrastructure.Labels
 	}
@@ -130,25 +130,25 @@ type TLSListener struct {
 	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
 }
 
-func (l *TLSListener) GetAnnotations() map[string]string {
+func (l TLSListener) GetAnnotations() map[string]string {
 	if l.Infrastructure != nil {
 		return l.Infrastructure.Annotations
 	}
 	return nil
 }
 
-func (l *TLSListener) GetLabels() map[string]string {
+func (l TLSListener) GetLabels() map[string]string {
 	if l.Infrastructure != nil {
 		return l.Infrastructure.Labels
 	}
 	return nil
 }
 
-func (l *TLSListener) GetSources() []FullyQualifiedResource {
+func (l TLSListener) GetSources() []FullyQualifiedResource {
 	return l.Sources
 }
 
-func (l *TLSListener) GetPort() uint32 {
+func (l TLSListener) GetPort() uint32 {
 	return l.Port
 }
 
@@ -273,11 +273,11 @@ type HTTPRoute struct {
 	DirectResponse *DirectResponse `json:"direct_response,omitempty"`
 
 	// RequestHeaderFilter can be used to add or remove an HTTP
-	//header from an HTTP request before it is sent to the upstream target.
+	// header from an HTTP request before it is sent to the upstream target.
 	RequestHeaderFilter *HTTPHeaderFilter `json:"request_header_filter,omitempty"`
 
 	// ResponseHeaderModifier can be used to add or remove an HTTP
-	//header from an HTTP response before it is sent to the client.
+	// header from an HTTP response before it is sent to the client.
 	ResponseHeaderModifier *HTTPHeaderFilter `json:"response_header_modifier,omitempty"`
 
 	// RequestRedirect defines a schema for a filter that responds to the
@@ -302,11 +302,11 @@ type BackendHTTPFilter struct {
 	// Name is the name of the Backend, the name is having the format of "namespace:name:port"
 	Name string `json:"name"`
 	// RequestHeaderFilter can be used to add or remove an HTTP
-	//header from an HTTP request before it is sent to the upstream target.
+	// header from an HTTP request before it is sent to the upstream target.
 	RequestHeaderFilter *HTTPHeaderFilter `json:"request_header_filter,omitempty"`
 
 	// ResponseHeaderModifier can be used to add or remove an HTTP
-	//header from an HTTP response before it is sent to the client.
+	// header from an HTTP response before it is sent to the client.
 	ResponseHeaderModifier *HTTPHeaderFilter `json:"response_header_modifier,omitempty"`
 }
 

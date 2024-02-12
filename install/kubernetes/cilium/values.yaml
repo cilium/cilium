@@ -670,6 +670,15 @@ ingressController:
     # -- Configure if node port allocation is required for LB service
     # ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation
     allocateLoadBalancerNodePorts: ~
+  # Host Network related configuration
+  hostNetwork:
+    # -- Configure whether the Envoy listeners should be exposed on the host network.
+    enabled: false
+    # -- Configure a specific port on the host network that gets used for the shared HTTP listener.
+    # This is used for HTTP and HTTPS.
+    sharedHTTPPort: 0
+    # -- Configure a specific port on the host network that gets used for the shared TLS passthrough listener
+    sharedTLSPassthroughPort: 0
 gatewayAPI:
   # -- Enable support for Gateway API in cilium
   # This will automatically set enable-envoy-config as well.
@@ -685,6 +694,10 @@ gatewayAPI:
     # -- Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name.
     # If disabled, TLS secrets must be maintained externally.
     sync: true
+  # Host Network related configuration
+  hostNetwork:
+    # -- Configure whether the Envoy listeners should be exposed on the host network.
+    enabled: false
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work
 # properly. See documentation for details on when this can be disabled:

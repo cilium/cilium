@@ -17,7 +17,7 @@ import (
 // Ingress translates an Ingress resource to a HTTPListener.
 // This function does not check IngressClass (via field or annotation).
 // It's expected that only relevant Ingresses will have this function called on them.
-func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string, enforcedHTTPS bool) []model.HTTPListener {
+func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string, enforcedHTTPS bool, insecureListenerPort, secureListenerPort uint32) []model.HTTPListener {
 	// First, we make a map of HTTPListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
@@ -65,7 +65,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 					},
 				},
 			},
-			Port:    80,
+			Port:    insecureListenerPort,
 			Service: getService(ing),
 		}
 
@@ -84,7 +84,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 		}
 
 		l, ok := insecureListenerMap[host]
-		l.Port = 80
+		l.Port = insecureListenerPort
 		l.Sources = model.AddSource(l.Sources, sourceResource)
 		if !ok {
 			l.Name = "ing-" + ing.Name + "-" + ing.Namespace + "-" + host
@@ -175,7 +175,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 				}
 			}
 
-			l.Port = 443
+			l.Port = secureListenerPort
 			l.Hostname = host
 			l.Service = getService(ing)
 			l.ForceHTTPtoHTTPSRedirect = forceHTTPs
@@ -202,7 +202,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 					}
 				}
 				defaultListener.Hostname = host
-				defaultListener.Port = 443
+				defaultListener.Port = secureListenerPort
 				secureListenerMap[host] = defaultListener
 
 			}
@@ -225,7 +225,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 // * must have a host set
 // * rules with paths other than '/' are ignored
 // * default backends are ignored
-func IngressPassthrough(ing networkingv1.Ingress) []model.TLSListener {
+func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.TLSListener {
 	// First, we make a map of TLSListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
@@ -265,7 +265,7 @@ func IngressPassthrough(ing networkingv1.Ingress) []model.TLSListener {
 		host := rule.Host
 
 		l, ok := tlsListenerMap[host]
-		l.Port = 443
+		l.Port = listenerPort
 		l.Sources = model.AddSource(l.Sources, sourceResource)
 		if !ok {
 			l.Name = "ing-" + ing.Name + "-" + ing.Namespace + "-" + host
