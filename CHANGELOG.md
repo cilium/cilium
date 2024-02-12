@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.12.19
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* api/cli: Encryption status now includes rendering IPsec status in JSON. (Backport PR #30390, Upstream PR #30167, @viktor-kurchenko)
+
+**CI Changes:**
+* ci/ipsec: Fix version retrieval for downgrades to closest patch release (Backport PR #30678, Upstream PR #30503, @qmonnet)
+* gha: explicilty specify beefier runner type for clustermesh workflows (Backport PR #30390, Upstream PR #30335, @giorio94)
+* gha: make runner type for clustermesh workflows configurable (Backport PR #30678, Upstream PR #30496, @giorio94)
+* Rework GHA workflows to checkout the untrusted context in a separate directory for increased separation (Backport PR #30390, Upstream PR #30207, @giorio94)
+
+**Misc Changes:**
+* bpf: lb: return drop reasons from __lb4_rev_nat() (Backport PR #30511, Upstream PR #30410, @julianwiedmann)
+* chore(deps): update docker.io/library/golang docker tag to v1.21.6 (v1.12) (#30243, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.0 (v1.12) (minor) (#30276, @renovate[bot])
+* doc: Add Azure CNI Powered by cilium as external installer (Backport PR #30390, Upstream PR #28286, @tamilmani1989)
+* docs: warn users that IPsec and KPR are mutual exclusive (Backport PR #30511, Upstream PR #30403, @f1ko)
+
+**Other Changes:**
+* [v1.12] ci/ipsec: Fix downgrade version for release preparation commits (#30714, @qmonnet)
+* envoy: Bump envoy version to v1.26.7 (#30695, @sayboras)
+* gke: Bump gke minimum versions (#30676, @sayboras)
+* install: Update image digests for v1.12.18 (#30316, @gentoo-root)
+
 ## v1.12.18
 
 Summary of Changes
