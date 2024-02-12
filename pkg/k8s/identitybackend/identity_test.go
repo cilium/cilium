@@ -88,7 +88,7 @@ func (s *K8sIdentityBackendSuite) TestSanitizeK8sLabels(c *C) {
 	}
 
 	for _, test := range testCases {
-		selected, skipped := sanitizeK8sLabels(test.input)
+		selected, skipped := SanitizeK8sLabels(test.input)
 		c.Assert(selected, checker.DeepEquals, test.selected)
 		c.Assert(skipped, checker.DeepEquals, test.skipped)
 		c.Assert(validation.ValidateLabels(selected, path), checker.DeepEquals, test.validationErrors)
