@@ -68,6 +68,7 @@ type PodStateCount struct {
 type PodStateMap map[string]PodStateCount
 
 type CiliumStatusMap map[string]*models.StatusResponse
+type CiliumEndpointsMap map[string][]*models.Endpoint
 
 type ErrorCount struct {
 	Errors   []error
@@ -99,6 +100,10 @@ type Status struct {
 
 	CiliumStatus CiliumStatusMap `json:"cilium_status,omitempty"`
 
+	// CiliumEndpoints contains the information about the endpoints managed
+	// by each Cilium agent.
+	CiliumEndpoints CiliumEndpointsMap `json:"cilium_endpoints,omitempty"`
+
 	// Errors is the aggregated errors and warnings of all pods of a
 	// particular deployment type
 	Errors ErrorCountMapMap `json:"errors,omitempty"`
@@ -116,13 +121,14 @@ type Status struct {
 
 func newStatus() *Status {
 	return &Status{
-		ImageCount:   MapMapCount{},
-		PhaseCount:   MapMapCount{},
-		PodState:     PodStateMap{},
-		PodsCount:    PodsCount{},
-		CiliumStatus: CiliumStatusMap{},
-		Errors:       ErrorCountMapMap{},
-		mutex:        &sync.Mutex{},
+		ImageCount:      MapMapCount{},
+		PhaseCount:      MapMapCount{},
+		PodState:        PodStateMap{},
+		PodsCount:       PodsCount{},
+		CiliumStatus:    CiliumStatusMap{},
+		CiliumEndpoints: CiliumEndpointsMap{},
+		Errors:          ErrorCountMapMap{},
+		mutex:           &sync.Mutex{},
 	}
 }
 
@@ -234,6 +240,25 @@ func (s *Status) parseStatusResponse(deployment, podName string, r *models.Statu
 				ctrl.Status.ConsecutiveFailureCount,
 				ctrl.Status.LastFailureMsg))
 		}
+	}
+}
+
+func (s *Status) parseEndpointsResponse(deployment, podName string, eps []*models.Endpoint, err error) {
+	if err != nil {
+		s.AddAggregatedError(deployment, podName, fmt.Errorf("unable to retrieve cilium endpoint information: %s", err))
+		return
+	}
+
+	var notReady uint
+	for _, ep := range eps {
+		if ep != nil && ep.Status != nil && ep.Status.State != nil &&
+			*ep.Status.State != models.EndpointStateReady {
+			notReady++
+		}
+	}
+
+	if notReady > 0 {
+		s.AddAggregatedWarning(deployment, podName, fmt.Errorf("%d endpoints are not ready", notReady))
 	}
 }
 
