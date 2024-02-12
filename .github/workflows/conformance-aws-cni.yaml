@@ -30,6 +30,8 @@ permissions:
   pull-requests: read
   # To be able to set commit status
   statuses: write
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
 
 concurrency:
   # Structure:
@@ -192,8 +194,7 @@ jobs:
       - name: Set up AWS CLI credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
-          aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
 
       - name: Create EKS cluster
@@ -345,8 +346,7 @@ jobs:
       - name: Set up AWS CLI credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
-          aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
 
       - name: Clean up EKS
