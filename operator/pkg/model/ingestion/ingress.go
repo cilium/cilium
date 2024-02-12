@@ -225,7 +225,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 // * must have a host set
 // * rules with paths other than '/' are ignored
 // * default backends are ignored
-func IngressPassthrough(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName string) []model.TLSListener {
+func IngressPassthrough(ing networkingv1.Ingress) []model.TLSListener {
 	// First, we make a map of TLSListeners, with the hostname
 	// as the key, so that we can make sure we match up any
 	// TLS config with rules that match it.
