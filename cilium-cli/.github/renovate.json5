@@ -9,6 +9,7 @@
   "gitAuthor": "renovate[bot] <bot@renovateapp.com>",
   "includePaths": [
     ".github/workflows/**",
+    "action.yaml",
     "defaults/defaults.go",
     "go.mod",
     "go.sum",
@@ -41,7 +42,8 @@
       "groupName": "all github action dependencies",
       "groupSlug": "all-github-action",
       "matchPaths": [
-        ".github/workflows/**"
+        ".github/workflows/**",
+        "action.yaml"
       ],
       "matchUpdateTypes": [
         "major",
