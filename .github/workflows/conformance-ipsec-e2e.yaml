@@ -82,6 +82,8 @@ jobs:
             encryption-node: 'false'
             key-one: 'gcm(aes)'
             key-two: 'cbc(aes)'
+            key-type-one: '+'
+            key-type-two: '+'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -93,6 +95,8 @@ jobs:
             encryption-node: 'false'
             key-one: 'cbc(aes)'
             key-two: 'cbc(aes)'
+            key-type-one: '+'
+            key-type-two: ''
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -105,6 +109,8 @@ jobs:
             endpoint-routes: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
+            key-type-one: ''
+            key-type-two: '+'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -117,6 +123,8 @@ jobs:
             endpoint-routes: 'true'
             key-one: 'cbc(aes)'
             key-two: 'gcm(aes)'
+            key-type-one: ''
+            key-type-two: ''
 
     timeout-minutes: 70
     steps:
@@ -218,7 +226,7 @@ jobs:
             echo "Invalid key type"; exit 1
           fi
           kubectl create -n kube-system secret generic cilium-ipsec-keys \
-            --from-literal=keys="3 ${key}"
+            --from-literal=keys="3${{ matrix.key-type-one }} ${key}"
 
           export CILIUM_CLI_MODE=helm
           ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
@@ -253,19 +261,35 @@ jobs:
             else
               echo "Invalid key type"; exit 1
             fi
-            data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))+ ${key}\"}}"
+            data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))${{ matrix.key-type-two }} ${key}\"}}"
             kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
+
+            # Compute number of expected keys during key rotation depending on
+            # whether we use the single-key system (1 key) or the per-tunnel
+            # keys system (4 keys).
+            exp_nb_keys=2
+            if [[ "${{ matrix.key-type-one }}" == "+" ]]; then
+              ((exp_nb_keys+=7))
+            fi
+            if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
+              ((exp_nb_keys+=7))
+            fi
 
             # Wait until key rotation starts
             # We expect the amount of keys in use to grow during rotation.
             while true; do
               keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use > 8 ]]; then
+              if [[ $keys_in_use == $exp_nb_keys ]]; then
                 break
               fi
               echo "Waiting until key rotation starts (seeing $keys_in_use keys)"
               sleep 30s
             done
+
+            exp_nb_keys=1
+            if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
+              exp_nb_keys=8
+            fi
 
             # Wait until key rotation completes
             # We expect 2 keys per remote node.
@@ -273,7 +297,7 @@ jobs:
             sleep $((4*60))
             while true; do
               keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-              if [[ $keys_in_use == 8 ]]; then
+              if [[ $keys_in_use == $exp_nb_keys ]]; then
                 break
               fi
               echo "Waiting until key rotation completes (seeing $keys_in_use keys)"
