@@ -135,6 +135,14 @@ scheduled on the node, but not yet received an IP), and ``preAllocIPs`` is the
 minimum number of IPs that we want to pre-allocate as a buffer, i.e. the value
 taken from the ``ipam-multi-pool-pre-allocation`` map.
 
+Routing to Allocated PodCIDRs
+-----------------------------
+
+PodCIDRs allocated from ``CiliumPodIPPools`` can be announced to the network by the
+:ref:`bgp_control_plane` (:ref:`bgp_control_plane_multipool_ipam`). Alternatively,
+the ``autoDirectNodeRoutes`` Helm option can be used to enable automatic routing
+between nodes on a L2 network.
+
  .. _ipam_crd_multi_pool_limitations:
 
 Limitations
@@ -158,5 +166,3 @@ Multi-Pool IPAM mode:
      you may want to use ``ip-masq-agent``, which allows multiple disjunct non-masquerading
      CIDRs to be defined. See :ref:`concepts_masquerading` for details on how to use the
      ``ip-masq-agent`` feature.
-   - Announcing PodCIDRs by way of the built-in :ref:`bgp` mode is not yet
-     supported.  Use ``auto-direct-node-routes`` instead.
