@@ -285,10 +285,14 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		}
 		result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 
-		// First reconcile should wait for LB status
-		require.Error(t, err)
-		require.Equal(t, "load balancer status is not ready", err.Error())
+		// First reconcile should wait for LB status before writing addresses into Ingress status
+		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
+
+		gw := &gatewayv1.Gateway{}
+		err = c.Get(context.Background(), key, gw)
+		require.NoError(t, err)
+		require.Empty(t, gw.Status.Addresses)
 
 		// Simulate LB service update
 		lb := &corev1.Service{}
@@ -319,7 +323,6 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		// Check that the gateway status has been updated
-		gw := &gatewayv1.Gateway{}
 		err = c.Get(context.Background(), key, gw)
 		require.NoError(t, err)
 
@@ -355,10 +358,14 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		}
 		result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 
-		// First reconcile should wait for LB status
-		require.Error(t, err)
-		require.Equal(t, "load balancer status is not ready", err.Error())
+		// First reconcile should wait for LB status before writing addresses into Ingress status
+		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
+
+		gw := &gatewayv1.Gateway{}
+		err = c.Get(context.Background(), key, gw)
+		require.NoError(t, err)
+		require.Empty(t, gw.Status.Addresses)
 
 		// Simulate LB service update
 		lb := &corev1.Service{}
@@ -388,7 +395,6 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, ctrl.Result{}, result)
 
 		// Check that the gateway status has been updated
-		gw := &gatewayv1.Gateway{}
 		err = c.Get(context.Background(), key, gw)
 		require.NoError(t, err)
 
