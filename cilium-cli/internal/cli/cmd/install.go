@@ -37,7 +37,7 @@ cilium install
 # name and ID to prepare for multi-cluster capabilties.
 cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 
 			cmd.Flags().Visit(func(f *pflag.Flag) {
@@ -130,7 +130,7 @@ func newCmdUninstall() *cobra.Command {
 		Use:   "uninstall",
 		Short: "Uninstall Cilium",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			ctx := context.Background()
 
@@ -191,7 +191,7 @@ cilium upgrade
 # Upgrade Cilium to a specific version
 cilium upgrade --version %s
 `, defaults.Version),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 
 			installer, err := install.NewK8sInstaller(k8sClient, params)
@@ -265,7 +265,7 @@ cilium install
 # name and ID to prepare for multi-cluster capabilities.
 cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=cluster1
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {
@@ -298,7 +298,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 		Use:   "uninstall",
 		Short: "Uninstall Cilium using Helm",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			ctx := context.Background()
 
@@ -343,7 +343,7 @@ cilium upgrade
 # to prepare for multi-cluster capabilities.
 cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {

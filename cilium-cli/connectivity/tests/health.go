@@ -32,7 +32,7 @@ func (s *ciliumHealth) Name() string {
 func (s *ciliumHealth) Run(ctx context.Context, t *check.Test) {
 	for name, pod := range t.Context().CiliumPods() {
 		pod := pod
-		t.NewGenericAction(s, name).Run(func(a *check.Action) {
+		t.NewGenericAction(s, name).Run(func(_ *check.Action) {
 			runHealthProbe(ctx, t, &pod)
 		})
 	}

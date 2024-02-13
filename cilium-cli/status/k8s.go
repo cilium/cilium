@@ -528,7 +528,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 
 	// for the sake of sanity, don't get pod logs more than once
 	var agentLogsOnce = sync.Once{}
-	err := k.podStatus(ctx, status, defaults.AgentDaemonSetName, defaults.AgentPodSelector, func(ctx context.Context, status *Status, name string, pod *corev1.Pod) {
+	err := k.podStatus(ctx, status, defaults.AgentDaemonSetName, defaults.AgentPodSelector, func(_ context.Context, status *Status, name string, pod *corev1.Pod) {
 		if pod.Status.Phase == corev1.PodRunning {
 			// extract container status
 			var containerStatus *corev1.ContainerStatus
