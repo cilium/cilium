@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/unix"
 
@@ -206,6 +207,7 @@ func TestVerifier(t *testing.T) {
 						m.Pinning = ebpf.PinNone
 					}
 
+					start := time.Now()
 					coll, err := bpf.LoadCollection(spec, ebpf.CollectionOptions{
 						// Enable verifier logs for successful loads.
 						// Use log level 1 since it's known by all target kernels.
@@ -218,6 +220,8 @@ func TestVerifier(t *testing.T) {
 							LogLevel: ebpf.LogLevelBranch,
 						},
 					})
+					delta := time.Since(start)
+
 					var ve *ebpf.VerifierError
 					if errors.As(err, &ve) {
 						// Write full verifier log to a path on disk for offline analysis.
@@ -253,6 +257,8 @@ func TestVerifier(t *testing.T) {
 						lastOff := strings.LastIndex(p.VerifierLog, "\n") + 1
 						t.Logf("%s: %v (%d unverified insns)", n, p.VerifierLog[lastOff:], len(spec.Programs[n].Instructions))
 					}
+
+					t.Logf("Overall verification took %s", delta)
 				})
 			}
 		})
