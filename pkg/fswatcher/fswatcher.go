@@ -238,10 +238,10 @@ func (w *Watcher) loop() {
 				// If the event happened on a tracked path, we can forward
 				// it in all cases
 				if eventPath == trackedPath {
-					w.Events <- Event{
+					w.sendEvent(Event{
 						Name: trackedPath,
 						Op:   event.Op,
-					}
+					})
 				}
 
 				// If the event path has been invalidated (i.e. removed or
@@ -267,7 +267,7 @@ func (w *Watcher) loop() {
 					//     the old watchedPath.
 					err := w.updateWatchedPath(trackedPath)
 					if err != nil {
-						w.Errors <- err
+						w.sendError(err)
 					}
 
 					// If trackedPath is a symlink, it can happen that the old
@@ -278,10 +278,10 @@ func (w *Watcher) loop() {
 					// case, we emit a create event for the symlink.
 					newWatchedPath := w.trackedToWatchedPath[trackedPath]
 					if newWatchedPath == trackedPath {
-						w.Events <- Event{
+						w.sendEvent(Event{
 							Name: trackedPath,
 							Op:   fsnotify.Create,
-						}
+						})
 					}
 				}
 
@@ -306,7 +306,7 @@ func (w *Watcher) loop() {
 						// we have found a better watched path.
 						err := w.updateWatchedPath(trackedPath)
 						if err != nil {
-							w.Errors <- err
+							w.sendError(err)
 						}
 
 						// This checks if the new watchedPath after the call
@@ -322,10 +322,10 @@ func (w *Watcher) loop() {
 							// top of the loop body, we forward any event on
 							// the  trackedPath unconditionally)
 							if eventPath != trackedPath {
-								w.Events <- Event{
+								w.sendEvent(Event{
 									Name: trackedPath,
 									Op:   fsnotify.Create,
-								}
+								})
 							}
 						}
 					}
@@ -333,7 +333,7 @@ func (w *Watcher) loop() {
 			}
 		case err := <-w.watcher.Errors:
 			log.WithError(err).Debug("Received fsnotify error while watching")
-			w.Errors <- err
+			w.sendError(err)
 		case <-w.stop:
 			err := w.watcher.Close()
 			if err != nil {
@@ -343,5 +343,19 @@ func (w *Watcher) loop() {
 			close(w.Errors)
 			return
 		}
+	}
+}
+
+func (w *Watcher) sendEvent(e Event) {
+	select {
+	case w.Events <- e:
+	case <-w.stop:
+	}
+}
+
+func (w *Watcher) sendError(err error) {
+	select {
+	case w.Errors <- err:
+	case <-w.stop:
 	}
 }
