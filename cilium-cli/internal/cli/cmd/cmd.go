@@ -48,7 +48,7 @@ func NewCiliumCommand(hooks Hooks) *cobra.Command {
 			k8sClient = c
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
 			cmd.Help()
 		},
 		Use:   "cilium",

@@ -50,7 +50,7 @@ var params = check.Parameters{
 var tests []string
 
 func RunE(hooks Hooks) func(cmd *cobra.Command, args []string) error {
-	return func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
 		params.CiliumNamespace = namespace
 
 		for _, test := range tests {
@@ -209,7 +209,7 @@ func newCmdConnectivityPerf(hooks Hooks) *cobra.Command {
 		Use:   "perf",
 		Short: "Test network performance",
 		Long:  ``,
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PreRun: func(_ *cobra.Command, _ []string) {
 			// This is a bit of hack that allows us to override default values
 			// of these parameters that are not visible in perf subcommand options
 			// as we can't have different defaults specified in test and perf subcommands

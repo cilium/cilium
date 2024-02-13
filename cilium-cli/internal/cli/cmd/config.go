@@ -38,7 +38,7 @@ func newCmdConfigView() *cobra.Command {
 		Use:   "view",
 		Short: "View current configuration",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 
 			check := config.NewK8sConfig(k8sClient, params)
@@ -64,7 +64,7 @@ func newCmdConfigSet() *cobra.Command {
 		Short: "Set a key/value pair in the configuration",
 		Long:  ``,
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			params.Namespace = namespace
 
 			check := config.NewK8sConfig(k8sClient, params)
@@ -89,7 +89,7 @@ func newCmdConfigDelete() *cobra.Command {
 		Short: "Delete a key in the configuration",
 		Long:  ``,
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			params.Namespace = namespace
 
 			check := config.NewK8sConfig(k8sClient, params)

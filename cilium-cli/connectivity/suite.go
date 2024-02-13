@@ -340,7 +340,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.PodToPod(),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK.ExpectMetricsIncrease(ct.CiliumAgentMetrics(), "cilium_forward_count_total"),
 				check.ResultOK.ExpectMetricsIncrease(ct.CiliumAgentMetrics(), "cilium_forward_count_total")
 		})
@@ -402,7 +402,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 			tests.PodToPod(),
 			tests.PodToPodWithEndpoints(),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -412,7 +412,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 			tests.PodToPod(),
 			tests.PodToPodWithEndpoints(),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -422,7 +422,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 			tests.PodToPod(),
 			tests.PodToCIDR(),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultPolicyDenyEgressDrop, check.ResultNone
 		})
 
@@ -433,7 +433,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 			// https://github.com/cilium/cilium/blob/88c4dddede2a3b5b9a7339c1316a0dedd7229a26/pkg/policy/api/entity.go#L126
 			tests.PodToPod(tests.WithDestinationLabelsOption(map[string]string{"name": "echo-same-node"})),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultOK
 		})
 
@@ -442,7 +442,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 			WithScenarios(
 				tests.PodToPod(tests.WithDestinationLabelsOption(map[string]string{"name": "echo-other-node"})),
 			).
-			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 				return check.ResultDefaultDenyEgressDrop, check.ResultNone
 			})
 	}
@@ -452,7 +452,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.PodToHost(),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
 		})
 
@@ -611,7 +611,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 			WithScenarios(
 				tests.FromCIDRToPod(),
 			).
-			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 				return check.ResultOK, check.ResultNone
 			})
 	}
@@ -993,7 +993,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.PodToWorldWithTLSIntercept(),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultDropCurlHTTPError, check.ResultNone
 		})
 
@@ -1007,7 +1007,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.PodToWorldWithTLSIntercept("-H", "X-Very-Secret-Token: 42"),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
 		})
 
@@ -1044,7 +1044,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.PodToPod(),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultDropCurlTimeout, check.ResultDropAuthRequired
 		})
 
@@ -1068,7 +1068,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.PodToIngress(),
 		).
-		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -1078,7 +1078,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.PodToIngress(),
 		).
-		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -1088,7 +1088,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.PodToIngress(),
 		).
-		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -1116,7 +1116,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.OutsideToIngressService(),
 		).
-		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -1128,7 +1128,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.OutsideToIngressService(),
 		).
-		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -1140,7 +1140,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithScenarios(
 			tests.OutsideToIngressService(),
 		).
-		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
@@ -1151,7 +1151,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 			tests.PodToPod(),   // connects to other Pods directly, no DNS
 			tests.PodToWorld(), // resolves set domain-name defaults to one.one.one.one
 		).
-		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDropCurlTimeout, check.ResultNone
 		})
 

@@ -487,7 +487,7 @@ func GetCurrentRelease(
 	// Use the default Helm driver (Kubernetes secret).
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(format string, v ...interface{}) {}
+	logger := func(_ string, _ ...interface{}) {}
 	if err := actionConfig.Init(k8sClient, namespace, helmDriver, logger); err != nil {
 		return nil, err
 	}

@@ -48,7 +48,7 @@ func newCmdHubbleEnable() *cobra.Command {
 		Use:   "enable",
 		Short: "Enable Hubble observability",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			ctx := context.Background()
 			h, err := hubble.NewK8sHubble(ctx, k8sClient, params)
@@ -113,7 +113,7 @@ func newCmdHubbleDisable() *cobra.Command {
 		Use:   "disable",
 		Short: "Disable Hubble observability",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			ctx := context.Background()
 
@@ -144,7 +144,7 @@ func newCmdPortForwardCommand() *cobra.Command {
 		Use:   "port-forward",
 		Short: "Forward the relay port to the local machine",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Context = contextName
 			params.Namespace = namespace
 			ctx := context.Background()
@@ -171,7 +171,7 @@ func newCmdUI() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ui",
 		Short: "Open the Hubble UI",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Context = contextName
 			params.Namespace = namespace
 
@@ -203,7 +203,7 @@ func newCmdHubbleEnableWithHelm() *cobra.Command {
 		Use:   "enable",
 		Short: "Enable Hubble observability using Helm",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			ctx := context.Background()
 			if err := hubble.EnableWithHelm(ctx, k8sClient, params); err != nil {
@@ -226,7 +226,7 @@ func newCmdHubbleDisableWithHelm() *cobra.Command {
 		Use:   "disable",
 		Short: "Disable Hubble observability using Helm",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			ctx := context.Background()
 			if err := hubble.DisableWithHelm(ctx, k8sClient, params); err != nil {

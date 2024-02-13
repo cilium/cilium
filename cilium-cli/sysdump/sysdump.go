@@ -744,7 +744,7 @@ func (c *Collector) Run() error {
 		{
 			Description: "Collecting the Cilium configuration",
 			Quick:       true,
-			Task: func(ctx context.Context) error {
+			Task: func(_ context.Context) error {
 				if c.CiliumConfigMap == nil {
 					return nil
 				}
@@ -968,7 +968,7 @@ func (c *Collector) Run() error {
 			CreatesSubtasks: true,
 			Description:     "Collecting the CNI configuration files from Cilium pods",
 			Quick:           true,
-			Task: func(ctx context.Context) error {
+			Task: func(_ context.Context) error {
 				if err := c.SubmitCniConflistSubtask(c.CiliumPods, ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect CNI configuration files: %w", err)
 				}
@@ -997,7 +997,7 @@ func (c *Collector) Run() error {
 			CreatesSubtasks: true,
 			Description:     "Collecting gops stats from Cilium pods",
 			Quick:           true,
-			Task: func(ctx context.Context) error {
+			Task: func(_ context.Context) error {
 				if err := c.SubmitGopsSubtasks(c.CiliumPods, ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect Cilium gops: %w", err)
 				}
@@ -1042,7 +1042,7 @@ func (c *Collector) Run() error {
 			CreatesSubtasks: true,
 			Description:     "Collecting bugtool output from Cilium pods",
 			Quick:           false,
-			Task: func(ctx context.Context) error {
+			Task: func(_ context.Context) error {
 				if err := c.submitCiliumBugtoolTasks(c.CiliumPods); err != nil {
 					return fmt.Errorf("failed to collect 'cilium-bugtool': %w", err)
 				}
@@ -1053,7 +1053,7 @@ func (c *Collector) Run() error {
 			CreatesSubtasks: true,
 			Description:     "Collecting profiling data from Cilium pods",
 			Quick:           false,
-			Task: func(ctx context.Context) error {
+			Task: func(_ context.Context) error {
 				if !c.Options.Profiling {
 					return nil
 				}
@@ -1067,7 +1067,7 @@ func (c *Collector) Run() error {
 			CreatesSubtasks: true,
 			Description:     "Collecting logs from Cilium pods",
 			Quick:           false,
-			Task: func(ctx context.Context) error {
+			Task: func(_ context.Context) error {
 				if err := c.SubmitLogsTasks(c.CiliumPods, c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium pods")
 				}
@@ -1270,7 +1270,7 @@ func (c *Collector) Run() error {
 			CreatesSubtasks: true,
 			Description:     "Collecting tracing data from Cilium pods",
 			Quick:           false,
-			Task: func(ctx context.Context) error {
+			Task: func(_ context.Context) error {
 				if !c.Options.Tracing {
 					return nil
 				}
