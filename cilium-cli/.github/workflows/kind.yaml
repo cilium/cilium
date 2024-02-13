@@ -170,7 +170,7 @@ jobs:
 
       - name: Upload JUnit
         if: ${{ always() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-junits
           path: cilium-junit*.xml
@@ -186,7 +186,7 @@ jobs:
 
       - name: Upload sysdump
         if: ${{ !success() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
@@ -330,7 +330,7 @@ jobs:
 
       - name: Upload JUnit
         if: ${{ always() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-junits-helm-upgrade-clustermesh
           path: cilium-junit*.xml
@@ -349,7 +349,7 @@ jobs:
 
       - name: Upload sysdump from cluster 1
         if: ${{ !success() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdump-out-c1.zip
           path: cilium-sysdump-out-c1.zip
@@ -357,7 +357,7 @@ jobs:
 
       - name: Upload sysdump from cluster 2
         if: ${{ !success() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdump-out-c2.zip
           path: cilium-sysdump-out-c2.zip
