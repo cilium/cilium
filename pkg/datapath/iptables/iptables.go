@@ -86,12 +86,16 @@ const (
 	waitString = "-w"
 )
 
-type iptablesInterface interface {
-	getProg() string
-	getIpset() string
-	getVersion() (semver.Version, error)
+type runnable interface {
 	runProgOutput(args []string) (string, error)
 	runProg(args []string) error
+}
+
+type iptablesInterface interface {
+	runnable
+
+	getProg() string
+	getIpset() string
 }
 
 type ipt struct {
@@ -204,7 +208,7 @@ func isDisabledChain(disableIptablesFeederRules []string, chain string) bool {
 	return false
 }
 
-func (m *Manager) removeCiliumRules(table string, prog iptablesInterface, match string) error {
+func (m *Manager) removeCiliumRules(table string, prog runnable, match string) error {
 	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
 	if err != nil {
 		return err
@@ -541,7 +545,7 @@ func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 		"--set-mark", toProxyMark}
 }
 
-func (m *Manager) iptIngressProxyRule(rules string, prog iptablesInterface, l4proto, ip string, proxyPort uint16, name string) error {
+func (m *Manager) iptIngressProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
 	ingressMarkMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
@@ -572,7 +576,7 @@ func (m *Manager) egressProxyRule(l4Match, markMatch, mark, ip, port, name strin
 	}
 }
 
-func (m *Manager) iptEgressProxyRule(rules string, prog iptablesInterface, l4proto, ip string, proxyPort uint16, name string) error {
+func (m *Manager) iptEgressProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
 	egressMarkMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
@@ -814,7 +818,7 @@ func (m *Manager) copyProxyRules(oldChain string, match string) error {
 
 // Redirect packets to the host proxy via TPROXY, as directed by the Cilium
 // datapath bpf programs via skb marks (egress) or DSCP (ingress).
-func (m *Manager) addProxyRules(prog iptablesInterface, ip string, proxyPort uint16, ingress bool, name string) error {
+func (m *Manager) addProxyRules(prog runnable, ip string, proxyPort uint16, ingress bool, name string) error {
 	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-S"})
 	if err != nil {
 		return err
@@ -857,7 +861,7 @@ func (m *Manager) addProxyRules(prog iptablesInterface, ip string, proxyPort uin
 	return nil
 }
 
-func (m *Manager) endpointNoTrackRules(prog iptablesInterface, cmd string, IP string, port *lb.L4Addr) error {
+func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, port *lb.L4Addr) error {
 	var err error
 
 	protocol := strings.ToLower(port.Protocol)
@@ -1056,7 +1060,7 @@ func (m *Manager) GetProxyPort(name string) uint16 {
 	return m.doGetProxyPort(prog, name)
 }
 
-func (m *Manager) doGetProxyPort(prog iptablesInterface, name string) uint16 {
+func (m *Manager) doGetProxyPort(prog runnable, name string) uint16 {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -1117,7 +1121,7 @@ func (m *Manager) installForwardChainRules(ifName, localDeliveryInterface, forwa
 	return nil
 }
 
-func (m *Manager) installForwardChainRulesIpX(prog iptablesInterface, ifName, localDeliveryInterface, forwardChain string) error {
+func (m *Manager) installForwardChainRulesIpX(prog runnable, ifName, localDeliveryInterface, forwardChain string) error {
 	// While kube-proxy does change the policy of the iptables FORWARD chain
 	// it doesn't seem to handle all cases, e.g. host network pods that use
 	// the node IP which would still end up in default DENY. Similarly, for
@@ -1534,7 +1538,7 @@ func ipsetList(name string) (sets.Set[netip.Addr], error) {
 	return addrs, nil
 }
 
-func (m *Manager) installHostTrafficMarkRule(prog iptablesInterface) error {
+func (m *Manager) installHostTrafficMarkRule(prog runnable) error {
 	// Mark all packets sourced from processes running on the host with a
 	// special marker so that we can differentiate traffic sourced locally
 	// vs. traffic from the outside world that was masqueraded to appear
@@ -1830,7 +1834,7 @@ func (m *Manager) remoteSNATDstAddrExclusionCIDRv6(ipv6AllocCIDR string) string 
 	return ipv6AllocCIDR
 }
 
-func (m *Manager) ciliumNoTrackXfrmRules(prog iptablesInterface, input string) error {
+func (m *Manager) ciliumNoTrackXfrmRules(prog runnable, input string) error {
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
@@ -1909,7 +1913,7 @@ func (m *Manager) addCiliumNoTrackXfrmRules() (err error) {
 	return nil
 }
 
-func (m *Manager) addNoTrackPodTrafficRules(prog iptablesInterface, podsCIDR string) error {
+func (m *Manager) addNoTrackPodTrafficRules(prog runnable, podsCIDR string) error {
 	for _, chain := range []string{ciliumPreRawChain, ciliumOutputRawChain} {
 		if err := prog.runProg([]string{
 			"-t", "raw",
