@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/blang/semver/v4"
 )
 
 type expectation struct {
@@ -31,10 +29,6 @@ func (ipt *mockIptables) getProg() string {
 
 func (ipt *mockIptables) getIpset() string {
 	return ipt.ipset
-}
-
-func (ipt *mockIptables) getVersion() (semver.Version, error) {
-	return semver.Version{}, nil
 }
 
 func (ipt *mockIptables) runProgOutput(args []string) (out string, err error) {
