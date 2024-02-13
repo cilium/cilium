@@ -431,8 +431,7 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 type L4Filter struct {
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
-	Port     int    `json:"port"`
-	PortName string `json:"port-name,omitempty"`
+	Port int `json:"port"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
@@ -524,18 +523,9 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 	if option.Config.Debug {
 		logger = log.WithFields(logrus.Fields{
 			logfields.Port:             port,
-			logfields.PortName:         l4.PortName,
 			logfields.Protocol:         proto,
 			logfields.TrafficDirection: direction,
 		})
-	}
-
-	// resolve named port
-	if port == 0 && l4.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
-		if port == 0 {
-			return // nothing to be done for undefined named port
-		}
 	}
 
 	keyToAdd := Key{
@@ -553,7 +543,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 
 	for cs, currentRule := range l4.PerSelectorPolicies {
 		// have wildcard and this is an L3L4 key?
-		isL3L4withWildcardPresent := (l4.Port != 0 || l4.PortName != "") && l4.wildcard != nil && cs != l4.wildcard
+		isL3L4withWildcardPresent := l4.Port != 0 && l4.wildcard != nil && cs != l4.wildcard
 
 		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
 			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
@@ -762,22 +752,22 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
+	// already validated via L4Proto.Validate(), never "ANY"
+	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
-	portName := ""
 	p := uint64(0)
 	if iana.IsSvcName(port.Port) {
-		portName = port.Port
+		p = uint64(policyCtx.GetOwner().GetNamedPort(ingress, port.Port, uint8(u8p)))
+		if p == 0 {
+			return nil, fmt.Errorf("invalid port-name: %q", port.Port)
+		}
 	} else {
 		// already validated via PortRule.Validate()
 		p, _ = strconv.ParseUint(port.Port, 0, 16)
 	}
 
-	// already validated via L4Proto.Validate(), never "ANY"
-	u8p, _ := u8proto.ParseProtocol(string(protocol))
-
 	l4 := &L4Filter{
-		Port:                int(p),   // 0 for L3-only rules and named ports
-		PortName:            portName, // non-"" for named ports
+		Port:                int(p), // 0 for L3-only rules
 		Protocol:            protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
@@ -1046,11 +1036,10 @@ func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
 // port and proto.
 func addL4Filter(policyCtx PolicyContext,
 	ctx *SearchContext, resMap L4PolicyMap,
-	p api.PortProtocol, proto api.L4Proto,
 	filterToMerge *L4Filter,
 	ruleLabels labels.LabelArray) error {
 
-	key := p.Port + "/" + string(proto)
+	key := fmt.Sprintf("%d/%s", filterToMerge.Port, filterToMerge.Protocol)
 	existingFilter, ok := resMap[key]
 	if !ok {
 		resMap[key] = filterToMerge
@@ -1152,7 +1141,7 @@ func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redir
 // Otherwise, returns api.Allowed.
 //
 // Note: Only used for policy tracing
-func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
+func (l4 L4PolicyMap) containsAllL3L4(owner PolicyOwner, ingress bool, labels labels.LabelArray, ports []*models.Port) api.Decision {
 	if len(l4) == 0 {
 		return api.Allowed
 	}
@@ -1172,7 +1161,10 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 
 	for _, l4Ctx := range ports {
 		portStr := l4Ctx.Name
-		if !iana.IsSvcName(portStr) {
+		if iana.IsSvcName(portStr) {
+			u8p, _ := u8proto.ParseProtocol(string(l4Ctx.Protocol))
+			portStr = fmt.Sprintf("%d", owner.GetNamedPort(ingress, portStr, uint8(u8p)))
+		} else {
 			portStr = strconv.FormatUint(uint64(l4Ctx.Port), 10)
 		}
 		lwrProtocol := l4Ctx.Protocol
@@ -1317,13 +1309,6 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 		if !epPolicy.PolicyOwner.HasBPFPolicyMap() {
 			continue
 		}
-		// resolve named port
-		if port == 0 && l4.PortName != "" {
-			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
-			if port == 0 {
-				continue
-			}
-		}
 		var proxyPort uint16
 		if redirect {
 			var err error
@@ -1388,7 +1373,7 @@ func (l4 *L4Policy) Attach(ctx PolicyContext) {
 //
 // Note: Only used for policy tracing
 func (l4 *L4PolicyMap) IngressCoversContext(ctx *SearchContext) api.Decision {
-	return l4.containsAllL3L4(ctx.From, ctx.DPorts)
+	return l4.containsAllL3L4(ctx.Owner, true, ctx.From, ctx.DPorts)
 }
 
 // EgressCoversContext checks if the receiver's egress L4Policy contains
@@ -1396,7 +1381,7 @@ func (l4 *L4PolicyMap) IngressCoversContext(ctx *SearchContext) api.Decision {
 //
 // Note: Only used for policy tracing
 func (l4 *L4PolicyMap) EgressCoversContext(ctx *SearchContext) api.Decision {
-	return l4.containsAllL3L4(ctx.To, ctx.DPorts)
+	return l4.containsAllL3L4(ctx.Owner, false, ctx.To, ctx.DPorts)
 }
 
 // HasRedirect returns true if the L4 policy contains at least one port redirection

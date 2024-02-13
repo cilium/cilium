@@ -92,7 +92,7 @@ func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (bool, error) {
+func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity, owner PolicyOwner) (bool, error) {
 	cache.Lock()
 	cip, ok := cache.policies[identity.ID]
 	cache.Unlock()
@@ -118,7 +118,7 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	}
 
 	// Resolve the policies, which could fail
-	selPolicy, err := cache.repo.resolvePolicyLocked(identity)
+	selPolicy, err := cache.repo.resolvePolicyLocked(identity, owner)
 	if err != nil {
 		return false, err
 	}
@@ -151,8 +151,8 @@ func (cache *PolicyCache) Lookup(identity *identityPkg.Identity) SelectorPolicy 
 //
 // The caller must provide threadsafety for iteration over the policy
 // repository.
-func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) error {
-	_, err := cache.updateSelectorPolicy(identity)
+func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity, owner PolicyOwner) error {
+	_, err := cache.updateSelectorPolicy(identity, owner)
 	return err
 }
 

@@ -90,10 +90,10 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	policy1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
-	updated, err := cache.updateSelectorPolicy(identity1)
+	updated, err := cache.updateSelectorPolicy(identity1, DummyOwner{})
 	c.Assert(err, IsNil)
 	c.Assert(updated, Equals, true)
-	updated, err = cache.updateSelectorPolicy(identity1)
+	updated, err = cache.updateSelectorPolicy(identity1, DummyOwner{})
 	c.Assert(err, IsNil)
 	c.Assert(updated, Equals, false)
 	policy2 := cache.insert(identity1)
@@ -104,13 +104,13 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	c.Assert(cacheCleared, Equals, true)
-	updated, err = cache.updateSelectorPolicy(identity1)
+	updated, err = cache.updateSelectorPolicy(identity1, DummyOwner{})
 	c.Assert(err, NotNil)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
-	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
+	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), DummyOwner{})
 	c.Assert(err, NotNil)
 	c.Assert(updated, Equals, false)
 
@@ -122,7 +122,7 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	identity3 := ep3.GetSecurityIdentity()
 	policy3 := cache.insert(identity3)
 	c.Assert(policy3, Not(Equals), policy1)
-	updated, err = cache.updateSelectorPolicy(identity3)
+	updated, err = cache.updateSelectorPolicy(identity3, DummyOwner{})
 	c.Assert(err, IsNil)
 	c.Assert(updated, Equals, true)
 	idp3 := policy3.(*cachedSelectorPolicy).getPolicy()
@@ -420,7 +420,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // entries for an endpoint with the specified labels.
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (MapState, error) {
 	sp := d.Repository.GetPolicyCache().insert(identity)
-	d.Repository.GetPolicyCache().UpdatePolicy(identity)
+	d.Repository.GetPolicyCache().UpdatePolicy(identity, DummyOwner{})
 	epp := sp.Consume(DummyOwner{})
 	if epp == nil {
 		return nil, errors.New("policy distillation failure")

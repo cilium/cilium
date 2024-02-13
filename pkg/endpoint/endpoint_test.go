@@ -547,11 +547,6 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 	c.Assert(port, Equals, uint16(8080))
 	c.Assert(listener, Equals, "test-listener")
 	c.Assert(err, IsNil)
-
-	// Undefined named port
-	id, port = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "")
-	c.Assert(id, Equals, "")
-	c.Assert(port, Equals, uint16(0))
 }
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {

@@ -135,7 +135,7 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity, DummyOwner{})
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
@@ -217,7 +217,7 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
 
-	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity, DummyOwner{})
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
@@ -301,7 +301,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity, DummyOwner{})
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
@@ -414,7 +414,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity, DummyOwner{})
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 

@@ -60,6 +60,7 @@ type SearchContext struct {
 	From    labels.LabelArray
 	To      labels.LabelArray
 	DPorts  []*models.Port
+	Owner   PolicyOwner
 	// rulesSelect specifies whether or not to check whether a rule which is
 	// being analyzed using this SearchContext matches either From or To.
 	// This is used to avoid using EndpointSelector.Matches() if possible,

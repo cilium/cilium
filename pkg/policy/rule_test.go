@@ -1614,14 +1614,15 @@ var (
 
 	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=c"))
 
-	ctxAToB = SearchContext{From: labelsA, To: labelsB, Trace: TRACE_VERBOSE}
-	ctxAToC = SearchContext{From: labelsA, To: labelsC, Trace: TRACE_VERBOSE}
+	ctxAToB = SearchContext{From: labelsA, To: labelsB, Owner: DummyOwner{}, Trace: TRACE_VERBOSE}
+	ctxAToC = SearchContext{From: labelsA, To: labelsC, Owner: DummyOwner{}, Trace: TRACE_VERBOSE}
 )
 
 func expectResult(c *C, expected, obtained api.Decision, buffer *bytes.Buffer) {
 	if obtained != expected {
 		c.Errorf("Unexpected result: obtained=%v, expected=%v", obtained, expected)
 		c.Log(buffer)
+		c.FailNow()
 	}
 }
 
@@ -1828,10 +1829,9 @@ func (ds *PolicyTestSuite) TestIngressL4AllowAllNamedPort(c *C) {
 	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctxAToCNamed80)
 	c.Assert(err, IsNil)
 
-	filter, ok := l4IngressPolicy["port-80/TCP"]
+	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 0)
-	c.Assert(filter.PortName, Equals, "port-80")
+	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)

@@ -335,7 +335,7 @@ func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoint
 		return 0, err
 	}
 
-	err = addL4Filter(policyCtx, ctx, resMap, p, proto, filterToMerge, ruleLabels)
+	err = addL4Filter(policyCtx, ctx, resMap, filterToMerge, ruleLabels)
 	if err != nil {
 		return 0, err
 	}
@@ -771,7 +771,7 @@ func mergeEgressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints
 		return 0, err
 	}
 
-	err = addL4Filter(policyCtx, ctx, resMap, p, proto, filterToMerge, ruleLabels)
+	err = addL4Filter(policyCtx, ctx, resMap, filterToMerge, ruleLabels)
 	if err != nil {
 		return 0, err
 	}

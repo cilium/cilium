@@ -52,6 +52,7 @@ var (
 
 type testPolicyContextType struct {
 	isDeny bool
+	owner  PolicyOwner
 	ns     string
 }
 
@@ -85,6 +86,13 @@ func (p *testPolicyContextType) SetDeny(isDeny bool) bool {
 
 func (p *testPolicyContextType) IsDeny() bool {
 	return p.isDeny
+}
+
+func (p *testPolicyContextType) GetOwner() PolicyOwner {
+	if p.owner != nil {
+		return p.owner
+	}
+	return DummyOwner{}
 }
 
 var (

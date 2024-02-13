@@ -1350,14 +1350,6 @@ func (ms *mapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
-	// resolve named port
-	if port == 0 && l4.PortName != "" {
-		port = policyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
-		if port == 0 {
-			return true
-		}
-	}
-
 	var dir uint8
 	if l4.Ingress {
 		dir = trafficdirection.Ingress.Uint8()

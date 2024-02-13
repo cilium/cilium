@@ -57,11 +57,15 @@ type PolicyContext interface {
 	// SetDeny sets the Deny field of the PolicyContext and returns the old
 	// value stored.
 	SetDeny(newValue bool) (oldValue bool)
+
+	// GetOwner returns the PolicyOwner for the PolicyContext.
+	GetOwner() PolicyOwner
 }
 
 type policyContext struct {
-	repo *Repository
-	ns   string
+	repo  *Repository
+	owner PolicyOwner
+	ns    string
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
 	isDeny bool
@@ -102,6 +106,11 @@ func (p *policyContext) SetDeny(deny bool) bool {
 	oldDeny := p.isDeny
 	p.isDeny = deny
 	return oldDeny
+}
+
+// GetOwner returns the Owner of the PolicyContext
+func (p *policyContext) GetOwner() PolicyOwner {
+	return p.owner
 }
 
 // Repository is a list of policy rules which in combination form the security
@@ -265,8 +274,9 @@ func (p *Repository) Start() {
 // NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
 	policyCtx := policyContext{
-		repo: p,
-		ns:   ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		repo:  p,
+		owner: ctx.Owner,
+		ns:    ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
 	result, err := p.rules.resolveL4IngressPolicy(&policyCtx, ctx)
 	if err != nil {
@@ -288,8 +298,9 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, er
 // NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
 	policyCtx := policyContext{
-		repo: p,
-		ns:   ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		repo:  p,
+		owner: ctx.Owner,
+		ns:    ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
 	result, err := p.rules.resolveL4EgressPolicy(&policyCtx, ctx)
 
@@ -713,7 +724,7 @@ func (p *Repository) GetRulesList() *models.Policy {
 // cannot be generated due to conflicts at L4 or L7, returns an error.
 //
 // Must be performed while holding the Repository lock.
-func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*selectorPolicy, error) {
+func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity, owner PolicyOwner) (*selectorPolicy, error) {
 	// First obtain whether policy applies in both traffic directions, as well
 	// as list of rules which actually select this endpoint. This allows us
 	// to not have to iterate through the entire rule list multiple times and
@@ -734,11 +745,13 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	lbls := securityIdentity.LabelArray
 	ingressCtx := SearchContext{
 		To:          lbls,
+		Owner:       owner,
 		rulesSelect: true,
 	}
 
 	egressCtx := SearchContext{
 		From:        lbls,
+		Owner:       owner,
 		rulesSelect: true,
 	}
 
@@ -748,8 +761,9 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	policyCtx := policyContext{
-		repo: p,
-		ns:   lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		repo:  p,
+		owner: owner,
+		ns:    lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
 
 	if ingressEnabled {
