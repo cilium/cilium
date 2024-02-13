@@ -195,7 +195,7 @@ int from_overlay_syn_setup(struct __ctx_buff *ctx)
 	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0,
 			      (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
 
-	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
+	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
 }
 
@@ -287,7 +287,7 @@ int to_overlay_synack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_to_overlay_synack")
 int to_overlay_synack_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, &entry_call_map, TO_OVERLAY);
+	tail_call_static(ctx, entry_call_map, TO_OVERLAY);
 	return TEST_ERROR;
 }
 
@@ -355,7 +355,7 @@ int from_overlay_ack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "03_from_overlay_ack")
 int from_overlay_ack_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
+	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
 }
 

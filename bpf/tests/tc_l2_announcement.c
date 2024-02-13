@@ -101,7 +101,7 @@ SETUP("tc", "0_no_entry")
 int l2_announcement_arp_no_entry_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, 0);
+	tail_call_static(ctx, entry_call_map, 0);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -174,7 +174,7 @@ int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 	map_update_elem(&CONFIG_MAP, &index, &time, BPF_ANY);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, 0);
+	tail_call_static(ctx, entry_call_map, 0);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }

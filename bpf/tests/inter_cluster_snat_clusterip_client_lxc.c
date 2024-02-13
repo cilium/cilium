@@ -162,7 +162,7 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 
 	policy_add_egress_allow_entry(BACKEND_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
 
-	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 
 	return TEST_ERROR;
 }
@@ -265,7 +265,7 @@ int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, HANDLE_POLICY);
+	tail_call_static(ctx, entry_call_map, HANDLE_POLICY);
 
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
@@ -352,7 +352,7 @@ int lxc_to_overlay_ack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "03_lxc_to_overlay_ack")
 int lxc_to_overlay_ack_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
 }
 

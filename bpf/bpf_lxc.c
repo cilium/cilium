@@ -600,7 +600,7 @@ ct_recreate6:
 	 */
 	if (*dst_sec_identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
+		tail_call_static(ctx, POLICY_CALL_MAP, HOST_EP_ID);
 		return DROP_HOST_NOT_READY;
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
@@ -742,7 +742,7 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_CUSTOM_CALLS
 	if (!encode_custom_prog_meta(ctx, ret, dst_sec_identity)) {
-		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV6_EGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -1070,7 +1070,7 @@ ct_recreate4:
 	 */
 	if (*dst_sec_identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
+		tail_call_static(ctx, POLICY_CALL_MAP, HOST_EP_ID);
 		return DROP_HOST_NOT_READY;
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
@@ -1306,7 +1306,7 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_CUSTOM_CALLS
 	if (!encode_custom_prog_meta(ctx, ret, dst_sec_identity)) {
-		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV4_EGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -1680,7 +1680,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	 * proxy).
 	 */
 	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label)) {
-		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV6_INGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -1772,7 +1772,7 @@ out:
 	 */
 	if (!proxy_redirect &&
 	    !encode_custom_prog_meta(ctx, ret, src_sec_identity)) {
-		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV6_INGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -2050,7 +2050,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	 * proxy).
 	 */
 	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label)) {
-		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV4_INGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -2229,7 +2229,7 @@ out:
 	 */
 	if (!proxy_redirect &&
 	    !encode_custom_prog_meta(ctx, ret, src_sec_identity)) {
-		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV4_INGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -2405,7 +2405,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 	if (identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 1);
 		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
-		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
+		tail_call_static(ctx, POLICY_CALL_MAP, HOST_EP_ID);
 		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
 					DROP_HOST_NOT_READY, CTX_ACT_DROP,
 					METRIC_INGRESS);

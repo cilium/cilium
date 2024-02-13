@@ -254,7 +254,7 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 						0, 1230, SRC_TUNNEL_IP, 0, flag_skip_tunnel);
 	}
 
-	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	return TEST_ERROR;
 }
 
