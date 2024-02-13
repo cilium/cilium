@@ -1,5 +1,84 @@
 # Changelog
 
+## v1.14.7
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* api/cli: Encryption status now includes rendering IPsec status in JSON. (Backport PR #30554, Upstream PR #30167, @viktor-kurchenko)
+* Envoy running inside the Cilium Agent may now be scraped by Prometheus when using Prometheus' ServiceMonitor objects. (Backport PR #30355, Upstream PR #30126, @youngnick)
+* helm: Add extraVolumeMounts to cilium config init container (Backport PR #30355, Upstream PR #30131, @ayuspin)
+* ui: release v0.13.0 (Backport PR #30724, Upstream PR #30711, @geakstr)
+
+**Bugfixes:**
+* envoy: Change socket option from 'STATE_LISTENING' to 'STATE_PREBIND' (Backport PR #30680, Upstream PR #30543, @chaunceyjiang)
+* Fix all packet drops due to missed tail calls, enable zero tolerance for these errors in CI (Backport PR #30323, Upstream PR #30248, @ti-mo)
+* Fix cilium-envoy ServiceMonitor port name (Backport PR #30554, Upstream PR #27207, @pixiono)
+* Fix error when using multiple allowRoutes namespaces in gateway (#30551, @mhofstetter)
+* Fix error when using multiple allowRoutes namespaces in gateway (Backport PR #30554, Upstream PR #30100, @chaunceyjiang)
+* Fix issue where agent attempting to restore local node information (such as cilium_host ip) would fail on k8s fallback method. (Backport PR #30355, Upstream PR #29460, @tommyp1ckles)
+* Fix nodeinit issue causing NotReady state in Kubernetes nodes when laying down an incorrect CNI config (Backport PR #30554, Upstream PR #30399, @tlcowling)
+* Fix performance regression for pod-to-pod traffic WireGuard and tunneling. (Backport PR #30554, Upstream PR #30329, @3u13r)
+* Fix rare bug possibly causing connection disruption and/or agent panic due to node events processing before full initialization. (Backport PR #30554, Upstream PR #30282, @giorio94)
+* hive: Fix start hook log output (Backport PR #30724, Upstream PR #30712, @joamaki)
+* init well-known identity before new policy repository to fix the fqdn policy issue when enable well-known identity. (Backport PR #30554, Upstream PR #30052, @yingnanzhang666)
+* L2 announcements retry getting lease after losing it (Backport PR #30355, Upstream PR #30340, @dylandreimerink)
+* node/wireguard: Fix node-to-node encryption inconsistencies in kvstore mode (Backport PR #30534, Upstream PR #30423, @gandro)
+* Updating ENI prefix delegation fallback to use dedicated error codes (Backport PR #30680, Upstream PR #30536, @hemanthmalla)
+
+**CI Changes:**
+* ci datapath-verifier: add connectivity test (Backport PR #30371, Upstream PR #29633, @mhofstetter)
+* ci/ipsec: Fix version retrieval for downgrades to closest patch release (Backport PR #30554, Upstream PR #30503, @qmonnet)
+* ci: add trigger phrase to Gateway API conformance test workflow name (Backport PR #30680, Upstream PR #30525, @tklauser)
+* ci: Bump timeout of ci-runtime (Backport PR #30554, Upstream PR #29317, @YutaroHayakawa)
+* ci: bypass proxy.golang.org in Go toolchain installation (Backport PR #30371, Upstream PR #29549, @tklauser)
+* CI: Change cloud regions (Backport PR #30680, Upstream PR #30378, @brlbil)
+* ci: disable cgo when installing Go toolchain (Backport PR #30371, Upstream PR #27869, @tklauser)
+* ci: run verifier tests with proper Go toolchain version (Backport PR #30371, Upstream PR #27857, @tklauser)
+* Extend the clustermesh workflows to additionally cover the external kvstore case (Backport PR #30355, Upstream PR #29983, @giorio94)
+* gh: ci-verifier: use lvh-images/complexity-test as renovate dependency (Backport PR #30680, Upstream PR #30520, @julianwiedmann)
+* gha: additionally cover BPF masquerade in clustermesh E2E tests (Backport PR #30680, Upstream PR #30321, @giorio94)
+* gha: explicilty specify beefier runner type for clustermesh workflows (Backport PR #30355, Upstream PR #30335, @giorio94)
+* gha: make runner type for clustermesh workflows configurable (Backport PR #30680, Upstream PR #30496, @giorio94)
+* Improve Conformance Cluster Mesh workflow coverage (Backport PR #30355, Upstream PR #29926, @giorio94)
+* Network performance (Backport PR #30554, Upstream PR #30247, @marseel)
+* Rework GHA workflows to checkout the untrusted context in a separate directory for increased separation (Backport PR #30355, Upstream PR #30207, @giorio94)
+* Update GitHub upload-artifact action (Backport PR #30554, Upstream PR #30443, @brlbil)
+
+**Misc Changes:**
+* Added Last page Edit on Documentation (Backport PR #30680, Upstream PR #30612, @gailsuccess)
+* bpf: fib: fix issues with L2 resolution (Backport PR #30372, Upstream PR #30128, @julianwiedmann)
+* bpf: lb: return drop reasons from __lb4_rev_nat() (Backport PR #30554, Upstream PR #30410, @julianwiedmann)
+* bpf: overlay: restore bpf_clear_meta() in from-overlay (Backport PR #30355, Upstream PR #30343, @julianwiedmann)
+* build(deps): bump jinja2 from 3.1.2 to 3.1.3 in /Documentation (Backport PR #30554, Upstream PR #30219, @dependabot[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.20 (v1.14) (#30144, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.21 (v1.14) (#30571, @renovate[bot])
+* chore(deps): update dependency go to v1.21.6 (v1.14) (#30174, @renovate[bot])
+* chore(deps): update dependency go to v1.21.6 (v1.14) (#30640, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.18.6 (v1.14) (#30641, @renovate[bot])
+* chore(deps): update go to v1.21.6 (v1.14) (minor) (#30145, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.0 (v1.14) (minor) (#30274, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (#30492, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (#30575, @renovate[bot])
+* doc: Add Azure CNI Powered by cilium as external installer (Backport PR #30355, Upstream PR #28286, @tamilmani1989)
+* docs: Add Egress Gateway Policy warning on `egressIP` and `interface` being mutually exclusive in the `egressGateway` spec. (Backport PR #30554, Upstream PR #30236, @soggiest)
+* docs: warn users that IPsec and KPR are mutual exclusive (Backport PR #30554, Upstream PR #30403, @f1ko)
+* hive: Fix hive hook output and move lifecycle to cell package (Backport PR #30554, Upstream PR #30416, @joamaki)
+* hubble-ui: release v0.12.3 (Backport PR #30554, Upstream PR #30422, @geakstr)
+* ipcache: Skip conflict logging for tunnelpeer if native routing (Backport PR #30355, Upstream PR #27331, @christarazi)
+* loader, bpf: remove context cancellation check, lower pending map removal Warning to Info (Backport PR #30323, Upstream PR #30214, @ti-mo)
+* Rename egress_policies.h to srv6.h and add SRv6 related trace reasons. (Backport PR #30680, Upstream PR #30154, @ldelossa)
+* Rerun go mod tidy to fix missing entry (#30358, @giorio94)
+
+**Other Changes:**
+* [v1.14] ci/ipsec: Fix downgrade version for release preparation commits (#30716, @qmonnet)
+* [v1.14] ci/ipsec: Re-enable node-to-node-encryption check (#30401, @qmonnet)
+* envoy: Bump envoy version for x/net library (#30515, @sayboras)
+* envoy: Bump envoy version to v1.26.7 (#30693, @sayboras)
+* install: Update image digests for v1.14.6 (#30318, @gentoo-root)
+* remove stable tags from 1.14 releases (#30557, @aanm)
+
 ## v1.14.6
 
 Summary of Changes
