@@ -102,7 +102,7 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
+	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -137,7 +137,7 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
+	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -172,7 +172,7 @@ int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY, 0);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
+	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }

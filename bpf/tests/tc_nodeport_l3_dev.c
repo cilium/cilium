@@ -123,7 +123,7 @@ int ipv4_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 
 	skb_adjust_room(ctx, -__ETH_HLEN, BPF_ADJ_ROOM_MAC, flags);
 
-	tail_call_static(ctx, &entry_call_map, 0);
+	tail_call_static(ctx, entry_call_map, 0);
 	return TEST_ERROR;
 }
 
@@ -251,7 +251,7 @@ int ipv6_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 
 	skb_adjust_room(ctx, -__ETH_HLEN, BPF_ADJ_ROOM_MAC, flags);
 
-	tail_call_static(ctx, &entry_call_map, 0);
+	tail_call_static(ctx, entry_call_map, 0);
 	return TEST_ERROR;
 }
 
