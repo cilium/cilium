@@ -245,7 +245,7 @@ srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 
 	/* Add room between Ethernet and network headers. */
 	if (ctx_adjust_hroom(ctx, growth, BPF_ADJ_ROOM_MAC,
-			     ctx_adjust_hroom_flags()))
+			     BPF_F_ADJ_ROOM_ENCAP_L3_IPV6))
 		return DROP_INVALID;
 	if (ctx_store_bytes(ctx, ETH_HLEN, &new_ip6, len, 0) < 0)
 		return DROP_WRITE_ERROR;
@@ -417,7 +417,7 @@ srv6_handling4(struct __ctx_buff *ctx, union v6addr *src_sid,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u8 nexthdr;
-	int growth;
+	int growth = 0;
 
 	/* Inner packet is IPv4. */
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -431,25 +431,15 @@ srv6_handling4(struct __ctx_buff *ctx, union v6addr *src_sid,
 	 */
 	new_payload_len = bpf_ntohs(ip4->tot_len) - (__u16)(ip4->ihl << 2) + sizeof(struct iphdr);
 
-	/* We need to change skb->protocol and the corresponding packet
-	 * field because the L3 protocol will now be IPv6.
-	 */
-	if (ctx_change_proto(ctx, outer_proto, 0) < 0)
-		return DROP_WRITE_ERROR;
 	if (ctx_store_bytes(ctx, offsetof(struct ethhdr, h_proto),
 			    &outer_proto, sizeof(outer_proto), 0) < 0)
 		return DROP_WRITE_ERROR;
-	/* ctx_change_proto above grows the packet from IPv4 header
-	 * length to IPv6 header length. It adds the additional space
-	 * before the inner L3 header, in the same place we will later
-	 * add the outer IPv6 header.
-	 * Thus, deduce this space from the next packet growth.
-	 */
-	growth = sizeof(struct iphdr);
 
 #ifdef ENABLE_SRV6_SRH_ENCAP
-	growth += sizeof(struct srv6_srh) + sizeof(struct in6_addr);
+	growth += sizeof(struct ipv6hdr) + sizeof(struct srv6_srh) + sizeof(struct in6_addr);
 	new_payload_len += sizeof(struct srv6_srh) + sizeof(struct in6_addr);
+#else
+	growth += sizeof(struct ipv6hdr);
 #endif /* ENABLE_SRV6_SRH_ENCAP */
 
 	return srv6_encapsulation(ctx, growth, new_payload_len, nexthdr,
