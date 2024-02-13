@@ -103,7 +103,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, NULL, NULL);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, 0);
+	tail_call_static(ctx, entry_call_map, 0);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -191,7 +191,7 @@ SETUP("tc", "hairpin_sctp_flow_2_forward_ingress_v4")
 int hairpin_flow_forward_ingress_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, 1);
+	tail_call_static(ctx, entry_call_map, 1);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -273,7 +273,7 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	pktgen__finish(&builder);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, 0);
+	tail_call_static(ctx, entry_call_map, 0);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }

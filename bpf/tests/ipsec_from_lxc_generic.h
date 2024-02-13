@@ -75,7 +75,7 @@ int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
-	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
 }
 
@@ -129,7 +129,7 @@ int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 	node_ip.ip4 = v4_node_two;
 	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
 
-	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
 }
 
@@ -219,7 +219,7 @@ int ipv4_from_lxc_new_local_key_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
-	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
 }
 
@@ -264,7 +264,7 @@ int ipv4_from_lxc_new_remote_key_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
-	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
 }
 
@@ -334,7 +334,7 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 	node_ip.ip4 = v4_node_two;
 	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
 
-	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
 }
 
