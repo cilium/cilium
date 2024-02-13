@@ -181,7 +181,7 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -271,7 +271,7 @@ SETUP("tc", "tc_nodeport_local_backend_reply")
 int nodeport_local_backend_reply_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, TO_NETDEV);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -363,7 +363,7 @@ SETUP("tc", "tc_nodeport_local_backend_redirect")
 int nodeport_local_backend_redirect_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -455,7 +455,7 @@ SETUP("tc", "tc_nodeport_local_backend_redirect_reply")
 int nodeport_local_backend_redirect_reply_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, TO_NETDEV);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -554,7 +554,7 @@ int nodeport_udp_local_backend_setup(struct __ctx_buff *ctx)
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -655,7 +655,7 @@ int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -806,7 +806,7 @@ SETUP("tc", "tc_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }
@@ -833,7 +833,7 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 	fail_fib = 1;
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }

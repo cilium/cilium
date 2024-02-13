@@ -161,7 +161,7 @@ int overlay_to_lxc_syn_setup(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
 
-	tail_call_static(ctx, &entry_call_map, HANDLE_POLICY);
+	tail_call_static(ctx, entry_call_map, HANDLE_POLICY);
 
 	return TEST_ERROR;
 }
@@ -252,7 +252,7 @@ int lxc_to_overlay_synack_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry(CLIENT_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
 
-	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 
 	return TEST_ERROR;
 }
@@ -345,7 +345,7 @@ int overlay_to_lxc_ack_setup(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
 
-	tail_call_static(ctx, &entry_call_map, HANDLE_POLICY);
+	tail_call_static(ctx, entry_call_map, HANDLE_POLICY);
 
 	return TEST_ERROR;
 }

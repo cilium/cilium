@@ -109,7 +109,7 @@ int ipv4_ipsec_from_host_setup(struct __ctx_buff *ctx)
 
 	set_encrypt_key_mark(ctx, ENCRYPT_KEY, NODE_ID);
 	set_identity_meta(ctx, SECLABEL_IPV4);
-	tail_call_static(ctx, &entry_call_map, FROM_HOST);
+	tail_call_static(ctx, entry_call_map, FROM_HOST);
 	return TEST_ERROR;
 }
 
@@ -230,7 +230,7 @@ int ipv6_ipsec_from_host_setup(struct __ctx_buff *ctx)
 
 	set_encrypt_key_mark(ctx, ENCRYPT_KEY, NODE_ID);
 	set_identity_meta(ctx, SECLABEL_IPV6);
-	tail_call_static(ctx, &entry_call_map, FROM_HOST);
+	tail_call_static(ctx, entry_call_map, FROM_HOST);
 	return TEST_ERROR;
 }
 

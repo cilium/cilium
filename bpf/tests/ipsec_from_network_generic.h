@@ -103,7 +103,7 @@ int ipv4_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_not_decrypted_ipsec_from_network")
 int ipv4_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, &entry_call_map, FROM_NETWORK);
+	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
 }
 
@@ -214,7 +214,7 @@ int ipv6_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_not_decrypted_ipsec_from_network")
 int ipv6_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 {
-	tail_call_static(ctx, &entry_call_map, FROM_NETWORK);
+	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
 }
 
@@ -318,7 +318,7 @@ int ipv4_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
-	tail_call_static(ctx, &entry_call_map, FROM_NETWORK);
+	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
 }
 
@@ -422,7 +422,7 @@ int ipv6_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 			      0, (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
-	tail_call_static(ctx, &entry_call_map, FROM_NETWORK);
+	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
 }
 

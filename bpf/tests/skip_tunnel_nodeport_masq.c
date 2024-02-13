@@ -137,7 +137,7 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 						0, flag_skip_tunnel);
 	}
 
-	tail_call_static(ctx, &entry_call_map, TO_NETDEV);
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
 	return TEST_ERROR;
 }
 

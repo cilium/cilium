@@ -125,7 +125,7 @@ setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 		ipcache_v6_add_entry_with_flags((union v6addr *)DST_IPV6,
 						0, 1230, v4_node_two, 0, flag_skip_tunnel);
 
-	tail_call_static(ctx, &entry_call_map, FROM_HOST);
+	tail_call_static(ctx, entry_call_map, FROM_HOST);
 	return TEST_ERROR;
 }
 
