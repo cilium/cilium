@@ -4,9 +4,13 @@
 package iptables
 
 import (
+	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type expectation struct {
@@ -609,5 +613,92 @@ func TestRemoveCiliumRulesv6(t *testing.T) {
 	err := mockIp6tables.checkExpectations()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+type mockIpset struct {
+	output string
+	err    error
+}
+
+func (m *mockIpset) runProgOutput(args []string) (string, error) {
+	return m.output, m.err
+}
+
+func (m *mockIpset) runProg(args []string) error {
+	return nil
+}
+
+func TestIpsetList(t *testing.T) {
+	testCases := []struct {
+		name     string
+		output   string
+		expected sets.Set[netip.Addr]
+	}{
+		{
+			name: "empty ipset",
+			output: `Name: ciliumtest
+Type: hash:ip
+Revision: 6
+Header: family inet hashsize 1024 maxelem 65536 bucketsize 12 initval 0x4d9d24f1
+Size in memory: 216
+References: 0
+Number of entries: 0
+Members:
+`,
+			expected: sets.New[netip.Addr](),
+		},
+		{
+			name: "ipset with a single IP",
+			output: `Name: ciliumtest
+Type: hash:ip
+Revision: 6
+Header: family inet hashsize 1024 maxelem 65536 bucketsize 12 initval 0x4d9d24f1
+Size in memory: 256
+References: 0
+Number of entries: 1
+Members:
+1.1.1.1
+`,
+			expected: sets.New(netip.MustParseAddr("1.1.1.1")),
+		},
+		{
+			name: "ipset with multiple IPs",
+			output: `Name: ciliumtest
+Type: hash:ip
+Revision: 6
+Header: family inet hashsize 1024 maxelem 65536 bucketsize 12 initval 0x4d9d24f1
+Size in memory: 296
+References: 0
+Number of entries: 2
+Members:
+2.2.2.2
+1.1.1.1
+`,
+			expected: sets.New(netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2")),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ipset := &mockIpset{tc.output, nil}
+			got, err := ipsetList(ipset, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !got.Equal(tc.expected) {
+				t.Fatalf("expected addresses in ipset to be %v, got %v", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestIpsetListInexistentIpset(t *testing.T) {
+	expectedErr := errors.New("ipset v7.19: The set with the given name does not exist")
+	ipset := &mockIpset{"", expectedErr}
+
+	_, err := ipsetList(ipset, "")
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
