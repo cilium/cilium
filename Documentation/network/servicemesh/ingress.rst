@@ -90,23 +90,6 @@ Supported Ingress Annotations
        | Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``. If unspecified, a random
        | NodePort will be allocated by kubernetes.
      - unspecified
-   * - ``ingress.cilium.io/tcp-keep-alive``
-     - | Enable TCP keep-alive. Applicable values
-       | are ``enabled`` and ``disabled``.
-     - ``enabled``
-   * - ``ingress.cilium.io/tcp-keep-alive-idle``
-     - TCP keep-alive idle time (in seconds)
-     - ``10``
-   * - ``ingress.cilium.io/tcp-keep-alive-probe-interval``
-     - TCP keep-alive probe intervals (in seconds)
-     - ``5``
-   * - ``ingress.cilium.io/tcp-keep-alive-probe-max-failures``
-     - TCP keep-alive probe max failures
-     - ``10``
-   * - ``ingress.cilium.io/websocket``
-     - | Enable websocket passthrough support.
-       | Applicable values are ``enabled`` and ``disabled``.
-     - ``disabled``
    * - ``ingress.cilium.io/tls-passthrough``
      - | Enable TLS Passthrough mode for this Ingress.
        | Applicable values are ``enabled`` and ``disabled``,
