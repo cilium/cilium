@@ -98,7 +98,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
-	tail_call_static(ctx, &entry_call_map, FROM_XDP);
+	tail_call_static(ctx, entry_call_map, FROM_XDP);
 	/* Fail if we didn't jump */
 	return TEST_ERROR;
 }

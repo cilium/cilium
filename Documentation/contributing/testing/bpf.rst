@@ -189,7 +189,7 @@ This is an abbreviated example showing the key components:
         /* OMITTED setting up map state */
 
         /* Jump into the entrypoint */
-        tail_call_static(ctx, &entry_call_map, 0);
+        tail_call_static(ctx, entry_call_map, 0);
         /* Fail if we didn't jump */
         return TEST_ERROR;
     }
