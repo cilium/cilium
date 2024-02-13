@@ -218,6 +218,8 @@ When :ref:`Kubernetes <k8s_hostscope>` or :ref:`ClusterPool
 With this configuration, the BGP speaker on each node advertises the
 PodCIDR prefixes assigned to the local node.
 
+.. _bgp_control_plane_multipool_ipam:
+
 MutliPool IPAM
 ^^^^^^^^^^^^^^
 
