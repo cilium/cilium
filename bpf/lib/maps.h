@@ -317,7 +317,7 @@ struct {
 static __always_inline void ep_tail_call(struct __ctx_buff *ctx __maybe_unused,
 					 const __u32 index __maybe_unused)
 {
-	tail_call_static(ctx, &CALLS_MAP, index);
+	tail_call_static(ctx, CALLS_MAP, index);
 }
 #endif /* SKIP_CALLS_MAP */
 #endif
