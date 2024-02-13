@@ -106,7 +106,7 @@ jobs:
               --zone ${{ env.zone }} \
               --machine-type e2-custom-2-4096 \
               --boot-disk-type pd-standard \
-              --boot-disk-size 10GB \
+              --boot-disk-size 15GB \
               --preemptible \
               --image-project ubuntu-os-cloud \
               --image-family ubuntu-2004-lts \
@@ -126,7 +126,7 @@ jobs:
             --num-nodes 2 \
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
-            --disk-size 10GB \
+            --disk-size 15GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --preemptible
           CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
