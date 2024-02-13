@@ -52,7 +52,7 @@ jobs:
         run: sudo make install
 
       - name: Create kind cluster
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config }}
@@ -234,7 +234,7 @@ jobs:
         run: sudo make install
 
       - name: Create kind cluster 1
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config_1 }}
@@ -253,7 +253,7 @@ jobs:
             --nodes-without-cilium=${{ env.CLUSTER_NAME_1 }}-worker2
 
       - name: Create kind cluster 2
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config_2 }}
