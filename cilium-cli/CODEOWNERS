@@ -4,6 +4,7 @@
 # @cilium/cli                Commandline interfaces
 # @cilium/contributing       Developer documentation & tools
 # @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
+# @cilium/sig-encryption     Encryption management
 # @cilium/sig-bgp            BGP integration
 # @cilium/sig-clustermesh    Clustermesh and external workloads
 # @cilium/sig-hubble         Hubble integration
@@ -45,6 +46,7 @@
 /connectivity/tests/to-cidr.go @cilium/sig-policy
 /connectivity/tests/upgrade.go @cilium/sig-datapath
 /connectivity/tests/world.go @cilium/proxy
+/encrypt/ @cilium/sig-encryption
 /hubble/ @cilium/sig-hubble
 /install/ @cilium/cli @cilium/helm
 /install/azure.go @cilium/azure
