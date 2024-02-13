@@ -11,7 +11,7 @@ import (
 
 func newCmdContext() *cobra.Command {
 	cmd := &cobra.Command{
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			if contextName == "" {
 				contextName = k8sClient.RawConfig.CurrentContext
 			}

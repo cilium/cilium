@@ -28,7 +28,7 @@ func newCmdSysdump(hooks SysdumpHooks) *cobra.Command {
 		Use:   "sysdump",
 		Short: "Collects information required to troubleshoot issues with Cilium and Hubble",
 		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Honor --namespace global flag in case it is set and --cilium-namespace is not set
 			if sysdumpOptions.CiliumNamespace == "" && cmd.Flags().Changed("namespace") {
 				sysdumpOptions.CiliumNamespace = namespace

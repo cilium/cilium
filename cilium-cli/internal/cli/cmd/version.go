@@ -37,7 +37,7 @@ func newCmdVersion() *cobra.Command {
 		Use:   "version",
 		Short: "Display detailed version information",
 		Long:  `Displays information about the version of this software.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			fmt.Printf("cilium-cli: %s compiled with %v on %v/%v\n", version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 			fmt.Printf("cilium image (default): %s\n", defaults.Version)
 			fmt.Printf("cilium image (stable): %s\n", getLatestStableVersion())
