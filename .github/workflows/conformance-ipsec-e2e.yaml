@@ -84,6 +84,8 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             ipv6: 'false' # https://github.com/cilium/cilium/issues/23461
+            key-type-one: '+'
+            key-type-two: '+'
 
           - name: '2'
             kernel: '5.4-20230420.212204'
@@ -92,6 +94,8 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
+            key-type-one: '+'
+            key-type-two: ''
 
           - name: '3'
             kernel: '5.10-20230420.212204'
@@ -101,6 +105,19 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
+            key-type-one: ''
+            key-type-two: '+'
+
+          - name: '4'
+            kernel: '5.10-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            ipv6: 'false' # https://github.com/cilium/cilium/issues/23461
+            key-type-one: ''
+            key-type-two: ''
 
     timeout-minutes: 70
     steps:
@@ -253,7 +270,7 @@ jobs:
             kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
             kubectl create -n kube-system secret generic cilium-ipsec-keys \
-              --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+              --from-literal=keys="3${{ matrix.key-type-one }} rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
             export CILIUM_CLI_MODE=helm
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
@@ -282,26 +299,47 @@ jobs:
 
             KEYID=\$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
             if [[ \$KEYID -ge 15 ]]; then KEYID=0; fi
-            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1)))+ "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
+            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1)))${{ matrix.key-type-two }} "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
             kubectl patch secret -n kube-system cilium-ipsec-keys -p="\$data" -v=1
 
+
+            # Compute number of expected keys during key rotation depending on
+            # whether we use the single-key system (1 key) or the per-tunnel
+            # keys system (4 keys).
+            exp_nb_keys=2
             # If IPv6 is disabled, we expect one key per remote node.
             # Otherwise, we expect two.
-            exp_num_keys=4
-            if [ "${{ matrix.ipv6 }}" != "false" ]; then
-              exp_num_keys=8
+            if [ "${{ matrix.ipv6 }}" == "false" ]; then
+              if [[ "${{ matrix.key-type-one }}" == "+" ]]; then
+                ((exp_nb_keys+=3))
+              fi
+              if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
+                ((exp_nb_keys+=3))
+              fi
+            else
+              if [[ "${{ matrix.key-type-one }}" == "+" ]]; then
+                ((exp_nb_keys+=7))
+              fi
+              if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
+                ((exp_nb_keys+=7))
+              fi
             fi
 
             # Wait until key rotation starts
             # We expect the amount of keys in use to grow during rotation.
             while true; do
               keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print \$NF}')
-              if [[ \$keys_in_use > \$exp_num_keys ]]; then
+              if [[ \$keys_in_use == \$exp_nb_keys ]]; then
                 break
               fi
               echo "Waiting until key rotation starts (seeing \$keys_in_use keys)"
               sleep 30s
             done
+
+            exp_nb_keys=1
+            if [[ "${{ matrix.key-type-two }}" == "+" ]]; then
+              exp_nb_keys=8
+            fi
 
             # Wait until key rotation completes
             # We expect double the number of keys per remote node.
@@ -309,7 +347,7 @@ jobs:
             sleep \$((4*60))
             while true; do
               keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print \$NF}')
-              if [[ \$keys_in_use == \$exp_num_keys ]]; then
+              if [[ \$keys_in_use == \$exp_nb_keys ]]; then
                 break
               fi
               echo "Waiting until key rotation completes (seeing \$keys_in_use keys)"
