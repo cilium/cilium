@@ -1,11 +1,13 @@
 package hive
 
 import (
+	"log/slog"
+	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	upstream "github.com/cilium/hive"
-	"github.com/sagikazarmark/slog-shim"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
@@ -23,14 +25,42 @@ type (
 
 var (
 	ShutdownWithError = upstream.ShutdownWithError
+
+	// Custom slog logger that has output that matches with logrus.
+	// TODO: Might be easier to write a slog handler that uses logrus
+	// as the initial version?
+	// TODO: JSON and syslog support.
+	slogLogger = slog.New(slog.NewTextHandler(
+		os.Stdout,
+		&slog.HandlerOptions{
+			AddSource: false,
+			Level:     nil,
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				switch a.Key {
+				case "time":
+					// Drop timestamps
+					return slog.Attr{}
+				case "level":
+					// Lower-case the log level
+					return slog.Attr{
+						Key:   a.Key,
+						Value: slog.StringValue(strings.ToLower(a.Value.String())),
+					}
+				}
+				return a
+			},
+		},
+	))
 )
 
 func moduleDecorator(id cell.ModuleID, log logrus.FieldLogger) logrus.FieldLogger {
 	return log.WithField(logfields.LogSubsys, id)
 }
 
+// New wraps the hive.New to create a hive with defaults used by cilium-agent.
+// pkg/hive should eventually go away and this code should live in e.g. daemon/cmd
+// or operator/cmd.
 func New(cells ...cell.Cell) *Hive {
-	cells = slices.Clone(cells)
 	cells = append(
 		slices.Clone(cells),
 		cell.SimpleHealthCell,
@@ -39,7 +69,7 @@ func New(cells ...cell.Cell) *Hive {
 		))
 	return upstream.NewWithOptions(
 		upstream.Options{
-			Logger:          slog.Default(),
+			Logger:          slogLogger.With(logfields.LogSubsys, "hive"),
 			EnvPrefix:       "CILIUM_",
 			ModuleDecorator: moduleDecorator,
 			DecodeHooks:     decodeHooks,
