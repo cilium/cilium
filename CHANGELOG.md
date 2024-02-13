@@ -1,5 +1,55 @@
 # Changelog
 
+## v1.13.12
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* api/cli: Encryption status now includes rendering IPsec status in JSON. (Backport PR #30386, Upstream PR #30167, @viktor-kurchenko)
+* helm: Add extraVolumeMounts to cilium config init container (Backport PR #30386, Upstream PR #30131, @ayuspin)
+* ui: release v0.13.0 (Backport PR #30723, Upstream PR #30711, @geakstr)
+
+**Bugfixes:**
+* Add specific drop reason for missing tail calls if the host datapath is not ready yet (Backport PR #30315, Upstream PR #29482, @ti-mo)
+* Fix all packet drops due to missed tail calls, enable zero tolerance for these errors in CI (Backport PR #30315, Upstream PR #30248, @ti-mo)
+* Fix nodeinit issue causing NotReady state in Kubernetes nodes when laying down an incorrect CNI config (Backport PR #30522, Upstream PR #30399, @tlcowling)
+* Updating ENI prefix delegation fallback to use dedicated error codes (Backport PR #30679, Upstream PR #30536, @hemanthmalla)
+
+**CI Changes:**
+* [v1.13] backport Go version check fixes in preparation for Go 1.21 update (#30417, @tklauser)
+* ci/ipsec: Fix version retrieval for downgrades to closest patch release (Backport PR #30522, Upstream PR #30503, @qmonnet)
+* ci: add trigger phrase to Gateway API conformance test workflow name (Backport PR #30679, Upstream PR #30525, @tklauser)
+* CI: Change cloud regions (Backport PR #30679, Upstream PR #30378, @brlbil)
+* gha: explicilty specify beefier runner type for clustermesh workflows (Backport PR #30386, Upstream PR #30335, @giorio94)
+* gha: make runner type for clustermesh workflows configurable (Backport PR #30679, Upstream PR #30496, @giorio94)
+* Network performance (Backport PR #30679, Upstream PR #30247, @marseel)
+* Rework GHA workflows to checkout the untrusted context in a separate directory for increased separation (Backport PR #30386, Upstream PR #30207, @giorio94)
+* Update GitHub upload-artifact action (Backport PR #30522, Upstream PR #30443, @brlbil)
+
+**Misc Changes:**
+* Added Last page Edit on Documentation (Backport PR #30679, Upstream PR #30612, @gailsuccess)
+* bpf: lb: return drop reasons from __lb4_rev_nat() (Backport PR #30522, Upstream PR #30410, @julianwiedmann)
+* build(deps): bump jinja2 from 3.1.2 to 3.1.3 in /Documentation (Backport PR #30522, Upstream PR #30219, @dependabot[bot])
+* chore(deps): update go to v1.20.13 (v1.13) (patch) (#30186, @renovate[bot])
+* chore(deps): update go to v1.21.6 (v1.13) (minor) (#29817, @renovate[bot])
+* chore(deps): update hubble cli to v0.13.0 (v1.13) (minor) (#30275, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.13) (patch) (#30493, @renovate[bot])
+* doc: Add Azure CNI Powered by cilium as external installer (Backport PR #30386, Upstream PR #28286, @tamilmani1989)
+* docs: warn users that IPsec and KPR are mutual exclusive (Backport PR #30522, Upstream PR #30403, @f1ko)
+* hubble-ui: release v0.12.3 (Backport PR #30522, Upstream PR #30422, @geakstr)
+* loader, bpf: remove context cancellation check, lower pending map removal Warning to Info (Backport PR #30315, Upstream PR #30214, @ti-mo)
+
+**Other Changes:**
+* [1.13] Ignore ct buffer drops on minor release downgrades only (#30270, @rgo3)
+* [v1.13] ci/ipsec: Fix downgrade version for release preparation commits (#30715, @qmonnet)
+* [v1.13] ci/ipsec: Re-enable node-to-node-encryption check (#30402, @qmonnet)
+* [v1.13] pkg/allocator: Improve 'Key allocation attempt failed' handling for CRD mode (#30120, @antonipp)
+* bpf: l3: fix-up kube-proxy workaround in l3_local_delivery() to bpf_overlay (#30313, @julianwiedmann)
+* envoy: Bump envoy version for x/net library (#30516, @sayboras)
+* envoy: Bump envoy version to v1.26.7 (#30694, @sayboras)
+* install: Update image digests for v1.13.11 (#30317, @gentoo-root)
+
 ## v1.13.11
 
 Summary of Changes
