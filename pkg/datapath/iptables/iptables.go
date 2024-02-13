@@ -1241,7 +1241,7 @@ func (m *Manager) installMasqueradeRules(
 		} else {
 			family = "inet6"
 		}
-		if err := createIpset(prog.getIpset(), family); err != nil {
+		if err := createIpset(ipset, prog.getIpset(), family); err != nil {
 			return err
 		}
 
@@ -1495,26 +1495,26 @@ func (m *Manager) installMasqueradeRules(
 	return nil
 }
 
-func createIpset(name string, family string) error {
+func createIpset(ipset runnable, name string, family string) error {
 	progArgs := []string{"create", name, "iphash", "family", family, "-exist"}
 	return ipset.runProg(progArgs)
 }
 
-func removeIpset(name string) error {
-	if !ipsetExists(name) {
+func removeIpset(ipset runnable, name string) error {
+	if !ipsetExists(ipset, name) {
 		return nil
 	}
 	progArgs := []string{"destroy", name}
 	return ipset.runProg(progArgs)
 }
 
-func ipsetExists(name string) bool {
+func ipsetExists(ipset runnable, name string) bool {
 	progArgs := []string{"list", name}
 	err := ipset.runProg(progArgs)
 	return err == nil
 }
 
-func ipsetList(name string) (sets.Set[netip.Addr], error) {
+func ipsetList(ipset runnable, name string) (sets.Set[netip.Addr], error) {
 	args := []string{"list", name}
 	out, err := ipset.runProgOutput(args)
 	if err != nil {
@@ -1659,10 +1659,10 @@ func (m *Manager) reconcileIPSets(ipv4Set, ipv6Set sets.Set[netip.Addr]) error {
 			}
 		}
 	} else {
-		if err := removeIpset(CiliumNodeIpsetV4); err != nil {
+		if err := removeIpset(ipset, CiliumNodeIpsetV4); err != nil {
 			return err
 		}
-		if err := removeIpset(CiliumNodeIpsetV6); err != nil {
+		if err := removeIpset(ipset, CiliumNodeIpsetV6); err != nil {
 			return err
 		}
 	}
@@ -1670,11 +1670,11 @@ func (m *Manager) reconcileIPSets(ipv4Set, ipv6Set sets.Set[netip.Addr]) error {
 }
 
 func reconcileIPSet(name, family string, set sets.Set[netip.Addr]) error {
-	if err := createIpset(name, family); err != nil {
+	if err := createIpset(ipset, name, family); err != nil {
 		return fmt.Errorf("failed to create ipset %s: %w", name, err)
 	}
 
-	curSet, err := ipsetList(name)
+	curSet, err := ipsetList(ipset, name)
 	if err != nil {
 		return fmt.Errorf("failed to list ips in ipset %s: %w", name, err)
 	}
