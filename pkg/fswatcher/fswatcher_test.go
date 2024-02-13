@@ -8,19 +8,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 )
 
-type FsWatcherTestSuite struct{}
-
-var _ = Suite(&FsWatcherTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (s *FsWatcherTestSuite) TestWatcher(c *C) {
-	tmp := c.MkDir()
+func TestWatcher(t *testing.T) {
+	tmp := t.TempDir()
 
 	regularFile := filepath.Join(tmp, "file")
 	regularSymlink := filepath.Join(tmp, "symlink")
@@ -36,81 +28,77 @@ func (s *FsWatcherTestSuite) TestWatcher(c *C) {
 		nestedFile,
 		indirectSymlink,
 	})
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	defer w.Close()
 
-	eventName := make(chan string)
-	go func() {
-		var lastName string
+	var lastName string
+	assertEventName := func(name string) {
+		t.Helper()
+
 		for {
 			select {
-			case event, ok := <-w.Events:
-				if !ok {
-					return
-				}
+			case event := <-w.Events:
 				// not every file operation deterministically emits the same
 				// number of events, therefore report each name only once
 				if event.Name != lastName {
-					eventName <- event.Name
+					require.Equal(t, name, event.Name)
 					lastName = event.Name
-				}
-			case err, ok := <-w.Errors:
-				if !ok {
 					return
 				}
-				c.Fatalf("unexpected error: %s", err)
+			case err := <-w.Errors:
+				t.Fatalf("unexpected error: %s", err)
 			}
 		}
-	}()
+	}
 
 	// create $tmp/foo/ (this should not emit an event)
 	fooDirectory := filepath.Join(tmp, "foo")
 	err = os.MkdirAll(fooDirectory, 0777)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
 	// create $tmp/file
 	var data = []byte("data")
 	err = os.WriteFile(regularFile, data, 0777)
-	c.Assert(err, IsNil)
-	c.Assert(<-eventName, Equals, regularFile)
+	require.NoError(t, err)
+	assertEventName(regularFile)
 
 	// symlink $tmp/symlink -> $tmp/target
 	err = os.WriteFile(targetFile, data, 0777)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	err = os.Symlink(targetFile, regularSymlink)
-	c.Assert(err, IsNil)
-	c.Assert(<-eventName, Equals, regularSymlink)
+	require.NoError(t, err)
+	assertEventName(regularSymlink)
 
 	// create $tmp/foo/bar/nested
 	err = os.MkdirAll(filepath.Dir(nestedFile), 0777)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	err = os.WriteFile(nestedFile, data, 0777)
-	c.Assert(err, IsNil)
-	c.Assert(<-eventName, Equals, nestedFile)
+	require.NoError(t, err)
+	assertEventName(nestedFile)
 
 	// symlink $tmp/foo/symlink -> $tmp/foo/bar (this will emit an event on indirectSymlink)
 	err = os.Symlink(nestedDir, directSymlink)
-	c.Assert(err, IsNil)
-	c.Assert(<-eventName, Equals, indirectSymlink)
+	require.NoError(t, err)
+	assertEventName(indirectSymlink)
 
 	// redirect $tmp/symlink -> $tmp/file (this will not emit an event)
 	err = os.Remove(regularSymlink)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	err = os.Symlink(regularFile, regularSymlink)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	select {
-	case n := <-eventName:
-		c.Fatalf("rewriting symlink emitted unexpected event on %q", n)
+	case n := <-w.Events:
+		t.Fatalf("rewriting symlink emitted unexpected event on %q", n)
 	default:
 	}
 
 	// delete $tmp/target (this will emit an event on regularSymlink)
 	err = os.Remove(targetFile)
-	c.Assert(err, IsNil)
-	c.Assert(<-eventName, Equals, regularSymlink)
+	require.NoError(t, err)
+	assertEventName(regularSymlink)
 }
 
-func (s *FsWatcherTestSuite) Test_hasParent(c *C) {
+func TestHasParent(t *testing.T) {
 	type args struct {
 		path   string
 		parent string
@@ -140,7 +128,7 @@ func (s *FsWatcherTestSuite) Test_hasParent(c *C) {
 	for _, tt := range tests {
 		got := hasParent(tt.args.path, tt.args.parent)
 		if got != tt.want {
-			c.Fatalf("unexpected result %t for hasParent(%q, %q)", got, tt.args.path, tt.args.parent)
+			t.Fatalf("unexpected result %t for hasParent(%q, %q)", got, tt.args.path, tt.args.parent)
 		}
 	}
 }
