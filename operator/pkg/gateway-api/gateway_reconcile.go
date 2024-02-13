@@ -329,7 +329,9 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 
 	svc := svcList.Items[0]
 	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		return fmt.Errorf("load balancer status is not ready")
+		// Potential loadbalancer service isn't ready yet. No need to report as an error, because
+		// reconciliation should be triggered when the loadbalancer services gets updated.
+		return nil
 	}
 
 	var addresses []gatewayv1.GatewayStatusAddress
