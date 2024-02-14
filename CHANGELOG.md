@@ -1,5 +1,49 @@
 # Changelog
 
+## v1.15.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Enhance trace events from the outbound SNAT path, to report the pre-SNAT IP address and the interface index of the egress interface. (Backport PR #30704, Upstream PR #28723, @julianwiedmann)
+* ui: release v0.13.0 (Backport PR #30727, Upstream PR #30711, @geakstr)
+
+**Bugfixes:**
+* envoy: Change socket option from 'STATE_LISTENING' to 'STATE_PREBIND' (Backport PR #30681, Upstream PR #30543, @chaunceyjiang)
+* Fix bug in indexing of routes that lead to veth devices being considered native devices, which caused the wrong BPF program to be loaded onto them. (Backport PR #30767, Upstream PR #30762, @dylandreimerink)
+* fix edge case in node addressing logic which could result in a panic (Backport PR #30767, Upstream PR #30757, @dylandreimerink)
+* hive: Fix start hook log output (Backport PR #30727, Upstream PR #30712, @joamaki)
+* Updating ENI prefix delegation fallback to use dedicated error codes (Backport PR #30681, Upstream PR #30536, @hemanthmalla)
+
+**CI Changes:**
+* ci: add trigger phrase to Gateway API conformance test workflow name (Backport PR #30681, Upstream PR #30525, @tklauser)
+* CI: Change cloud regions (Backport PR #30681, Upstream PR #30378, @brlbil)
+* ci: Fix PR labels parsing in update label workflow (Backport PR #30681, Upstream PR #30507, @pippolo84)
+* gh: ci-verifier: use lvh-images/complexity-test as renovate dependency (Backport PR #30681, Upstream PR #30520, @julianwiedmann)
+* gha: additionally cover BPF masquerade in clustermesh E2E tests (Backport PR #30681, Upstream PR #30321, @giorio94)
+* gha: make runner type for clustermesh workflows configurable (Backport PR #30681, Upstream PR #30496, @giorio94)
+* Update GitHub upload-artifact action (Backport PR #30681, Upstream PR #30443, @brlbil)
+* workflows: Clean IPsec test output (Backport PR #30767, Upstream PR #30759, @pchaigno)
+
+**Misc Changes:**
+* Added Last page Edit on Documentation (Backport PR #30681, Upstream PR #30612, @gailsuccess)
+* bgpv1: remove BGP Controller from daemon cell (Backport PR #30767, Upstream PR #30561, @harsimran-pabla)
+* chore(deps): update all github action dependencies (v1.15) (patch) (#30486, @renovate[bot])
+* chore(deps): update all kind-images main (v1.15) (patch) (#30670, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.21 (v1.15) (#30570, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.22 (v1.15) (#30671, @renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (#30574, @renovate[bot])
+* dep: Bump grpc_health_probe to v0.4.24 (Backport PR #30704, Upstream PR #30643, @ferozsalam)
+* docs: Document XfrmInStateInvalid errors (Backport PR #30767, Upstream PR #30151, @pchaigno)
+* egressgw: improvements for FIB-driven redirect path (Backport PR #30681, Upstream PR #30576, @julianwiedmann)
+* Fix failure in `FuzzDenyPreferredInsert` test (Backport PR #30681, Upstream PR #30368, @christarazi)
+
+**Other Changes:**
+* [v1.15] ci/ipsec: Fix downgrade version for release preparation commits (#30718, @qmonnet)
+* envoy: Bump envoy version to v1.27.3 (#30696, @sayboras)
+* install: Update image digests for v1.15.0 (#30559, @aanm)
+
 ## v1.15.0
 
 Summary of Changes
