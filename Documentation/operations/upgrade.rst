@@ -312,6 +312,8 @@ Removed Options
 ~~~~~~~~~~~~~~~
 
 * The unused flag ``sidecar-istio-proxy-image`` has been removed.
+* The flag ``endpoint-status`` has been removed.
+  More information can be found in the following Helm upgrade notes.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -321,6 +323,10 @@ Helm Options
 * Deprecated options ``proxy.prometheus.enabled`` and ``proxy.prometheus.port`` have been removed.
   Please use ``envoy.prometheus.enabled`` and ``envoy.prometheus.port`` instead.
 * The unused helm option ``proxy.sidecarImageRegex`` has been removed.
+* The helm option ``endpointStatus`` has been removed. Instead of relying on additional statuses in CiliumEndpoints CRD,
+  please rely on Cilium's metrics to monitor status of endpoints. Example metrics include: ``cilium_policy``, ``cilium_policy_endpoint_enforcement_status``,
+  ``cilium_controllers_failing`` and ``cilium_endpoint_state``.
+  More detailed information about specific endpoint status information is still available through ``cilium-dbg endpoint get``.
 
 Added Metrics
 ~~~~~~~~~~~~~

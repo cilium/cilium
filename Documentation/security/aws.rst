@@ -329,14 +329,13 @@ The derivative rule should contain the following information:
 - *status*: whether or not the policy is enforced yet, and when the policy was
   last updated.
 
-The Cilium Endpoint status for the *xwing* should have policy enforcement
+The endpoint status for the *xwing* should have policy enforcement
 enabled only for egress connectivity:
 
 .. code-block:: shell-session
 
-    $ kubectl get cep xwing
-    NAME    ENDPOINT ID   IDENTITY ID   POLICY ENFORCEMENT   ENDPOINT STATE   IPV4         IPV6
-    xwing   23453         63929         egress               ready            10.10.0.95   f00d::a0a:0:0:22cf
+    $ kubectl exec -q -it -n kube-system cilium-85vtg -- cilium-dbg endpoint get 23453 -o jsonpath='{$[0].status.policy.realized.policy-enabled}'
+    egress
 
 In this example, *xwing* pod can only connect to ``34.254.113.42/32`` and
 ``172.31.44.160/32`` and connectivity to other IP will be denied.
