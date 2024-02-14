@@ -113,8 +113,8 @@ image:
   tag: "v1.12.19"
   pullPolicy: "IfNotPresent"
   # cilium-digest
-  digest: ""
-  useDigest: false
+  digest: "sha256:b997994ab759443d9fc9807eb39b4784bf03e13730a8132ffe5df3edef22a312"
+  useDigest: true
 
 # -- Affinity for cilium-agent.
 affinity:
@@ -850,8 +850,8 @@ hubble:
       repository: "quay.io/cilium/hubble-relay"
       tag: "v1.12.19"
        # hubble-relay-digest
-      digest: ""
-      useDigest: false
+      digest: "sha256:19f2dee371523888985e6e34b30d07ef3f84f2a9206ad79bdfc8dede96e25d5c"
+      useDigest: true
       pullPolicy: "IfNotPresent"
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1650,14 +1650,14 @@ operator:
     repository: "quay.io/cilium/operator"
     tag: "v1.12.19"
     # operator-generic-digest
-    genericDigest: ""
+    genericDigest: "sha256:da4d72facecde862c88d08bf99c3f476845beb407052a0cc4c06b68cc93b7570"
     # operator-azure-digest
-    azureDigest: ""
+    azureDigest: "sha256:bab9f1f3fa52d52e88c8fca9fc88be000150807a088b3bb1f3dad777d727da3c"
     # operator-aws-digest
-    awsDigest: ""
+    awsDigest: "sha256:a6e8d754d1319977d6faf3d73893284be9cb3cd6fa4e711c4f07ff5bc96131aa"
     # operator-alibabacloud-digest
-    alibabacloudDigest: ""
-    useDigest: false
+    alibabacloudDigest: "sha256:6d9be533aeefed303355b48c495865f603efbe46df85614e6fbbdbc7d0fa06c6"
+    useDigest: true
     pullPolicy: "IfNotPresent"
     suffix: ""
 
@@ -1907,8 +1907,8 @@ preflight:
     repository: "quay.io/cilium/cilium"
     tag: "v1.12.19"
     # cilium-digest
-    digest: ""
-    useDigest: false
+    digest: "sha256:b997994ab759443d9fc9807eb39b4784bf03e13730a8132ffe5df3edef22a312"
+    useDigest: true
     pullPolicy: "IfNotPresent"
 
   # -- The priority class to use for the preflight pod.
@@ -2053,8 +2053,8 @@ clustermesh:
       repository: "quay.io/cilium/clustermesh-apiserver"
       tag: "v1.12.19"
       # clustermesh-apiserver-digest
-      digest: ""
-      useDigest: false
+      digest: "sha256:61f8e871760dceaa0c0459bbf44a3049dd0f4ab15e57e063d9b3284434cb3dd8"
+      useDigest: true
       pullPolicy: "IfNotPresent"
 
     etcd:
