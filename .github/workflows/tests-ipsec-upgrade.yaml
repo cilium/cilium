@@ -189,6 +189,7 @@ jobs:
           if [ -z "${CILIUM_DOWNGRADE_VERSION}" ]; then
             echo "::notice::No CILIUM_DOWNGRADE_VERSION returned; skipping remaining steps"
           fi
+          echo -e "\e[1;34mTEST\e[0m"
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
 
