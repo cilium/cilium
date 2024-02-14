@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -270,7 +271,7 @@ type Manager struct {
 	haveSocketMatch      bool
 	haveBPFSocketAssign  bool
 	ipEarlyDemuxDisabled bool
-	CNIChainingMode      string
+	cniConfigManager     cni.CNIConfigManager
 }
 
 type params struct {
@@ -279,8 +280,9 @@ type params struct {
 	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
 
-	ModulesMgr *modules.Manager
-	Sysctl     sysctl.Sysctl
+	ModulesMgr       *modules.Manager
+	Sysctl           sysctl.Sysctl
+	CNIConfigManager cni.CNIConfigManager
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -288,12 +290,13 @@ type params struct {
 
 func newIptablesManager(p params) *Manager {
 	iptMgr := &Manager{
-		logger:        p.Logger,
-		modulesMgr:    p.ModulesMgr,
-		sysctl:        p.Sysctl,
-		cfg:           p.Cfg,
-		sharedCfg:     p.SharedCfg,
-		haveIp6tables: true,
+		logger:           p.Logger,
+		modulesMgr:       p.ModulesMgr,
+		sysctl:           p.Sysctl,
+		cfg:              p.Cfg,
+		sharedCfg:        p.SharedCfg,
+		haveIp6tables:    true,
+		cniConfigManager: p.CNIConfigManager,
 	}
 
 	p.Lifecycle.Append(iptMgr)
@@ -1088,7 +1091,7 @@ func (m *Manager) getDeliveryInterface(ifName string) string {
 	switch {
 	case m.sharedCfg.EnableEndpointRoutes:
 		// aws-cni creates container interfaces with names like eni621c0fc8425.
-		if m.CNIChainingMode == "aws-cni" {
+		if m.cniConfigManager.GetChainingMode() == "aws-cni" {
 			return "eni+"
 		}
 		return "lxc+"
