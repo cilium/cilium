@@ -130,6 +130,7 @@ jobs:
             kernel: '6.1-20240201.165956'
             kube-proxy: 'none'
             kpr: 'true'
+            devices: '{eth0,eth1}'
             tunnel: 'vxlan'
             lb-mode: 'snat'
             egress-gateway: 'true'
