@@ -1020,10 +1020,6 @@
      - Enable use of per endpoint routes instead of routing via the cilium_host interface.
      - bool
      - ``false``
-   * - :spelling:ignore:`endpointStatus`
-     - Enable endpoint status. Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space.
-     - object
-     - ``{"enabled":false,"status":""}``
    * - :spelling:ignore:`eni.awsEnablePrefixDelegation`
      - Enable ENI prefix delegation
      - bool

@@ -730,11 +730,6 @@ encryption:
 endpointHealthChecking:
   # -- Enable connectivity health checking between virtual endpoints.
   enabled: true
-# -- Enable endpoint status.
-# Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space.
-endpointStatus:
-  enabled: false
-  status: ""
 endpointRoutes:
   # -- Enable use of per endpoint routes instead of routing via
   # the cilium_host interface.

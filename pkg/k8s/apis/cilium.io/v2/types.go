@@ -87,10 +87,6 @@ type EndpointStatus struct {
 	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
 }
 
-// EndpointStatusLogEntries is the maximum number of log entries in
-// EndpointStatus.Log.
-const EndpointStatusLogEntries = 5
-
 // +k8s:deepcopy-gen=false
 
 // ControllerList is a list of ControllerStatus.
