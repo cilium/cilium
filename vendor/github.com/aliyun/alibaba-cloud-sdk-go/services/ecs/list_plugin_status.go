@@ -73,12 +73,14 @@ type ListPluginStatusRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
+	NextToken            string           `position:"Query" name:"NextToken"`
 	PageSize             requests.Integer `position:"Query" name:"PageSize"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	InstanceId           *[]string        `position:"Query" name:"InstanceId"  type:"Repeated"`
 	Name                 string           `position:"Query" name:"Name"`
+	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
 }
 
 // ListPluginStatusResponse is the response struct for api ListPluginStatus
@@ -88,6 +90,7 @@ type ListPluginStatusResponse struct {
 	RequestId               string                  `json:"RequestId" xml:"RequestId"`
 	PageNumber              int64                   `json:"PageNumber" xml:"PageNumber"`
 	TotalCount              int64                   `json:"TotalCount" xml:"TotalCount"`
+	NextToken               string                  `json:"NextToken" xml:"NextToken"`
 	InstancePluginStatusSet InstancePluginStatusSet `json:"InstancePluginStatusSet" xml:"InstancePluginStatusSet"`
 }
 

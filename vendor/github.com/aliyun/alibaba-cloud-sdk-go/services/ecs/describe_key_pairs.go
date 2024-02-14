@@ -74,6 +74,7 @@ type DescribeKeyPairsRequest struct {
 	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
 	KeyPairFingerPrint   string                 `position:"Query" name:"KeyPairFingerPrint"`
 	KeyPairName          string                 `position:"Query" name:"KeyPairName"`
+	IncludePublicKey     requests.Boolean       `position:"Query" name:"IncludePublicKey"`
 	PageNumber           requests.Integer       `position:"Query" name:"PageNumber"`
 	ResourceGroupId      string                 `position:"Query" name:"ResourceGroupId"`
 	PageSize             requests.Integer       `position:"Query" name:"PageSize"`

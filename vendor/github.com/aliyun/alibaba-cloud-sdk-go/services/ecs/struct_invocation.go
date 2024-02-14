@@ -41,6 +41,7 @@ type Invocation struct {
 	Parameters         string                                   `json:"Parameters" xml:"Parameters"`
 	CommandName        string                                   `json:"CommandName" xml:"CommandName"`
 	VmCount            int                                      `json:"VmCount" xml:"VmCount"`
+	NextToken          string                                   `json:"NextToken" xml:"NextToken"`
 	InvokeId           string                                   `json:"InvokeId" xml:"InvokeId"`
 	RepeatMode         string                                   `json:"RepeatMode" xml:"RepeatMode"`
 	InvokeStatus       string                                   `json:"InvokeStatus" xml:"InvokeStatus"`

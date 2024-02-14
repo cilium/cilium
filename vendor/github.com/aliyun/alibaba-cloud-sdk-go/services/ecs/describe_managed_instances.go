@@ -74,6 +74,7 @@ type DescribeManagedInstancesRequest struct {
 	ResourceOwnerId      requests.Integer               `position:"Query" name:"ResourceOwnerId"`
 	PageNumber           requests.Integer               `position:"Query" name:"PageNumber"`
 	ResourceGroupId      string                         `position:"Query" name:"ResourceGroupId"`
+	NextToken            string                         `position:"Query" name:"NextToken"`
 	PageSize             requests.Integer               `position:"Query" name:"PageSize"`
 	Tag                  *[]DescribeManagedInstancesTag `position:"Query" name:"Tag"  type:"Repeated"`
 	ResourceOwnerAccount string                         `position:"Query" name:"ResourceOwnerAccount"`
@@ -82,6 +83,7 @@ type DescribeManagedInstancesRequest struct {
 	OwnerId              requests.Integer               `position:"Query" name:"OwnerId"`
 	InstanceName         string                         `position:"Query" name:"InstanceName"`
 	InstanceId           *[]string                      `position:"Query" name:"InstanceId"  type:"Repeated"`
+	MaxResults           requests.Integer               `position:"Query" name:"MaxResults"`
 	InstanceIp           string                         `position:"Query" name:"InstanceIp"`
 	ActivationId         string                         `position:"Query" name:"ActivationId"`
 }
@@ -99,6 +101,7 @@ type DescribeManagedInstancesResponse struct {
 	RequestId  string                               `json:"RequestId" xml:"RequestId"`
 	PageNumber int64                                `json:"PageNumber" xml:"PageNumber"`
 	TotalCount int64                                `json:"TotalCount" xml:"TotalCount"`
+	NextToken  string                               `json:"NextToken" xml:"NextToken"`
 	Instances  []InstanceInDescribeManagedInstances `json:"Instances" xml:"Instances"`
 }
 

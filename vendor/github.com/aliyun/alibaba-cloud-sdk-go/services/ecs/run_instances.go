@@ -122,6 +122,7 @@ type RunInstancesRequest struct {
 	Isp                                      string                          `position:"Query" name:"Isp"`
 	KeyPairName                              string                          `position:"Query" name:"KeyPairName"`
 	SpotPriceLimit                           requests.Float                  `position:"Query" name:"SpotPriceLimit"`
+	CpuOptionsTopologyType                   string                          `position:"Query" name:"CpuOptions.TopologyType"`
 	StorageSetPartitionNumber                requests.Integer                `position:"Query" name:"StorageSetPartitionNumber"`
 	Tag                                      *[]RunInstancesTag              `position:"Query" name:"Tag"  type:"Repeated"`
 	PrivatePoolOptionsId                     string                          `position:"Query" name:"PrivatePoolOptions.Id"`
@@ -219,6 +220,8 @@ type RunInstancesNetworkInterface struct {
 	NetworkCardIndex            string    `name:"NetworkCardIndex"`
 	DeleteOnRelease             string    `name:"DeleteOnRelease"`
 	NetworkInterfaceId          string    `name:"NetworkInterfaceId"`
+	RxQueueSize                 string    `name:"RxQueueSize"`
+	TxQueueSize                 string    `name:"TxQueueSize"`
 }
 
 // RunInstancesDataDisk is a repeated param struct in RunInstancesRequest

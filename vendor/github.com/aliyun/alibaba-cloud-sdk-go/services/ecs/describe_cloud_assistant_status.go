@@ -73,12 +73,14 @@ type DescribeCloudAssistantStatusRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
+	NextToken            string           `position:"Query" name:"NextToken"`
 	PageSize             requests.Integer `position:"Query" name:"PageSize"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OSType               string           `position:"Query" name:"OSType"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	InstanceId           *[]string        `position:"Query" name:"InstanceId"  type:"Repeated"`
+	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
 }
 
 // DescribeCloudAssistantStatusResponse is the response struct for api DescribeCloudAssistantStatus
@@ -88,6 +90,7 @@ type DescribeCloudAssistantStatusResponse struct {
 	RequestId                       string                          `json:"RequestId" xml:"RequestId"`
 	PageNumber                      int64                           `json:"PageNumber" xml:"PageNumber"`
 	TotalCount                      int64                           `json:"TotalCount" xml:"TotalCount"`
+	NextToken                       string                          `json:"NextToken" xml:"NextToken"`
 	InstanceCloudAssistantStatusSet InstanceCloudAssistantStatusSet `json:"InstanceCloudAssistantStatusSet" xml:"InstanceCloudAssistantStatusSet"`
 }
 

@@ -76,9 +76,11 @@ type ModifyNetworkInterfaceAttributeRequest struct {
 	SecurityGroupId      *[]string        `position:"Query" name:"SecurityGroupId"  type:"Repeated"`
 	Description          string           `position:"Query" name:"Description"`
 	NetworkInterfaceName string           `position:"Query" name:"NetworkInterfaceName"`
+	TxQueueSize          requests.Integer `position:"Query" name:"TxQueueSize"`
 	DeleteOnRelease      requests.Boolean `position:"Query" name:"DeleteOnRelease"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	RxQueueSize          requests.Integer `position:"Query" name:"RxQueueSize"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	NetworkInterfaceId   string           `position:"Query" name:"NetworkInterfaceId"`
 }

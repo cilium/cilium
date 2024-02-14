@@ -71,20 +71,26 @@ func (client *Client) ModifyInstanceNetworkSpecWithCallback(request *ModifyInsta
 // ModifyInstanceNetworkSpecRequest is the request struct for api ModifyInstanceNetworkSpec
 type ModifyInstanceNetworkSpecRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken             string           `position:"Query" name:"ClientToken"`
-	ISP                     string           `position:"Query" name:"ISP"`
-	InternetMaxBandwidthOut requests.Integer `position:"Query" name:"InternetMaxBandwidthOut"`
-	StartTime               string           `position:"Query" name:"StartTime"`
-	AutoPay                 requests.Boolean `position:"Query" name:"AutoPay"`
-	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
-	EndTime                 string           `position:"Query" name:"EndTime"`
-	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId              string           `position:"Query" name:"InstanceId"`
-	NetworkChargeType       string           `position:"Query" name:"NetworkChargeType"`
-	InternetMaxBandwidthIn  requests.Integer `position:"Query" name:"InternetMaxBandwidthIn"`
-	AllocatePublicIp        requests.Boolean `position:"Query" name:"AllocatePublicIp"`
+	ResourceOwnerId         requests.Integer                          `position:"Query" name:"ResourceOwnerId"`
+	ClientToken             string                                    `position:"Query" name:"ClientToken"`
+	ISP                     string                                    `position:"Query" name:"ISP"`
+	InternetMaxBandwidthOut requests.Integer                          `position:"Query" name:"InternetMaxBandwidthOut"`
+	StartTime               string                                    `position:"Query" name:"StartTime"`
+	AutoPay                 requests.Boolean                          `position:"Query" name:"AutoPay"`
+	ResourceOwnerAccount    string                                    `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount            string                                    `position:"Query" name:"OwnerAccount"`
+	EndTime                 string                                    `position:"Query" name:"EndTime"`
+	OwnerId                 requests.Integer                          `position:"Query" name:"OwnerId"`
+	PromotionOptions        ModifyInstanceNetworkSpecPromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	InstanceId              string                                    `position:"Query" name:"InstanceId"`
+	NetworkChargeType       string                                    `position:"Query" name:"NetworkChargeType"`
+	InternetMaxBandwidthIn  requests.Integer                          `position:"Query" name:"InternetMaxBandwidthIn"`
+	AllocatePublicIp        requests.Boolean                          `position:"Query" name:"AllocatePublicIp"`
+}
+
+// ModifyInstanceNetworkSpecPromotionOptions is a repeated param struct in ModifyInstanceNetworkSpecRequest
+type ModifyInstanceNetworkSpecPromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
 }
 
 // ModifyInstanceNetworkSpecResponse is the response struct for api ModifyInstanceNetworkSpec

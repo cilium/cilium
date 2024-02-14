@@ -32,6 +32,7 @@ type AutoProvisioningGroup struct {
 	AutoProvisioningGroupType        string                      `json:"AutoProvisioningGroupType" xml:"AutoProvisioningGroupType"`
 	AutoProvisioningGroupId          string                      `json:"AutoProvisioningGroupId" xml:"AutoProvisioningGroupId"`
 	ExcessCapacityTerminationPolicy  string                      `json:"ExcessCapacityTerminationPolicy" xml:"ExcessCapacityTerminationPolicy"`
+	ResourceGroupId                  string                      `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	SpotOptions                      SpotOptions                 `json:"SpotOptions" xml:"SpotOptions"`
 	PayAsYouGoOptions                PayAsYouGoOptions           `json:"PayAsYouGoOptions" xml:"PayAsYouGoOptions"`
 	TargetCapacitySpecification      TargetCapacitySpecification `json:"TargetCapacitySpecification" xml:"TargetCapacitySpecification"`

@@ -21,5 +21,6 @@ type KeyPair struct {
 	KeyPairName        string                 `json:"KeyPairName" xml:"KeyPairName"`
 	KeyPairFingerPrint string                 `json:"KeyPairFingerPrint" xml:"KeyPairFingerPrint"`
 	ResourceGroupId    string                 `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	PublicKey          string                 `json:"PublicKey" xml:"PublicKey"`
 	Tags               TagsInDescribeKeyPairs `json:"Tags" xml:"Tags"`
 }
