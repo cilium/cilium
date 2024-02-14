@@ -5,8 +5,8 @@ include:
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.27.3@sha256:3966ac761ae0136263ffdb6cfd4db23ef8a83cba8a463690e98317add2c9ba72"
-    # We don't want to update bpf-next after branching
-    kernel: "bpf-next-20230526.105339@sha256:4133d4e09b1e86ac175df8d899873180281bb4220dc43e2566c47b0241637411"
+    # renovate: datasource=docker depName=quay.io/lvh-images/kind
+    kernel: "6.6-20240208.105738@sha256:2ae01ae28d314dfc527ca97ea16afaa1ac98c21954139f55652b5d5383ad7910"
 
   - k8s-version: "1.26"
     ip-family: "dual"

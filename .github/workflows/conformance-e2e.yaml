@@ -125,7 +125,7 @@ jobs:
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.0-20231019.053646'
+            kernel: '6.6-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
@@ -135,8 +135,8 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '7'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -147,8 +147,8 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '8'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20240208.105738'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -184,7 +184,7 @@ jobs:
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.0-20231019.053646'
+            kernel: '6.6-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -196,8 +196,8 @@ jobs:
             egress-gateway: 'true'
 
           - name: '12'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -210,7 +210,7 @@ jobs:
 
           - name: '13'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.0-20231019.053646'
+            kernel: '6.6-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -223,8 +223,8 @@ jobs:
             misc: 'encryption.wireguard.encapsulate=true'
 
           - name: '14'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'

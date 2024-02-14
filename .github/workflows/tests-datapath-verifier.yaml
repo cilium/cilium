@@ -87,8 +87,8 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.1-20240208.105738'
             ci-kernel: '61'
-            # We don't want to update bpf-next after branching
-          - kernel: 'bpf-next-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          - kernel: '6.6-20240208.105738'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
