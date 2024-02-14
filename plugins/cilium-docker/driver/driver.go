@@ -90,7 +90,6 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 
 	scopedLog = scopedLog.WithField("dockerHostPath", dockerHostPath)
 	dockerCli, err := dockerCliAPI.NewClientWithOpts(
-		dockerCliAPI.WithVersion("v1.21"),
 		dockerCliAPI.WithHost(dockerHostPath),
 	)
 	if err != nil {
