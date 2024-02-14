@@ -30,6 +30,20 @@ spec:
     - matchExpressions:
       - { key: 'k8s-app', operator: In, values: [ "kube-dns", "coredns", "node-local-dns", "nodelocaldns" ] }
       - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "kube-system" ] }
+# OpenShift  runs coreDNS in openshift-dns namespace and uses port 5353
+  - toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
+      - port: "5353"
+        protocol: TCP
+      rules:
+        dns:
+        - matchPattern: "*"
+    toEndpoints:
+    - matchExpressions:
+      - { key: 'dns.operator.openshift.io/daemonset-dns', operator: Exists }
+      - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "openshift-dns" ] }
   # When node-local-dns is deployed with local IP,
   # Cilium labels its ip as world.
   # This change prevents failing the connectivity
