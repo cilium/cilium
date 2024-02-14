@@ -582,3 +582,4 @@ Vagrantfile @cilium/ci-structure
 /vendor/ @cilium/vendor
 /VERSION @cilium/tophat
 /.clang-format @cilium/contributing
+/.openvex.json @cilium/security
