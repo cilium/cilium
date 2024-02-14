@@ -109,7 +109,7 @@ jobs:
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240112.012951'
+            kernel: '6.6-20240208.105738'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
