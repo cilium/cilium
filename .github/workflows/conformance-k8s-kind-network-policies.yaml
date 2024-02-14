@@ -22,7 +22,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.20.0
+  kind_version: v0.21.0
   cluster_name: cilium-testing
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
@@ -232,7 +232,7 @@ jobs:
 
       - name: Upload Kubernetes e2e Junit Reports
         if: ${{ success() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
         with:
           name: kubernetes-e2e-junit
           path: './_artifacts/*.xml'
