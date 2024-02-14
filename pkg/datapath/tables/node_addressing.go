@@ -106,10 +106,12 @@ func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
 	if option.Config.DirectRoutingDevice == "" {
 		return 0, nil, false
 	}
+
 	dev, _, ok := a.devices.First(a.db.ReadTxn(), DeviceNameIndex.Query(option.Config.DirectRoutingDevice))
 	if !ok {
 		return 0, nil, false
 	}
+
 	var addr net.IP
 	for _, a := range dev.Addrs {
 		if flags&ipv6 != 0 && a.Addr.Is6() {
@@ -120,6 +122,10 @@ func (a addressFamily) getDirectRouting(flags getFlags) (int, net.IP, bool) {
 			break
 		}
 	}
+	if addr == nil {
+		return 0, nil, false
+	}
+
 	return dev.Index, addr, true
 }
 
