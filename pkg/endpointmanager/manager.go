@@ -624,7 +624,7 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	mgr.mutex.Unlock()
 
 	ep.InitEndpointScope(mgr.reporterScope)
-	mgr.RunK8sCiliumEndpointSync(ep, option.Config, ep.GetReporter("cep-k8s-sync"))
+	mgr.RunK8sCiliumEndpointSync(ep, ep.GetReporter("cep-k8s-sync"))
 
 	return nil
 }
