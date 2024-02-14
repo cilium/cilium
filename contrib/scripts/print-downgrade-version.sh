@@ -45,6 +45,21 @@ print_prev_patch() {
     # This means CI workflows relying on a previous patch release and calling
     # this script should download at least part of the history, with
     # "fetch-depth: 2".
+    if git rev-parse --is-inside-work-tree &> /dev/null; then
+        >&2 echo "INFO: in work tree"
+    fi
+    if git rev-parse --is-inside-work-tree &> /dev/null && \
+        git rev-parse --verify HEAD^ &> /dev/null; then
+        >&2 echo "INFO: more than one commit"
+    fi
+    if git rev-parse --is-inside-work-tree &> /dev/null && \
+        git rev-parse --verify HEAD^ &> /dev/null && \
+        git diff --name-only HEAD^..HEAD | grep -q "^VERSION$"; then
+        >&2 echo "INFO: commit touches VERSION"
+    fi
+    git log -n 5 || true
+    echo "patch: ${patch}"
+
     if git rev-parse --is-inside-work-tree &> /dev/null && \
         git rev-parse --verify HEAD^ &> /dev/null && \
         git diff --name-only HEAD^..HEAD | grep -q "^VERSION$"; then
