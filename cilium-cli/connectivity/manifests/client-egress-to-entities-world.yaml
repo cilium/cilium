@@ -23,6 +23,17 @@ spec:
         protocol: UDP
       - port: "53"
         protocol: TCP
+  # OpenShift  runs coreDNS in openshift-dns namespace and uses port 5353
+  - toEndpoints:
+    - matchExpressions:
+      - { key: 'dns.operator.openshift.io/daemonset-dns', operator: Exists }
+      - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "openshift-dns" ] }
+    toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
+      - port: "5353"
+        protocol: TCP
   # When node-local-dns is deployed with local IP,
   # Cilium labels its ip as world.
   # This change prevents failing the connectivity
