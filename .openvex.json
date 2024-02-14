@@ -1,0 +1,199 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-2c888588017ab89446d4dae0e77dfb63836b4e868bc19aaf47e3777ece4cd6fd",
+  "author": "Cilium Security Team",
+  "timestamp": "2024-02-13T11:33:19.469022Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2022-3715"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/bash@5.1-6ubuntu1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2016-2781"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/coreutils@8.32-4.1ubuntu1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2022-27943"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/gcc-12-base@12.3.0-1ubuntu1~22.04"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2022-3219"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/gpgv@2.2.27-3ubuntu2.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2016-20013"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/libc-bin@2.35-0ubuntu3.5"
+            },
+            {
+              "@id": "pkg:deb/ubuntu/libc6@2.35-0ubuntu3.5"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2022-27943"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/libgcc-s1@12.3.0-1ubuntu1~22.04"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2020-22916"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/liblzma5@5.2.5-2ubuntu1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2017-11164"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/libpcre3@2:8.39-13ubuntu0.22.04.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2022-27943"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/libstdc++6@12.3.0-1ubuntu1~22.04"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-29383"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/login@1:4.8.1-2ubuntu2.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-29383"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/cilium",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/ubuntu/passwd@1:4.8.1-2ubuntu2.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    }
+  ]
+}
