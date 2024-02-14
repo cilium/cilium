@@ -275,7 +275,7 @@ jobs:
 
           ./cilium-cli status --wait
           kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -- cilium status
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium status
 
           mkdir -p cilium-junits
 
@@ -298,7 +298,7 @@ jobs:
 
             # Wait until key rotation starts
             while true; do
-              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
+              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
               if [[ $keys_in_use == 2 ]]; then
                 break
               fi
@@ -310,7 +310,7 @@ jobs:
             # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
             sleep $((4*60))
             while true; do
-              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
+              keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium encrypt status | awk '/Keys in use/ {print $NF}')
               if [[ $keys_in_use == 1 ]]; then
                 break
               fi
