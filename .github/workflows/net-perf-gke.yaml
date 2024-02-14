@@ -4,6 +4,10 @@ name: Network performance GKE
 on:
   schedule:
     - cron: '39 0 * * 1-5'
+# For testing uncomment following lines:
+#  push:
+#    branches:
+#      - your_branch_name
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -53,7 +57,7 @@ jobs:
         include:
           - index: 1
             name: "native"
-            mode: "native"
+            mode: "gke"
             encryption: "none"
             hubble: "false"
 
@@ -65,7 +69,7 @@ jobs:
 
           - index: 3
             name: "native-ipsec"
-            mode: "native"
+            mode: "gke"
             encryption: "ipsec"
             hubble: "false"
 
@@ -77,7 +81,7 @@ jobs:
 
           - index: 5
             name: "native-hubble"
-            mode: "native"
+            mode: "gke"
             encryption: "none"
             hubble: "true"
 
@@ -89,7 +93,7 @@ jobs:
 
           - index: 7
             name: "native-ipsec-hubble"
-            mode: "native"
+            mode: "gke"
             encryption: "ipsec"
             hubble: "true"
 
