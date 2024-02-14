@@ -81,6 +81,7 @@ type CreateNetworkInterfaceRequest struct {
 	NetworkInterfaceName           string                       `position:"Query" name:"NetworkInterfaceName"`
 	Visible                        requests.Boolean             `position:"Query" name:"Visible"`
 	Ipv6AddressCount               requests.Integer             `position:"Query" name:"Ipv6AddressCount"`
+	RxQueueSize                    requests.Integer             `position:"Query" name:"RxQueueSize"`
 	OwnerId                        requests.Integer             `position:"Query" name:"OwnerId"`
 	VSwitchId                      string                       `position:"Query" name:"VSwitchId"`
 	PrivateIpAddress               *[]string                    `position:"Query" name:"PrivateIpAddress"  type:"Repeated"`
@@ -91,6 +92,7 @@ type CreateNetworkInterfaceRequest struct {
 	Description                    string                       `position:"Query" name:"Description"`
 	Ipv6PrefixCount                requests.Integer             `position:"Query" name:"Ipv6PrefixCount"`
 	InstanceType                   string                       `position:"Query" name:"InstanceType"`
+	TxQueueSize                    requests.Integer             `position:"Query" name:"TxQueueSize"`
 	DeleteOnRelease                requests.Boolean             `position:"Query" name:"DeleteOnRelease"`
 	ResourceOwnerAccount           string                       `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount                   string                       `position:"Query" name:"OwnerAccount"`

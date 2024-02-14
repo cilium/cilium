@@ -71,35 +71,42 @@ func (client *Client) RunCommandWithCallback(request *RunCommandRequest, callbac
 // RunCommandRequest is the request struct for api RunCommand
 type RunCommandRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
-	WorkingDir           string                 `position:"Query" name:"WorkingDir"`
-	Type                 string                 `position:"Query" name:"Type"`
-	Frequency            string                 `position:"Query" name:"Frequency"`
-	ResourceGroupId      string                 `position:"Query" name:"ResourceGroupId"`
-	RepeatMode           string                 `position:"Query" name:"RepeatMode"`
-	Tag                  *[]RunCommandTag       `position:"Query" name:"Tag"  type:"Repeated"`
-	KeepCommand          requests.Boolean       `position:"Query" name:"KeepCommand"`
-	Timed                requests.Boolean       `position:"Query" name:"Timed"`
-	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
-	InstanceId           *[]string              `position:"Query" name:"InstanceId"  type:"Repeated"`
-	Name                 string                 `position:"Query" name:"Name"`
-	ContainerId          string                 `position:"Query" name:"ContainerId"`
-	Parameters           map[string]interface{} `position:"Query" name:"Parameters"`
-	ContainerName        string                 `position:"Query" name:"ContainerName"`
-	ClientToken          string                 `position:"Query" name:"ClientToken"`
-	Description          string                 `position:"Query" name:"Description"`
-	CommandContent       string                 `position:"Query" name:"CommandContent"`
-	Timeout              requests.Integer       `position:"Query" name:"Timeout"`
-	ContentEncoding      string                 `position:"Query" name:"ContentEncoding"`
-	WindowsPasswordName  string                 `position:"Query" name:"WindowsPasswordName"`
-	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
-	EnableParameter      requests.Boolean       `position:"Query" name:"EnableParameter"`
-	Username             string                 `position:"Query" name:"Username"`
+	ResourceOwnerId      requests.Integer         `position:"Query" name:"ResourceOwnerId"`
+	WorkingDir           string                   `position:"Query" name:"WorkingDir"`
+	Type                 string                   `position:"Query" name:"Type"`
+	Frequency            string                   `position:"Query" name:"Frequency"`
+	ResourceGroupId      string                   `position:"Query" name:"ResourceGroupId"`
+	RepeatMode           string                   `position:"Query" name:"RepeatMode"`
+	Tag                  *[]RunCommandTag         `position:"Query" name:"Tag"  type:"Repeated"`
+	KeepCommand          requests.Boolean         `position:"Query" name:"KeepCommand"`
+	Timed                requests.Boolean         `position:"Query" name:"Timed"`
+	OwnerId              requests.Integer         `position:"Query" name:"OwnerId"`
+	InstanceId           *[]string                `position:"Query" name:"InstanceId"  type:"Repeated"`
+	Name                 string                   `position:"Query" name:"Name"`
+	ContainerId          string                   `position:"Query" name:"ContainerId"`
+	Parameters           map[string]interface{}   `position:"Query" name:"Parameters"`
+	ContainerName        string                   `position:"Query" name:"ContainerName"`
+	ClientToken          string                   `position:"Query" name:"ClientToken"`
+	Description          string                   `position:"Query" name:"Description"`
+	CommandContent       string                   `position:"Query" name:"CommandContent"`
+	Timeout              requests.Integer         `position:"Query" name:"Timeout"`
+	ContentEncoding      string                   `position:"Query" name:"ContentEncoding"`
+	WindowsPasswordName  string                   `position:"Query" name:"WindowsPasswordName"`
+	ResourceTag          *[]RunCommandResourceTag `position:"Query" name:"ResourceTag"  type:"Repeated"`
+	ResourceOwnerAccount string                   `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                   `position:"Query" name:"OwnerAccount"`
+	EnableParameter      requests.Boolean         `position:"Query" name:"EnableParameter"`
+	Username             string                   `position:"Query" name:"Username"`
 }
 
 // RunCommandTag is a repeated param struct in RunCommandRequest
 type RunCommandTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
+}
+
+// RunCommandResourceTag is a repeated param struct in RunCommandRequest
+type RunCommandResourceTag struct {
 	Key   string `name:"Key"`
 	Value string `name:"Value"`
 }
