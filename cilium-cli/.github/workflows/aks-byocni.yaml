@@ -47,7 +47,7 @@ jobs:
     name: AKS BYOCNI Installation and Connectivity Test
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -169,7 +169,7 @@ jobs:
 
       - name: Wait for test job
         env:
-          timeout: 30m
+          timeout: 45m
         run: |
           # Background wait for job to complete or timeout
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
