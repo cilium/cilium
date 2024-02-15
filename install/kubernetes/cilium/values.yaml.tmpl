@@ -676,6 +676,14 @@ ingressController:
     sharedHTTPPort: 0
     # -- Configure a specific port on the host network that gets used for the shared TLS passthrough listener
     sharedTLSPassthroughPort: 0
+    # Specify the nodes where the Ingress listeners should be exposed
+    nodes:
+      # -- Specify the labels of the nodes where the Ingress listeners should be exposed
+      #
+      # matchLabels:
+      #   kubernetes.io/os: linux
+      #   kubernetes.io/hostname: kind-worker
+      matchLabels: {}
 gatewayAPI:
   # -- Enable support for Gateway API in cilium
   # This will automatically set enable-envoy-config as well.
@@ -695,6 +703,14 @@ gatewayAPI:
   hostNetwork:
     # -- Configure whether the Envoy listeners should be exposed on the host network.
     enabled: false
+    # Specify the nodes where the Ingress listeners should be exposed
+    nodes:
+      # -- Specify the labels of the nodes where the Ingress listeners should be exposed
+      #
+      # matchLabels:
+      #   kubernetes.io/os: linux
+      #   kubernetes.io/hostname: kind-worker
+      matchLabels: {}
 
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work
