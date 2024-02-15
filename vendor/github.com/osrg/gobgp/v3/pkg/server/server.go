@@ -399,6 +399,29 @@ func (s *BgpServer) Serve() {
 					"Key":   addr,
 					"State": state})
 
+			if state == bgp.BGP_FSM_ACTIVE {
+				var conn net.Conn
+				select {
+				case conn = <-fsm.connCh:
+				default:
+					if fsm.conn != nil {
+						conn = fsm.conn
+						fsm.conn = nil
+					}
+				}
+				if conn != nil {
+					err := conn.Close()
+					if err != nil {
+						s.logger.Error("failed to close existing tcp connection",
+							log.Fields{
+								"Topic": "Peer",
+								"Key":   addr,
+								"State": state})
+					}
+				}
+			}
+			close(fsm.connCh)
+
 			if fsm.state == bgp.BGP_FSM_ESTABLISHED {
 				s.notifyWatcher(watchEventTypePeerState, &watchEventPeer{
 					PeerAS:      fsm.peerInfo.AS,

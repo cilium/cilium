@@ -206,7 +206,7 @@ func (peer *peer) recvedAllEOR() bool {
 	peer.fsm.lock.RLock()
 	defer peer.fsm.lock.RUnlock()
 	for _, a := range peer.fsm.pConf.AfiSafis {
-		if s := a.MpGracefulRestart.State; s.Enabled && !s.EndOfRibReceived {
+		if s := a.MpGracefulRestart.State; s.Enabled && s.Received && !s.EndOfRibReceived {
 			return false
 		}
 	}
