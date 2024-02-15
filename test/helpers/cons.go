@@ -343,7 +343,7 @@ var badLogMessages = map[string][]string{
 		failedPeerSync, policyMapSyncFix, unableRestoreRouterIP, routerIPReallocated,
 		cantFindIdentityInCache, kubeApiserverConnLost1, kubeApiserverConnLost2, heartbeatTimedOut,
 		keyAllocFailedFoundMaster, cantRecreateMasterKey, cantUpdateCRDIdentity,
-		cantDeleteFromPolicyMap},
+		cantDeleteFromPolicyMap, failedToListCRDs},
 }
 
 var ciliumCLICommands = map[string]string{
