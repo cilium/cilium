@@ -13,7 +13,6 @@ import (
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -71,30 +70,17 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 
 		initialRecvTime := time.Now()
 
-		// We need to deepcopy this structure because we are writing
-		// fields.
-		// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
-		cnpCpy := cnp.DeepCopy()
-
-		translationStart := time.Now()
-		translatedCNP := p.resolveCIDRGroupRef(cnpCpy)
-		metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
-
 		resourceKind := ipcacheTypes.ResourceKindCNP
 		if len(key.Namespace) == 0 {
 			resourceKind = ipcacheTypes.ResourceKindCCNP
 		}
 		resourceID := ipcacheTypes.NewResourceID(
 			resourceKind,
-			cnpCpy.ObjectMeta.Namespace,
-			cnpCpy.ObjectMeta.Name,
+			cnp.ObjectMeta.Namespace,
+			cnp.ObjectMeta.Name,
 		)
-		err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
-		if err == nil {
-			p.cnpCache[key] = cnpCpy
-		}
 
-		errs = append(errs, err)
+		errs = append(errs, p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID))
 	}
 	return errors.Join(errs...)
 }
