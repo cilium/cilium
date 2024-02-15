@@ -4,9 +4,9 @@ include:
   - version: "1.23"
     region: ca-west-1
   - version: "1.24"
-    region: us-west-1
+    region: ca-west-1
   - version: "1.25"
-    region: us-east-2
+    region: us-west-2
   - version: "1.26"
-    region: ca-central-1
+    region: us-west-1
     default: true
