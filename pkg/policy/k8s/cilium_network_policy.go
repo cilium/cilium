@@ -61,21 +61,7 @@ func (p *PolicyWatcher) onUpsert(
 	}
 	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
 
-	// We need to deepcopy this structure because we are writing
-	// fields.
-	// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
-	cnpCpy := cnp.DeepCopy()
-
-	translationStart := time.Now()
-	translatedCNP := p.resolveCIDRGroupRef(cnpCpy)
-	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
-
-	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
-	if err == nil {
-		p.cnpCache[key] = cnpCpy
-	}
-
-	return err
+	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID)
 }
 
 func (p *PolicyWatcher) onDelete(
@@ -91,6 +77,35 @@ func (p *PolicyWatcher) onDelete(
 	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
 
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
+
+	return err
+}
+
+// resolveCiliumNetworkPolicyRefs resolves all the references to external resources
+// (e.g. CiliumCIDRGroups) in a CNP/CCNP, inlines them into a "translated" CNP,
+// and then adds the translated CNP to the policy repository.
+// If the CNP was successfully imported, the raw (i.e. untranslated) CNP/CCNP
+// is also added to p.cnpCache.
+func (p *PolicyWatcher) resolveCiliumNetworkPolicyRefs(
+	cnp *types.SlimCNP,
+	key resource.Key,
+	initialRecvTime time.Time,
+	resourceID ipcacheTypes.ResourceID,
+) error {
+	// We need to deepcopy this structure because we are writing
+	// fields in cnp.Parse() in upsertCiliumNetworkPolicyV2.
+	// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+	cnpCpy := cnp.DeepCopy()
+
+	// Resolve CiliumCIDRGroup references
+	translationStart := time.Now()
+	translatedCNP := p.resolveCIDRGroupRef(cnpCpy)
+	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
+
+	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
+	if err == nil {
+		p.cnpCache[key] = cnpCpy
+	}
 
 	return err
 }
