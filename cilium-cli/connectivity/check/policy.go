@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -93,102 +95,101 @@ func waitCiliumPolicyRevision(ctx context.Context, pod Pod, rev int, timeout tim
 	return err
 }
 
-func updateOrCreateCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) (bool, error) {
-	mod := false
-
-	if kcnp, err := client.GetCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.GetOptions{}); err == nil {
-		// Check if the local CNP's Spec or Specs differ from the remote version.
-		//TODO(timo): What about label changes? Do they trigger a Cilium agent policy revision?
-		if !kcnp.Spec.DeepEqual(cnp.Spec) ||
-			!kcnp.Specs.DeepEqual(&cnp.Specs) {
-			mod = true
-		}
-
-		kcnp.ObjectMeta.Labels = cnp.ObjectMeta.Labels
-		kcnp.Spec = cnp.Spec
-		kcnp.Specs = cnp.Specs
-		kcnp.Status = ciliumv2.CiliumNetworkPolicyStatus{}
-
-		_, err = client.UpdateCiliumNetworkPolicy(ctx, kcnp, metav1.UpdateOptions{})
-		return mod, err
-	}
-
-	// Creating, so a resource will definitely be modified.
-	mod = true
-	_, err := client.CreateCiliumNetworkPolicy(ctx, cnp, metav1.CreateOptions{})
-	return mod, err
+type policy interface {
+	runtime.Object
+	GetName() string
 }
 
-// createOrUpdateKNP creates the KNP and updates it if it already exists.
-// NB: mod holds the information regarding the resource creation.
-func createOrUpdateKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.NetworkPolicy) (bool, error) {
-	mod := false
+type client[T policy] interface {
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (T, error)
+	Create(ctx context.Context, networkPolicy T, opts metav1.CreateOptions) (T, error)
+	Update(ctx context.Context, networkPolicy T, opts metav1.UpdateOptions) (T, error)
+}
 
-	// Creating, so a resource will definitely be modified.
-	_, err := client.CreateKubernetesNetworkPolicy(ctx, knp, metav1.CreateOptions{})
+// CreateOrUpdatePolicy implements the generic logic to create or update a policy.
+func CreateOrUpdatePolicy[T policy](ctx context.Context, client client[T], obj T, mutator func(obj T) bool) (bool, error) {
+	// Let's attempt to create the policy. We optimize the creation path
+	// over the update one as policies are not expected to be present.
+	_, err := client.Create(ctx, obj, metav1.CreateOptions{})
 	if err == nil {
-		// Early exit.
-		mod = true
-		return mod, nil
+		return true, nil
 	}
 
 	if !k8serrors.IsAlreadyExists(err) {
 		// A real error happened.
-		return mod, err
+		return false, fmt.Errorf("failed to create %T %q: %w", obj, obj.GetName(), err)
 	}
 
-	// Policy already exists, let's retrieve it.
-	policy, err := client.GetKubernetesNetworkPolicy(ctx, knp.Namespace, knp.Name, metav1.GetOptions{})
+	// The policy already exists, let's retrieve it.
+	obj, err = client.Get(ctx, obj.GetName(), metav1.GetOptions{})
 	if err != nil {
 		// A real error happened.
-		return mod, fmt.Errorf("failed to retrieve k8s network policy %s: %w", knp.Name, err)
+		return false, fmt.Errorf("failed to retrieve %T %q: %w", obj, obj.GetName(), err)
 	}
 
-	// Overload the field that should stay unchanged.
-	policy.ObjectMeta.Labels = knp.ObjectMeta.Labels
-	policy.Spec = knp.Spec
+	// Mutate the policy. If no changes were applies, let's just return immediately.
+	if !mutator(obj) {
+		return false, nil
+	}
 
 	// Let's update the policy.
-	_, err = client.UpdateKubernetesNetworkPolicy(ctx, policy, metav1.UpdateOptions{})
+	_, err = client.Update(ctx, obj, metav1.UpdateOptions{})
 	if err != nil {
-		return mod, fmt.Errorf("failed to update k8s network policy %s: %w", knp.Name, err)
+		return false, fmt.Errorf("failed to update k8s network policy %T %q: %w", obj, obj.GetName(), err)
 	}
 
-	return mod, nil
+	return true, nil
+}
+
+// createOrUpdateCNP creates the CNP and updates it if it already exists.
+func createOrUpdateCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) (bool, error) {
+	return CreateOrUpdatePolicy(ctx, client.CiliumClientset.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()),
+		cnp, func(current *ciliumv2.CiliumNetworkPolicy) bool {
+			if maps.Equal(current.GetLabels(), cnp.GetLabels()) &&
+				current.Spec.DeepEqual(cnp.Spec) &&
+				current.Specs.DeepEqual(&cnp.Specs) {
+				return false
+			}
+
+			current.ObjectMeta.Labels = cnp.ObjectMeta.Labels
+			current.Spec = cnp.Spec
+			current.Specs = cnp.Specs
+			return true
+		},
+	)
+}
+
+// createOrUpdateKNP creates the KNP and updates it if it already exists.
+func createOrUpdateKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.NetworkPolicy) (bool, error) {
+	return CreateOrUpdatePolicy(ctx, client.Clientset.NetworkingV1().NetworkPolicies(knp.GetNamespace()),
+		knp, func(current *networkingv1.NetworkPolicy) bool {
+			if maps.Equal(current.GetLabels(), knp.GetLabels()) &&
+				reflect.DeepEqual(current.Spec, knp.Spec) {
+				return false
+			}
+
+			current.ObjectMeta.Labels = knp.ObjectMeta.Labels
+			current.Spec = knp.Spec
+			return true
+		},
+	)
 }
 
 // createOrUpdateCEGP creates the CEGP and updates it if it already exists.
 func createOrUpdateCEGP(ctx context.Context, client *k8s.Client, cegp *ciliumv2.CiliumEgressGatewayPolicy) error {
-	// Creating, so a resource will definitely be modified.
-	_, err := client.CreateCiliumEgressGatewayPolicy(ctx, cegp, metav1.CreateOptions{})
-	if err == nil {
-		// Early exit.
-		return nil
-	}
+	_, err := CreateOrUpdatePolicy(ctx, client.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies(),
+		cegp, func(current *ciliumv2.CiliumEgressGatewayPolicy) bool {
+			if maps.Equal(current.GetLabels(), cegp.GetLabels()) &&
+				current.Spec.DeepEqual(&cegp.Spec) {
+				return false
+			}
 
-	if !k8serrors.IsAlreadyExists(err) {
-		// A real error happened.
-		return err
-	}
-
-	// Policy already exists, let's retrieve it.
-	policy, err := client.GetCiliumEgressGatewayPolicy(ctx, cegp.Name, metav1.GetOptions{})
-	if err != nil {
-		// A real error happened.
-		return fmt.Errorf("failed to retrieve k8s network policy %s: %w", cegp.Name, err)
-	}
-
-	// Overload the field that should stay unchanged.
-	policy.ObjectMeta.Labels = cegp.ObjectMeta.Labels
-	policy.Spec = cegp.Spec
-
-	// Let's update the policy.
-	_, err = client.UpdateCiliumEgressGatewayPolicy(ctx, policy, metav1.UpdateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to update k8s network policy %s: %w", cegp.Name, err)
-	}
-
-	return nil
+			current.ObjectMeta.Labels = cegp.ObjectMeta.Labels
+			current.Spec = cegp.Spec
+			return true
+		},
+	)
+	return err
 }
 
 // deleteCNP deletes a CiliumNetworkPolicy from the cluster.
@@ -467,7 +468,7 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	for _, cnp := range t.cnps {
 		for _, client := range t.Context().clients.clients() {
 			t.Infof("📜 Applying CiliumNetworkPolicy '%s' to namespace '%s'..", cnp.Name, cnp.Namespace)
-			changed, err := updateOrCreateCNP(ctx, client, cnp)
+			changed, err := createOrUpdateCNP(ctx, client, cnp)
 			if err != nil {
 				return fmt.Errorf("policy application failed: %w", err)
 			}
