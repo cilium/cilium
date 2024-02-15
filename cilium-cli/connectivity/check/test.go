@@ -18,6 +18,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -342,6 +343,49 @@ func (t *Test) Run(ctx context.Context, index int) error {
 	return nil
 }
 
+func configureNamespaceInPolicySpec(spec *api.Rule, namespace string) {
+	if spec == nil {
+		return
+	}
+
+	for _, k := range []string{
+		k8sConst.PodNamespaceLabel,
+		KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+		AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+	} {
+		for _, e := range spec.Egress {
+			for _, es := range e.ToEndpoints {
+				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					es.MatchLabels[k] = namespace
+				}
+			}
+		}
+		for _, e := range spec.Ingress {
+			for _, es := range e.FromEndpoints {
+				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					es.MatchLabels[k] = namespace
+				}
+			}
+		}
+
+		for _, e := range spec.EgressDeny {
+			for _, es := range e.ToEndpoints {
+				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					es.MatchLabels[k] = namespace
+				}
+			}
+		}
+
+		for _, e := range spec.IngressDeny {
+			for _, es := range e.FromEndpoints {
+				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					es.MatchLabels[k] = namespace
+				}
+			}
+		}
+	}
+}
+
 // WithCiliumPolicy takes a string containing a YAML policy document and adds
 // the polic(y)(ies) to the scope of the Test, to be applied when the test
 // starts running. When calling this method, note that the CNP enabled feature
@@ -355,44 +399,7 @@ func (t *Test) WithCiliumPolicy(policy string) *Test {
 	// Change the default test namespace as required.
 	for i := range pl {
 		pl[i].Namespace = t.ctx.params.TestNamespace
-		if pl[i].Spec != nil {
-			for _, k := range []string{
-				k8sConst.PodNamespaceLabel,
-				KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
-				AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
-			} {
-				for _, e := range pl[i].Spec.Egress {
-					for _, es := range e.ToEndpoints {
-						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-							es.MatchLabels[k] = t.ctx.params.TestNamespace
-						}
-					}
-				}
-				for _, e := range pl[i].Spec.Ingress {
-					for _, es := range e.FromEndpoints {
-						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-							es.MatchLabels[k] = t.ctx.params.TestNamespace
-						}
-					}
-				}
-
-				for _, e := range pl[i].Spec.EgressDeny {
-					for _, es := range e.ToEndpoints {
-						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-							es.MatchLabels[k] = t.ctx.params.TestNamespace
-						}
-					}
-				}
-
-				for _, e := range pl[i].Spec.IngressDeny {
-					for _, es := range e.FromEndpoints {
-						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-							es.MatchLabels[k] = t.ctx.params.TestNamespace
-						}
-					}
-				}
-			}
-		}
+		configureNamespaceInPolicySpec(pl[i].Spec, t.ctx.params.TestNamespace)
 	}
 
 	if err := t.addCNPs(pl...); err != nil {
