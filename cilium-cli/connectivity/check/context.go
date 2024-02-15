@@ -1073,9 +1073,6 @@ func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily) 
 	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
 		cmd = append(cmd, "-W", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
 	}
-	if requestTimeout := ct.params.RequestTimeout.Seconds(); requestTimeout > 0.0 {
-		cmd = append(cmd, "-w", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
-	}
 
 	cmd = append(cmd, peer.Address(ipFam))
 	return cmd
