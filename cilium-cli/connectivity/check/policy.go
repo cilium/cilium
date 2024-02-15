@@ -5,7 +5,6 @@ package check
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"reflect"
@@ -381,61 +380,37 @@ func (t *Test) expectations(a *Action) (egress, ingress Result) {
 	return egress, ingress
 }
 
-// addCNPs adds one or more CiliumNetworkPolicy resources to the Test.
-func (t *Test) addCNPs(cnps ...*ciliumv2.CiliumNetworkPolicy) error {
-	for _, p := range cnps {
-		if p == nil {
-			return errors.New("cannot add nil CiliumNetworkPolicy to test")
+func RegisterPolicy[T policy](current map[string]T, policies ...T) (map[string]T, error) {
+	for _, p := range policies {
+		if p.GetName() == "" {
+			return current, fmt.Errorf("adding %T with empty name to test: %v", p, p)
 		}
-		if p.Name == "" {
-			return fmt.Errorf("adding CiliumNetworkPolicy with empty name to test: %v", p)
-		}
-		if _, ok := t.cnps[p.Name]; ok {
-			return fmt.Errorf("CiliumNetworkPolicy with name %s already in test scope", p.Name)
+		if _, ok := current[p.GetName()]; ok {
+			return current, fmt.Errorf("%T with name %s already in test scope", p, p.GetName())
 		}
 
-		t.cnps[p.Name] = p
+		current[p.GetName()] = p
 	}
 
-	return nil
+	return current, nil
+}
+
+// addCNPs adds one or more CiliumNetworkPolicy resources to the Test.
+func (t *Test) addCNPs(cnps ...*ciliumv2.CiliumNetworkPolicy) (err error) {
+	t.cnps, err = RegisterPolicy(t.cnps, cnps...)
+	return err
 }
 
 // addKNPs adds one or more K8S NetworkPolicy resources to the Test.
-func (t *Test) addKNPs(policies ...*networkingv1.NetworkPolicy) error {
-	for _, p := range policies {
-		if p == nil {
-			return errors.New("cannot add nil K8S NetworkPolicy to test")
-		}
-		if p.Name == "" {
-			return fmt.Errorf("adding K8S NetworkPolicy with empty name to test: %v", p)
-		}
-		if _, ok := t.knps[p.Name]; ok {
-			return fmt.Errorf("K8S NetworkPolicy with name %s already in test scope", p.Name)
-		}
-
-		t.knps[p.Name] = p
-	}
-
-	return nil
+func (t *Test) addKNPs(policies ...*networkingv1.NetworkPolicy) (err error) {
+	t.knps, err = RegisterPolicy(t.knps, policies...)
+	return err
 }
 
 // addCEGPs adds one or more CiliumEgressGatewayPolicy resources to the Test.
-func (t *Test) addCEGPs(cegps ...*ciliumv2.CiliumEgressGatewayPolicy) error {
-	for _, p := range cegps {
-		if p == nil {
-			return errors.New("cannot add nil CiliumEgressGatewayPolicy to test")
-		}
-		if p.Name == "" {
-			return fmt.Errorf("adding CiliumEgressGatewayPolicy with empty name to test: %v", p)
-		}
-		if _, ok := t.cnps[p.Name]; ok {
-			return fmt.Errorf("CiliumEgressGatewayPolicy with name %s already in test scope", p.Name)
-		}
-
-		t.cegps[p.Name] = p
-	}
-
-	return nil
+func (t *Test) addCEGPs(cegps ...*ciliumv2.CiliumEgressGatewayPolicy) (err error) {
+	t.cegps, err = RegisterPolicy(t.cegps, cegps...)
+	return err
 }
 
 func sumMap(m map[string]int) int {
