@@ -93,6 +93,9 @@ type Test struct {
 	// Policies active during this test.
 	cnps map[string]*ciliumv2.CiliumNetworkPolicy
 
+	// Cilium Clusterwide Network Policies active during this test.
+	ccnps map[string]*ciliumv2.CiliumClusterwideNetworkPolicy
+
 	// Kubernetes Network Policies active during this test.
 	knps map[string]*networkingv1.NetworkPolicy
 
@@ -131,7 +134,8 @@ type Test struct {
 }
 
 func (t *Test) String() string {
-	return fmt.Sprintf("<Test %s, %d scenarios, %d CNPs, expectFunc %v>", t.name, len(t.scenarios), len(t.cnps), t.expectFunc)
+	return fmt.Sprintf("<Test %s, %d scenarios, %d CNPs, %d CCNPs, expectFunc %v>",
+		t.name, len(t.scenarios), len(t.cnps), len(t.ccnps), t.expectFunc)
 }
 
 // Name returns the name of the test.
@@ -407,6 +411,30 @@ func (t *Test) WithCiliumPolicy(policy string) *Test {
 	}
 
 	t.WithFeatureRequirements(features.RequireEnabled(features.CNP))
+
+	return t
+}
+
+// WithCiliumClusterwidePolicy takes a string containing a YAML policy document
+// and adds the clusterwide polic(y)(ies) to the scope of the Test, to be applied
+// when the test starts running. When calling this method, note that the CCNP
+// enabled feature requirement is applied directly here.
+func (t *Test) WithCiliumClusterwidePolicy(policy string) *Test {
+	pl, err := parseCiliumClusterwidePolicyYAML(policy)
+	if err != nil {
+		t.Fatalf("Parsing policy YAML: %s", err)
+	}
+
+	// Change the default test namespace as required.
+	for i := range pl {
+		configureNamespaceInPolicySpec(pl[i].Spec, t.ctx.params.TestNamespace)
+	}
+
+	if err := t.addCCNPs(pl...); err != nil {
+		t.Fatalf("Adding CCNPs to policy context: %s", err)
+	}
+
+	t.WithFeatureRequirements(features.RequireEnabled(features.CCNP))
 
 	return t
 }
@@ -865,6 +893,10 @@ func (t *Test) CertificateCAs() map[string][]byte {
 
 func (t *Test) CiliumNetworkPolicies() map[string]*ciliumv2.CiliumNetworkPolicy {
 	return t.cnps
+}
+
+func (t *Test) CiliumClusterwideNetworkPolicies() map[string]*ciliumv2.CiliumClusterwideNetworkPolicy {
+	return t.ccnps
 }
 
 func (t *Test) KubernetesNetworkPolicies() map[string]*networkingv1.NetworkPolicy {
