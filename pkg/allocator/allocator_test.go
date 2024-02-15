@@ -14,6 +14,7 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -23,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 const (

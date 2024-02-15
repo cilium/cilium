@@ -6,7 +6,7 @@ package statedb
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/stream"
+	"github.com/cilium/stream"
 )
 
 type Event[Obj any] struct {

@@ -5,8 +5,7 @@ package stream
 
 import (
 	"context"
-
-	"github.com/cilium/cilium/pkg/lock"
+	"sync"
 )
 
 // Just creates an observable that emits a single item and completes.
@@ -182,7 +181,7 @@ var (
 //	  => x == 2, err == nil
 func Multicast[T any](opts ...MulticastOpt) (mcast Observable[T], next func(T), complete func(error)) {
 	var (
-		mu          lock.Mutex
+		mu          sync.Mutex
 		subId       int
 		subs        = make(map[int]mcastSubscriber[T])
 		latestValue T

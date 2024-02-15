@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/stream"
-
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // Configure a generous timeout to prevent flakes when running in a noisy CI environment.

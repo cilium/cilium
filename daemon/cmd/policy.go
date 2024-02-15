@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"sync"
 
+	"github.com/cilium/stream"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/google/uuid"
 
@@ -41,7 +42,6 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )

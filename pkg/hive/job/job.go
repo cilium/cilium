@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
 
@@ -20,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/spanstat"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 // Cell provides job.Registry which constructs job.Group-s. Job groups automate a lot of the logic involved with
