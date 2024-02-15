@@ -5,13 +5,11 @@ package k8s
 
 import (
 	"context"
-	"errors"
 
 	"github.com/sirupsen/logrus"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -38,6 +36,14 @@ func (p *PolicyWatcher) onUpsert(
 		if oldCNP.DeepEqual(cnp) {
 			return nil
 		}
+
+		p.log.WithFields(logrus.Fields{
+			logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
+			logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
+			logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
+			"annotations.old":                 oldCNP.ObjectMeta.Annotations,
+			"annotations":                     cnp.ObjectMeta.Annotations,
+		}).Debug("Modified CiliumNetworkPolicy")
 	}
 
 	if cnp.RequiresDerivative() {
@@ -64,12 +70,7 @@ func (p *PolicyWatcher) onUpsert(
 	translatedCNP := p.resolveCIDRGroupRef(cnpCpy)
 	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
-	var err error
-	if ok {
-		err = p.updateCiliumNetworkPolicyV2(oldCNP, translatedCNP, initialRecvTime, resourceID)
-	} else {
-		err = p.addCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
-	}
+	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 	if err == nil {
 		p.cnpCache[key] = cnpCpy
 	}
@@ -94,7 +95,7 @@ func (p *PolicyWatcher) onDelete(
 	return err
 }
 
-func (p *PolicyWatcher) addCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
+func (p *PolicyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
 	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -146,47 +147,6 @@ func (p *PolicyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 		scopedLog.WithError(err).Warn("Unable to delete CiliumNetworkPolicy")
 	}
 	return err
-}
-
-func (p *PolicyWatcher) updateCiliumNetworkPolicyV2(
-	oldRuleCpy, newRuleCpy *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
-
-	_, err := oldRuleCpy.Parse()
-	if err != nil {
-		ns := oldRuleCpy.GetNamespace() // Disambiguates CNP & CCNP
-
-		// We want to ignore parsing errors for empty policies, otherwise the
-		// update to the new policy will be skipped.
-		switch {
-		case ns != "" && !errors.Is(err, cilium_v2.ErrEmptyCNP):
-			p.log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
-				Warn("Error parsing old CiliumNetworkPolicy rule")
-			return err
-		case ns == "" && !errors.Is(err, cilium_v2.ErrEmptyCCNP):
-			p.log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
-				Warn("Error parsing old CiliumClusterwideNetworkPolicy rule")
-			return err
-		}
-	}
-
-	_, err = newRuleCpy.Parse()
-	if err != nil {
-		p.log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
-			Warn("Error parsing new CiliumNetworkPolicy rule")
-		return err
-	}
-
-	p.log.WithFields(logrus.Fields{
-		logfields.K8sAPIVersion:                    oldRuleCpy.TypeMeta.APIVersion,
-		logfields.CiliumNetworkPolicyName + ".old": oldRuleCpy.ObjectMeta.Name,
-		logfields.K8sNamespace + ".old":            oldRuleCpy.ObjectMeta.Namespace,
-		logfields.CiliumNetworkPolicyName:          newRuleCpy.ObjectMeta.Name,
-		logfields.K8sNamespace:                     newRuleCpy.ObjectMeta.Namespace,
-		"annotations.old":                          oldRuleCpy.ObjectMeta.Annotations,
-		"annotations":                              newRuleCpy.ObjectMeta.Annotations,
-	}).Debug("Modified CiliumNetworkPolicy")
-
-	return p.addCiliumNetworkPolicyV2(newRuleCpy, initialRecvTime, resourceID)
 }
 
 func (p *PolicyWatcher) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {

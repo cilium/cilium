@@ -89,7 +89,7 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 			cnpCpy.ObjectMeta.Namespace,
 			cnpCpy.ObjectMeta.Name,
 		)
-		err := p.updateCiliumNetworkPolicyV2(cnpCpy, translatedCNP, initialRecvTime, resourceID)
+		err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 		if err == nil {
 			p.cnpCache[key] = cnpCpy
 		}
