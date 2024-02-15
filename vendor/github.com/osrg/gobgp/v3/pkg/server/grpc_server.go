@@ -93,11 +93,13 @@ func (s *server) serve() error {
 	serve := func(lis net.Listener) {
 		defer wg.Done()
 		err := s.grpcServer.Serve(lis)
-		s.bgpServer.logger.Warn("accept failed",
-			log.Fields{
-				"Topic": "grpc",
-				"Key":   lis,
-				"Error": err})
+		if err != nil {
+			s.bgpServer.logger.Warn("accept failed",
+				log.Fields{
+					"Topic": "grpc",
+					"Key":   lis.Addr().String(),
+					"Error": err})
+		}
 	}
 
 	for _, lis := range l {
