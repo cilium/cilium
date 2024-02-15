@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func Test_getService(t *testing.T) {
@@ -181,11 +182,12 @@ func Test_getEndpointForIngress(t *testing.T) {
 
 func Test_translator_Translate(t *testing.T) {
 	type args struct {
-		m                  *model.Model
-		useProxyProtocol   bool
-		hostNetworkEnabled bool
-		ipv4Enabled        bool
-		ipv6Enabled        bool
+		m                            *model.Model
+		useProxyProtocol             bool
+		hostNetworkEnabled           bool
+		hostNetworkNodeLabelSelector *slim_metav1.LabelSelector
+		ipv4Enabled                  bool
+		ipv6Enabled                  bool
 	}
 	tests := []struct {
 		name          string
@@ -251,10 +253,11 @@ func Test_translator_Translate(t *testing.T) {
 				m: &model.Model{
 					HTTP: hostNetworkListeners(55555),
 				},
-				hostNetworkEnabled: true,
-				ipv4Enabled:        true,
+				hostNetworkEnabled:           true,
+				hostNetworkNodeLabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}},
+				ipv4Enabled:                  true,
 			},
-			want:          hostNetworkListenersCiliumEnvoyConfig("0.0.0.0", 55555),
+			want:          hostNetworkListenersCiliumEnvoyConfig("0.0.0.0", 55555, &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}}),
 			wantLBSvcType: corev1.ServiceTypeClusterIP,
 		},
 	}
@@ -262,7 +265,7 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &dedicatedIngressTranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", tt.args.useProxyProtocol, false, 60, tt.args.hostNetworkEnabled, tt.args.ipv4Enabled, tt.args.ipv6Enabled),
+				cecTranslator:      translation.NewCECTranslator("cilium-secrets", tt.args.useProxyProtocol, false, 60, tt.args.hostNetworkEnabled, tt.args.hostNetworkNodeLabelSelector, tt.args.ipv4Enabled, tt.args.ipv6Enabled),
 				hostNetworkEnabled: tt.args.hostNetworkEnabled,
 			}
 

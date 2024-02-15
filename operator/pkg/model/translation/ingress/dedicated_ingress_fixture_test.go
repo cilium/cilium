@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 var socketOptions = []*envoy_config_core_v3.SocketOption{
@@ -1191,7 +1192,7 @@ var proxyProtoListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
-func hostNetworkListenersCiliumEnvoyConfig(address string, port uint32) *ciliumv2.CiliumEnvoyConfig {
+func hostNetworkListenersCiliumEnvoyConfig(address string, port uint32, nodeLabelSelector *slim_metav1.LabelSelector) *ciliumv2.CiliumEnvoyConfig {
 	return &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cilium-ingress-random-namespace-load-balancing",
@@ -1201,6 +1202,7 @@ func hostNetworkListenersCiliumEnvoyConfig(address string, port uint32) *ciliumv
 			},
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
+			NodeSelector: nodeLabelSelector,
 			Services: []*ciliumv2.ServiceListener{
 				{
 					Name:      "cilium-ingress-load-balancing",

@@ -38,7 +38,8 @@ var Cell = cell.Module(
 		EnableGatewayAPIProxyProtocol: false,
 		GatewayAPISecretsNamespace:    "cilium-secrets",
 
-		GatewayAPIHostnetworkEnabled: false,
+		GatewayAPIHostnetworkEnabled:           false,
+		GatewayAPIHostnetworkNodelabelselector: "",
 	}),
 	cell.Invoke(initGatewayAPIController),
 	cell.Provide(registerSecretSync),
@@ -61,7 +62,8 @@ type gatewayApiConfig struct {
 	EnableGatewayAPIProxyProtocol bool
 	GatewayAPISecretsNamespace    string
 
-	GatewayAPIHostnetworkEnabled bool
+	GatewayAPIHostnetworkEnabled           bool
+	GatewayAPIHostnetworkNodelabelselector string
 }
 
 func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
@@ -72,6 +74,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
+	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
 }
 
 type gatewayAPIParams struct {
@@ -117,6 +120,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		true, // hostNameSuffixMatch
 		params.OperatorConfig.ProxyIdleTimeoutSeconds,
 		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
+		translation.ParseNodeLabelSelector(params.GatewayApiConfig.GatewayAPIHostnetworkNodelabelselector),
 		params.AgentConfig.EnableIPv4,
 		params.AgentConfig.EnableIPv6,
 	)
