@@ -1,3 +1,6 @@
+allowed-teams:
+  - organization-members
+
 triggers:
   /test-backport-1.13:
     workflows:
