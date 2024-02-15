@@ -158,6 +158,24 @@ func createOrUpdateCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.Ci
 	)
 }
 
+// createOrUpdateCCNP creates the CCNP and updates it if it already exists.
+func createOrUpdateCCNP(ctx context.Context, client *k8s.Client, ccnp *ciliumv2.CiliumClusterwideNetworkPolicy) (bool, error) {
+	return CreateOrUpdatePolicy(ctx, client.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies(),
+		ccnp, func(current *ciliumv2.CiliumClusterwideNetworkPolicy) bool {
+			if maps.Equal(current.GetLabels(), ccnp.GetLabels()) &&
+				current.Spec.DeepEqual(ccnp.Spec) &&
+				current.Specs.DeepEqual(&ccnp.Specs) {
+				return false
+			}
+
+			current.ObjectMeta.Labels = ccnp.ObjectMeta.Labels
+			current.Spec = ccnp.Spec
+			current.Specs = ccnp.Specs
+			return true
+		},
+	)
+}
+
 // createOrUpdateKNP creates the KNP and updates it if it already exists.
 func createOrUpdateKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.NetworkPolicy) (bool, error) {
 	return CreateOrUpdatePolicy(ctx, client.Clientset.NetworkingV1().NetworkPolicies(knp.GetNamespace()),
@@ -195,6 +213,15 @@ func createOrUpdateCEGP(ctx context.Context, client *k8s.Client, cegp *ciliumv2.
 func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) error {
 	if err := client.DeleteCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("%s/%s/%s policy delete failed: %w", client.ClusterName(), cnp.Namespace, cnp.Name, err)
+	}
+
+	return nil
+}
+
+// deleteCNP deletes a CiliumNetworkPolicy from the cluster.
+func deleteCCNP(ctx context.Context, client *k8s.Client, ccnp *ciliumv2.CiliumClusterwideNetworkPolicy) error {
+	if err := client.DeleteCiliumClusterwideNetworkPolicy(ctx, ccnp.Name, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("%s/%s policy delete failed: %w", client.ClusterName(), ccnp.Name, err)
 	}
 
 	return nil
@@ -401,6 +428,12 @@ func (t *Test) addCNPs(cnps ...*ciliumv2.CiliumNetworkPolicy) (err error) {
 	return err
 }
 
+// addCNPs adds one or more CiliumClusterwideNetworkPolicy resources to the Test.
+func (t *Test) addCCNPs(ccnps ...*ciliumv2.CiliumClusterwideNetworkPolicy) (err error) {
+	t.ccnps, err = RegisterPolicy(t.ccnps, ccnps...)
+	return err
+}
+
 // addKNPs adds one or more K8S NetworkPolicy resources to the Test.
 func (t *Test) addKNPs(policies ...*networkingv1.NetworkPolicy) (err error) {
 	t.knps, err = RegisterPolicy(t.knps, policies...)
@@ -423,7 +456,7 @@ func sumMap(m map[string]int) int {
 
 // applyPolicies applies all the Test's registered network policies.
 func (t *Test) applyPolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
+	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
 		return nil
 	}
 
@@ -444,6 +477,20 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 		for _, client := range t.Context().clients.clients() {
 			t.Infof("📜 Applying CiliumNetworkPolicy '%s' to namespace '%s'..", cnp.Name, cnp.Namespace)
 			changed, err := createOrUpdateCNP(ctx, client, cnp)
+			if err != nil {
+				return fmt.Errorf("policy application failed: %w", err)
+			}
+			if changed {
+				revDeltas[client.ClusterName()]++
+			}
+		}
+	}
+
+	// Apply all given CiliumClusterwideNetworkPolicy.
+	for _, ccnp := range t.ccnps {
+		for _, client := range t.Context().clients.clients() {
+			t.Infof("📜 Applying CiliumClusterwideNetworkPolicy '%s'..", ccnp.Name)
+			changed, err := createOrUpdateCCNP(ctx, client, ccnp)
 			if err != nil {
 				return fmt.Errorf("policy application failed: %w", err)
 			}
@@ -508,6 +555,9 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	if len(t.cnps) > 0 {
 		t.Debugf("📜 Successfully applied %d CiliumNetworkPolicies", len(t.cnps))
 	}
+	if len(t.ccnps) > 0 {
+		t.Debugf("📜 Successfully applied %d CiliumClusterwideNetworkPolicies", len(t.ccnps))
+	}
 	if len(t.knps) > 0 {
 		t.Debugf("📜 Successfully applied %d K8S NetworkPolicies", len(t.knps))
 	}
@@ -520,7 +570,7 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 
 // deletePolicies deletes a given set of network policies from the cluster.
 func (t *Test) deletePolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
+	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
 		return nil
 	}
 
@@ -540,6 +590,17 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 		for _, client := range t.Context().clients.clients() {
 			if err := deleteCNP(ctx, client, cnp); err != nil {
 				return fmt.Errorf("deleting CiliumNetworkPolicy: %w", err)
+			}
+			revDeltas[client.ClusterName()]++
+		}
+	}
+
+	// Delete all the Test's CCNPs from all clients.
+	for _, ccnp := range t.ccnps {
+		t.Infof("📜 Deleting CiliumClusterwideNetworkPolicy '%s'..", ccnp.Name)
+		for _, client := range t.Context().clients.clients() {
+			if err := deleteCCNP(ctx, client, ccnp); err != nil {
+				return fmt.Errorf("deleting CiliumClusterwideNetworkPolicy: %w", err)
 			}
 			revDeltas[client.ClusterName()]++
 		}
@@ -566,7 +627,7 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 		}
 	}
 
-	if len(t.cnps) != 0 || len(t.knps) != 0 {
+	if len(t.cnps) != 0 || len(t.ccnps) != 0 || len(t.knps) != 0 {
 		// Wait for policies to be deleted on all Cilium nodes.
 		if err := t.waitCiliumPolicyRevisions(ctx, revs, revDeltas); err != nil {
 			return fmt.Errorf("timed out removing policies on Cilium agents: %w", err)
@@ -575,6 +636,10 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 
 	if len(t.cnps) > 0 {
 		t.Debugf("📜 Successfully deleted %d CiliumNetworkPolicies", len(t.cnps))
+	}
+
+	if len(t.ccnps) > 0 {
+		t.Debugf("📜 Successfully deleted %d CiliumClusterwideNetworkPolicies", len(t.ccnps))
 	}
 
 	if len(t.knps) > 0 {
@@ -632,6 +697,11 @@ func ParsePolicyYAML[T runtime.Object](input string, scheme *runtime.Scheme) (ou
 // parseCiliumPolicyYAML decodes policy yaml into a slice of CiliumNetworkPolicies.
 func parseCiliumPolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err error) {
 	return ParsePolicyYAML[*ciliumv2.CiliumNetworkPolicy](policy, scheme.Scheme)
+}
+
+// parseCiliumClusterwidePolicyYAML decodes policy yaml into a slice of CiliumClusterwideNetworkPolicy.
+func parseCiliumClusterwidePolicyYAML(policy string) (cnps []*ciliumv2.CiliumClusterwideNetworkPolicy, err error) {
+	return ParsePolicyYAML[*ciliumv2.CiliumClusterwideNetworkPolicy](policy, scheme.Scheme)
 }
 
 // parseK8SPolicyYAML decodes policy yaml into a slice of K8S NetworkPolicies.

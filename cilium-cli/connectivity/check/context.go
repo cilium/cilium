@@ -250,6 +250,7 @@ func (ct *ConnectivityTest) NewTest(name string) *Test {
 		name:      name,
 		scenarios: make(map[Scenario][]*Action),
 		cnps:      make(map[string]*ciliumv2.CiliumNetworkPolicy),
+		ccnps:     make(map[string]*ciliumv2.CiliumClusterwideNetworkPolicy),
 		knps:      make(map[string]*networkingv1.NetworkPolicy),
 		cegps:     make(map[string]*ciliumv2.CiliumEgressGatewayPolicy),
 		verbose:   ct.verbose(),
