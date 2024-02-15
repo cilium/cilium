@@ -24,8 +24,8 @@ import (
 	"time"
 
 	api "github.com/osrg/gobgp/v3/api"
-	"github.com/osrg/gobgp/v3/internal/pkg/config"
 	"github.com/osrg/gobgp/v3/internal/pkg/table"
+	"github.com/osrg/gobgp/v3/pkg/config/oc"
 	"github.com/osrg/gobgp/v3/pkg/log"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/packet/bmp"
@@ -127,16 +127,16 @@ func (b *bmpClient) loop() {
 				atomic.StoreInt64(&b.downtime, time.Now().Unix())
 			}()
 			ops := []watchOption{watchPeer()}
-			if b.c.RouteMonitoringPolicy == config.BMP_ROUTE_MONITORING_POLICY_TYPE_BOTH {
+			if b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_BOTH {
 				b.s.logger.Warn("both option for route-monitoring-policy is obsoleted", log.Fields{"Topic": "bmp"})
 			}
-			if b.c.RouteMonitoringPolicy == config.BMP_ROUTE_MONITORING_POLICY_TYPE_PRE_POLICY || b.c.RouteMonitoringPolicy == config.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
-				ops = append(ops, watchUpdate(true, ""))
+			if b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_PRE_POLICY || b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
+				ops = append(ops, watchUpdate(true, "", ""))
 			}
-			if b.c.RouteMonitoringPolicy == config.BMP_ROUTE_MONITORING_POLICY_TYPE_POST_POLICY || b.c.RouteMonitoringPolicy == config.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
-				ops = append(ops, watchPostUpdate(true, ""))
+			if b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_POST_POLICY || b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
+				ops = append(ops, watchPostUpdate(true, "", ""))
 			}
-			if b.c.RouteMonitoringPolicy == config.BMP_ROUTE_MONITORING_POLICY_TYPE_LOCAL_RIB || b.c.RouteMonitoringPolicy == config.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
+			if b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_LOCAL_RIB || b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
 				ops = append(ops, watchBestPath(true))
 			}
 			if b.c.RouteMirroringEnabled {
@@ -275,7 +275,7 @@ type bmpClient struct {
 	s        *BgpServer
 	dead     chan struct{}
 	host     string
-	c        *config.BmpServerConfig
+	c        *oc.BmpServerConfig
 	ribout   ribout
 	uptime   int64
 	downtime int64
@@ -360,7 +360,7 @@ func bmpPeerRouteMirroring(peerType uint8, peerDist uint64, peerInfo *table.Peer
 	)
 }
 
-func (b *bmpClientManager) addServer(c *config.BmpServerConfig) error {
+func (b *bmpClientManager) addServer(c *oc.BmpServerConfig) error {
 	host := net.JoinHostPort(c.Address, strconv.Itoa(int(c.Port)))
 	if _, y := b.clientMap[host]; y {
 		return fmt.Errorf("bmp client %s is already configured", host)
@@ -376,7 +376,7 @@ func (b *bmpClientManager) addServer(c *config.BmpServerConfig) error {
 	return nil
 }
 
-func (b *bmpClientManager) deleteServer(c *config.BmpServerConfig) error {
+func (b *bmpClientManager) deleteServer(c *oc.BmpServerConfig) error {
 	host := net.JoinHostPort(c.Address, strconv.Itoa(int(c.Port)))
 	if c, y := b.clientMap[host]; !y {
 		return fmt.Errorf("bmp client %s isn't found", host)

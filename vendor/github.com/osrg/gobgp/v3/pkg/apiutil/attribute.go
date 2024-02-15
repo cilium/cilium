@@ -1352,6 +1352,12 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 			if err != nil {
 				return nil, err
 			}
+			var sal uint32
+			var sa string
+			if r.SourceAddressLength > 0 && r.SourceAddress != nil {
+				sal = uint32(r.SourceAddressLength)
+				sa = r.SourceAddress.String()
+			}
 			nlri = &api.MUPType1SessionTransformedRoute{
 				Rd:                    rd,
 				Prefix:                r.Prefix.String(),
@@ -1359,6 +1365,8 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 				Qfi:                   uint32(r.QFI),
 				EndpointAddressLength: uint32(r.EndpointAddressLength),
 				EndpointAddress:       r.EndpointAddress.String(),
+				SourceAddressLength:   sal,
+				SourceAddress:         sa,
 			}
 		case *bgp.MUPType2SessionTransformedRoute:
 			rd, err := MarshalRD(r.RD)
@@ -1581,7 +1589,15 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 		if !ok {
 			return nil, fmt.Errorf("invalid teid: %x", v.Teid)
 		}
-		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea)
+		var sa *netip.Addr
+		if v.SourceAddressLength > 0 && v.SourceAddress != "" {
+			a, err := netip.ParseAddr(v.SourceAddress)
+			if err != nil {
+				return nil, err
+			}
+			sa = &a
+		}
+		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea, sa)
 	case *api.MUPType2SessionTransformedRoute:
 		rd, err := UnmarshalRD(v.Rd)
 		if err != nil {
@@ -2768,8 +2784,8 @@ func UnmarshalPrefixSID(psid *api.PrefixSID) (*bgp.PathAttributePrefixSID, error
 			return nil, fmt.Errorf("unknown or not implemented Prefix SID type: %+v", v)
 		}
 	}
-	// Final Path Attribute Length is 3 bytes of the header and 1 byte Reserved1
-	s.PathAttribute.Length += (3 + 1)
+	// Final Path Attribute Length is 3 bytes of the Path Attribute header longer
+	s.PathAttribute.Length += 3
 	return s, nil
 }
 
@@ -2813,7 +2829,7 @@ func UnmarshalSubTLVs(stlvs map[uint32]*api.SRv6TLV) (uint16, []bgp.PrefixSIDTLV
 				// SRv6 Information Sub TLV length consists 1 byte Resrved2, 16 bytes SID, 1 byte flags, 2 bytes Endpoint Behavior
 				// 1 byte Reserved3 and length of Sub Sub TLVs
 				info.SubTLV.Length = 1 + 16 + 1 + 2 + 1 + sstlvslength
-				// For total Srv6 Information Sub TLV length, adding 3 bytes of the Sub TLV header
+				// For total Prefix SID TLV length, adding 3 bytes of the TLV header + 1 byte of Reserved1
 				l += info.SubTLV.Length + 4
 				p = append(p, info)
 			}

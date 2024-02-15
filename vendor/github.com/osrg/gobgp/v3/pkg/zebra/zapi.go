@@ -40,10 +40,15 @@ const (
 	DefaultVrf = 0
 )
 
+var (
+	MaxSoftware = NewSoftware(MaxZapiVer, "frr8.2")
+)
+
 const (
 	headerMarker      uint8 = 255
 	frrHeaderMarker   uint8 = 254
 	interfaceNameSize       = 20
+	osIfNameSize            = 16
 	maxPathNum              = 64
 	maxMplsLabel            = 16
 )
@@ -267,7 +272,7 @@ const (
 	routerIDAdd
 	_routerIDDelete
 	routerIDUpdate
-	hello
+	Hello
 	_capabilities   // added in frr5
 	nexthopRegister // 20
 	nexthopUnregister
@@ -282,8 +287,8 @@ const (
 	_bfdDestDeregister // 30
 	_bfdDestUpdate
 	_bfdDestReplay
-	redistributeRouteAdd // 33 // 30 in frr8.2
-	redistributeRouteDel
+	RedistributeRouteAdd // 33 // 30 in frr8.2
+	RedistributeRouteDel
 	_vrfUnregister
 	_vrfAdd
 	_vrfDelete
@@ -437,8 +442,8 @@ const (
 )
 
 var apiTypeZapi6Frr8dot2Map = map[APIType]APIType{ // frr8.2
-	redistributeRouteAdd:     zapi6Frr8dot2RedistributeRouteAdd,
-	redistributeRouteDel:     zapi6Frr8dot2RedistributeRouteDel,
+	RedistributeRouteAdd:     zapi6Frr8dot2RedistributeRouteAdd,
+	RedistributeRouteDel:     zapi6Frr8dot2RedistributeRouteDel,
 	vrfLabel:                 zapi6Frr8dot2VrfLabel,
 	ipv4NexthopLookupMRIB:    zapi6Frr8dot2Ipv4NexthopLookupMRIB,
 	labelManagerConnect:      zapi6Frr8dot2LabelManagerConnect,
@@ -501,12 +506,12 @@ var apiTypeZapi6Frr7Map = map[APIType]APIType{ // frr7.0, 7.1
 	redistributeAdd:          zapi6Frr7RedistributAdd,
 	routerIDAdd:              zapi6Frr7RouterIDAdd,
 	routerIDUpdate:           zapi6Frr7RouterIDUpdate,
-	hello:                    zapi6Frr7Hello,
+	Hello:                    zapi6Frr7Hello,
 	nexthopRegister:          zapi6Frr7NexthopRegister,
 	nexthopUnregister:        zapi6Frr7NexthopUnregister,
 	nexthopUpdate:            zapi6Frr7NexthopUpdate,
-	redistributeRouteAdd:     zapi6Frr7RedistributeRouteAdd,
-	redistributeRouteDel:     zapi6Frr7RedistributeRouteDel,
+	RedistributeRouteAdd:     zapi6Frr7RedistributeRouteAdd,
+	RedistributeRouteDel:     zapi6Frr7RedistributeRouteDel,
 	vrfLabel:                 zapi6Frr7VrfLabel,
 	ipv4NexthopLookupMRIB:    zapi6Frr7Ipv4NexthopLookupMRIB,
 	labelManagerConnect:      zapi6Frr7LabelManagerConnect,
@@ -521,12 +526,12 @@ var apiTypeZapi6Frr6Map = map[APIType]APIType{
 	redistributeAdd:          zapi6Frr7RedistributAdd,               // same as frr7.0&7.1
 	routerIDAdd:              zapi6Frr7RouterIDAdd,                  // same as frr7.0&7.1
 	routerIDUpdate:           zapi6Frr7RouterIDUpdate,               // same as frr7.0&7.1
-	hello:                    zapi6Frr7Hello,                        // same as frr7.0&7.1
+	Hello:                    zapi6Frr7Hello,                        // same as frr7.0&7.1
 	nexthopRegister:          zapi6Frr7NexthopRegister,              // same as frr7.0&7.1
 	nexthopUnregister:        zapi6Frr7NexthopUnregister,            // same as frr7.0&7.1
 	nexthopUpdate:            zapi6Frr7NexthopUpdate,                // same as frr7.0&7.1
-	redistributeRouteAdd:     redistributeRouteAdd,                  // same as frr7.2&7.3
-	redistributeRouteDel:     redistributeRouteDel,                  // same as frr7.2&7.3
+	RedistributeRouteAdd:     RedistributeRouteAdd,                  // same as frr7.2&7.3
+	RedistributeRouteDel:     RedistributeRouteDel,                  // same as frr7.2&7.3
 	vrfLabel:                 vrfLabel,                              // same as frr7.2&7.3
 	ipv4NexthopLookupMRIB:    ipv4NexthopLookupMRIB,                 // same as frr7.2&7.3
 	labelManagerConnect:      zapi6Frr7dot2LabelManagerConnect,      // same as frr7.2
@@ -546,8 +551,8 @@ var apiTypeZapi5ClMap = map[APIType]APIType{
 	nexthopRegister:      zapi6Frr7NexthopRegister,      // same as frr7.0&7.1
 	nexthopUnregister:    zapi6Frr7NexthopUnregister,    // same as frr7.0&7.1
 	nexthopUpdate:        zapi6Frr7NexthopUpdate,        // same as frr7.0&7.1
-	redistributeRouteAdd: zapi6Frr7RedistributeRouteAdd, // same as frr7.0&7.1
-	redistributeRouteDel: zapi6Frr7RedistributeRouteDel, // same as frr7.0&7.1
+	RedistributeRouteAdd: zapi6Frr7RedistributeRouteAdd, // same as frr7.0&7.1
+	RedistributeRouteDel: zapi6Frr7RedistributeRouteDel, // same as frr7.0&7.1
 	vrfLabel:             zapi6Frr7VrfLabel,             // same as frr7.0&7.1
 	labelManagerConnect:  zapi5ClLabelManagerConnect,
 	getLabelChunk:        zapi5ClGetLabelChunk,
@@ -578,12 +583,12 @@ var apiTypeZapi5Frr5Map = map[APIType]APIType{
 	redistributeAdd:          zapi5RedistributAdd,
 	routerIDAdd:              zapi5RouterIDAdd,
 	routerIDUpdate:           zapi5RouterIDUpdate,
-	hello:                    zapi5Hello,
+	Hello:                    zapi5Hello,
 	nexthopRegister:          zapi5Frr5NexthopRegister,
 	nexthopUnregister:        zapi5Frr5NexthopUnregister,
 	nexthopUpdate:            zapi5Frr5NexthopUpdate,
-	redistributeRouteAdd:     zapi5Frr5RedistributeRouteAdd,
-	redistributeRouteDel:     zapi5Frr5RedistributeRouteDel,
+	RedistributeRouteAdd:     zapi5Frr5RedistributeRouteAdd,
+	RedistributeRouteDel:     zapi5Frr5RedistributeRouteDel,
 	vrfLabel:                 zapi5Frr5VrfLabel,
 	ipv4NexthopLookupMRIB:    zapi5Frr5Ipv4NexthopLookupMRIB,
 	labelManagerConnect:      zapi5Frr5LabelManagerConnect,
@@ -610,12 +615,12 @@ var apiTypeZapi5Frr4Map = map[APIType]APIType{
 	redistributeAdd:       zapi5RedistributAdd,
 	routerIDAdd:           zapi5RouterIDAdd,
 	routerIDUpdate:        zapi5RouterIDUpdate,
-	hello:                 zapi5Hello,
+	Hello:                 zapi5Hello,
 	nexthopRegister:       zapi5Frr4NexthopRegister,
 	nexthopUnregister:     zapi5Frr4NexthopUnregister,
 	nexthopUpdate:         zapi5Frr4NexthopUpdate,
-	redistributeRouteAdd:  zapi5Frr4RedistributeRouteAdd,
-	redistributeRouteDel:  zapi5Frr4RedistributeRouteDel,
+	RedistributeRouteAdd:  zapi5Frr4RedistributeRouteAdd,
+	RedistributeRouteDel:  zapi5Frr4RedistributeRouteDel,
 	ipv4NexthopLookupMRIB: zapi5Frr4Ipv4NexthopLookupMRIB,
 	labelManagerConnect:   zapi5Frr4LabelManagerConnect,
 	getLabelChunk:         zapi5Frr4GetLabelChunk,
@@ -649,12 +654,12 @@ var apiTypeZapi4Map = map[APIType]APIType{
 	redistributeAdd:         zapi4RedistributAdd,
 	routerIDAdd:             zapi4RouterIDAdd,
 	routerIDUpdate:          zapi4RouterIDUpdate,
-	hello:                   zapi4Hello,
+	Hello:                   zapi4Hello,
 	nexthopRegister:         zapi4NexthopRegister,
 	nexthopUnregister:       zapi4NexthopUnregister,
 	nexthopUpdate:           zapi4NexthopUpdate,
-	redistributeRouteAdd:    zapi4RedistributeIPv4Add,       // deleted in zapi5
-	redistributeRouteDel:    zapi4RedistributeIPv4Del,       // deleted in zapi5
+	RedistributeRouteAdd:    zapi4RedistributeIPv4Add,       // deleted in zapi5
+	RedistributeRouteDel:    zapi4RedistributeIPv4Del,       // deleted in zapi5
 	ipv4NexthopLookupMRIB:   zapi6Frr7Ipv4NexthopLookupMRIB, // same as frr7.0&7.1
 	labelManagerConnect:     zapi4LabelManagerConnect,
 	getLabelChunk:           zapi4GetLabelChunk,
@@ -699,7 +704,7 @@ var apiTypeZapi3Map = map[APIType]APIType{
 	redistributeAdd:         zapi3RedistributeAdd,
 	routerIDAdd:             zapi3RouterIDAdd,
 	routerIDUpdate:          zapi3RouterIDUpdate,
-	hello:                   zapi3Hello,
+	Hello:                   zapi3Hello,
 	nexthopRegister:         zapi3NexthopRegister,
 	nexthopUnregister:       zapi3NexthopUnregister,
 	nexthopUpdate:           zapi3NexthopUpdate,
@@ -751,7 +756,7 @@ func (t APIType) ToEach(version uint8, software Software) APIType {
 	}
 	return backward // success to convert
 }
-func (t APIType) toCommon(version uint8, software Software) APIType {
+func (t APIType) ToCommon(version uint8, software Software) APIType {
 	if !t.doesNeedConversion(version, software) {
 		return t
 	}
@@ -1353,6 +1358,63 @@ type Client struct {
 	logger        log.Logger
 }
 
+func ReceiveSingleMsg(logger log.Logger, conn net.Conn, version uint8, software Software, topic string) (*Message, error) {
+	headerBuf, err := readAll(conn, int(HeaderSize(version)))
+	if err != nil {
+		logger.Error("failed to read header",
+			log.Fields{
+				"Topic": topic,
+				"Error": err})
+		return nil, err
+	}
+
+	hd := &Header{}
+	err = hd.decodeFromBytes(headerBuf)
+	if version != hd.Version {
+		logger.Warn(fmt.Sprintf("ZAPI version mismatch. configured version: %d, version of received message:%d", version, hd.Version),
+			log.Fields{
+				"Topic": topic})
+		return nil, errors.New("ZAPI version mismatch")
+	}
+	if err != nil {
+		logger.Error("failed to decode header",
+			log.Fields{
+				"Topic": topic,
+				"Data":  headerBuf,
+				"Error": err})
+		return nil, err
+	}
+
+	bodyBuf, err := readAll(conn, int(hd.Len-HeaderSize(version)))
+	if err != nil {
+		logger.Error("failed to read body",
+			log.Fields{
+				"Topic":  topic,
+				"Header": hd,
+				"Error":  err})
+		return nil, err
+	}
+
+	m, err := parseMessage(hd, bodyBuf, software)
+	if err != nil {
+		// Just outputting warnings (not error message) and ignore this
+		// error considering the case that body parser is not implemented yet.
+		logger.Warn("failed to decode body",
+			log.Fields{
+				"Topic":  topic,
+				"Header": hd,
+				"Data":   bodyBuf,
+				"Error":  err})
+		return nil, nil
+	}
+	logger.Debug("read message from zebra",
+		log.Fields{
+			"Topic":   topic,
+			"Message": m})
+
+	return m, nil
+}
+
 // NewClient returns a Client instance (Client constructor)
 func NewClient(logger log.Logger, network, address string, typ RouteType, version uint8, software Software, mplsLabelRangeSize uint32) (*Client, error) {
 	conn, err := net.Dial(network, address)
@@ -1380,7 +1442,7 @@ func NewClient(logger log.Logger, network, address string, typ RouteType, versio
 		for {
 			m, more := <-outgoing
 			if more {
-				b, err := m.serialize(software)
+				b, err := m.Serialize(software)
 				if err != nil {
 					logger.Warn(fmt.Sprintf("failed to serialize: %v", m),
 						log.Fields{
@@ -1413,65 +1475,8 @@ func NewClient(logger log.Logger, network, address string, typ RouteType, versio
 		c.sendLabelManagerConnect(true)
 	}
 
-	receiveSingleMsg := func() (*Message, error) {
-		headerBuf, err := readAll(conn, int(HeaderSize(version)))
-		if err != nil {
-			logger.Error("failed to read header",
-				log.Fields{
-					"Topic": "Zebra",
-					"Error": err})
-			return nil, err
-		}
-
-		hd := &Header{}
-		err = hd.decodeFromBytes(headerBuf)
-		if c.Version != hd.Version {
-			logger.Warn(fmt.Sprintf("ZAPI version mismatch. configured version: %d, version of received message:%d", c.Version, hd.Version),
-				log.Fields{
-					"Topic": "Zebra"})
-			return nil, errors.New("ZAPI version mismatch")
-		}
-		if err != nil {
-			logger.Error("failed to decode header",
-				log.Fields{
-					"Topic": "Zebra",
-					"Data":  headerBuf,
-					"Error": err})
-			return nil, err
-		}
-
-		bodyBuf, err := readAll(conn, int(hd.Len-HeaderSize(version)))
-		if err != nil {
-			logger.Error("failed to read body",
-				log.Fields{
-					"Topic":  "Zebra",
-					"Header": hd,
-					"Error":  err})
-			return nil, err
-		}
-
-		m, err := parseMessage(hd, bodyBuf, software)
-		if err != nil {
-			// Just outputting warnings (not error message) and ignore this
-			// error considering the case that body parser is not implemented yet.
-			logger.Warn("failed to decode body",
-				log.Fields{
-					"Topic":  "Zebra",
-					"Header": hd,
-					"Data":   bodyBuf,
-					"Error":  err})
-			return nil, nil
-		}
-		logger.Debug("read message from zebra",
-			log.Fields{
-				"Topic":   "Zebra",
-				"Message": m})
-
-		return m, nil
-	}
-
 	// Try to receive the first message from Zebra.
-	if m, err := receiveSingleMsg(); err != nil {
+	if m, err := ReceiveSingleMsg(logger, conn, version, software, "Zebra"); err != nil {
 		c.close()
 		// Return error explicitly in order to retry connection.
 		return nil, err
@@ -1483,7 +1488,7 @@ func NewClient(logger log.Logger, network, address string, typ RouteType, versio
 	go func() {
 		defer close(incoming)
 		for {
-			if m, err := receiveSingleMsg(); err != nil {
+			if m, err := ReceiveSingleMsg(logger, conn, version, software, "Zebra"); err != nil {
 				return
 			} else if m != nil {
 				incoming <- m
@@ -1540,11 +1545,11 @@ func (c *Client) sendCommand(command APIType, vrfID uint32, body Body) error {
 // SendHello sends HELLO message to zebra daemon.
 func (c *Client) SendHello() error {
 	if c.redistDefault > 0 {
-		body := &helloBody{
+		body := &HelloBody{
 			redistDefault: c.redistDefault,
 			instance:      0,
 		}
-		return c.sendCommand(hello, DefaultVrf, body)
+		return c.sendCommand(Hello, DefaultVrf, body)
 	}
 	return nil
 }
@@ -1784,7 +1789,7 @@ func (b *unknownBody) string(version uint8, software Software) string {
 	return fmt.Sprintf("data: %v", b.Data)
 }
 
-type helloBody struct {
+type HelloBody struct {
 	redistDefault RouteType
 	instance      uint16
 	sessionID     uint32 // frr7.4, 7.5, 8, 8.1, 8.2
@@ -1794,7 +1799,7 @@ type helloBody struct {
 
 // Ref: zread_hello in zebra/zserv.c of Quagga1.2&FRR3 (ZAPI3&4)
 // Ref: zread_hello in zebra/zapi_msg.c of FRR5&FRR6&FRR7&FRR7.1&FRR7.2&FRR7.3&FRR7.4&FRR7.5&FRR8 (ZAPI5&6)
-func (b *helloBody) decodeFromBytes(data []byte, version uint8, software Software) error {
+func (b *HelloBody) decodeFromBytes(data []byte, version uint8, software Software) error {
 	b.redistDefault = RouteType(data[0])
 	if version > 3 { //frr
 		b.instance = binary.BigEndian.Uint16(data[1:3])
@@ -1811,7 +1816,7 @@ func (b *helloBody) decodeFromBytes(data []byte, version uint8, software Softwar
 
 // Ref: zebra_hello_send in lib/zclient.c of Quagga1.2&FRR3&FRR5&FRR6&FRR7&FRR7.1&FRR7.2&FRR7.3 (ZAPI3&4&5&6)
 // Ref: zclient_send_hello in lib/zclient.c of FRR7.4&FRR7.5&FRR8 (ZAPI6)
-func (b *helloBody) serialize(version uint8, software Software) ([]byte, error) {
+func (b *HelloBody) serialize(version uint8, software Software) ([]byte, error) {
 	if version < 4 {
 		return []byte{uint8(b.redistDefault)}, nil
 	}
@@ -1835,7 +1840,7 @@ func (b *helloBody) serialize(version uint8, software Software) ([]byte, error) 
 	return buf, nil
 }
 
-func (b *helloBody) string(version uint8, software Software) string {
+func (b *HelloBody) string(version uint8, software Software) string {
 	return fmt.Sprintf(
 		"route_type: %s, instance :%d, sessionID: %d, receiveNotify: %d, synchronous: %d",
 		b.redistDefault.String(), b.instance, b.sessionID, b.receiveNotify, b.synchronous)
@@ -1917,12 +1922,27 @@ type interfaceUpdateBody struct {
 
 // Ref: zebra_interface_if_set_value in lib/zclient.c of Quagga1.2&FRR3&FRR4&FRR5&FRR6&FRR7.x&FRR8 (ZAPI3&4&5&6)
 func (b *interfaceUpdateBody) decodeFromBytes(data []byte, version uint8, software Software) error {
-	if len(data) < interfaceNameSize+33 {
-		return fmt.Errorf("lack of bytes. need %d but %d", interfaceNameSize+29, len(data))
+	ifNameSize := interfaceNameSize
+	if version == 6 && software.name == "frr" && software.version >= 8.3 {
+		ifNameSize = osIfNameSize
+	}
+	// version 2: index(4)+status(1)+flags(8)+metric(4)+mtu(4)+mtu6(4)+bandwidth(4)+hw_addr_len(4)
+	necessaryDataSize := ifNameSize + 33
+	if version > 3 {
+		necessaryDataSize += 6 // add ptmEnable(1)+ptmStatus(1)+speed(4)
+	}
+	if version > 2 {
+		necessaryDataSize += 4 // add linktype(4)
+	}
+	if version == 6 && software.name == "frr" && software.version >= 7.2 {
+		necessaryDataSize += 4 // add linkIfIndex(4)
+	}
+	if len(data) < necessaryDataSize {
+		return fmt.Errorf("lack of bytes. need %d but %d", necessaryDataSize, len(data))
 	}
 
-	b.name = strings.Trim(string(data[:interfaceNameSize]), "\u0000")
-	data = data[interfaceNameSize:]
+	b.name = strings.Trim(string(data[:ifNameSize]), "\u0000")
+	data = data[ifNameSize:]
 	b.index = binary.BigEndian.Uint32(data[0:4])
 	b.status = interfaceStatus(data[4])
 	b.flags = binary.BigEndian.Uint64(data[5:13])
@@ -2144,7 +2164,7 @@ type Nexthop struct {
 	LabelNum        uint8            //FRR5, FRR6, FRR7.x, FRR8, FRR8.1
 	MplsLabels      []uint32         //FRR5, FRR6, FRR7.x, FRR8, FRR8.1
 	rmac            [6]byte          //FRR6, FRR7.x, FRR8, FRR8.1
-	weight          uint32           //FRR7.3, FRR7.4, FRR7.5, FRR8, FRR8.1
+	Weight          uint32           //FRR7.3, FRR7.4, FRR7.5, FRR8, FRR8.1
 	backupNum       uint8            //FRR7.4, FRR7.5, FRR8, FRR8.1
 	backupIndex     []uint8          //FRR7.5, FRR8, FRR8.1
 	srteColor       uint32           //FRR7.5, FRR8, FRR8.1
@@ -2158,7 +2178,7 @@ func (n Nexthop) string() string {
 	s = append(s, fmt.Sprintf(
 		"type: %s, vrf_id: %d, ifindex: %d, flags: %d, gate: %s, blackholeType: %d, label_num: %d, weight: %d, backupNum: %d, srteColor: %d",
 		n.Type.String(), n.VrfID, n.Ifindex, n.flags, n.Gate.String(),
-		n.blackholeType, n.LabelNum, n.weight, n.backupNum, n.srteColor))
+		n.blackholeType, n.LabelNum, n.Weight, n.backupNum, n.srteColor))
 	for i := uint8(0); i < n.LabelNum; i++ {
 		s = append(s, fmt.Sprintf(" label[%d]: %d", i, n.MplsLabels[i]))
 	}
@@ -2204,7 +2224,7 @@ func (n Nexthop) encode(version uint8, software Software, processFlag nexthopPro
 		if n.LabelNum > 0 {
 			n.flags |= zapiNexthopFlagLabel
 		}
-		if n.weight > 0 {
+		if n.Weight > 0 {
 			n.flags |= zapiNexthopFlagWeight
 		}
 		if n.backupNum > 0 {
@@ -2258,10 +2278,10 @@ func (n Nexthop) encode(version uint8, software Software, processFlag nexthopPro
 		//frr: stream_put(s, &api_nh->labels[0], api_nh->label_num * sizeof(mpls_label_t));
 		buf = append(buf, tmpbuf...)
 	}
-	if n.flags&zapiNexthopFlagWeight > 0 && n.weight > 0 {
+	if n.flags&zapiNexthopFlagWeight > 0 && n.Weight > 0 {
 		tmpbuf := make([]byte, 4)
-		binary.BigEndian.PutUint32(tmpbuf, uint32(n.weight))
-		buf = append(buf, tmpbuf...) //frr: stream_putl(s, api_nh->weight);
+		binary.BigEndian.PutUint32(tmpbuf, uint32(n.Weight))
+		buf = append(buf, tmpbuf...) //frr: stream_putl(s, api_nh->Weight);
 	}
 	if apiFlag&flagEvpnRoute.ToEach(version, software) > 0 {
 		//frr: stream_put(s, &(api_nh->rmac), sizeof(struct ethaddr));
@@ -2373,8 +2393,8 @@ func (n *Nexthop) decode(data []byte, version uint8, software Software, family u
 		}
 	}
 	if n.flags&zapiNexthopFlagWeight > 0 {
-		//frr: STREAM_GETL(s, api_nh->weight);
-		n.weight = binary.BigEndian.Uint32(data[offset:])
+		//frr: STREAM_GETL(s, api_nh->Weight);
+		n.Weight = binary.BigEndian.Uint32(data[offset:])
 		offset += 4
 	}
 	if apiFlag&flagEvpnRoute.ToEach(version, software) > 0 {
@@ -2539,9 +2559,9 @@ func (b *IPRouteBody) RouteFamily(logger log.Logger, version uint8, software Sof
 
 // IsWithdraw is referred in zclient
 func (b *IPRouteBody) IsWithdraw(version uint8, software Software) bool {
-	api := b.API.toCommon(version, software)
+	api := b.API.ToCommon(version, software)
 	switch api {
-	case RouteDelete, redistributeRouteDel, BackwardIPv6RouteDelete:
+	case RouteDelete, RedistributeRouteDel, BackwardIPv6RouteDelete:
 		return true
 	}
 	if version == 4 && b.API == zapi4RedistributeIPv6Del {
@@ -3512,7 +3532,7 @@ type Message struct {
 	Body   Body
 }
 
-func (m *Message) serialize(software Software) ([]byte, error) {
+func (m *Message) Serialize(software Software) ([]byte, error) {
 	var body []byte
 	if m.Body != nil {
 		var err error
@@ -3536,7 +3556,7 @@ func parseMessage(hdr *Header, data []byte, software Software) (m *Message, err 
 	   InterfaceBFDDestUpdate, ImportCheckUpdate, BFDDestReplay,
 	   InterfaceVRFUpdate, InterfaceLinkParams, PWStatusUpdate
 	*/
-	command := m.Header.Command.toCommon(m.Header.Version, software)
+	command := m.Header.Command.ToCommon(m.Header.Version, software)
 	switch command {
 	case interfaceAdd, interfaceDelete, interfaceUp, interfaceDown:
 		m.Body = &interfaceUpdateBody{}
@@ -3546,7 +3566,7 @@ func parseMessage(hdr *Header, data []byte, software Software) (m *Message, err 
 		m.Body = &routerIDUpdateBody{}
 	case nexthopUpdate:
 		m.Body = &NexthopUpdateBody{}
-	case redistributeRouteAdd, redistributeRouteDel: // for frr
+	case RedistributeRouteAdd, RedistributeRouteDel: // for frr
 		m.Body = &IPRouteBody{API: m.Header.Command}
 	case labelManagerConnect: // Note: Synchronous message
 		m.Body = &labelManagerConnectBody{}

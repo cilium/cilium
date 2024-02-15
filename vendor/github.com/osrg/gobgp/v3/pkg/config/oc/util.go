@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package oc
 
 import (
 	"fmt"
@@ -563,6 +563,7 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 			LocalAddress:  localAddress,
 			PassiveMode:   pconf.Transport.Config.PassiveMode,
 			BindInterface: pconf.Transport.Config.BindInterface,
+			TcpMss:        uint32(pconf.Transport.Config.TcpMss),
 		},
 		AfiSafis: afiSafis,
 	}
@@ -640,6 +641,7 @@ func NewPeerGroupFromConfigStruct(pconf *PeerGroup) *api.PeerGroup {
 			RemotePort:   uint32(pconf.Transport.Config.RemotePort),
 			LocalAddress: pconf.Transport.Config.LocalAddress,
 			PassiveMode:  pconf.Transport.Config.PassiveMode,
+			TcpMss:       uint32(pconf.Transport.Config.TcpMss),
 		},
 		AfiSafis: afiSafis,
 	}

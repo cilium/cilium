@@ -29,6 +29,7 @@ const (
 	tcpMD5SIG       = 14   // TCP MD5 Signature (RFC2385)
 	ipv6MinHopCount = 73   // Generalized TTL Security Mechanism (RFC5082)
 	IP_MINTTL       = 0x15 // pulled from https://golang.org/pkg/syscall/?GOOS=linux#IP_MINTTL
+	TCP_MAXSEG      = 0x2  // pulled from https://pkg.go.dev/syscall?GOOS=linux#TCP_MAXSEG
 )
 
 func setTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
@@ -63,7 +64,19 @@ func setTCPMinTTLSockopt(conn *net.TCPConn, ttl int) error {
 	return setsockOptInt(sc, level, name, ttl)
 }
 
-func dialerControl(logger log.Logger, network, address string, c syscall.RawConn, ttl, ttlMin uint8, password string, bindInterface string) error {
+func setTCPMSSSockopt(conn *net.TCPConn, mss uint16) error {
+	// TCP_MAXSEG syscall option exists only from Windows 10
+	// https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-getsockopt
+	sc, err := conn.SyscallConn()
+	if err != nil {
+		return err
+	}
+	level := syscall.IPPROTO_TCP
+	name := TCP_MAXSEG
+	return setsockOptInt(sc, level, name, int(mss))
+}
+
+func dialerControl(logger log.Logger, network, address string, c syscall.RawConn, ttl, ttlMin uint8, mss uint16, password string, bindInterface string) error {
 	if password != "" {
 		logger.Warn("setting md5 for active connection is not supported",
 			log.Fields{
@@ -78,6 +91,12 @@ func dialerControl(logger log.Logger, network, address string, c syscall.RawConn
 	}
 	if ttlMin != 0 {
 		logger.Warn("setting min ttl for active connection is not supported",
+			log.Fields{
+				"Topic": "Peer",
+				"Key":   address})
+	}
+	if mss != 0 {
+		logger.Warn("setting MSS for active connection is not supported",
 			log.Fields{
 				"Topic": "Peer",
 				"Key":   address})

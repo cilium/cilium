@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/osrg/gobgp/v3/internal/pkg/table"
-	"github.com/osrg/gobgp/v3/internal/pkg/zebra"
 	"github.com/osrg/gobgp/v3/pkg/log"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	"github.com/osrg/gobgp/v3/pkg/zebra"
 )
 
 // nexthopStateCache stores a map of nexthop IP to metric value. Especially,
@@ -364,7 +364,7 @@ func (z *zebraClient) updatePathByNexthopCache(paths []*table.Path) {
 func (z *zebraClient) loop() {
 	w := z.server.watch([]watchOption{
 		watchBestPath(true),
-		watchPostUpdate(true, ""),
+		watchPostUpdate(true, "", ""),
 	}...)
 	defer w.Stop()
 

@@ -43,3 +43,12 @@ func setTcpTTLSockopt(conn *net.TCPConn, ttl int) error {
 func setTcpMinTTLSockopt(conn *net.TCPConn, ttl int) error {
 	return fmt.Errorf("setting min ttl is not supported")
 }
+
+func setTcpMSSSockopt(conn *net.TCPConn, mss uint16) error {
+	family := extractFamilyFromTCPConn(conn)
+	sc, err := conn.SyscallConn()
+	if err != nil {
+		return err
+	}
+	return setsockoptTcpMss(sc, family, mss)
+}
