@@ -201,26 +201,24 @@ func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, r
 const ciliumNetworkPolicyCRDName = "ciliumnetworkpolicies.cilium.io"
 
 func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result features.Set) error {
-	// CNP are deployed by default.
-	cnpDeployed := true
-
-	// Check if CRD Cilium Network Policy is deployed.
-	_, err := ct.client.GetCRD(ctx, ciliumNetworkPolicyCRDName, metav1.GetOptions{})
-
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			fmt.Printf("Type of error: %v, %T", err, err)
-			return fmt.Errorf("unable to retrieve CRD %s: %w", ciliumNetworkPolicyCRDName, err)
+	check := func(name string) (features.Status, error) {
+		_, err := ct.client.GetCRD(ctx, name, metav1.GetOptions{})
+		switch {
+		case err == nil:
+			return features.Status{Enabled: true}, nil
+		case k8serrors.IsNotFound(err):
+			return features.Status{Enabled: false}, nil
+		default:
+			return features.Status{}, fmt.Errorf("unable to retrieve CRD %s: %w", ciliumNetworkPolicyCRDName, err)
 		}
-
-		// Not found it's not deployed.
-		cnpDeployed = false
 	}
 
-	result[features.CNP] = features.Status{
-		Enabled: cnpDeployed,
+	cnp, err := check(ciliumNetworkPolicyCRDName)
+	if err != nil {
+		return err
 	}
 
+	result[features.CNP] = cnp
 	return nil
 }
 
