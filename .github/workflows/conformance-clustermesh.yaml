@@ -383,7 +383,7 @@ jobs:
           " >> $GITHUB_OUTPUT
 
       - name: Wait for images to be available
-        timeout-minutes: 30
+        timeout-minutes: 40
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
