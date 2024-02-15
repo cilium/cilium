@@ -42,6 +42,9 @@ func (f FullModuleID) append(m ModuleID) FullModuleID {
 	return append(slices.Clone(f), string(m))
 }
 
+// RootLogger is the unscoped logger without any attrs added to it.
+type RootLogger *slog.Logger
+
 // ModuleDecorator is the optional decorator function used for each module
 // to provide or replace objects in each module's scope.
 // Supplied with [hive.Options] field 'ModuleDecorator'.
@@ -76,8 +79,8 @@ type module struct {
 	cells []Cell
 }
 
-func (m *module) logger(log *slog.Logger) *slog.Logger {
-	return log.With("module", m.id)
+func (m *module) logger(moduleID FullModuleID, rootLog RootLogger) *slog.Logger {
+	return (*slog.Logger)(rootLog).With("module", moduleID.String())
 }
 
 func (m *module) moduleID() ModuleID {
@@ -123,10 +126,6 @@ func (m *module) moduleDecorator(scope *dig.Scope) error {
 	return nil
 }
 
-func (m *module) health(h Health) Health {
-	return h.NewScope(m.id)
-}
-
 func (m *module) Apply(log *slog.Logger, c container) error {
 	scope := c.Scope(m.id)
 
@@ -146,11 +145,6 @@ func (m *module) Apply(log *slog.Logger, c container) error {
 		return err
 	}
 
-	if err := scope.Decorate(m.health); err != nil {
-		return err
-	}
-
-	// If 'Options.ModuleProvider' is defined then
 	if err := m.moduleDecorator(scope); err != nil {
 		return err
 	}

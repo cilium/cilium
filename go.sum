@@ -134,8 +134,6 @@ github.com/cilium/ebpf v0.12.4-0.20240202143943-a8894b2143a2 h1:EfcLn7cEwNwSOfhk
 github.com/cilium/ebpf v0.12.4-0.20240202143943-a8894b2143a2/go.mod h1:9BszLnmZR7oucpa/kBbVVf1ts3BoUSpltcnNp1hQkVw=
 github.com/cilium/fake v0.6.1 h1:cLkNx1nkF0b0pPW79JaQxaI5oG2/rBzRKpp0YUg1fTA=
 github.com/cilium/fake v0.6.1/go.mod h1:V9lCbbcsnSf3vB6sdOP7Q0bsUUJ/jyHPZxnFAw5nPUc=
-github.com/cilium/hive v0.0.0-20240213101536-f66fd1a696b2 h1:ht+PDVJE+JIbyfoydi7XBgZsC2KJQFAfIFzfTfD26+0=
-github.com/cilium/hive v0.0.0-20240213101536-f66fd1a696b2/go.mod h1:6tW1eCwSq8Wz8IVtpZE0MemoCWSrEOUa8aLKotmBRCo=
 github.com/cilium/linters v0.0.0-20240116133705-4cd15cbd2bca h1:m/D5w/7KJxopifSNEjiLVNwOP9RldH7KgskI69IWFXM=
 github.com/cilium/linters v0.0.0-20240116133705-4cd15cbd2bca/go.mod h1:GKRlg2xlsqaPPVfnr4uD9cYaVg94GBxgwOIhdljneRY=
 github.com/cilium/lumberjack/v2 v2.3.0 h1:IhVJMvPpqDYmQzC0KDhAoy7KlaRsyOsZnT97Nsa3u0o=

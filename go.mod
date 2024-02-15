@@ -3,6 +3,8 @@ module github.com/cilium/cilium
 // renovate: datasource=golang-version depName=go
 go 1.21.3
 
+replace github.com/cilium/hive => ../hive
+
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
@@ -71,7 +73,6 @@ require (
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/procfs v0.12.0
 	github.com/russross/blackfriday/v2 v2.1.0
-	github.com/sagikazarmark/slog-shim v0.1.0
 	github.com/sasha-s/go-deadlock v0.3.1
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
 	github.com/sirupsen/logrus v1.9.3
@@ -231,6 +232,7 @@ require (
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
+	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect

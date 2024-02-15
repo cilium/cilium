@@ -69,7 +69,7 @@ func New(cells ...cell.Cell) *Hive {
 		))
 	return upstream.NewWithOptions(
 		upstream.Options{
-			Logger:          slogLogger.With(logfields.LogSubsys, "hive"),
+			Logger:          slogLogger,
 			EnvPrefix:       "CILIUM_",
 			ModuleDecorator: moduleDecorator,
 			DecodeHooks:     decodeHooks,

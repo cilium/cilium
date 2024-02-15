@@ -167,6 +167,7 @@ type defaults struct {
 	Flags             *pflag.FlagSet
 	Lifecycle         cell.Lifecycle
 	Logger            *slog.Logger
+	RootLogger        cell.RootLogger
 	Shutdowner        Shutdowner
 	InvokerList       cell.InvokerList
 	EmptyFullModuleID cell.FullModuleID
@@ -179,6 +180,7 @@ func (h *Hive) provideDefaults() error {
 			Flags:             h.flags,
 			Lifecycle:         h.lifecycle,
 			Logger:            h.opts.Logger,
+			RootLogger:        cell.RootLogger(h.opts.Logger),
 			Shutdowner:        h,
 			InvokerList:       h,
 			EmptyFullModuleID: nil,

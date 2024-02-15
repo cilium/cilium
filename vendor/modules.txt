@@ -220,7 +220,7 @@ github.com/cilium/ebpf/rlimit
 # github.com/cilium/fake v0.6.1
 ## explicit; go 1.20
 github.com/cilium/fake
-# github.com/cilium/hive v0.0.0-20240213101536-f66fd1a696b2
+# github.com/cilium/hive v0.0.0-20240213101536-f66fd1a696b2 => ../hive
 ## explicit; go 1.21.3
 github.com/cilium/hive
 github.com/cilium/hive/cell
@@ -2116,5 +2116,6 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
+# github.com/cilium/hive => ../hive
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.8.0-2
