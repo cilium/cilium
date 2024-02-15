@@ -98,6 +98,8 @@ func reconciliationLoop(
 	devices, devicesWatch := tables.SelectedDevices(dependents.devices, dependents.db.ReadTxn())
 	state.devices = sets.New(tables.DeviceNames(devices)...)
 
+	log.WithField("state", state).Info("updating rules to reconcile state")
+
 	if err := updateRules(ctx, state, true); err != nil {
 		health.Degraded("iptables rules installation failed", err)
 	} else {
@@ -176,6 +178,9 @@ func reconciliationLoop(
 			}
 			delete(state.noTrackPods, noTrackPod)
 		}
+
+		log.WithField("state", state).Info("updating rules to reconcile state")
+
 		if err := updateRules(ctx, state, false); err != nil {
 			health.Degraded("iptables rules update failed", err)
 		} else {
