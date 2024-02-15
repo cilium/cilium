@@ -7,13 +7,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/stream"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/time"
 )
 

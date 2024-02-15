@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/stream"
-
+	"github.com/cilium/stream"
 	"golang.org/x/exp/maps"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // Level denotes what kind an update is.

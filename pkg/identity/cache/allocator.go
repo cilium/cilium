@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 var (

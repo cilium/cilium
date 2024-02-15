@@ -7,12 +7,12 @@ import (
 	"context"
 	"sync"
 
+	"github.com/cilium/stream"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 type LocalNode struct {
