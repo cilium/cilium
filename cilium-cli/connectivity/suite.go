@@ -188,6 +188,12 @@ var (
 
 	//go:embed manifests/echo-ingress-mutual-authentication.yaml
 	echoIngressMutualAuthPolicyYAML string
+
+	//go:embed manifests/host-firewall-ingress.yaml
+	hostFirewallIngressPolicyYAML string
+
+	//go:embed manifests/host-firewall-egress.yaml
+	hostFirewallEgressPolicyYAML string
 )
 
 var (
@@ -1143,6 +1149,30 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		WithExpectations(func(_ *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
+
+	if ct.Params().IncludeUnsafeTests {
+		ct.NewTest("host-firewall-ingress").
+			WithFeatureRequirements(features.RequireEnabled(features.HostFirewall)).
+			WithCiliumClusterwidePolicy(hostFirewallIngressPolicyYAML).
+			WithScenarios(tests.PodToHost()).
+			WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+				if a.Source().HasLabel("name", "client") {
+					return check.ResultOK, check.ResultPolicyDenyIngressDrop
+				}
+				return check.ResultOK, check.ResultOK
+			})
+
+		ct.NewTest("host-firewall-egress").
+			WithFeatureRequirements(features.RequireEnabled(features.HostFirewall)).
+			WithCiliumClusterwidePolicy(hostFirewallEgressPolicyYAML).
+			WithScenarios(tests.HostToPod()).
+			WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+				if a.Destination().HasLabel("name", "echo-other-node") {
+					return check.ResultPolicyDenyEgressDrop, check.ResultOK
+				}
+				return check.ResultOK, check.ResultOK
+			})
+	}
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
 	ct.NewTest("dns-only").WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).
