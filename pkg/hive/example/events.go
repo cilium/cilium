@@ -9,10 +9,10 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/cilium/stream"
 	"github.com/cilium/workerpool"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 // eventsCell provides the ExampleEvents API for subscribing

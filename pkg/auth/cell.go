@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime/pprof"
 
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
@@ -20,7 +21,6 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/signal"
-	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/time"
 )
 

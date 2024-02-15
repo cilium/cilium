@@ -10,12 +10,12 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 // This example shows a number of use cases in one cell. The cell starts by requesting the job.Registry
