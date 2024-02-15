@@ -5,12 +5,12 @@ k8s:
     zone: us-west2-a
     vmIndex: 1
   - version: "1.25"
-    zone: us-west3-a
+    zone: us-west1-b
     vmIndex: 2
   - version: "1.26"
-    zone: us-east4-b
+    zone: us-west2-c
     vmIndex: 3
   - version: "1.27"
-    zone: us-east5-a
+    zone: us-west3-a
     vmIndex: 4
     default: true
