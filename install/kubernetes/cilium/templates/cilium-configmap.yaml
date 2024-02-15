@@ -266,6 +266,7 @@ data:
   ingress-hostnetwork-enabled: {{ .Values.ingressController.hostNetwork.enabled | quote }}
   ingress-hostnetwork-shared-http-port: {{ .Values.ingressController.hostNetwork.sharedHTTPPort | quote }}
   ingress-hostnetwork-shared-tlspassthrough-port: {{ .Values.ingressController.hostNetwork.sharedTLSPassthroughPort | quote }}
+  ingress-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.ingressController.hostNetwork.nodes.matchLabels | quote }}
 {{- end }}
 
 {{- if .Values.gatewayAPI.enabled }}
@@ -274,6 +275,7 @@ data:
   enable-gateway-api-proxy-protocol: {{ .Values.gatewayAPI.enableProxyProtocol | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
+  gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
 {{- end }}
 
 {{- if hasKey .Values "loadBalancer" }}

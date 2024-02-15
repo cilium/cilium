@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -34,9 +35,10 @@ type cecTranslator struct {
 	secretsNamespace string
 	useProxyProtocol bool
 
-	hostNetworkEnabled bool
-	ipv4Enabled        bool
-	ipv6Enabled        bool
+	hostNetworkEnabled           bool
+	hostNetworkNodeLabelSelector *slim_metav1.LabelSelector
+	ipv4Enabled                  bool
+	ipv6Enabled                  bool
 
 	// hostNameSuffixMatch is a flag to control whether the host name suffix match.
 	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
@@ -49,7 +51,7 @@ type cecTranslator struct {
 
 // NewCECTranslator returns a new translator
 func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
-	hostNetworkEnabled bool, ipv4Enabled bool, ipv6Enabled bool,
+	hostNetworkEnabled bool, hostNetworkNodeLabelSelector *slim_metav1.LabelSelector, ipv4Enabled bool, ipv6Enabled bool,
 ) CECTranslator {
 	return &cecTranslator{
 		secretsNamespace:    secretsNamespace,
@@ -57,9 +59,10 @@ func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, hostNameSu
 		hostNameSuffixMatch: hostNameSuffixMatch,
 		idleTimeoutSeconds:  idleTimeoutSeconds,
 
-		hostNetworkEnabled: hostNetworkEnabled,
-		ipv4Enabled:        ipv4Enabled,
-		ipv6Enabled:        ipv6Enabled,
+		hostNetworkEnabled:           hostNetworkEnabled,
+		hostNetworkNodeLabelSelector: hostNetworkNodeLabelSelector,
+		ipv4Enabled:                  ipv4Enabled,
+		ipv6Enabled:                  ipv6Enabled,
 	}
 }
 
@@ -77,6 +80,10 @@ func (i *cecTranslator) Translate(namespace string, name string, model *model.Mo
 	cec.Spec.BackendServices = i.getBackendServices(model)
 	cec.Spec.Services = i.getServices(namespace, name)
 	cec.Spec.Resources = i.getResources(model)
+
+	if i.hostNetworkEnabled {
+		cec.Spec.NodeSelector = i.hostNetworkNodeLabelSelector
+	}
 
 	return cec, nil
 }

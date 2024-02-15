@@ -1416,6 +1416,10 @@
      - Configure whether the Envoy listeners should be exposed on the host network.
      - bool
      - ``false``
+   * - :spelling:ignore:`gatewayAPI.hostNetwork.nodes.matchLabels`
+     - Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker
+     - object
+     - ``{}``
    * - :spelling:ignore:`gatewayAPI.secretsNamespace`
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object
@@ -2060,6 +2064,10 @@
      - Configure whether the Envoy listeners should be exposed on the host network.
      - bool
      - ``false``
+   * - :spelling:ignore:`ingressController.hostNetwork.nodes.matchLabels`
+     - Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker
+     - object
+     - ``{}``
    * - :spelling:ignore:`ingressController.hostNetwork.sharedHTTPPort`
      - Configure a specific port on the host network that gets used for the shared HTTP listener. This is used for HTTP and HTTPS.
      - int

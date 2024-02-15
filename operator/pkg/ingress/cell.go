@@ -39,6 +39,7 @@ var Cell = cell.Module(
 		IngressHostnetworkEnabled:                  false,
 		IngressHostnetworkSharedHTTPPort:           0,
 		IngressHostnetworkSharedTLSPassthroughPort: 0,
+		IngressHostnetworkNodelabelselector:        "",
 	}),
 	cell.Invoke(registerReconciler),
 	cell.Provide(registerSecretSync),
@@ -60,6 +61,7 @@ type ingressConfig struct {
 	IngressHostnetworkEnabled                  bool
 	IngressHostnetworkSharedHTTPPort           uint32
 	IngressHostnetworkSharedTLSPassthroughPort uint32
+	IngressHostnetworkNodelabelselector        string
 }
 
 func (r ingressConfig) Flags(flags *pflag.FlagSet) {
@@ -78,6 +80,7 @@ func (r ingressConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("ingress-hostnetwork-enabled", r.IngressHostnetworkEnabled, "Exposes ingress listeners on the host network.")
 	flags.Uint32("ingress-hostnetwork-shared-http-port", r.IngressHostnetworkSharedHTTPPort, "Port on the host network that gets used for the shared HTTP listener (HTTP & HTTPS)")
 	flags.Uint32("ingress-hostnetwork-shared-tlspassthrough-port", r.IngressHostnetworkSharedTLSPassthroughPort, "Port on the host network that gets used for the shared TLS passthrough listener")
+	flags.String("ingress-hostnetwork-nodelabelselector", r.IngressHostnetworkNodelabelselector, "Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
 }
 
 type ingressParams struct {
@@ -106,6 +109,7 @@ func registerReconciler(params ingressParams) error {
 		false, // hostNameSuffixMatch
 		params.OperatorConfig.ProxyIdleTimeoutSeconds,
 		params.IngressConfig.IngressHostnetworkEnabled,
+		translation.ParseNodeLabelSelector(params.IngressConfig.IngressHostnetworkNodelabelselector),
 		params.AgentConfig.EnableIPv4,
 		params.AgentConfig.EnableIPv6,
 	)

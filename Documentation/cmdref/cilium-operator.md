@@ -69,6 +69,7 @@ cilium-operator [flags]
       --eni-tags map                                            ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)
       --excess-ip-release-delay int                             Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
       --gateway-api-hostnetwork-enabled                         Exposes Gateway listeners on the host network.
+      --gateway-api-hostnetwork-nodelabelselector string        Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-secrets-namespace string                    Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
       --gops-port uint16                                        Port for gops server to listen on (default 9891)
   -h, --help                                                    help for cilium-operator
@@ -82,6 +83,7 @@ cilium-operator [flags]
       --ingress-default-secret-namespace string                 Default secret namespace for Ingress.
       --ingress-default-xff-num-trusted-hops uint32             The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
       --ingress-hostnetwork-enabled                             Exposes ingress listeners on the host network.
+      --ingress-hostnetwork-nodelabelselector string            Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --ingress-hostnetwork-shared-http-port uint32             Port on the host network that gets used for the shared HTTP listener (HTTP & HTTPS)
       --ingress-hostnetwork-shared-tlspassthrough-port uint32   Port on the host network that gets used for the shared TLS passthrough listener
       --ingress-lb-annotation-prefixes strings                  Annotations and labels which are needed to propagate from Ingress to the Load Balancer. (default [lbipam.cilium.io,service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])

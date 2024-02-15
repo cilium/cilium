@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func Test_translator_Translate(t *testing.T) {
@@ -212,7 +213,7 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, 60, false, false, false),
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, 60, false, nil, false, false),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
@@ -313,7 +314,7 @@ func Test_translator_TranslateResource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, 60, false, false, false),
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, 60, false, nil, false, false),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
@@ -329,12 +330,13 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 		m *model.Model
 	}
 	tests := []struct {
-		name        string
-		args        args
-		ipv4Enabled bool
-		ipv6Enabled bool
-		want        *ciliumv2.CiliumEnvoyConfig
-		wantErr     bool
+		name              string
+		args              args
+		nodeLabelSelector *slim_metav1.LabelSelector
+		ipv4Enabled       bool
+		ipv6Enabled       bool
+		want              *ciliumv2.CiliumEnvoyConfig
+		wantErr           bool
 	}{
 		{
 			name:        "Basic HTTP Listener",
@@ -344,7 +346,7 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					HTTP: basicHTTPListeners(80),
 				},
 			},
-			want: basicHostPortHTTPListenersCiliumEnvoyConfig("0.0.0.0", 80),
+			want: basicHostPortHTTPListenersCiliumEnvoyConfig("0.0.0.0", 80, nil),
 		},
 		{
 			name:        "Basic HTTP Listener with different port",
@@ -354,7 +356,7 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					HTTP: basicHTTPListeners(55555),
 				},
 			},
-			want: basicHostPortHTTPListenersCiliumEnvoyConfig("0.0.0.0", 55555),
+			want: basicHostPortHTTPListenersCiliumEnvoyConfig("0.0.0.0", 55555, nil),
 		},
 		{
 			name:        "Basic HTTP Listener with different port and IPv6",
@@ -365,23 +367,28 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					HTTP: basicHTTPListeners(55555),
 				},
 			},
-			want: basicHostPortHTTPListenersCiliumEnvoyConfig("::", 55555),
+			want: basicHostPortHTTPListenersCiliumEnvoyConfig("::", 55555, nil),
 		},
 		{
 			name:        "Basic HTTP Listener with LabelSelector",
 			ipv4Enabled: true,
+			nodeLabelSelector: &slim_metav1.LabelSelector{
+				MatchLabels: map[string]slim_metav1.MatchLabelsValue{
+					"a": "b",
+				},
+			},
 			args: args{
 				m: &model.Model{
 					HTTP: basicHTTPListeners(55555),
 				},
 			},
-			want: basicHostPortHTTPListenersCiliumEnvoyConfig("0.0.0.0", 55555),
+			want: basicHostPortHTTPListenersCiliumEnvoyConfig("0.0.0.0", 55555, &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}}),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, true, 60, true, tt.ipv4Enabled, tt.ipv6Enabled),
+				cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled),
 				hostNetworkEnabled: true,
 			}
 			cec, svc, ep, err := trans.Translate(tt.args.m)
