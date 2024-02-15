@@ -17,6 +17,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
@@ -623,90 +624,47 @@ func (t *Test) CiliumLogs(ctx context.Context) {
 	}
 }
 
-// parseCiliumPolicyYAML decodes policy yaml into a slice of CiliumNetworkPolicies.
-func parseCiliumPolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err error) {
-	if policy == "" {
+// ParsePolicyYAML decodes a yaml file into a slice of policies.
+func ParsePolicyYAML[T runtime.Object](input string, scheme *runtime.Scheme) (output []T, err error) {
+	if input == "" {
 		return nil, nil
 	}
 
-	yamls := strings.Split(policy, "\n---")
+	yamls := strings.Split(input, "\n---")
 
 	for _, yaml := range yamls {
 		if strings.TrimSpace(yaml) == "" {
 			continue
 		}
 
-		obj, kind, err := serializer.NewCodecFactory(scheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
+		obj, kind, err := serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
 		if err != nil {
-			return nil, fmt.Errorf("decoding policy yaml: %s\nerror: %w", yaml, err)
+			return nil, fmt.Errorf("decoding yaml file: %s\nerror: %w", yaml, err)
 		}
 
 		switch policy := obj.(type) {
-		case *ciliumv2.CiliumNetworkPolicy:
-			cnps = append(cnps, policy)
+		case T:
+			output = append(output, policy)
 		default:
-			return nil, fmt.Errorf("unknown policy type '%s' in: %s", kind.Kind, yaml)
+			return nil, fmt.Errorf("unknown type '%s' in: %s", kind.Kind, yaml)
 		}
 	}
 
-	return cnps, nil
+	return output, nil
+}
+
+// parseCiliumPolicyYAML decodes policy yaml into a slice of CiliumNetworkPolicies.
+func parseCiliumPolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err error) {
+	return ParsePolicyYAML[*ciliumv2.CiliumNetworkPolicy](policy, scheme.Scheme)
 }
 
 // parseK8SPolicyYAML decodes policy yaml into a slice of K8S NetworkPolicies.
 func parseK8SPolicyYAML(policy string) (policies []*networkingv1.NetworkPolicy, err error) {
-	if policy == "" {
-		return nil, nil
-	}
-
-	yamls := strings.Split(policy, "\n---")
-
-	for _, yaml := range yamls {
-		if strings.TrimSpace(yaml) == "" {
-			continue
-		}
-
-		obj, kind, err := serializer.NewCodecFactory(clientsetscheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
-		if err != nil {
-			return nil, fmt.Errorf("decoding policy yaml: %s\nerror: %w", yaml, err)
-		}
-
-		switch policy := obj.(type) {
-		case *networkingv1.NetworkPolicy:
-			policies = append(policies, policy)
-		default:
-			return nil, fmt.Errorf("unknown k8s policy type '%s' in: %s", kind.Kind, yaml)
-		}
-	}
-
-	return policies, nil
+	return ParsePolicyYAML[*networkingv1.NetworkPolicy](policy, clientsetscheme.Scheme)
 }
 
 // parseCiliumEgressGatewayPolicyYAML decodes policy yaml into a slice of
 // CiliumEgressGatewayPolicies.
 func parseCiliumEgressGatewayPolicyYAML(policy string) (cegps []*ciliumv2.CiliumEgressGatewayPolicy, err error) {
-	if policy == "" {
-		return nil, nil
-	}
-
-	yamls := strings.Split(policy, "\n---")
-
-	for _, yaml := range yamls {
-		if strings.TrimSpace(yaml) == "" {
-			continue
-		}
-
-		obj, kind, err := serializer.NewCodecFactory(scheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
-		if err != nil {
-			return nil, fmt.Errorf("decoding policy yaml: %s\nerror: %w", yaml, err)
-		}
-
-		switch policy := obj.(type) {
-		case *ciliumv2.CiliumEgressGatewayPolicy:
-			cegps = append(cegps, policy)
-		default:
-			return nil, fmt.Errorf("unknown policy type '%s' in: %s", kind.Kind, yaml)
-		}
-	}
-
-	return cegps, nil
+	return ParsePolicyYAML[*ciliumv2.CiliumEgressGatewayPolicy](policy, scheme.Scheme)
 }
