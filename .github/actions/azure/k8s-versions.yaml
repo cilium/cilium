@@ -11,7 +11,7 @@ include:
   - version: "1.27"
     location: eastus2
     index: 3
+    default: true
   - version: "1.28"
     location: eastus
     index: 4
-    default: true
