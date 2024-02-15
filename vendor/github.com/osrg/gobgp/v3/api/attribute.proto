@@ -413,6 +413,8 @@ message MUPType1SessionTransformedRoute {
   uint32 qfi = 5;
   uint32 endpoint_address_length = 6;
   string endpoint_address = 7;
+  uint32 source_address_length = 8;
+  string source_address = 9;
 }
 
 message MUPType2SessionTransformedRoute {
