@@ -98,7 +98,7 @@ jobs:
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
           if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
-            cp azure.json /tmp/matrix.json
+            jq '{ "include": [ .include[] | select(.disabled==null) ] }' azure.json > /tmp/matrix.json
           else
             jq '{ "include": [ .include[] | select(.default) ] }' azure.json > /tmp/matrix.json
           fi
