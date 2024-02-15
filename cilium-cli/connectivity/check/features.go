@@ -199,6 +199,7 @@ func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, r
 }
 
 const ciliumNetworkPolicyCRDName = "ciliumnetworkpolicies.cilium.io"
+const ciliumClusterwideNetworkPolicyCRDName = "ciliumclusterwidenetworkpolicies.cilium.io"
 
 func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result features.Set) error {
 	check := func(name string) (features.Status, error) {
@@ -218,7 +219,13 @@ func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result 
 		return err
 	}
 
+	ccnp, err := check(ciliumClusterwideNetworkPolicyCRDName)
+	if err != nil {
+		return err
+	}
+
 	result[features.CNP] = cnp
+	result[features.CCNP] = ccnp
 	return nil
 }
 
