@@ -12,7 +12,12 @@ import (
 type Event[Obj any] struct {
 	Object   Obj
 	Revision Revision
-	Deleted  bool
+
+	// Sync is true when this is a synchronization event. This means that the
+	// current contents of the table at the time of Observe() have been sent
+	// and further events are incremental updates.
+	Sync    bool
+	Deleted bool
 }
 
 // Observable creates an observable from the given table for observing the changes
@@ -41,6 +46,8 @@ func (to *observable[Obj]) Observe(ctx context.Context, next func(Event[Obj]), c
 		defer dt.Close()
 		defer complete(nil)
 
+		synced := false
+
 		for {
 			watch := dt.Iterate(to.db.ReadTxn(),
 				func(obj Obj, deleted bool, rev uint64) {
@@ -50,6 +57,11 @@ func (to *observable[Obj]) Observe(ctx context.Context, next func(Event[Obj]), c
 						Deleted:  deleted,
 					})
 				})
+
+			if !synced {
+				synced = true
+				next(Event[Obj]{Sync: true})
+			}
 
 			select {
 			case <-ctx.Done():

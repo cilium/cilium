@@ -8,10 +8,12 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/time"
@@ -309,3 +311,158 @@ func (*cacheStoreListener) ListKeys() []string  { panic("unimplemented") }
 func (*cacheStoreListener) Resync() error       { panic("unimplemented") }
 
 var _ cache.Store = &cacheStoreListener{}
+
+func NewResourceAdapter[Obj runtime.Object](
+	db *statedb.DB,
+	table statedb.Table[Obj],
+	primaryIndexer statedb.Indexer[Obj],
+	keyToQuery func(resource.Key) statedb.Query[Obj],
+) resource.Resource[Obj] {
+	return &resourceAdapter[Obj]{
+		tbl: table,
+		db:  db,
+		store: storeAdapter[Obj]{
+			primary:    primaryIndexer,
+			keyToQuery: keyToQuery,
+			tbl:        table,
+			db:         db,
+		},
+	}
+}
+
+type resourceAdapter[Obj runtime.Object] struct {
+	tbl   statedb.Table[Obj]
+	db    *statedb.DB
+	store storeAdapter[Obj]
+}
+
+// Events implements resource.Resource.
+func (ra *resourceAdapter[Obj]) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[Obj] {
+	return stream.ToChannel(ctx, ra)
+}
+
+// Observe implements resource.Resource.
+func (ra *resourceAdapter[Obj]) Observe(ctx context.Context, next func(resource.Event[Obj]), complete func(error)) {
+	nopDone := func(err error) {
+		if err != nil {
+			panic("resourceAdapter: Retrying not supported")
+		}
+	}
+	statedb.Observable(ra.db, ra.tbl).Observe(
+		ctx,
+		func(ev statedb.Event[Obj]) {
+			if ev.Sync {
+				next(resource.Event[Obj]{
+					Kind: resource.Sync,
+					Done: nopDone,
+				})
+				return
+			}
+
+			meta, err := meta.Accessor(ev.Object)
+			if err != nil {
+				return
+			}
+			kind := resource.Upsert
+			if ev.Deleted {
+				kind = resource.Delete
+			}
+			next(resource.Event[Obj]{
+				Kind: kind,
+				Key: resource.Key{
+					Name:      meta.GetName(),
+					Namespace: meta.GetNamespace(),
+				},
+				Object: ev.Object,
+				Done:   nopDone,
+			})
+
+		},
+		complete,
+	)
+
+}
+
+// Store implements resource.Resource.
+func (ra *resourceAdapter[Obj]) Store(context.Context) (resource.Store[Obj], error) {
+	return &ra.store, nil
+}
+
+var _ resource.Resource[*runtime.Unknown] = &resourceAdapter[*runtime.Unknown]{}
+
+type storeAdapter[Obj runtime.Object] struct {
+	primary    statedb.Indexer[Obj]
+	keyToQuery func(resource.Key) statedb.Query[Obj]
+	tbl        statedb.Table[Obj]
+	db         *statedb.DB
+}
+
+// ByIndex implements resource.Store.
+func (*storeAdapter[Obj]) ByIndex(indexName string, indexedValue string) ([]Obj, error) {
+	panic("ByIndex() unimplemented")
+}
+
+// CacheStore implements resource.Store.
+func (*storeAdapter[Obj]) CacheStore() cache.Store {
+	panic("CacheStore() unimplemented")
+}
+
+// Get implements resource.Store.
+func (sa *storeAdapter[Obj]) Get(obj Obj) (item Obj, exists bool, err error) {
+	item, _, exists = sa.tbl.First(sa.db.ReadTxn(), sa.primary.QueryFromObject(obj))
+	return
+}
+
+// GetByKey implements resource.Store.
+func (sa *storeAdapter[Obj]) GetByKey(key resource.Key) (item Obj, exists bool, err error) {
+	item, _, exists = sa.tbl.First(sa.db.ReadTxn(), sa.keyToQuery(key))
+	return
+}
+
+// IndexKeys implements resource.Store.
+func (*storeAdapter[Obj]) IndexKeys(indexName string, indexedValue string) ([]string, error) {
+	panic("IndexKeys unimplemented")
+}
+
+type keyIterAdapter[Obj runtime.Object] struct {
+	iter    statedb.Iterator[Obj]
+	current Obj
+}
+
+// Key implements resource.KeyIter.
+func (ka keyIterAdapter[Obj]) Key() resource.Key {
+	meta, err := meta.Accessor(ka.current)
+	if err != nil {
+		return resource.Key{}
+	}
+	return resource.Key{
+		Name:      meta.GetName(),
+		Namespace: meta.GetNamespace(),
+	}
+}
+
+// Next implements resource.KeyIter.
+func (ka keyIterAdapter[Obj]) Next() (ok bool) {
+	ka.current, _, ok = ka.iter.Next()
+	return
+}
+
+var _ resource.KeyIter = keyIterAdapter[*runtime.Unknown]{}
+
+// IterKeys implements resource.Store.
+func (sa *storeAdapter[Obj]) IterKeys() resource.KeyIter {
+	iter, _ := sa.tbl.All(sa.db.ReadTxn())
+	return &keyIterAdapter[Obj]{iter: iter}
+}
+
+// List implements resource.Store.
+func (sa *storeAdapter[Obj]) List() []Obj {
+	iter, _ := sa.tbl.All(sa.db.ReadTxn())
+	return statedb.Collect(iter)
+}
+
+// Release implements resource.Store.
+func (*storeAdapter[Obj]) Release() {
+}
+
+var _ resource.Store[*runtime.Unknown] = &storeAdapter[*runtime.Unknown]{}
