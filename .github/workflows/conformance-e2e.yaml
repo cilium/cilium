@@ -132,8 +132,8 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '7'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20240215.093821'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -142,8 +142,8 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '8'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20240215.093821'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'geneve'
@@ -185,7 +185,8 @@ jobs:
             egress-gateway: 'true'
 
           - name: '12'
-            kernel: 'bpf-next-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20240215.093821'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
