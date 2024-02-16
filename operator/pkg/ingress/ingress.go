@@ -55,6 +55,7 @@ func newIngressReconciler(
 	defaultLoadbalancerMode string,
 	defaultSecretNamespace string,
 	defaultSecretName string,
+	enforcedHTTPS bool,
 ) *ingressReconciler {
 	return &ingressReconciler{
 		logger: logger,
@@ -69,6 +70,7 @@ func newIngressReconciler(
 		defaultLoadbalancerMode: defaultLoadbalancerMode,
 		defaultSecretNamespace:  defaultSecretNamespace,
 		defaultSecretName:       defaultSecretName,
+		enforcedHTTPS:           enforcedHTTPS,
 	}
 }
 
