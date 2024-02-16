@@ -233,7 +233,6 @@ func (db *DB) Start(cell.HookContext) error {
 }
 
 func (db *DB) Stop(stopCtx cell.HookContext) error {
-	close(db.gcTrigger)
 	db.cancel()
 	select {
 	case <-stopCtx.Done():
