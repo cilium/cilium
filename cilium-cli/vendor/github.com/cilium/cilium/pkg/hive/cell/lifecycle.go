@@ -199,6 +199,9 @@ func getHookFuncName(hook HookInterface, start bool) (name string, hasHook bool)
 	// and the type params would be missing, so instead we'll just use the
 	// type name + method name.
 	switch hook := hook.(type) {
+	case augmentedHook:
+		name, hasHook = getHookFuncName(hook.HookInterface, start)
+		return
 	case Hook:
 		if start {
 			if hook.OnStart == nil {

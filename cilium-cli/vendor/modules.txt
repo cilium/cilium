@@ -30,6 +30,9 @@ github.com/Microsoft/hcsshim/osversion
 # github.com/andybalholm/brotli v1.0.1
 ## explicit; go 1.12
 github.com/andybalholm/brotli
+# github.com/armon/go-metrics v0.4.1
+## explicit; go 1.12
+github.com/armon/go-metrics
 # github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 ## explicit; go 1.13
 github.com/asaskevich/govalidator
@@ -55,7 +58,7 @@ github.com/chai2010/gettext-go/po
 # github.com/cilium/charts v0.0.0-20240131194518-c3dab910c790
 ## explicit; go 1.17
 github.com/cilium/charts
-# github.com/cilium/cilium v1.15.0
+# github.com/cilium/cilium v1.15.1
 ## explicit; go 1.21.0
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/bgp
@@ -77,75 +80,159 @@ github.com/cilium/cilium/api/v1/models
 github.com/cilium/cilium/api/v1/observer
 github.com/cilium/cilium/api/v1/relay
 github.com/cilium/cilium/api/v1/server/restapi/bgp
+github.com/cilium/cilium/daemon/k8s
 github.com/cilium/cilium/pkg/alibabacloud/eni/types
+github.com/cilium/cilium/pkg/allocator
+github.com/cilium/cilium/pkg/annotation
 github.com/cilium/cilium/pkg/api
 github.com/cilium/cilium/pkg/aws/eni/types
 github.com/cilium/cilium/pkg/azure/types
+github.com/cilium/cilium/pkg/backoff
+github.com/cilium/cilium/pkg/bgpv1/agent
+github.com/cilium/cilium/pkg/bgpv1/agent/signaler
 github.com/cilium/cilium/pkg/bgpv1/api
 github.com/cilium/cilium/pkg/bgpv1/types
+github.com/cilium/cilium/pkg/bpf
+github.com/cilium/cilium/pkg/byteorder
 github.com/cilium/cilium/pkg/cidr
 github.com/cilium/cilium/pkg/client
 github.com/cilium/cilium/pkg/clustermesh/types
 github.com/cilium/cilium/pkg/command
 github.com/cilium/cilium/pkg/command/exec
+github.com/cilium/cilium/pkg/common
 github.com/cilium/cilium/pkg/comparator
 github.com/cilium/cilium/pkg/components
+github.com/cilium/cilium/pkg/container
+github.com/cilium/cilium/pkg/controller
+github.com/cilium/cilium/pkg/counter
+github.com/cilium/cilium/pkg/crypto/certificatemanager
+github.com/cilium/cilium/pkg/datapath/linux/bandwidth
+github.com/cilium/cilium/pkg/datapath/linux/config/defines
 github.com/cilium/cilium/pkg/datapath/linux/probes
+github.com/cilium/cilium/pkg/datapath/loader/metrics
+github.com/cilium/cilium/pkg/datapath/tunnel
+github.com/cilium/cilium/pkg/datapath/types
+github.com/cilium/cilium/pkg/debug
 github.com/cilium/cilium/pkg/defaults
+github.com/cilium/cilium/pkg/ebpf
 github.com/cilium/cilium/pkg/endpoint/id
+github.com/cilium/cilium/pkg/endpoint/regeneration
 github.com/cilium/cilium/pkg/envoy/resource
+github.com/cilium/cilium/pkg/eventqueue
 github.com/cilium/cilium/pkg/fqdn/dns
 github.com/cilium/cilium/pkg/fqdn/matchpattern
 github.com/cilium/cilium/pkg/fqdn/re
+github.com/cilium/cilium/pkg/fqdn/restore
 github.com/cilium/cilium/pkg/health/client
 github.com/cilium/cilium/pkg/health/defaults
 github.com/cilium/cilium/pkg/hive
 github.com/cilium/cilium/pkg/hive/cell
 github.com/cilium/cilium/pkg/hive/internal
+github.com/cilium/cilium/pkg/hive/job
 github.com/cilium/cilium/pkg/hive/metrics
 github.com/cilium/cilium/pkg/iana
 github.com/cilium/cilium/pkg/identity
+github.com/cilium/cilium/pkg/identity/cache
+github.com/cilium/cilium/pkg/identity/identitymanager
+github.com/cilium/cilium/pkg/identity/key
+github.com/cilium/cilium/pkg/identity/model
+github.com/cilium/cilium/pkg/idpool
 github.com/cilium/cilium/pkg/inctimer
 github.com/cilium/cilium/pkg/ip
 github.com/cilium/cilium/pkg/ipam/option
 github.com/cilium/cilium/pkg/ipam/types
+github.com/cilium/cilium/pkg/ipcache/types
+github.com/cilium/cilium/pkg/k8s
 github.com/cilium/cilium/pkg/k8s/apis/cilium.io
 github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils
 github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2
 github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1
+github.com/cilium/cilium/pkg/k8s/client
 github.com/cilium/cilium/pkg/k8s/client/clientset/versioned
+github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake
 github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme
 github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2
+github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2/fake
 github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1
+github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1/fake
+github.com/cilium/cilium/pkg/k8s/constants
+github.com/cilium/cilium/pkg/k8s/identitybackend
+github.com/cilium/cilium/pkg/k8s/informer
+github.com/cilium/cilium/pkg/k8s/metrics
+github.com/cilium/cilium/pkg/k8s/resource
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/scheme
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/typed/apiextensions/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-clientset
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1/fake
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1/fake
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1/fake
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1/fake
+github.com/cilium/cilium/pkg/k8s/types
 github.com/cilium/cilium/pkg/k8s/utils
+github.com/cilium/cilium/pkg/k8s/version
+github.com/cilium/cilium/pkg/k8s/watchers/resources
+github.com/cilium/cilium/pkg/kvstore
+github.com/cilium/cilium/pkg/kvstore/allocator
+github.com/cilium/cilium/pkg/kvstore/store
 github.com/cilium/cilium/pkg/labels
 github.com/cilium/cilium/pkg/loadbalancer
 github.com/cilium/cilium/pkg/lock
 github.com/cilium/cilium/pkg/logging
 github.com/cilium/cilium/pkg/logging/logfields
 github.com/cilium/cilium/pkg/mac
+github.com/cilium/cilium/pkg/maps/bwmap
+github.com/cilium/cilium/pkg/maps/lxcmap
 github.com/cilium/cilium/pkg/metrics
 github.com/cilium/cilium/pkg/metrics/metric
 github.com/cilium/cilium/pkg/metrics/metric/collections
 github.com/cilium/cilium/pkg/monitor/api
 github.com/cilium/cilium/pkg/monitor/notifications
+github.com/cilium/cilium/pkg/mountinfo
+github.com/cilium/cilium/pkg/node
 github.com/cilium/cilium/pkg/node/addressing
+github.com/cilium/cilium/pkg/node/types
 github.com/cilium/cilium/pkg/option
+github.com/cilium/cilium/pkg/policy
 github.com/cilium/cilium/pkg/policy/api
+github.com/cilium/cilium/pkg/policy/trafficdirection
 github.com/cilium/cilium/pkg/promise
+github.com/cilium/cilium/pkg/proxy/accesslog
+github.com/cilium/cilium/pkg/rand
+github.com/cilium/cilium/pkg/rate
+github.com/cilium/cilium/pkg/rate/metrics
+github.com/cilium/cilium/pkg/safeio
 github.com/cilium/cilium/pkg/safetime
+github.com/cilium/cilium/pkg/service/store
 github.com/cilium/cilium/pkg/slices
 github.com/cilium/cilium/pkg/source
 github.com/cilium/cilium/pkg/spanstat
 github.com/cilium/cilium/pkg/stream
+github.com/cilium/cilium/pkg/sysctl
 github.com/cilium/cilium/pkg/time
+github.com/cilium/cilium/pkg/trigger
+github.com/cilium/cilium/pkg/types
+github.com/cilium/cilium/pkg/u8proto
 github.com/cilium/cilium/pkg/version
 github.com/cilium/cilium/pkg/versioncheck
+github.com/cilium/cilium/pkg/wireguard/types
 # github.com/cilium/ebpf v0.12.3
 ## explicit; go 1.20
 github.com/cilium/ebpf
@@ -164,6 +251,7 @@ github.com/cilium/ebpf/link
 github.com/cilium/hubble/pkg/printer
 # github.com/cilium/proxy v0.0.0-20231031145409-f19708f3d018
 ## explicit; go 1.20
+github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/admin/v3
 github.com/cilium/proxy/go/envoy/annotations
 github.com/cilium/proxy/go/envoy/config/accesslog/v3
@@ -470,6 +558,12 @@ github.com/containerd/containerd/version
 # github.com/containerd/log v0.1.0
 ## explicit; go 1.20
 github.com/containerd/log
+# github.com/coreos/go-semver v0.3.1
+## explicit; go 1.8
+github.com/coreos/go-semver/semver
+# github.com/coreos/go-systemd/v22 v22.5.0
+## explicit; go 1.12
+github.com/coreos/go-systemd/v22/journal
 # github.com/cyphar/filepath-securejoin v0.2.4
 ## explicit; go 1.13
 github.com/cyphar/filepath-securejoin
@@ -638,7 +732,9 @@ github.com/gobwas/glob/util/runes
 github.com/gobwas/glob/util/strings
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
+github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
+github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/sortkeys
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
@@ -716,12 +812,30 @@ github.com/gosuri/uitable/util/wordwrap
 # github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7
 ## explicit
 github.com/gregjones/httpcache
+# github.com/hashicorp/consul/api v1.26.1
+## explicit; go 1.19
+github.com/hashicorp/consul/api
 # github.com/hashicorp/errwrap v1.1.0
 ## explicit
 github.com/hashicorp/errwrap
+# github.com/hashicorp/go-cleanhttp v0.5.2
+## explicit; go 1.13
+github.com/hashicorp/go-cleanhttp
+# github.com/hashicorp/go-hclog v1.5.0
+## explicit; go 1.13
+github.com/hashicorp/go-hclog
+# github.com/hashicorp/go-immutable-radix v1.3.1
+## explicit
+github.com/hashicorp/go-immutable-radix
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit; go 1.13
 github.com/hashicorp/go-multierror
+# github.com/hashicorp/go-rootcerts v1.0.2
+## explicit; go 1.12
+github.com/hashicorp/go-rootcerts
+# github.com/hashicorp/golang-lru v0.5.4
+## explicit; go 1.12
+github.com/hashicorp/golang-lru/simplelru
 # github.com/hashicorp/golang-lru/v2 v2.0.7
 ## explicit; go 1.18
 github.com/hashicorp/golang-lru/v2/internal
@@ -738,6 +852,9 @@ github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/json/parser
 github.com/hashicorp/hcl/json/scanner
 github.com/hashicorp/hcl/json/token
+# github.com/hashicorp/serf v0.10.1
+## explicit; go 1.12
+github.com/hashicorp/serf/coordinate
 # github.com/huandu/xstrings v1.4.0
 ## explicit; go 1.12
 github.com/huandu/xstrings
@@ -819,6 +936,9 @@ github.com/mholt/archiver/v3
 # github.com/mitchellh/copystructure v1.2.0
 ## explicit; go 1.15
 github.com/mitchellh/copystructure
+# github.com/mitchellh/go-homedir v1.1.0
+## explicit
+github.com/mitchellh/go-homedir
 # github.com/mitchellh/go-wordwrap v1.0.1
 ## explicit; go 1.14
 github.com/mitchellh/go-wordwrap
@@ -1063,6 +1183,28 @@ github.com/zmap/zlint/v3/lints/etsi
 github.com/zmap/zlint/v3/lints/mozilla
 github.com/zmap/zlint/v3/lints/rfc
 github.com/zmap/zlint/v3/util
+# go.etcd.io/etcd/api/v3 v3.5.11
+## explicit; go 1.20
+go.etcd.io/etcd/api/v3/authpb
+go.etcd.io/etcd/api/v3/etcdserverpb
+go.etcd.io/etcd/api/v3/membershippb
+go.etcd.io/etcd/api/v3/mvccpb
+go.etcd.io/etcd/api/v3/v3rpc/rpctypes
+go.etcd.io/etcd/api/v3/version
+# go.etcd.io/etcd/client/pkg/v3 v3.5.11
+## explicit; go 1.20
+go.etcd.io/etcd/client/pkg/v3/logutil
+go.etcd.io/etcd/client/pkg/v3/systemd
+go.etcd.io/etcd/client/pkg/v3/tlsutil
+go.etcd.io/etcd/client/pkg/v3/types
+# go.etcd.io/etcd/client/v3 v3.5.11
+## explicit; go 1.20
+go.etcd.io/etcd/client/v3
+go.etcd.io/etcd/client/v3/concurrency
+go.etcd.io/etcd/client/v3/credentials
+go.etcd.io/etcd/client/v3/internal/endpoint
+go.etcd.io/etcd/client/v3/internal/resolver
+go.etcd.io/etcd/client/v3/yaml
 # go.mongodb.org/mongo-driver v1.13.1
 ## explicit; go 1.13
 go.mongodb.org/mongo-driver/bson
@@ -1120,6 +1262,18 @@ go.uber.org/dig/internal/graph
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
+# go.uber.org/zap v1.26.0
+## explicit; go 1.19
+go.uber.org/zap
+go.uber.org/zap/buffer
+go.uber.org/zap/internal
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+go.uber.org/zap/internal/pool
+go.uber.org/zap/internal/stacktrace
+go.uber.org/zap/zapcore
+go.uber.org/zap/zapgrpc
 # go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 ## explicit; go 1.18
 go4.org/netipx
@@ -1219,7 +1373,7 @@ google.golang.org/genproto/googleapis/api/expr/v1alpha1
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20231127180814-3a041ad873d4
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.61.0
+# google.golang.org/grpc v1.61.1
 ## explicit; go 1.19
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -1268,6 +1422,7 @@ google.golang.org/grpc/metadata
 google.golang.org/grpc/peer
 google.golang.org/grpc/resolver
 google.golang.org/grpc/resolver/dns
+google.golang.org/grpc/resolver/manual
 google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
@@ -1432,9 +1587,12 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/applyconfiguration/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/applyconfiguration/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
+k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
+k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1/fake
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
+k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
 # k8s.io/apimachinery v0.29.0
 ## explicit; go 1.21
 k8s.io/apimachinery/pkg/api/equality
@@ -1774,6 +1932,9 @@ oras.land/oras-go/pkg/registry/remote/auth
 oras.land/oras-go/pkg/registry/remote/internal/errutil
 oras.land/oras-go/pkg/registry/remote/internal/syncutil
 oras.land/oras-go/pkg/target
+# sigs.k8s.io/controller-runtime v0.16.3
+## explicit; go 1.20
+sigs.k8s.io/controller-runtime/pkg/client/apiutil
 # sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
 ## explicit; go 1.18
 sigs.k8s.io/json
