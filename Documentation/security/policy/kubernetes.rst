@@ -44,9 +44,52 @@ associated with the `CiliumNetworkPolicy` resource itself.
 
 Using namespace-specific information like
 ``io.cilium.k8s.namespace.labels`` within a ``fromEndpoints`` or
-``toEndpoints`` is supported only for a `CiliumClusterwideNetworkPolicy`
-and not a `CiliumNetworkPolicy`. Hence, ``io.cilium.k8s.namespace.labels``
-will be ignored in `CiliumNetworkPolicy` resources.
+``toEndpoints`` is supported only for a :ref:`CiliumClusterwideNetworkPolicy`
+and not a :ref:`CiliumNetworkPolicy`. Hence, ``io.cilium.k8s.namespace.labels``
+will be ignored in :ref:`CiliumNetworkPolicy` resources.
+
+When using ``matchExpressions`` in a :ref:`CiliumNetworkPolicy` or a
+:ref:`CiliumClusterwideNetworkPolicy`, the list values are
+treated as a logical AND. If you want to match multiple keys
+with a logical OR, you must use multiple ``matchExpressions``.
+
+.. _example_multiple_match_expressions:
+
+Example: Enforce with multiple matchExpressions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example demonstrates how to enforce a policy with multiple ``matchExpressions``
+that achieves a logical OR between the keys and its values.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/or-statement.yaml
+
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/or-statement.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/or-statement.json
+
+
+The following example shows a logical AND using a single ``matchExpression``.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/and-statement.yaml
+
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/and-statement.json
+
 
 .. _example_cnp_ns_boundaries:
 
