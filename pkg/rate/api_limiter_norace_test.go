@@ -5,8 +5,8 @@
 
 package rate
 
-import check "github.com/cilium/checkmate"
+import "testing"
 
-func (b *ControllerSuite) TestStressRateLimiter(c *check.C) {
-	b.testStressRateLimiter(c, 1000)
+func TestStressRateLimiter(t *testing.T) {
+	testStressRateLimiter(t, 1000)
 }
