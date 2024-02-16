@@ -94,6 +94,7 @@ func registerReconciler(params ingressParams) error {
 		params.Config.IngressDefaultLBMode,
 		params.Config.IngressDefaultSecretNamespace,
 		params.Config.IngressDefaultSecretName,
+		params.Config.EnforceIngressHTTPS,
 	)
 
 	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
