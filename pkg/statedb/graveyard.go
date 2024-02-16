@@ -24,7 +24,13 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 	defer limiter.Stop()
 	defer close(db.gcExited)
 
-	for range db.gcTrigger {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-db.gcTrigger:
+		}
+
 		// Throttle garbage collection.
 		if err := limiter.Wait(ctx); err != nil {
 			return
