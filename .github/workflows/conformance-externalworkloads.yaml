@@ -30,6 +30,8 @@ permissions:
   pull-requests: read
   # To be able to set commit status
   statuses: write
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
 
 concurrency:
   # Structure:
@@ -176,7 +178,10 @@ jobs:
         id: 'auth'
         uses: google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363 # v2.1.0
         with:
-          credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
+          workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PR_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
