@@ -21,6 +21,14 @@ on:
   schedule:
     - cron:  '0 3/6 * * *'
 
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'scheduled' }}
   cancel-in-progress: true
@@ -64,7 +72,10 @@ jobs:
         id: 'auth'
         uses: google-github-actions/auth@a6e2e39c0a0331da29f7fd2c2a20a427e8d3ad1f # v2.1.1
         with:
-          credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
+          workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PR_SA_CLI }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
