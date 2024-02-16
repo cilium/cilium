@@ -122,7 +122,7 @@ jobs:
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.0-20231019.053646'
+            kernel: '6.1-20240215.093821'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -174,8 +174,8 @@ jobs:
             egress-gateway: 'true'
 
           - name: '11'
-            # We don't want to update bpf-next after branching
-            kernel: '6.0-20230420.212204'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.1-20240215.093821'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
