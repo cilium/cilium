@@ -5,6 +5,7 @@ package rate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -21,7 +22,10 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "rate")
+var (
+	log              = logging.DefaultLogger.WithField(logfields.LogSubsys, "rate")
+	ErrWaitCancelled = errors.New("request cancelled while waiting for rate limiting slot")
+)
 
 const (
 	defaultMeanOver                = 10
@@ -632,7 +636,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 		}
 		l.mutex.Unlock()
 		req.outcome = outcomeReqCancelled
-		err = fmt.Errorf("request cancelled while waiting for rate limiting slot: %w", ctx.Err())
+		err = fmt.Errorf("%w: %w", ErrWaitCancelled, ctx.Err())
 		return
 	default:
 	}
@@ -735,7 +739,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 			}
 
 			req.outcome = outcomeReqCancelled
-			err = fmt.Errorf("request cancelled while waiting for rate limiting slot: %w", ctx.Err())
+			err = fmt.Errorf("%w: %w", ErrWaitCancelled, ctx.Err())
 			return
 		}
 	}

@@ -7,14 +7,21 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"testing"
 	"time"
 
-	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/testutils"
+)
+
+// Configure a generous timeout to prevent flakes when running in a noisy CI environment.
+var (
+	tick    = 10 * time.Millisecond
+	timeout = 5 * time.Second
 )
 
 type metrics struct {
@@ -58,16 +65,16 @@ func (m *mockMetrics) ProcessedRequest(name string, v MetricsValues) {
 	me.AdjustmentFactor = v.AdjustmentFactor
 }
 
-func (b *ControllerSuite) TestNewAPILimiter(c *check.C) {
+func TestNewAPILimiter(t *testing.T) {
 	a := NewAPILimiter("foo", APILimiterParameters{}, nil)
 
 	req, err := a.Wait(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(req, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req)
 	req.Done()
 }
 
-func (b *ControllerSuite) TestCancelContext(c *check.C) {
+func TestCancelContext(t *testing.T) {
 	// Validate that error is returned when context is cancelled while
 	// request is in flight
 	a := NewAPILimiter("foo", APILimiterParameters{Log: true}, nil)
@@ -76,11 +83,11 @@ func (b *ControllerSuite) TestCancelContext(c *check.C) {
 	cancel()
 
 	req, err := a.Wait(ctx)
-	c.Assert(err, check.ErrorMatches, "request cancelled while waiting for rate limiting slot.*")
-	c.Assert(req, check.IsNil)
+	require.ErrorIs(t, err, ErrWaitCancelled)
+	require.Nil(t, req)
 }
 
-func (b *ControllerSuite) TestAutoAdjust(c *check.C) {
+func TestAutoAdjust(t *testing.T) {
 	// Test automatic adjustment of rate limiting parameters
 	initialParallelRequests := 10
 	initialRateLimit := rate.Limit(4.0)
@@ -95,30 +102,30 @@ func (b *ControllerSuite) TestAutoAdjust(c *check.C) {
 	}, nil)
 
 	req, err := a.Wait(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(req, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req)
 
 	time.Sleep(10 * time.Millisecond)
 	req.Done()
 
 	req, err = a.Wait(context.Background())
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	time.Sleep(10 * time.Millisecond)
 	req.Done()
 
 	req, err = a.Wait(context.Background())
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
 	time.Sleep(10 * time.Millisecond)
 	req.Done()
 
-	c.Assert(a.parallelRequests, check.Not(check.Equals), initialParallelRequests)
-	c.Assert(a.limiter.Limit(), check.Not(check.Equals), initialRateLimit)
-	// burst should not adjust this quickly
-	c.Assert(a.limiter.Burst(), check.Equals, initialRateBurst)
-	c.Assert(a.requestsProcessed, check.Equals, int64(3))
+	require.NotEqual(t, initialParallelRequests, a.parallelRequests, "Parallel requests should have been adjusted")
+	require.NotEqual(t, initialRateLimit, a.limiter.Limit(), "Rate limit should have been adjusted")
+
+	require.Equal(t, initialRateBurst, a.limiter.Burst(), "Burst should not have been adjusted")
+	require.Equal(t, int64(3), a.requestsProcessed, "Expected 3 requests to be processed")
 }
 
-func (b *ControllerSuite) TestMeanProcessingDuration(c *check.C) {
+func TestMeanProcessingDuration(t *testing.T) {
 	// Simulate several requests and calculate the mean processing duration
 	// over fewer requests. Verify calculation of mean processing duration
 	iterations := int64(10)
@@ -130,60 +137,59 @@ func (b *ControllerSuite) TestMeanProcessingDuration(c *check.C) {
 
 	for i := int64(0); i < iterations; i++ {
 		req, err := a.Wait(context.Background())
-		c.Assert(err, check.IsNil)
-		c.Assert(req, check.Not(check.IsNil))
+		require.NoError(t, err)
+		require.NotNil(t, req)
 		go func(r LimitedRequest) {
 			time.Sleep(time.Millisecond)
 			r.Done()
 		}(req)
 	}
 
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		a.mutex.RLock()
 		defer a.mutex.RUnlock()
-		return a.requestsProcessed == iterations
-	}, 5*time.Second), check.IsNil)
-
-	c.Assert(a.requestsProcessed, check.Equals, iterations)
-	c.Assert(a.meanProcessingDuration, check.Not(check.Equals), 0)
+		assert.Equal(c, iterations, a.requestsProcessed)
+	}, timeout, tick, "Limiter should have processed all requests")
+	require.NotEqual(t, 0, a.meanProcessingDuration)
 }
 
-func (b *ControllerSuite) TestMinParallelRequests(c *check.C) {
+func TestMinParallelRequests(t *testing.T) {
 	// Run a limiter with an initial 10 max parallel requests with a lower
 	// limit of 2 parallel requests. Auto adjust and feed it with requests
 	// that take 10ms with an estimated processing time of 1ms.
 	//
 	// The max parallel window should shrink to the minimum
+	maxParallelReqs := 10
+	minParallelReqs := 2
 	a := NewAPILimiter("foo", APILimiterParameters{
 		EstimatedProcessingDuration: time.Nanosecond,
 		AutoAdjust:                  true,
-		ParallelRequests:            10,
-		MinParallelRequests:         2,
+		ParallelRequests:            maxParallelReqs,
+		MinParallelRequests:         minParallelReqs,
 		DelayedAdjustmentFactor:     1.0,
 		Log:                         true,
 	}, nil)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < maxParallelReqs; i++ {
 		req, err := a.Wait(context.Background())
-		c.Assert(err, check.IsNil)
-		c.Assert(req, check.Not(check.IsNil))
+		require.NoError(t, err)
+		require.NotNil(t, req)
 		go func(r LimitedRequest) {
 			time.Sleep(10 * time.Millisecond)
 			r.Done()
 		}(req)
 	}
 
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		a.mutex.RLock()
 		defer a.mutex.RUnlock()
-		return a.requestsProcessed == 10
-	}, 5*time.Second), check.IsNil)
+		assert.Equal(c, int64(maxParallelReqs), a.requestsProcessed)
+	}, timeout, tick, "Requests processed should reach maximum parallel requests")
 
-	c.Assert(a.requestsProcessed, check.Equals, int64(10))
-	c.Assert(a.parallelRequests, check.Equals, 2)
+	require.Equalf(t, minParallelReqs, a.parallelRequests, "Parallel requests window should shrink to minimum")
 }
 
-func (b *ControllerSuite) TestMaxWaitDurationExceeded(c *check.C) {
+func TestMaxWaitDurationExceeded(t *testing.T) {
 	// Test parallel request limiting when the maximum waiting duration is
 	// exceeded. A set of requests must fail.
 	a := NewAPILimiter("foo", APILimiterParameters{
@@ -206,26 +212,25 @@ func (b *ControllerSuite) TestMaxWaitDurationExceeded(c *check.C) {
 				failedRequests++
 				mutex.Unlock()
 			} else {
-				c.Assert(req, check.Not(check.IsNil))
+				require.NotNil(t, req)
 				time.Sleep(10 * time.Millisecond)
 				req.Done()
 			}
 		}()
 	}
 
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		a.mutex.RLock()
 		defer a.mutex.RUnlock()
-		return (int(a.requestsProcessed) + failedRequests) == 10
-	}, 5*time.Second), check.IsNil)
+		assert.Equal(c, 10, int(a.requestsProcessed)+failedRequests)
+	}, timeout, tick, "Expected requests to fail when exceeding max wait duration")
 
-	c.Assert(int(a.requestsProcessed)+failedRequests, check.Equals, 10)
-	c.Assert(failedRequests, check.Not(check.Equals), 0)
+	require.NotEqual(t, 0, failedRequests, "Expected some requests to fail")
 }
 
-func (b *ControllerSuite) TestLimitCancelContext(c *check.C) {
+func TestLimitCancelContext(t *testing.T) {
 	a := NewAPILimiter("foo", APILimiterParameters{
 		MinWaitDuration: time.Minute,
 		RateLimit:       1.0 / 60.0, // 1 request/minute
@@ -239,11 +244,11 @@ func (b *ControllerSuite) TestLimitCancelContext(c *check.C) {
 		cancel()
 	}()
 	req, err := a.Wait(ctx)
-	c.Assert(err, check.ErrorMatches, "request cancelled while waiting for rate limiting slot.*")
-	c.Assert(req, check.IsNil)
+	require.ErrorIs(t, err, ErrWaitCancelled)
+	require.Nil(t, req)
 }
 
-func (b *ControllerSuite) TestLimitWaitDurationExceeded(c *check.C) {
+func TestLimitWaitDurationExceeded(t *testing.T) {
 	// Test when rate limiting waiting duration exceeded the maximum wait
 	// duration. A set of requests must fail.
 	a := NewAPILimiter("foo", APILimiterParameters{
@@ -260,31 +265,29 @@ func (b *ControllerSuite) TestLimitWaitDurationExceeded(c *check.C) {
 		go func() {
 			req, err := a.Wait(context.Background())
 			if err != nil {
-				c.Assert(err, check.ErrorMatches, "request would have to wait.*")
+				require.ErrorContains(t, err, "request would have to wait")
 				mutex.Lock()
 				failedRequests++
 				mutex.Unlock()
 			} else {
-				c.Assert(req, check.Not(check.IsNil))
+				require.NotNil(t, req)
 				time.Sleep(10 * time.Millisecond)
 				req.Done()
 			}
 		}()
 	}
-
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		a.mutex.RLock()
 		defer a.mutex.RUnlock()
-		return (int(a.requestsProcessed) + failedRequests) == 10
-	}, 5*time.Second), check.IsNil)
+		assert.Equal(c, 10, int(a.requestsProcessed)+failedRequests)
+	}, timeout, tick, "Expected requests to fail when exceeding max wait duration")
 
-	c.Assert(int(a.requestsProcessed)+failedRequests, check.Equals, 10)
-	c.Assert(failedRequests, check.Not(check.Equals), 0)
+	require.NotEqual(t, 0, failedRequests, "Expected some requests to fail")
 }
 
-func (b *ControllerSuite) TestMaxParallelRequests(c *check.C) {
+func TestMaxParallelRequests(t *testing.T) {
 	// Test blocking of max-parallel-requests by allowing two parallel
 	// requests and having a third request fail due to a very short
 	// MaxWaitDuration
@@ -296,117 +299,117 @@ func (b *ControllerSuite) TestMaxParallelRequests(c *check.C) {
 
 	// Process request 1 without completing it
 	req1, err := a.Wait(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(req1, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req1)
 
 	// Process request 2 without completing it
 	req2, err := a.Wait(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(req2, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req2)
 
 	// request 3 will fail due to MaxWaitDuration=1ms
 	req3, err := a.Wait(context.Background())
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(req3, check.IsNil)
+	require.Error(t, err, "Request should have failed due to exceeding MaxWaitDuration")
+	require.Nil(t, req3)
 
 	// Finish request 1 to unblock another attempt to process request 3
 	req1.Done()
 
 	// request 3 will succeed now
 	req3, err = a.Wait(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(req3, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req3)
 
 	req2.Done()
 	req3.Done()
 }
 
-func (b *ControllerSuite) TestParseRate(c *check.C) {
+func TestParseRate(t *testing.T) {
 	l, err := parseRate("foo")
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(l, check.Equals, rate.Limit(0))
+	require.Error(t, err)
+	require.Equal(t, rate.Limit(0), l)
 
 	l, err = parseRate("1/foo")
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(l, check.Equals, rate.Limit(0))
+	require.Error(t, err)
+	require.Equal(t, rate.Limit(0), l)
 
 	l, err = parseRate("/1s")
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(l, check.Equals, rate.Limit(0))
+	require.Error(t, err)
+	require.Equal(t, rate.Limit(0), l)
 
 	l, err = parseRate("foo/1s")
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(l, check.Equals, rate.Limit(0))
+	require.Error(t, err)
+	require.Equal(t, rate.Limit(0), l)
 
 	l, err = parseRate("1/1s")
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Equals, rate.Limit(1.0))
+	require.NoError(t, err)
+	require.Equal(t, rate.Limit(1.0), l)
 
 	l, err = parseRate("1/5m")
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Equals, rate.Limit(1.0/(5*60)))
+	require.NoError(t, err)
+	require.Equal(t, rate.Limit(1.0/(5*60)), l)
 
 	l, err = parseRate("10/m")
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Equals, rate.Limit(10.0/60))
+	require.NoError(t, err)
+	require.Equal(t, rate.Limit(10.0/60), l)
 
 	l, err = parseRate("1/10")
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(l, check.Equals, rate.Limit(0))
+	require.Error(t, err)
+	require.Equal(t, rate.Limit(0), l)
 }
 
-func (b *ControllerSuite) TestNewAPILimiterFromConfig(c *check.C) {
+func TestNewAPILimiterFromConfig(t *testing.T) {
 	l, err := NewAPILimiterFromConfig("foo", "foo", nil)
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(l, check.IsNil)
+	require.Error(t, err)
+	require.Nil(t, l)
 
 	l, err = NewAPILimiterFromConfig("foo", "rate-limit:5/m", nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
-	c.Assert(l.params.RateLimit, check.Equals, rate.Limit(5.0/60.0))
+	require.NoError(t, err)
+	require.NotNil(t, l)
+	require.Equal(t, rate.Limit(5.0/60.0), l.params.RateLimit)
 
 	l, err = NewAPILimiterFromConfig("foo", "estimated-processing-duration:100ms", nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
-	c.Assert(l.params.EstimatedProcessingDuration, check.Equals, time.Millisecond*100)
+	require.NoError(t, err)
+	require.NotNil(t, l)
+	require.Equal(t, time.Millisecond*100, l.params.EstimatedProcessingDuration)
 
 	l, err = NewAPILimiterFromConfig("foo", "rate-limit:5/m,rate-burst:2", nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
-	c.Assert(l.params.RateLimit, check.Equals, rate.Limit(5.0/60.0))
-	c.Assert(l.params.RateBurst, check.Equals, 2)
+	require.NoError(t, err)
+	require.NotNil(t, l)
+	require.Equal(t, rate.Limit(5.0/60.0), l.params.RateLimit)
+	require.Equal(t, 2, l.params.RateBurst)
 
 	l, err = NewAPILimiterFromConfig("foo", "auto-adjust:true,parallel-requests:2,max-parallel-requests:3,min-parallel-requests:2,skip-initial:5", nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
-	c.Assert(l.params.AutoAdjust, check.Equals, true)
-	c.Assert(l.params.ParallelRequests, check.Equals, 2)
-	c.Assert(l.params.MaxParallelRequests, check.Equals, 3)
-	c.Assert(l.params.MinParallelRequests, check.Equals, 2)
-	c.Assert(l.params.SkipInitial, check.Equals, 5)
+	require.NoError(t, err)
+	require.NotNil(t, l)
+	require.Equal(t, true, l.params.AutoAdjust)
+	require.Equal(t, 2, l.params.ParallelRequests)
+	require.Equal(t, 3, l.params.MaxParallelRequests)
+	require.Equal(t, 2, l.params.MinParallelRequests)
+	require.Equal(t, 5, l.params.SkipInitial)
 
 	l, err = NewAPILimiterFromConfig("foo", "delayed-adjustment-factor:0.5,log:true,max-wait-duration:2s,min-wait-duration:100ms,max-adjustment-factor:50.0", nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
-	c.Assert(l.params.DelayedAdjustmentFactor, check.Equals, 0.5)
-	c.Assert(l.params.Log, check.Equals, true)
-	c.Assert(l.params.MaxWaitDuration, check.Equals, 2*time.Second)
-	c.Assert(l.params.MinWaitDuration, check.Equals, 100*time.Millisecond)
-	c.Assert(l.params.MaxAdjustmentFactor, check.Equals, 50.0)
+	require.NoError(t, err)
+	require.NotNil(t, l)
+	require.Equal(t, 0.5, l.params.DelayedAdjustmentFactor)
+	require.Equal(t, true, l.params.Log)
+	require.Equal(t, 2*time.Second, l.params.MaxWaitDuration)
+	require.Equal(t, 100*time.Millisecond, l.params.MinWaitDuration)
+	require.Equal(t, 50.0, l.params.MaxAdjustmentFactor)
 }
 
-func (b *ControllerSuite) TestNewAPILimiterSet(c *check.C) {
+func TestNewAPILimiterSet(t *testing.T) {
 	// Empty configuration
 	l, err := NewAPILimiterSet(nil, nil, nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, l)
 
 	// Invalid user config
 	l, err = NewAPILimiterSet(map[string]string{
 		"foo": "foo",
 	}, nil, nil)
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(l, check.IsNil)
+	require.Error(t, err)
+	require.Nil(t, l)
 
 	// Default value only
 	l, err = NewAPILimiterSet(nil, map[string]APILimiterParameters{
@@ -414,19 +417,19 @@ func (b *ControllerSuite) TestNewAPILimiterSet(c *check.C) {
 			RateLimit: rate.Limit(1.0 / 60.0),
 		},
 	}, nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
-	c.Assert(l.Limiter("foo"), check.Not(check.IsNil))
-	c.Assert(l.Limiter("foo2"), check.IsNil)
+	require.NoError(t, err)
+	require.NotNil(t, l)
+	require.NotNil(t, l.Limiter("foo"))
+	require.Nil(t, l.Limiter("foo2"))
 
 	// User config only
 	l, err = NewAPILimiterSet(map[string]string{
 		"foo": "rate-limit:2/m,rate-burst:2",
 	}, nil, nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
-	c.Assert(l.Limiter("foo").params.RateLimit, check.Equals, rate.Limit(1.0/30.0))
-	c.Assert(l.Limiter("foo").params.RateBurst, check.Equals, 2)
+	require.NoError(t, err)
+	require.NotNil(t, l)
+	require.Equal(t, rate.Limit(1.0/30.0), l.Limiter("foo").params.RateLimit)
+	require.Equal(t, 2, l.Limiter("foo").params.RateBurst)
 
 	// Overwrite default and combine with new user config while also
 	// preserving some default values
@@ -438,11 +441,11 @@ func (b *ControllerSuite) TestNewAPILimiterSet(c *check.C) {
 			AutoAdjust: true,
 		},
 	}, nil)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
-	c.Assert(l.Limiter("foo").params.RateLimit, check.Equals, rate.Limit(1.0/30.0))
-	c.Assert(l.Limiter("foo").params.RateBurst, check.Equals, 2)
-	c.Assert(l.Limiter("foo").params.AutoAdjust, check.Equals, true)
+	require.NoError(t, err)
+	require.NotNil(t, l)
+	require.Equal(t, rate.Limit(1.0/30.0), l.Limiter("foo").params.RateLimit)
+	require.Equal(t, 2, l.Limiter("foo").params.RateBurst)
+	require.Equal(t, true, l.Limiter("foo").params.AutoAdjust)
 
 	// Overwrite default with an invalid value
 	l, err = NewAPILimiterSet(map[string]string{
@@ -452,11 +455,11 @@ func (b *ControllerSuite) TestNewAPILimiterSet(c *check.C) {
 			RateLimit: rate.Limit(1.0 / 60.0),
 		},
 	}, nil)
-	c.Assert(err, check.Not(check.IsNil))
-	c.Assert(l, check.IsNil)
+	require.Error(t, err)
+	require.Nil(t, l)
 }
 
-func (b *ControllerSuite) TestAPILimiterMetrics(c *check.C) {
+func TestAPILimiterMetrics(t *testing.T) {
 	// Validate setting of metrics via interface
 	metrics := newMockMetrics()
 
@@ -470,149 +473,159 @@ func (b *ControllerSuite) TestAPILimiterMetrics(c *check.C) {
 			Log:                         true,
 		},
 	}, metrics)
-	c.Assert(err, check.IsNil)
-	c.Assert(l, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, l)
 
 	req0, err := l.Wait(context.Background(), "unknown-call")
-	c.Assert(err, check.IsNil)
-	c.Assert(req0, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req0)
 	req0.Done()
-	c.Assert(req0.WaitDuration(), check.Equals, time.Duration(0))
+	require.Equal(t, time.Duration(0), req0.WaitDuration())
 
 	req1, err := l.Wait(context.Background(), "foo")
-	c.Assert(err, check.IsNil)
-	c.Assert(req1, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req1)
 	time.Sleep(5 * time.Millisecond)
 	req1.Done()
 
 	req2, err := l.Wait(context.Background(), "foo")
-	c.Assert(err, check.IsNil)
-	c.Assert(req2, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req2)
 	time.Sleep(5 * time.Millisecond)
 	req2.Done()
 
 	req3, err := l.Wait(context.Background(), "foo")
-	c.Assert(err, check.IsNil)
-	c.Assert(req2, check.Not(check.IsNil))
+	require.NoError(t, err)
+	require.NotNil(t, req3)
 	time.Sleep(5 * time.Millisecond)
 	req3.Error(fmt.Errorf("error"))
 	req3.Done()
 
 	a := l.Limiter("foo")
 
-	c.Assert(metrics.metrics["foo"].WaitDuration, check.Equals, req1.WaitDuration()+req2.WaitDuration()+req3.WaitDuration())
-	c.Assert(metrics.metrics["foo"].numSuccess, check.Equals, 2)
-	c.Assert(metrics.metrics["foo"].numError, check.Equals, 1)
-	c.Assert(metrics.metrics["foo"].Limit, check.Equals, a.params.RateLimit)
-	c.Assert(metrics.metrics["foo"].Burst, check.Equals, a.params.RateBurst)
-	c.Assert(metrics.metrics["foo"].ParallelRequests, check.Equals, a.params.ParallelRequests)
-	c.Assert(metrics.metrics["foo"].EstimatedProcessingDuration, check.Equals, a.params.EstimatedProcessingDuration.Seconds())
-	c.Assert(metrics.metrics["foo"].MeanProcessingDuration, check.Equals, a.meanProcessingDuration)
-	c.Assert(metrics.metrics["foo"].MeanWaitDuration, check.Equals, a.meanWaitDuration)
-	c.Assert(metrics.metrics["foo"].AdjustmentFactor, check.Equals, a.adjustmentFactor)
+	require.Equal(t, req1.WaitDuration()+req2.WaitDuration()+req3.WaitDuration(), metrics.metrics["foo"].WaitDuration)
+	require.Equal(t, 2, metrics.metrics["foo"].numSuccess)
+	require.Equal(t, 1, metrics.metrics["foo"].numError)
+	require.Equal(t, a.params.RateLimit, metrics.metrics["foo"].Limit)
+	require.Equal(t, a.params.RateBurst, metrics.metrics["foo"].Burst)
+	require.Equal(t, a.params.ParallelRequests, metrics.metrics["foo"].ParallelRequests)
+	require.Equal(t, a.params.EstimatedProcessingDuration.Seconds(), metrics.metrics["foo"].EstimatedProcessingDuration)
+	require.Equal(t, a.meanProcessingDuration, metrics.metrics["foo"].MeanProcessingDuration)
+	require.Equal(t, a.meanWaitDuration, metrics.metrics["foo"].MeanWaitDuration)
+	require.Equal(t, a.adjustmentFactor, metrics.metrics["foo"].AdjustmentFactor)
 }
 
-func (b *ControllerSuite) TestAPILimiterMergeUserConfig(c *check.C) {
+func TestAPILimiterMergeUserConfig(t *testing.T) {
 	// Merge empty configuration into empty configuration. Nothing should change
 	o := APILimiterParameters{}
 	n, err := o.MergeUserConfig("")
-	c.Assert(err, check.IsNil)
-	c.Assert(o.EstimatedProcessingDuration, check.Equals, n.EstimatedProcessingDuration)
-	c.Assert(o.AutoAdjust, check.Equals, n.AutoAdjust)
-	c.Assert(o.MeanOver, check.Equals, n.MeanOver)
-	c.Assert(o.MaxParallelRequests, check.Equals, n.MaxParallelRequests)
-	c.Assert(o.MinParallelRequests, check.Equals, n.MinParallelRequests)
-	c.Assert(o.RateLimit, check.Equals, n.RateLimit)
-	c.Assert(o.RateBurst, check.Equals, n.RateBurst)
-	c.Assert(o.MaxWaitDuration, check.Equals, n.MaxWaitDuration)
-	c.Assert(o.Log, check.Equals, n.Log)
+	require.NoError(t, err)
+	require.EqualValues(t, o, n, "Expected no changes when merging empty configs")
 
 	// Overwrite defaults with user configuration, check updated values
 	o = APILimiterParameters{
 		AutoAdjust:          false,
 		MaxParallelRequests: 4,
 	}
+
 	n, err = o.MergeUserConfig("auto-adjust:true,max-parallel-requests:3,min-parallel-requests:2")
-	c.Assert(err, check.IsNil)
-	c.Assert(o.EstimatedProcessingDuration, check.Equals, n.EstimatedProcessingDuration)
-	c.Assert(n.AutoAdjust, check.Equals, true)
-	c.Assert(o.MeanOver, check.Equals, n.MeanOver)
-	c.Assert(n.MaxParallelRequests, check.Equals, 3)
-	c.Assert(n.MinParallelRequests, check.Equals, 2)
-	c.Assert(o.RateLimit, check.Equals, n.RateLimit)
-	c.Assert(o.RateBurst, check.Equals, n.RateBurst)
-	c.Assert(o.MaxWaitDuration, check.Equals, n.MaxWaitDuration)
-	c.Assert(o.Log, check.Equals, n.Log)
+	require.NoError(t, err)
+
+	// these values should be the same
+	expectSame := "Value should not have changed"
+	expectedChange := "Value should have been overwritten"
+	require.Equal(t, o.EstimatedProcessingDuration, n.EstimatedProcessingDuration, expectSame)
+	require.Equal(t, o.MeanOver, n.MeanOver, expectSame)
+	require.Equal(t, o.RateLimit, n.RateLimit, expectSame)
+	require.Equal(t, o.RateBurst, n.RateBurst, expectSame)
+	require.Equal(t, o.MaxWaitDuration, n.MaxWaitDuration, expectSame)
+	require.Equal(t, o.Log, n.Log, expectSame)
+
+	// these values should be updated
+	require.Equal(t, true, n.AutoAdjust, expectedChange)
+	require.Equal(t, 3, n.MaxParallelRequests, expectedChange)
+	require.Equal(t, 2, n.MinParallelRequests, expectedChange)
 
 	// Merge invalid configuration, must fail
 	_, err = o.MergeUserConfig("foo")
-	c.Assert(err, check.Not(check.IsNil))
+	require.Error(t, err)
 }
 
-func (b *ControllerSuite) TestParseUserConfigKeyValue(c *check.C) {
+func TestParseUserConfigKeyValue(t *testing.T) {
 	p := &APILimiterParameters{}
 
-	c.Assert(p.mergeUserConfigKeyValue("", ""), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("foo", ""), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("rate-limit", "10"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("rate-limit", "10/m"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("rate-burst", "foo"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("rate-burst", "10"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("max-wait-duration", "100sm"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("max-wait-duration", "100ms"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("min-wait-duration", "100sm"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("min-wait-duration", "100ms"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("estimated-processing-duration", "100sm"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("estimated-processing-duration", "100ms"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("auto-adjust", "not-true"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("auto-adjust", "true"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("auto-adjust", "false"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("max-parallel-requests", "ss"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("max-parallel-requests", "10"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("parallel-requests", "ss"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("parallel-requests", "10"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("min-parallel-requests", "ss"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("min-parallel-requests", "10"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("mean-over", "foo"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("mean-over", "10"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("log", "not-true"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("log", "true"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("log", "false"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("delayed-adjustment-factor", "0.25"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("delayed-adjustment-factor", "foo"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("max-adjustment-factor", "0.25"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("max-adjustment-factor", "foo"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfigKeyValue("skip-initial", "2"), check.IsNil)
-	c.Assert(p.mergeUserConfigKeyValue("skip-initial", "foo"), check.Not(check.IsNil))
+	tests := []struct {
+		key      string
+		value    string
+		expected assert.ErrorAssertionFunc
+	}{
+		{"", "", assert.Error},
+		{"foo", "", assert.Error},
+		{"rate-limit", "10", assert.Error},
+		{"rate-limit", "10/m", assert.NoError},
+		{"rate-burst", "foo", assert.Error},
+		{"rate-burst", "10", assert.NoError},
+		{"max-wait-duration", "100sm", assert.Error},
+		{"max-wait-duration", "100ms", assert.NoError},
+		{"min-wait-duration", "100sm", assert.Error},
+		{"min-wait-duration", "100ms", assert.NoError},
+		{"estimated-processing-duration", "100sm", assert.Error},
+		{"estimated-processing-duration", "100ms", assert.NoError},
+		{"auto-adjust", "not-true", assert.Error},
+		{"auto-adjust", "true", assert.NoError},
+		{"auto-adjust", "false", assert.NoError},
+		{"max-parallel-requests", "ss", assert.Error},
+		{"max-parallel-requests", "10", assert.NoError},
+		{"parallel-requests", "ss", assert.Error},
+		{"parallel-requests", "10", assert.NoError},
+		{"min-parallel-requests", "ss", assert.Error},
+		{"min-parallel-requests", "10", assert.NoError},
+		{"mean-over", "foo", assert.Error},
+		{"mean-over", "10", assert.NoError},
+		{"log", "not-true", assert.Error},
+		{"log", "true", assert.NoError},
+		{"log", "false", assert.NoError},
+		{"delayed-adjustment-factor", "0.25", assert.NoError},
+		{"delayed-adjustment-factor", "foo", assert.Error},
+		{"max-adjustment-factor", "0.25", assert.NoError},
+		{"max-adjustment-factor", "foo", assert.Error},
+		{"skip-initial", "2", assert.NoError},
+		{"skip-initial", "foo", assert.Error},
+	}
+
+	for _, test := range tests {
+		test.expected(t, p.mergeUserConfigKeyValue(test.key, test.value))
+	}
 }
 
-func (b *ControllerSuite) TestParseUserConfig(c *check.C) {
+func TestParseUserConfig(t *testing.T) {
 	p := &APILimiterParameters{}
-	c.Assert(p.mergeUserConfig("auto-adjust:true,"), check.IsNil)
-	c.Assert(p.AutoAdjust, check.Equals, true)
-	c.Assert(p.mergeUserConfig("auto-adjust:false,rate-limit:10/s,"), check.IsNil)
-	c.Assert(p.AutoAdjust, check.Equals, false)
-	c.Assert(p.RateLimit, check.Equals, rate.Limit(10.0))
-	c.Assert(p.mergeUserConfig("auto-adjust"), check.Not(check.IsNil))
-	c.Assert(p.mergeUserConfig("1:2:3"), check.Not(check.IsNil))
+
+	require.NoError(t, p.mergeUserConfig("auto-adjust:true,"))
+	require.Equal(t, true, p.AutoAdjust)
+	require.NoError(t, p.mergeUserConfig("auto-adjust:false,rate-limit:10/s,"))
+	require.Equal(t, false, p.AutoAdjust)
+	require.Equal(t, rate.Limit(10.0), p.RateLimit)
+	require.Error(t, p.mergeUserConfig("auto-adjust"))
+	require.Error(t, p.mergeUserConfig("1:2:3"))
 }
 
-func (b *ControllerSuite) TestCalcMeanDuration(c *check.C) {
-	c.Assert(calcMeanDuration([]time.Duration{10, 10, 10, 10}), check.Equals, time.Duration(10).Seconds())
-	c.Assert(calcMeanDuration([]time.Duration{1, 2, 3}), check.Equals, time.Duration(2).Seconds())
+func TestCalcMeanDuration(t *testing.T) {
+	require.Equal(t, time.Duration(10).Seconds(), calcMeanDuration([]time.Duration{10, 10, 10, 10}))
+	require.Equal(t, time.Duration(2).Seconds(), calcMeanDuration([]time.Duration{1, 2, 3}))
 }
 
-func (b *ControllerSuite) TestDelayedAdjustment(c *check.C) {
+func TestDelayedAdjustment(t *testing.T) {
 	l := APILimiter{
 		adjustmentFactor: 1.5,
 		params:           APILimiterParameters{DelayedAdjustmentFactor: 0.5},
 	}
-	c.Assert(l.delayedAdjustment(1.0, 0.0, 0.0), check.Equals, 1.25)
-	c.Assert(l.delayedAdjustment(1.0, 2.0, 0.0), check.Equals, 2.0)
-	c.Assert(l.delayedAdjustment(1.0, 0.0, 1.1), check.Equals, 1.1)
+	require.Equal(t, 1.25, l.delayedAdjustment(1.0, 0.0, 0.0))
+	require.Equal(t, 2.0, l.delayedAdjustment(1.0, 2.0, 0.0))
+	require.Equal(t, 1.1, l.delayedAdjustment(1.0, 0.0, 1.1))
 }
 
-func (b *ControllerSuite) TestSkipInitial(c *check.C) {
+func TestSkipInitial(t *testing.T) {
 	// Validate that SkipInitial skips all waiting duration
 	iterations := 10
 	a := NewAPILimiter("foo", APILimiterParameters{
@@ -623,25 +636,24 @@ func (b *ControllerSuite) TestSkipInitial(c *check.C) {
 
 	for i := 0; i < iterations; i++ {
 		req, err := a.Wait(context.Background())
-		c.Assert(err, check.IsNil)
-		c.Assert(req, check.Not(check.IsNil))
+		require.NoError(t, err)
+		require.NotNil(t, req)
 		go func(r LimitedRequest) {
 			time.Sleep(20 * time.Millisecond)
 			r.Done()
 		}(req)
 	}
 
-	c.Assert(testutils.WaitUntil(func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		a.mutex.RLock()
 		defer a.mutex.RUnlock()
-		return a.requestsProcessed == int64(iterations)
-	}, 5*time.Second), check.IsNil)
+		assert.Equal(c, int64(iterations), a.requestsProcessed)
+	}, timeout, tick, "All requests should have been processed")
 
-	c.Assert(a.requestsProcessed, check.Equals, int64(iterations))
-	c.Assert(a.meanWaitDuration, check.Equals, 0.0)
+	require.Equal(t, 0.0, a.meanWaitDuration, "All requests should have skipped waiting duration")
 }
 
-func (b *ControllerSuite) TestCalculateAdjustmentFactor(c *check.C) {
+func TestCalculateAdjustmentFactor(t *testing.T) {
 	estimatedProcessingDuration := time.Second
 	maxAdjustmentFactor := 20.0
 	a := NewAPILimiter("foo", APILimiterParameters{
@@ -650,26 +662,26 @@ func (b *ControllerSuite) TestCalculateAdjustmentFactor(c *check.C) {
 	}, nil)
 
 	a.meanProcessingDuration = estimatedProcessingDuration.Seconds()
-	c.Assert(a.calculateAdjustmentFactor(), check.Equals, 1.0)
+	require.Equal(t, 1.0, a.calculateAdjustmentFactor())
 
 	a.meanProcessingDuration = estimatedProcessingDuration.Seconds() / 2
-	c.Assert(a.calculateAdjustmentFactor(), check.Equals, 2.0)
+	require.Equal(t, 2.0, a.calculateAdjustmentFactor())
 
 	a.meanProcessingDuration = (time.Second * 1000).Seconds()
-	c.Assert(a.calculateAdjustmentFactor(), check.Equals, 1.0/maxAdjustmentFactor)
+	require.Equal(t, 1.0/maxAdjustmentFactor, a.calculateAdjustmentFactor())
 
 	a.meanProcessingDuration = (time.Second / 1000).Seconds()
-	c.Assert(a.calculateAdjustmentFactor(), check.Equals, 1.0*maxAdjustmentFactor)
+	require.Equal(t, 1.0*maxAdjustmentFactor, a.calculateAdjustmentFactor())
 }
 
-func (b *ControllerSuite) TestAdjustmentLimit(c *check.C) {
+func TestAdjustmentLimit(t *testing.T) {
 	a := NewAPILimiter("foo", APILimiterParameters{MaxAdjustmentFactor: 2.0}, nil)
-	c.Assert(a.adjustmentLimit(10.0, 2.0), check.Equals, 4.0)
-	c.Assert(a.adjustmentLimit(1.5, 2.0), check.Equals, 1.5)
-	c.Assert(a.adjustmentLimit(0.9, 2.0), check.Equals, 1.0)
+	require.Equal(t, 4.0, a.adjustmentLimit(10.0, 2.0))
+	require.Equal(t, 1.5, a.adjustmentLimit(1.5, 2.0))
+	require.Equal(t, 1.0, a.adjustmentLimit(0.9, 2.0))
 }
 
-func (b *ControllerSuite) TestAdjustedBurst(c *check.C) {
+func TestAdjustedBurst(t *testing.T) {
 	a := NewAPILimiter("foo", APILimiterParameters{
 		RateLimit:               1.0,
 		RateBurst:               1,
@@ -677,37 +689,37 @@ func (b *ControllerSuite) TestAdjustedBurst(c *check.C) {
 		MaxAdjustmentFactor:     2.0,
 	}, nil)
 	a.adjustmentFactor = 4.0
-	c.Assert(a.adjustedBurst(), check.Equals, 2)
+	require.Equal(t, 2, a.adjustedBurst())
 }
 
-func (b *ControllerSuite) TestAdjustedLimit(c *check.C) {
+func TestAdjustedLimit(t *testing.T) {
 	a := NewAPILimiter("foo", APILimiterParameters{
 		RateLimit:           1.0,
 		MaxAdjustmentFactor: 2.0,
 	}, nil)
 	a.adjustmentFactor = 4.0
-	c.Assert(a.adjustedLimit(), check.Equals, rate.Limit(2.0))
+	require.Equal(t, rate.Limit(2.0), a.adjustedLimit())
 	a.adjustmentFactor = 0.25
-	c.Assert(a.adjustedLimit(), check.Equals, rate.Limit(0.5))
+	require.Equal(t, rate.Limit(0.5), a.adjustedLimit())
 	a.adjustmentFactor = 1.0
-	c.Assert(a.adjustedLimit(), check.Equals, rate.Limit(1.0))
+	require.Equal(t, rate.Limit(1.0), a.adjustedLimit())
 }
 
-func (b *ControllerSuite) TestAdjustedParallelRequests(c *check.C) {
+func TestAdjustedParallelRequests(t *testing.T) {
 	a := NewAPILimiter("foo", APILimiterParameters{
 		ParallelRequests:        2,
 		DelayedAdjustmentFactor: 0.5,
 		MaxAdjustmentFactor:     2.0,
 	}, nil)
 	a.adjustmentFactor = 4.0
-	c.Assert(a.adjustedParallelRequests(), check.Equals, 4)
+	require.Equal(t, 4, a.adjustedParallelRequests())
 	a.adjustmentFactor = 0.25
-	c.Assert(a.adjustedParallelRequests(), check.Equals, 1)
+	require.Equal(t, 1, a.adjustedParallelRequests())
 	a.adjustmentFactor = 1.0
-	c.Assert(a.adjustedParallelRequests(), check.Equals, 2)
+	require.Equal(t, 2, a.adjustedParallelRequests())
 }
 
-func (b *ControllerSuite) testStressRateLimiter(c *check.C, nGoRoutines int) {
+func testStressRateLimiter(t *testing.T, nGoRoutines int) {
 	a := NewAPILimiter("foo", APILimiterParameters{
 		EstimatedProcessingDuration: 5 * time.Millisecond,
 		RateLimit:                   1000.0,
@@ -745,15 +757,15 @@ func (b *ControllerSuite) testStressRateLimiter(c *check.C, nGoRoutines int) {
 		}
 	}()
 
-	c.Assert(testutils.WaitUntil(func() bool {
-		return completed.Load() == uint32(nGoRoutines)
-	}, 5*time.Second), check.IsNil)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, uint32(nGoRoutines), completed.Load())
+	}, timeout, tick, "Expected all requests to complete")
 
 	log.Infof("%+v", a)
 	log.Infof("Total retries: %v", retries.Load())
 }
 
-func (b *ControllerSuite) TestReservationCancel(c *check.C) {
+func TestReservationCancel(t *testing.T) {
 	a := NewAPILimiter("foo", APILimiterParameters{
 		RateLimit:           50.0,
 		RateBurst:           10,
@@ -766,7 +778,8 @@ func (b *ControllerSuite) TestReservationCancel(c *check.C) {
 	// Process a request but don't complete it, this will occupy the
 	// parallel request slot
 	req, err := a.Wait(context.Background())
-	c.Assert(err, check.IsNil)
+	require.NoError(t, err)
+	require.NotNil(t, req)
 
 	var completed atomic.Uint32
 
@@ -776,21 +789,20 @@ func (b *ControllerSuite) TestReservationCancel(c *check.C) {
 	for i := 0; i < 20; i++ {
 		go func() {
 			_, err := a.Wait(context.Background())
-			c.Assert(err, check.Not(check.IsNil))
+			require.Error(t, err)
 			completed.Add(1)
 		}()
 	}
-
-	c.Assert(testutils.WaitUntil(func() bool {
-		return completed.Load() == 20
-	}, time.Second), check.IsNil)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, uint32(20), completed.Load())
+	}, timeout, tick, "Expected all requests to fail")
 
 	req.Done()
 
 	// All of these requests should now succeed
 	for i := 0; i < 10; i++ {
 		req2, err := a.Wait(context.Background())
-		c.Assert(err, check.IsNil)
+		require.NoError(t, err)
 		req2.Done()
 	}
 }
