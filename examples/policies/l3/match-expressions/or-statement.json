@@ -1,0 +1,39 @@
+[
+  {
+    "labels": [
+      {
+        "key": "name",
+        "value": "or-statement-policy"
+      }
+    ],
+    "endpointSelector": {},
+    "ingress": [
+      {
+        "fromEndpoints": [
+          {
+            "matchExpressions": [
+              {
+                "key": "k8s:io.kubernetes.pod.namespace",
+                "operator": "In",
+                "values": [
+                  "production"
+                ]
+              }
+            ]
+          },
+          {
+            "matchExpressions": [
+              {
+                "key": "k8s:cilium.example.com/policy",
+                "operator": "In",
+                "values": [
+                  "strict"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

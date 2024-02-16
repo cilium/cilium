@@ -1,0 +1,17 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "and-statement-policy"
+spec:
+  endpointSelector: {}
+  ingress:
+  - fromEndpoints:
+    - matchExpressions:
+      - key: "k8s:io.kubernetes.pod.namespace"
+        operator: "in"
+        values:
+        - "production"
+      - key: "k8s:cilium.example.com/policy"
+        operator: "in"
+        values:
+        - "strict"
