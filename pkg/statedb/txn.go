@@ -507,7 +507,7 @@ func (txn *txn) WriteJSON(w io.Writer) error {
 			buf.WriteString("    ")
 			bs, err := json.Marshal(obj.data)
 			if err != nil {
-				return err
+				bs = []byte("{\"marshal_error\": \"" + err.Error() + "\"}")
 			}
 			buf.Write(bs)
 			_, obj, ok = iter.Next()

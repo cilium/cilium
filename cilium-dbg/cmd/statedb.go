@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
@@ -96,6 +97,7 @@ func init() {
 		statedbTableCommand[*tables.L2AnnounceEntry]("l2-announce"),
 		statedbTableCommand[tables.NodeAddress]("node-addresses"),
 		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
+		statedbTableCommand[*k8s.Endpoints]("endpoints"),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

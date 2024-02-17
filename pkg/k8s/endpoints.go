@@ -56,7 +56,6 @@ func (eps *Endpoints) TableHeader() []string {
 		"Service",
 		"Backends",
 	}
-	panic("unimplemented")
 }
 
 // TableRow implements statedb.TableWritable.
