@@ -47,17 +47,27 @@ var Cell = cell.Module(
 	"L2 Announcer",
 
 	cell.Provide(NewL2Announcer),
-	cell.Provide(l2AnnouncementPolicyResource),
+	cell.Provide(l2AnnouncementPolicyTableResource),
 )
 
-func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
+var L2AnnouncementNameIndex = k8s.NewNameIndex[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]()
+
+func l2AnnouncementPolicyTableResource(p k8s.TableResourceParams, cs k8sClient.Clientset) (statedb.Table[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicyList](
 		cs.CiliumV2alpha1().CiliumL2AnnouncementPolicies(),
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](lc, lw, resource.WithMetric("CiliumL2AnnouncementPolicy")), nil
+	// FIXME use reflector directly
+	tbl, _, err := k8s.NewTableResource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](
+		p,
+		"cilium-l2announcement-policies",
+		L2AnnouncementNameIndex,
+		nil,
+		lw,
+	)
+	return tbl, err
 }
 
 type l2AnnouncerParams struct {
@@ -69,7 +79,7 @@ type l2AnnouncerParams struct {
 	DaemonConfig         *option.DaemonConfig
 	Clientset            k8sClient.Clientset
 	Services             statedb.Table[*slim_corev1.Service]
-	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
+	L2AnnouncementPolicy statedb.Table[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
 	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB              *statedb.DB
@@ -84,8 +94,7 @@ type l2AnnouncerParams struct {
 type L2Announcer struct {
 	params l2AnnouncerParams
 
-	policyStore resource.Store[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
-	localNode   *v2.CiliumNode
+	localNode *v2.CiliumNode
 
 	jobgroup    job.Group
 	scopedGroup job.ScopedGroup
@@ -154,11 +163,6 @@ func (l2a *L2Announcer) DevicesChanged(devices []string) {
 }
 
 func (l2a *L2Announcer) run(ctx context.Context, health cell.HealthReporter) error {
-	var err error
-	l2a.policyStore, err = l2a.params.L2AnnouncementPolicy.Store(ctx)
-	if err != nil {
-		return fmt.Errorf("get policy store: %w", err)
-	}
 
 	// We have to first have a local node before we can start processing other events.
 	localNodeChan := l2a.params.LocalNodeResource.Events(ctx)
@@ -179,7 +183,7 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.HealthReporter) err
 	}
 
 	svcChan := stream.ToChannel(ctx, statedb.Observable(l2a.params.StateDB, l2a.params.Services))
-	policyChan := l2a.params.L2AnnouncementPolicy.Events(ctx)
+	policyChan := stream.ToChannel(ctx, statedb.Observable(l2a.params.StateDB, l2a.params.L2AnnouncementPolicy))
 
 loop:
 	for {
@@ -287,26 +291,25 @@ func (l2a *L2Announcer) processDevicesChanged(ctx context.Context) error {
 	return errs
 }
 
-func (l2a *L2Announcer) processPolicyEvent(ctx context.Context, event resource.Event[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]) error {
+func (l2a *L2Announcer) processPolicyEvent(ctx context.Context, event statedb.Event[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]) error {
+	if event.Sync {
+		return nil
+	}
+
 	var err error
-	switch event.Kind {
-	case resource.Upsert:
+	if !event.Deleted {
 		err = l2a.upsertPolicy(ctx, event.Object)
 		if err != nil {
 			err = fmt.Errorf("upsert policy: %w", err)
 		}
-
-	case resource.Delete:
-		err = l2a.delPolicy(event.Key)
+	} else {
+		err = l2a.delPolicy(resource.Key{Name: event.Object.Name, Namespace: event.Object.Namespace})
 		if err != nil {
 			err = fmt.Errorf("delete policy: %w", err)
 		}
-
-	case resource.Sync:
 	}
 
-	// if `err` is not nil, the event will be retried by the resource.
-	event.Done(err)
+	// FIXME retries
 	return err
 }
 
@@ -866,7 +869,8 @@ func (l2a *L2Announcer) upsertLocalNode(ctx context.Context, localNode *v2.Ciliu
 	}
 
 	// Upsert all policies, the upsert function checks if they match the new label set
-	for _, policy := range l2a.policyStore.List() {
+	iter, _ := l2a.params.L2AnnouncementPolicy.All(l2a.params.StateDB.ReadTxn())
+	for policy, _, ok := iter.Next(); ok; policy, _, ok = iter.Next() {
 		err := l2a.upsertPolicy(ctx, policy)
 		if err != nil {
 			errors.Join(errs, fmt.Errorf("upsert policy: %w", err))

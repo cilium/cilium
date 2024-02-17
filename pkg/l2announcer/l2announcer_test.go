@@ -6,7 +6,6 @@ package l2announcer
 import (
 	"context"
 	"net/netip"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -31,9 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 )
 
@@ -42,7 +39,7 @@ type fixture struct {
 	proxyNeighborTable statedb.Table[*tables.L2AnnounceEntry]
 	stateDB            *statedb.DB
 	servicesTable      statedb.RWTable[*slim_corev1.Service]
-	fakePolicyStore    *fakeStore[*v2alpha1.CiliumL2AnnouncementPolicy]
+	policiesTable      statedb.RWTable[*v2alpha1.CiliumL2AnnouncementPolicy]
 }
 
 func (f *fixture) addService(svc *slim_corev1.Service) {
@@ -57,32 +54,41 @@ func (f *fixture) delServices() {
 	txn.Commit()
 }
 
+func (f *fixture) addPolicy(pol *v2alpha1.CiliumL2AnnouncementPolicy) {
+	txn := f.stateDB.WriteTxn(f.policiesTable)
+	f.policiesTable.Insert(txn, pol)
+	txn.Commit()
+}
+
+func (f *fixture) delPolicy(pol *v2alpha1.CiliumL2AnnouncementPolicy) {
+	txn := f.stateDB.WriteTxn(f.policiesTable)
+	f.policiesTable.Delete(txn, pol)
+	txn.Commit()
+}
+
 func newFixture() *fixture {
 	var (
-		tbl    statedb.RWTable[*tables.L2AnnounceEntry]
-		svcTbl statedb.RWTable[*slim_corev1.Service]
-		db     *statedb.DB
-		jr     job.Registry
-		sk     cell.Scope
+		tbl statedb.RWTable[*tables.L2AnnounceEntry]
+		db  *statedb.DB
+		jr  job.Registry
+		sk  cell.Scope
 	)
 
-	svcTbl, _ = statedb.NewTable("services", pkgK8s.ServiceNameIndex)
+	svcTbl, _ := statedb.NewTable("services", pkgK8s.ServiceNameIndex)
+	polTbl, _ := statedb.NewTable("l2-policies", L2AnnouncementNameIndex)
 
 	hive.New(
 		statedb.Cell,
 		job.Cell,
 		cell.Provide(tables.NewL2AnnounceTable),
 		cell.Module("test", "test", cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], s cell.Scope, j job.Registry) {
-			d.RegisterTable(t)
-			d.RegisterTable(svcTbl)
+			d.RegisterTable(t, svcTbl, polTbl)
 			db = d
 			tbl = t
 			jr = j
 			sk = s
 		})),
 	).Populate()
-
-	fakePolicyStore := &fakeStore[*v2alpha1.CiliumL2AnnouncementPolicy]{}
 
 	params := l2AnnouncerParams{
 		Logger:    logrus.New(),
@@ -97,15 +103,15 @@ func newFixture() *fixture {
 		Clientset: &client.FakeClientset{
 			KubernetesFakeClientset: fake.NewSimpleClientset(),
 		},
-		L2AnnounceTable: tbl,
-		Services:        svcTbl,
-		StateDB:         db,
-		JobRegistry:     jr,
+		L2AnnounceTable:      tbl,
+		L2AnnouncementPolicy: polTbl,
+		Services:             svcTbl,
+		StateDB:              db,
+		JobRegistry:          jr,
 	}
 
 	// Setting stores normally happens in .run which we bypass for testing purposes
 	announcer := NewL2Announcer(params)
-	announcer.policyStore = fakePolicyStore
 	announcer.jobgroup = jr.NewGroup(sk)
 	announcer.scopedGroup = announcer.jobgroup.Scoped("leader-election")
 	announcer.jobgroup.Start(context.Background())
@@ -114,58 +120,9 @@ func newFixture() *fixture {
 		announcer:          announcer,
 		proxyNeighborTable: tbl,
 		servicesTable:      svcTbl,
+		policiesTable:      polTbl,
 		stateDB:            db,
-		fakePolicyStore:    fakePolicyStore,
 	}
-}
-
-var _ resource.Store[runtime.Object] = (*fakeStore[runtime.Object])(nil)
-
-type fakeStore[T runtime.Object] struct {
-	slice []T
-}
-
-func (fs *fakeStore[T]) List() []T {
-	return fs.slice
-}
-func (fs *fakeStore[T]) IterKeys() resource.KeyIter { return nil }
-func (fs *fakeStore[T]) Get(obj T) (item T, exists bool, err error) {
-	var def T
-	return def, false, nil
-}
-func (fs *fakeStore[T]) GetByKey(key resource.Key) (item T, exists bool, err error) {
-	var def T
-	return def, false, nil
-}
-func (fs *fakeStore[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
-	return nil, nil
-}
-func (fs *fakeStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
-	return nil, nil
-}
-func (fs *fakeStore[T]) CacheStore() cache.Store { return nil }
-func (fs *fakeStore[T]) Release()                {}
-
-var _ resource.Resource[runtime.Object] = (*fakeResource[runtime.Object])(nil)
-
-type fakeResource[T runtime.Object] struct {
-	store resource.Store[T]
-}
-
-func (fr *fakeResource[T]) Observe(ctx context.Context, next func(event resource.Event[T]), complete func(error)) {
-
-}
-
-func (fr *fakeResource[T]) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[T] {
-	return make(<-chan resource.Event[T])
-}
-
-func (fr *fakeResource[T]) Store(context.Context) (resource.Store[T], error) {
-	if fr.store != nil {
-		return fr.store, nil
-	}
-
-	return &fakeStore[T]{}, nil
 }
 
 func blueNode() *v2.CiliumNode {
@@ -232,12 +189,9 @@ func TestHappyPath(t *testing.T) {
 	assert.Equal(t, localNode, fix.announcer.localNode)
 
 	policy := bluePolicy()
-	fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy)
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 	assert.Contains(t, fix.announcer.selectedPolicies, resource.NewKey(policy))
@@ -292,12 +246,9 @@ func TestHappyPathPermutations(t *testing.T) {
 	}
 	addPolicy := func(fix *fixture, tt *testing.T) {
 		policy := bluePolicy()
-		fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy)
-		err := fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-			Kind:   resource.Upsert,
-			Key:    resource.NewKey(policy),
+		fix.addPolicy(policy)
+		err := fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 			Object: policy,
-			Done:   func(err error) {},
 		})
 		assert.NoError(tt, err)
 	}
@@ -406,24 +357,18 @@ func TestPolicyRedundancy(t *testing.T) {
 
 	// Add first policy
 	policy := bluePolicy()
-	fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy)
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 
 	// Add second policy
 	policy2 := bluePolicy()
 	policy2.Name = "second-blue-policy"
-	fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy2)
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy2),
+	fix.addPolicy(policy2)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy2,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 
@@ -465,13 +410,10 @@ func TestPolicyRedundancy(t *testing.T) {
 	})
 
 	// Delete second policy
-	idx := slices.Index(fix.fakePolicyStore.slice, policy2)
-	fix.fakePolicyStore.slice = slices.Delete(fix.fakePolicyStore.slice, idx, idx+1)
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Delete,
-		Key:    resource.NewKey(policy2),
-		Object: policy2,
-		Done:   func(err error) {},
+	fix.delPolicy(policy2)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
+		Object:  policy2,
+		Deleted: true,
 	})
 	assert.NoError(t, err)
 
@@ -513,12 +455,9 @@ func baseUpdateSetup(t *testing.T) *fixture {
 	require.Equal(t, localNode, fix.announcer.localNode)
 
 	policy := bluePolicy()
-	fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy)
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	require.NoError(t, err)
 
@@ -598,12 +537,9 @@ func TestUpdateHostLabels_AdditionalMatch(t *testing.T) {
 	policy.Spec.ServiceSelector.MatchLabels = map[string]string{
 		"hue": "cyan",
 	}
-	fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy)
-	err := fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err := fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 
@@ -672,12 +608,9 @@ func TestUpdatePolicy_NoMatch(t *testing.T) {
 
 	policy := bluePolicy()
 	policy.Spec.ServiceSelector.MatchLabels["color"] = "red"
-	fix.fakePolicyStore.slice[0] = policy
-	err := fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err := fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 
@@ -718,12 +651,9 @@ func TestUpdatePolicy_AdditionalMatch(t *testing.T) {
 	policy.Spec.ServiceSelector.MatchExpressions = []slim_meta_v1.LabelSelectorRequirement{
 		{Key: "color", Operator: slim_meta_v1.LabelSelectorOpIn, Values: []string{"blue", "cyan"}},
 	}
-	fix.fakePolicyStore.slice[0] = policy
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 
@@ -755,12 +685,9 @@ func TestPolicySelection(t *testing.T) {
 	policy := bluePolicy()
 	policy.Spec.ExternalIPs = true
 	policy.Spec.LoadBalancerIPs = true
-	fix.fakePolicyStore.slice[0] = policy
-	err := fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err := fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 
@@ -783,12 +710,9 @@ func TestPolicySelection(t *testing.T) {
 	// Setting external and LB IP to false should not select any services anymore
 	policy.Spec.ExternalIPs = false
 	policy.Spec.LoadBalancerIPs = false
-	fix.fakePolicyStore.slice[0] = policy
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 
@@ -824,12 +748,9 @@ func TestPolicySelection(t *testing.T) {
 	// Altering the policy to select services with LB IPs should only have an entry for LB IPs
 	policy.Spec.ExternalIPs = false
 	policy.Spec.LoadBalancerIPs = true
-	fix.fakePolicyStore.slice[0] = policy
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 	assert.Len(t, fix.announcer.selectedPolicies, 1)
@@ -876,12 +797,9 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 	policy := bluePolicy()
 	policy.Spec.ExternalIPs = false
 	policy.Spec.LoadBalancerIPs = true
-	fix.fakePolicyStore.slice[0] = policy
-	err := fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err := fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 
@@ -959,12 +877,9 @@ func TestUpdatePolicy_ChangeInterfaces(t *testing.T) {
 
 	policy := bluePolicy()
 	policy.Spec.Interfaces = []string{"eth0"}
-	fix.fakePolicyStore.slice[0] = policy
-	err = fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
-		Kind:   resource.Upsert,
-		Key:    resource.NewKey(policy),
+	fix.addPolicy(policy)
+	err = fix.announcer.processPolicyEvent(context.Background(), statedb.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
 		Object: policy,
-		Done:   func(err error) {},
 	})
 	assert.NoError(t, err)
 

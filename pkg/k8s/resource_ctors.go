@@ -462,13 +462,13 @@ func CiliumClusterwideEnvoyConfigResource(lc cell.Lifecycle, cs client.Clientset
 // ------
 // Resource[T] via Table[T] utilities
 
-type runtimeObjectWithName interface {
+type RuntimeObjectWithName interface {
 	k8sRuntime.Object
 	GetName() string
 	GetNamespace() string
 }
 
-func newNameIndex[Obj runtimeObjectWithName]() statedb.Index[Obj, string] {
+func NewNameIndex[Obj RuntimeObjectWithName]() statedb.Index[Obj, string] {
 	return statedb.Index[Obj, string]{
 		Name: "name",
 		FromObject: func(obj Obj) index.KeySet {
@@ -479,7 +479,7 @@ func newNameIndex[Obj runtimeObjectWithName]() statedb.Index[Obj, string] {
 	}
 }
 
-type tableResourceParams struct {
+type TableResourceParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
@@ -488,7 +488,7 @@ type tableResourceParams struct {
 	DB        *statedb.DB
 }
 
-func newTableResource[Obj runtimeObjectWithName](p tableResourceParams, tableName string, nameIndex statedb.Index[Obj, string], transform func(any) (Obj, error), lw cache.ListerWatcher) (statedb.Table[Obj], resource.Resource[Obj], error) {
+func NewTableResource[Obj RuntimeObjectWithName](p TableResourceParams, tableName string, nameIndex statedb.Index[Obj, string], transform func(any) (Obj, error), lw cache.ListerWatcher) (statedb.Table[Obj], resource.Resource[Obj], error) {
 	table, err := statedb.NewTable[Obj](tableName, nameIndex)
 	if err != nil {
 		return nil, nil, err
@@ -527,9 +527,9 @@ func newTableResource[Obj runtimeObjectWithName](p tableResourceParams, tableNam
 	return table, r, nil
 }
 
-var ServiceNameIndex = newNameIndex[*slim_corev1.Service]()
+var ServiceNameIndex = NewNameIndex[*slim_corev1.Service]()
 
-func NewServicesTableResource(p tableResourceParams, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (statedb.Table[*slim_corev1.Service], resource.Resource[*slim_corev1.Service], error) {
+func NewServicesTableResource(p TableResourceParams, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (statedb.Table[*slim_corev1.Service], resource.Resource[*slim_corev1.Service], error) {
 	if !cs.IsEnabled() {
 		return nil, nil, nil
 	}
@@ -542,12 +542,12 @@ func NewServicesTableResource(p tableResourceParams, cfg Config, cs client.Clien
 		utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services("")),
 		append(opts, optsModifier)...,
 	)
-	return newTableResource[*slim_corev1.Service](p, "services", ServiceNameIndex, nil, lw)
+	return NewTableResource[*slim_corev1.Service](p, "services", ServiceNameIndex, nil, lw)
 }
 
-var EndpointNameIndex = newNameIndex[*Endpoints]()
+var EndpointNameIndex = NewNameIndex[*Endpoints]()
 
-func NewEndpointsTableResource(p tableResourceParams, cfg Config, cs client.Clientset) (statedb.Table[*Endpoints], resource.Resource[*Endpoints], error) {
+func NewEndpointsTableResource(p TableResourceParams, cfg Config, cs client.Clientset) (statedb.Table[*Endpoints], resource.Resource[*Endpoints], error) {
 	if !cs.IsEnabled() {
 		return nil, nil, nil
 	}
@@ -573,7 +573,7 @@ func NewEndpointsTableResource(p tableResourceParams, cfg Config, cs client.Clie
 		}
 		return out.(*Endpoints), nil
 	}
-	return newTableResource[*Endpoints](p, "endpoints", EndpointNameIndex, transform, lw)
+	return NewTableResource[*Endpoints](p, "endpoints", EndpointNameIndex, transform, lw)
 	/*
 		return resource.New[*Endpoints](
 			lc,
