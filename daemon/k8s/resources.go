@@ -32,8 +32,6 @@ var (
 		cell.Config(k8s.DefaultConfig),
 		LocalNodeCell,
 		cell.Provide(
-			k8s.ServiceResource,
-			k8s.EndpointsResource,
 			k8s.NamespaceResource,
 			k8s.NetworkPolicyResource,
 			k8s.CiliumNetworkPolicyResource,
@@ -44,6 +42,11 @@ var (
 			k8s.CiliumEndpointSliceResource,
 			k8s.CiliumEnvoyConfigResource,
 			k8s.CiliumClusterwideEnvoyConfigResource,
+		),
+
+		cell.Provide(
+			k8s.NewServicesTableResource,
+			k8s.NewEndpointsTableResource,
 		),
 	)
 
