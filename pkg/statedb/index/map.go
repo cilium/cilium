@@ -10,3 +10,11 @@ func StringMap[V any](m map[string]V) KeySet {
 	}
 	return NewKeySet(keys...)
 }
+
+func StringStringMap(m map[string]string) KeySet {
+	keys := make([]Key, 0, len(m))
+	for k, v := range m {
+		keys = append(keys, String(k+"="+v))
+	}
+	return NewKeySet(keys...)
+}

@@ -488,8 +488,8 @@ type TableResourceParams struct {
 	DB        *statedb.DB
 }
 
-func NewTableResource[Obj RuntimeObjectWithName](p TableResourceParams, tableName string, nameIndex statedb.Index[Obj, string], transform func(any) (Obj, error), lw cache.ListerWatcher) (statedb.Table[Obj], resource.Resource[Obj], error) {
-	table, err := statedb.NewTable[Obj](tableName, nameIndex)
+func NewTableResource[Obj RuntimeObjectWithName](p TableResourceParams, tableName string, nameIndex statedb.Index[Obj, string], transform func(any) (Obj, error), lw cache.ListerWatcher, secondaryIndexers ...statedb.Indexer[Obj]) (statedb.Table[Obj], resource.Resource[Obj], error) {
+	table, err := statedb.NewTable[Obj](tableName, nameIndex, secondaryIndexers...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -527,7 +527,17 @@ func NewTableResource[Obj RuntimeObjectWithName](p TableResourceParams, tableNam
 	return table, r, nil
 }
 
-var ServiceNameIndex = NewNameIndex[*slim_corev1.Service]()
+var (
+	ServiceNameIndex  = NewNameIndex[*slim_corev1.Service]()
+	ServiceLabelIndex = statedb.Index[*slim_corev1.Service, string]{
+		Name: "labels",
+		FromObject: func(obj *slim_corev1.Service) index.KeySet {
+			return index.StringStringMap(obj.Labels)
+		},
+		FromKey: index.String,
+		Unique:  false,
+	}
+)
 
 func NewServicesTableResource(p TableResourceParams, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (statedb.Table[*slim_corev1.Service], resource.Resource[*slim_corev1.Service], error) {
 	if !cs.IsEnabled() {
@@ -542,7 +552,7 @@ func NewServicesTableResource(p TableResourceParams, cfg Config, cs client.Clien
 		utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services("")),
 		append(opts, optsModifier)...,
 	)
-	return NewTableResource[*slim_corev1.Service](p, "services", ServiceNameIndex, nil, lw)
+	return NewTableResource[*slim_corev1.Service](p, "services", ServiceNameIndex, nil, lw, ServiceLabelIndex)
 }
 
 var EndpointNameIndex = NewNameIndex[*Endpoints]()
