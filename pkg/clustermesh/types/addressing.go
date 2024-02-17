@@ -36,8 +36,8 @@ import (
 // separately. Otherwise, it is very hard for code readers to see
 // where we are using cluster-aware addressing.
 type AddrCluster struct {
-	addr      netip.Addr
-	clusterID uint32
+	Addr      netip.Addr
+	ClusterID uint32
 }
 
 const AddrClusterLen = 20
@@ -71,7 +71,7 @@ func ParseAddrCluster(s string) (AddrCluster, error) {
 
 	if clusterIDStr == "" {
 		if atIndex != len(s)-1 {
-			return AddrCluster{addr: addr, clusterID: 0}, nil
+			return AddrCluster{Addr: addr, ClusterID: 0}, nil
 		} else {
 			// handle the invalid case like "10.0.0.0@"
 			return AddrCluster{}, fmt.Errorf("empty cluster ID")
@@ -83,7 +83,7 @@ func ParseAddrCluster(s string) (AddrCluster, error) {
 		return AddrCluster{}, err
 	}
 
-	return AddrCluster{addr: addr, clusterID: uint32(clusterID64)}, nil
+	return AddrCluster{Addr: addr, ClusterID: uint32(clusterID64)}, nil
 }
 
 // MustParseAddrCluster calls ParseAddr(s) and panics on error. It is
@@ -103,7 +103,7 @@ func AddrClusterFromIP(ip net.IP) (AddrCluster, bool) {
 	if !ok {
 		return AddrCluster{}, false
 	}
-	return AddrCluster{addr: addr, clusterID: 0}, true
+	return AddrCluster{Addr: addr, ClusterID: 0}, true
 }
 
 func MustAddrClusterFromIP(ip net.IP) AddrCluster {
@@ -116,40 +116,24 @@ func MustAddrClusterFromIP(ip net.IP) AddrCluster {
 
 // AddrClusterFrom creates AddrCluster from netip.Addr and ClusterID
 func AddrClusterFrom(addr netip.Addr, clusterID uint32) AddrCluster {
-	return AddrCluster{addr: addr, clusterID: clusterID}
-}
-
-// Addr returns IP address part of AddrCluster as netip.Addr. This function
-// exists for keeping backward compatibility between the existing components
-// which are not aware of the cluster-aware addressing. Calling this function
-// against the AddrCluster which has non-zero clusterID will lose the ClusterID
-// information. It should be used with an extra care.
-func (ac AddrCluster) Addr() netip.Addr {
-	return ac.addr
-}
-
-// ClusterID returns ClusterID part of AddrCluster as uint32. We should avoid
-// using this function as much as possible and treat IP address and ClusterID
-// together.
-func (ac AddrCluster) ClusterID() uint32 {
-	return ac.clusterID
+	return AddrCluster{Addr: addr, ClusterID: clusterID}
 }
 
 // Equal returns true when given AddrCluster has a same IP address and ClusterID
 func (ac0 AddrCluster) Equal(ac1 AddrCluster) bool {
-	return ac0.addr == ac1.addr && ac0.clusterID == ac1.clusterID
+	return ac0.Addr == ac1.Addr && ac0.ClusterID == ac1.ClusterID
 }
 
 // Less compares ac0 and ac1 and returns true if ac0 is lesser than ac1
 func (ac0 AddrCluster) Less(ac1 AddrCluster) bool {
 	// First, compare the IP address part
-	if ret := ac0.addr.Compare(ac1.addr); ret == -1 {
+	if ret := ac0.Addr.Compare(ac1.Addr); ret == -1 {
 		return true
 	} else if ret == 1 {
 		return false
 	} else {
 		// If IP address is the same, compare ClusterID
-		return ac0.clusterID < ac1.clusterID
+		return ac0.ClusterID < ac1.ClusterID
 	}
 }
 
@@ -163,8 +147,8 @@ func (in *AddrCluster) DeepCopyInto(out *AddrCluster) {
 	if out == nil {
 		return
 	}
-	out.addr = in.addr
-	out.clusterID = in.clusterID
+	out.Addr = in.Addr
+	out.ClusterID = in.ClusterID
 }
 
 // DeepCopy returns a new copy of AddrCluster
@@ -178,38 +162,38 @@ func (in *AddrCluster) DeepCopy() *AddrCluster {
 // AddrCluster.clusterID = 0, it returns bare IP address string. Otherwise, it
 // returns IP string + "@" + ClusterID (e.g. 10.0.0.1@1)
 func (ac AddrCluster) String() string {
-	if ac.clusterID == 0 {
-		return ac.addr.String()
+	if ac.ClusterID == 0 {
+		return ac.Addr.String()
 	}
-	return ac.addr.String() + "@" + strconv.FormatUint(uint64(ac.clusterID), 10)
+	return ac.Addr.String() + "@" + strconv.FormatUint(uint64(ac.ClusterID), 10)
 }
 
 // Is4 reports whether IP address part of AddrCluster is an IPv4 address.
 func (ac AddrCluster) Is4() bool {
-	return ac.addr.Is4()
+	return ac.Addr.Is4()
 }
 
 // Is6 reports whether IP address part of AddrCluster is an IPv6 address.
 func (ac AddrCluster) Is6() bool {
-	return ac.addr.Is6()
+	return ac.Addr.Is6()
 }
 
 // IsUnspecified reports whether IP address part of the AddrCluster is an
 // unspecified address, either the IPv4 address "0.0.0.0" or the IPv6
 // address "::".
 func (ac AddrCluster) IsUnspecified() bool {
-	return ac.addr.IsUnspecified()
+	return ac.Addr.IsUnspecified()
 }
 
 // As20 returns the AddrCluster in its 20-byte representation which consists
 // of 16-byte IP address part from netip.Addr.As16 and 4-byte ClusterID part.
 func (ac AddrCluster) As20() (ac20 [20]byte) {
-	addr16 := ac.addr.As16()
+	addr16 := ac.Addr.As16()
 	copy(ac20[:16], addr16[:])
-	ac20[16] = byte(ac.clusterID >> 24)
-	ac20[17] = byte(ac.clusterID >> 16)
-	ac20[18] = byte(ac.clusterID >> 8)
-	ac20[19] = byte(ac.clusterID)
+	ac20[16] = byte(ac.ClusterID >> 24)
+	ac20[17] = byte(ac.ClusterID >> 16)
+	ac20[18] = byte(ac.ClusterID >> 8)
+	ac20[19] = byte(ac.ClusterID)
 	return ac20
 }
 
@@ -219,11 +203,11 @@ func (ac AddrCluster) As20() (ac20 [20]byte) {
 // this function against the AddrCluster which has non-zero clusterID will
 // lose the ClusterID information. It should be used with an extra care.
 func (ac AddrCluster) AsNetIP() net.IP {
-	return ac.addr.AsSlice()
+	return ac.Addr.AsSlice()
 }
 
 func (ac AddrCluster) AsPrefixCluster() PrefixCluster {
-	return PrefixClusterFrom(ac.addr, ac.addr.BitLen(), WithClusterID(ac.clusterID))
+	return PrefixClusterFrom(ac.Addr, ac.Addr.BitLen(), WithClusterID(ac.ClusterID))
 }
 
 // PrefixCluster is a type that holds a pair of prefix and ClusterID.

@@ -335,15 +335,15 @@ type Backend6ValueV3 struct {
 }
 
 func NewBackend6ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend6ValueV3, error) {
-	addr := addrCluster.Addr()
+	addr := addrCluster.Addr
 
 	// It is possible to have IPv4 backend in IPv6. We have NAT46/64.
 	if !addr.Is4() && !addr.Is6() {
 		return nil, fmt.Errorf("Not a valid IP address")
 	}
 
-	if addrCluster.ClusterID() > cmtypes.ClusterIDMax {
-		return nil, fmt.Errorf("ClusterID %d is too large. ClusterID > %d is not supported with Backend6ValueV3", addrCluster.ClusterID(), cmtypes.ClusterIDMax)
+	if addrCluster.ClusterID > cmtypes.ClusterIDMax {
+		return nil, fmt.Errorf("ClusterID %d is too large. ClusterID > %d is not supported with Backend6ValueV3", addrCluster.ClusterID, cmtypes.ClusterIDMax)
 	}
 
 	flags := loadbalancer.NewBackendFlags(state)

@@ -2075,13 +2075,13 @@ func (s *Service) SyncNodePortFrontends(addrs sets.Set[netip.Addr]) error {
 			continue
 		}
 
-		switch svc.frontend.AddrCluster.Addr() {
+		switch svc.frontend.AddrCluster.Addr {
 		case netip.IPv4Unspecified():
 			v4Svcs = append(v4Svcs, svc)
 		case netip.IPv6Unspecified():
 			v6Svcs = append(v6Svcs, svc)
 		default:
-			addr := svc.frontend.AddrCluster.Addr()
+			addr := svc.frontend.AddrCluster.Addr
 			existingFEs.Insert(addr)
 			if _, ok := addrs[addr]; !ok {
 				removedFEs = append(removedFEs, svc)
@@ -2113,7 +2113,7 @@ func (s *Service) SyncNodePortFrontends(addrs sets.Set[netip.Addr]) error {
 			for _, svcInfo := range svcs {
 				fe := lb.NewL3n4AddrID(
 					svcInfo.frontend.Protocol,
-					cmtypes.AddrClusterFrom(addr, svcInfo.frontend.AddrCluster.ClusterID()),
+					cmtypes.AddrClusterFrom(addr, svcInfo.frontend.AddrCluster.ClusterID),
 					svcInfo.frontend.Port,
 					svcInfo.frontend.Scope,
 					0,

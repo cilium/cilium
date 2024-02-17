@@ -92,7 +92,7 @@ func runQuery(indexTxn indexReadTxn, lowerbound bool, queryKey []byte, onObject 
 			continue
 		}
 		if err := onObject(obj); err != nil {
-			return
+			panic(fmt.Sprintf("Encode failed: %s", err))
 		}
 	}
 }

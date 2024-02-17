@@ -438,13 +438,13 @@ type Backend4ValueV3 struct {
 }
 
 func NewBackend4ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4ValueV3, error) {
-	addr := addrCluster.Addr()
+	addr := addrCluster.Addr
 	if !addr.Is4() {
 		return nil, fmt.Errorf("Not an IPv4 address")
 	}
 
-	clusterID := addrCluster.ClusterID()
-	if addrCluster.ClusterID() > cmtypes.ClusterIDMax {
+	clusterID := addrCluster.ClusterID
+	if addrCluster.ClusterID > cmtypes.ClusterIDMax {
 		return nil, fmt.Errorf("ClusterID %d is too large. ClusterID > %d is not supported with Backend4ValueV3", clusterID, cmtypes.ClusterIDMax)
 	}
 

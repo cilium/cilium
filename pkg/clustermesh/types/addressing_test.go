@@ -64,33 +64,33 @@ func TestAddrCluster_Equal(t *testing.T) {
 		{
 			"same IP and same ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.1"), ClusterID: 1}},
 			true,
 		},
 		{
 			"same IP and different ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 2}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.1"), ClusterID: 2}},
 			false,
 		},
 		{
 			"different IP and same ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.2"), clusterID: 1}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.2"), ClusterID: 1}},
 			false,
 		},
 		{
 			"different IP and different ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.2"), clusterID: 2}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.2"), ClusterID: 2}},
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ac0 := AddrCluster{
-				addr:      tt.fields.addr,
-				clusterID: tt.fields.clusterID,
+				Addr:      tt.fields.addr,
+				ClusterID: tt.fields.clusterID,
 			}
 			if got := ac0.Equal(tt.args.ac1); got != tt.want {
 				t.Errorf("AddrCluster.Equal() = %v, want %v", got, tt.want)
@@ -116,39 +116,39 @@ func TestAddrCluster_Less(t *testing.T) {
 		{
 			"same IP and same ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.1"), ClusterID: 1}},
 			false,
 		},
 		{
 			"larger IP and same ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.2"), clusterID: 1}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.2"), ClusterID: 1}},
 			true,
 		},
 		{
 			"smaller IP and smaller ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.2"), clusterID: 1},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.1"), ClusterID: 1}},
 			false,
 		},
 		{
 			"same IP and larger ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 2}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.1"), ClusterID: 2}},
 			true,
 		},
 		{
 			"same IP and smaller ClusterID",
 			fields{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 2},
-			args{ac1: AddrCluster{addr: netip.MustParseAddr("10.0.0.1"), clusterID: 1}},
+			args{ac1: AddrCluster{Addr: netip.MustParseAddr("10.0.0.1"), ClusterID: 1}},
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ac0 := AddrCluster{
-				addr:      tt.fields.addr,
-				clusterID: tt.fields.clusterID,
+				Addr:      tt.fields.addr,
+				ClusterID: tt.fields.clusterID,
 			}
 			if got := ac0.Less(tt.args.ac1); got != tt.want {
 				t.Errorf("AddrCluster.Less() = %v, want %v", got, tt.want)
@@ -181,8 +181,8 @@ func TestAddrCluster_String(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ac := AddrCluster{
-				addr:      tt.fields.addr,
-				clusterID: tt.fields.clusterID,
+				Addr:      tt.fields.addr,
+				ClusterID: tt.fields.clusterID,
 			}
 			if got := ac.String(); got != tt.want {
 				t.Errorf("AddrCluster.String() = %v, want %v", got, tt.want)

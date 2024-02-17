@@ -148,7 +148,7 @@ func newTunnelIP(ip net.IP) TunnelIP {
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
 func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix cmtypes.AddrCluster, endpoint net.IP) error {
-	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
+	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix cmtypes.AddrCluster, en
 
 // GetTunnelEndpoint retrieves a prefix => tunnel-endpoint mapping
 func (m *Map) GetTunnelEndpoint(prefix cmtypes.AddrCluster) (net.IP, error) {
-	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
+	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID)
 	if err != nil {
 		return net.IP{}, err
 	}
@@ -181,7 +181,7 @@ func (m *Map) GetTunnelEndpoint(prefix cmtypes.AddrCluster) (net.IP, error) {
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping
 func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
-	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
+	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 // SilentDeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping.
 // If the prefix is not found no error is returned.
 func (m *Map) SilentDeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
-	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
+	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID)
 	if err != nil {
 		return err
 	}

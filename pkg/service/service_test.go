@@ -671,7 +671,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 
 	toBackendAddrs := func(backends []*lb.Backend) (addrs []string) {
 		for _, be := range backends {
-			addrs = append(addrs, be.L3n4Addr.AddrCluster.Addr().String())
+			addrs = append(addrs, be.L3n4Addr.AddrCluster.Addr.String())
 		}
 		return
 	}
@@ -946,7 +946,7 @@ func (m *ManagerTestSuite) TestHealthCheckLoadBalancerIP(c *C) {
 	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Name, Equals, "svc1-healthCheck")
 	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.Port, Equals, svc.svcHealthCheckNodePort)
-	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.AddrCluster.Addr(), Equals, netip.MustParseAddr("1.1.1.1"))
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.AddrCluster.Addr, Equals, netip.MustParseAddr("1.1.1.1"))
 	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].backends[0].AddrCluster, Equals, cmtypes.AddrClusterFrom(netip.MustParseAddr("192.0.2.0"), option.Config.ClusterID))
 
 	// Update the externalTrafficPolicy for svc1
@@ -967,7 +967,7 @@ func (m *ManagerTestSuite) TestHealthCheckLoadBalancerIP(c *C) {
 	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Name, Equals, "svc1-healthCheck")
 	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.Port, Equals, svc.svcHealthCheckNodePort)
-	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.AddrCluster.Addr(), Equals, netip.MustParseAddr("1.1.1.1"))
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.AddrCluster.Addr, Equals, netip.MustParseAddr("1.1.1.1"))
 	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].backends[0].AddrCluster, Equals, cmtypes.AddrClusterFrom(netip.MustParseAddr("192.0.2.0"), option.Config.ClusterID))
 
 	// IPv6 NodePort Backend
@@ -1893,10 +1893,10 @@ func (m *ManagerTestSuite) TestSyncNodePortFrontends(c *C) {
 
 	// With a new frontend addresses services should be re-created.
 	nodeAddrs := sets.New[netip.Addr](
-		frontend1.AddrCluster.Addr(),
-		frontend2.AddrCluster.Addr(),
+		frontend1.AddrCluster.Addr,
+		frontend2.AddrCluster.Addr,
 		// IPv6 address should be ignored initially without IPv6 surrogate
-		frontend3.AddrCluster.Addr(),
+		frontend3.AddrCluster.Addr,
 	)
 	m.svc.SyncNodePortFrontends(nodeAddrs)
 	c.Assert(len(m.svc.svcByID), Equals, 2+1 /* surrogate */)
@@ -2089,12 +2089,12 @@ func (m *ManagerTestSuite) TestUpsertServiceWithDeletedBackends(c *C) {
 	cookie2 := [2]uint32{1235, 0}
 	id1 := netlink.SocketID{
 		DestinationPort: 8080,
-		Destination:     backends[0].L3n4Addr.AddrCluster.Addr().AsSlice(),
+		Destination:     backends[0].L3n4Addr.AddrCluster.Addr.AsSlice(),
 		Cookie:          cookie1,
 	}
 	id2 := netlink.SocketID{
 		DestinationPort: 8080,
-		Destination:     backends[1].L3n4Addr.AddrCluster.Addr().AsSlice(),
+		Destination:     backends[1].L3n4Addr.AddrCluster.Addr.AsSlice(),
 		Cookie:          cookie2,
 	}
 	// Socket connected to backend1

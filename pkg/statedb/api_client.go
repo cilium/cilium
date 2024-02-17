@@ -7,6 +7,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/gob"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 
 	"github.com/cilium/cilium/api/v1/client/statedb"
@@ -88,11 +91,14 @@ type remoteGetIterator[Obj any] struct {
 func (it *remoteGetIterator[Obj]) Next() (obj Obj, revision Revision, ok bool) {
 	err := it.decoder.Decode(&revision)
 	if err != nil {
-		return
+		if errors.Is(err, io.EOF) {
+			return
+		}
+		panic(fmt.Sprintf("Decode revision failed: %s", err))
 	}
 	err = it.decoder.Decode(&obj)
 	if err != nil {
-		return
+		panic(fmt.Sprintf("Decode object failed: %s", err))
 	}
 	ok = true
 	return

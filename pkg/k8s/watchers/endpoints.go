@@ -83,7 +83,7 @@ func (k *K8sWatcher) addKubeAPIServerServiceEndpoints(eps *k8s.Endpoints) {
 	)
 	desiredIPs := make(map[netip.Prefix]struct{})
 	for addrCluster := range eps.Backends {
-		addr := addrCluster.Addr()
+		addr := addrCluster.Addr
 		desiredIPs[netip.PrefixFrom(addr, addr.BitLen())] = struct{}{}
 	}
 	k.handleKubeAPIServerServiceEPChanges(desiredIPs, resource)

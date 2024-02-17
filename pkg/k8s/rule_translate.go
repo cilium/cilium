@@ -118,7 +118,7 @@ func (k RuleTranslator) generateToCidrFromEndpoint(
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	for addrCluster := range endpoints.Backends {
-		epIP := addrCluster.Addr()
+		epIP := addrCluster.Addr
 
 		found := false
 		for _, c := range egress.ToCIDRSet {
@@ -161,7 +161,7 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 	delCIDRRules := make(map[int]*api.CIDRRule, len(egress.ToCIDRSet))
 
 	for addrCluster := range endpoints.Backends {
-		ipStr := addrCluster.Addr().String()
+		ipStr := addrCluster.Addr.String()
 
 		epIP := net.ParseIP(ipStr)
 		if epIP == nil {

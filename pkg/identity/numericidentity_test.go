@@ -57,7 +57,7 @@ func (s *IdentityTestSuite) TestClusterID(c *C) {
 	}
 
 	for _, item := range tbl {
-		c.Assert(NumericIdentity(item.identity).ClusterID(), Equals, item.clusterID)
+		c.Assert(NumericIdentity(item.identity).ClusterID, Equals, item.clusterID)
 	}
 }
 

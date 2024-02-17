@@ -823,7 +823,7 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 			nodePortPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				fePortName: &nodePortFE.L4Addr,
 			}
-			dpSVC := genCartesianProduct(nodePortFE.AddrCluster.Addr().AsSlice(), twoScopes, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
+			dpSVC := genCartesianProduct(nodePortFE.AddrCluster.Addr.AsSlice(), twoScopes, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
 			svcs = append(svcs, dpSVC...)
 		}
 	}

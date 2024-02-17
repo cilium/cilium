@@ -25,7 +25,7 @@ func (s *Service) destroyConnectionsToBackend(be *lb.Backend) {
 		family   uint8
 		protocol uint8
 	)
-	ip := net.IP(be.L3n4Addr.AddrCluster.Addr().AsSlice())
+	ip := net.IP(be.L3n4Addr.AddrCluster.Addr.AsSlice())
 	l4Addr := be.L3n4Addr.L4Addr
 
 	switch be.L3n4Addr.Protocol {

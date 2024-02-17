@@ -330,7 +330,7 @@ func convertEndpoints(in *k8s.Endpoints) *metallbspr.Endpoints {
 	out := new(metallbspr.Endpoints)
 	for addrCluster, be := range in.Backends {
 		ep := metallbspr.Endpoint{
-			IP:       addrCluster.Addr().String(),
+			IP:       addrCluster.Addr.String(),
 			NodeName: &be.NodeName,
 		}
 		out.Ready = append(out.Ready, ep)

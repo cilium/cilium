@@ -45,7 +45,6 @@ type Endpoints struct {
 	// Backends is a map containing all backend IPs and ports. The key to
 	// the map is the backend IP in string form. The value defines the list
 	// of ports for that backend IP, plus an additional optional node name.
-	// Backends map[cmtypes.AddrCluster]*Backend
 	Backends map[cmtypes.AddrCluster]*Backend
 }
 
@@ -130,7 +129,7 @@ func (e *Endpoints) String() string {
 	backends := []string{}
 	for addrCluster, be := range e.Backends {
 		for _, port := range be.Ports {
-			backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(addrCluster.Addr().String(), strconv.Itoa(int(port.Port))), port.Protocol))
+			backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(addrCluster.Addr.String(), strconv.Itoa(int(port.Port))), port.Protocol))
 		}
 	}
 
@@ -150,7 +149,7 @@ func newEndpoints() *Endpoints {
 func (e *Endpoints) Prefixes() []netip.Prefix {
 	prefixes := make([]netip.Prefix, 0, len(e.Backends))
 	for addrCluster := range e.Backends {
-		addr := addrCluster.Addr()
+		addr := addrCluster.Addr
 		prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
 	}
 	return prefixes
