@@ -168,7 +168,13 @@ Key Rotation
    is, all nodes in the cluster (or clustermesh) should be on the same Cilium
    version before rotating keys.
 
-To replace cilium-ipsec-keys secret with a new key:
+Starting from Cilium CLI v0.15.23, you can rotate the IPsec keys using the following command:
+
+.. code-block:: shell-session
+
+    cilium encryption rotate-key
+
+Alternatively, you can use the following commands to obtain the same result:
 
 .. code-block:: shell-session
 
@@ -192,6 +198,16 @@ If you are using Cluster Mesh, you must apply the key rotation procedure
 to all clusters in the mesh. You might need to increase the transition time to
 allow for the new keys to be deployed and applied across all clusters,
 which you can do with the agent flag ``ipsec-key-rotation-duration``.
+
+Encryption status
+=================
+
+Starting from Cilium CLI v0.15.23, you can display cluster-wide encryption status and the status of the IPsec key with the following commands:
+
+.. code-block:: shell-session
+
+    cilium encryption status
+    cilium encryption key-status
 
 Troubleshooting
 ===============
