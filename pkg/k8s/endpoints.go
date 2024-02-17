@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // Endpoints is an abstraction for the Kubernetes endpoints object. Endpoints
@@ -47,6 +48,27 @@ type Endpoints struct {
 	// Backends map[cmtypes.AddrCluster]*Backend
 	Backends map[cmtypes.AddrCluster]*Backend
 }
+
+// TableHeader implements statedb.TableWritable.
+func (eps *Endpoints) TableHeader() []string {
+	return []string{
+		"Name",
+		"Service",
+		"Backends",
+	}
+	panic("unimplemented")
+}
+
+// TableRow implements statedb.TableWritable.
+func (eps *Endpoints) TableRow() []string {
+	return []string{
+		eps.Namespace + "/" + eps.Name,
+		eps.EndpointSliceID.ServiceID.String(),
+		eps.String(),
+	}
+}
+
+var _ statedb.TableWritable = &Endpoints{}
 
 // DeepEqual returns true if both endpoints are deep equal.
 func (e *Endpoints) DeepEqual(o *Endpoints) bool {
