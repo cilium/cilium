@@ -186,13 +186,13 @@ func TestKubernetesWithTransformAndQueryAll(t *testing.T) {
 		return reflector.KubernetesConfig[*slimPod]{
 			ListerWatcher: lw,
 			Table:         table,
-			Transform: func(obj any) (*slimPod, bool) {
+			Transform: func(obj any) (*slimPod, error) {
 				pod := obj.(*v1.Pod)
 				return &slimPod{
 					Name:      pod.Name,
 					Namespace: pod.Namespace,
 					Source:    "k8s",
-				}, true
+				}, nil
 			},
 			QueryAll: func(txn statedb.ReadTxn, tbl statedb.Table[*slimPod]) statedb.Iterator[*slimPod] {
 				iter, _ := tbl.Get(txn, podSourceIndex.Query("k8s"))

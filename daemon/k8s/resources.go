@@ -6,11 +6,8 @@ package k8s
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -19,12 +16,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/statedb"
-	"github.com/cilium/cilium/pkg/statedb/index"
-	"github.com/cilium/cilium/pkg/statedb/reflector"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -40,7 +32,6 @@ var (
 		cell.Config(k8s.DefaultConfig),
 		LocalNodeCell,
 		cell.Provide(
-			k8s.EndpointsResource,
 			k8s.NamespaceResource,
 			k8s.NetworkPolicyResource,
 			k8s.CiliumNetworkPolicyResource,
@@ -54,7 +45,8 @@ var (
 		),
 
 		cell.Provide(
-			newServicesTableResource,
+			k8s.NewServicesTableResource,
+			k8s.NewEndpointsTableResource,
 		),
 	)
 
@@ -128,81 +120,4 @@ type LocalNodeResources struct {
 
 	LocalNode       LocalNodeResource
 	LocalCiliumNode LocalCiliumNodeResource
-}
-
-var (
-	ServiceNameIndex = newNameIndex[*slim_corev1.Service]()
-)
-
-type runtimeObjectWithName interface {
-	runtime.Object
-	GetName() string
-	GetNamespace() string
-}
-
-func newNameIndex[Obj runtimeObjectWithName]() statedb.Index[Obj, string] {
-	return statedb.Index[Obj, string]{
-		Name: "name",
-		FromObject: func(obj Obj) index.KeySet {
-			return index.NewKeySet(index.String(obj.GetNamespace() + "/" + obj.GetName()))
-		},
-		FromKey: index.String,
-		Unique:  true,
-	}
-}
-
-type tableResourceParams struct {
-	cell.In
-
-	Lifecycle cell.Lifecycle
-	Jobs      job.Registry
-	Scope     cell.Scope
-	DB        *statedb.DB
-}
-
-func newTableResource[Obj runtimeObjectWithName](p tableResourceParams, tableName string, nameIndex statedb.Index[Obj, string], lw cache.ListerWatcher) (statedb.Table[Obj], resource.Resource[Obj], error) {
-	table, err := statedb.NewTable[Obj](tableName, nameIndex)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := p.DB.RegisterTable(table); err != nil {
-		return nil, nil, err
-	}
-
-	cfg := reflector.KubernetesConfig[Obj]{
-		BufferSize:     100,
-		BufferWaitTime: time.Millisecond * 100,
-		ListerWatcher:  lw,
-		Table:          table,
-	}
-	p.Lifecycle.Append(
-		reflector.Kubernetes[Obj](
-			reflector.KubernetesParams[Obj]{
-				Config: cfg,
-				Jobs:   p.Jobs,
-				Scope:  p.Scope,
-				DB:     p.DB,
-			},
-		),
-	)
-
-	r := reflector.NewResourceAdapter[Obj](
-		p.DB,
-		table,
-		nameIndex,
-		func(key resource.Key) statedb.Query[Obj] {
-			return nameIndex.Query(key.Namespace + "/" + key.Name)
-		},
-	)
-
-	return table, r, nil
-}
-
-func newServicesTableResource(p tableResourceParams, cs client.Clientset) (statedb.Table[*slim_corev1.Service], resource.Resource[*slim_corev1.Service], error) {
-	if !cs.IsEnabled() {
-		return nil, nil, nil
-	}
-
-	lw := utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services(""))
-	return newTableResource[*slim_corev1.Service](p, "services", ServiceNameIndex, lw)
 }

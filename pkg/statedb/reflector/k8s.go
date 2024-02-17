@@ -30,9 +30,9 @@ type KubernetesConfig[Obj any] struct {
 
 // TransformFunc is an optional function to give to the Kubernetes reflector
 // to transform the object returned by the ListerWatcher to the desired
-// target object. If the function returns false the object is silently
+// target object. If the function returns an error the object is silently
 // skipped.
-type TransformFunc[Obj any] func(any) (obj Obj, ok bool)
+type TransformFunc[Obj any] func(any) (obj Obj, err error)
 
 // QueryAllFunc is an optional function to give to the Kubernetes reflector
 // to query all objects in the table that are managed by the reflector.
@@ -125,7 +125,7 @@ func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.HealthReporter)
 	transform := s.Transform
 	if transform == nil {
 		// No provided transform function, use the identity function instead.
-		transform = TransformFunc[Obj](func(obj any) (Obj, bool) { return obj.(Obj), true })
+		transform = TransformFunc[Obj](func(obj any) (Obj, error) { return obj.(Obj), nil })
 	}
 
 	queryAll := s.QueryAll
@@ -172,8 +172,8 @@ func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.HealthReporter)
 				if err != nil {
 					panic(fmt.Sprintf("%T internal error: cache.SplitMetaNamespaceKey(%q) failed: %s", s, d.Key, err))
 				}
-				entry.obj, ok = transform(d.Obj)
-				if !ok {
+				entry.obj, err = transform(d.Obj)
+				if err != nil {
 					return buf
 				}
 			} else {
@@ -189,9 +189,8 @@ func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.HealthReporter)
 					key = meta.GetName()
 				}
 
-				var ok bool
-				entry.obj, ok = transform(ev.Obj)
-				if !ok {
+				entry.obj, err = transform(ev.Obj)
+				if err != nil {
 					return buf
 				}
 			}
@@ -210,7 +209,9 @@ func (s *k8sReflector[Obj]) run(ctx context.Context, health cell.HealthReporter)
 				table.Delete(txn, obj)
 			}
 			for _, item := range buf.replaceItems {
-				table.Insert(txn, item.(Obj))
+				if obj, err := transform(item); err == nil {
+					table.Insert(txn, obj)
+				}
 			}
 		}
 
