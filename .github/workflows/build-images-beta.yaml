@@ -134,7 +134,7 @@ jobs:
 
       - name: Attach SBOM to Container Image
         run: |
-          cosign attest sbom --sbom sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
+          cosign attach sbom --sbom sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Sign SBOM Image
         run: |
