@@ -59,7 +59,7 @@ env:
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.21.0
+  kind_version: v0.22.0
   kind_config: .github/kind-config.yaml
   gateway_api_version: v1.0.0
   timeout: 5m
