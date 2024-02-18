@@ -56,7 +56,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.21.0
+  kind_version: v0.22.0
   # renovate: datasource=docker depName=kindest/node
   k8s_version: v1.29.1
   cilium_cli_ci_version:
