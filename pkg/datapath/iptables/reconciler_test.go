@@ -74,10 +74,9 @@ func TestReconciliationLoop(t *testing.T) {
 
 	var (
 		lastState atomic.Pointer[desiredState]
-		lastErr   error
 	)
 
-	updateFunc := func(ctx context.Context, state desiredState, firstInit bool) error {
+	updateFunc := func(state desiredState, firstInit bool) error {
 		lastState.Store(&state)
 		return nil
 	}
@@ -456,7 +455,7 @@ func TestReconciliationLoop(t *testing.T) {
 	errs := make(chan error)
 	go func() {
 		defer close(errs)
-		errs <- reconciliationLoop(ctx, health, true, params, updateFunc)
+		errs <- reconciliationLoop(ctx, log, health, true, params, updateFunc)
 	}()
 
 	// wait for reconciler to react to the initial state
@@ -467,11 +466,11 @@ func TestReconciliationLoop(t *testing.T) {
 			return false
 		}
 		if err := assertState(*curState, testCases[0].expected); err != nil {
-			lastErr = err
+			t.Logf("assertState: %s", err)
 			return false
 		}
 		return true
-	}, 10*time.Second, 10*time.Millisecond, "assertion failed: %s", lastErr)
+	}, 10*time.Second, 10*time.Millisecond, "initial state not reconciled. %v", testCases[0].expected)
 
 	// test all the remaining steps
 	for _, tc := range testCases[1:] {
@@ -483,11 +482,11 @@ func TestReconciliationLoop(t *testing.T) {
 			assert.Eventuallyf(t, func() bool {
 				curState := lastState.Load()
 				if err := assertState(*curState, tc.expected); err != nil {
-					lastErr = err
+					t.Logf("assertState: %s", err)
 					return false
 				}
 				return true
-			}, 10*time.Second, 10*time.Millisecond, "assertion failed: %s", lastErr)
+			}, 10*time.Second, 10*time.Millisecond, "expected state not reached. %v", tc.expected)
 		})
 	}
 

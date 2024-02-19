@@ -5,16 +5,16 @@ package iptables
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/netip"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -79,11 +79,15 @@ type noTrackPodInfo struct {
 
 func reconciliationLoop(
 	ctx context.Context,
+	log logrus.FieldLogger,
 	health cell.HealthReporter,
 	installIptRules bool,
 	params *reconcilerParams,
-	updateRules func(ctx context.Context, state desiredState, firstInit bool) error,
+	updateRules func(state desiredState, firstInit bool) error,
 ) error {
+	// The minimum interval between reconciliation attempts
+	const minReconciliationInterval = time.Second / 5
+
 	state := desiredState{
 		installRules: installIptRules,
 		proxies:      sets.New[proxyInfo](),
@@ -101,16 +105,16 @@ func reconciliationLoop(
 	devices, devicesWatch := tables.SelectedDevices(params.devices, params.db.ReadTxn())
 	state.devices = sets.New(tables.DeviceNames(devices)...)
 
-	log.WithField("state", state).Info("updating rules to reconcile state")
+	// Use a ticker to limit how often the desired state is reconciled to avoid doing
+	// lots of operations when e.g. ipset updates.
+	ticker := time.NewTicker(minReconciliationInterval)
+	defer ticker.Stop()
 
-	if err := updateRules(ctx, state, true); err != nil {
-		health.Degraded("iptables rules installation failed", err)
-	} else {
-		health.OK("iptables rules installation completed")
-	}
+	// stateChanged is true when the desired state has changed or when reconciling it
+	// has failed. It's set to false when reconciling succeeds.
+	stateChanged := true
 
-	limiter := rate.NewLimiter(time.Second, 1)
-	defer limiter.Stop()
+	firstInit := true
 
 stop:
 	for {
@@ -124,6 +128,7 @@ stop:
 				continue
 			}
 			state.devices = newDevices
+			stateChanged = true
 		case localNode, ok := <-localNodeEvents:
 			if !ok {
 				break stop
@@ -133,6 +138,7 @@ stop:
 				continue
 			}
 			state.localNodeInfo = localNodeInfo
+			stateChanged = true
 		case proxyInfo, ok := <-params.proxies:
 			if !ok {
 				break stop
@@ -141,6 +147,7 @@ stop:
 				continue
 			}
 			state.proxies.Insert(proxyInfo)
+			stateChanged = true
 		case ip, ok := <-params.addIPInSet:
 			if !ok {
 				break stop
@@ -153,6 +160,7 @@ stop:
 			} else {
 				state.ipv4Set[ip] = sets.Empty{}
 			}
+			stateChanged = true
 		case ip, ok := <-params.delIPFromSet:
 			if !ok {
 				break stop
@@ -165,6 +173,7 @@ stop:
 			} else {
 				delete(state.ipv4Set, ip)
 			}
+			stateChanged = true
 		case noTrackPod, ok := <-params.addNoTrackPod:
 			if !ok {
 				break stop
@@ -173,6 +182,7 @@ stop:
 				continue
 			}
 			state.noTrackPods[noTrackPod] = sets.Empty{}
+			stateChanged = true
 		case noTrackPod, ok := <-params.delNoTrackPod:
 			if !ok {
 				break stop
@@ -181,19 +191,20 @@ stop:
 				continue
 			}
 			delete(state.noTrackPods, noTrackPod)
-		}
-
-		if err := updateRules(ctx, state, false); err != nil {
-			health.Degraded("iptables rules update failed", err)
-		} else {
-			health.OK("iptables rules update completed")
-		}
-
-		if err := limiter.Wait(ctx); err != nil {
-			if errors.Is(err, context.Canceled) {
-				return nil
+			stateChanged = true
+		case <-ticker.C:
+			if !stateChanged {
+				continue
 			}
-			return err
+
+			if err := updateRules(state, firstInit); err != nil {
+				health.Degraded("iptables rules update failed", err)
+				// Keep stateChanged=true to try again on the next tick.
+			} else {
+				health.OK("iptables rules update completed")
+				firstInit = false
+				stateChanged = false
+			}
 		}
 	}
 
