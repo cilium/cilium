@@ -206,6 +206,7 @@ var (
 		"No tunnel/encapsulation endpoint (datapath BUG!)",
 		"Host datapath not ready",
 		"Unknown ICMPv4 code",
+		"Forbidden ICMPv6 message",
 	}
 
 	ExpectedXFRMErrors = []string{
