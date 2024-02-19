@@ -332,7 +332,7 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 		}
 		if !k.statusIsReady(s) && k.params.Wait {
 			time.Sleep(defaults.WaitRetryInterval)
-			if k.params.Output != "json" {
+			if k.params.Output == OutputSummary {
 				statusFmt := s.Format()
 				cursorUp(lines)
 				lines = len(strings.Split(statusFmt, "\n"))
