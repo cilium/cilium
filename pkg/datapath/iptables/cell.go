@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -16,7 +17,10 @@ var Cell = cell.Module(
 	"iptables",
 	"Handle iptables-related configuration for Cilium",
 
+	ipset.Cell,
 	cell.Config(defaultConfig),
+	cell.Provide(newIptablesManager),
+
 	cell.ProvidePrivate(func(
 		cfg *option.DaemonConfig,
 	) SharedConfig {
@@ -42,7 +46,6 @@ var Cell = cell.Module(
 			InstallIptRules:             cfg.InstallIptRules,
 		}
 	}),
-	cell.Provide(newIptablesManager),
 )
 
 type Config struct {
