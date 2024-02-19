@@ -271,7 +271,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		}
 	}
 
-	ct.NewTest("no-unexpected-packet-drops").WithScenarios(tests.NoUnexpectedPacketDrops(ct.Params().ExpectedDropReasons))
+	ct.NewTest("no-unexpected-packet-drops").
+		WithScenarios(tests.NoUnexpectedPacketDrops(ct.Params().ExpectedDropReasons)).
+		WithSysdumpPolicy(check.SysdumpPolicyOnce)
 
 	// Run all tests without any policies in place.
 	noPoliciesScenarios := []check.Scenario{

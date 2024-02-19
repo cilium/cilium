@@ -119,14 +119,16 @@ func (n *noUnexpectedPacketDrops) Run(ctx context.Context, t *check.Test) {
 
 	for _, pod := range ct.CiliumPods() {
 		pod := pod
-		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
-		if err != nil {
-			t.Fatalf("Error fetching packet drop counts: %s", err)
-		}
-		countStr := strings.TrimSpace(stdout.String())
-		if countStr != "" {
-			t.Fatalf("Found unexpected packet drops:\n%s", countStr)
-		}
+		t.NewGenericAction(n, fmt.Sprintf("%s/%s", pod.K8sClient.ClusterName(), pod.NodeName())).Run(func(a *check.Action) {
+			stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
+			if err != nil {
+				a.Fatalf("Error fetching packet drop counts: %s", err)
+			}
+			countStr := strings.TrimSpace(stdout.String())
+			if countStr != "" {
+				a.Failf("Found unexpected packet drops:\n%s", countStr)
+			}
+		})
 	}
 }
 
