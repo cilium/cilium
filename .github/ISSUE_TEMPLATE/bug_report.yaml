@@ -50,6 +50,11 @@ body:
     validations:
       required: true
   - type: textarea
+    id: regression
+    attributes:
+      label: Regression
+      description: Is the reported bug a regression? If so, what is the last version of Cilium where it still worked fine?
+  - type: textarea
     id: sysdump
     attributes:
       label: Sysdump
