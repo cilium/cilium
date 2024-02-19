@@ -21,7 +21,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -345,8 +344,8 @@ func newIptablesManager(p params) *Manager {
 
 	jg.Add(job.OneShot("reconciliation-loop", func(ctx context.Context, health cell.HealthReporter) error {
 		return reconciliationLoop(
-			ctx, health,
-			iptMgr.sharedCfg.InstallIptRules, &iptMgr.dependents, iptMgr.updateRules,
+			ctx, p.Logger, health,
+			iptMgr.sharedCfg.InstallIptRules, &iptMgr.dependents, iptMgr.doInstallRules,
 		)
 	}))
 
@@ -1572,33 +1571,6 @@ func (m *Manager) installHostTrafficMarkRule(prog runnable) error {
 		"-m", "mark", "!", "--mark", matchFromDNSProxy, // Don't match DNS proxy egress traffic
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost})
-}
-
-// updateRules installs iptables rules for Cilium in specific use-cases
-// (most specifically, interaction with kube-proxy).
-func (m *Manager) updateRules(ctx context.Context, state desiredState, firstInit bool) error {
-	backoff := backoff.Exponential{
-		Min:  20 * time.Second,
-		Max:  3 * time.Minute,
-		Name: "iptables-rules-installer",
-	}
-
-	maxAttempts := 3
-	attempt := 0
-
-	for {
-		attempt += 1
-		if err := m.doInstallRules(state, firstInit); err != nil {
-			if attempt == maxAttempts {
-				return fmt.Errorf("failed to install iptables rules after %d attempts: %w", maxAttempts, err)
-			}
-			log.WithError(err).Warning("Failed to install iptables rules, will retry")
-			backoff.Wait(ctx)
-			continue
-		}
-		log.Info("Iptables rules installed")
-		return nil
-	}
 }
 
 func (m *Manager) doInstallRules(state desiredState, firstInit bool) error {
