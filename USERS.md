@@ -285,6 +285,12 @@ Users (Alphabetically)
       L: https://gdatasoftware.com
       Q: @farodin91
 
+    * N: Heubeck, Florian
+      D: Florian is a GitOps fanatic individual, who uses Cilium for demonstrating automated progressive delivery strategies 
+      U: Gateway API, Hubble
+      L: https://github.com/heubeck
+      Q: @Florian Heubeck
+
     * N: IDNIC | Kadabra
       D: IDNIC is the National Internet Registry administering IP addresses for INDONESIA, uses Cilium to powered Kadabra project runing services across multi data centers.
       U: Networking, Network Policies, kube-proxy Replacement, Service Load Balancing and Cluster Mesh
