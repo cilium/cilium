@@ -25,8 +25,6 @@ type desiredState struct {
 	devices       sets.Set[string]
 	localNodeInfo localNodeInfo
 	proxies       sets.Set[proxyInfo]
-	ipv4Set       sets.Set[netip.Addr]
-	ipv6Set       sets.Set[netip.Addr]
 	noTrackPods   sets.Set[noTrackPodInfo]
 }
 
@@ -91,8 +89,6 @@ func reconciliationLoop(
 	state := desiredState{
 		installRules: installIptRules,
 		proxies:      sets.New[proxyInfo](),
-		ipv4Set:      sets.New[netip.Addr](),
-		ipv6Set:      sets.New[netip.Addr](),
 		noTrackPods:  sets.New[noTrackPodInfo](),
 	}
 
@@ -147,32 +143,6 @@ stop:
 				continue
 			}
 			state.proxies.Insert(proxyInfo)
-			stateChanged = true
-		case ip, ok := <-params.addIPInSet:
-			if !ok {
-				break stop
-			}
-			if state.ipv6Set.Has(ip) || state.ipv4Set.Has(ip) {
-				continue
-			}
-			if ip.Is6() {
-				state.ipv6Set[ip] = sets.Empty{}
-			} else {
-				state.ipv4Set[ip] = sets.Empty{}
-			}
-			stateChanged = true
-		case ip, ok := <-params.delIPFromSet:
-			if !ok {
-				break stop
-			}
-			if !state.ipv6Set.Has(ip) && !state.ipv4Set.Has(ip) {
-				continue
-			}
-			if ip.Is6() {
-				delete(state.ipv6Set, ip)
-			} else {
-				delete(state.ipv4Set, ip)
-			}
 			stateChanged = true
 		case noTrackPod, ok := <-params.addNoTrackPod:
 			if !ok {

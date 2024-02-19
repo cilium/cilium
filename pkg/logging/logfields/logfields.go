@@ -713,6 +713,9 @@ const (
 	// Chain is an Iptables chain
 	Chain = "chain"
 
+	// Ipset is a kernel IP set referenced in iptables rules.
+	Ipset = "ipset"
+
 	// IPSec SPI
 	SPI = "spi"
 

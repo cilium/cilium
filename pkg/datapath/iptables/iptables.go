@@ -19,12 +19,12 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
-	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -59,8 +58,6 @@ const (
 	ciliumForwardChain    = "CILIUM_FORWARD"
 	feederDescription     = "cilium-feeder:"
 	xfrmDescription       = "cilium-xfrm-notrack:"
-	CiliumNodeIpsetV4     = "cilium_node_set_v4"
-	CiliumNodeIpsetV6     = "cilium_node_set_v6"
 )
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
@@ -117,9 +114,8 @@ func (ipt *ipt) initArgs(waitSeconds int) {
 
 // package name is iptables so we use ip4tables internally for "iptables"
 var (
-	ip4tables = &ipt{prog: "iptables", ipset: CiliumNodeIpsetV4}
-	ip6tables = &ipt{prog: "ip6tables", ipset: CiliumNodeIpsetV6}
-	ipset     = &ipt{prog: "ipset"}
+	ip4tables = &ipt{prog: "iptables", ipset: ipset.CiliumNodeIPSetV4}
+	ip6tables = &ipt{prog: "ip6tables", ipset: ipset.CiliumNodeIPSetV6}
 )
 
 func (ipt *ipt) getProg() string {
@@ -289,8 +285,6 @@ type reconcilerParams struct {
 	db             *statedb.DB
 	devices        statedb.Table[*tables.Device]
 	proxies        chan proxyInfo
-	addIPInSet     chan netip.Addr
-	delIPFromSet   chan netip.Addr
 	addNoTrackPod  chan noTrackPodInfo
 	delNoTrackPod  chan noTrackPodInfo
 }
@@ -327,8 +321,6 @@ func newIptablesManager(p params) *Manager {
 			db:             p.DB,
 			devices:        p.Devices,
 			proxies:        make(chan proxyInfo),
-			addIPInSet:     make(chan netip.Addr),
-			delIPFromSet:   make(chan netip.Addr),
 			addNoTrackPod:  make(chan noTrackPodInfo),
 			delNoTrackPod:  make(chan noTrackPodInfo),
 		},
@@ -344,12 +336,14 @@ func newIptablesManager(p params) *Manager {
 		job.WithPprofLabels(pprof.Labels("cell", "iptables")),
 	)
 
-	jg.Add(job.OneShot("reconciliation-loop", func(ctx context.Context, health cell.HealthReporter) error {
-		return reconciliationLoop(
-			ctx, p.Logger, health,
-			iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams, iptMgr.doInstallRules,
-		)
-	}))
+	jg.Add(
+		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.HealthReporter) error {
+			return reconciliationLoop(
+				ctx, p.Logger, health,
+				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams, iptMgr.doInstallRules,
+			)
+		}),
+	)
 
 	p.Lifecycle.Append(jg)
 
@@ -442,8 +436,6 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 
 func (m *Manager) Stop(ctx cell.HookContext) error {
 	close(m.reconcilerParams.proxies)
-	close(m.reconcilerParams.addIPInSet)
-	close(m.reconcilerParams.delIPFromSet)
 	close(m.reconcilerParams.addNoTrackPod)
 	close(m.reconcilerParams.delNoTrackPod)
 	return nil
@@ -1198,36 +1190,6 @@ func (m *Manager) installForwardChainRulesIpX(prog runnable, ifName, localDelive
 	return nil
 }
 
-// AddToNodeIpset adds an IP address to the ipset for cluster nodes. It creates
-// the ipset if it doesn't already exist and doesn't error if either the ipset
-// or the IP already exist.
-func (m *Manager) AddToNodeIpset(nodeIP net.IP) {
-	if !m.sharedCfg.NodeIpsetNeeded {
-		return
-	}
-
-	addr, ok := ip.AddrFromIP(nodeIP)
-	if !ok {
-		m.logger.WithField(logfields.IPAddr, nodeIP).Error("unable to convert to netip.Addr")
-		return
-	}
-	m.reconcilerParams.addIPInSet <- addr
-}
-
-// RemoveFromBodeIpset removes an IP address from the ipset for cluster nodes.
-func (m *Manager) RemoveFromNodeIpset(nodeIP net.IP) {
-	if !m.sharedCfg.NodeIpsetNeeded {
-		return
-	}
-
-	addr, ok := ip.AddrFromIP(nodeIP)
-	if !ok {
-		m.logger.WithField(logfields.IPAddr, nodeIP).Error("unable to convert to netip.Addr")
-		return
-	}
-	m.reconcilerParams.delIPFromSet <- addr
-}
-
 func (m *Manager) installMasqueradeRules(
 	prog iptablesInterface,
 	ifName string, nativeDevices []string,
@@ -1237,16 +1199,6 @@ func (m *Manager) installMasqueradeRules(
 
 	if m.sharedCfg.NodeIpsetNeeded {
 		// Exclude traffic to nodes from masquerade.
-		var family string
-		if prog == ip4tables {
-			family = "inet"
-		} else {
-			family = "inet6"
-		}
-		if err := createIpset(ipset, prog.getIpset(), family); err != nil {
-			return err
-		}
-
 		progArgs := []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
@@ -1497,48 +1449,6 @@ func (m *Manager) installMasqueradeRules(
 	return nil
 }
 
-func createIpset(ipset runnable, name string, family string) error {
-	progArgs := []string{"create", name, "iphash", "family", family, "-exist"}
-	return ipset.runProg(progArgs)
-}
-
-func removeIpset(ipset runnable, name string) error {
-	if !ipsetExists(ipset, name) {
-		return nil
-	}
-	progArgs := []string{"destroy", name}
-	return ipset.runProg(progArgs)
-}
-
-func ipsetExists(ipset runnable, name string) bool {
-	progArgs := []string{"list", name}
-	err := ipset.runProg(progArgs)
-	return err == nil
-}
-
-func ipsetList(ipset runnable, name string) (sets.Set[netip.Addr], error) {
-	args := []string{"list", name}
-	out, err := ipset.runProgOutput(args)
-	if err != nil {
-		return nil, err
-	}
-
-	addrs := sets.New[netip.Addr]()
-	scanner := bufio.NewScanner(strings.NewReader(out))
-	for scanner.Scan() {
-		line := scanner.Text()
-		addr, err := netip.ParseAddr(line)
-		if err != nil {
-			continue
-		}
-		addrs.Insert(addr)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return addrs, nil
-}
-
 func (m *Manager) installHostTrafficMarkRule(prog runnable) error {
 	// Mark all packets sourced from processes running on the host with a
 	// special marker so that we can differentiate traffic sourced locally
@@ -1608,65 +1518,8 @@ func (m *Manager) doInstallRules(state desiredState, firstInit bool) error {
 		}
 	}
 
-	if err := m.reconcileIPSets(state.ipv4Set, state.ipv6Set); err != nil {
-		return fmt.Errorf("failed to reconcile ipsets: %w", err)
-	}
-
 	if err := m.removeRules(oldCiliumPrefix); err != nil {
 		return fmt.Errorf("failed to remove old rules: %w", err)
-	}
-
-	return nil
-}
-
-func (m *Manager) reconcileIPSets(ipv4Set, ipv6Set sets.Set[netip.Addr]) error {
-	// create ipsets for node IP address only if needed,
-	// otherwise remove stale entries.
-	if m.sharedCfg.NodeIpsetNeeded {
-		if m.sharedCfg.IptablesMasqueradingIPv4Enabled {
-			if err := reconcileIPSet(CiliumNodeIpsetV4, "inet", ipv4Set); err != nil {
-				return err
-			}
-		}
-		if m.sharedCfg.IptablesMasqueradingIPv6Enabled {
-			if err := reconcileIPSet(CiliumNodeIpsetV6, "inet6", ipv6Set); err != nil {
-				return err
-			}
-		}
-	} else {
-		if err := removeIpset(ipset, CiliumNodeIpsetV4); err != nil {
-			return err
-		}
-		if err := removeIpset(ipset, CiliumNodeIpsetV6); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func reconcileIPSet(name, family string, set sets.Set[netip.Addr]) error {
-	if err := createIpset(ipset, name, family); err != nil {
-		return fmt.Errorf("failed to create ipset %s: %w", name, err)
-	}
-
-	curSet, err := ipsetList(ipset, name)
-	if err != nil {
-		return fmt.Errorf("failed to list ips in ipset %s: %w", name, err)
-	}
-
-	toAdd := set.Difference(curSet)
-	for ip := range toAdd {
-		progArgs := []string{"add", name, ip.String(), "-exist"}
-		if err := ipset.runProg(progArgs); err != nil {
-			return fmt.Errorf("failed to add %q to ipset %q: %w", ip.String(), name, err)
-		}
-	}
-	toDel := curSet.Difference(set)
-	for ip := range toDel {
-		progArgs := []string{"del", name, ip.String(), "-exist"}
-		if err := ipset.runProg(progArgs); err != nil {
-			return fmt.Errorf("failed to del %q to ipset %q: %w", ip.String(), name, err)
-		}
 	}
 
 	return nil
