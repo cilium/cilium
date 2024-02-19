@@ -30,6 +30,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// WildcardDeviceName for looking up a fallback global address. This is used for
+// picking a BPF masquerade or direct routing address in cases where the target
+// device doesn't have an IP address (ECMP and similar setups).
+const WildcardDeviceName = "*"
+
 // NodeAddress is an IP address assigned to a network interface on a Cilium node
 // that is considered a "host" IP address.
 type NodeAddress struct {
@@ -81,17 +86,26 @@ type NodeAddressConfig struct {
 	NodePortAddresses []*cidr.CIDR `mapstructure:"nodeport-addresses"`
 }
 
+type NodeAddressKey struct {
+	Addr       netip.Addr
+	DeviceName string
+}
+
+func (k NodeAddressKey) Key() index.Key {
+	return append(index.NetIPAddr(k.Addr), []byte(k.DeviceName)...)
+}
+
 var (
 	// NodeAddressIndex is the primary index for node addresses:
 	//
 	//   var nodeAddresses Table[NodeAddress]
 	//   nodeAddresses.First(txn, NodeAddressIndex.Query(netip.MustParseAddr("1.2.3.4")))
-	NodeAddressIndex = statedb.Index[NodeAddress, netip.Addr]{
+	NodeAddressIndex = statedb.Index[NodeAddress, NodeAddressKey]{
 		Name: "id",
 		FromObject: func(a NodeAddress) index.KeySet {
-			return index.NewKeySet(index.NetIPAddr(a.Addr))
+			return index.NewKeySet(NodeAddressKey{a.Addr, a.DeviceName}.Key())
 		},
-		FromKey: index.NetIPAddr,
+		FromKey: NodeAddressKey.Key,
 		Unique:  true,
 	}
 
@@ -101,6 +115,15 @@ var (
 			return index.NewKeySet(index.String(a.DeviceName))
 		},
 		FromKey: index.String,
+		Unique:  false,
+	}
+
+	NodeAddressNodePortIndex = statedb.Index[NodeAddress, bool]{
+		Name: "node-port",
+		FromObject: func(a NodeAddress) index.KeySet {
+			return index.NewKeySet(index.Bool(a.NodePort))
+		},
+		FromKey: index.Bool,
 		Unique:  false,
 	}
 
@@ -130,6 +153,7 @@ func NewNodeAddressTable() (statedb.RWTable[NodeAddress], error) {
 		NodeAddressTableName,
 		NodeAddressIndex,
 		NodeAddressDeviceNameIndex,
+		NodeAddressNodePortIndex,
 	)
 }
 
@@ -184,6 +208,8 @@ type nodeAddressController struct {
 	nodeAddressControllerParams
 
 	tracker *statedb.DeleteTracker[*Device]
+
+	fallbackAddresses fallbackAddresses
 }
 
 // newNodeAddressController constructs the node address controller & registers its
@@ -222,6 +248,7 @@ func (n *nodeAddressController) register() {
 				devices, _ := n.Devices.All(txn)
 				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
 					n.update(txn, nil, n.getAddressesFromDevice(dev), nil, dev.Name)
+					n.updateWildcardDevice(txn, dev, false)
 				}
 				txn.Commit()
 
@@ -250,6 +277,7 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 				new = n.getAddressesFromDevice(dev)
 			}
 			n.update(txn, existing, new, reporter, dev.Name)
+			n.updateWildcardDevice(txn, dev, deleted)
 		}
 		watch := n.tracker.Iterate(txn, process)
 		txn.Commit()
@@ -262,6 +290,59 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 		if err := limiter.Wait(ctx); err != nil {
 			return err
 		}
+	}
+}
+
+// updateWildcardDevice updates the wildcard device ("*") with the fallback addresses. The fallback
+// addresses are the most suitable IPv4 and IPv6 address on any network device, whether it's
+// selected for datapath use or not.
+func (n *nodeAddressController) updateWildcardDevice(txn statedb.WriteTxn, dev *Device, deleted bool) {
+	if !n.updateFallbacks(txn, dev, deleted) {
+		// No changes
+		return
+	}
+
+	// Clear existing fallback addresses.
+	iter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(WildcardDeviceName))
+	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+		n.NodeAddresses.Delete(txn, addr)
+	}
+
+	newAddrs := sets.New[NodeAddress]()
+	for _, fallback := range n.fallbackAddresses.addrs() {
+		if !fallback.IsValid() {
+			continue
+		}
+		nodeAddr := NodeAddress{
+			Addr:       fallback,
+			NodePort:   false,
+			Primary:    true,
+			DeviceName: WildcardDeviceName,
+		}
+		newAddrs.Insert(nodeAddr)
+		n.NodeAddresses.Insert(txn, nodeAddr)
+	}
+
+	n.Log.WithFields(logrus.Fields{"node-addresses": showAddresses(newAddrs), logfields.Device: WildcardDeviceName}).Info("Fallback node addresses updated")
+}
+
+func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device, deleted bool) (updated bool) {
+	if dev.Name == defaults.HostDevice {
+		return false
+	}
+
+	fallbacks := &n.fallbackAddresses
+	if deleted && (fallbacks.ipv4.dev == dev || fallbacks.ipv6.dev == dev) {
+		// The device that was used for fallback address was removed.
+		// Clear the fallbacks and reprocess from scratch.
+		fallbacks.clear()
+		devices, _ := n.Devices.All(txn)
+		for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+			fallbacks.update(dev)
+		}
+		return true
+	} else {
+		return n.fallbackAddresses.update(dev)
 	}
 }
 
@@ -307,6 +388,11 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[Nod
 	}
 
 	if dev.Name != defaults.HostDevice {
+		// Only take addresses from the selected devices.
+		if !dev.Selected {
+			return nil
+		}
+
 		// Skip obviously uninteresting devices. We include the HostDevice as its IP addresses are
 		// considered node addresses and added to e.g. ipcache as HOST_IDs.
 		for _, prefix := range defaults.ExcludedDevicePrefixes {
@@ -386,29 +472,40 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[Nod
 			})
 	}
 
-	if len(n.Config.NodePortAddresses) == 0 {
+	if len(n.Config.NodePortAddresses) == 0 && dev.Selected {
 		// Pick the NodePort addresses. Prefer private addresses if possible.
 		if ipv4PrivateIndex >= 0 {
-			addrs[ipv4PrivateIndex].NodePort = dev.Selected
+			addrs[ipv4PrivateIndex].NodePort = true
 		} else if ipv4PublicIndex >= 0 {
-			addrs[ipv4PublicIndex].NodePort = dev.Selected
+			addrs[ipv4PublicIndex].NodePort = true
 		}
 
 		if ipv6PrivateIndex >= 0 {
-			addrs[ipv6PrivateIndex].NodePort = dev.Selected
+			addrs[ipv6PrivateIndex].NodePort = true
 		} else if ipv6PublicIndex >= 0 {
-			addrs[ipv6PublicIndex].NodePort = dev.Selected
+			addrs[ipv6PublicIndex].NodePort = true
 		}
 	}
 
 	return sets.New(addrs...)
 }
 
-// showAddresses formats a Set[NodeAddress] as "1.2.3.4 (eth0), fe80::1 (eth1)"
+// showAddresses formats a Set[NodeAddress] as "1.2.3.4 (primary, nodeport), fe80::1"
 func showAddresses(addrs sets.Set[NodeAddress]) string {
 	ss := make([]string, 0, len(addrs))
 	for addr := range addrs {
-		ss = append(ss, addr.String())
+		var extras []string
+		if addr.Primary {
+			extras = append(extras, "primary")
+		}
+		if addr.NodePort {
+			extras = append(extras, "nodeport")
+		}
+		if extras != nil {
+			ss = append(ss, fmt.Sprintf("%s (%s)", addr.Addr, strings.Join(extras, ", ")))
+		} else {
+			ss = append(ss, addr.Addr.String())
+		}
 	}
 	sort.Strings(ss)
 	return strings.Join(ss, ", ")
@@ -445,4 +542,62 @@ func SortedAddresses(addrs []DeviceAddress) []DeviceAddress {
 		}
 	})
 	return addrs
+}
+
+type fallbackAddress struct {
+	dev  *Device
+	addr DeviceAddress
+}
+
+type fallbackAddresses struct {
+	ipv4 fallbackAddress
+	ipv6 fallbackAddress
+}
+
+func (f *fallbackAddresses) clear() {
+	f.ipv4 = fallbackAddress{}
+	f.ipv6 = fallbackAddress{}
+}
+
+func (f *fallbackAddresses) addrs() []netip.Addr {
+	return []netip.Addr{f.ipv4.addr.Addr, f.ipv6.addr.Addr}
+}
+
+func (f *fallbackAddresses) update(dev *Device) (updated bool) {
+	// Iterate over all addresses to see if any of them make for a better
+	// fallback address.
+	for _, addr := range dev.Addrs {
+		if addr.Secondary {
+			continue
+		}
+		fa := &f.ipv4
+		if addr.Addr.Is6() {
+			fa = &f.ipv6
+		}
+		better := false
+		switch {
+		case fa.dev == nil:
+			better = true
+		case ip.IsPublicAddr(addr.Addr.AsSlice()) && !ip.IsPublicAddr(fa.addr.Addr.AsSlice()):
+			better = true
+		case !ip.IsPublicAddr(addr.Addr.AsSlice()) && ip.IsPublicAddr(fa.addr.Addr.AsSlice()):
+			better = false
+		case addr.Scope < fa.addr.Scope:
+			better = true
+		case addr.Scope > fa.addr.Scope:
+			better = false
+		case dev.Index < fa.dev.Index:
+			better = true
+		case dev.Index > fa.dev.Index:
+			better = false
+		default:
+			better = addr.Addr.Less(fa.addr.Addr)
+		}
+		if better {
+			updated = true
+			fa.dev = dev
+			fa.addr = addr
+		}
+	}
+	return
 }

@@ -136,6 +136,9 @@ func (s *syncHostIPs) sync(addrs statedb.Iterator[tables.NodeAddress]) error {
 	}
 
 	for addr, _, ok := addrs.Next(); ok; addr, _, ok = addrs.Next() {
+		if addr.DeviceName == tables.WildcardDeviceName {
+			continue
+		}
 		ip := addr.Addr.AsSlice()
 		if (!option.Config.EnableIPv4 && addr.Addr.Is4()) || (!option.Config.EnableIPv6 && addr.Addr.Is6()) {
 			continue
