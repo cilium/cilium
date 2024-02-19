@@ -547,6 +547,7 @@ Geneve dispatch enabled would look as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set routingMode=native \\
+        --set tunnelProtocol=geneve \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=geneve \\
