@@ -542,7 +542,6 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 		if err := netlink.AddrReplace(hostDev, &addr); err != nil {
 			return err
 		}
-
 	}
 	return nil
 }
