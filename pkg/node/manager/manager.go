@@ -344,7 +344,7 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 			m.metrics.DatapathValidations.Inc()
 		}
 
-		hr := cell.GetHealthReporter(m.healthScope, "background-sync")
+		hr := m.healthScope.NewScope("background-sync")
 		if errs != nil {
 			hr.Degraded("Failed to apply node validation", errs)
 		} else {
@@ -611,7 +611,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 				}
 			})
 
-			hr := cell.GetHealthReporter(m.healthScope, "nodes-update")
+			hr := m.healthScope.NewScope("nodes-update")
 			if errs != nil {
 				hr.Degraded("Failed to update nodes", errs)
 			} else {
@@ -644,7 +644,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			})
 		}
 		entry.mutex.Unlock()
-		hr := cell.GetHealthReporter(m.healthScope, "nodes-add")
+		hr := m.healthScope.NewScope("nodes-add")
 		if errs != nil {
 			hr.Degraded("Failed to add nodes", errs)
 		} else {
@@ -796,7 +796,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	})
 	entry.mutex.Unlock()
 
-	hr := cell.GetHealthReporter(m.healthScope, "nodes-delete")
+	hr := m.healthScope.NewScope("nodes-delete")
 	if errs != nil {
 		hr.Degraded("Failed to delete nodes", errs)
 	} else {

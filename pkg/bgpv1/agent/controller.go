@@ -6,10 +6,10 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/util/workqueue"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -81,6 +82,7 @@ type Controller struct {
 type ControllerParams struct {
 	cell.In
 
+	Logger                  *slog.Logger
 	Lifecycle               cell.Lifecycle
 	Scope                   cell.Scope
 	JobRegistry             job.Registry
@@ -116,7 +118,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Scope,
-		job.WithLogger(log),
+		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "bgp-cp")),
 	)
 
@@ -159,7 +161,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 			// run the controller
 			c.Run(ctx)
 			return nil
-		}, job.WithRetry(3, workqueue.DefaultControllerRateLimiter()), job.WithShutdown()),
+		}, job.WithRetry(3, &job.ExponentialBackoff{Min: time.Second, Max: time.Minute}), job.WithShutdown()),
 	)
 
 	params.Lifecycle.Append(jobGroup)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -296,19 +297,19 @@ func Execute(cmd *cobra.Command) {
 	}
 }
 
-func registerOperatorHooks(lc cell.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	var wg sync.WaitGroup
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			wg.Add(1)
 			go func() {
-				runOperator(llc, clientset, shutdowner)
+				runOperator(log, llc, clientset, shutdowner)
 				wg.Done()
 			}()
 			return nil
 		},
 		OnStop: func(ctx cell.HookContext) error {
-			if err := llc.Stop(ctx); err != nil {
+			if err := llc.Stop(log, ctx); err != nil {
 				return err
 			}
 			doCleanup()
@@ -346,7 +347,7 @@ func doCleanup() {
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capability in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func runOperator(logger *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	isLeader.Store(false)
 
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
@@ -365,7 +366,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 	if !k8sversion.Capabilities().LeasesResourceLock {
 		log.Info("Support for coordination.k8s.io/v1 not present, fallback to non HA mode")
 
-		if err := lc.Start(leaderElectionCtx); err != nil {
+		if err := lc.Start(logger, leaderElectionCtx); err != nil {
 			log.WithError(err).Fatal("Failed to start leading")
 		}
 		return
@@ -414,7 +415,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				if err := lc.Start(ctx); err != nil {
+				if err := lc.Start(logger, ctx); err != nil {
 					log.WithError(err).Error("Failed to start when elected leader, shutting down")
 					shutdowner.Shutdown(hive.ShutdownWithError(err))
 				}

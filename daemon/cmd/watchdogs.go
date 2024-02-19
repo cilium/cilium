@@ -68,7 +68,7 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 				epBPFProgWatchdog,
 				controller.ControllerParams{
 					Group:          controller.NewGroup(epBPFProgWatchdog),
-					HealthReporter: cell.GetHealthReporter(p.Scope, epBPFProgWatchdog),
+					HealthReporter: p.Scope.NewScope(epBPFProgWatchdog),
 					DoFunc: func(ctx context.Context) error {
 						d, err := p.DaemonPromise.Await(ctx)
 						if err != nil {

@@ -121,7 +121,7 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 			DoFunc:         mgr.markAndSweep,
 			RunInterval:    interval,
 			Context:        ctx,
-			HealthReporter: cell.GetHealthReporter(mgr.reporterScope, "endpoint-gc"),
+			HealthReporter: mgr.reporterScope.NewScope("endpoint-gc"),
 		})
 	return mgr
 }

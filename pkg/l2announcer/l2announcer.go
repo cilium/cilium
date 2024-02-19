@@ -109,7 +109,7 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 		params: params,
 		jobgroup: params.JobRegistry.NewGroup(
 			params.Scope,
-			job.WithLogger(params.Logger),
+			//job.WithLogger(params.Logger),
 			job.WithPprofLabels(pprof.Labels("cell", "l2-announcer")),
 		),
 		selectedServices:  make(map[resource.Key]*selectedService),

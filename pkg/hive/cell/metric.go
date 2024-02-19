@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"reflect"
 
+	upstream "github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/dig"
 
-	"github.com/cilium/cilium/pkg/hive/internal"
 	pkgmetric "github.com/cilium/cilium/pkg/metrics/metric"
 )
 
@@ -79,9 +78,7 @@ func Metric[S any](ctor func() S) Cell {
 		}
 	}
 
-	return &metric[S]{
-		ctor: ctor,
-	}
+	return upstream.Provide(ctor, provideMetrics[S])
 }
 
 type metric[S any] struct {
@@ -89,12 +86,12 @@ type metric[S any] struct {
 }
 
 type metricOut struct {
-	dig.Out
+	upstream.Out
 
 	Metrics []pkgmetric.WithMetadata `group:"hive-metrics,flatten"`
 }
 
-func (m *metric[S]) provideMetrics(metricSet S) metricOut {
+func provideMetrics[S any](metricSet S) metricOut {
 	var metrics []pkgmetric.WithMetadata
 
 	value := reflect.ValueOf(metricSet)
@@ -117,22 +114,4 @@ func (m *metric[S]) provideMetrics(metricSet S) metricOut {
 	return metricOut{
 		Metrics: metrics,
 	}
-}
-
-func (m *metric[S]) Info(container) Info {
-	n := NewInfoNode(fmt.Sprintf("📈 %s", internal.FuncNameAndLocation(m.ctor)))
-	n.condensed = true
-
-	return n
-}
-
-func (m *metric[S]) Apply(container container) error {
-	// Provide the supplied constructor, so its return type is directly accessible by cells
-	container.Provide(m.ctor, dig.Export(true))
-
-	// Provide the metrics provider, which will take the return value of the constructor and turn it into a
-	// slice of metrics to be consumed by anyone interested in handling them.
-	container.Provide(m.provideMetrics, dig.Export(true))
-
-	return nil
 }

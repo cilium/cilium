@@ -5,6 +5,7 @@ package auth
 
 import (
 	"fmt"
+	"log/slog"
 	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
@@ -72,6 +73,7 @@ type authManagerParams struct {
 	cell.In
 
 	Logger      logrus.FieldLogger
+	Slog        *slog.Logger
 	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
 	Scope       cell.Scope
@@ -120,7 +122,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Scope,
-		job.WithLogger(params.Logger),
+		job.WithLogger(params.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "auth")),
 	)
 

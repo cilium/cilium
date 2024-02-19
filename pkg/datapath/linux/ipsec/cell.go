@@ -5,9 +5,8 @@ package ipsec
 
 import (
 	"fmt"
+	"log/slog"
 	"runtime/pprof"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -30,7 +29,7 @@ var Cell = cell.Module(
 type custodianParameters struct {
 	cell.In
 
-	Logger         logrus.FieldLogger
+	Logger         *slog.Logger
 	Scope          cell.Scope
 	JobRegistry    job.Registry
 	LocalNodeStore *node.LocalNodeStore

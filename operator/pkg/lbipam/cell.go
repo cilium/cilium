@@ -5,6 +5,7 @@ package lbipam
 
 import (
 	"context"
+	"log/slog"
 	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
@@ -32,6 +33,7 @@ var Cell = cell.Module(
 type lbipamCellParams struct {
 	cell.In
 
+	Slog   *slog.Logger
 	Logger logrus.FieldLogger
 
 	LC          cell.Lifecycle
@@ -63,7 +65,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Scope,
-		job.WithLogger(params.Logger),
+		job.WithLogger(params.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "lbipam")),
 	)
 

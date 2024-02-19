@@ -1,10 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright Authors of Cilium
-
 package cell
 
 import (
-	"go.uber.org/dig"
+	upstream "github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -14,45 +11,67 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "hive")
 )
 
-// Cell is the modular building block of the hive.
-//
-// A cell can be constructed with:
-//
-//   - Module(): Create a named set of cells.
-//   - Provide(): Provide object constructors.
-//   - Invoke(): Invoke a function to instantiate objects.
-//   - Decorate(): Decorate a set of cells to augment an object.
-//   - Config(): Cell providing a configuration struct.
-type Cell interface {
-	// Info provides a structural summary of the cell for printing purposes.
-	Info(container) Info
+type (
+	Lifecycle        = upstream.Lifecycle
+	DefaultLifecycle = upstream.DefaultLifecycle
+	Cell             = upstream.Cell
+	Hook             = upstream.Hook
+	HookInterface    = upstream.HookInterface
+	HookContext      = upstream.HookContext
 
-	// Apply the cell to the dependency graph container.
-	Apply(container) error
+	Scope          = upstream.Health
+	HealthReporter = upstream.Health
+
+	AllSettings  = upstream.AllSettings
+	FullModuleID = upstream.FullModuleID
+	ModuleID     = upstream.ModuleID
+	Level        = upstream.Level
+
+	In  = upstream.In
+	Out = upstream.Out
+)
+
+var (
+	Provide        = upstream.Provide
+	ProvidePrivate = upstream.ProvidePrivate
+	Invoke         = upstream.Invoke
+	Module         = upstream.Module
+	Group          = upstream.Group
+	Decorate       = upstream.Decorate
+
+	StatusUnknown  = upstream.StatusUnknown
+	StatusStopped  = upstream.StatusStopped
+	StatusDegraded = upstream.StatusDegraded
+	StatusOK       = upstream.StatusOK
+)
+
+func Config[T upstream.Flagger](cfg T) upstream.Cell {
+	return upstream.Config[T](cfg)
 }
 
-// In when embedded into a struct used as constructor parameter makes the exported
-// values of that struct become dependency injected values. In other words, it allows
-// moving a long list of constructor parameters into a struct.
-//
-// Struct fields can be annotated with `optional:"true"` to make the dependency optional.
-// If the type is not found in the dependency graph, the value is set to the zero value.
-//
-// See https://pkg.go.dev/go.uber.org/dig#In for more information.
-type In = dig.In
+//type Health struct{}
 
-// Out when embedded into a struct that is returned by a constructor will make the
-// values in the struct become objects in the dependency graph instead of the struct
-// itself.
-//
-// See https://pkg.go.dev/go.uber.org/dig#Out for more information.
-type Out = dig.Out
-
-// container is the common interface between dig.Container and dig.Scope.
-// Used in Apply().
-type container interface {
-	Provide(ctor any, opts ...dig.ProvideOption) error
-	Invoke(fn any, opts ...dig.InvokeOption) error
-	Decorate(fn any, opts ...dig.DecorateOption) error
-	Scope(name string, opts ...dig.ScopeOption) *dig.Scope
+/*
+type StatusNode struct {
+	ID              string        `json:"id"`
+	LastLevel       Level         `json:"level,omitempty"`
+	Name            string        `json:"name"`
+	Message         string        `json:"message,omitempty"`
+	UpdateTimestamp time.Time     `json:"timestamp"`
+	Count           int           `json:"count"`
+	SubStatuses     []*StatusNode `json:"sub_statuses,omitempty"`
+	Error           string        `json:"error,omitempty"`
 }
+
+func GetHealthReporter(scope upstream.Health, name string) HealthReporter {
+	return scope.NewScope(name)
+}
+
+func GetSubScope(parent Scope, name string) Scope {
+	return parent.NewScope(name)
+}
+
+func TestScope() Scope {
+	_, h := upstream.NewSimpleHealth()
+	return h
+}*/

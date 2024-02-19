@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
@@ -44,6 +45,7 @@ type BGPParams struct {
 	cell.In
 
 	Logger       logrus.FieldLogger
+	Slog         *slog.Logger
 	LC           cell.Lifecycle
 	Clientset    k8s_client.Clientset
 	DaemonConfig *option.DaemonConfig
@@ -63,6 +65,7 @@ type BGPParams struct {
 
 type BGPResourceManager struct {
 	logger    logrus.FieldLogger
+	slog      *slog.Logger
 	clientset k8s_client.Clientset
 	lc        cell.Lifecycle
 	jobs      job.Registry
@@ -104,6 +107,7 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 
 	b := &BGPResourceManager{
 		logger:    p.Logger,
+		slog:      p.Slog,
 		clientset: p.Clientset,
 		jobs:      p.JobRegistry,
 		lc:        p.LC,
@@ -135,7 +139,7 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 func (b *BGPResourceManager) initializeJobs() job.Group {
 	jobGroup := b.jobs.NewGroup(
 		b.scope,
-		job.WithLogger(b.logger),
+		job.WithLogger(b.slog),
 		job.WithPprofLabels(pprof.Labels("cell", "bgpv2-cp-operator")),
 	)
 
@@ -205,7 +209,7 @@ func (b *BGPResourceManager) initializeJobs() job.Group {
 
 func (b *BGPResourceManager) initializeStores(ctx context.Context) (err error) {
 	defer func() {
-		hr := cell.GetHealthReporter(b.scope, "bgpv2-store-initialization")
+		hr := b.scope.NewScope("bgpv2-store-initialization")
 		if err != nil {
 			hr.Stopped("store initialization failed")
 		} else {

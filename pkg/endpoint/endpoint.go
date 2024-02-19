@@ -412,11 +412,11 @@ func (e *Endpoint) GetRealizedRedirects() (redirects map[string]uint16) {
 }
 
 func (e *Endpoint) GetReporter(name string) cell.HealthReporter {
-	return cell.GetHealthReporter(e.reporterScope, name)
+	return e.reporterScope.NewScope(name)
 }
 
 func (e *Endpoint) InitEndpointScope(parent cell.Scope) {
-	s := cell.GetSubScope(parent, fmt.Sprintf("cilium-endpoint-%d (%s)", e.ID, e.GetK8sNamespaceAndPodName()))
+	s := parent.NewScope(fmt.Sprintf("cilium-endpoint-%d (%s)", e.ID, e.GetK8sNamespaceAndPodName()))
 	if s != nil {
 		e.closeHealthReporter = s.Close
 		e.reporterScope = s

@@ -7,8 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"runtime/pprof"
+
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -19,9 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
-
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 // Cell provides the L2 Responder Reconciler. This component takes the desired state, calculated by
@@ -48,7 +48,7 @@ type params struct {
 	cell.In
 
 	Lifecycle           cell.Lifecycle
-	Logger              logrus.FieldLogger
+	Logger              *slog.Logger
 	L2AnnouncementTable statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB             *statedb.DB
 	L2ResponderMap      l2respondermap.Map
@@ -106,7 +106,7 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.HealthRepor
 	// At startup, do an initial full reconciliation
 	_, err = p.fullReconciliation()
 	if err != nil {
-		log.WithError(err).Error("Error(s) while reconciling l2 responder map")
+		log.Error("Error(s) while reconciling l2 responder map", "error", err)
 	}
 
 	for ctx.Err() == nil {
@@ -161,7 +161,7 @@ func (p *l2ResponderReconciler) cycle(
 		return nil
 	})
 	if err != nil {
-		log.WithError(err).Error("error during partial reconciliation")
+		log.Error("error during partial reconciliation", "error", err)
 	}
 
 	select {
@@ -179,7 +179,7 @@ func (p *l2ResponderReconciler) cycle(
 		// entries in the table for full reconciliation.
 		newRev, err := p.fullReconciliation()
 		if err != nil {
-			log.WithError(err).Error("Error(s) while full reconciling l2 responder map")
+			log.Error("Error(s) while full reconciling l2 responder map", "error", err)
 		}
 		tracker.Mark(newRev)
 

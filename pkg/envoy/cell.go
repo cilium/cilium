@@ -6,6 +6,7 @@ package envoy
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"runtime/pprof"
 
@@ -149,6 +150,7 @@ type versionCheckParams struct {
 
 	Lifecycle        cell.Lifecycle
 	Logger           logrus.FieldLogger
+	Slog             *slog.Logger
 	JobRegistry      job.Registry
 	Scope            cell.Scope
 	EnvoyAdminClient *EnvoyAdminClient
@@ -169,7 +171,7 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Scope,
-		job.WithLogger(params.Logger),
+		job.WithLogger(params.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
 	)
 	params.Lifecycle.Append(jobGroup)
@@ -214,6 +216,7 @@ func newArtifactCopier(lifecycle cell.Lifecycle) *ArtifactCopier {
 type syncerParams struct {
 	cell.In
 
+	Slog        *slog.Logger
 	Logger      logrus.FieldLogger
 	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
@@ -254,7 +257,7 @@ func registerSecretSyncer(params syncerParams) error {
 
 	jobGroup := params.JobRegistry.NewGroup(
 		params.Scope,
-		job.WithLogger(params.Logger),
+		job.WithLogger(params.Slog),
 		job.WithPprofLabels(pprof.Labels("cell", "envoy-secretsyncer")),
 	)
 
