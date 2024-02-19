@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"unsafe"
 
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/sysenc"
-
-	"golang.org/x/exp/slices"
 )
 
 // marshalMapSyscallInput converts an arbitrary value into a pointer suitable

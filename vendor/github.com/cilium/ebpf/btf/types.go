@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
-	"golang.org/x/exp/slices"
 )
 
 // Mirrors MAX_RESOLVE_DEPTH in libbpf.

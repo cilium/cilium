@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/cilium/ebpf/internal"
+	"sync"
 )
 
-var possibleCPU = internal.Memoize(func() (int, error) {
+var possibleCPU = sync.OnceValues(func() (int, error) {
 	return parseCPUsFromFile("/sys/devices/system/cpu/possible")
 })
 

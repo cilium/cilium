@@ -6,11 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 
 	"github.com/cilium/ebpf/internal"
-
-	"golang.org/x/exp/slices"
 )
 
 type MarshalOptions struct {

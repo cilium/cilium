@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-
-	"golang.org/x/exp/slices"
+	"slices"
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
