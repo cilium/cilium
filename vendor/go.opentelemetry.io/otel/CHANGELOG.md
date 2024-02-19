@@ -8,6 +8,60 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.23.1] 2024-02-07
+
+### Fixed
+
+- Register all callbacks passed during observable instrument creation instead of just the last one multiple times in `go.opentelemetry.io/otel/sdk/metric`. (#4888)
+
+## [1.23.0] 2024-02-06
+
+This release contains the first stable, `v1`, release of the following modules:
+
+- `go.opentelemetry.io/otel/bridge/opencensus`
+- `go.opentelemetry.io/otel/bridge/opencensus/test`
+- `go.opentelemetry.io/otel/example/opencensus`
+- `go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc`
+- `go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp`
+- `go.opentelemetry.io/otel/exporters/stdout/stdoutmetric`
+
+See our [versioning policy](VERSIONING.md) for more information about these stability guarantees.
+
+### Added
+
+- Add `WithEndpointURL` option to the `exporters/otlp/otlpmetric/otlpmetricgrpc`, `exporters/otlp/otlpmetric/otlpmetrichttp`, `exporters/otlp/otlptrace/otlptracegrpc` and `exporters/otlp/otlptrace/otlptracehttp` packages. (#4808)
+- Experimental exemplar exporting is added to the metric SDK.
+  See [metric documentation](./sdk/metric/EXPERIMENTAL.md#exemplars) for more information about this feature and how to enable it. (#4871)
+- `ErrSchemaURLConflict` is added to `go.opentelemetry.io/otel/sdk/resource`.
+  This error is returned when a merge of two `Resource`s with different (non-empty) schema URL is attempted. (#4876)
+
+### Changed
+
+- The `Merge` and `New` functions in `go.opentelemetry.io/otel/sdk/resource` now returns a partial result if there is a schema URL merge conflict.
+  Instead of returning `nil` when two `Resource`s with different (non-empty) schema URLs are merged the merged `Resource`, along with the new `ErrSchemaURLConflict` error, is returned.
+  It is up to the user to decide if they want to use the returned `Resource` or not.
+  It may have desired attributes overwritten or include stale semantic conventions. (#4876)
+
+### Fixed
+
+- Fix `ContainerID` resource detection on systemd when cgroup path has a colon. (#4449)
+- Fix `go.opentelemetry.io/otel/sdk/metric` to cache instruments to avoid leaking memory when the same instrument is created multiple times. (#4820)
+- Fix missing `Mix` and `Max` values for `go.opentelemetry.io/otel/exporters/stdout/stdoutmetric` by introducing `MarshalText` and `MarshalJSON` for the `Extrema` type in `go.opentelemetry.io/sdk/metric/metricdata`. (#4827)
+
+## [1.23.0-rc.1] 2024-01-18
+
+This is a release candidate for the v1.23.0 release.
+That release is expected to include the `v1` release of the following modules:
+
+- `go.opentelemetry.io/otel/bridge/opencensus`
+- `go.opentelemetry.io/otel/bridge/opencensus/test`
+- `go.opentelemetry.io/otel/example/opencensus`
+- `go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc`
+- `go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp`
+- `go.opentelemetry.io/otel/exporters/stdout/stdoutmetric`
+
+See our [versioning policy](VERSIONING.md) for more information about these stability guarantees.
+
 ## [1.22.0/0.45.0] 2024-01-17
 
 ### Added
@@ -28,7 +82,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 
 - Upgrade all use of `go.opentelemetry.io/otel/semconv` to use `v1.24.0`. (#4754)
-- Update transformations in `go.opentelemetry.io/otel/exporters/zipkin` to follow `v1.19.0` version of the OpenTelemetry specification. (#4754)
+- Update transformations in `go.opentelemetry.io/otel/exporters/zipkin` to follow `v1.24.0` version of the OpenTelemetry specification. (#4754)
 - Record synchronous measurements when the passed context is canceled instead of dropping in `go.opentelemetry.io/otel/sdk/metric`.
   If you do not want to make a measurement when the context is cancelled, you need to handle it yourself (e.g  `if ctx.Err() != nil`). (#4671)
 - Improve `go.opentelemetry.io/otel/trace.TraceState`'s performance. (#4722)
@@ -2775,7 +2829,10 @@ It contains api and sdk for trace and meter.
 - CircleCI build CI manifest files.
 - CODEOWNERS file to track owners of this project.
 
-[Unreleased]: https://github.com/open-telemetry/opentelemetry-go/compare/v1.22.0...HEAD
+[Unreleased]: https://github.com/open-telemetry/opentelemetry-go/compare/v1.23.1...HEAD
+[1.23.1]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.23.1
+[1.23.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.23.0
+[1.23.0-rc.1]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.23.0-rc.1
 [1.22.0/0.45.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.22.0
 [1.21.0/0.44.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.21.0
 [1.20.0/0.43.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.20.0

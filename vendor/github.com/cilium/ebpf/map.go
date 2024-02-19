@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -907,7 +908,7 @@ func (m *Map) nextKey(key interface{}, nextKeyOut sys.Pointer) error {
 	return nil
 }
 
-var mmapProtectedPage = internal.Memoize(func() ([]byte, error) {
+var mmapProtectedPage = sync.OnceValues(func() ([]byte, error) {
 	return unix.Mmap(-1, 0, os.Getpagesize(), unix.PROT_NONE, unix.MAP_ANON|unix.MAP_SHARED)
 })
 
@@ -974,7 +975,7 @@ func (m *Map) guessNonExistentKey() ([]byte, error) {
 // ErrKeyNotExist is returned when the batch lookup has reached
 // the end of all possible results, even when partial results
 // are returned. It should be used to evaluate when lookup is "done".
-func (m *Map) BatchLookup(cursor *BatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
+func (m *Map) BatchLookup(cursor *MapBatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
 	return m.batchLookup(sys.BPF_MAP_LOOKUP_BATCH, cursor, keysOut, valuesOut, opts)
 }
 
@@ -994,17 +995,17 @@ func (m *Map) BatchLookup(cursor *BatchCursor, keysOut, valuesOut interface{}, o
 // ErrKeyNotExist is returned when the batch lookup has reached
 // the end of all possible results, even when partial results
 // are returned. It should be used to evaluate when lookup is "done".
-func (m *Map) BatchLookupAndDelete(cursor *BatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
+func (m *Map) BatchLookupAndDelete(cursor *MapBatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
 	return m.batchLookup(sys.BPF_MAP_LOOKUP_AND_DELETE_BATCH, cursor, keysOut, valuesOut, opts)
 }
 
-// BatchCursor represents a starting point for a batch operation.
-type BatchCursor struct {
+// MapBatchCursor represents a starting point for a batch operation.
+type MapBatchCursor struct {
 	m      *Map
 	opaque []byte
 }
 
-func (m *Map) batchLookup(cmd sys.Cmd, cursor *BatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
+func (m *Map) batchLookup(cmd sys.Cmd, cursor *MapBatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
 	if m.typ.hasPerCPUValue() {
 		return m.batchLookupPerCPU(cmd, cursor, keysOut, valuesOut, opts)
 	}
@@ -1029,7 +1030,7 @@ func (m *Map) batchLookup(cmd sys.Cmd, cursor *BatchCursor, keysOut, valuesOut i
 	return n, nil
 }
 
-func (m *Map) batchLookupPerCPU(cmd sys.Cmd, cursor *BatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
+func (m *Map) batchLookupPerCPU(cmd sys.Cmd, cursor *MapBatchCursor, keysOut, valuesOut interface{}, opts *BatchOptions) (int, error) {
 	count, err := sliceLen(keysOut)
 	if err != nil {
 		return 0, fmt.Errorf("keys: %w", err)
@@ -1051,7 +1052,7 @@ func (m *Map) batchLookupPerCPU(cmd sys.Cmd, cursor *BatchCursor, keysOut, value
 	return n, sysErr
 }
 
-func (m *Map) batchLookupCmd(cmd sys.Cmd, cursor *BatchCursor, count int, keysOut any, valuePtr sys.Pointer, opts *BatchOptions) (int, error) {
+func (m *Map) batchLookupCmd(cmd sys.Cmd, cursor *MapBatchCursor, count int, keysOut any, valuePtr sys.Pointer, opts *BatchOptions) (int, error) {
 	cursorLen := int(m.keySize)
 	if cursorLen < 4 {
 		// * generic_map_lookup_batch requires that batch_out is key_size bytes.

@@ -293,7 +293,7 @@ func countBatch[T any](m *Map) (count int, err error) {
 	kout := make([]T, chunkSize)
 	vout := make([]CtEntry, chunkSize)
 
-	var cursor ebpf.BatchCursor
+	var cursor ebpf.MapBatchCursor
 	for {
 		c, batchErr := m.BatchLookup(&cursor, kout, vout, nil)
 		count += c

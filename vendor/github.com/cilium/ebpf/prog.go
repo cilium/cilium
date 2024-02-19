@@ -53,7 +53,7 @@ type ProgramOptions struct {
 	// verifier output enabled. Upon error, the program load will be repeated
 	// with LogLevelBranch and the given (or default) LogSize value.
 	//
-	// Setting this to a non-zero value will unconditionally enable the verifier
+	// Unless LogDisabled is set, setting this to a non-zero value will enable the verifier
 	// log, populating the [ebpf.Program.VerifierLog] field on successful loads
 	// and including detailed verifier errors if the program is rejected. This
 	// will always allocate an output buffer, but will result in only a single
