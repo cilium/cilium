@@ -70,7 +70,6 @@ func (r *RoutePolicyReconciler) Priority() int {
 
 func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
 	l := log.WithFields(logrus.Fields{"component": "RoutePolicyReconciler"})
-	l.Infof("Begin reconciling routing policies for virtual router with local ASN %v", params.DesiredConfig.LocalASN)
 
 	if params.DesiredConfig == nil {
 		return fmt.Errorf("attempted routing policy reconciliation with nil DesiredConfig")
