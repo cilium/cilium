@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -36,11 +37,11 @@ func (s *Encrypt) GetEncryptStatus(ctx context.Context) error {
 	return s.writeStatus(res)
 }
 
-func (s *Encrypt) fetchEncryptStatusConcurrently(ctx context.Context, pods []corev1.Pod) (map[string]EncryptionStatus, error) {
+func (s *Encrypt) fetchEncryptStatusConcurrently(ctx context.Context, pods []corev1.Pod) (map[string]models.EncryptionStatus, error) {
 	// res contains data returned from cilium pod
 	type res struct {
 		nodeName string
-		status   EncryptionStatus
+		status   models.EncryptionStatus
 		err      error
 	}
 	resCh := make(chan res)
@@ -60,7 +61,7 @@ func (s *Encrypt) fetchEncryptStatusConcurrently(ctx context.Context, pods []cor
 
 	// read from the channel, on error, store error and continue to next node
 	var err error
-	data := make(map[string]EncryptionStatus)
+	data := make(map[string]models.EncryptionStatus)
 	for range pods {
 		r := <-resCh
 		if r.err != nil {
@@ -72,42 +73,42 @@ func (s *Encrypt) fetchEncryptStatusConcurrently(ctx context.Context, pods []cor
 	return data, err
 }
 
-func (s *Encrypt) fetchEncryptStatusFromPod(ctx context.Context, pod corev1.Pod) (EncryptionStatus, error) {
+func (s *Encrypt) fetchEncryptStatusFromPod(ctx context.Context, pod corev1.Pod) (models.EncryptionStatus, error) {
 	cmd := []string{"cilium", "encrypt", "status", "-o", "json"}
 	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 	if err != nil {
-		return EncryptionStatus{}, fmt.Errorf("failed to fetch encryption status from %s: %v", pod.Name, err)
+		return models.EncryptionStatus{}, fmt.Errorf("failed to fetch encryption status from %s: %v", pod.Name, err)
 	}
 	encStatus, err := nodeStatusFromOutput(output.String())
 	if err != nil {
-		return EncryptionStatus{}, fmt.Errorf("failed to parse encryption status from %s: %v", pod.Name, err)
+		return models.EncryptionStatus{}, fmt.Errorf("failed to parse encryption status from %s: %v", pod.Name, err)
 	}
 	return encStatus, nil
 }
 
-func nodeStatusFromOutput(output string) (EncryptionStatus, error) {
+func nodeStatusFromOutput(output string) (models.EncryptionStatus, error) {
 	if !json.Valid([]byte(output)) {
 		res, err := nodeStatusFromText(output)
 		if err != nil {
-			return EncryptionStatus{}, fmt.Errorf("failed to parse text: %v", err)
+			return models.EncryptionStatus{}, fmt.Errorf("failed to parse text: %v", err)
 		}
 		return res, nil
 	}
-	encStatus := EncryptionStatus{}
+	encStatus := models.EncryptionStatus{}
 	if err := json.Unmarshal([]byte(output), &encStatus); err != nil {
-		return EncryptionStatus{}, fmt.Errorf("failed to unmarshal json: %v", err)
+		return models.EncryptionStatus{}, fmt.Errorf("failed to unmarshal json: %v", err)
 	}
 	return encStatus, nil
 }
 
-func nodeStatusFromText(str string) (EncryptionStatus, error) {
-	res := EncryptionStatus{
-		Ipsec: &IPsecStatus{
+func nodeStatusFromText(str string) (models.EncryptionStatus, error) {
+	res := models.EncryptionStatus{
+		Ipsec: &models.IPsecStatus{
 			DecryptInterfaces: make([]string, 0),
 			XfrmErrors:        make(map[string]int64),
 		},
-		Wireguard: &WireguardStatus{
-			Interfaces: make([]*WireguardInterface, 0),
+		Wireguard: &models.WireguardStatus{
+			Interfaces: make([]*models.WireguardInterface, 0),
 		},
 	}
 	lines := strings.Split(str, "\n")
@@ -129,19 +130,19 @@ func nodeStatusFromText(str string) (EncryptionStatus, error) {
 		case "Keys in use":
 			keys, err := strconv.Atoi(value)
 			if err != nil {
-				return EncryptionStatus{}, fmt.Errorf("invalid number 'Keys in use' [%s]: %v", value, err)
+				return models.EncryptionStatus{}, fmt.Errorf("invalid number 'Keys in use' [%s]: %v", value, err)
 			}
 			res.Ipsec.KeysInUse = int64(keys)
 		case "Errors":
 			count, err := strconv.Atoi(value)
 			if err != nil {
-				return EncryptionStatus{}, fmt.Errorf("invalid number 'Errors' [%s]: %v", value, err)
+				return models.EncryptionStatus{}, fmt.Errorf("invalid number 'Errors' [%s]: %v", value, err)
 			}
 			res.Ipsec.ErrorCount = int64(count)
 		default:
 			count, err := strconv.Atoi(value)
 			if err != nil {
-				return EncryptionStatus{}, fmt.Errorf("invalid number '%s' [%s]: %v", key, value, err)
+				return models.EncryptionStatus{}, fmt.Errorf("invalid number '%s' [%s]: %v", key, value, err)
 			}
 			res.Ipsec.XfrmErrors[key] = int64(count)
 		}
@@ -149,7 +150,7 @@ func nodeStatusFromText(str string) (EncryptionStatus, error) {
 	return res, nil
 }
 
-func (s *Encrypt) writeStatus(res map[string]EncryptionStatus) error {
+func (s *Encrypt) writeStatus(res map[string]models.EncryptionStatus) error {
 	if s.params.PerNodeDetails {
 		for nodeName, n := range res {
 			if err := printStatus(nodeName, n, s.params.Output); err != nil {
@@ -165,7 +166,7 @@ func (s *Encrypt) writeStatus(res map[string]EncryptionStatus) error {
 	return cs.printStatus(s.params.Output)
 }
 
-func clusterNodeStatus(res map[string]EncryptionStatus) (clusterStatus, error) {
+func clusterNodeStatus(res map[string]models.EncryptionStatus) (clusterStatus, error) {
 	cs := clusterStatus{
 		TotalNodeCount:          len(res),
 		IPsecKeysInUseNodeCount: make(map[int64]int64),
@@ -237,7 +238,7 @@ func (c clusterStatus) printStatus(format string) error {
 	return err
 }
 
-func printStatus(nodeName string, n EncryptionStatus, format string) error {
+func printStatus(nodeName string, n models.EncryptionStatus, format string) error {
 	if format == status.OutputJSON {
 		return printJSONStatus(n)
 	}
