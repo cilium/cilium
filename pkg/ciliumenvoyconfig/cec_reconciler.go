@@ -131,6 +131,26 @@ func (r *ciliumEnvoyConfigReconciler) handleLocalNodeLabels(ctx context.Context,
 	r.localNodeLabels = localNode.Labels
 	r.logger.Debug("Labels of local Node changed - updated local store")
 
+	// Best effort attempt to reconcile existing configs as fast as possible.
+	//
+	// Errors are only logged and not reported. Otherwise the healthmanager state will be degraded
+	// until the next label change on the node.
+	// It's the responsibility of the corresponding TimerJob to perform a periodic reconciliation.
+	if err := r.reconcileExistingConfigsLocked(ctx); err != nil {
+		r.logger.WithError(err).Error("failed to reconcile existing configs due to changed node labels")
+	}
+
+	return nil
+}
+
+func (r *ciliumEnvoyConfigReconciler) reconcileExistingConfigs(ctx context.Context) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	return r.reconcileExistingConfigsLocked(ctx)
+}
+
+func (r *ciliumEnvoyConfigReconciler) reconcileExistingConfigsLocked(ctx context.Context) error {
 	r.logger.Debug("Checking whether existing configs need to be applied or filtered")
 
 	// Error containing all potential errors during reconciliation of the configs.
@@ -143,9 +163,9 @@ func (r *ciliumEnvoyConfigReconciler) handleLocalNodeLabels(ctx context.Context,
 
 		err := r.configUpsertedInternal(ctx, key, cfg, false /* spec didn't change */)
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to reconcile config due to changed node labels")
+			scopedLogger.WithError(err).Error("failed to reconcile existing configs")
 			// don't prevent reconciliation of other configs in case of an error for a particular config
-			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile config due to changed node labels (%s): %w", key, err))
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile existing config (%s): %w", key, err))
 			continue
 		}
 	}

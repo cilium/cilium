@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
@@ -31,7 +33,16 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newCECManager),
 	cell.ProvidePrivate(newCECResourceParser),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
+	cell.Config(cecConfig{}),
 )
+
+type cecConfig struct {
+	EnvoyConfigRetryInterval time.Duration
+}
+
+func (r cecConfig) Flags(flags *pflag.FlagSet) {
+	flags.Duration("envoy-config-retry-interval", 15*time.Second, "Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated.")
+}
 
 type reconcilerParams struct {
 	cell.In
@@ -41,6 +52,7 @@ type reconcilerParams struct {
 	JobRegistry job.Registry
 	Scope       cell.Scope
 
+	Config  cecConfig
 	Manager ciliumEnvoyConfigManager
 
 	CECResources   resource.Resource[*ciliumv2.CiliumEnvoyConfig]
@@ -85,6 +97,12 @@ func registerCECK8sReconciler(params reconcilerParams) {
 	// Observing local node events for changed labels
 	// Note: LocalNodeStore (in comparison to `resource.Resource`) doesn't provide a retry mechanism
 	jobGroup.Add(job.Observer("local-node-events", reconciler.handleLocalNodeEvent, params.LocalNodeStore))
+
+	// TimerJob periodically reconciles all existing configs.
+	// This covers the cases were the reconciliation fails after changing the labels of a node.
+	if params.Config.EnvoyConfigRetryInterval > 0 {
+		jobGroup.Add(job.Timer("reconcile-existing-configs", reconciler.reconcileExistingConfigs, params.Config.EnvoyConfigRetryInterval))
+	}
 }
 
 type managerParams struct {

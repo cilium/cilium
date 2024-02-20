@@ -1260,6 +1260,10 @@
      - Enable CiliumEnvoyConfig CRD CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
      - bool
      - ``false``
+   * - :spelling:ignore:`envoyConfig.retryInterval`
+     - Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated.
+     - string
+     - ``"15s"``
    * - :spelling:ignore:`envoyConfig.secretsNamespace`
      - SecretsNamespace is the namespace in which envoy SDS will retrieve secrets from.
      - object
