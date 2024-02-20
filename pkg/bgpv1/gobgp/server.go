@@ -87,7 +87,7 @@ func NewGoBGPServerWithConfig(ctx context.Context, log *logrus.Entry, params typ
 	}
 	err := s.WatchEvent(ctx, watchRequest, func(r *gobgp.WatchEventResponse) {
 		if p := r.GetPeer(); p != nil && p.Type == gobgp.WatchEventResponse_PeerEvent_STATE {
-			logger.l.Info(p)
+			logger.l.Debug(p)
 		}
 	})
 	if err != nil {
