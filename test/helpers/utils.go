@@ -511,29 +511,8 @@ func DoesNotRunOn54Kernel() bool {
 	return !RunsOn54Kernel()
 }
 
-// RunsOn419Kernel checks whether a test case is running on the 4.19 kernel.
-func RunsOn419Kernel() bool {
-	return os.Getenv("KERNEL") == "419"
-}
-
 func NativeRoutingCIDR() string {
 	return os.Getenv("NATIVE_CIDR")
-}
-
-// DoesNotRunOn419Kernel is the complement function of RunsOn419Kernel.
-func DoesNotRunOn419Kernel() bool {
-	return !RunsOn419Kernel()
-}
-
-// RunsOn419OrLaterKernel checks whether a test case is running on 4.19.x (x > 57) or later kernel
-func RunsOn419OrLaterKernel() bool {
-	return RunsOnNetNextKernel() || RunsOn419Kernel() || RunsOn54Kernel()
-}
-
-// DoesNotRunOn419OrLaterKernel is the complement function of
-// RunsOn419OrLaterKernel.
-func DoesNotRunOn419OrLaterKernel() bool {
-	return !RunsOn419OrLaterKernel()
 }
 
 // RunsOn54OrLaterKernel checks whether a test case is running on 5.4 or later kernel

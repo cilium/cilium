@@ -40,7 +40,7 @@ var _ = SkipDescribeIf(func() bool { return helpers.RunsOn54Kernel() && helpers.
 		kubectl.CiliumReport("cilium-dbg endpoint list -o jsonpath='{range [*]}{@.id}{\"=\"}{@.status.networking.mac}{\"\\n\"}{end}'")
 	})
 
-	SkipContextIf(func() bool { return !helpers.RunsOn419OrLaterKernel() && helpers.DoesNotRunOnAKS() }, "Check whether the pod is created", func() {
+	SkipContextIf(func() bool { return helpers.DoesNotRunOnAKS() }, "Check whether the pod is created", func() {
 		const specificMACAddress = "specific-mac-address=specific-mac-address"
 		var podYAML string
 
