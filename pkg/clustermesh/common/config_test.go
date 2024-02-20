@@ -46,13 +46,13 @@ func writeFile(c *C, name, content string) {
 	c.Assert(err, IsNil)
 }
 
-func expectExists(c *C, cm *ClusterMesh, name string) {
+func expectExists(c *C, cm *clusterMesh, name string) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 	c.Assert(cm.clusters[name], Not(IsNil))
 }
 
-func expectChange(c *C, cm *ClusterMesh, name string) {
+func expectChange(c *C, cm *clusterMesh, name string) {
 	cm.mutex.RLock()
 	cluster := cm.clusters[name]
 	cm.mutex.RUnlock()
@@ -65,7 +65,7 @@ func expectChange(c *C, cm *ClusterMesh, name string) {
 	}
 }
 
-func expectNoChange(c *C, cm *ClusterMesh, name string) {
+func expectNoChange(c *C, cm *clusterMesh, name string) {
 	cm.mutex.RLock()
 	cluster := cm.clusters[name]
 	cm.mutex.RUnlock()
@@ -78,7 +78,7 @@ func expectNoChange(c *C, cm *ClusterMesh, name string) {
 	}
 }
 
-func expectNotExist(c *C, cm *ClusterMesh, name string) {
+func expectNotExist(c *C, cm *clusterMesh, name string) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 	c.Assert(cm.clusters[name], IsNil)
@@ -123,7 +123,7 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 		NewRemoteCluster: func(string, StatusFunc) RemoteCluster { return &fakeRemoteCluster{} },
 		Metrics:          MetricsProvider("clustermesh")(),
 	})
-	cm := &gcm
+	cm := gcm.(*clusterMesh)
 	hivetest.Lifecycle(c).Append(cm)
 
 	// wait for cluster1 and cluster2 to appear
