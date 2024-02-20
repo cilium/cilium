@@ -17,7 +17,6 @@ import (
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesV1 "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
-	"github.com/containernetworking/plugins/pkg/ns"
 	gops "github.com/google/gops/agent"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/hooks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
@@ -469,22 +470,24 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 	}
 
-	netNs, err := ns.GetNS(args.Netns)
-	if err != nil {
-		return fmt.Errorf("failed to open netns %q: %w", args.Netns, err)
-	}
-	defer netNs.Close()
-
 	res := &cniTypesV1.Result{}
 	configs, err := cmd.cfg.GetConfigurations(ConfigurationParams{log, conf, args, cniArgs})
 	if err != nil {
 		return fmt.Errorf("failed to determine endpoint configuration: %w", err)
 	}
 
+	ns, err := netns.OpenPinned(args.Netns)
+	if err != nil {
+		return fmt.Errorf("opening netns pinned at %s: %w", args.Netns, err)
+	}
+	defer ns.Close()
+
 	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	for _, epConf := range configs {
-		if err = netns.RemoveIfFromNetNSIfExists(netNs, epConf.IfName()); err != nil {
+		if err = ns.Do(func() error {
+			return link.DeleteByName(epConf.IfName())
+		}); err != nil {
 			return fmt.Errorf("failed removing interface %q from namespace %q: %w",
 				epConf.IfName(), args.Netns, err)
 		}
@@ -543,11 +546,11 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 				Mac:  veth.Attrs().HardwareAddr.String(),
 			})
 
-			if err = netlink.LinkSetNsFd(peer, int(netNs.Fd())); err != nil {
-				return fmt.Errorf("unable to move veth pair %q to netns: %w", peer, err)
+			if err := netlink.LinkSetNsFd(peer, ns.FD()); err != nil {
+				return fmt.Errorf("unable to move veth pair %q to netns %s: %w", peer, args.Netns, err)
 			}
 
-			err = connector.SetupVethRemoteNs(netNs, tmpIfName, epConf.IfName())
+			err = connector.SetupVethRemoteNs(ns, tmpIfName, epConf.IfName())
 			if err != nil {
 				return fmt.Errorf("unable to set up veth on container side: %w", err)
 			}
@@ -596,7 +599,8 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		var macAddrStr string
-		if err = netNs.Do(func(_ ns.NetNS) error {
+
+		if err = ns.Do(func() error {
 			if ipv6IsEnabled(ipam) {
 				param := "net.ipv6.conf.all.disable_ipv6"
 				if err != nil {
@@ -623,7 +627,10 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
 			// Set the MAC address on the interface in the container namespace
-			err = netns.ReplaceMacAddressWithLinkName(netNs, args.IfName, newEp.Status.Networking.Mac)
+			err = ns.Do(func() error {
+				return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
+			})
+
 			if err != nil {
 				return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)
 			}
@@ -725,16 +732,14 @@ func (cmd *Cmd) Del(args *skel.CmdArgs) error {
 		}
 	}
 
-	netNs, err := ns.GetNS(args.Netns)
+	ns, err := netns.OpenPinned(args.Netns)
 	if err != nil {
-		log.WithError(err).Warningf("Unable to enter namespace %q, will not delete interface", args.Netns)
-		// We are not returning an error as this is very unlikely to be recoverable
-		return nil
+		return fmt.Errorf("opening netns pinned at %s: %w", args.Netns, err)
 	}
-	defer netNs.Close()
-
-	err = netns.RemoveIfFromNetNSIfExists(netNs, args.IfName)
-	if err != nil {
+	defer ns.Close()
+	if err = ns.Do(func() error {
+		return link.DeleteByName(args.IfName)
+	}); err != nil {
 		log.WithError(err).Warningf("Unable to delete interface %s in namespace %q, will not delete interface", args.IfName, args.Netns)
 		// We are not returning an error as this is very unlikely to be recoverable
 	}
@@ -820,13 +825,6 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 		return err
 	}
 
-	netNs, err := ns.GetNS(args.Netns)
-	if err != nil {
-		return cniTypes.NewError(cniTypes.ErrInvalidEnvironmentVariables, "NoNetNS",
-			fmt.Sprintf("failed to open netns %q: %s", args.Netns, err))
-	}
-	defer netNs.Close()
-
 	// Ask the agent for the endpoint's health
 	eID := endpointid.NewCNIAttachmentID(args.ContainerID, args.IfName)
 	logger.Debugf("Asking agent for healthz for %s", eID)
@@ -844,7 +842,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 
 	// Verify that the interface exists and has the desired IP address
 	// we can get the IP from the CNI previous result.
-	if err := verifyInterface(netNs, args.IfName, prevResult); err != nil {
+	if err := verifyInterface(args.Netns, args.IfName, prevResult); err != nil {
 		return err
 	}
 
@@ -853,7 +851,7 @@ func (cmd *Cmd) Check(args *skel.CmdArgs) error {
 
 // verifyInterface verifies that a given interface exists in the netns
 // with the given addresses
-func verifyInterface(netns ns.NetNS, ifName string, expected *cniTypesV1.Result) error {
+func verifyInterface(netnsPinPath, ifName string, expected *cniTypesV1.Result) error {
 	wantAddresses := []*cniTypesV1.IPConfig{}
 	for idx, iface := range expected.Interfaces {
 		if iface.Sandbox == "" {
@@ -877,7 +875,12 @@ func verifyInterface(netns ns.NetNS, ifName string, expected *cniTypesV1.Result)
 	// Possible future ideas:
 	// - mtu
 	// - routes
-	return netns.Do(func(_ ns.NetNS) error {
+	ns, err := netns.OpenPinned(netnsPinPath)
+	if err != nil {
+		return fmt.Errorf("opening netns pinned at %s: %w", netnsPinPath, err)
+	}
+	defer ns.Close()
+	return ns.Do(func() error {
 		link, err := netlink.LinkByName(ifName)
 		if err != nil {
 			return fmt.Errorf("cannot find container link %v", ifName)

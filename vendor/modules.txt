@@ -502,9 +502,6 @@ github.com/containernetworking/cni/pkg/types/create
 github.com/containernetworking/cni/pkg/types/internal
 github.com/containernetworking/cni/pkg/utils
 github.com/containernetworking/cni/pkg/version
-# github.com/containernetworking/plugins v1.4.0
-## explicit; go 1.20
-github.com/containernetworking/plugins/pkg/ns
 # github.com/coreos/go-semver v0.3.1
 ## explicit; go 1.8
 github.com/coreos/go-semver/semver
@@ -767,6 +764,8 @@ github.com/google/gopacket/layers
 github.com/google/gops/agent
 github.com/google/gops/internal
 github.com/google/gops/signal
+# github.com/google/pprof v0.0.0-20230323073829-e72429f035bd
+## explicit; go 1.19
 # github.com/google/renameio/v2 v2.0.0
 ## explicit; go 1.13
 github.com/google/renameio/v2
@@ -970,6 +969,8 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
+# github.com/onsi/ginkgo/v2 v2.13.2
+## explicit; go 1.18
 # github.com/onsi/gomega v1.30.0
 ## explicit; go 1.18
 github.com/onsi/gomega
