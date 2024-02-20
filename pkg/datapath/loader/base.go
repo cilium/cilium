@@ -230,6 +230,7 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 	}
 	if option.Config.EnableNodePort {
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
+		opts = append(opts, fmt.Sprintf("-DNATIVE_DEV_IFINDEX=%d", link.Attrs().Index))
 	}
 	if option.Config.IsDualStack() {
 		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorldIPv4))
