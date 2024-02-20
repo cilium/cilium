@@ -9,10 +9,12 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodeaddr "github.com/cilium/cilium/pkg/node"
@@ -298,6 +300,93 @@ func TestControllerSanity(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestDeselection ensures that the deselection of a policy causes a full withdrawal
+func TestDeselection(t *testing.T) {
+	var policy = &v2alpha1api.CiliumBGPPeeringPolicy{
+		Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+			NodeSelector: &v1.LabelSelector{
+				MatchLabels: map[string]string{
+					"bgp-policy": "a",
+				},
+			},
+		},
+	}
+
+	withPolicy := func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+		return []*v2alpha1api.CiliumBGPPeeringPolicy{policy}, nil
+	}
+
+	withoutPolicy := func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+		return []*v2alpha1api.CiliumBGPPeeringPolicy{}, nil
+	}
+
+	// Start from empty policy list
+	policyLister := &agent.MockCiliumBGPPeeringPolicyLister{
+		List_: withoutPolicy,
+	}
+
+	fullWithdrawalObserved := false
+	rtmgr := &mock.MockBGPRouterManager{
+		ConfigurePeers_: func(ctx context.Context, p *v2alpha1.CiliumBGPPeeringPolicy, cs *agent.ControlPlaneState) error {
+			if p == nil && cs == nil {
+				fullWithdrawalObserved = true
+			}
+			return nil
+		},
+	}
+
+	// create test cilium node
+	nodeSpecer := fakeNodeSpecer{
+		PodCIDRs_: func() ([]string, error) { return nil, nil },
+		Labels_: func() (map[string]string, error) {
+			return map[string]string{
+				"bgp-policy": "a",
+			}, nil
+		},
+		Annotations_: func() (map[string]string, error) {
+			return nil, nil
+		},
+	}
+
+	c := agent.Controller{
+		NodeSpec:     &nodeSpecer,
+		PolicyLister: policyLister,
+		BGPMgr:       rtmgr,
+	}
+
+	// Initialize LocalNodeStore
+	nodeaddr.SetTestLocalNodeStore()
+	t.Cleanup(func() {
+		nodeaddr.UnsetTestLocalNodeStore()
+	})
+
+	// First, reconcile with the policy selected
+	err := c.Reconcile(context.Background())
+	require.NoError(t, err)
+
+	// At this point, we shouldn't see any full withdrawal because
+	// there is no previous policy.
+	require.False(t, fullWithdrawalObserved)
+
+	// Now, reconcile with the policy selected
+	policyLister.List_ = withPolicy
+	err = c.Reconcile(context.Background())
+	require.NoError(t, err)
+
+	// At this point, we shouldn't see any full withdrawal because
+	// the policy is still selected.
+	require.False(t, fullWithdrawalObserved)
+
+	// Now, reconcile with the policy deselected
+	policyLister.List_ = withoutPolicy
+	err = c.Reconcile(context.Background())
+	require.NoError(t, err)
+
+	// At this point, we should see a full withdrawal because
+	// the policy is no longer selected.
+	require.True(t, fullWithdrawalObserved)
 }
 
 // TestPolicySelection ensure the selection of a policy is performed correctly
