@@ -111,6 +111,17 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 			n.replaceNodeIPSecInRoute(localCIDR)
 		}
 	} else {
+		// A node update that doesn't contain a BootID will cause the creation
+		// of non-matching XFRM IN and OUT states across the cluster as the
+		// BootID is used to generate per-node key pairs. Non-matching XFRM
+		// states will result in XfrmInStateProtoError, causing packet drops.
+		// An empty BootID should thus be treated as an error, and Cilium
+		// should not attempt to derive per-node keys from it.
+		if newNode.BootID == "" {
+			log.Debugf("Unable to enable IPsec for node %s with empty BootID", newNode.Name)
+			return false
+		}
+
 		remoteCiliumInternalIP := newNode.GetCiliumInternalIP(false)
 		if remoteCiliumInternalIP == nil {
 			return false
@@ -204,6 +215,17 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 			n.replaceNodeIPSecInRoute(localCIDR)
 		}
 	} else {
+		// A node update that doesn't contain a BootID will cause the creation
+		// of non-matching XFRM IN and OUT states across the cluster as the
+		// BootID is used to generate per-node key pairs. Non-matching XFRM
+		// states will result in XfrmInStateProtoError, causing packet drops.
+		// An empty BootID should thus be treated as an error, and Cilium
+		// should not attempt to derive per-node keys from it.
+		if newNode.BootID == "" {
+			log.Debugf("Unable to enable IPsec for node %s with empty BootID", newNode.Name)
+			return false
+		}
+
 		remoteCiliumInternalIP := newNode.GetCiliumInternalIP(true)
 		if remoteCiliumInternalIP == nil {
 			return false
