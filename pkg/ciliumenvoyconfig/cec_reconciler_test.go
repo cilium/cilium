@@ -424,12 +424,11 @@ func testCCEC(opts ...cecOpts) *ciliumv2.CiliumClusterwideEnvoyConfig {
 	return ccec
 }
 
-func TestHandleLocalNodeLabels(t *testing.T) {
+func TestReconcileExistingConfigs(t *testing.T) {
 	tests := []struct {
 		name                  string
 		configs               map[resource.Key]*config
 		currentNodeLabels     map[string]string
-		newNodeLabels         map[string]string
 		failFor               []string
 		expectedError         bool
 		expectedErrorMessages []string
@@ -440,25 +439,9 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 			name:              "No changes if no configs are present",
 			configs:           map[resource.Key]*config{},
 			currentNodeLabels: map[string]string{},
-			newNodeLabels:     map[string]string{},
 			expectedError:     false,
 			expectedAdded:     []string{},
 			expectedDeleted:   []string{},
-		},
-		{
-			name: "No changes if node labels don't change",
-			configs: map[resource.Key]*config{
-				{Namespace: "ns1", Name: "config1"}: testConfig("ns1", "config1", nil, true),
-			},
-			currentNodeLabels: map[string]string{
-				"role": "infra",
-			},
-			newNodeLabels: map[string]string{
-				"role": "infra",
-			},
-			expectedError:   false,
-			expectedAdded:   []string{},
-			expectedDeleted: []string{},
 		},
 		{
 			name: "No changes if there are no changes in configs selecting nodes or not",
@@ -467,9 +450,6 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 				{Namespace: "ns1", Name: "config2"}: testConfig("ns1", "config2", nil, true),
 			},
 			currentNodeLabels: map[string]string{
-				"role": "infra",
-			},
-			newNodeLabels: map[string]string{
 				"role": "worker",
 			},
 			expectedError:   false,
@@ -483,9 +463,6 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 				{Namespace: "ns1", Name: "config2"}: testConfig("ns1", "config2", nil, true),
 			},
 			currentNodeLabels: map[string]string{
-				"role": "infra",
-			},
-			newNodeLabels: map[string]string{
 				"role": "worker",
 			},
 			expectedError:   false,
@@ -499,9 +476,6 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 				{Namespace: "ns1", Name: "config2"}: testConfig("ns1", "config2", nil, true),
 			},
 			currentNodeLabels: map[string]string{
-				"role": "worker",
-			},
-			newNodeLabels: map[string]string{
 				"role": "infra",
 			},
 			expectedError:   false,
@@ -520,10 +494,6 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 				{Namespace: "ns1", Name: "config7"}: testConfig("ns1", "config7", map[string]string{"role": "worker", "node": "node1", "environment": "test"}, false),
 			},
 			currentNodeLabels: map[string]string{
-				"node": "node1",
-				"role": "worker",
-			},
-			newNodeLabels: map[string]string{
 				"node": "node1",
 				"role": "infra",
 			},
@@ -544,18 +514,13 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 			},
 			currentNodeLabels: map[string]string{
 				"node": "node1",
-				"role": "worker",
-			},
-			newNodeLabels: map[string]string{
-				"node": "node1",
 				"role": "infra",
 			},
 			failFor:       []string{"ns1/config2", "ns1/config5"},
 			expectedError: true,
 			expectedErrorMessages: []string{
-				"failed to handle LocalNode changed event",
-				"failed to reconcile config due to changed node labels (ns1/config2): failed to add config ns1/config2",
-				"failed to reconcile config due to changed node labels (ns1/config5): failed to delete config ns1/config5",
+				"failed to reconcile existing config (ns1/config2): failed to add config ns1/config2",
+				"failed to reconcile existing config (ns1/config5): failed to delete config ns1/config5",
 			},
 			expectedAdded:   []string{"ns1/config1"},
 			expectedDeleted: []string{"ns1/config6"},
@@ -584,9 +549,7 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 			}
 			reconciler.localNodeLabels = tc.currentNodeLabels
 
-			node := node.LocalNode{Node: types.Node{Name: "test", Labels: tc.newNodeLabels}}
-
-			err := reconciler.handleLocalNodeEvent(context.Background(), node)
+			err := reconciler.reconcileExistingConfigs(context.Background())
 			assert.Equal(t, tc.expectedError, err != nil)
 			if tc.expectedError {
 				for _, expectedErrorMessage := range tc.expectedErrorMessages {
@@ -597,6 +560,142 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 			assert.ElementsMatch(t, tc.expectedAdded, manager.addedConfigNames)
 			assert.ElementsMatch(t, tc.expectedDeleted, manager.deletedConfigNames)
 
+			assert.Empty(t, manager.updatedConfigNames, "Should never update an existing config")
+
+			// Assert that the stored state whether a config selects the local Node or not has been updated
+			for _, n := range manager.addedConfigNames {
+				split := strings.Split(n, "/")
+				ns, name := split[0], split[1]
+				assert.True(t, reconciler.configs[resource.Key{Namespace: ns, Name: name}].selectsLocalNode)
+			}
+
+			for _, n := range manager.deletedConfigNames {
+				split := strings.Split(n, "/")
+				ns, name := split[0], split[1]
+				assert.False(t, reconciler.configs[resource.Key{Namespace: ns, Name: name}].selectsLocalNode)
+			}
+
+			// Check that state didn't change for configs that failed to reconcile
+			for _, n := range tc.failFor {
+				split := strings.Split(n, "/")
+				ns, name := split[0], split[1]
+				assert.Equal(t,
+					tc.configs[resource.Key{Namespace: ns, Name: name}].selectsLocalNode,
+					reconciler.configs[resource.Key{Namespace: ns, Name: name}].selectsLocalNode,
+					"Configs shouldn't change their selection state if their reconciliation failed",
+				)
+			}
+		})
+	}
+}
+
+func TestHandleLocalNodeLabels(t *testing.T) {
+	tests := []struct {
+		name              string
+		configs           map[resource.Key]*config
+		currentNodeLabels map[string]string
+		newNodeLabels     map[string]string
+		failFor           []string
+		expectedDeleted   []string
+	}{
+		{
+			name:              "No changes if no configs are present",
+			configs:           map[resource.Key]*config{},
+			currentNodeLabels: map[string]string{},
+			newNodeLabels:     map[string]string{},
+			expectedDeleted:   []string{},
+		},
+		{
+			name: "No changes if node labels don't change",
+			configs: map[resource.Key]*config{
+				{Namespace: "ns1", Name: "config1"}: testConfig("ns1", "config1", nil, true),
+			},
+			currentNodeLabels: map[string]string{
+				"role": "infra",
+			},
+			newNodeLabels: map[string]string{
+				"role": "infra",
+			},
+			expectedDeleted: []string{},
+		},
+		{
+			name: "No changes if there are no changes in configs selecting nodes or not",
+			configs: map[resource.Key]*config{
+				{Namespace: "ns1", Name: "config1"}: testConfig("ns1", "config1", nil, true),
+				{Namespace: "ns1", Name: "config2"}: testConfig("ns1", "config2", nil, true),
+			},
+			currentNodeLabels: map[string]string{
+				"role": "infra",
+			},
+			newNodeLabels: map[string]string{
+				"role": "worker",
+			},
+			expectedDeleted: []string{},
+		},
+		{
+			name: "Updated node labels triggers a best-effort reconciliation of existing configs",
+			configs: map[resource.Key]*config{
+				{Namespace: "ns1", Name: "config1"}: testConfig("ns1", "config1", map[string]string{"role": "infra"}, true),
+				{Namespace: "ns1", Name: "config2"}: testConfig("ns1", "config2", nil, true),
+			},
+			currentNodeLabels: map[string]string{
+				"role": "infra",
+			},
+			newNodeLabels: map[string]string{
+				"role": "worker",
+			},
+			expectedDeleted: []string{"ns1/config1"},
+		},
+		{
+			name: "Failures during updating individual configs should't result in any error - as it's only best effort",
+			configs: map[resource.Key]*config{
+				{Namespace: "ns1", Name: "config2"}: testConfig("ns1", "config2", map[string]string{"role": "infra", "node": "node1"}, false),
+			},
+			currentNodeLabels: map[string]string{
+				"node": "node1",
+				"role": "worker",
+			},
+			newNodeLabels: map[string]string{
+				"node": "node1",
+				"role": "infra",
+			},
+			failFor:         []string{"ns1/config2"},
+			expectedDeleted: []string{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := logrus.New()
+			logger.SetOutput(io.Discard)
+
+			manager := &fakeCECManager{
+				shouldFailFor: tc.failFor,
+			}
+
+			reconciler := newCiliumEnvoyConfigReconciler(logger, manager)
+
+			// init current state
+			reconciler.configs = make(map[resource.Key]*config, len(tc.configs))
+			for k, v := range tc.configs {
+				reconciler.configs[k] = &config{
+					meta:             v.meta,
+					spec:             v.spec.DeepCopy(),
+					selectsLocalNode: v.selectsLocalNode,
+				}
+			}
+			reconciler.localNodeLabels = tc.currentNodeLabels
+
+			node := node.LocalNode{Node: types.Node{Name: "test", Labels: tc.newNodeLabels}}
+
+			err := reconciler.handleLocalNodeEvent(context.Background(), node)
+			assert.NoError(t, err)
+
+			assert.Equal(t, tc.newNodeLabels, reconciler.localNodeLabels)
+
+			assert.ElementsMatch(t, tc.expectedDeleted, manager.deletedConfigNames)
+
+			assert.Empty(t, manager.addedConfigNames)
 			assert.Empty(t, manager.updatedConfigNames, "Should never update an existing config")
 
 			// Assert that the stored state whether a config selects the local Node or not has been updated
