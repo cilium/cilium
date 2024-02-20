@@ -189,7 +189,6 @@ func (c *Controller) Run(ctx context.Context) {
 			l.Info("Cilium BGP Control Plane Controller shut down")
 			return
 		case <-c.Sig.Sig:
-			l.Info("Cilium BGP Control Plane Controller woken for reconciliation")
 			if err := c.Reconcile(ctx); err != nil {
 				l.WithError(err).Error("Encountered error during reconciliation")
 			} else {
@@ -287,7 +286,6 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to list CiliumBGPPeeringPolicies")
 	}
-	l.WithField("count", len(policies)).Debug("Successfully listed CiliumBGPPeeringPolicies")
 
 	// perform policy selection based on node.
 	labels := c.LocalCiliumNode.Labels
@@ -315,7 +313,6 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	}
 
 	// call bgp sub-systems required to apply this policy's BGP topology.
-	l.Debug("Asking configured BGPRouterManager to configure peering")
 	if err := c.BGPMgr.ConfigurePeers(ctx, policy, c.LocalCiliumNode); err != nil {
 		return fmt.Errorf("failed to configure BGP peers, cannot apply BGP peering policy: %w", err)
 	}
