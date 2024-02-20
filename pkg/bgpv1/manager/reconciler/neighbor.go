@@ -72,7 +72,6 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		curNeigh []*v2alpha1api.CiliumBGPNeighbor = nil
 	)
 	newNeigh := p.DesiredConfig.Neighbors
-	l.Debugf("Begin reconciling peers for virtual router with local ASN %v", p.DesiredConfig.LocalASN)
 
 	metaMap := r.getMetadata(p.CurrentServer)
 	if len(metaMap) > 0 {
@@ -189,7 +188,6 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		r.deleteMetadata(p.CurrentServer, n)
 	}
 
-	l.Infof("Done reconciling peers for virtual router with local ASN %v", p.DesiredConfig.LocalASN)
 	return nil
 }
 
