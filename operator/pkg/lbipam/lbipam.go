@@ -1383,6 +1383,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 	}
 
 	existingRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
+	existingRanges = slices.Clone(existingRanges)
 
 	// Remove existing ranges that no longer exist
 	for _, extRange := range existingRanges {
