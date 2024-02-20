@@ -288,12 +288,6 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcilePara
 		}
 	}
 
-	if len(toCreate) > 0 || len(toRemove) > 0 || len(toUpdate) > 0 {
-		l.Infof("Reconciling peers for virtual router with local ASN %v", newc.LocalASN)
-	} else {
-		l.Debugf("No peer changes necessary for virtual router with local ASN %v", newc.LocalASN)
-	}
-
 	// create new neighbors
 	for _, n := range toCreate {
 		l.Infof("Adding peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
