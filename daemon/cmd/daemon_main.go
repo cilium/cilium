@@ -1265,7 +1265,7 @@ func initEnv(vp *viper.Viper) {
 	if err := rlimit.RemoveMemlock(); err != nil {
 		log.WithError(err).Fatal("unable to set memory resource limits")
 	}
-	linuxdatapath.CheckMinRequirements()
+	linuxdatapath.CheckRequirements()
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
 		log.WithField(logfields.Path, defaults.PidFilePath).WithError(err).Fatal("Failed to create Pidfile")
