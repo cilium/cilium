@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 )
@@ -149,11 +148,6 @@ func newCiliumCleanup(bpfOnly bool) ciliumCleanup {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		}
-
-		netNSs, err = netns.ListNamedNetNSWithPrefix(ciliumNetNSPrefix)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		}
 	}
 
 	tcFilters := map[string][]*netlink.BpfFilter{}
@@ -250,9 +244,6 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 		return removeRoutesAndLinks(c.routes, c.links)
 	}
 
-	cleanupNamedNetNSs := func() error {
-		return removeNamedNetNSs(c.netNSs)
-	}
 	cleanupXDPs := func() error {
 		return removeXDPAttachments(c.xdpLinks)
 	}
@@ -267,7 +258,6 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 	}
 	if !c.bpfOnly {
 		funcs = append(funcs, cleanupRoutesAndLinks)
-		funcs = append(funcs, cleanupNamedNetNSs)
 		funcs = append(funcs, unmountCgroup)
 		funcs = append(funcs, removeDirs)
 		funcs = append(funcs, revertCNIBackup)
@@ -510,19 +500,6 @@ func removeRoutesAndLinks(routes map[int]netlink.Route, links map[int]netlink.Li
 			return err
 		}
 		fmt.Printf("removed link %s\n", link.Attrs().Name)
-	}
-	return nil
-}
-
-func removeNamedNetNSs(netNSs []string) error {
-	for _, n := range netNSs {
-		if err := netns.RemoveNetNSWithName(n); err != nil {
-			if strings.Contains(err.Error(), "No such file") {
-				continue
-			}
-			return err
-		}
-		fmt.Printf("removed network namespace %s\n", n)
 	}
 	return nil
 }
