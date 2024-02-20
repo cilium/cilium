@@ -4,11 +4,13 @@
 package k8s
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
 
 	check "github.com/cilium/checkmate"
+	"github.com/cilium/stream"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -244,6 +246,10 @@ func testServiceCache(c *check.C,
 	default:
 	}
 
+	// Add late subscriber, it should receive all events until it unsubscribes
+	subCtx, subCancel := context.WithCancel(context.Background())
+	svcNotifications := stream.ToChannel(subCtx, svcCache.Notifications(), stream.WithBufferSize(1))
+
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	c.Assert(testutils.WaitUntil(func() bool {
@@ -251,6 +257,11 @@ func testServiceCache(c *check.C,
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, DeleteService)
 		c.Assert(event.ID, check.Equals, svcID)
+
+		n := <-svcNotifications
+		c.Assert(n.Action, check.Equals, DeleteService)
+		c.Assert(n.ID, check.Equals, svcID)
+
 		return true
 	}, 2*time.Second), check.IsNil)
 
@@ -261,6 +272,11 @@ func testServiceCache(c *check.C,
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
+
+		n := <-svcNotifications
+		c.Assert(n.Action, check.Equals, UpdateService)
+		c.Assert(n.ID, check.Equals, svcID)
+
 		return true
 	}, 2*time.Second), check.IsNil)
 
@@ -271,7 +287,19 @@ func testServiceCache(c *check.C,
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
+
+		n := <-svcNotifications
+		c.Assert(n.Action, check.Equals, UpdateService)
+		c.Assert(n.ID, check.Equals, svcID)
+
 		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Stop subscription and wait for it to expire
+	subCancel()
+	c.Assert(testutils.WaitUntil(func() bool {
+		_, stillSubscribed := <-svcNotifications
+		return !stillSubscribed
 	}, 2*time.Second), check.IsNil)
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
