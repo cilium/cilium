@@ -6,6 +6,7 @@ package encrypt
 import (
 	"testing"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,19 +14,19 @@ func Test_nodeStatusFromOutput(t *testing.T) {
 	testCases := []struct {
 		name               string
 		inputString        string
-		expectedNodeStatus EncryptionStatus
+		expectedNodeStatus models.EncryptionStatus
 	}{
 		{
 			name:        "Node with no encryption",
 			inputString: "Encryption: Disabled",
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "Disabled",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					DecryptInterfaces: make([]string, 0),
 					XfrmErrors:        make(map[string]int64),
 				},
-				Wireguard: &WireguardStatus{
-					Interfaces: make([]*WireguardInterface, 0),
+				Wireguard: &models.WireguardStatus{
+					Interfaces: make([]*models.WireguardInterface, 0),
 				},
 			},
 		},
@@ -34,7 +35,7 @@ func Test_nodeStatusFromOutput(t *testing.T) {
 			inputString: `{
   "mode": "Disabled"
 }`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "Disabled",
 			},
 		},
@@ -45,16 +46,16 @@ Decryption interface(s):
 Keys in use: 1
 Max Seq. Number: N/A
 Errors: 0`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					MaxSeqNumber:      "N/A",
 					KeysInUse:         1,
 					DecryptInterfaces: make([]string, 0),
 					XfrmErrors:        make(map[string]int64),
 				},
-				Wireguard: &WireguardStatus{
-					Interfaces: make([]*WireguardInterface, 0),
+				Wireguard: &models.WireguardStatus{
+					Interfaces: make([]*models.WireguardInterface, 0),
 				},
 			},
 		},
@@ -68,9 +69,9 @@ Errors: 0`,
   },
   "mode": "IPsec"
 }`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					MaxSeqNumber:      "N/A",
 					KeysInUse:         1,
 					DecryptInterfaces: make([]string, 0),
@@ -84,16 +85,16 @@ Decryption interface(s):
 Keys in use: 1
 Max Seq. Number: 0x66c/0xffffffff
 Errors: 0`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					MaxSeqNumber:      "0x66c/0xffffffff",
 					KeysInUse:         1,
 					DecryptInterfaces: make([]string, 0),
 					XfrmErrors:        make(map[string]int64),
 				},
-				Wireguard: &WireguardStatus{
-					Interfaces: make([]*WireguardInterface, 0),
+				Wireguard: &models.WireguardStatus{
+					Interfaces: make([]*models.WireguardInterface, 0),
 				},
 			},
 		},
@@ -107,9 +108,9 @@ Errors: 0`,
   },
   "mode": "IPsec"
 }`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					MaxSeqNumber:      "0x66c/0xffffffff",
 					KeysInUse:         1,
 					DecryptInterfaces: make([]string, 0),
@@ -124,9 +125,9 @@ Keys in use: 2
 Max Seq. Number: 0x66c/0xffffffff
 Errors: 2
     XfrmInNoState: 2`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					MaxSeqNumber:      "0x66c/0xffffffff",
 					KeysInUse:         2,
 					ErrorCount:        2,
@@ -135,8 +136,8 @@ Errors: 2
 						"XfrmInNoState": 2,
 					},
 				},
-				Wireguard: &WireguardStatus{
-					Interfaces: make([]*WireguardInterface, 0),
+				Wireguard: &models.WireguardStatus{
+					Interfaces: make([]*models.WireguardInterface, 0),
 				},
 			},
 		},
@@ -154,9 +155,9 @@ Errors: 2
   },
   "mode": "IPsec"
 }`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					MaxSeqNumber:      "0x66c/0xffffffff",
 					KeysInUse:         2,
 					ErrorCount:        2,
@@ -176,9 +177,9 @@ Max Seq. Number: 0x66c/0xffffffff
 Errors: 3
     XfrmInNoState: 2
     XfrmInHdrError: 1`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					MaxSeqNumber:      "0x66c/0xffffffff",
 					KeysInUse:         2,
 					ErrorCount:        3,
@@ -188,8 +189,8 @@ Errors: 3
 						"XfrmInHdrError": 1,
 					},
 				},
-				Wireguard: &WireguardStatus{
-					Interfaces: make([]*WireguardInterface, 0),
+				Wireguard: &models.WireguardStatus{
+					Interfaces: make([]*models.WireguardInterface, 0),
 				},
 			},
 		},
@@ -208,9 +209,9 @@ Errors: 3
   },
   "mode": "IPsec"
 }`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "IPsec",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					MaxSeqNumber:      "0x66c/0xffffffff",
 					KeysInUse:         2,
 					ErrorCount:        3,
@@ -225,14 +226,14 @@ Errors: 3
 		{
 			name:        "Node with Wireguard encryption",
 			inputString: "Encryption: Wireguard",
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode: "Wireguard",
-				Ipsec: &IPsecStatus{
+				Ipsec: &models.IPsecStatus{
 					DecryptInterfaces: make([]string, 0),
 					XfrmErrors:        make(map[string]int64),
 				},
-				Wireguard: &WireguardStatus{
-					Interfaces: make([]*WireguardInterface, 0),
+				Wireguard: &models.WireguardStatus{
+					Interfaces: make([]*models.WireguardInterface, 0),
 				},
 			},
 		},
@@ -243,9 +244,9 @@ Errors: 3
   "wireguard": {
   }
 }`,
-			expectedNodeStatus: EncryptionStatus{
+			expectedNodeStatus: models.EncryptionStatus{
 				Mode:      "Wireguard",
-				Wireguard: &WireguardStatus{},
+				Wireguard: &models.WireguardStatus{},
 			},
 		},
 	}
@@ -262,12 +263,12 @@ Errors: 3
 func Test_clusterNodeStatus(t *testing.T) {
 	testCases := []struct {
 		name                  string
-		nodeStatusMap         map[string]EncryptionStatus
+		nodeStatusMap         map[string]models.EncryptionStatus
 		expectedClusterStatus clusterStatus
 	}{
 		{
 			name: "Nodes with no encryption",
-			nodeStatusMap: map[string]EncryptionStatus{
+			nodeStatusMap: map[string]models.EncryptionStatus{
 				"node1": {
 					Mode: "Disabled",
 				},
@@ -285,17 +286,17 @@ func Test_clusterNodeStatus(t *testing.T) {
 		},
 		{
 			name: "Nodes with IPsec encryption without errors",
-			nodeStatusMap: map[string]EncryptionStatus{
+			nodeStatusMap: map[string]models.EncryptionStatus{
 				"node1": {
 					Mode: "IPsec",
-					Ipsec: &IPsecStatus{
+					Ipsec: &models.IPsecStatus{
 						KeysInUse:    1,
 						MaxSeqNumber: "0x66c/0xffffffff",
 					},
 				},
 				"node2": {
 					Mode: "IPsec",
-					Ipsec: &IPsecStatus{
+					Ipsec: &models.IPsecStatus{
 						KeysInUse:    1,
 						MaxSeqNumber: "0x77c/0xffffffff",
 					},
@@ -312,10 +313,10 @@ func Test_clusterNodeStatus(t *testing.T) {
 		},
 		{
 			name: "Nodes with IPsec encryption with errors",
-			nodeStatusMap: map[string]EncryptionStatus{
+			nodeStatusMap: map[string]models.EncryptionStatus{
 				"node1": {
 					Mode: "IPsec",
-					Ipsec: &IPsecStatus{
+					Ipsec: &models.IPsecStatus{
 						KeysInUse:    1,
 						ErrorCount:   2,
 						MaxSeqNumber: "0x66c/0xffffffff",
@@ -326,7 +327,7 @@ func Test_clusterNodeStatus(t *testing.T) {
 				},
 				"node2": {
 					Mode: "IPsec",
-					Ipsec: &IPsecStatus{
+					Ipsec: &models.IPsecStatus{
 						KeysInUse:    2,
 						ErrorCount:   3,
 						MaxSeqNumber: "0x77c/0xffffffff",
@@ -355,10 +356,10 @@ func Test_clusterNodeStatus(t *testing.T) {
 		},
 		{
 			name: "Nodes with Disabled and IPsec encryption with errors",
-			nodeStatusMap: map[string]EncryptionStatus{
+			nodeStatusMap: map[string]models.EncryptionStatus{
 				"node1": {
 					Mode: "IPsec",
-					Ipsec: &IPsecStatus{
+					Ipsec: &models.IPsecStatus{
 						KeysInUse:    1,
 						ErrorCount:   2,
 						MaxSeqNumber: "0x66c/0xffffffff",
@@ -369,7 +370,7 @@ func Test_clusterNodeStatus(t *testing.T) {
 				},
 				"node2": {
 					Mode: "IPsec",
-					Ipsec: &IPsecStatus{
+					Ipsec: &models.IPsecStatus{
 						KeysInUse:    2,
 						ErrorCount:   3,
 						MaxSeqNumber: "0x77c/0xffffffff",
