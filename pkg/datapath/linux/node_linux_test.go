@@ -783,6 +783,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(c *check
 		},
 		IPv4AllocCIDR: cidr.MustParseCIDR("4.4.4.0/24"),
 		IPv6AllocCIDR: cidr.MustParseCIDR("2001:aaaa::/96"),
+		BootID:        "test-boot-id",
 	}
 	err = linuxNodeHandler.NodeAdd(node)
 	c.Assert(err, check.IsNil)
