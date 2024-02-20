@@ -60,8 +60,19 @@ type Configuration struct {
 	Metrics Metrics
 }
 
-// ClusterMesh is a cache of multiple remote clusters
-type ClusterMesh struct {
+type ClusterMesh interface {
+	cell.HookInterface
+
+	// ForEachRemoteCluster calls the provided function for each remote cluster
+	// in the ClusterMesh.
+	ForEachRemoteCluster(fn func(RemoteCluster) error) error
+	// NumReadyClusters returns the number of remote clusters to which a connection
+	// has been established
+	NumReadyClusters() int
+}
+
+// clusterMesh is a cache of multiple remote clusters
+type clusterMesh struct {
 	// conf is the configuration, it is immutable after NewClusterMesh()
 	conf Configuration
 
@@ -73,13 +84,13 @@ type ClusterMesh struct {
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
 func NewClusterMesh(c Configuration) ClusterMesh {
-	return ClusterMesh{
+	return &clusterMesh{
 		conf:     c,
 		clusters: map[string]*remoteCluster{},
 	}
 }
 
-func (cm *ClusterMesh) Start(cell.HookContext) error {
+func (cm *clusterMesh) Start(cell.HookContext) error {
 	w, err := createConfigDirectoryWatcher(cm.conf.ClusterMeshConfig, cm)
 	if err != nil {
 		return fmt.Errorf("unable to create config directory watcher: %w", err)
@@ -96,7 +107,7 @@ func (cm *ClusterMesh) Start(cell.HookContext) error {
 
 // Close stops watching for remote cluster configuration files to appear and
 // will close all connections to remote clusters
-func (cm *ClusterMesh) Stop(cell.HookContext) error {
+func (cm *clusterMesh) Stop(cell.HookContext) error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -112,7 +123,7 @@ func (cm *ClusterMesh) Stop(cell.HookContext) error {
 	return nil
 }
 
-func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
+func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 	rc := &remoteCluster{
 		name:                         name,
 		configPath:                   path,
@@ -133,7 +144,7 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 	return rc
 }
 
-func (cm *ClusterMesh) add(name, path string) {
+func (cm *clusterMesh) add(name, path string) {
 	if name == cm.conf.ClusterInfo.Name {
 		log.WithField(fieldClusterName, name).Debug("Ignoring configuration for own cluster")
 		return
@@ -159,7 +170,7 @@ func (cm *ClusterMesh) add(name, path string) {
 	}
 }
 
-func (cm *ClusterMesh) remove(name string) {
+func (cm *clusterMesh) remove(name string) {
 	cm.mutex.Lock()
 	if cluster, ok := cm.clusters[name]; ok {
 		cluster.onRemove()
@@ -173,7 +184,7 @@ func (cm *ClusterMesh) remove(name string) {
 
 // NumReadyClusters returns the number of remote clusters to which a connection
 // has been established
-func (cm *ClusterMesh) NumReadyClusters() int {
+func (cm *clusterMesh) NumReadyClusters() int {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 
@@ -187,7 +198,7 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 	return nready
 }
 
-func (cm *ClusterMesh) ForEachRemoteCluster(fn func(RemoteCluster) error) error {
+func (cm *clusterMesh) ForEachRemoteCluster(fn func(RemoteCluster) error) error {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
 

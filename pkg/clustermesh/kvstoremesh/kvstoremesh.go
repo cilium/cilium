@@ -83,7 +83,7 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 
 	// The "common" Start hook needs to be executed after that the kvstoremesh one
 	// terminated, to ensure that the backend promise has already been resolved.
-	lc.Append(&km.common)
+	lc.Append(km.common)
 
 	return &km
 }

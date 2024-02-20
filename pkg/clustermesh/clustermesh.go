@@ -138,7 +138,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		Metrics:  c.CommonMetrics,
 	})
 
-	lifecycle.Append(&cm.common)
+	lifecycle.Append(cm.common)
 	return cm
 }
 
