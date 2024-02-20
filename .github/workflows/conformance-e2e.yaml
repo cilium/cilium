@@ -125,7 +125,7 @@ jobs:
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20240208.105738'
+            kernel: '6.1-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
@@ -184,7 +184,7 @@ jobs:
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20240208.105738'
+            kernel: '6.1-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -210,7 +210,7 @@ jobs:
 
           - name: '13'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20240208.105738'
+            kernel: '6.1-20240208.105738'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
