@@ -28,6 +28,10 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 
+#if (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
+# define NODEPORT_FORWARD_IDENTITY	1
+#endif
+
 #ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
@@ -2920,7 +2924,7 @@ skip_service_lookup:
 	if (backend_local || !nodeport_uses_dsr4(&tuple)) {
 		struct ct_state ct_state = {};
 
-#if (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
+	if (is_defined(NODEPORT_FORWARD_IDENTITY)) {
 		if (src_sec_identity == 0)
 			src_sec_identity = WORLD_IPV4_ID;
 
@@ -2932,9 +2936,9 @@ skip_service_lookup:
 
 		if (identity_is_cidr_range(src_sec_identity))
 			return DROP_INVALID_IDENTITY;
-#else
+	} else {
 		src_sec_identity = WORLD_IPV4_ID;
-#endif
+	}
 
 		/* lookup with SCOPE_FORWARD: */
 		__ipv4_ct_tuple_reverse(&tuple);
