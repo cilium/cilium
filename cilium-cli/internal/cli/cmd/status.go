@@ -6,9 +6,9 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -50,7 +50,11 @@ func newCmdStatus() *cobra.Command {
 			}
 
 			if err == nil && len(s.CollectionErrors) > 0 {
-				err = errors.New("status check failed")
+				errs := make([]string, 0, len(s.CollectionErrors))
+				for _, e := range s.CollectionErrors {
+					errs = append(errs, e.Error())
+				}
+				err = fmt.Errorf("status check failed: [%s]", strings.Join(errs, ", "))
 			}
 			return err
 		},
