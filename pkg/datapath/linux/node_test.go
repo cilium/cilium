@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	check "github.com/cilium/checkmate"
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -22,8 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/mtu"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 var (
@@ -123,13 +122,7 @@ func (s *linuxTestSuite) TestStoreLoadNeighLinks(c *check.C) {
 func TestLocalRule(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	nn := "local-rules"
-	tns, err := netns.ReplaceNetNSWithName(nn)
-	assert.NoError(t, err)
-	t.Cleanup(func() {
-		tns.Close()
-		netns.RemoveNetNSWithName(nn)
-	})
+	ns := netns.NewNetNS(t)
 
 	test := func(t *testing.T) {
 		require.NoError(t, NodeEnsureLocalRoutingRule())
@@ -149,7 +142,7 @@ func TestLocalRule(t *testing.T) {
 		assert.Equal(t, rules[0].Table, unix.RT_TABLE_LOCAL)
 	}
 
-	tns.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		// Install rules the first time.
 		test(t)
 

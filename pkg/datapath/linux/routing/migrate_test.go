@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 var _ = Suite(&MigrateSuite{})
@@ -57,7 +58,8 @@ func (m *MigrateSuite) TestMigrateENIDatapathUpgradeSuccess(c *C) {
 	//     table ID.
 	//   - The route has the new table ID.
 
-	runFuncInNetNS(c, func() {
+	ns := netns.NewNetNS(c)
+	ns.Do(func() error {
 		// (1) Setting up the routing table.
 
 		// Pick an arbitrary iface index. In the old table ID scheme, we used this
@@ -113,6 +115,7 @@ func (m *MigrateSuite) TestMigrateENIDatapathUpgradeSuccess(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(rules, HasLen, 5) // We expect all rules to be migrated to new priority.
 		c.Assert(rules[0].Table, Not(Equals), index)
+		return nil
 	})
 }
 
@@ -124,7 +127,8 @@ func (m *MigrateSuite) TestMigrateENIDatapathUpgradeFailure(c *C) {
 	// We assert that the revert of the upgrade was successfully as well,
 	// meaning we expect the old rules and routes to be reinstated.
 
-	runFuncInNetNS(c, func() {
+	ns := netns.NewNetNS(c)
+	ns.Do(func() error {
 		index := 5
 		devIfNumLookup, _ := setUpRoutingTable(c, index, index, linux_defaults.RulePriorityEgress)
 
@@ -180,6 +184,7 @@ func (m *MigrateSuite) TestMigrateENIDatapathUpgradeFailure(c *C) {
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgressv2)
 		c.Assert(err, IsNil)
 		c.Assert(rules, HasLen, 4) // We expect the rest of the rules to be upgraded.
+		return nil
 	})
 }
 
@@ -192,7 +197,8 @@ func (m *MigrateSuite) TestMigrateENIDatapathDowngradeSuccess(c *C) {
 	//     table ID.
 	//   - The route has the old table ID.
 
-	runFuncInNetNS(c, func() {
+	ns := netns.NewNetNS(c)
+	ns.Do(func() error {
 		// (1) Setting up the routing table.
 
 		// Pick an arbitrary table ID. In the new table ID scheme, it is the
@@ -247,6 +253,7 @@ func (m *MigrateSuite) TestMigrateENIDatapathDowngradeSuccess(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(rules, HasLen, 5) // We expect all rules to have the original priority.
 		c.Assert(rules[0].Table, Not(Equals), tableID)
+		return nil
 	})
 }
 
@@ -259,7 +266,8 @@ func (m *MigrateSuite) TestMigrateENIDatapathDowngradeFailure(c *C) {
 	// assert that the revert of the downgrade was successfully as well,
 	// meaning we expect the "newer" rules and routes to be reinstated.
 
-	runFuncInNetNS(c, func() {
+	ns := netns.NewNetNS(c)
+	ns.Do(func() error {
 		index := 5
 		tableID := 11
 		_, devMACLookup := setUpRoutingTable(c, index, tableID, linux_defaults.RulePriorityEgressv2)
@@ -312,6 +320,7 @@ func (m *MigrateSuite) TestMigrateENIDatapathDowngradeFailure(c *C) {
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgress)
 		c.Assert(err, IsNil)
 		c.Assert(rules, HasLen, n-1) // Successfully migrated rules.
+		return nil
 	})
 }
 
@@ -326,7 +335,8 @@ func (m *MigrateSuite) TestMigrateENIDatapathPartial(c *C) {
 	//   - We still upgrade the remaining rules that need to be migrated.
 	//   - We ignore the partially migrated rule.
 
-	runFuncInNetNS(c, func() {
+	ns := netns.NewNetNS(c)
+	ns.Do(func() error {
 		index := 5
 		// ifaceNumber := 1
 		newTableID := 11
@@ -375,6 +385,8 @@ func (m *MigrateSuite) TestMigrateENIDatapathPartial(c *C) {
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgress)
 		c.Assert(err, IsNil)
 		c.Assert(rules, HasLen, 0) // We don't expect any rules with the old priority.
+
+		return nil
 	})
 }
 

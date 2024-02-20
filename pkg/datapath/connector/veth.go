@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -15,15 +14,16 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/netns"
 )
 
 // SetupVethRemoteNs renames the netdevice in the target namespace to the
 // provided dstIfName.
-func SetupVethRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) error {
-	return netNs.Do(func(_ ns.NetNS) error {
+func SetupVethRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
+	return ns.Do(func() error {
 		err := link.Rename(srcIfName, dstIfName)
 		if err != nil {
-			return fmt.Errorf("failed to rename veth from %q to %q: %s", srcIfName, dstIfName, err)
+			return fmt.Errorf("failed to rename veth from %q to %q: %w", srcIfName, dstIfName, err)
 		}
 		return nil
 	})

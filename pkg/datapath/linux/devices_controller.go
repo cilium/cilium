@@ -16,7 +16,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
-	"github.com/vishvananda/netns"
+	vns "github.com/vishvananda/netns"
+
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -134,7 +136,7 @@ func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*device
 func (dc *devicesController) Start(startCtx cell.HookContext) error {
 	if dc.params.NetlinkFuncs == nil {
 		var err error
-		dc.params.NetlinkFuncs, err = makeNetlinkFuncs(netns.None())
+		dc.params.NetlinkFuncs, err = makeNetlinkFuncs()
 		if err != nil {
 			return err
 		}
@@ -637,41 +639,51 @@ type netlinkFuncs struct {
 	RouteListFiltered func(family int, filter *netlink.Route, filterMask uint64) ([]netlink.Route, error)
 }
 
-func makeNetlinkFuncs(netns netns.NsHandle) (*netlinkFuncs, error) {
-	h, err := netlink.NewHandleAt(netns)
+// makeNetlinkFuncs returns a *netlinkFuncs containing netlink accessors to the
+// network namespace of the calling goroutine's OS thread.
+func makeNetlinkFuncs() (*netlinkFuncs, error) {
+	netlinkHandle, err := netlink.NewHandle()
 	if err != nil {
-		return nil, fmt.Errorf("NewHandleAt failed: %w", err)
+		return nil, fmt.Errorf("creating netlink handle: %w", err)
+	}
+
+	cur, err := netns.Current()
+	if err != nil {
+		return nil, fmt.Errorf("getting current netns: %w", err)
 	}
 
 	return &netlinkFuncs{
 		RouteSubscribe: func(ch chan<- netlink.RouteUpdate, done <-chan struct{}, errorCallback func(error)) error {
+			h := vns.NsHandle(cur.FD())
 			return netlink.RouteSubscribeWithOptions(ch, done,
 				netlink.RouteSubscribeOptions{
 					ListExisting:  false,
-					Namespace:     &netns,
 					ErrorCallback: errorCallback,
+					Namespace:     &h,
 				})
 		},
 		AddrSubscribe: func(ch chan<- netlink.AddrUpdate, done <-chan struct{}, errorCallback func(error)) error {
+			h := vns.NsHandle(cur.FD())
 			return netlink.AddrSubscribeWithOptions(ch, done,
 				netlink.AddrSubscribeOptions{
 					ListExisting:  false,
-					Namespace:     &netns,
 					ErrorCallback: errorCallback,
+					Namespace:     &h,
 				})
 		},
 		LinkSubscribe: func(ch chan<- netlink.LinkUpdate, done <-chan struct{}, errorCallback func(error)) error {
+			h := vns.NsHandle(cur.FD())
 			return netlink.LinkSubscribeWithOptions(ch, done,
 				netlink.LinkSubscribeOptions{
 					ListExisting:  false,
-					Namespace:     &netns,
 					ErrorCallback: errorCallback,
+					Namespace:     &h,
 				})
 		},
-		Close:             h.Close,
-		LinkList:          h.LinkList,
-		AddrList:          h.AddrList,
-		RouteListFiltered: h.RouteListFiltered,
+		Close:             netlinkHandle.Close,
+		LinkList:          netlinkHandle.LinkList,
+		AddrList:          netlinkHandle.AddrList,
+		RouteListFiltered: netlinkHandle.RouteListFiltered,
 	}, nil
 }
 

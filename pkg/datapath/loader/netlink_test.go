@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -20,9 +19,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 func mustTCProgram(t *testing.T) *ebpf.Program {
@@ -75,16 +74,9 @@ func TestSetupDev(t *testing.T) {
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = true
 
-	netnsName := "test-setup-dev"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		ifName := "dummy"
 		dummy := &netlink.Dummy{
 			LinkAttrs: netlink.LinkAttrs{
@@ -131,16 +123,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 	mtu := 1500
 
 	t.Run("Geneve", func(t *testing.T) {
-		netnsName := "test-setup-geneve-device"
-		netns0, err := netns.ReplaceNetNSWithName(netnsName)
-		require.NoError(t, err)
-		require.NotNil(t, netns0)
-		t.Cleanup(func() {
-			netns0.Close()
-			netns.RemoveNetNSWithName(netnsName)
-		})
+		ns := netns.NewNetNS(t)
 
-		netns0.Do(func(_ ns.NetNS) error {
+		ns.Do(func() error {
 			err := setupTunnelDevice(sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
 
@@ -160,16 +145,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 	})
 
 	t.Run("GeneveModifyPort", func(t *testing.T) {
-		netnsName := "test-setup-geneve-device-modify-port"
-		netns0, err := netns.ReplaceNetNSWithName(netnsName)
-		require.NoError(t, err)
-		require.NotNil(t, netns0)
-		t.Cleanup(func() {
-			netns0.Close()
-			netns.RemoveNetNSWithName(netnsName)
-		})
+		ns := netns.NewNetNS(t)
 
-		netns0.Do(func(_ ns.NetNS) error {
+		ns.Do(func() error {
 			err := setupTunnelDevice(sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
 
@@ -192,16 +170,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 	})
 
 	t.Run("GeneveModifyMTU", func(t *testing.T) {
-		netnsName := "test-setup-geneve-device-modify-mtu"
-		netns0, err := netns.ReplaceNetNSWithName(netnsName)
-		require.NoError(t, err)
-		require.NotNil(t, netns0)
-		t.Cleanup(func() {
-			netns0.Close()
-			netns.RemoveNetNSWithName(netnsName)
-		})
+		ns := netns.NewNetNS(t)
 
-		netns0.Do(func(_ ns.NetNS) error {
+		ns.Do(func() error {
 			err := setupTunnelDevice(sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
 
@@ -225,16 +196,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 	})
 
 	t.Run("Vxlan", func(t *testing.T) {
-		netnsName := "test-setup-vxlan-device"
-		netns0, err := netns.ReplaceNetNSWithName(netnsName)
-		require.NoError(t, err)
-		require.NotNil(t, netns0)
-		t.Cleanup(func() {
-			netns0.Close()
-			netns.RemoveNetNSWithName(netnsName)
-		})
+		ns := netns.NewNetNS(t)
 
-		netns0.Do(func(_ ns.NetNS) error {
+		ns.Do(func() error {
 			err := setupTunnelDevice(sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, mtu)
 			require.NoError(t, err)
 
@@ -254,16 +218,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 	})
 
 	t.Run("VxlanModifyPort", func(t *testing.T) {
-		netnsName := "test-setup-vxlan-device-modify"
-		netns0, err := netns.ReplaceNetNSWithName(netnsName)
-		require.NoError(t, err)
-		require.NotNil(t, netns0)
-		t.Cleanup(func() {
-			netns0.Close()
-			netns.RemoveNetNSWithName(netnsName)
-		})
+		ns := netns.NewNetNS(t)
 
-		netns0.Do(func(_ ns.NetNS) error {
+		ns.Do(func() error {
 			err := setupTunnelDevice(sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, mtu)
 			require.NoError(t, err)
 
@@ -286,16 +243,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 	})
 
 	t.Run("VxlanModifyMTU", func(t *testing.T) {
-		netnsName := "test-setup-vxlan-device-modify-mtu"
-		netns0, err := netns.ReplaceNetNSWithName(netnsName)
-		require.NoError(t, err)
-		require.NotNil(t, netns0)
-		t.Cleanup(func() {
-			netns0.Close()
-			netns.RemoveNetNSWithName(netnsName)
-		})
+		ns := netns.NewNetNS(t)
 
-		netns0.Do(func(_ ns.NetNS) error {
+		ns.Do(func() error {
 			err := setupTunnelDevice(sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, mtu)
 			require.NoError(t, err)
 
@@ -319,16 +269,9 @@ func TestSetupTunnelDevice(t *testing.T) {
 	})
 
 	t.Run("EnableSwitchDisable", func(t *testing.T) {
-		netnsName := "test-tunnel-enable-switch-disable"
-		netns0, err := netns.ReplaceNetNSWithName(netnsName)
-		require.NoError(t, err)
-		require.NotNil(t, netns0)
-		t.Cleanup(func() {
-			netns0.Close()
-			netns.RemoveNetNSWithName(netnsName)
-		})
+		ns := netns.NewNetNS(t)
 
-		netns0.Do(func(_ ns.NetNS) error {
+		ns.Do(func() error {
 			// Start with a Geneve tunnel.
 			err := setupTunnelDevice(sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, mtu)
 			require.NoError(t, err)
@@ -373,16 +316,9 @@ func TestAddHostDeviceAddr(t *testing.T) {
 	testIPv4 := net.ParseIP("1.2.3.4")
 	testIPv6 := net.ParseIP("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
 
-	netnsName := "test-internal-node-ips"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		ifName := "dummy"
 		dummy := &netlink.Dummy{
 			LinkAttrs: netlink.LinkAttrs{
@@ -420,16 +356,9 @@ func TestAddHostDeviceAddr(t *testing.T) {
 func TestAttachRemoveTCProgram(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	netnsName := "test-attach-remove-program"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		ifName := "dummy0"
 		dummy := &netlink.Dummy{
 			LinkAttrs: netlink.LinkAttrs{
@@ -467,16 +396,9 @@ func TestSetupIPIPDevices(t *testing.T) {
 
 	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
-	netnsName := "test-setup-ipip-devs"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		err := setupIPIPDevices(sysctl, true, true)
 		require.NoError(t, err)
 

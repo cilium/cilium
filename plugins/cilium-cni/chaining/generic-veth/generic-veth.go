@@ -11,7 +11,6 @@ import (
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/client"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	"github.com/cilium/cilium/plugins/cilium-cni/lib"
@@ -52,17 +52,15 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		hostMac, vethHostName, vethLXCMac, vethLXCName, vethIP, vethIPv6 string
 		vethHostIdx, peerIndex                                           int
 		peer                                                             netlink.Link
-		netNs                                                            ns.NetNS
 	)
 
-	netNs, err = ns.GetNS(pluginCtx.Args.Netns)
+	ns, err := netns.OpenPinned(pluginCtx.Args.Netns)
 	if err != nil {
-		err = fmt.Errorf("failed to open netns %q: %s", pluginCtx.Args.Netns, err)
-		return
+		return nil, fmt.Errorf("failed to open netns %q: %s", pluginCtx.Args.Netns, err)
 	}
-	defer netNs.Close()
+	defer ns.Close()
 
-	if err = netNs.Do(func(_ ns.NetNS) error {
+	if err = ns.Do(func() error {
 		links, err := netlink.LinkList()
 		if err != nil {
 			return err
@@ -225,7 +223,10 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	}
 	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" &&
 		newEp.Status.Networking.Mac != vethLXCMac {
-		err = netns.ReplaceMacAddressWithLinkName(netNs, vethLXCName, newEp.Status.Networking.Mac)
+
+		err = ns.Do(func() error {
+			return mac.ReplaceMacAddressWithLinkName(vethLXCName, newEp.Status.Networking.Mac)
+		})
 		if err != nil {
 			err = fmt.Errorf("unable to set MAC address on interface %s: %w", vethLXCName, err)
 			return
