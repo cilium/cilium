@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/cilium/stream"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -97,12 +98,32 @@ type ServiceEvent struct {
 	SWG *lock.StoppableWaitGroup
 }
 
+// ServiceNotification is a slimmed down version of a ServiceEvent. In particular
+// notifications are optional and thus do not contain a wait group to allow
+// producers to wait for the notification to be consumed.
+type ServiceNotification struct {
+	Action       CacheAction
+	ID           ServiceID
+	Service      *Service
+	OldService   *Service
+	Endpoints    *Endpoints
+	OldEndpoints *Endpoints
+}
+
 // ServiceCache is a list of services correlated with the matching endpoints.
 // The Events member will receive events as services.
 type ServiceCache struct {
 	config ServiceCacheConfig
 
-	Events chan ServiceEvent
+	// Events may only be read by single consumer. The consumer must acknowledge
+	// every event by calling Done() on the ServiceEvent.SWG.
+	Events     <-chan ServiceEvent
+	sendEvents chan<- ServiceEvent
+
+	// notifications are multicast and may be received by multiple subscribers.
+	notifications         stream.Observable[ServiceNotification]
+	emitNotifications     func(ServiceNotification)
+	completeNotifications func(error)
 
 	// mutex protects the maps below including the concurrent access of each
 	// value.
@@ -125,12 +146,19 @@ type ServiceCache struct {
 
 // NewServiceCache returns a new ServiceCache
 func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
+	events := make(chan ServiceEvent, option.Config.K8sServiceCacheSize)
+	notifications, emitNotifications, completeNotifications := stream.Multicast[ServiceNotification]()
+
 	return &ServiceCache{
-		services:          map[ServiceID]*Service{},
-		endpoints:         map[ServiceID]*EndpointSlices{},
-		externalEndpoints: map[ServiceID]externalEndpoints{},
-		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
-		nodeAddressing:    nodeAddressing,
+		services:              map[ServiceID]*Service{},
+		endpoints:             map[ServiceID]*EndpointSlices{},
+		externalEndpoints:     map[ServiceID]externalEndpoints{},
+		Events:                events,
+		sendEvents:            events,
+		notifications:         notifications,
+		emitNotifications:     emitNotifications,
+		completeNotifications: completeNotifications,
+		nodeAddressing:        nodeAddressing,
 	}
 }
 
@@ -159,6 +187,7 @@ func newServiceCache(lc cell.Lifecycle, nodeAddressing types.NodeAddressing, cfg
 			return err
 		},
 		OnStop: func(hc cell.HookContext) error {
+			sc.completeNotifications(nil)
 			cancel()
 			wg.Wait()
 			return nil
@@ -166,6 +195,27 @@ func newServiceCache(lc cell.Lifecycle, nodeAddressing types.NodeAddressing, cfg
 	})
 
 	return sc
+}
+
+func (s *ServiceCache) emitEvent(event ServiceEvent) {
+	s.sendEvents <- event
+	s.emitNotifications(ServiceNotification{
+		Action:       event.Action,
+		ID:           event.ID,
+		Service:      event.Service,
+		OldService:   event.OldService,
+		Endpoints:    event.Endpoints,
+		OldEndpoints: event.OldEndpoints,
+	})
+}
+
+// Notifications allow multiple subscribers to observe changes to services and
+// endpoints.
+// Subscribers must register as soon as the service cache is created to ensure
+// no notifications are missed, as notifications which happen before a consumer
+// is subscribed will be lost.
+func (s *ServiceCache) Notifications() stream.Observable[ServiceNotification] {
+	return s.notifications
 }
 
 // GetServiceIP returns a random L3n4Addr that is backing the given Service ID.
@@ -277,7 +327,7 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
 	if serviceReady {
 		swg.Add()
-		s.Events <- ServiceEvent{
+		s.emitEvent(ServiceEvent{
 			Action:       UpdateService,
 			ID:           svcID,
 			Service:      newService,
@@ -285,7 +335,7 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 			Endpoints:    endpoints,
 			OldEndpoints: endpoints,
 			SWG:          swg,
-		}
+		})
 	}
 
 	return svcID
@@ -297,7 +347,7 @@ func (s *ServiceCache) EnsureService(svcID ServiceID, swg *lock.StoppableWaitGro
 	if svc, found := s.services[svcID]; found {
 		if endpoints, serviceReady := s.correlateEndpoints(svcID); serviceReady {
 			swg.Add()
-			s.Events <- ServiceEvent{
+			s.emitEvent(ServiceEvent{
 				Action:       UpdateService,
 				ID:           svcID,
 				Service:      svc,
@@ -305,7 +355,7 @@ func (s *ServiceCache) EnsureService(svcID ServiceID, swg *lock.StoppableWaitGro
 				Endpoints:    endpoints,
 				OldEndpoints: endpoints,
 				SWG:          swg,
-			}
+			})
 			return true
 		}
 	}
@@ -326,13 +376,13 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 
 	if serviceOK {
 		swg.Add()
-		s.Events <- ServiceEvent{
+		s.emitEvent(ServiceEvent{
 			Action:    DeleteService,
 			ID:        svcID,
 			Service:   oldService,
 			Endpoints: endpoints,
 			SWG:       swg,
-		}
+		})
 	}
 }
 
@@ -382,14 +432,14 @@ func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 	endpoints, serviceReady := s.correlateEndpoints(esID.ServiceID)
 	if ok && serviceReady {
 		swg.Add()
-		s.Events <- ServiceEvent{
+		s.emitEvent(ServiceEvent{
 			Action:       UpdateService,
 			ID:           esID.ServiceID,
 			Service:      svc,
 			Endpoints:    endpoints,
 			OldEndpoints: oldEPs,
 			SWG:          swg,
-		}
+		})
 	}
 
 	return esID.ServiceID, endpoints
@@ -424,7 +474,7 @@ func (s *ServiceCache) DeleteEndpoints(svcID EndpointSliceID, swg *lock.Stoppabl
 			SWG:          swg,
 		}
 
-		s.Events <- event
+		s.emitEvent(event)
 	}
 
 	return svcID.ServiceID
@@ -661,7 +711,7 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 	// Only send event notification if service is ready.
 	if ok && serviceReady {
 		swg.Add()
-		s.Events <- ServiceEvent{
+		s.emitEvent(ServiceEvent{
 			Action:       UpdateService,
 			ID:           id,
 			Service:      svc,
@@ -669,7 +719,7 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 			Endpoints:    endpoints,
 			OldEndpoints: oldEPs,
 			SWG:          swg,
-		}
+		})
 	}
 }
 
@@ -735,7 +785,7 @@ func (s *ServiceCache) mergeExternalServiceDeleteLocked(service *serviceStore.Cl
 				event.Action = DeleteService
 			}
 
-			s.Events <- event
+			s.emitEvent(event)
 		}
 	} else {
 		scopedLog.Debug("Received delete event for non-existing endpoints")
@@ -788,13 +838,13 @@ func (s *ServiceCache) MergeClusterServiceDelete(service *serviceStore.ClusterSe
 
 	if ok {
 		swg.Add()
-		s.Events <- ServiceEvent{
+		s.emitEvent(ServiceEvent{
 			Action:    DeleteService,
 			ID:        id,
 			Service:   svc,
 			Endpoints: endpoints,
 			SWG:       swg,
-		}
+		})
 	}
 }
 
@@ -827,7 +877,7 @@ func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string) {
 		if endpoints, ready := s.correlateEndpoints(id); ready {
 			swg := lock.NewStoppableWaitGroup()
 			swg.Add()
-			s.Events <- ServiceEvent{
+			s.emitEvent(ServiceEvent{
 				Action:       UpdateService,
 				ID:           id,
 				Service:      svc,
@@ -835,7 +885,7 @@ func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string) {
 				Endpoints:    endpoints,
 				OldEndpoints: endpoints,
 				SWG:          swg,
-			}
+			})
 		}
 	}
 }
