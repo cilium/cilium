@@ -6,12 +6,10 @@ package linuxrouting
 import (
 	"net"
 	"net/netip"
-	"runtime"
 	"testing"
 
 	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -20,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 func Test(t *testing.T) {
@@ -35,21 +34,26 @@ func (s *LinuxRoutingSuite) SetUpSuite(c *C) {
 }
 
 func (e *LinuxRoutingSuite) TestConfigure(c *C) {
-	runFuncInNetNS(c, func() {
+	ns1 := netns.NewNetNS(c)
+	ns1.Do(func() error {
 		ip, ri := getFakes(c, true)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(c, masterMAC)
 		defer ifaceCleanup()
 
 		runConfigureThenDelete(c, ri, ip, 1500)
+		return nil
 	})
-	runFuncInNetNS(c, func() {
+
+	ns2 := netns.NewNetNS(c)
+	ns2.Do(func() error {
 		ip, ri := getFakes(c, false)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(c, masterMAC)
 		defer ifaceCleanup()
 
 		runConfigureThenDelete(c, ri, ip, 1500)
+		return nil
 	})
 }
 
@@ -135,32 +139,17 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 	}
 	for _, tt := range tests {
 		c.Log("Test: " + tt.name)
-		runFuncInNetNS(c, func() {
+		ns := netns.NewNetNS(c)
+		ns.Do(func() error {
 			ifaceCleanup := createDummyDevice(c, masterMAC)
 			defer ifaceCleanup()
 
 			ip := tt.preRun()
 			err := Delete(ip, false)
 			c.Assert((err != nil), Equals, tt.wantErr)
+			return nil
 		})
 	}
-}
-
-func runFuncInNetNS(c *C, run func()) {
-	// Source:
-	// https://github.com/vishvananda/netlink/blob/c79a4b7b40668c3f7867bf256b80b6b2dc65e58e/netns_test.go#L49
-	runtime.LockOSThread() // We need a constant OS thread
-	defer runtime.UnlockOSThread()
-
-	currentNS, err := netns.Get()
-	c.Assert(err, IsNil)
-	defer c.Assert(netns.Set(currentNS), IsNil)
-
-	networkNS, err := netns.New()
-	c.Assert(err, IsNil)
-	defer c.Assert(networkNS.Close(), IsNil)
-
-	run()
 }
 
 func runConfigureThenDelete(c *C, ri RoutingInfo, ip netip.Addr, mtu int) {

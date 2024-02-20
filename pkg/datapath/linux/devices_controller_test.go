@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
-	"github.com/vishvananda/netns"
 	"go.uber.org/goleak"
 	"golang.org/x/sys/unix"
 
@@ -31,20 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
-
-func withFreshNetNS(t *testing.T, test func(netns.NsHandle)) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	oldNetNS, err := netns.Get()
-	assert.NoError(t, err)
-	testNetNS, err := netns.New()
-	assert.NoError(t, err)
-	defer func() { assert.NoError(t, testNetNS.Close()) }()
-	defer func() { assert.NoError(t, netns.Set(oldNetNS)) }()
-	test(testNetNS)
-}
 
 func devicesControllerTestSetup(t *testing.T) {
 	t.Cleanup(func() {
@@ -301,8 +287,8 @@ func TestDevicesController(t *testing.T) {
 		},
 	}
 
-	withFreshNetNS(t, func(ns netns.NsHandle) {
-
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
 		var (
 			db           *statedb.DB
 			devicesTable statedb.Table[*tables.Device]
@@ -314,7 +300,7 @@ func TestDevicesController(t *testing.T) {
 			cell.Provide(func() (*netlinkFuncs, error) {
 				// Provide the normal netlink interface, but restrict it to the test network
 				// namespace.
-				return makeNetlinkFuncs(ns)
+				return makeNetlinkFuncs()
 			}),
 
 			cell.Provide(func() DevicesConfig {
@@ -371,6 +357,7 @@ func TestDevicesController(t *testing.T) {
 
 		err = h.Stop(ctx)
 		require.NoError(t, err)
+		return nil
 	})
 }
 
@@ -383,8 +370,8 @@ func TestDevicesController_Wildcards(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	devicesControllerTestSetup(t)
 
-	withFreshNetNS(t, func(ns netns.NsHandle) {
-
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
 		var (
 			db           *statedb.DB
 			devicesTable statedb.Table[*tables.Device]
@@ -397,7 +384,7 @@ func TestDevicesController_Wildcards(t *testing.T) {
 					Devices: []string{"dummy+"},
 				}
 			}),
-			cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs(ns) }),
+			cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs() }),
 			cell.Invoke(func(db_ *statedb.DB, devicesTable_ statedb.Table[*tables.Device]) {
 				db = db_
 				devicesTable = devicesTable_
@@ -426,6 +413,7 @@ func TestDevicesController_Wildcards(t *testing.T) {
 
 		err = h.Stop(context.TODO())
 		assert.NoError(t, err)
+		return nil
 	})
 }
 

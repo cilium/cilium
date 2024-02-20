@@ -7,14 +7,13 @@ import (
 	"net"
 	"testing"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 func TestRoutes(t *testing.T) {
@@ -22,15 +21,9 @@ func TestRoutes(t *testing.T) {
 
 	t.Run("IPv4", func(t *testing.T) {
 		t.Run("toProxy", func(t *testing.T) {
-			nn := "to-proxy-routing-ipv4"
-			tns, err := netns.ReplaceNetNSWithName(nn)
-			assert.NoError(t, err)
-			t.Cleanup(func() {
-				tns.Close()
-				netns.RemoveNetNSWithName(nn)
-			})
+			ns := netns.NewNetNS(t)
 
-			tns.Do(func(_ ns.NetNS) error {
+			ns.Do(func() error {
 				// Install routes and rules the first time.
 				assert.NoError(t, installToProxyRoutesIPv4())
 
@@ -65,16 +58,9 @@ func TestRoutes(t *testing.T) {
 		})
 
 		t.Run("fromProxy", func(t *testing.T) {
-			nn := "from-proxy-routing-ipv4"
 			testIPv4 := net.ParseIP("1.2.3.4")
-			tns, err := netns.ReplaceNetNSWithName(nn)
-			assert.NoError(t, err)
-			t.Cleanup(func() {
-				tns.Close()
-				netns.RemoveNetNSWithName(nn)
-			})
-
-			tns.Do(func(_ ns.NetNS) error {
+			ns := netns.NewNetNS(t)
+			ns.Do(func() error {
 				// create test device
 				ifName := "dummy"
 				dummy := &netlink.Dummy{
@@ -121,15 +107,9 @@ func TestRoutes(t *testing.T) {
 
 	t.Run("IPv6", func(t *testing.T) {
 		t.Run("toProxy", func(t *testing.T) {
-			nn := "to-proxy-routing-ipv6"
-			tns, err := netns.ReplaceNetNSWithName(nn)
-			assert.NoError(t, err)
-			t.Cleanup(func() {
-				tns.Close()
-				netns.RemoveNetNSWithName(nn)
-			})
+			ns := netns.NewNetNS(t)
 
-			tns.Do(func(_ ns.NetNS) error {
+			ns.Do(func() error {
 				// Install routes and rules the first time.
 				assert.NoError(t, installToProxyRoutesIPv6())
 
@@ -164,16 +144,10 @@ func TestRoutes(t *testing.T) {
 		})
 
 		t.Run("fromProxy", func(t *testing.T) {
-			nn := "from-proxy-routing-ipv6"
 			testIPv6 := net.ParseIP("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
-			tns, err := netns.ReplaceNetNSWithName(nn)
-			assert.NoError(t, err)
-			t.Cleanup(func() {
-				tns.Close()
-				netns.RemoveNetNSWithName(nn)
-			})
+			ns := netns.NewNetNS(t)
 
-			tns.Do(func(_ ns.NetNS) error {
+			ns.Do(func() error {
 				// create test device
 				ifName := "dummy"
 				dummy := &netlink.Dummy{

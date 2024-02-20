@@ -14,7 +14,6 @@ import (
 	"time"
 
 	check "github.com/cilium/checkmate"
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 
@@ -30,11 +29,11 @@ import (
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
-	"github.com/cilium/cilium/pkg/netns"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 type linuxPrivilegedBaseTestSuite struct {
@@ -1314,12 +1313,11 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	err = netlink.LinkSetUp(veth0)
 	c.Assert(err, check.IsNil)
 
-	netns0, err := netns.ReplaceNetNSWithName("test-arping-netns0")
+	ns := netns.NewNetNS(c)
+
+	err = netlink.LinkSetNsFd(veth1, int(ns.FD()))
 	c.Assert(err, check.IsNil)
-	defer netns0.Close()
-	err = netlink.LinkSetNsFd(veth1, int(netns0.Fd()))
-	c.Assert(err, check.IsNil)
-	netns0.Do(func(ns.NetNS) error {
+	ns.Do(func() error {
 		veth1, err := netlink.LinkByName("veth1")
 		c.Assert(err, check.IsNil)
 		ipnet.IP = ip1
@@ -1425,7 +1423,7 @@ refetch1:
 	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
 	var veth0HwAddr, veth1HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
 	veth0HwAddr = veth0.Attrs().HardwareAddr
-	netns0.Do(func(ns.NetNS) error {
+	ns.Do(func() error {
 		veth1, err := netlink.LinkByName("veth1")
 		c.Assert(err, check.IsNil)
 		veth1HwAddr = veth1.Attrs().HardwareAddr
@@ -1519,7 +1517,7 @@ refetch2:
 	for i := 0; i < 10; i++ {
 		mac := rndHWAddr()
 		// Change MAC
-		netns0.Do(func(ns.NetNS) error {
+		ns.Do(func() error {
 			veth1, err := netlink.LinkByName("veth1")
 			c.Assert(err, check.IsNil)
 			err = netlink.LinkSetHardwareAddr(veth1, mac)
@@ -1580,19 +1578,15 @@ refetch2:
 			errRet = err
 			return
 		}
-		netns1, err := netns.ReplaceNetNSWithName(netnsName)
-		if err != nil {
-			errRet = err
-			return
-		}
+		ns2 := netns.NewNetNS(c)
 		cleanup = func() {
 			cleanup1()
-			netns1.Close()
+			ns2.Close()
 		}
-		if errRet = netlink.LinkSetNsFd(veth2, int(netns0.Fd())); errRet != nil {
+		if errRet = netlink.LinkSetNsFd(veth2, int(ns.FD())); errRet != nil {
 			return
 		}
-		if errRet = netlink.LinkSetNsFd(veth3, int(netns1.Fd())); errRet != nil {
+		if errRet = netlink.LinkSetNsFd(veth3, int(ns2.FD())); errRet != nil {
 			return
 		}
 
@@ -1605,7 +1599,7 @@ refetch2:
 		ip3 := net.ParseIP(vethPeerIPAddr)
 		ipnet.IP = ip2
 
-		if errRet = netns0.Do(func(ns.NetNS) error {
+		if errRet = ns.Do(func() error {
 			addr = &netlink.Addr{IPNet: ipnet}
 			if err := netlink.AddrAdd(veth2, addr); err != nil {
 				return err
@@ -1630,7 +1624,7 @@ refetch2:
 			return
 		}
 
-		if errRet = netns1.Do(func(ns.NetNS) error {
+		if errRet = ns2.Do(func() error {
 			veth3, err := netlink.LinkByName(vethPeerName)
 			if err != nil {
 				return err
@@ -2150,14 +2144,12 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	err = netlink.LinkSetUp(veth0)
 	c.Assert(err, check.IsNil)
 
-	netns0, err := netns.ReplaceNetNSWithName("test-arping-netns0")
-	c.Assert(err, check.IsNil)
-	defer netns0.Close()
-	err = netlink.LinkSetNsFd(veth1, int(netns0.Fd()))
+	ns := netns.NewNetNS(c)
+	err = netlink.LinkSetNsFd(veth1, int(ns.FD()))
 	c.Assert(err, check.IsNil)
 	node1Addr, err := netlink.ParseAddr("fc00:c111::1/128")
 	c.Assert(err, check.IsNil)
-	netns0.Do(func(ns.NetNS) error {
+	ns.Do(func() error {
 		lo, err := netlink.LinkByName("lo")
 		c.Assert(err, check.IsNil)
 		err = netlink.LinkSetUp(lo)
@@ -2202,9 +2194,9 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	err = netlink.LinkSetUp(veth2)
 	c.Assert(err, check.IsNil)
 
-	err = netlink.LinkSetNsFd(veth3, int(netns0.Fd()))
+	err = netlink.LinkSetNsFd(veth3, int(ns.FD()))
 	c.Assert(err, check.IsNil)
-	err = netns0.Do(func(ns.NetNS) error {
+	err = ns.Do(func() error {
 		veth3, err := netlink.LinkByName("veth3")
 		c.Assert(err, check.IsNil)
 		ipnet.IP = v2IP1
@@ -2260,13 +2252,11 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	err = netlink.LinkSetUp(veth4)
 	c.Assert(err, check.IsNil)
 
-	netns1, err := netns.ReplaceNetNSWithName("test-arping-netns1")
-	c.Assert(err, check.IsNil)
-	defer netns1.Close()
+	ns2 := netns.NewNetNS(c)
 
-	err = netlink.LinkSetNsFd(veth5, int(netns1.Fd()))
+	err = netlink.LinkSetNsFd(veth5, int(ns2.FD()))
 	c.Assert(err, check.IsNil)
-	err = netns1.Do(func(ns.NetNS) error {
+	err = ns2.Do(func() error {
 		veth5, err := netlink.LinkByName("veth5")
 		c.Assert(err, check.IsNil)
 		ipnet.IP = v3IP1
@@ -2414,7 +2404,7 @@ refetch2:
 	var veth0HwAddr, veth1HwAddr, veth2HwAddr, veth3HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
 	veth0HwAddr = veth0.Attrs().HardwareAddr
 	veth2HwAddr = veth2.Attrs().HardwareAddr
-	err = netns0.Do(func(ns.NetNS) error {
+	err = ns.Do(func() error {
 		veth1, err := netlink.LinkByName("veth1")
 		c.Assert(err, check.IsNil)
 		veth1HwAddr = veth1.Attrs().HardwareAddr
@@ -2569,12 +2559,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	err = netlink.LinkSetUp(veth0)
 	c.Assert(err, check.IsNil)
 
-	netns0, err := netns.ReplaceNetNSWithName("test-arping-netns0")
+	ns := netns.NewNetNS(c)
+
+	err = netlink.LinkSetNsFd(veth1, int(ns.FD()))
 	c.Assert(err, check.IsNil)
-	defer netns0.Close()
-	err = netlink.LinkSetNsFd(veth1, int(netns0.Fd()))
-	c.Assert(err, check.IsNil)
-	netns0.Do(func(ns.NetNS) error {
+	ns.Do(func() error {
 		veth1, err := netlink.LinkByName("veth1")
 		c.Assert(err, check.IsNil)
 		ipnet.IP = ip1
@@ -2680,7 +2669,7 @@ refetch1:
 	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
 	var veth0HwAddr, veth1HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
 	veth0HwAddr = veth0.Attrs().HardwareAddr
-	netns0.Do(func(ns.NetNS) error {
+	ns.Do(func() error {
 		veth1, err := netlink.LinkByName("veth1")
 		c.Assert(err, check.IsNil)
 		veth1HwAddr = veth1.Attrs().HardwareAddr
@@ -2774,7 +2763,7 @@ refetch2:
 	for i := 0; i < 10; i++ {
 		mac := rndHWAddr()
 		// Change MAC
-		netns0.Do(func(ns.NetNS) error {
+		ns.Do(func() error {
 			veth1, err := netlink.LinkByName("veth1")
 			c.Assert(err, check.IsNil)
 			err = netlink.LinkSetHardwareAddr(veth1, mac)
@@ -2835,19 +2824,15 @@ refetch2:
 			errRet = err
 			return
 		}
-		netns1, err := netns.ReplaceNetNSWithName(netnsName)
-		if err != nil {
-			errRet = err
-			return
-		}
+		ns2 := netns.NewNetNS(c)
 		cleanup = func() {
 			cleanup1()
-			netns1.Close()
+			ns2.Close()
 		}
-		if errRet = netlink.LinkSetNsFd(veth2, int(netns0.Fd())); errRet != nil {
+		if errRet = netlink.LinkSetNsFd(veth2, int(ns.FD())); errRet != nil {
 			return
 		}
-		if errRet = netlink.LinkSetNsFd(veth3, int(netns1.Fd())); errRet != nil {
+		if errRet = netlink.LinkSetNsFd(veth3, int(ns2.FD())); errRet != nil {
 			return
 		}
 
@@ -2860,7 +2845,7 @@ refetch2:
 		ip3 := net.ParseIP(vethPeerIPAddr)
 		ipnet.IP = ip2
 
-		if errRet = netns0.Do(func(ns.NetNS) error {
+		if errRet = ns.Do(func() error {
 			addr = &netlink.Addr{IPNet: ipnet}
 			if err := netlink.AddrAdd(veth2, addr); err != nil {
 				return err
@@ -2885,7 +2870,7 @@ refetch2:
 			return
 		}
 
-		if errRet = netns1.Do(func(ns.NetNS) error {
+		if errRet = ns2.Do(func() error {
 			veth3, err := netlink.LinkByName(vethPeerName)
 			if err != nil {
 				return err
@@ -3406,14 +3391,13 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	err = netlink.LinkSetUp(veth0)
 	c.Assert(err, check.IsNil)
 
-	netns0, err := netns.ReplaceNetNSWithName("test-arping-netns0")
-	c.Assert(err, check.IsNil)
-	defer netns0.Close()
-	err = netlink.LinkSetNsFd(veth1, int(netns0.Fd()))
+	ns := netns.NewNetNS(c)
+
+	err = netlink.LinkSetNsFd(veth1, int(ns.FD()))
 	c.Assert(err, check.IsNil)
 	node1Addr, err := netlink.ParseAddr("10.0.0.1/32")
 	c.Assert(err, check.IsNil)
-	err = netns0.Do(func(ns.NetNS) error {
+	err = ns.Do(func() error {
 		lo, err := netlink.LinkByName("lo")
 		c.Assert(err, check.IsNil)
 		err = netlink.LinkSetUp(lo)
@@ -3459,9 +3443,9 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	err = netlink.LinkSetUp(veth2)
 	c.Assert(err, check.IsNil)
 
-	err = netlink.LinkSetNsFd(veth3, int(netns0.Fd()))
+	err = netlink.LinkSetNsFd(veth3, int(ns.FD()))
 	c.Assert(err, check.IsNil)
-	err = netns0.Do(func(ns.NetNS) error {
+	err = ns.Do(func() error {
 		veth3, err := netlink.LinkByName("veth3")
 		c.Assert(err, check.IsNil)
 		ipnet.IP = v2IP1
@@ -3516,13 +3500,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	err = netlink.LinkSetUp(veth4)
 	c.Assert(err, check.IsNil)
 
-	netns1, err := netns.ReplaceNetNSWithName("test-arping-netns1")
-	c.Assert(err, check.IsNil)
-	defer netns1.Close()
+	ns2 := netns.NewNetNS(c)
 
-	err = netlink.LinkSetNsFd(veth5, int(netns1.Fd()))
+	err = netlink.LinkSetNsFd(veth5, int(ns2.FD()))
 	c.Assert(err, check.IsNil)
-	err = netns1.Do(func(ns.NetNS) error {
+	err = ns2.Do(func() error {
 		veth5, err := netlink.LinkByName("veth5")
 		c.Assert(err, check.IsNil)
 		ipnet.IP = v3IP1
@@ -3670,7 +3652,7 @@ refetch2:
 	var veth0HwAddr, veth1HwAddr, veth2HwAddr, veth3HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
 	veth0HwAddr = veth0.Attrs().HardwareAddr
 	veth2HwAddr = veth2.Attrs().HardwareAddr
-	err = netns0.Do(func(ns.NetNS) error {
+	err = ns.Do(func() error {
 		veth1, err := netlink.LinkByName("veth1")
 		c.Assert(err, check.IsNil)
 		veth1HwAddr = veth1.Attrs().HardwareAddr

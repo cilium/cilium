@@ -7,14 +7,13 @@ import (
 	"net"
 	"testing"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 func Test_cleanupUnreachableRoutes(t *testing.T) {
@@ -23,13 +22,7 @@ func Test_cleanupUnreachableRoutes(t *testing.T) {
 	RegisterTestingT(t)
 
 	// temporary network namespace to ensure routes don't interfere with test system
-	const testNSName = "test-cilium-ipam-netns0"
-	netns0, err := netns.ReplaceNetNSWithName(testNSName)
-	Expect(err).To(BeNil())
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(testNSName)
-	})
+	ns := netns.NewNetNS(t)
 
 	parseCIDR := func(s string) *net.IPNet {
 		t.Helper()
@@ -47,19 +40,19 @@ func Test_cleanupUnreachableRoutes(t *testing.T) {
 		return routes
 	}
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		for _, podIPs := range []string{
 			"10.10.0.1/32", "10.10.0.2/32", "10.20.0.1/32",
 			"fe80::1/128", "fe80:beef::2/128", "fe80:c0fe::3/128",
 		} {
-			err = netlink.RouteReplace(&netlink.Route{
+			err := netlink.RouteReplace(&netlink.Route{
 				Dst:   parseCIDR(podIPs),
 				Table: route.MainTable,
 				Type:  unix.RTN_UNREACHABLE,
 			})
 			Expect(err).ToNot(HaveOccurred())
 		}
-		err = cleanupUnreachableRoutes("10.10.0.0/24")
+		err := cleanupUnreachableRoutes("10.10.0.0/24")
 		Expect(err).ToNot(HaveOccurred())
 
 		// Ensure only first two IPv4 routes are cleaned up

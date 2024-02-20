@@ -9,12 +9,10 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"runtime"
 	"sort"
 
 	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -25,10 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 type DevicesSuite struct {
-	currentNetNS                      netns.NsHandle
 	prevConfigDevices                 []string
 	prevConfigDirectRoutingDevice     string
 	prevConfigIPv6MCastDevice         string
@@ -57,7 +55,6 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 	s.prevConfigRoutingMode = option.Config.RoutingMode
 	s.prevConfigEnableIPv6NDP = option.Config.EnableIPv6NDP
 	s.prevConfigIPv6MCastDevice = option.Config.IPv6MCastDevice
-	s.currentNetNS, err = netns.Get()
 	c.Assert(err, IsNil)
 }
 
@@ -316,17 +313,14 @@ func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 }
 
 func (s *DevicesSuite) withFixture(c *C, test func()) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
 	logging.SetLogLevelToDebug()
 
-	testNetNS, err := netns.New() // creates netns, and sets it to current
-	c.Assert(err, IsNil)
-	defer func() { c.Assert(testNetNS.Close(), IsNil) }()
-	defer func() { c.Assert(netns.Set(s.currentNetNS), IsNil) }()
+	ns := netns.NewNetNS(c)
 
-	node.WithTestLocalNodeStore(test)
+	ns.Do(func() error {
+		node.WithTestLocalNodeStore(test)
+		return nil
+	})
 }
 
 func createLink(linkTemplate netlink.Link, iface, ipAddr string, flagMulticast bool) error {
@@ -553,14 +547,13 @@ func delRoutes(iface string) error {
 }
 
 func newDeviceManagerForTests() (dm *DeviceManager, err error) {
-	ns, _ := netns.Get()
 	h := hive.New(
 		statedb.Cell,
 		DevicesControllerCell,
 		cell.Provide(func() DevicesConfig {
 			return DevicesConfig{Devices: option.Config.GetDevices()}
 		}),
-		cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs(ns) }),
+		cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs() }),
 		cell.Invoke(func(dm_ *DeviceManager) {
 			dm = dm_
 		}))

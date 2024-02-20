@@ -5,7 +5,6 @@ package route
 
 import (
 	"net"
-	"runtime"
 	"testing"
 	"time"
 
@@ -13,10 +12,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 type RouteSuitePrivileged struct{}
@@ -466,9 +465,11 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			withFreshNetNS(t, func() {
+			ns := netns.NewNetNS(t)
+			require.NoError(t, ns.Do(func() error {
 				rule := tt.preRun()
 				rules, err := ListRules(family, tt.ruleFilter)
 				tt.postRun(rule)
@@ -479,7 +480,9 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 					t.Errorf("expected len: %d, got: %d\n%s\n", len(wantRules), len(rules), diff)
 				}
 				require.Equal(t, err != nil, wantErr)
-			})
+
+				return nil
+			}))
 		})
 	}
 }
@@ -494,17 +497,4 @@ func delRule(tb testing.TB, r *netlink.Rule) {
 	if err := netlink.RuleDel(r); err != nil {
 		tb.Logf("Unable to delete rule: %v", err)
 	}
-}
-
-func withFreshNetNS(t *testing.T, test func()) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	oldNetNS, err := netns.Get()
-	require.NoError(t, err)
-	testNetNS, err := netns.New()
-	require.NoError(t, err)
-	defer func() { require.NoError(t, testNetNS.Close()) }()
-	defer func() { require.NoError(t, netns.Set(oldNetNS)) }()
-	test()
 }

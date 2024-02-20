@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -18,24 +17,17 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 func TestMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	netnsName := "test-maybe-unload-xdp"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		// create netlink handle in the test netns to ensure subsequent netlink
 		// calls request data from the correct netns, even if called in a separate
 		// goroutine (require.Eventually)
@@ -99,16 +91,9 @@ func TestMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 func TestAttachXDP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	netnsName := "test-attach-xdp"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		veth := &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
 			PeerName:  "veth1",
@@ -133,16 +118,9 @@ func TestAttachXDP(t *testing.T) {
 func TestAttachXDPWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	netnsName := "test-attach-xdp-previous"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		veth := &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
 			PeerName:  "veth1",
@@ -170,16 +148,9 @@ func TestAttachXDPWithPreviousAttach(t *testing.T) {
 func TestAttachXDPWithExistingLink(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	netnsName := "test-attach-xdp-existing"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		veth := &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
 			PeerName:  "veth1",
@@ -230,16 +201,9 @@ func TestAttachXDPWithExistingLink(t *testing.T) {
 func TestDetachXDPWithPreviousAttach(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	netnsName := "test-detach-xdp-previous"
-	netns0, err := netns.ReplaceNetNSWithName(netnsName)
-	require.NoError(t, err)
-	require.NotNil(t, netns0)
-	t.Cleanup(func() {
-		netns0.Close()
-		netns.RemoveNetNSWithName(netnsName)
-	})
+	ns := netns.NewNetNS(t)
 
-	netns0.Do(func(_ ns.NetNS) error {
+	ns.Do(func() error {
 		veth := &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
 			PeerName:  "veth1",
