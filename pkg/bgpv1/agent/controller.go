@@ -144,6 +144,9 @@ type Controller struct {
 	BGPMgr BGPRouterManager
 
 	workerpool *workerpool.WorkerPool
+
+	// PolicyApplied indicates whether the policy is applied to the node or not
+	policyApplied bool
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -367,10 +370,11 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return err
 	}
 	if policy == nil {
-		// no policy was discovered, tell router manager to withdrawal peers if
-		// they are configured.
-		l.Debug("No BGP peering policy applies to this node, any existing BGP sessions will be removed.")
-		c.FullWithdrawal(ctx)
+		if c.policyApplied {
+			l.Info("No CiliumBGPPeeringPolicy applies to this node anymore. Removing all virtual router instances.")
+			c.FullWithdrawal(ctx)
+			c.policyApplied = false
+		}
 		return nil
 	}
 
@@ -424,6 +428,8 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	if err := c.BGPMgr.ConfigurePeers(ctx, policy, state); err != nil {
 		return fmt.Errorf("failed to configure BGP peers, cannot apply BGP peering policy: %w", err)
 	}
+
+	c.policyApplied = true
 
 	return nil
 }
