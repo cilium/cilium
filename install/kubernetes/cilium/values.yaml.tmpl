@@ -613,6 +613,8 @@ envoyConfig:
     create: true
     # -- The name of the secret namespace to which Cilium agents are given read access.
     name: cilium-secrets
+  # -- Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated.
+  retryInterval: 15s
 ingressController:
   # -- Enable cilium ingress controller
   # This will automatically set enable-envoy-config as well.
