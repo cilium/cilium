@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
@@ -177,6 +178,84 @@ func TestControllerSanity(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDeselection ensures that the deselection of a policy causes a full withdrawal
+func TestDeselection(t *testing.T) {
+	var policy = &v2alpha1api.CiliumBGPPeeringPolicy{
+		Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+			NodeSelector: &v1.LabelSelector{
+				MatchLabels: map[string]string{
+					"bgp-policy": "a",
+				},
+			},
+		},
+	}
+
+	withPolicy := func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+		return []*v2alpha1api.CiliumBGPPeeringPolicy{policy}, nil
+	}
+
+	withoutPolicy := func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+		return []*v2alpha1api.CiliumBGPPeeringPolicy{}, nil
+	}
+
+	// Start from empty policy list
+	policyLister := &agent.MockCiliumBGPPeeringPolicyLister{
+		List_: withoutPolicy,
+	}
+
+	fullWithdrawalObserved := false
+	rtmgr := &mock.MockBGPRouterManager{
+		ConfigurePeers_: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, n *v2api.CiliumNode) error {
+			if p == nil && n == nil {
+				fullWithdrawalObserved = true
+			}
+			return nil
+		},
+	}
+
+	// create test cilium node
+	node := &v2api.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "Test Node",
+			Labels: map[string]string{
+				"bgp-policy": "a",
+			},
+		},
+	}
+
+	c := agent.Controller{
+		PolicyLister:    policyLister,
+		BGPMgr:          rtmgr,
+		LocalCiliumNode: node,
+	}
+
+	// First, reconcile with the policy selected
+	err := c.Reconcile(context.Background())
+	require.NoError(t, err)
+
+	// At this point, we shouldn't see any full withdrawal because
+	// there is no previous policy.
+	require.False(t, fullWithdrawalObserved)
+
+	// Now, reconcile with the policy selected
+	policyLister.List_ = withPolicy
+	err = c.Reconcile(context.Background())
+	require.NoError(t, err)
+
+	// At this point, we shouldn't see any full withdrawal because
+	// the policy is still selected.
+	require.False(t, fullWithdrawalObserved)
+
+	// Now, reconcile with the policy deselected
+	policyLister.List_ = withoutPolicy
+	err = c.Reconcile(context.Background())
+	require.NoError(t, err)
+
+	// At this point, we should see a full withdrawal because
+	// the policy is no longer selected.
+	require.True(t, fullWithdrawalObserved)
 }
 
 // TestPolicySelection ensure the selection of a policy is performed correctly
