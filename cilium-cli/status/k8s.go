@@ -173,7 +173,11 @@ func (k *K8sStatusCollector) podCount(ctx context.Context, status *Status) error
 
 	ciliumEps, err := k.client.ListCiliumEndpoints(ctx, "", metav1.ListOptions{})
 	if err != nil {
-		return err
+		// When the CEP has not been registered yet, it's impossible
+		// for any pods to be managed by Cilium.
+		if err.Error() != "the server could not find the requested resource (get ciliumendpoints.cilium.io)" {
+			return err
+		}
 	}
 	if ciliumEps != nil {
 		numberCiliumPod = len(ciliumEps.Items)
