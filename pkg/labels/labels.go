@@ -167,25 +167,21 @@ type Label struct {
 type Labels map[string]Label
 
 // GetPrintableModel turns the Labels into a sorted list of strings
-// representing the labels, with CIDRs deduplicated (ie, only provide the most
-// specific CIDRs).
+// representing the labels.
 func (l Labels) GetPrintableModel() (res []string) {
-	// Aggregate list of "leaf" CIDRs
-	leafCIDRs := leafCIDRList[*Label]{}
+	res = make([]string, 0, len(l))
 	for _, v := range l {
-		// If this is a CIDR label, filter out non-leaf CIDRs for human consumption
 		if v.Source == LabelSourceCIDR {
-			v := v
-			prefixStr := strings.Replace(v.Key, "-", ":", -1)
-			prefix, _ := netip.ParsePrefix(prefixStr)
-			leafCIDRs.insert(prefix, &v)
+			prefix, err := LabelToPrefix(v.Key)
+			if err != nil {
+				res = append(res, v.String())
+			} else {
+				res = append(res, LabelSourceCIDR+":"+prefix.String())
+			}
 		} else {
 			// not a CIDR label, no magic needed
 			res = append(res, v.String())
 		}
-	}
-	for _, val := range leafCIDRs {
-		res = append(res, strings.Replace(val.String(), "-", ":", -1))
 	}
 
 	sort.Strings(res)
