@@ -58,6 +58,30 @@ var (
 	egressGatewayPolicyYAML string
 )
 
+// NewTest factory function.
+func NewTest(name string, verbose bool, debug bool) *Test {
+	if name == "" {
+		panic("empty test name")
+	}
+	test := &Test{
+		name:        name,
+		scenarios:   make(map[Scenario][]*Action),
+		cnps:        make(map[string]*ciliumv2.CiliumNetworkPolicy),
+		knps:        make(map[string]*networkingv1.NetworkPolicy),
+		cegps:       make(map[string]*ciliumv2.CiliumEgressGatewayPolicy),
+		verbose:     verbose,
+		logBuf:      &bytes.Buffer{}, // maintain internal buffer by default
+		warnBuf:     &bytes.Buffer{},
+		conditionFn: func() bool { return true },
+	}
+	// Setting the internal buffer to nil causes the logger to
+	// write directly to stdout in verbose or debug mode.
+	if verbose || debug {
+		test.logBuf = nil
+	}
+	return test
+}
+
 type Test struct {
 	// Reference to the enclosing test suite for logging etc.
 	ctx *ConnectivityTest
@@ -128,6 +152,11 @@ type Test struct {
 	logBuf  io.ReadWriter
 	warnBuf *bytes.Buffer
 	verbose bool
+
+	// conditionFn is a function that returns true if the test needs to run,
+	// and false otherwise. By default, it's set to a function that returns
+	// true.
+	conditionFn func() bool
 
 	// List of functions to be called when Run() returns.
 	finalizers []func() error
@@ -232,6 +261,10 @@ func (t *Test) versionInRange(version semver.Version) (bool, string) {
 // excluding tests, they're most likely interested in other reasons why their
 // test is not being executed.
 func (t *Test) willRun() (bool, string) {
+	if !t.conditionFn() {
+		return false, "skipped by condition"
+	}
+
 	// Check if the running Cilium version is within range of the value specified
 	// in WithCiliumVersion.
 	if ver, reason := t.versionInRange(t.Context().CiliumVersion); !ver {
@@ -388,6 +421,13 @@ func configureNamespaceInPolicySpec(spec *api.Rule, namespace string) {
 			}
 		}
 	}
+}
+
+// WithCondition takes a function containing condition check logic that
+// returns true if the test needs to be run, and false otherwise.
+func (t *Test) WithCondition(fn func() bool) *Test {
+	t.conditionFn = fn
+	return t
 }
 
 // WithCiliumPolicy takes a string containing a YAML policy document and adds
@@ -632,12 +672,7 @@ func (t *Test) WithFeatureRequirements(reqs ...features.Requirement) *Test {
 // podCIDR => nodeIP routes needs to be installed on a node which doesn't run
 // Cilium before running the test (and removed after the test completion).
 func (t *Test) WithIPRoutesFromOutsideToPodCIDRs() *Test {
-	if !t.Context().Params().IncludeUnsafeTests {
-		t.Fatal("WithIPRoutesFromOutsideToPodCIDRs() requires enabling --include-unsafe-tests")
-	}
-
 	t.installIPRoutesFromOutsideToPodCIDRs = true
-
 	return t
 }
 
