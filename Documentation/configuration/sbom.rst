@@ -31,22 +31,32 @@ Prerequisites
 Download SBOM
 =============
 
-The SBOM can be downloaded from the supplied Cilium image using the
-``cosign download sbom`` command.
+You can download the SBOM in-toto attestation from the supplied Cilium image using the following command:
 
 .. code-block:: shell-session
 
-    $ cosign download sbom --output-file sbom.spdx <Image URL>
+    $ cosign download attestation --predicate-type spdxjson <Image URI> | jq -r .payload | base64 -d | jq .predicate > ciliumSBOM.spdx.json
 
-Verify SBOM Image Signature
-===========================
+Verify SBOM attestation
+=======================
 
-To ensure the SBOM is tamper-proof, its signature can be verified using the
-``cosign verify`` command.
+To verify the SBOM in-toto attestation on the supplied Cilium image, run the following command:
 
 .. code-block:: shell-session
 
-    $ COSIGN_EXPERIMENTAL=1 cosign verify --certificate-github-workflow-repository cilium/cilium --certificate-oidc-issuer https://token.actions.githubusercontent.com --attachment sbom <Image URL> | jq
+    $ TAG=v1.15.0
+    $ cosign verify-attestation --certificate-github-workflow-repository cilium/cilium \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --certificate-identity "https://github.com/cilium/cilium/.github/workflows/build-images-releases.yaml@refs/tags/${TAG}" \
+    --type spdxjson <Image URI> | jq
 
 It can be validated that the image was signed using Github Actions in the Cilium
-repository from the ``Issuer`` and ``Subject`` fields of the output.
+repository from the ``Certificate subject:`` and ``Certificate issuer URL:`` fields of the output.
+
+.. note::
+    The `in-toto`_ Attestation Framework provides a specification for generating
+    verifiable claims about any aspect of how a piece of software is produced.
+    Consumers or users of software can then validate the origins of the software,
+    and establish trust in its supply chain, using in-toto attestations.
+
+.. _`in-toto`: https://in-toto.io/
