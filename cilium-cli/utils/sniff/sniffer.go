@@ -74,7 +74,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 			target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
 		err := target.K8sClient.ExecInPodWithWriters(ctx, cmdctx,
 			target.Pod.Namespace, target.Pod.Name, "", sniffer.cmd, &sniffer.stdout, io.Discard)
-		if err != nil && !errors.Is(err, context.Canceled) {
+		if err != nil {
 			sniffer.exited <- err
 		}
 
@@ -89,6 +89,14 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		case <-wctx.Done():
 			return nil, fmt.Errorf("Failed to wait for tcpdump to be ready")
 		case err := <-sniffer.exited:
+			if err == nil {
+				// When running in sanity mode, tcpdump exits after capturing a
+				// single packet matching the filter. Hence, it is possible that
+				// it already terminated at this point. We'll then double check
+				// whether it was the case when performing validation.
+				return sniffer, nil
+			}
+
 			return nil, fmt.Errorf("Failed to execute tcpdump: %w", err)
 		case <-time.After(100 * time.Millisecond):
 			line, err := sniffer.stdout.ReadString('\n')
@@ -107,8 +115,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 // additionally dumps the captured packets in case of failure if debug logs are enabled.
 func (sniffer *Sniffer) Validate(ctx context.Context, a *check.Action) {
 	// Wait until tcpdump has exited
-	sniffer.cancel()
-	if err := <-sniffer.exited; err != nil {
+	if err := sniffer.stopAndWait(ctx); err != nil {
 		a.Fatalf("Failed to execute tcpdump on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
 	}
 
@@ -143,5 +150,35 @@ func (sniffer *Sniffer) Validate(ctx context.Context, a *check.Action) {
 	if strings.HasPrefix(count.String(), "0 packets") && sniffer.mode == ModeSanity {
 		a.Failf("Expected to capture packets, but none found. This check might be broken.")
 		a.Infof("Capture executed on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), strings.Join(sniffer.cmd, " "))
+	}
+}
+
+func (sniffer *Sniffer) stopAndWait(ctx context.Context) error {
+	select {
+	case err := <-sniffer.exited:
+		// When running in assert mode, it is an error if tcpdump already stopped
+		// at this point, as we may have missed packets. That's not the case in
+		// sanity mode, as configured to stop after receiving a single packet.
+		if err == nil && sniffer.mode == ModeAssert {
+			return errors.New("tcpdump terminated unexpectedly")
+		}
+		return err
+
+	default:
+		ctx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		sniffer.cancel()
+		select {
+		case err := <-sniffer.exited:
+			// We canceled the context, so this is expected.
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
+			return err
+
+		case <-ctx.Done():
+			return errors.New("failed to wait for tcpdump to terminate")
+		}
 	}
 }
