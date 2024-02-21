@@ -4,7 +4,6 @@
 package check
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -22,7 +21,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/api/v1/observer"
@@ -112,12 +110,7 @@ func netIPToCIDRs(netIPs []netip.Addr) (netCIDRs []netip.Prefix) {
 	return
 }
 
-// verbose returns the value of the user-provided verbosity flag.
-func (ct *ConnectivityTest) verbose() bool {
-	return ct.params.Verbose
-}
-
-// verbose returns the value of the user-provided debug flag.
+// debug returns the value of the user-provided debug flag.
 func (ct *ConnectivityTest) debug() bool {
 	return ct.params.Debug
 }
@@ -228,42 +221,14 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 	return k, nil
 }
 
-// NewTest creates a new test scope within the ConnectivityTest and returns
-// a new Test. This object can be used to set up the environment to execute
-// different Scenarios within.
-func (ct *ConnectivityTest) NewTest(name string) *Test {
-	var member struct{}
-
-	if name == "" {
-		panic("empty test name")
+// AddTest adds a new test scope within the ConnectivityTest and returns a new Test.
+func (ct *ConnectivityTest) AddTest(t *Test) *Test {
+	if _, ok := ct.testNames[t.name]; ok {
+		ct.Fatalf("test %s exists in suite", t.name)
 	}
-
-	if _, ok := ct.testNames[name]; ok {
-		ct.Fatalf("test %s exists in suite", name)
-	}
-
-	t := &Test{
-		ctx:       ct,
-		name:      name,
-		scenarios: make(map[Scenario][]*Action),
-		cnps:      make(map[string]*ciliumv2.CiliumNetworkPolicy),
-		ccnps:     make(map[string]*ciliumv2.CiliumClusterwideNetworkPolicy),
-		knps:      make(map[string]*networkingv1.NetworkPolicy),
-		cegps:     make(map[string]*ciliumv2.CiliumEgressGatewayPolicy),
-		verbose:   ct.verbose(),
-		logBuf:    &bytes.Buffer{}, // maintain internal buffer by default
-		warnBuf:   &bytes.Buffer{},
-	}
-
-	// Setting the internal buffer to nil causes the logger to
-	// write directly to stdout in verbose or debug mode.
-	if ct.verbose() || ct.debug() {
-		t.logBuf = nil
-	}
-
+	t.ctx = ct
 	ct.tests = append(ct.tests, t)
-	ct.testNames[name] = member
-
+	ct.testNames[t.name] = struct{}{}
 	return t
 }
 
