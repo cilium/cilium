@@ -854,11 +854,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     int l3_off, int l4_off,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
-				     const struct lb6_service *svc,
+				     struct lb6_service **__svc,
 				     struct ct_state *state,
 				     const bool skip_l3_xlate,
 				     __s8 *ext_err)
 {
+	struct lb6_service *svc = *__svc;
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
@@ -948,6 +949,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			svc = lb6_lookup_service(key, false, true);
 			if (!svc)
 				goto no_service;
+
+			*__svc = svc;
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (!backend)
@@ -1526,13 +1529,14 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     bool is_fragment, int l3_off, int l4_off,
 				     struct lb4_key *key,
 				     struct ipv4_ct_tuple *tuple,
-				     const struct lb4_service *svc,
+				     struct lb4_service **__svc,
 				     struct ct_state *state,
 				     bool has_l4_header,
 				     const bool skip_l3_xlate,
 				     __u32 *cluster_id __maybe_unused,
 				     __s8 *ext_err)
 {
+	struct lb4_service *svc = *__svc;
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
@@ -1635,6 +1639,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			svc = lb4_lookup_service(key, false, true);
 			if (!svc)
 				goto no_service;
+
+			*__svc = svc;
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (!backend)

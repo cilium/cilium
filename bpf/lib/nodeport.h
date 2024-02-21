@@ -1316,7 +1316,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		}
 #endif
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
-				&key, &tuple, svc, &ct_state_new,
+				&key, &tuple, &svc, &ct_state_new,
 				skip_l3_xlate, ext_err);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
@@ -2825,7 +2825,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 				return NAT_46X64_RECIRC;
 		} else {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, is_fragment, l3_off, l4_off,
-					&key, &tuple, svc, &ct_state_new,
+					&key, &tuple, &svc, &ct_state_new,
 					has_l4_header, skip_l3_xlate, &cluster_id,
 					ext_err);
 #ifdef SERVICE_NO_BACKEND_RESPONSE

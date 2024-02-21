@@ -108,7 +108,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		}
 #endif /* ENABLE_L7_LB */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ipv4_is_fragment(ip4),
-				ETH_HLEN, l4_off, &key, &tuple, svc, &ct_state_new,
+				ETH_HLEN, l4_off, &key, &tuple, &svc, &ct_state_new,
 				has_l4_header, false, &cluster_id, ext_err);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
@@ -165,7 +165,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		}
 #endif /* ENABLE_L7_LB */
 		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
-				&key, &tuple, svc, &ct_state_new, false, ext_err);
+				&key, &tuple, &svc, &ct_state_new, false, ext_err);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE)
