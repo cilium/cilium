@@ -4,7 +4,7 @@
 package linux
 
 import (
-	"github.com/cilium/cilium/pkg/datapath/loader"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
