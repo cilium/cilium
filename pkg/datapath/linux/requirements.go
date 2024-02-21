@@ -6,7 +6,6 @@ package linux
 import (
 	"errors"
 	"os"
-	"path/filepath"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -45,9 +44,6 @@ func CheckRequirements() {
 			// TODO(vincentmli): revisit log when GH#14314 has been resolved
 			// Warn missing required kernel config option
 			log.WithError(err).Warn(errMsg)
-		}
-		if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes()); err != nil {
-			log.WithError(err).Fatal("failed to create header files with feature macros")
 		}
 	}
 }
