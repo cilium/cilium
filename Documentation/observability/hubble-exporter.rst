@@ -239,8 +239,8 @@ You can change flow log settings without a need for pod to be restarted
       --set hubble.export.dynamic.enabled=true \\
       --set hubble.export.dynamic.config.content[0].name=system \\
       --set hubble.export.dynamic.config.content[0].filePath=/var/run/cilium/hubble/events-system.log \\
-      --set hubble.export.dynamic.config.content[0].IncludeFilters[0].source_pod[0]='kube_system/*' \\
-      --set hubble.export.dynamic.config.content[0].IncludeFilters[1].destination_pod[0]='kube_system/*'
+      --set hubble.export.dynamic.config.content[0].includeFilters[0].source_pod[0]='kube_system/' \\
+      --set hubble.export.dynamic.config.content[0].includeFilters[1].destination_pod[0]='kube_system/'
 
 
 Dynamic flow logs can be configured with ``end`` property which means that it will
