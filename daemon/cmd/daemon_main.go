@@ -1288,6 +1288,10 @@ func initEnv(vp *viper.Viper) {
 
 	linuxdatapath.CheckRequirements()
 
+	if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes()); err != nil {
+		log.WithError(err).Fatal("failed to create header files with feature macros")
+	}
+
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
 		log.WithField(logfields.Path, defaults.PidFilePath).WithError(err).Fatal("Failed to create Pidfile")
 	}
