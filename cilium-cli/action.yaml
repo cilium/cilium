@@ -34,7 +34,7 @@ runs:
         echo path="${CLI_PATH}" >> $GITHUB_OUTPUT
 
     - name: Setup Go
-      uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
       if: ${{ steps.build-cli.outputs.path != '' }}
       with:
         go-version-file: '${{ steps.build-cli.outputs.path }}/go.mod'
