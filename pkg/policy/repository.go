@@ -375,7 +375,9 @@ func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 		rules, ok := p.rulesIndexByK8sUID[uid]
 		if ok {
 			for _, r := range rules {
-				result = append(result, &r.Rule)
+				if r.Labels.Contains(lbls) {
+					result = append(result, &r.Rule)
+				}
 			}
 		}
 		return result
