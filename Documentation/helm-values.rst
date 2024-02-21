@@ -1131,7 +1131,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:663a71073bfebde735bdde2d7afeb565ef7e5c37de1bf962afbb432f1062559f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.28.1-e62af1059e691fe025d97b53b56ed4e8afa366dc","useDigest":true}``
+     - ``{"digest":"sha256:63da89537b600f1c0288e47938dcbfa4603ea488324fc26d14e713a2ca7ad4bb","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy-dev","tag":"5628f440b9cfcee2fb0b2372e27116d37048af24","useDigest":true}``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
@@ -1171,7 +1171,7 @@
    * - :spelling:ignore:`envoy.podSecurityContext`
      - Security Context for cilium-envoy pods.
      - object
-     - ``{}``
+     - ``{"fsGroup":1337}``
    * - :spelling:ignore:`envoy.priorityClassName`
      - The priority class to use for cilium-envoy.
      - string
@@ -1236,6 +1236,18 @@
      - Run the pod with elevated privileges
      - bool
      - ``false``
+   * - :spelling:ignore:`envoy.securityContext.runAsGroup`
+     - Group to run the pod with if privileged is false
+     - int
+     - ``1337``
+   * - :spelling:ignore:`envoy.securityContext.runAsNonRoot`
+     - Run as non-root user if privileged is false
+     - bool
+     - ``true``
+   * - :spelling:ignore:`envoy.securityContext.runAsUser`
+     - User to run the pod with if privileged is false
+     - int
+     - ``1337``
    * - :spelling:ignore:`envoy.securityContext.seLinuxOptions`
      - SELinux options for the ``cilium-envoy`` container
      - object

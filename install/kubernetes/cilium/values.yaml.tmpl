@@ -1819,7 +1819,8 @@ envoy:
   # -- Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
   annotations: {}
   # -- Security Context for cilium-envoy pods.
-  podSecurityContext: {}
+  podSecurityContext:
+    fsGroup: 1337
   # -- Annotations to be added to envoy pods
   podAnnotations: {}
   # -- Labels to be added to envoy pods
@@ -1855,6 +1856,12 @@ envoy:
     # runAsUser: 0
     # -- Run the pod with elevated privileges
     privileged: false
+    # -- Run as non-root user if privileged is false
+    runAsNonRoot: true
+    # -- User to run the pod with if privileged is false
+    runAsUser: 1337
+    # -- Group to run the pod with if privileged is false
+    runAsGroup: 1337
     # -- SELinux options for the `cilium-envoy` container
     seLinuxOptions:
       level: 's0'

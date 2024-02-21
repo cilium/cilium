@@ -163,6 +163,9 @@ spec:
           {{- if .Values.envoy.securityContext.privileged }}
           privileged: true
           {{- else }}
+          runAsNonRoot: {{ .Values.envoy.securityContext.runAsNonRoot }}
+          runAsUser: {{ .Values.envoy.securityContext.runAsUser }}
+          runAsGroup: {{ .Values.envoy.securityContext.runAsGroup }}
           seLinuxOptions:
             {{- with .Values.envoy.securityContext.seLinuxOptions }}
             {{- toYaml . | nindent 12 }}
