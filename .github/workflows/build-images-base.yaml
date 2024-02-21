@@ -130,18 +130,10 @@ jobs:
           output-file: ./sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
-      - name: Attach SBOM to Container Image
+      - name: Attach SBOM attestation to container image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attach sbom --sbom sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
-
-      - name: Sign SBOM Image
-        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        run: |
-          docker_build_release_runtime_digest="${{ steps.docker_build_release_runtime.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${docker_build_release_runtime_digest/:/-}.sbom"
-          docker_build_release_runtime_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${docker_build_release_runtime_sbom_digest}"
+          cosign attest -r -y --predicate sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
       - name: Image Release Digest Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -216,18 +208,10 @@ jobs:
           output-file: ./sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
-      - name: Attach SBOM to Container Image
+      - name: Attach SBOM attestation to container image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attach sbom --sbom sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
-
-      - name: Sign SBOM Image
-        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        run: |
-          docker_build_release_builder_digest="${{ steps.docker_build_release_builder.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${docker_build_release_builder_digest/:/-}.sbom"
-          docker_build_release_builder_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${docker_build_release_builder_sbom_digest}"
+          cosign attest -r -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Image Release Digest Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
