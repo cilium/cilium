@@ -225,8 +225,6 @@ usage information.
       #    export KUBEPROXY=0
       #    export K8S_NODES=3
       #    export NO_CILIUM_ON_NODES=kind-worker2
-      # elif [[ "${kernel_tag}" == 4.19-* ]]; then
-      #    export KERNEL=419
       # elif [[ "${kernel_tag}" == 5.4-* ]]; then
       #    export KERNEL=54
       # fi

@@ -163,9 +163,6 @@ run_tests() {
             KUBEPROXY=0
             NO_CILIUM_ON_NODES=kind-worker2
             ;;
-        4.19-*)
-            KERNEL=419
-            ;;
         5.4-*)
             KERNEL=54
             ;;
