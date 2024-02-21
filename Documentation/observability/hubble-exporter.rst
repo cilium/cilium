@@ -229,12 +229,6 @@ Wait for ``cilium`` pod to become ready:
 
     kubectl -n kube-system rollout status ds/cilium
 
-Verify that flow logs are stored in target files:
-
-.. code-block:: shell-session
-
-    kubectl -n kube-system exec ds/cilium -- tail -f /var/run/cilium/hubble/events.log
-
 You can change flow log settings without a need for pod to be restarted
 (changes should be reflected within 60s because of configmap propagation delay):
 
