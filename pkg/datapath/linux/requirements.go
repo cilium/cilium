@@ -33,12 +33,10 @@ func CheckRequirements() {
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager()
 
-		// VTEP integration feature requires kernel 1m large instruction support
-		if option.Config.EnableVTEP {
-			if probes.HaveLargeInstructionLimit() != nil {
-				log.Fatalf("VXLAN Tunnel Endpoint (VTEP) Integration: requires support for large programs (Linux 5.2.0 or newer)")
-			}
+		if probes.HaveLargeInstructionLimit() != nil {
+			log.Fatalf("Require support for large programs (Linux 5.2.0 or newer)")
 		}
+
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			errMsg := "BPF system config check: NOT OK."
 			// TODO(vincentmli): revisit log when GH#14314 has been resolved
