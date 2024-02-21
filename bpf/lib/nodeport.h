@@ -2747,6 +2747,14 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	if (tunnel_endpoint) {
 		__be16 src_port;
 
+#if __ctx_is == __ctx_skb
+		bool l2_hdr_required = false;
+
+		ret = maybe_add_l2_hdr(ctx, ENCAP_IFINDEX, &l2_hdr_required);
+		if (ret != 0)
+			goto drop_err;
+#endif
+
 		src_port = tunnel_gen_src_port_v4(&tuple);
 
 		/* The request came from outside, so we need to
