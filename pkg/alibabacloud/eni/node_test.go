@@ -89,14 +89,18 @@ func (e *ENISuite) TestCreateInterface(c *check.C) {
 	})
 
 	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
-		MaxIPsToAllocate:    10,
+		IPv4: ipam.IPAllocationAction{
+			MaxIPsToAllocate: 10,
+		},
 		EmptyInterfaceSlots: 2,
 	}, log)
 	c.Assert(err, check.IsNil)
 	c.Assert(toAlloc, check.Equals, 10)
 
 	toAlloc, _, err = mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
-		MaxIPsToAllocate:    11,
+		IPv4: ipam.IPAllocationAction{
+			MaxIPsToAllocate: 11,
+		},
 		EmptyInterfaceSlots: 1,
 	}, log)
 	c.Assert(err, check.IsNil)
@@ -127,9 +131,9 @@ func (e *ENISuite) TestCandidateAndEmtpyInterfaces(c *check.C) {
 	a, err := node3.Ops().PrepareIPAllocation(log)
 	c.Assert(err, check.IsNil)
 	// 1 ENI attached, 1/3 IPs allocated, 0 empty slots left
-	c.Assert(a.InterfaceCandidates, check.Equals, 1)
+	c.Assert(a.IPv4.InterfaceCandidates, check.Equals, 1)
 	c.Assert(a.EmptyInterfaceSlots, check.Equals, 0)
-	c.Assert(node3.Stats().AvailableIPs, check.Equals, 1)
+	c.Assert(node3.Stats().IPv4.AvailableIPs, check.Equals, 1)
 }
 
 func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
@@ -143,11 +147,13 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
 	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	c.Assert(err, check.IsNil)
-	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 2)
+	c.Assert(a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, check.Equals, 2)
 
 	// create one eni
 	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
-		MaxIPsToAllocate:    10,
+		IPv4: ipam.IPAllocationAction{
+			MaxIPsToAllocate: 10,
+		},
 		EmptyInterfaceSlots: 2,
 	}, log)
 	c.Assert(err, check.IsNil)
@@ -156,7 +162,7 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 	// one eni left
 	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	c.Assert(err, check.IsNil)
-	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 1)
+	c.Assert(a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, check.Equals, 1)
 }
 
 func (e *ENISuite) TestNode_allocENIIndex(c *check.C) {

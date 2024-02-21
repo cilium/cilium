@@ -82,7 +82,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			return nil
 		}
 
-		a.InterfaceCandidates++
+		a.IPv4.InterfaceCandidates++
 
 		if a.InterfaceID == "" {
 			scopedLog.WithFields(logrus.Fields{
@@ -107,7 +107,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 				a.InterfaceID = iface.ID
 				a.Interface = interfaceObj
 				a.PoolID = poolID
-				a.AvailableForAllocation = math.IntMin(available, availableOnInterface)
+				a.IPv4.AvailableForAllocation = math.IntMin(available, availableOnInterface)
 			}
 		}
 		return nil
@@ -124,9 +124,9 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 	}
 
 	if iface.GetVMScaleSetName() == "" {
-		return n.manager.api.AssignPrivateIpAddressesVM(ctx, string(a.PoolID), iface.Name, a.AvailableForAllocation)
+		return n.manager.api.AssignPrivateIpAddressesVM(ctx, string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
 	} else {
-		return n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.GetVMID(), iface.GetVMScaleSetName(), string(a.PoolID), iface.Name, a.AvailableForAllocation)
+		return n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.GetVMID(), iface.GetVMScaleSetName(), string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
 	}
 }
 
