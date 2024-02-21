@@ -86,7 +86,8 @@ type Node struct {
 	// ipv4Alloc represents IPv4-specific allocation attributes for this node
 	ipv4Alloc ipAllocAttrs
 
-	// TODO: Add support for IPv6 allocation: https://github.com/cilium/cilium/issues/19251
+	// ipv6Alloc represents IPv6-specific allocation attributes for this node
+	ipv6Alloc IPAllocAttrs
 
 	// resyncNeeded is set to the current time when a resync with the EC2
 	// API is required. The timestamp is required to ensure that this is
@@ -104,6 +105,12 @@ type Node struct {
 	// batched together if pool maintenance is still ongoing.
 	poolMaintainer PoolMaintainer
 
+	// ipv6PoolMaintainer is the trigger used to assign/unassign
+	// private IPv6 addresses of this node. It ensures that multiple
+	// requests to operate private IPs are batched together if pool
+	// maintenance is still ongoing.
+	ipv6PoolMaintainer PoolMaintainer
+
 	// k8sSync is the trigger used to synchronize node information with the
 	// K8s apiserver. The trigger is used to batch multiple updates
 	// together if the apiserver is slow to respond or subject to rate
@@ -120,6 +127,10 @@ type Node struct {
 	// retry is the trigger used to retry pool maintenance while the
 	// instances API is unstable
 	retry *trigger.Trigger
+
+	// ipv6Retry is the trigger used to retry IPv6 pool maintenance while the
+	// instances API is unstable
+	ipv6Retry *trigger.Trigger
 
 	// logLimiter rate limits potentially repeating warning logs
 	logLimiter logging.Limiter
@@ -152,6 +163,9 @@ type ipAllocAttrs struct {
 type Statistics struct {
 	// IPv4 represents IPv4-specific statistics.
 	IPv4 IPStatistics
+
+	// IPv6 represents IPv6-specific statistics.
+	IPv6 IPStatistics
 
 	// EmptyInterfaceSlots is the number of empty interface slots available
 	// for interfaces to be attached.

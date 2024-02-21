@@ -171,6 +171,13 @@ func (in *IPAMSpec) DeepEqual(other *IPAMSpec) bool {
 		}
 	}
 
+	if ((in.IPv6Pool != nil) && (other.IPv6Pool != nil)) || ((in.IPv6Pool == nil) != (other.IPv6Pool == nil)) {
+		in, other := &in.IPv6Pool, &other.IPv6Pool
+		if other == nil || !in.DeepEqual(other) {
+			return false
+		}
+	}
+
 	if !in.Pools.DeepEqual(&other.Pools) {
 		return false
 	}
@@ -201,6 +208,15 @@ func (in *IPAMSpec) DeepEqual(other *IPAMSpec) bool {
 	if in.PreAllocate != other.PreAllocate {
 		return false
 	}
+	if in.IPv6MinAllocate != other.IPv6MinAllocate {
+		return false
+	}
+	if in.IPv6MaxAllocate != other.IPv6MaxAllocate {
+		return false
+	}
+	if in.IPv6PreAllocate != other.IPv6PreAllocate {
+		return false
+	}
 	if in.MaxAboveWatermark != other.MaxAboveWatermark {
 		return false
 	}
@@ -222,6 +238,13 @@ func (in *IPAMStatus) DeepEqual(other *IPAMStatus) bool {
 		}
 	}
 
+	if ((in.IPv6Used != nil) && (other.IPv6Used != nil)) || ((in.IPv6Used == nil) != (other.IPv6Used == nil)) {
+		in, other := &in.IPv6Used, &other.IPv6Used
+		if other == nil || !in.DeepEqual(other) {
+			return false
+		}
+	}
+
 	if ((in.PodCIDRs != nil) && (other.PodCIDRs != nil)) || ((in.PodCIDRs == nil) != (other.PodCIDRs == nil)) {
 		in, other := &in.PodCIDRs, &other.PodCIDRs
 		if other == nil || !in.DeepEqual(other) {
@@ -235,6 +258,27 @@ func (in *IPAMStatus) DeepEqual(other *IPAMStatus) bool {
 
 	if ((in.ReleaseIPs != nil) && (other.ReleaseIPs != nil)) || ((in.ReleaseIPs == nil) != (other.ReleaseIPs == nil)) {
 		in, other := &in.ReleaseIPs, &other.ReleaseIPs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for key, inValue := range *in {
+				if otherValue, present := (*other)[key]; !present {
+					return false
+				} else {
+					if inValue != otherValue {
+						return false
+					}
+				}
+			}
+		}
+	}
+
+	if ((in.ReleaseIPv6s != nil) && (other.ReleaseIPv6s != nil)) || ((in.ReleaseIPv6s == nil) != (other.ReleaseIPv6s == nil)) {
+		in, other := &in.ReleaseIPv6s, &other.ReleaseIPv6s
 		if other == nil {
 			return false
 		}
@@ -345,6 +389,9 @@ func (in *PoolQuota) DeepEqual(other *PoolQuota) bool {
 	if in.AvailableIPs != other.AvailableIPs {
 		return false
 	}
+	if in.AvailableIPv6s != other.AvailableIPv6s {
+		return false
+	}
 
 	return true
 }
@@ -394,6 +441,14 @@ func (in *Subnet) DeepEqual(other *Subnet) bool {
 		}
 	}
 
+	if (in.IPv6CIDR == nil) != (other.IPv6CIDR == nil) {
+		return false
+	} else if in.IPv6CIDR != nil {
+		if !in.IPv6CIDR.DeepEqual(other.IPv6CIDR) {
+			return false
+		}
+	}
+
 	if in.AvailabilityZone != other.AvailabilityZone {
 		return false
 	}
@@ -401,6 +456,9 @@ func (in *Subnet) DeepEqual(other *Subnet) bool {
 		return false
 	}
 	if in.AvailableAddresses != other.AvailableAddresses {
+		return false
+	}
+	if in.AvailableIPv6Addresses != other.AvailableIPv6Addresses {
 		return false
 	}
 	if ((in.Tags != nil) && (other.Tags != nil)) || ((in.Tags == nil) != (other.Tags == nil)) {
@@ -476,6 +534,23 @@ func (in *VirtualNetwork) DeepEqual(other *VirtualNetwork) bool {
 	}
 	if ((in.CIDRs != nil) && (other.CIDRs != nil)) || ((in.CIDRs == nil) != (other.CIDRs == nil)) {
 		in, other := &in.CIDRs, &other.CIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.IPv6CIDRs != nil) && (other.IPv6CIDRs != nil)) || ((in.IPv6CIDRs == nil) != (other.IPv6CIDRs == nil)) {
+		in, other := &in.IPv6CIDRs, &other.IPv6CIDRs
 		if other == nil {
 			return false
 		}
