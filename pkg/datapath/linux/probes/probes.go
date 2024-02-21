@@ -645,20 +645,29 @@ func ExecuteHeaderProbes() *FeatureProbes {
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
+		/* 5.7+: */
 		"HAVE_NETNS_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnGetNetnsCookie}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie}],
+		/* 4.12+: */
 		"HAVE_SOCKET_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetSocketCookie}],
+		/* 5.6+: */
 		"HAVE_JIFFIES": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
+		/* 4.20+: */
 		"HAVE_SOCKET_LOOKUP": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnSkLookupTcp}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnSkLookupUdp}],
-		"HAVE_CGROUP_ID":        probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
+		/* 4.18+: */
+		"HAVE_CGROUP_ID": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
+		/* 5.2+: */
 		"HAVE_LARGE_INSN_LIMIT": probes.Misc.HaveLargeInsnLimit,
-		"HAVE_SET_RETVAL":       probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
-		"HAVE_FIB_NEIGH":        probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
-		"HAVE_FIB_IFINDEX":      probes.Misc.HaveFibIfindex,
+		/* 5.18+: */
+		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		/* 5.10+: */
+		"HAVE_FIB_NEIGH": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
+		/* 5.10+: */
+		"HAVE_FIB_IFINDEX": probes.Misc.HaveFibIfindex,
 	}
 
 	return writeFeatureHeader(writer, features, true)
@@ -667,8 +676,10 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 // writeSkbHeader defines macros for bpf/include/bpf/features_skb.h
 func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
 	featuresSkb := map[string]bool{
+		/* 4.9+: */
 		"HAVE_CHANGE_TAIL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnSkbChangeTail}],
-		"HAVE_CSUM_LEVEL":  probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
+		/* 5.8+: */
+		"HAVE_CSUM_LEVEL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
 	}
 
 	return writeFeatureHeader(writer, featuresSkb, false)
@@ -677,9 +688,12 @@ func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
 // writeXdpHeader defines macros for bpf/include/bpf/features_xdp.h
 func writeXdpHeader(writer io.Writer, probes *FeatureProbes) error {
 	featuresXdp := map[string]bool{
+		/* 5.18+: */
 		"HAVE_XDP_GET_BUFF_LEN": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpGetBuffLen}],
-		"HAVE_XDP_LOAD_BYTES":   probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
-		"HAVE_XDP_STORE_BYTES":  probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
+		/* 5.18+: */
+		"HAVE_XDP_LOAD_BYTES": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
+		/* 5.18+: */
+		"HAVE_XDP_STORE_BYTES": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
 	}
 
 	return writeFeatureHeader(writer, featuresXdp, false)
