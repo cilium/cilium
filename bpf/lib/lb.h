@@ -903,7 +903,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
 				     const bool skip_l3_xlate,
-				     __s8 *ext_err)
+				     __s8 *ext_err,
+				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
@@ -1005,6 +1006,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
+
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
+	if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
+	    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+		return CTX_ACT_OK;
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY && HAVE_NETNS_COOKIE */
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 
@@ -1591,7 +1598,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     bool has_l4_header,
 				     const bool skip_l3_xlate,
 				     __u32 *cluster_id __maybe_unused,
-				     __s8 *ext_err)
+				     __s8 *ext_err,
+				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 saddr = tuple->saddr;
@@ -1699,19 +1707,31 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
-#ifndef DISABLE_LOOPBACK_LB
-	/* Special loopback case: The origin endpoint has transmitted to a
-	 * service which is being translated back to the source. This would
-	 * result in a packet with identical source and destination address.
-	 * Linux considers such packets as martian source and will drop unless
-	 * received on a loopback device. Perform NAT on the source address
-	 * to make it appear from an outside address.
-	 */
+
+#if !defined(DISABLE_LOOPBACK_LB) || \
+	(defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE))
 	if (saddr == backend->address) {
+	#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
+		if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
+		    lb4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+			return CTX_ACT_OK;
+	#endif /* ENABLE_LOCAL_REDIRECT_POLICY && HAVE_NETNS_COOKIE */
+
+		/* Special loopback case: The origin endpoint has transmitted to a
+		 * service which is being translated back to the source. This would
+		 * result in a packet with identical source and destination address.
+		 * Linux considers such packets as martian source and will drop unless
+		 * received on a loopback device. Perform NAT on the source address
+		 * to make it appear from an outside address.
+		 */
+	#ifndef DISABLE_LOOPBACK_LB
 		new_saddr = IPV4_LOOPBACK;
 		state->loopback = 1;
+	#endif
 	}
+#endif
 
+#ifndef DISABLE_LOOPBACK_LB
 	if (!state->loopback)
 #endif
 		tuple->daddr = backend->address;
