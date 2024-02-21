@@ -47,7 +47,17 @@ Verify that flow logs are stored in target files:
 
     kubectl -n kube-system exec ds/cilium -- tail -f /var/run/cilium/hubble/events.log
 
-Now you can configure your logging solution to consume logs from your Hubble export file path.
+Once you have configured the Hubble Exporter, you can configure your logging solution to consume
+logs from your Hubble export file path.
+
+To disable the static configuration, you must remove the ``hubble-export-file-path`` key in the
+``cilium-config`` ConfigMap and manually clean up the log files created in the specified
+location in the container. The below command will restart the Cilium pods. If you edit the
+ConfigMap manually, you will need to restart the Cilium pods.
+
+.. code-block:: shell-session
+
+    cilium config delete hubble-export-file-path
 
 Configuration options
 ---------------------
