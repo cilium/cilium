@@ -163,17 +163,17 @@ type MetricsNodeAPI interface {
 // nodeMap is a mapping of node names to ENI nodes
 type nodeMap map[string]*Node
 
-// NodeManager manages all nodes with ENIs
 type NodeManager struct {
-	mutex              lock.RWMutex
-	nodes              nodeMap
-	instancesAPI       AllocationImplementation
-	k8sAPI             CiliumNodeGetterUpdater
-	metricsAPI         MetricsAPI
-	parallelWorkers    int64
-	releaseExcessIPs   bool
-	stableInstancesAPI bool
-	prefixDelegation   bool
+	mutex                lock.RWMutex
+	nodes                nodeMap
+	instancesAPI         AllocationImplementation
+	k8sAPI               CiliumNodeGetterUpdater
+	metricsAPI           MetricsAPI
+	parallelWorkers      int64
+	releaseExcessIPs     bool
+	stableInstancesAPI   bool
+	prefixDelegation     bool
+	ipv6PrefixDelegation bool
 }
 
 func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
@@ -186,19 +186,20 @@ func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) t
 
 // NewNodeManager returns a new NodeManager
 func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI,
-	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation bool) (*NodeManager, error) {
+	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation, ipv6prefixDelegation bool) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1
 	}
 
 	mngr := &NodeManager{
-		nodes:            nodeMap{},
-		instancesAPI:     instancesAPI,
-		k8sAPI:           k8sAPI,
-		metricsAPI:       metrics,
-		parallelWorkers:  parallelWorkers,
-		releaseExcessIPs: releaseExcessIPs,
-		prefixDelegation: prefixDelegation,
+		nodes:                nodeMap{},
+		instancesAPI:         instancesAPI,
+		k8sAPI:               k8sAPI,
+		metricsAPI:           metrics,
+		parallelWorkers:      parallelWorkers,
+		releaseExcessIPs:     releaseExcessIPs,
+		prefixDelegation:     prefixDelegation,
+		ipv6PrefixDelegation: ipv6prefixDelegation,
 	}
 
 	// Assume readiness, the initial blocking resync in Start() will update
@@ -288,6 +289,13 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 				ipsMarkedForRelease: make(map[string]time.Time),
 				ipReleaseStatus:     make(map[string]string),
 			},
+		}
+
+		if n.ipv6PrefixDelegation {
+			node.ipv6Alloc = IPAllocAttrs{
+				ipsMarkedForRelease: make(map[string]time.Time),
+				ipReleaseStatus:     make(map[string]string),
+			}
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -424,6 +432,51 @@ func (n *NodeManager) Get(nodeName string) *Node {
 }
 
 // GetNodesByIPWatermarkLocked returns all nodes that require addresses to be
+// allocated or released, sorted by the total number of addresses (IPv4 and, if applicable, IPv6)
+// needed to be operated in descending order. Number of addresses to be released is
+// represented as a negative value, so that nodes with IP deficit are resolved first.
+// The caller must hold the NodeManager lock.
+/*func (n *NodeManager) GetNodesByIPWatermarkLocked() []*Node {
+	list := make([]*Node, 0, len(n.nodes))
+	for _, node := range n.nodes {
+		// Start with IPv4 needed addresses.
+		totalAddrsNeeded := node.GetNeededAddresses()
+
+		// Add IPv6 needed addresses if ipv6PrefixDelegation is enabled.
+		if n.ipv6PrefixDelegation {
+			totalAddrsNeeded += node.GetNeededIPv6Addresses()
+		}
+
+		// Only consider nodes with a non-zero total of needed addresses.
+		if totalAddrsNeeded != 0 {
+			list = append(list, node)
+		}
+	}
+
+	// Sort the list based on the total needed addresses.
+	sort.Slice(list, func(i, j int) bool {
+		totalAddrsNeededI := list[i].GetNeededAddresses()
+		if n.ipv6PrefixDelegation {
+			totalAddrsNeededI += list[i].GetNeededIPv6Addresses()
+		}
+
+		totalNeededAddressesJ := list[j].GetNeededAddresses()
+		if n.ipv6PrefixDelegation {
+			totalNeededAddressesJ += list[j].GetNeededIPv6Addresses()
+		}
+
+		// For releasing addresses (negative values), nodes with more excess addresses are released earlier.
+		if totalAddrsNeededI < 0 && totalNeededAddressesJ < 0 {
+			return totalAddrsNeededI < totalNeededAddressesJ
+		}
+		// For allocating addresses, nodes with higher deficits are prioritized.
+		return totalAddrsNeededI > totalNeededAddressesJ
+	})
+
+	return list
+}*/
+
+// GetNodesByIPWatermarkLocked returns all nodes that require IPv4 addresses to be
 // allocated or released, sorted by the number of addresses needed to be operated
 // in descending order. Number of addresses to be released is negative value
 // so that nodes with IP deficit are resolved first
@@ -439,6 +492,33 @@ func (n *NodeManager) GetNodesByIPWatermarkLocked() []*Node {
 	sort.Slice(list, func(i, j int) bool {
 		valuei := list[i].GetNeededAddresses()
 		valuej := list[j].GetNeededAddresses()
+		// Number of addresses to be released is negative value,
+		// nodes with more excess addresses are released earlier
+		if valuei < 0 && valuej < 0 {
+			return valuei < valuej
+		}
+		return valuei > valuej
+	})
+
+	return list
+}
+
+// GetNodesByIPv6WatermarkLocked returns all nodes that require IPv6 addresses to
+// be allocated or released, sorted by the number of addresses needed to be operated
+// in descending order. Number of addresses to be released is negative value
+// so that nodes with IP deficit are resolved first
+// The caller must hold the NodeManager lock
+func (n *NodeManager) GetNodesByIPv6WatermarkLocked() []*Node {
+	list := make([]*Node, len(n.nodes))
+	index := 0
+	for _, node := range n.nodes {
+		list[index] = node
+		index++
+	}
+
+	sort.Slice(list, func(i, j int) bool {
+		valuei := list[i].GetNeededIPv6Addresses()
+		valuej := list[j].GetNeededIPv6Addresses()
 		// Number of addresses to be released is negative value,
 		// nodes with more excess addresses are released earlier
 		if valuei < 0 && valuej < 0 {
@@ -534,6 +614,19 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 			n.resyncNode(ctx, node, stats, syncTime)
 			sem.Release(1)
 		}(node, &stats)
+	}
+
+	if n.ipv6PrefixDelegation {
+		for _, node := range n.GetNodesByIPv6WatermarkLocked() {
+			err := sem.Acquire(ctx, 1)
+			if err != nil {
+				continue
+			}
+			go func(node *Node, stats *resyncStats) {
+				n.resyncNode(ctx, node, stats, syncTime)
+				sem.Release(1)
+			}(node, &stats)
+		}
 	}
 
 	// Acquire the full semaphore, this requires all goroutines to

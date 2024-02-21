@@ -313,6 +313,22 @@ func (n *Node) GetNeededAddresses() int {
 	return 0
 }
 
+// GetNeededIPv6Addresses returns the number of IPv6 addresses that need to be
+// allocated or released. A positive number is returned to indicate allocation.
+// A negative number is returned to indicate release of addresses.
+func (n *Node) GetNeededIPv6Addresses() int {
+	stats := n.Stats()
+	if stats.IPv6.NeededIPs > 0 {
+		return stats.IPv6.NeededIPs
+	}
+	if n.manager.releaseExcessIPs && stats.IPv6.ExcessIPs > 0 {
+		// Nodes are sorted by needed addresses, return negative values of excessIPs
+		// so that nodes with IP deficit are resolved first
+		return stats.IPv6.ExcessIPs * -1
+	}
+	return 0
+}
+
 // getPendingPodCount computes the number of pods in pending state on a given node. watchers.PodStore is assumed to be
 // initialized before this function is called.
 func getPendingPodCount(nodeName string) (int, error) {

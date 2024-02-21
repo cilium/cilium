@@ -66,7 +66,7 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -93,7 +93,7 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -126,7 +126,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -168,7 +168,7 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, true)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, true, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -218,7 +218,7 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -276,7 +276,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -330,7 +330,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -393,7 +393,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, true, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, true, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -498,7 +498,7 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -559,7 +559,7 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -615,7 +615,7 @@ func (e *ENISuite) TestInterfaceCreatedInInitialSubnet(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -671,7 +671,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 
 	ec2api := ec2mock.NewAPI(subnets, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instancesManager := NewInstancesManager(ec2api)
-	mngr, err := ipam.NewNodeManager(instancesManager, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instancesManager, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -744,7 +744,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	ec2api.SetMockError(ec2mock.AttachNetworkInterface, errors.New("foo is not 'running' foo"))
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
@@ -791,7 +791,7 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 1, instanceID, eniID2)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -836,7 +836,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	ec2api.SetLimiter(rateLimit, burst)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 

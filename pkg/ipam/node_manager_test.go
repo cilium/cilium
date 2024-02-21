@@ -180,7 +180,7 @@ func (n *nodeOperationsMock) IsPrefixDelegated() bool {
 func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -206,7 +206,7 @@ func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
 func (e *IPAMSuite) TestNodeManagerGet(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -225,7 +225,7 @@ func (e *IPAMSuite) TestNodeManagerDelete(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
 	metrics := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(am, k8sapi, metrics, 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metrics, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -324,7 +324,7 @@ func reachedAddressesNeeded(mngr *NodeManager, nodeName string, needed int) (suc
 func (e *IPAMSuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -355,7 +355,7 @@ func (e *IPAMSuite) TestNodeManagerDefaultAllocation(c *check.C) {
 func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -395,7 +395,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 func (e *IPAMSuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -444,7 +444,7 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -515,7 +515,7 @@ func (e *IPAMSuite) TestNodeManagerAbortRelease(c *check.C) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -602,7 +602,7 @@ func (e *IPAMSuite) TestNodeManagerManyNodes(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
 	metricsapi := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -646,7 +646,7 @@ func (e *IPAMSuite) TestNodeManagerManyNodes(c *check.C) {
 func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
