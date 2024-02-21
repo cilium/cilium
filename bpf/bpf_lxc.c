@@ -86,6 +86,8 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	__u32 cluster_id = 0;
 	int l4_off;
 	int ret = 0;
+	__u32 backend_id = 0;
+	struct lb4_backend *backend;
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
@@ -107,6 +109,13 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			goto skip_service_lookup;
 		}
 #endif /* ENABLE_L7_LB */
+		if (lb4_svc_is_localredirect(svc)) {
+			backend_id = lb4_select_backend_id(ctx, &key, &tuple, svc);
+			backend = lb4_lookup_backend(ctx, backend_id);
+			if (backend && tuple.saddr == backend->address)
+				goto skip_service_lookup;
+		}
+
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ipv4_is_fragment(ip4),
 				ETH_HLEN, l4_off, &key, &tuple, svc, &ct_state_new,
 				has_l4_header, false, &cluster_id, ext_err);
