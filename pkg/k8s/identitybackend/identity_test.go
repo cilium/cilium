@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/inctimer"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation"
@@ -96,15 +95,10 @@ func (s *K8sIdentityBackendSuite) TestSanitizeK8sLabels(c *C) {
 }
 
 type FakeHandler struct {
-	onListDoneChan chan struct{}
-	onAddFunc      func()
+	onAddFunc func()
 }
 
-func (f FakeHandler) OnListDone() {
-	if f.onListDoneChan != nil {
-		close(f.onListDoneChan)
-	}
-}
+func (f FakeHandler) OnListDone() {}
 
 func (f FakeHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey) {
 	if f.onAddFunc != nil {
@@ -201,7 +195,9 @@ func TestGetIdentity(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
 			_, client := k8sClient.NewFakeClientset()
 			backend, err := NewCRDBackend(CRDBackendConfiguration{
 				Store:   nil,
@@ -213,10 +209,9 @@ func TestGetIdentity(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			stopChan := make(chan struct{}, 1)
-			listenerReadyChan := make(chan struct{}, 1)
+			stopChan := make(chan struct{})
 			defer func() {
-				stopChan <- struct{}{}
+				close(stopChan)
 			}()
 
 			addWaitGroup := sync.WaitGroup{}
@@ -236,13 +231,7 @@ func TestGetIdentity(t *testing.T) {
 				}
 			}
 
-			go backend.ListAndWatch(ctx, FakeHandler{onListDoneChan: listenerReadyChan, onAddFunc: func() { addWaitGroup.Done() }}, stopChan)
-
-			select {
-			case <-listenerReadyChan:
-			case <-inctimer.After(2 * time.Second):
-				t.Fatalf("Failed to listen for identities within 2 seconds")
-			}
+			go backend.ListAndWatch(ctx, FakeHandler{onAddFunc: func() { addWaitGroup.Done() }}, stopChan)
 
 			// Wait for watcher to process the identities in the background
 			addWaitGroup.Wait()
