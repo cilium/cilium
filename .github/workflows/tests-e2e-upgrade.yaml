@@ -317,6 +317,7 @@ jobs:
           cmd: |
             cd /host/
 
+            export IMAGE=${{ env.KIND_K8S_IMAGE }}
             IP_FAM="dual"
             if [ "${{ matrix.ipv6 }}" == "false" ]; then
               IP_FAM="ipv4"

@@ -21,13 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.22.0
   cluster_name: cilium-testing
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
-  # renovate: datasource=docker depName=kindest/node
-  k8s_version: v1.29.2
 
 jobs:
   kubernetes-e2e-net-conformance:
@@ -60,14 +56,14 @@ jobs:
         run: |
           TMP_DIR=$(mktemp -d)
           # Test binaries
-          curl -L https://dl.k8s.io/${{ env.k8s_version }}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
+          curl -L https://dl.k8s.io/${{ env.KIND_K8S_VERSION }}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
           tar xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
             --directory ${TMP_DIR} \
             --strip-components=3 kubernetes/test/bin/ginkgo kubernetes/test/bin/e2e.test
           # kubectl
-          curl -L https://dl.k8s.io/${{ env.k8s_version }}/bin/linux/amd64/kubectl -o ${TMP_DIR}/kubectl
+          curl -L https://dl.k8s.io/${{ env.KIND_K8S_VERSION }}/bin/linux/amd64/kubectl -o ${TMP_DIR}/kubectl
           # kind
-          curl -Lo ${TMP_DIR}/kind https://kind.sigs.k8s.io/dl/${{ env.kind_version }}/kind-linux-amd64
+          curl -Lo ${TMP_DIR}/kind https://kind.sigs.k8s.io/dl/${{ env.KIND_VERSION }}/kind-linux-amd64
           # Install
           sudo cp ${TMP_DIR}/ginkgo /usr/local/bin/ginkgo
           sudo cp ${TMP_DIR}/e2e.test /usr/local/bin/e2e.test
@@ -80,7 +76,7 @@ jobs:
         run: |
           cat <<EOF | /usr/local/bin/kind create cluster \
             --name ${{ env.cluster_name}}           \
-            --image kindest/node:${{ env.k8s_version }}  \
+            --image ${{ env.KIND_K8S_IMAGE }}  \
             -v7 --wait 1m --retain --config=-
           kind: Cluster
           apiVersion: kind.x-k8s.io/v1alpha4

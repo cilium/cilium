@@ -55,10 +55,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.22.0
-  # renovate: datasource=docker depName=kindest/node
-  k8s_version: v1.29.2
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   clusterName1: cluster1-${{ github.run_id }}
@@ -301,15 +297,13 @@ jobs:
 
       - name: Generate Kind configuration files
         run: |
-          K8S_VERSION=${{ env.k8s_version }} \
-            PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_1 }} \
+          PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_1 }} \
             SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr_1 }} \
             IPFAMILY=${{ matrix.ipFamily }} \
             KUBEPROXYMODE=${{ matrix.kube-proxy }} \
             envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster1.yaml
 
-          K8S_VERSION=${{ env.k8s_version }} \
-            PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_2 }} \
+          PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_2 }} \
             SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr_2 }} \
             IPFAMILY=${{ matrix.ipFamily }} \
             KUBEPROXYMODE=${{ matrix.kube-proxy }} \
@@ -319,8 +313,9 @@ jobs:
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           cluster_name: ${{ env.clusterName1 }}
-          version: ${{ env.kind_version }}
-          kubectl_version: ${{ env.k8s_version }}
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ./.github/kind-config-cluster1.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
@@ -328,8 +323,9 @@ jobs:
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           cluster_name: ${{ env.clusterName2 }}
-          version: ${{ env.kind_version }}
-          kubectl_version: ${{ env.k8s_version }}
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
