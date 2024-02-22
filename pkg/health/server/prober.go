@@ -187,14 +187,30 @@ func (p *prober) RemoveIP(ip string) {
 // setNodes will steal references to nodes referenced from 'added', so the
 // caller should not modify them after a call to setNodes.
 // If a node is updated, it will appear in both maps and will be removed then
-// added (potentially with different information).
+// added (potentially with different information). We want to do it only if relevant
+// health-information changes to preserve previous health-checking results.
 func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 	p.Lock()
 	defer p.Unlock()
 
+	// Check what IPs will be readded
+	// so we don't remove results that we already have for them.
+	readdedIPs := map[string]struct{}{}
+	for _, n := range added {
+		for elem, primary := range n.Addresses() {
+			_, addr := resolveIP(&n, elem, primary)
+			if addr == nil {
+				continue
+			}
+			readdedIPs[elem.IP] = struct{}{}
+		}
+	}
+
 	for _, n := range removed {
 		for elem := range n.Addresses() {
-			p.RemoveIP(elem.IP)
+			if _, ok := readdedIPs[elem.IP]; !ok {
+				p.RemoveIP(elem.IP)
+			}
 		}
 	}
 
