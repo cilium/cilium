@@ -56,8 +56,6 @@ concurrency:
 
 env:
   cilium_cli_ci_version:
-  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.22.0
   kind_config: .github/kind-config.yaml
   timeout: 5m
 
@@ -171,7 +169,9 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
-          version: ${{ env.kind_version }}
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ${{ env.kind_config }}
 
       - name: Wait for images to be available

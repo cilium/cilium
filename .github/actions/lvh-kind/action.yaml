@@ -8,7 +8,8 @@ inputs:
   kind-params:
     required: true
     type: string
-  kind-image-vsn:
+  kind-image:
+    required: true
     type: string
   test-name:
     required: true
@@ -36,9 +37,8 @@ runs:
         provision: 'false'
         cmd: |
           cd /host
-          if [ "${{ inputs.kind-image-vsn }}" != "" ]; then
-            export IMAGE=kindest/node:${{ inputs.kind-image-vsn }}
-          fi
+
+          export IMAGE=${{ inputs.kind-image }}
           ./contrib/scripts/kind.sh ${{ inputs.kind-params }} 0.0.0.0 6443
 
     - name: Copy kubeconfig
