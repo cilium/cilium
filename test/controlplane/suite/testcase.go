@@ -36,6 +36,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
 )
@@ -50,12 +51,13 @@ type ControlPlaneTest struct {
 	tempDir           string
 	validationTimeout time.Duration
 
-	nodeName       string
-	clients        *k8sClient.FakeClientset
-	trackers       []trackerAndDecoder
-	agentHandle    *agentHandle
-	operatorHandle *operatorHandle
-	Datapath       *fakeTypes.FakeDatapath
+	nodeName            string
+	clients             *k8sClient.FakeClientset
+	trackers            []trackerAndDecoder
+	agentHandle         *agentHandle
+	operatorHandle      *operatorHandle
+	Datapath            *fakeTypes.FakeDatapath
+	establishedWatchers lock.Map[string, struct{}]
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
@@ -254,6 +256,48 @@ func (cpt *ControlPlaneTest) Get(gvr schema.GroupVersionResource, ns, name strin
 		}
 	}
 	return nil, err
+}
+
+// RecordWatchers intercepts 'Watch' calls on the fake k8s clientsets. The reason we need to do this
+// is the following: The k8s object tracker's implementation of Watch is not equivalent to Watch on
+// a real api-server, as it does not respect the ResourceVersion from whence to start the watch. As
+// a consequence, when informers (or reflectors) call ListAndWatch, they miss events which occur
+// between the end of List and the establishment of Watch.
+//
+// To decrease the likelihood of this race occurring in the control plane tests, we install a
+// mechanism to wait for watchers of specific resources: see also EnsureWatchers. This isn't a
+// complete fix - if multiple watchers for the same resource are established, this may give false
+// positives.
+func (cpt *ControlPlaneTest) RecordWatchers() *ControlPlaneTest {
+	reaction := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		r := action.GetResource().Resource
+		if _, ok := cpt.establishedWatchers.Load(r); ok {
+			cpt.t.Logf("WARNING: Multiple watches for resource %s intercepted. This highlights a potential cause for flakes", r)
+		}
+		cpt.establishedWatchers.Store(r, struct{}{})
+		return false, nil, nil
+	}
+
+	cpt.clients.SlimFakeClientset.PrependWatchReactor("*", reaction)
+	cpt.clients.KubernetesFakeClientset.PrependWatchReactor("*", reaction)
+	cpt.clients.CiliumFakeClientset.PrependWatchReactor("*", reaction)
+	cpt.clients.APIExtFakeClientset.PrependWatchReactor("*", reaction)
+	return cpt
+}
+
+// EnsureWatchers delays progress of the test until watchers for resources have been established on
+// the clientset.
+func (cpt *ControlPlaneTest) EnsureWatchers(resources ...string) *ControlPlaneTest {
+	cpt.retry(func() error {
+		for _, resource := range resources {
+			if _, ok := cpt.establishedWatchers.Load(resource); !ok {
+				return fmt.Errorf("no watcher for %s yet", resource)
+			}
+		}
+		return nil
+	})
+
+	return cpt
 }
 
 func (cpt *ControlPlaneTest) UpdateObjectsFromFile(filename string) *ControlPlaneTest {
