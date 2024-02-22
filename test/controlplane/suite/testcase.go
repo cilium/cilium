@@ -470,8 +470,6 @@ var _ watch.Interface = &filteringWatcher{}
 
 func (fw *filteringWatcher) Stop() {
 	fw.parent.Stop()
-	close(fw.events)
-	fw.events = nil
 }
 
 func (fw *filteringWatcher) ResultChan() <-chan watch.Event {
@@ -487,6 +485,7 @@ func (fw *filteringWatcher) ResultChan() <-chan watch.Event {
 				fw.events <- event
 			}
 		}
+		close(fw.events)
 	}()
 	return fw.events
 }
