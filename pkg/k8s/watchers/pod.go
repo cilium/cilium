@@ -999,7 +999,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 //   - false: returns any pod in the cluster received by the pod watcher.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
-	k.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
+	k.WaitForCacheSync(context.TODO(), resources.K8sAPIGroupPodV1Core)
 	<-k.podStoreSet
 	k.podStoreMU.RLock()
 	defer k.podStoreMU.RUnlock()

@@ -332,22 +332,24 @@ func (workqueueMetricsProvider) NewRetriesMetric(name string) workqueue.CounterM
 	return metrics.WorkQueueRetries.WithLabelValues(name)
 }
 
-// WaitForCacheSync blocks until the given resources have been synchronized from k8s.  Note that if
-// the controller for a resource has not been started, the wait for that resource returns
-// immediately. If it is required that the resource exists and is actually synchronized, the caller
-// must ensure the controller for that resource has been started before calling
-// WaitForCacheSync. For most resources this can be done by receiving from controllersStarted
-// channel (<-k.controllersStarted), which is closed after most watchers have been started.
-func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
-	k.k8sResourceSynced.WaitForCacheSync(resourceNames...)
+// WaitForCacheSync blocks until the given resources have been synchronized from k8s or the context
+// ist cancelled. Note that if the controller for a resource has not been started, the wait for that
+// resource returns immediately. If it is required that the resource exists and is actually
+// synchronized, the caller must ensure the controller for that resource has been started before
+// calling WaitForCacheSync. For most resources this can be done by receiving from
+// controllersStarted channel (<-k.controllersStarted), which is closed after most watchers have
+// been started.
+func (k *K8sWatcher) WaitForCacheSync(ctx context.Context, resourceNames ...string) {
+	k.k8sResourceSynced.WaitForCacheSync(ctx, resourceNames...)
 }
 
-// WaitForCacheSyncWithTimeout calls WaitForCacheSync to block until given resources have had their caches
-// synced from K8s. This will wait up to the timeout duration after starting or since the last K8s
-// registered watcher event (i.e. each event causes the timeout to be pushed back). Events are recorded
-// using K8sResourcesSynced.Event function. If the timeout is exceeded, an error is returned.
-func (k *K8sWatcher) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceNames ...string) error {
-	return k.k8sResourceSynced.WaitForCacheSyncWithTimeout(timeout, resourceNames...)
+// WaitForCacheSyncWithTimeout calls WaitForCacheSync to block until given resources have had their
+// caches synced from K8s or ctx is cancelled. This will wait up to the timeout duration after
+// starting or since the last K8s registered watcher event (i.e. each event causes the timeout to be
+// pushed back). Events are recorded using K8sResourcesSynced.Event function. If the timeout is
+// exceeded, an error is returned.
+func (k *K8sWatcher) WaitForCacheSyncWithTimeout(ctx context.Context, timeout time.Duration, resourceNames ...string) error {
+	return k.k8sResourceSynced.WaitForCacheSyncWithTimeout(ctx, timeout, resourceNames...)
 }
 
 func (k *K8sWatcher) cancelWaitGroupToSyncResources(resourceName string) {
@@ -485,10 +487,15 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 	go func() {
 		log.Info("Waiting until all pre-existing resources have been received")
 		allResources := append(resources, waitForCachesOnly...)
-		if err := k.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, allResources...); err != nil {
-			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
+		if err := k.WaitForCacheSyncWithTimeout(ctx, option.Config.K8sSyncTimeout, allResources...); err == nil {
+			close(cachesSynced)
+		} else {
+			if cerr := ctx.Err(); cerr == nil {
+				log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
+			} else {
+				log.WithError(cerr).Info("Stopping initialization, context cancelled")
+			}
 		}
-		close(cachesSynced)
 	}()
 }
 
