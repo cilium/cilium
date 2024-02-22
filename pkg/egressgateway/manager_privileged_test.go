@@ -738,7 +738,6 @@ func BenchmarkReconcileMap(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < 200; i++ {
-		manager.addMissingEgressRules()
-		manager.removeUnusedEgressRules()
+		manager.reconcileEgressRules()
 	}
 }
