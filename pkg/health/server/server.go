@@ -341,7 +341,8 @@ func (s *Server) runActiveServices() error {
 		// OnIdle is called every ProbeInterval after sending out all icmp pings.
 		// There are a few important consideration here:
 		// (1) ICMP prober doesn't report failed probes
-		// (2) We can receive the same nodes multiple times in nodesAdded in case of updates
+		// (2) We can receive the same nodes multiple times,
+		// updated node is present in both nodesAdded and nodesRemoved
 		// (3) We need to clean icmp status to not retain stale probe results
 		// (4) We don't want to report stale nodes in metrics
 
