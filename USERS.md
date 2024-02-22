@@ -724,6 +724,11 @@ Users (Alphabetically)
       U: CNI, IPv6 only networking, BGP, eBPF
       Q: @Nico Schottelius, @nico:ungleich.ch (Matrix)
 
+    * N: Veepee
+      D: Veepee is using Cilium on their on-premise Kubernetes clusters, hosting majority of their applications.
+      U. CNI, BGP, eBPF, Hubble, DirectRouting (via kube-router)
+      Q: @nerzhul
+
     * N: Wildlife Studios
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
       U: ClusterMesh, Global Service Load Balancing.
