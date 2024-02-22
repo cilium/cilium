@@ -392,17 +392,13 @@ static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 }
 
 static __always_inline int
-icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err)
+icmp6_host_handle(struct __ctx_buff *ctx, int l4_off)
 {
 	__u8 type;
 
 	if (icmp6_load_type(ctx, l4_off, &type) < 0)
 		return DROP_INVALID;
 
-	if (type == ICMP6_NS_MSG_TYPE)
-		return icmp6_handle_ns(ctx, ETH_HLEN, METRIC_INGRESS, ext_err);
-
-#ifdef ENABLE_HOST_FIREWALL
 	/* When the host firewall is enabled, we drop and allow ICMPv6 messages
 	 * according to RFC4890, except for echo request and reply messages which
 	 * are handled by host policies and can be dropped.
@@ -422,7 +418,7 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err)
 	 * |      ICMPv6-mult-list-done      |   CTX_ACT_OK    |  132 |
 	 * |      ICMPv6-router-solici       |   CTX_ACT_OK    |  133 |
 	 * |      ICMPv6-router-advert       |   CTX_ACT_OK    |  134 |
-	 * |     ICMPv6-neighbor-solicit     | icmp6_handle_ns |  135 |
+	 * |     ICMPv6-neighbor-solicit     |   CTX_ACT_OK    |  135 |
 	 * |      ICMPv6-neighbor-advert     |   CTX_ACT_OK    |  136 |
 	 * |     ICMPv6-redirect-message     |  CTX_ACT_DROP   |  137 |
 	 * |      ICMPv6-router-renumber     |   CTX_ACT_OK    |  138 |
@@ -450,6 +446,9 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err)
 	 * |       ICMPv6-unassigned         |  CTX_ACT_DROP   |      |
 	 */
 
+	if (type == ICMP6_NS_MSG_TYPE)
+		return CTX_ACT_OK;
+
 	if (type == ICMP6_ECHO_REQUEST_MSG_TYPE || type == ICMP6_ECHO_REPLY_MSG_TYPE)
 		/* Decision is deferred to the host policies. */
 		return CTX_ACT_OK;
@@ -461,9 +460,6 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err)
 		(ICMP6_MULT_RA_MSG_TYPE <= type && type <= ICMP6_MULT_RT_MSG_TYPE))
 		return SKIP_HOST_FIREWALL;
 	return DROP_FORBIDDEN_ICMP6;
-#else
-	return CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
 }
 
 #endif
