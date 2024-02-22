@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -237,6 +238,9 @@ var (
 
 		// RegeneratorCell provides extra options and utilities for endpoints regeneration.
 		endpoint.RegeneratorCell,
+
+		// Redirect policy manages the Local Redirect Policies.
+		redirectpolicy.Cell,
 
 		// The device reloader reloads the datapath when the devices change at runtime.
 		cell.Invoke(registerDeviceReloader),
