@@ -81,6 +81,8 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
+            # enabling breaks downgrading as #30818 was not backported to v1.14
+            # host-fw: 'true'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -88,6 +90,8 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
+            # enabling breaks downgrading as #30818 was not backported to v1.14
+            # host-fw: 'true'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
