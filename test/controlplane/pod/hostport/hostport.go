@@ -39,7 +39,9 @@ func testHostPort(t *testing.T) {
 	test.
 		UpdateObjectsFromFile(abs("init.yaml")).
 		SetupEnvironment(modConfig).
+		RecordWatchers().
 		StartAgent().
+		EnsureWatchers("pods").
 
 		// Step 1: Create the first hostport pod.
 		// lbmap1.golden: Hostport service exists in the Datapath with hostport-1 pod as backend.

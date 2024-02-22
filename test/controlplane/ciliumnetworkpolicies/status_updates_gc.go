@@ -251,10 +251,12 @@ func init() {
 			}).
 			// check that CNPs contain status updates info before starting agent and operator
 			Eventually(func() error { return validateCNPs(test) }).
+			RecordWatchers().
 			StartAgent().
 			StartOperator(func(vp *viper.Viper) {
 				vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
 			}).
+			EnsureWatchers("nodes", "ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies").
 			Eventually(func() error { return validateCNPs(test) })
 
 		test.StopAgent()
@@ -269,10 +271,12 @@ func init() {
 			}).
 			// check that CNPs contain status updates info before starting agent and operator
 			Eventually(func() error { return validateCNPs(test) }).
+			RecordWatchers().
 			StartAgent().
 			StartOperator(func(vp *viper.Viper) {
 				vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
 			}).
+			EnsureWatchers("nodes", "ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies").
 			Eventually(func() error { return validateCNPsAfterGC(test) })
 
 		test.StopAgent()

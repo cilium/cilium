@@ -41,7 +41,9 @@ func testDualStack(t *testing.T) {
 			test.
 				UpdateObjectsFromFile(abs("init.yaml")).
 				SetupEnvironment(modConfig).
+				RecordWatchers().
 				StartAgent().
+				EnsureWatchers("endpointslices", "services").
 				UpdateObjectsFromFile(abs("state1.yaml")).
 				Eventually(func() error { return validate(abs("lbmap1.golden"), test) }).
 				StopAgent()
