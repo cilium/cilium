@@ -247,6 +247,7 @@ func init() {
 		test.
 			UpdateObjects(initialObjects...).
 			SetupEnvironment().
+			RecordWatchers().
 			// check that CNPs contain status updates info before starting agent and operator
 			Eventually(func() error { return validateCNPs(test) }).
 			StartAgent(func(_ *option.DaemonConfig) {}).
@@ -258,6 +259,7 @@ func init() {
 					vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
 				},
 			).
+			EnsureWatchers("nodes", "ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies").
 			Eventually(func() error { return validateCNPs(test) }).
 			StopAgent().
 			StopOperator().
@@ -268,6 +270,7 @@ func init() {
 		test.
 			UpdateObjects(initialObjects...).
 			SetupEnvironment().
+			RecordWatchers().
 			// check that CNPs contain status updates info before starting agent and operator
 			Eventually(func() error { return validateCNPs(test) }).
 			StartAgent(func(_ *option.DaemonConfig) {}).
@@ -279,6 +282,7 @@ func init() {
 					vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
 				},
 			).
+			EnsureWatchers("nodes", "ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies").
 			Eventually(func() error { return validateCNPsAfterGC(test) }).
 			StopAgent().
 			StopOperator().
