@@ -549,9 +549,9 @@ func Test_BGPPTranslations(t *testing.T) {
 						},
 					},
 					Spec: cilium_api_v2alpha1.CiliumBGPAdvertisementSpec{
-						Advertisements: []cilium_api_v2alpha1.Advertisement{
+						Advertisements: []cilium_api_v2alpha1.BGPAdvertisement{
 							{
-								AdvertisementType: cilium_api_v2alpha1.PodCIDRAdvert,
+								AdvertisementType: cilium_api_v2alpha1.BGPPodCIDRAdvert,
 								Selector:          nil,
 								Attributes:        nil,
 							},
@@ -634,12 +634,12 @@ func Test_BGPPTranslations(t *testing.T) {
 						},
 					},
 					Spec: cilium_api_v2alpha1.CiliumBGPAdvertisementSpec{
-						Advertisements: []cilium_api_v2alpha1.Advertisement{
+						Advertisements: []cilium_api_v2alpha1.BGPAdvertisement{
 							{
-								AdvertisementType: cilium_api_v2alpha1.PodCIDRAdvert,
+								AdvertisementType: cilium_api_v2alpha1.BGPPodCIDRAdvert,
 								Selector:          nil,
-								Attributes: &cilium_api_v2alpha1.CiliumBGPAttributes{
-									Community: &cilium_api_v2alpha1.BGPCommunities{
+								Attributes: &cilium_api_v2alpha1.BGPAttributes{
+									Communities: &cilium_api_v2alpha1.BGPCommunities{
 										Standard: []cilium_api_v2alpha1.BGPStandardCommunity{
 											"65001:1",
 										},
@@ -726,11 +726,16 @@ func Test_BGPPTranslations(t *testing.T) {
 						},
 					},
 					Spec: cilium_api_v2alpha1.CiliumBGPAdvertisementSpec{
-						Advertisements: []cilium_api_v2alpha1.Advertisement{
+						Advertisements: []cilium_api_v2alpha1.BGPAdvertisement{
 							{
-								AdvertisementType: cilium_api_v2alpha1.CiliumLoadBalancerIPAdvert,
-								Selector:          peeringPolicyWithServiceCIDR().ServiceSelector,
-								Attributes:        nil,
+								AdvertisementType: cilium_api_v2alpha1.BGPServiceAdvert,
+								Service: &cilium_api_v2alpha1.BGPServiceOptions{
+									Addresses: []cilium_api_v2alpha1.BGPServiceAddressType{
+										cilium_api_v2alpha1.BGPLoadBalancerIPAddr,
+									},
+								},
+								Selector:   peeringPolicyWithServiceCIDR().ServiceSelector,
+								Attributes: nil,
 							},
 						},
 					},
@@ -811,12 +816,17 @@ func Test_BGPPTranslations(t *testing.T) {
 						},
 					},
 					Spec: cilium_api_v2alpha1.CiliumBGPAdvertisementSpec{
-						Advertisements: []cilium_api_v2alpha1.Advertisement{
+						Advertisements: []cilium_api_v2alpha1.BGPAdvertisement{
 							{
-								AdvertisementType: cilium_api_v2alpha1.CiliumLoadBalancerIPAdvert,
-								Selector:          peeringPolicyWithServiceCIDR().ServiceSelector,
-								Attributes: &cilium_api_v2alpha1.CiliumBGPAttributes{
-									Community: &cilium_api_v2alpha1.BGPCommunities{
+								AdvertisementType: cilium_api_v2alpha1.BGPServiceAdvert,
+								Service: &cilium_api_v2alpha1.BGPServiceOptions{
+									Addresses: []cilium_api_v2alpha1.BGPServiceAddressType{
+										cilium_api_v2alpha1.BGPLoadBalancerIPAddr,
+									},
+								},
+								Selector: peeringPolicyWithServiceCIDR().ServiceSelector,
+								Attributes: &cilium_api_v2alpha1.BGPAttributes{
+									Communities: &cilium_api_v2alpha1.BGPCommunities{
 										Standard: []cilium_api_v2alpha1.BGPStandardCommunity{
 											"65001:2",
 										},
@@ -903,9 +913,9 @@ func Test_BGPPTranslations(t *testing.T) {
 						},
 					},
 					Spec: cilium_api_v2alpha1.CiliumBGPAdvertisementSpec{
-						Advertisements: []cilium_api_v2alpha1.Advertisement{
+						Advertisements: []cilium_api_v2alpha1.BGPAdvertisement{
 							{
-								AdvertisementType: cilium_api_v2alpha1.PodCIDRAdvert,
+								AdvertisementType: cilium_api_v2alpha1.BGPPodCIDRAdvert,
 								Selector:          nil,
 								Attributes:        nil,
 							},
