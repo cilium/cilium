@@ -174,7 +174,7 @@ type Daemon struct {
 	// creation events
 	endpointCreations *endpointCreationManager
 
-	redirectPolicyManager *redirectpolicy.Manager
+	lrpManager *redirectpolicy.Manager
 
 	bgpSpeaker *speaker.MetalLBSpeaker
 
@@ -442,6 +442,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bigTCPConfig:         params.BigTCPConfig,
 		tunnelConfig:         params.TunnelConfig,
 		bwManager:            params.BandwidthManager,
+		lrpManager:           params.LRPManager,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -470,7 +471,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d.endpointManager = params.EndpointManager
 
-	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc, params.Resources.LocalPods)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		log.WithField("url", "https://github.com/cilium/cilium/issues/22246").
 			Warn("You are using the legacy BGP feature, which will only receive security updates and bugfixes. " +
@@ -498,7 +498,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.policy,
 		d.svc,
 		d.datapath,
-		d.redirectPolicyManager,
+		d.lrpManager,
 		d.bgpSpeaker,
 		option.Config,
 		d.ipcache,
@@ -518,7 +518,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
-	d.redirectPolicyManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
+	d.lrpManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	if option.Config.BGPAnnounceLBIP {
 		d.bgpSpeaker.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	}

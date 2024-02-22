@@ -14,7 +14,7 @@ import (
 
 func getLRPHandler(d *Daemon, params GetLrpParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /lrp request")
-	return NewGetLrpOK().WithPayload(getLRPs(d.redirectPolicyManager))
+	return NewGetLrpOK().WithPayload(getLRPs(d.lrpManager))
 }
 
 func getLRPs(rpm *redirectpolicy.Manager) []*models.LRPSpec {
