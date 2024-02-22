@@ -174,9 +174,8 @@ jobs:
             ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
-            mode: 'clustermesh'
-            cm-auth-mode-1: 'cluster'
-            cm-auth-mode-2: 'cluster'
+            mode: 'external'
+            maxConnectedClusters: '511'
 
     steps:
       - name: Checkout context ref (trusted)
