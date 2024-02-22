@@ -450,7 +450,7 @@ func assignPrefixToENI(e *API, eni *eniTypes.ENI, prefixes int32) error {
 
 		prefixStr := pfx.String()
 		eni.Prefixes = append(eni.Prefixes, prefixStr)
-		prefixIPs, err := ip.PrefixToIps(prefixStr)
+		prefixIPs, err := ip.PrefixToIps(prefixStr, 0)
 		if err != nil {
 			return fmt.Errorf("unable to convert prefix %s to ips", prefixStr)
 		}
@@ -498,7 +498,7 @@ func (e *API) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []
 			return fmt.Errorf("Invalid CIDR block %s", prefix)
 		}
 		e.pdAllocator.Release(ipNet)
-		ips, _ := ip.PrefixToIps(prefix)
+		ips, _ := ip.PrefixToIps(prefix, 0)
 		addresses = append(addresses, ips...)
 	}
 
