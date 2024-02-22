@@ -16,7 +16,9 @@ import (
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -885,6 +887,64 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			).
+			Build()
+
+		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, testDefaultTimeout)
+		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator)
+
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false)
+
+		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "test",
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Service{})
+		require.True(t, k8sApiErrors.IsNotFound(err), "Service should not be created")
+
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Endpoints{})
+		require.True(t, k8sApiErrors.IsNotFound(err), "Endpoints should not be created")
+
+		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &ciliumv2.CiliumEnvoyConfig{})
+		require.True(t, k8sApiErrors.IsNotFound(err), "CiliumEnvoyConfig should not be created")
+	})
+
+	t.Run("If create operations fail due to namespace termination, no error should be reported", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(testScheme()).
+			WithObjects(
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test",
+						Name:      "test",
+					},
+					Spec: networkingv1.IngressSpec{
+						IngressClassName: model.AddressOf("cilium"),
+						DefaultBackend:   defaultBackend(),
+					},
+				},
+			).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					return &k8sApiErrors.StatusError{
+						ErrStatus: metav1.Status{
+							Message: "unable to create new content in namespace test because it is being terminated",
+							Reason:  metav1.StatusReasonForbidden,
+							Details: &metav1.StatusDetails{
+								Causes: []metav1.StatusCause{
+									{
+										Type: corev1.NamespaceTerminatingCause,
+									},
+								},
+							},
+						},
+					}
+				},
+			}).
 			Build()
 
 		cecTranslator := translation.NewCECTranslator(testCiliumSecretsNamespace, testUseProxyProtocol, false, testDefaultTimeout)
