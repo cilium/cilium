@@ -2020,6 +2020,26 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 	e.replaceInformationLabels(sourceFilter, infoLabels)
 	// replace identity labels and update the identity if labels have changed
 	rev := e.replaceIdentityLabels(sourceFilter, identityLabels)
+
+	// If the endpoint is in an 'init' state we need to remove this label
+	// regardless of the "sourceFilter". Otherwise, we face risk of leaving the
+	// endpoint with the reserved:init state forever.
+	// We will perform the replacement only if:
+	// - there are new identity labels being added;
+	// - the sourceFilter is not any; If it is "any" then it was already
+	//   replaced by the previous replaceIdentityLabels call.
+	// - the new identity labels don't contain the reserved:init label
+	// - the endpoint is in this init state.
+	if len(identityLabels) != 0 &&
+		sourceFilter != labels.LabelSourceAny &&
+		!identityLabels.Has(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved)) &&
+		e.IsInit() {
+
+		idLabls := e.OpLabels.IdentityLabels()
+		delete(idLabls, labels.IDNameInit)
+		rev = e.replaceIdentityLabels(labels.LabelSourceAny, idLabls)
+	}
+
 	e.unlock()
 	if rev != 0 {
 		return e.runIdentityResolver(ctx, rev, blocking)
