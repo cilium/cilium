@@ -47,9 +47,9 @@ spec:
               advertisements:
                 description: Advertisements is a list of BGP advertisements.
                 items:
-                  description: Advertisement defines which routes Cilium should advertise
-                    to BGP peers. Optionally, additional attributes can be set to
-                    the advertised routes.
+                  description: BGPAdvertisement defines which routes Cilium should
+                    advertise to BGP peers. Optionally, additional attributes can
+                    be set to the advertised routes.
                   properties:
                     advertisementType:
                       description: AdvertisementType defines type of advertisement
@@ -57,16 +57,17 @@ spec:
                       enum:
                       - PodCIDR
                       - CiliumPodIPPool
-                      - CiliumLoadBalancerIP
+                      - Service
                       type: string
                     attributes:
                       description: Attributes defines additional attributes to set
                         to the advertised routes. If not specified, no additional
                         attributes are set.
                       properties:
-                        community:
-                          description: Community sets the community attribute in the
-                            route. If not specified, no community attribute is set.
+                        communities:
+                          description: Communities sets the community attributes in
+                            the route. If not specified, no community attribute is
+                            set.
                           properties:
                             large:
                               description: Large holds a list of the BGP Large Communities
@@ -195,6 +196,27 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
+                    service:
+                      description: Service defines configuration options for advertisementType
+                        service.
+                      properties:
+                        addresses:
+                          description: Addresses is a list of service address types
+                            which needs to be advertised via BGP.
+                          items:
+                            description: "BGPServiceAddressType defines type of service
+                              address to be advertised. \n Note list of supported
+                              service addresses is not exhaustive and can be extended
+                              in the future. Consumer of this API should be able to
+                              handle unknown values."
+                            enum:
+                            - LoadBalancerIP
+                            - ClusterIP
+                            - ExternalIP
+                            type: string
+                          minItems: 1
+                          type: array
                       type: object
                   required:
                   - advertisementType

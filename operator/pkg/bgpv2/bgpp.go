@@ -77,13 +77,13 @@ func (b *BGPResourceManager) reconcileBGPPAdvertisement(ctx context.Context, bgp
 		// For each neighbor, advertisement is created.
 		// Each neighbor can have different path attributes, so we need to create different advertisements for each neighbor.
 		for _, neigh := range vr.Neighbors {
-			var advertisements []cilium_api_v2alpha1.Advertisement
+			var advertisements []cilium_api_v2alpha1.BGPAdvertisement
 
 			// if export pod cidr is enabled, add pod cidr advertisement.
 			// selector field is nil in this case.
 			if *vr.ExportPodCIDR {
-				advertisements = append(advertisements, cilium_api_v2alpha1.Advertisement{
-					AdvertisementType: cilium_api_v2alpha1.PodCIDRAdvert,
+				advertisements = append(advertisements, cilium_api_v2alpha1.BGPAdvertisement{
+					AdvertisementType: cilium_api_v2alpha1.BGPPodCIDRAdvert,
 					Selector:          nil,
 					Attributes:        getAttributes(neigh, cilium_api_v2alpha1.PodCIDRSelectorName),
 				})
@@ -93,10 +93,15 @@ func (b *BGPResourceManager) reconcileBGPPAdvertisement(ctx context.Context, bgp
 			// selector field is copied over from vr.ServiceSelector.
 			// attributes are taken from neigh.AdvertisedPathAttributes.
 			if vr.ServiceSelector != nil {
-				advertisements = append(advertisements, cilium_api_v2alpha1.Advertisement{
-					AdvertisementType: cilium_api_v2alpha1.CiliumLoadBalancerIPAdvert,
-					Selector:          vr.ServiceSelector,
-					Attributes:        getAttributes(neigh, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolSelectorName),
+				advertisements = append(advertisements, cilium_api_v2alpha1.BGPAdvertisement{
+					AdvertisementType: cilium_api_v2alpha1.BGPServiceAdvert,
+					Service: &cilium_api_v2alpha1.BGPServiceOptions{
+						Addresses: []cilium_api_v2alpha1.BGPServiceAddressType{
+							cilium_api_v2alpha1.BGPLoadBalancerIPAddr,
+						},
+					},
+					Selector:   vr.ServiceSelector,
+					Attributes: getAttributes(neigh, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolSelectorName),
 				})
 			}
 
@@ -104,8 +109,8 @@ func (b *BGPResourceManager) reconcileBGPPAdvertisement(ctx context.Context, bgp
 			// selector field is copied over from vr.PodIPPoolSelector.
 			// attributes are taken from neigh.AdvertisedPathAttributes.
 			if vr.PodIPPoolSelector != nil {
-				advertisements = append(advertisements, cilium_api_v2alpha1.Advertisement{
-					AdvertisementType: cilium_api_v2alpha1.CiliumPodIPPoolAdvert,
+				advertisements = append(advertisements, cilium_api_v2alpha1.BGPAdvertisement{
+					AdvertisementType: cilium_api_v2alpha1.BGPCiliumPodIPPoolAdvert,
 					Selector:          vr.PodIPPoolSelector,
 					Attributes:        getAttributes(neigh, cilium_api_v2alpha1.CiliumPodIPPoolSelectorName),
 				})
@@ -148,7 +153,7 @@ func (b *BGPResourceManager) deleteStaleAdvertisement(ctx context.Context, expec
 	return err
 }
 
-func (b *BGPResourceManager) updateAdvertisement(ctx context.Context, bgpp *cilium_api_v2alpha1.CiliumBGPPeeringPolicy, name string, adverts ...cilium_api_v2alpha1.Advertisement) error {
+func (b *BGPResourceManager) updateAdvertisement(ctx context.Context, bgpp *cilium_api_v2alpha1.CiliumBGPPeeringPolicy, name string, adverts ...cilium_api_v2alpha1.BGPAdvertisement) error {
 	prev, exists, err := b.advertStore.GetByKey(resource.Key{Name: name})
 	if err != nil {
 		return err
@@ -223,12 +228,12 @@ func (b *BGPResourceManager) updateAdvertisement(ctx context.Context, bgpp *cili
 	return err
 }
 
-// getAttributes returns CiliumBGPAttributes based on CiliumBGPNeighbor for the given selectorType.
-func getAttributes(neigh cilium_api_v2alpha1.CiliumBGPNeighbor, selectorType string) *cilium_api_v2alpha1.CiliumBGPAttributes {
+// getAttributes returns BGPAttributes based on CiliumBGPNeighbor for the given selectorType.
+func getAttributes(neigh cilium_api_v2alpha1.CiliumBGPNeighbor, selectorType string) *cilium_api_v2alpha1.BGPAttributes {
 	for _, attr := range neigh.AdvertisedPathAttributes {
 		if attr.SelectorType == selectorType {
-			return &cilium_api_v2alpha1.CiliumBGPAttributes{
-				Community:       attr.Communities,
+			return &cilium_api_v2alpha1.BGPAttributes{
+				Communities:     attr.Communities,
 				LocalPreference: attr.LocalPreference,
 			}
 		}
