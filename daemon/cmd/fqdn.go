@@ -181,7 +181,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 		option.Config.ToFQDNsEnableDNSCompression,
-		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.lookupIPsBySecID,
+		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
 		d.notifyOnDNSMsg, option.Config.DNSProxyConcurrencyLimit, option.Config.DNSProxyConcurrencyProcessingGracePeriod)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
@@ -235,10 +235,6 @@ func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpo
 	}
 
 	return e, nil
-}
-
-func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
-	return d.ipcache.LookupByIdentity(nid)
 }
 
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
