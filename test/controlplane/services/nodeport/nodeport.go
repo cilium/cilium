@@ -41,7 +41,9 @@ func init() {
 					test.
 						UpdateObjectsFromFile(abs("init.yaml")).
 						SetupEnvironment(modConfig).
+						RecordWatchers().
 						StartAgent().
+						EnsureWatchers("endpointslices", "pods", "services").
 						UpdateObjectsFromFile(abs("state1.yaml")).
 						Eventually(func() error { return validate(test, abs("lbmap1_"+nodeName+".golden")) }).
 						StopAgent()

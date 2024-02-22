@@ -91,7 +91,9 @@ func init() {
 				test.
 					UpdateObjectsFromFile(abs("init.yaml")).
 					SetupEnvironment(modConfig).
-					StartAgent()
+					RecordWatchers().
+					StartAgent().
+					EnsureWatchers("nodes")
 
 				// Run through the test steps
 				for _, step := range steps {
