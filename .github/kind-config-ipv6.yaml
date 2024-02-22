@@ -2,7 +2,6 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
-    image: quay.io/cilium/kindest-node:v1.29.0-rc.1
     kubeadmConfigPatches:
       # To make sure that there is no taint for master node.
       # Otherwise additional worker node might be required for conformance testing.
@@ -12,7 +11,6 @@ nodes:
         nodeRegistration:
           taints: []
   - role: worker
-    image: quay.io/cilium/kindest-node:v1.29.0-rc.1
 networking:
   ipFamily: ipv6
   disableDefaultCNI: true
