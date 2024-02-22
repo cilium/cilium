@@ -405,7 +405,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	for _, prefix := range iface.Ipv4Prefixes {
-		ips, e := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv4Prefix))
+		ips, e := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv4Prefix), 0)
 		if e != nil {
 			err = fmt.Errorf("unable to parse CIDR %s: %w", aws.ToString(prefix.Ipv4Prefix), e)
 			return
