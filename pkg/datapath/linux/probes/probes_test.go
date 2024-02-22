@@ -327,3 +327,11 @@ func TestIPv6Support(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHaveDeadCodeElimSupport(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	if err := HaveDeadCodeElim(); err != nil {
+		t.Fatal(err)
+	}
+}
