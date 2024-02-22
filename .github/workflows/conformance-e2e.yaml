@@ -80,6 +80,7 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
+            host-fw: 'true'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -87,6 +88,7 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
+            host-fw: 'true'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
