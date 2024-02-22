@@ -13,8 +13,6 @@
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
     ".github/workflows/**",
-    ".github/kind-config.yaml",
-    ".github/kind-config-ipv6.yaml",
     "images/**",
     "examples/hubble/*",
     "go.mod",
@@ -502,7 +500,8 @@
         "^.github/actions/set-env-variables/action\\.yml$"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\""
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?)\\s+KIND_K8S_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
       ]
     },
     {
