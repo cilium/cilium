@@ -153,7 +153,9 @@ demonstrated the following in their interaction with the project:
 
 -  Consistent participation in code review of other's patches, including
    existing committers, with comments consistent with the overall
-   project standards
+   project standards. This is perhaps the best way to demonstrate the required
+   expertise and commitment to sustained contribution that the project expects
+   to see from aspiring committers.
 
 -  Assistance to those in the community who are less knowledgeable
    through active participation in project forums.
