@@ -2859,7 +2859,7 @@ dnsProxy:
   # -- Maximum number of IPs to maintain per FQDN name for each endpoint.
   endpointMaxIpPerHostname: 50
   # -- Time during which idle but previously active connections with expired DNS lookups are still considered alive.
-  idleConnectionGracePeriod: 0s
+  idleConnectionGracePeriod: 60s
   # -- Maximum number of IPs to retain for expired DNS lookups with still-active connections.
   maxDeferredConnectionDeletes: 10000
   # -- The minimum time, in seconds, to use DNS data for toFQDNs policies. If

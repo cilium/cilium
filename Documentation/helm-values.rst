@@ -879,7 +879,7 @@
    * - :spelling:ignore:`dnsProxy.idleConnectionGracePeriod`
      - Time during which idle but previously active connections with expired DNS lookups are still considered alive.
      - string
-     - ``"0s"``
+     - ``"60s"``
    * - :spelling:ignore:`dnsProxy.maxDeferredConnectionDeletes`
      - Maximum number of IPs to retain for expired DNS lookups with still-active connections.
      - int
