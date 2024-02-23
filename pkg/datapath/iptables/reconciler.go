@@ -29,24 +29,31 @@ type desiredState struct {
 }
 
 type localNodeInfo struct {
-	internalIPv4  net.IP
-	internalIPv6  net.IP
-	ipv4AllocCIDR string
-	ipv6AllocCIDR string
+	internalIPv4          net.IP
+	internalIPv6          net.IP
+	ipv4AllocCIDR         string
+	ipv6AllocCIDR         string
+	ipv4NativeRoutingCIDR string
+	ipv6NativeRoutingCIDR string
 }
 
 func (lni localNodeInfo) equal(other localNodeInfo) bool {
 	if !lni.internalIPv4.Equal(other.internalIPv4) ||
 		!lni.internalIPv6.Equal(other.internalIPv6) ||
 		lni.ipv4AllocCIDR != other.ipv4AllocCIDR ||
-		lni.ipv6AllocCIDR != other.ipv6AllocCIDR {
+		lni.ipv6AllocCIDR != other.ipv6AllocCIDR ||
+		lni.ipv4NativeRoutingCIDR != other.ipv4NativeRoutingCIDR ||
+		lni.ipv6NativeRoutingCIDR != other.ipv6NativeRoutingCIDR {
 		return false
 	}
 	return true
 }
 
 func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
-	var v4AllocCIDR, v6AllocCIDR string
+	var (
+		v4AllocCIDR, v6AllocCIDR                 string
+		v4NativeRoutingCIDR, v6NativeRoutingCIDR string
+	)
 
 	if n.IPv4AllocCIDR != nil {
 		v4AllocCIDR = n.IPv4AllocCIDR.String()
@@ -54,12 +61,20 @@ func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
 	if n.IPv6AllocCIDR != nil {
 		v6AllocCIDR = n.IPv6AllocCIDR.String()
 	}
+	if n.IPv4NativeRoutingCIDR != nil {
+		v4NativeRoutingCIDR = n.IPv4NativeRoutingCIDR.String()
+	}
+	if n.IPv6NativeRoutingCIDR != nil {
+		v6NativeRoutingCIDR = n.IPv6NativeRoutingCIDR.String()
+	}
 
 	return localNodeInfo{
-		internalIPv4:  n.GetCiliumInternalIP(false),
-		internalIPv6:  n.GetCiliumInternalIP(true),
-		ipv4AllocCIDR: v4AllocCIDR,
-		ipv6AllocCIDR: v6AllocCIDR,
+		internalIPv4:          n.GetCiliumInternalIP(false),
+		internalIPv6:          n.GetCiliumInternalIP(true),
+		ipv4AllocCIDR:         v4AllocCIDR,
+		ipv6AllocCIDR:         v6AllocCIDR,
+		ipv4NativeRoutingCIDR: v4NativeRoutingCIDR,
+		ipv6NativeRoutingCIDR: v6NativeRoutingCIDR,
 	}
 }
 
