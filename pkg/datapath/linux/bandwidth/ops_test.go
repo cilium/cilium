@@ -21,7 +21,6 @@ import (
 
 func freshNetNS(t *testing.T) {
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 
 	oldNetNS, err := netns.Get()
 	assert.NoError(t, err)
@@ -30,6 +29,7 @@ func freshNetNS(t *testing.T) {
 	t.Cleanup(func() {
 		testNetNS.Close()
 		netns.Set(oldNetNS)
+		runtime.UnlockOSThread()
 	})
 }
 
