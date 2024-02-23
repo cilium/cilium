@@ -95,22 +95,29 @@ type Scope interface {
 //				// default to ok status.
 func GetSubScope(parent Scope, name string) Scope {
 	if parent == nil {
-		return nil
+		return &wipHealthV2Shim{noOpReporter{}}
 	}
-	return createSubScope(parent, name)
+	shim := parent.(*wipHealthV2Shim)
+	rs := shim.NewScope(name)
+	return &wipHealthV2Shim{rs}
 }
 
 // GetHealthReporter creates a new reporter under the given parent scope.
 func GetHealthReporter(parent Scope, name string) HealthReporter {
 	if parent == nil {
-		return &noopReporter{}
+		return &noOpReporter{}
 	}
-	return getSubReporter(parent, name, true)
+	shim := parent.(*wipHealthV2Shim)
+	if shim.Health == nil {
+		return &noOpReporter{}
+	}
+	rs := shim.NewScope(name)
+	return &wipHealthV2Shim{rs}
 }
 
 // TestScope exposes creating a root scope for testing purposes only.
 func TestScope() Scope {
-	return TestScopeFromProvider(FullModuleID{"test"}, NewHealthProvider())
+	return &wipHealthV2Shim{}
 }
 
 // TestScope exposes creating a root scope from a health provider for testing purposes only.
