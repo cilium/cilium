@@ -42,7 +42,7 @@ var _ = SkipDescribeIf(func() bool { return helpers.RunsOn54Kernel() && helpers.
 		kubectl.CiliumReport("cilium-dbg lrp list", "cilium-dbg service list")
 	})
 
-	SkipContextIf(func() bool { return helpers.DoesNotRunOnAKS() }, "Checks local redirect policy", func() {
+	SkipContextIf(func() bool { return helpers.RunsOnAKS() }, "Checks local redirect policy", func() {
 		const (
 			lrpServiceName = "lrp-demo-service"
 			be1Name        = "k8s1-backend"
