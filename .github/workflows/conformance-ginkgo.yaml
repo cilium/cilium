@@ -50,9 +50,6 @@ concurrency:
     }}
   cancel-in-progress: true
 
-env:
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
 jobs:
   setup-vars:
     name: Setup Vars
