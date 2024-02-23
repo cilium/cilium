@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
+	"github.com/cilium/cilium/pkg/healthv2"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
@@ -133,6 +134,8 @@ var (
 	ControlPlane = cell.Module(
 		"controlplane",
 		"Control Plane",
+
+		healthv2.Cell,
 
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.
