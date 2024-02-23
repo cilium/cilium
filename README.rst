@@ -13,7 +13,7 @@ multiple clusters in either a native routing or overlay mode. It is L7-protocol
 aware and can enforce network policies on L3-L7 using an identity based security
 model that is decoupled from network addressing.
 
-Cilium implements distributed load balancing for traffic between pods and
+Cilium implements distributed load balancing for traffic between pods and to
 external services, and is able to fully replace kube-proxy, using efficient
 hash tables in eBPF allowing for almost unlimited scale. It also supports
 advanced functionality like integrated ingress and egress gateway, bandwidth
