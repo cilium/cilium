@@ -381,7 +381,7 @@ jobs:
             echo "/root/go/bin/ginkgo \
              --focus=\"${{ matrix.cliFocus }}\" \
              --skip=\"${{ matrix.cliSkip }}\" \
-             --seed=1679952881 \
+             --seed=1679952882 \
              -v -- \
              -cilium.provision=false \
              -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
@@ -397,7 +397,7 @@ jobs:
               ./test.test \
                --ginkgo.focus="${{ matrix.cliFocus }}" \
                --ginkgo.skip="${{ matrix.cliSkip }}" \
-               --ginkgo.seed=1679952881 \
+               --ginkgo.seed=1679952882 \
                --ginkgo.v -- \
                -cilium.provision=false \
                -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
