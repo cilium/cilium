@@ -58,7 +58,6 @@ env:
   vmStartupScript: .github/gcp-vm-startup.sh
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
 jobs:
