@@ -56,7 +56,6 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.171.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes

@@ -41,7 +41,6 @@ env:
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   test_name: gke-perf
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
   k8s_version: 1.28
