@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -600,13 +601,11 @@ func TestTimer_ExitOnCloseFnCtx(t *testing.T) {
 	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
+		var closer sync.Once
 		g.Add(
 			Timer("on-interval", func(ctx context.Context) error {
 				i++
-				if started != nil {
-					close(started)
-					started = nil
-				}
+				closer.Do(func() { close(started) })
 				<-ctx.Done()
 				return nil
 			}, 1*time.Millisecond),
