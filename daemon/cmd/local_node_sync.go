@@ -96,6 +96,9 @@ func (ini *localNodeSynchronizer) initFromConfig(ctx context.Context, n *node.Lo
 	n.ClusterID = ini.Config.ClusterID
 	n.Name = nodeTypes.GetName()
 
+	n.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
+	n.IPv6NativeRoutingCIDR = ini.Config.IPv6NativeRoutingCIDR
+
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
 	node.SetDefaultPrefix(ini.Config, ini.Config.DirectRoutingDevice, n)
