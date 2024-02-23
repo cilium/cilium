@@ -1532,7 +1532,7 @@ func (m *Manager) installRules(state desiredState) error {
 
 		if m.sharedCfg.IptablesMasqueradingIPv4Enabled && state.localNodeInfo.internalIPv4 != nil {
 			if err := m.installMasqueradeRules(ip4tables, state.devices.UnsortedList(), localDeliveryInterface,
-				m.remoteSNATDstAddrExclusionCIDRv4(state.localNodeInfo.ipv4AllocCIDR),
+				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR),
 				state.localNodeInfo.ipv4AllocCIDR,
 				state.localNodeInfo.internalIPv4.String(),
 			); err != nil {
@@ -1548,7 +1548,7 @@ func (m *Manager) installRules(state desiredState) error {
 
 		if m.sharedCfg.IptablesMasqueradingIPv6Enabled && state.localNodeInfo.internalIPv6 != nil {
 			if err := m.installMasqueradeRules(ip6tables, state.devices.UnsortedList(), localDeliveryInterface,
-				m.remoteSNATDstAddrExclusionCIDRv6(state.localNodeInfo.ipv6AllocCIDR),
+				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR),
 				state.localNodeInfo.ipv6AllocCIDR,
 				state.localNodeInfo.internalIPv6.String(),
 			); err != nil {
@@ -1574,7 +1574,7 @@ func (m *Manager) installRules(state desiredState) error {
 	}
 
 	if skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) {
-		podsCIDR := m.sharedCfg.IPv4NativeRoutingCIDR.String()
+		podsCIDR := state.localNodeInfo.ipv4NativeRoutingCIDR
 
 		if err := m.addNoTrackPodTrafficRules(ip4tables, podsCIDR); err != nil {
 			return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
@@ -1602,22 +1602,13 @@ func (m *Manager) installRules(state desiredState) error {
 	return nil
 }
 
-func (m *Manager) remoteSNATDstAddrExclusionCIDRv4(ipv4AllocCIDR string) string {
-	if m.sharedCfg.IPv4NativeRoutingCIDR != nil {
-		// ipv4-native-routing-cidr is set, so use it
-		return m.sharedCfg.IPv4NativeRoutingCIDR.String()
+func (m *Manager) remoteSNATDstAddrExclusionCIDR(nativeRoutingCIDR, allocCIDR string) string {
+	if nativeRoutingCIDR != "" {
+		// ip{v4,v6}-native-routing-cidr is set, so use it
+		return nativeRoutingCIDR
 	}
 
-	return ipv4AllocCIDR
-}
-
-func (m *Manager) remoteSNATDstAddrExclusionCIDRv6(ipv6AllocCIDR string) string {
-	if m.sharedCfg.IPv6NativeRoutingCIDR != nil {
-		// ipv6-native-routing-cidr is set, so use it
-		return m.sharedCfg.IPv6NativeRoutingCIDR.String()
-	}
-
-	return ipv6AllocCIDR
+	return allocCIDR
 }
 
 func (m *Manager) ciliumNoTrackXfrmRules(prog iptablesInterface, input string) error {

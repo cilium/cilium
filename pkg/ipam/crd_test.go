@@ -18,6 +18,7 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -97,7 +98,8 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 		sharedNodeStore = newFakeNodeStore(conf, c)
 		sharedNodeStore.ownNode = cn
 	})
-	ipam := NewIPAM(fakeAddressing, conf, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+	ipam := NewIPAM(fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 	sharedNodeStore.updateLocalNodeResource(cn)
 
 	// Allocate the first 3 IPs
