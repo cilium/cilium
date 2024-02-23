@@ -171,6 +171,7 @@ jobs:
           node_image: ${{ env.KIND_K8S_IMAGE }}
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Checkout ingress-controller-conformance
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
