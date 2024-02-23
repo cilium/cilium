@@ -51,7 +51,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   # renovate: datasource=golang-version depName=go
   go-version: 1.22.0
 
