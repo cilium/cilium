@@ -49,7 +49,6 @@ concurrency:
 
 env:
   cilium_cli_ci_version:
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   # renovate: datasource=docker depName=quay.io/cilium/kindest-node
   k8s_version: v1.29.0-rc.1
 
