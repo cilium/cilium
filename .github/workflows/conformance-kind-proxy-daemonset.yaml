@@ -85,6 +85,7 @@ jobs:
           node_image: ${{ env.KIND_K8S_IMAGE }}
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Wait for images to be available
         timeout-minutes: 30
