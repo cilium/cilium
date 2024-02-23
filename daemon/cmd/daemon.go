@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
@@ -211,6 +212,8 @@ type Daemon struct {
 
 	// enable modules health support
 	healthProvider cell.Health
+
+	healthV2Provider types.Provider
 
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
@@ -448,6 +451,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
+		healthV2Provider:     params.HealthV2Provider,
 		bigTCPConfig:         params.BigTCPConfig,
 		tunnelConfig:         params.TunnelConfig,
 		bwManager:            params.BandwidthManager,
