@@ -2611,8 +2611,8 @@ func (e *Endpoint) GetCreatedAt() time.Time {
 	return e.createdAt
 }
 
-// GetMetadataValue returns the metadata value for this key.
-func (e *Endpoint) GetMetadataValue(key string) interface{} {
+// GetPropertyValue returns the metadata value for this key.
+func (e *Endpoint) GetPropertyValue(key string) interface{} {
 	e.mutex.RWMutex.RLock()
 	defer e.mutex.RWMutex.RUnlock()
 	return e.properties[key]
