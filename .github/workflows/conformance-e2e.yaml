@@ -54,7 +54,6 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.15.23
   cilium_cli_ci_version:
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
   commit-status-start:
