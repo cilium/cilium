@@ -13,7 +13,7 @@ multiple clusters in either a native routing or overlay mode. It is L7-protocol
 aware and can enforce network policies on L3-L7 using an identity based security
 model that is decoupled from network addressing.
 
-Cilium implements distributed load balancing for traffic between pods and to
+Cilium implements distributed load balancing for traffic between pods and
 external services, and is able to fully replace kube-proxy, using efficient
 hash tables in eBPF allowing for almost unlimited scale. It also supports
 advanced functionality like integrated ingress and egress gateway, bandwidth
@@ -92,7 +92,7 @@ Protect and secure APIs transparently
 -------------------------------------
 
 Ability to secure modern application protocols such as REST/HTTP, gRPC and
-Kafka. Traditional firewalls operates at Layer 3 and 4. A protocol running on a
+Kafka. Traditional firewalls operate at Layer 3 and 4. A protocol running on a
 particular port is either completely trusted or blocked entirely. Cilium
 provides the ability to filter on individual application protocol requests such
 as:
@@ -111,7 +111,7 @@ Secure service to service communication based on identities
 
 Modern distributed applications rely on technologies such as application
 containers to facilitate agility in deployment and scale out on demand. This
-results in a large number of application containers to be started in a short
+results in a large number of application containers being started in a short
 period of time. Typical container firewalls secure workloads by filtering on
 source IP addresses and destination ports. This concept requires the firewalls
 on all servers to be manipulated whenever a container is started anywhere in
@@ -142,7 +142,7 @@ coordination between hosts.
 The following multi node networking models are supported:
 
 * **Overlay:** Encapsulation-based virtual network spanning all hosts.
-  Currently VXLAN and Geneve are baked in but all encapsulation formats
+  Currently, VXLAN and Geneve are baked in but all encapsulation formats
   supported by Linux can be enabled.
 
   When to use this mode: This mode has minimal infrastructure and integration
@@ -192,7 +192,7 @@ plugin, for example.
 Monitoring and Troubleshooting
 ------------------------------
 
-The ability to gain visibility and to troubleshoot issues is fundamental to the
+The ability to gain visibility and troubleshoot issues is fundamental to the
 operation of any distributed system. While we learned to love tools like
 ``tcpdump`` and ``ping`` and while they will always find a special place in our
 hearts, we strive to provide better tooling for troubleshooting. This includes
@@ -230,13 +230,13 @@ What is eBPF and XDP?
 
 Berkeley Packet Filter (BPF) is a Linux kernel bytecode interpreter originally
 introduced to filter network packets, e.g. for tcpdump and socket filters. The
-BPF instruction set and surrounding architecture has recently been
+BPF instruction set and surrounding architecture have recently been
 significantly reworked with additional data structures such as hash tables and
 arrays for keeping state as well as additional actions to support packet
 mangling, forwarding, encapsulation, etc. Furthermore, a compiler back end for
 LLVM allows for programs to be written in C and compiled into BPF instructions.
 An in-kernel verifier ensures that BPF programs are safe to run and a JIT
-compiler converts the BPF bytecode to CPU architecture specific instructions
+compiler converts the BPF bytecode to CPU architecture-specific instructions
 for native execution efficiency. BPF programs can be run at various hooking
 points in the kernel such as for incoming packets, outgoing packets, system
 calls, kprobes, uprobes, tracepoints, etc.
@@ -259,7 +259,7 @@ section Prerequisites_.
 .. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/bpf-overview.png
     :align: center
 
-XDP is a further step in evolution and enables to run a specific flavor of BPF
+XDP is a further step in evolution and enables running a specific flavor of BPF
 programs from the network driver with direct access to the packet's DMA buffer.
 This is, by definition, the earliest possible point in the software stack,
 where programs can be attached to in order to allow for a programmable, high
@@ -268,7 +268,7 @@ performance packet processor in the Linux kernel networking data path.
 Further information about BPF and XDP targeted for developers can be found in
 the `BPF and XDP Reference Guide`_.
 
-To know more about Cilium, it's extensions and use cases around Cilium and BPF
+To know more about Cilium, its extensions and use cases around Cilium and BPF
 take a look at `Further Readings <FURTHER_READINGS.rst>`_ section.
 
 Community
@@ -312,7 +312,7 @@ can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/
 
 Roadmap
 -------
-Cilium maintains a `public roadmap <https://docs.cilium.io/en/latest/community/roadmap/>`__. It gives a a high-level view of the main priorities for the project, the maturity of different features and projects, and how to influence the project direction.
+Cilium maintains a `public roadmap <https://docs.cilium.io/en/latest/community/roadmap/>`__. It gives a high-level view of the main priorities for the project, the maturity of different features and projects, and how to influence the project direction.
 
 License
 =======
