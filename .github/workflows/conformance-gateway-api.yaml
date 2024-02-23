@@ -151,6 +151,7 @@ jobs:
           node_image: ${{ env.KIND_K8S_IMAGE }}
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
