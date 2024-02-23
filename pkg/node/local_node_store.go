@@ -9,6 +9,7 @@ import (
 
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -25,6 +26,10 @@ type LocalNode struct {
 	UID k8stypes.UID
 	// ID of the node assigned by the cloud provider.
 	ProviderID string
+	// v4 CIDR in which pod IPs are routable
+	IPv4NativeRoutingCIDR *cidr.CIDR
+	// v6 CIDR in which pod IPs are routable
+	IPv6NativeRoutingCIDR *cidr.CIDR
 }
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local
