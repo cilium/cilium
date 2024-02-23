@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -78,7 +79,7 @@ type nodeStore struct {
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, conf *option.DaemonConfig, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
+func newNodeStore(nodeName string, conf *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
@@ -173,7 +174,7 @@ func newNodeStore(nodeName string, conf *option.DaemonConfig, owner Owner, clien
 	}
 
 	for {
-		minimumReached, required, numAvailable := store.hasMinimumIPsInPool()
+		minimumReached, required, numAvailable := store.hasMinimumIPsInPool(localNodeStore)
 		logFields := logrus.Fields{
 			fieldName:   nodeName,
 			"required":  required,
@@ -243,7 +244,7 @@ func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR *cidr.CIDR, secondar
 	return
 }
 
-func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR() bool {
+func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNodeStore) bool {
 	if primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode); primaryCIDR != nil {
 		allCIDRs := append([]*cidr.CIDR{primaryCIDR}, secondaryCIDRs...)
 		if nativeCIDR := n.conf.GetIPv4NativeRoutingCIDR(); nativeCIDR != nil {
@@ -270,7 +271,9 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR() bool {
 			log.WithFields(logrus.Fields{
 				"vpc-cidr": primaryCIDR.String(),
 			}).Info("Using autodetected primary VPC CIDR.")
-			n.conf.SetIPv4NativeRoutingCIDR(primaryCIDR)
+			localNodeStore.Update(func(n *node.LocalNode) {
+				n.IPv4NativeRoutingCIDR = primaryCIDR
+			})
 		}
 		return true
 	} else {
@@ -282,7 +285,7 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR() bool {
 // hasMinimumIPsInPool returns true if the required number of IPs is available
 // in the allocation pool. It also returns the number of IPs required and
 // available.
-func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAvailable int) {
+func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore) (minimumReached bool, required, numAvailable int) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
@@ -312,7 +315,7 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 		}
 
 		if n.conf.IPAMMode() == ipamOption.IPAMENI || n.conf.IPAMMode() == ipamOption.IPAMAzure || n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud {
-			if !n.autoDetectIPv4NativeRoutingCIDR() {
+			if !n.autoDetectIPv4NativeRoutingCIDR(localNodeStore) {
 				minimumReached = false
 			}
 		}
@@ -631,9 +634,9 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family, c *option.DaemonConfig, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
+func newCRDAllocator(family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, clientset, k8sEventReg, mtuConfig)
+		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, localNodeStore, clientset, k8sEventReg, mtuConfig)
 	})
 
 	allocator := &crdAllocator{
