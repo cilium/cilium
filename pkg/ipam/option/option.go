@@ -46,3 +46,8 @@ const (
 // prefixes. Every /28 prefix contains 16 IP addresses.
 // See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html#ec2-prefix-basics for more details
 const ENIPDBlockSizeIPv4 = 16
+
+// ENIPDBlockSizeIPv6 is the number of IPs available on an ENI IPv6 prefix. Currently, AWS only supports /80 fixed size
+// prefixes. Every /80 prefix contains 10^14 IPv6 addresses, so the number of IPv6 addresses is scaled down to this value.
+// See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html#ec2-prefix-basics for more details
+const ENIPDBlockSizeIPv6 = 64

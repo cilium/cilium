@@ -331,27 +331,49 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
 // converts it into a eniTypes.ENI object
 func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, eni *eniTypes.ENI, err error) {
-	if iface.PrivateIpAddress == nil {
-		err = fmt.Errorf("ENI has no IP address")
+	if iface == nil {
+		err = fmt.Errorf("EC2 network interface is unspecified")
+		return
+	}
+
+	if iface.NetworkInterfaceId == nil {
+		err = fmt.Errorf("EC2 network interface has no interface ID")
+		return
+	}
+
+	if iface.PrivateIpAddress == nil && iface.Ipv6Address == nil {
+		err = fmt.Errorf("EC2 network interface has no IP address")
 		return
 	}
 
 	eni = &eniTypes.ENI{
-		IP:             aws.ToString(iface.PrivateIpAddress),
 		SecurityGroups: []string{},
-		Addresses:      []string{},
+	}
+
+	switch {
+	case iface.PrivateIpAddress != nil && iface.Ipv6Address == nil:
+		eni, err = parseIPv4ENI(iface, eni, usePrimary)
+	case iface.PrivateIpAddress != nil && iface.Ipv6Address != nil:
+		eni, err = parseDualStackENI(iface, eni, usePrimary)
+	case aws.ToBool(iface.Ipv6Native):
+		eni, err = parseIPv6ENI(iface, eni, usePrimary)
+	}
+
+	if err != nil {
+		err = fmt.Errorf("failed to parse EC2 network interface %s", *iface.NetworkInterfaceId)
+		return
 	}
 
 	if iface.MacAddress != nil {
-		eni.MAC = aws.ToString(iface.MacAddress)
+		eni.MAC = *iface.MacAddress
 	}
 
 	if iface.NetworkInterfaceId != nil {
-		eni.ID = aws.ToString(iface.NetworkInterfaceId)
+		eni.ID = *iface.NetworkInterfaceId
 	}
 
 	if iface.Description != nil {
-		eni.Description = aws.ToString(iface.Description)
+		eni.Description = *iface.Description
 	}
 
 	if iface.Attachment != nil {
@@ -379,27 +401,11 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 			if vpc, ok := vpcs[eni.VPC.ID]; ok {
 				eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
 				eni.VPC.CIDRs = vpc.CIDRs
+				if len(vpc.IPv6CIDRs) > 0 {
+					eni.VPC.IPv6CIDRs = vpc.IPv6CIDRs
+				}
 			}
 		}
-	}
-
-	for _, ip := range iface.PrivateIpAddresses {
-		if !usePrimary && ip.Primary != nil && aws.ToBool(ip.Primary) {
-			continue
-		}
-		if ip.PrivateIpAddress != nil {
-			eni.Addresses = append(eni.Addresses, aws.ToString(ip.PrivateIpAddress))
-		}
-	}
-
-	for _, prefix := range iface.Ipv4Prefixes {
-		ips, e := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv4Prefix), 0)
-		if e != nil {
-			err = fmt.Errorf("unable to parse CIDR %s: %w", aws.ToString(prefix.Ipv4Prefix), e)
-			return
-		}
-		eni.Addresses = append(eni.Addresses, ips...)
-		eni.Prefixes = append(eni.Prefixes, aws.ToString(prefix.Ipv4Prefix))
 	}
 
 	for _, g := range iface.Groups {
@@ -414,6 +420,107 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	return
+}
+
+// parseIPv4ENI parses IPv4 specific attributes of an ec2.NetworkInterface as returned
+// by the EC2 service API and converts it into an eniTypes.ENI object.
+func parseIPv4ENI(iface *ec2_types.NetworkInterface, eni *eniTypes.ENI, usePrimary bool) (*eniTypes.ENI, error) {
+	if iface == nil {
+		return nil, fmt.Errorf("EC2 network interface is unspecified")
+	}
+
+	if eni == nil {
+		return nil, fmt.Errorf("ENI is unspecified")
+	}
+
+	if iface.PrivateIpAddress != nil {
+		eni.IP = *iface.PrivateIpAddress
+		for _, ip := range iface.PrivateIpAddresses {
+			if !usePrimary && ip.Primary != nil && aws.ToBool(ip.Primary) {
+				continue
+			}
+			if ip.PrivateIpAddress != nil {
+				eni.Addresses = append(eni.Addresses, aws.ToString(ip.PrivateIpAddress))
+			}
+		}
+	}
+
+	for _, prefix := range iface.Ipv4Prefixes {
+		ips, err := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv4Prefix), 0)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse CIDR %s: %w", aws.ToString(prefix.Ipv4Prefix), err)
+		}
+		eni.Addresses = append(eni.Addresses, ips...)
+		eni.Prefixes = append(eni.Prefixes, aws.ToString(prefix.Ipv4Prefix))
+	}
+
+	return eni, nil
+}
+
+// parseIPv6ENI parses an IPv6 ec2.NetworkInterface as returned by the EC2 service API,
+// and converts it into an eniTypes.ENI object.
+func parseIPv6ENI(iface *ec2_types.NetworkInterface, eni *eniTypes.ENI, usePrimary bool) (*eniTypes.ENI, error) {
+	if iface == nil {
+		return nil, fmt.Errorf("EC2 network interface is unspecified")
+	}
+
+	if eni == nil {
+		return nil, fmt.Errorf("ENI is unspecified")
+	}
+
+	if iface.Ipv6Address == nil {
+		return nil, fmt.Errorf("EC2 network interface has no IPv6 address")
+	}
+
+	eni.IPv6 = *iface.Ipv6Address
+
+	for _, ip := range iface.Ipv6Addresses {
+		if !usePrimary && ip.IsPrimaryIpv6 != nil && aws.ToBool(ip.IsPrimaryIpv6) {
+			continue
+		}
+		if ip.Ipv6Address != nil {
+			eni.IPv6Addresses = append(eni.IPv6Addresses, aws.ToString(ip.Ipv6Address))
+		}
+	}
+
+	for _, prefix := range iface.Ipv6Prefixes {
+		ips, err := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv6Prefix), option.ENIPDBlockSizeIPv6)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse IPv6 CIDR %s: %w", aws.ToString(prefix.Ipv6Prefix), err)
+		}
+		eni.IPv6Addresses = append(eni.IPv6Addresses, ips...)
+		eni.IPv6Prefixes = append(eni.IPv6Prefixes, aws.ToString(prefix.Ipv6Prefix))
+	}
+
+	return eni, nil
+}
+
+// parseDualStackENI parses IPv4 and IPv6 specific attributes of an ec2.NetworkInterface
+// as returned by the EC2 service API and converts it into an eniTypes.ENI object.
+func parseDualStackENI(iface *ec2_types.NetworkInterface, eni *eniTypes.ENI, usePrimary bool) (*eniTypes.ENI, error) {
+	var errors []error
+
+	parsedENI, v4Err := parseIPv4ENI(iface, eni, usePrimary)
+	if v4Err != nil {
+		errors = append(errors, fmt.Errorf("IPv4 parsing failed: %w", v4Err))
+	} else {
+		// Ensure eni is updated only if no IPv4 parsing error occurred.
+		eni = parsedENI
+	}
+
+	parsedENI, v6Err := parseIPv6ENI(iface, eni, usePrimary)
+	if v6Err != nil {
+		errors = append(errors, fmt.Errorf("IPv6 parsing failed: %w", v6Err))
+	} else {
+		// Ensure eni is updated only if no IPv6 parsing error occurred.
+		eni = parsedENI
+	}
+
+	if len(errors) > 0 {
+		return nil, fmt.Errorf("failed to parse dual stack ENI: %v", errors)
+	}
+
+	return eni, nil
 }
 
 // GetInstance returns the instance including its ENIs by the given instanceID
@@ -513,6 +620,11 @@ func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 			}
 		}
 
+		for _, c := range v.Ipv6CidrBlockAssociationSet {
+			cidr := aws.ToString(c.Ipv6CidrBlock)
+			vpc.IPv6CIDRs = append(vpc.IPv6CIDRs, cidr)
+		}
+
 		vpcs[vpc.ID] = vpc
 	}
 
@@ -571,6 +683,17 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 			subnet.VirtualNetworkID = aws.ToString(s.VpcId)
 		}
 
+		numV6Cidrs := 0
+		for _, c := range s.Ipv6CidrBlockAssociationSet {
+			if c.Ipv6CidrBlock != nil {
+				if cidr, err := cidr.ParseCIDR(aws.ToString(c.Ipv6CidrBlock)); err != nil {
+					subnet.IPv6CIDR = cidr
+					numV6Cidrs++
+				}
+			}
+		}
+		subnet.AvailableIPv6Addresses = numV6Cidrs * option.ENIPDBlockSizeIPv6
+
 		for _, tag := range s.Tags {
 			if aws.ToString(tag.Key) == "Name" {
 				subnet.Name = aws.ToString(tag.Value)
@@ -585,18 +708,23 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error) {
+func (c *Client) CreateNetworkInterface(ctx context.Context, v4ToAllocate, v6ToAllocate int32, subnetID, desc string, groups []string, allocateV4Prefixes, allocateV6Prefixes bool) (string, *eniTypes.ENI, error) {
 
 	input := &ec2.CreateNetworkInterfaceInput{
 		Description: aws.String(desc),
 		SubnetId:    aws.String(subnetID),
 		Groups:      groups,
 	}
-	if allocatePrefixes {
-		input.Ipv4PrefixCount = aws.Int32(int32(ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)))
-		log.Debugf("Creating interface with %v prefixes", input.Ipv4PrefixCount)
+	if allocateV4Prefixes {
+		input.Ipv4PrefixCount = aws.Int32(int32(ipPkg.PrefixCeil(int(v4ToAllocate), option.ENIPDBlockSizeIPv4)))
+		log.Debugf("Creating interface with %v IPv4 prefixes", input.Ipv4PrefixCount)
 	} else {
-		input.SecondaryPrivateIpAddressCount = aws.Int32(toAllocate)
+		input.SecondaryPrivateIpAddressCount = aws.Int32(v4ToAllocate)
+	}
+
+	if allocateV6Prefixes {
+		input.Ipv6PrefixCount = aws.Int32(int32(ipPkg.PrefixCeil(int(v6ToAllocate), option.ENIPDBlockSizeIPv6)))
+		log.Debugf("Creating interface with %v IPv6 prefixes", input.Ipv4PrefixCount)
 	}
 
 	if len(c.eniTagSpecification.Tags) > 0 {
@@ -620,6 +748,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		// information is optional. Returning the ENI ID is sufficient
 		// to allow for the caller to retrieve the ENI information via
 		// the API or wait for a regular sync to fetch the information.
+		log.Errorf("Failed to parse ENI %s: %v", aws.ToString(output.NetworkInterface.NetworkInterfaceId), err)
 		return aws.ToString(output.NetworkInterface.NetworkInterfaceId), nil, nil
 	}
 
@@ -719,6 +848,19 @@ func (c *Client) AssignENIPrefixes(ctx context.Context, eniID string, prefixes i
 	return err
 }
 
+func (c *Client) AssignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes int32) error {
+	input := &ec2.AssignIpv6AddressesInput{
+		NetworkInterfaceId: aws.String(eniID),
+		Ipv6PrefixCount:    aws.Int32(prefixes),
+	}
+
+	c.limiter.Limit(ctx, "AssignIpv6Addresses")
+	sinceStart := spanstat.Start()
+	_, err := c.ec2Client.AssignIpv6Addresses(ctx, input)
+	c.metricsAPI.ObserveAPICall("AssignIpv6Addresses", deriveStatus(err), sinceStart.Seconds())
+	return err
+}
+
 func (c *Client) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error {
 	input := &ec2.UnassignPrivateIpAddressesInput{
 		NetworkInterfaceId: aws.String(eniID),
@@ -729,6 +871,19 @@ func (c *Client) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.UnassignPrivateIpAddresses(ctx, input)
 	c.metricsAPI.ObserveAPICall("UnassignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	return err
+}
+
+func (c *Client) UnassignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes []string) error {
+	input := &ec2.UnassignIpv6AddressesInput{
+		NetworkInterfaceId: aws.String(eniID),
+		Ipv6Prefixes:       prefixes,
+	}
+
+	c.limiter.Limit(ctx, "UnassignIpv6Addresses")
+	sinceStart := spanstat.Start()
+	_, err := c.ec2Client.UnassignIpv6Addresses(ctx, input)
+	c.metricsAPI.ObserveAPICall("UnassignIpv6Addresses", deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 

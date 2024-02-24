@@ -17,6 +17,8 @@ import (
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/cidr"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/ipam"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
@@ -28,15 +30,18 @@ import (
 
 var (
 	testSubnet = &ipamTypes.Subnet{
-		ID:                 "s-1",
-		AvailabilityZone:   "us-west-1",
-		VirtualNetworkID:   "vpc-1",
-		AvailableAddresses: 200,
-		Tags:               ipamTypes.Tags{"k": "v"},
+		ID:                     "s-1",
+		AvailabilityZone:       "us-west-1",
+		VirtualNetworkID:       "vpc-1",
+		AvailableAddresses:     200,
+		IPv6CIDR:               cidr.MustParseCIDR("2001:db8::/64"),
+		AvailableIPv6Addresses: 10000,
+		Tags:                   ipamTypes.Tags{"k": "v"},
 	}
 	testVpc = &ipamTypes.VirtualNetwork{
 		ID:          "vpc-1",
 		PrimaryCIDR: "10.10.0.0/16",
+		IPv6CIDRs:   []string{"2001:db8::/56"},
 	}
 	testSecurityGroups = []*types.SecurityGroup{
 		{
@@ -121,7 +126,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -163,7 +168,7 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, true)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, true, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -200,6 +205,56 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 	c.Assert(totalPrefixes, check.Equals, 2)
 }
 
+// TestNodeManagerIPv6PrefixDelegation tests IPv6 prefix-based allocation with default parameters
+//
+// - m5.large (3x ENIs, 2x64-2 IPs)
+// - MinAllocate 0
+// - MaxAllocate 0
+// - PreAllocate 8
+// - FirstInterfaceIndex 0
+func (e *ENISuite) TestNodeManagerIPv6PrefixDelegation(c *check.C) {
+	const instanceID = "i-testNodeManagerDefaultIPv6Allocation-0"
+
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	instances := NewInstancesManager(ec2api)
+	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, true)
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, true)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	// Announce node wait for IPs to become available
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5a.large"), withNodeSubnetID(testSubnet.ID), withIPAMPreAllocate(8))
+	mngr.Upsert(cn)
+	c.Assert(testutils.WaitUntil(func() bool { return reachedIPv6AddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node := mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().IPv6.AvailableIPs, check.Equals, 64) // The default number of addresses for an IPv6 CIDR.
+	c.Assert(node.Stats().IPv6.UsedIPs, check.Equals, 0)
+
+	// Use 8 out of 64 IPs
+	mngr.Upsert(updateIPv6CiliumNode(cn, 64, 4))
+	c.Assert(testutils.WaitUntil(func() bool { return reachedIPv6AddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node = mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().IPv6.AvailableIPs, check.Equals, 64)
+	c.Assert(node.Stats().IPv6.UsedIPs, check.Equals, 4)
+
+	node.Ops().PopulateStatusFields(cn)
+
+	var totalPrefixes int
+	for _, eni := range cn.Status.ENI.ENIs {
+		totalPrefixes += len(eni.IPv6Prefixes)
+	}
+	c.Assert(totalPrefixes, check.Equals, 1)
+}
+
 // TestNodeManagerENIWithSGTags tests ENI allocation + association with a SG based on tags
 //
 // - m5.large (3x ENIs, 2x10-2 IPs)
@@ -213,7 +268,7 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -271,7 +326,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -325,7 +380,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -388,7 +443,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -488,7 +543,7 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	err = ec2api.TagENI(context.TODO(), eniID1, map[string]string{
 		"foo":                 "bar",
@@ -554,7 +609,7 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -610,7 +665,7 @@ func (e *ENISuite) TestInterfaceCreatedInInitialSubnet(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet, testSubnet2}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, testSubnet.ID, "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, testSubnet.ID, "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -678,7 +733,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	state := make([]*nodeState, numNodes)
 
 	for i := range state {
-		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "mgmt-1", "desc", []string{"sg1", "sg2"}, false)
+		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "mgmt-1", "desc", []string{"sg1", "sg2"}, false, false)
 		c.Assert(err, check.IsNil)
 		_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, fmt.Sprintf("i-testNodeManagerManyNodes-%d", i), eniID)
 		c.Assert(err, check.IsNil)
@@ -739,7 +794,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	metricsMock := metricsmock.NewMockMetrics()
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
@@ -782,11 +837,11 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
-	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 8, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 1, instanceID, eniID2)
 	c.Assert(err, check.IsNil)
@@ -844,7 +899,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 
 	c.ResetTimer()
 	for i := range state {
-		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 		c.Assert(err, check.IsNil)
 		_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, fmt.Sprintf("i-benchmarkAllocWorker-%d", i), eniID)
 		c.Assert(err, check.IsNil)
@@ -914,12 +969,14 @@ func newCiliumNode(name string, opts ...func(*v2.CiliumNode)) *v2.CiliumNode {
 				SecurityGroupTags:   map[string]string{},
 			},
 			IPAM: ipamTypes.IPAMSpec{
-				Pool: ipamTypes.AllocationMap{},
+				Pool:     ipamTypes.AllocationMap{},
+				IPv6Pool: ipamTypes.AllocationMap{},
 			},
 		},
 		Status: v2.NodeStatus{
 			IPAM: ipamTypes.IPAMStatus{
-				Used: ipamTypes.AllocationMap{},
+				Used:     ipamTypes.AllocationMap{},
+				IPv6Used: ipamTypes.AllocationMap{},
 			},
 		},
 	}
@@ -1010,9 +1067,34 @@ func updateCiliumNode(cn *v2.CiliumNode, available, used int) *v2.CiliumNode {
 	return cn
 }
 
+func updateIPv6CiliumNode(cn *v2.CiliumNode, available, used int) *v2.CiliumNode {
+	cn.Spec.IPAM.IPv6Pool = ipamTypes.AllocationMap{}
+	for i := 0; i < used; i++ {
+		cn.Spec.IPAM.IPv6Pool[fmt.Sprintf("2001:db8::%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
+	}
+
+	cn.Status.IPAM.IPv6Used = ipamTypes.AllocationMap{}
+	for ip, ipAllocation := range cn.Spec.IPAM.IPv6Pool {
+		if used > 0 {
+			delete(cn.Spec.IPAM.IPv6Pool, ip)
+			cn.Status.IPAM.IPv6Used[ip] = ipAllocation
+			used--
+		}
+	}
+
+	return cn
+}
+
 func reachedAddressesNeeded(mngr *ipam.NodeManager, nodeName string, needed int) (success bool) {
 	if node := mngr.Get(nodeName); node != nil {
 		success = node.GetNeededAddresses() == needed
+	}
+	return
+}
+
+func reachedIPv6AddressesNeeded(mngr *ipam.NodeManager, nodeName string, needed int) (success bool) {
+	if node := mngr.Get(nodeName); node != nil {
+		success = node.GetNeededIPv6Addresses() == needed
 	}
 	return
 }

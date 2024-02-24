@@ -30,13 +30,14 @@ type EC2API interface {
 	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
 	GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error)
-	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error)
+	CreateNetworkInterface(ctx context.Context, v4ToAllocate, v6ToAllocate int32, subnetID, desc string, groups []string, allocV4Prefixes, allocV6Prefixes bool) (string, *eniTypes.ENI, error)
 	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
 	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error
+	AssignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes int32) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
 	GetInstanceTypes(context.Context) ([]ec2_types.InstanceTypeInfo, error)
 }
@@ -74,7 +75,7 @@ func (m *InstancesManager) HasInstance(instanceID string) bool {
 	return m.instances.Exists(instanceID)
 }
 
-// GetPoolQuota returns the number of available IPs in all IP pools
+// GetPoolQuota returns the number of available IPv4 addresses in all IP pools
 func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
 	pool := ipamTypes.PoolQuotaMap{}
 	for subnetID, subnet := range m.GetSubnets(context.TODO()) {
@@ -219,6 +220,17 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			"numSubnets":        len(subnets),
 			"numSecurityGroups": len(securityGroups),
 		}).Info("Synchronized ENI information")
+
+		for _, v := range vpcs {
+			log.Infof("VPC ID: %v", v.ID)
+			log.Infof("VPC IPv6 CIDRs: %v", v.IPv6CIDRs)
+		}
+
+		for _, s := range subnets {
+			log.Infof("Subnet ID: %v", s.ID)
+			log.Infof("Subnet IPv6 CIDR: %v", s.IPv6CIDR)
+			log.Infof("Subnet IPv6 Available Addresses: %v", s.AvailableIPv6Addresses)
+		}
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()

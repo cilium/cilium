@@ -184,8 +184,12 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	return toAllocate, "", nil
 }
 
-// ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
-// the AlibabaCloud API and return them
+func (n *Node) CreateIPv6Interface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
+	return 0, "", fmt.Errorf("not implemented")
+}
+
+// ResyncInterfacesAndIPs is called to retrieve and ENIs and IPv4 addresses
+// as known to the AlibabaCloud API and return them
 func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
@@ -246,7 +250,13 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	return available, stats, nil
 }
 
-// PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
+// ResyncInterfacesAndIPv6s is called to retrieve and ENIs and IPv6 addresses
+// as known to the AlibabaCloud API and return them
+func (n *Node) ResyncInterfacesAndIPv6s(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
+	return available, stats, fmt.Errorf("not implemented")
+}
+
+// PrepareIPAllocation returns the number of ENI IPv4 addresses and interfaces that can be
 // allocated/created.
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAction, error) {
 	l, limitsAvailable := n.getLimits()
@@ -298,13 +308,24 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 	return a, nil
 }
 
-// AllocateIPs performs the ENI allocation operation
+// PrepareIPv6Allocation returns the number of ENI IPv6 addresses and interfaces that can be
+// allocated/created.
+func (n *Node) PrepareIPv6Allocation(scopedLog *logrus.Entry) (*ipam.AllocationAction, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// AllocateIPs performs the ENI IPv4 address allocation operation
 func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
 	_, err := n.manager.api.AssignPrivateIPAddresses(ctx, a.InterfaceID, a.IPv4.AvailableForAllocation)
 	return err
 }
 
-// PrepareIPRelease prepares the release of ENI IPs.
+// AllocateIPv6s performs the ENI IPv6 address allocation operation
+func (n *Node) AllocateIPv6s(ctx context.Context, a *ipam.AllocationAction) error {
+	return fmt.Errorf("not implemented")
+}
+
+// PrepareIPRelease prepares the release of ENI IPv4 addresses.
 func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
 	r := &ipam.ReleaseAction{}
 
@@ -356,6 +377,11 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 	return r
 }
 
+// PrepareIPv6Release prepares the release of ENI IPv6 addresses.
+func (n *Node) PrepareIPv6Release(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
+	return nil
+}
+
 // ReleaseIPs performs the ENI IP release operation
 func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	return n.manager.api.UnassignPrivateIPAddresses(ctx, r.InterfaceID, r.IPsToRelease)
@@ -378,6 +404,12 @@ func (n *Node) GetMaximumAllocatableIPv4() int {
 	return (l.Adapters - 1) * l.IPv4
 }
 
+// GetMaximumAllocatableIPv6 returns the maximum amount of IPv6 addresses
+// that can be allocated to the instance
+func (n *Node) GetMaximumAllocatableIPv6() int {
+	return 0
+}
+
 // GetMinimumAllocatableIPv4 returns the minimum amount of IPv4 addresses that
 // must be allocated to the instance.
 func (n *Node) GetMinimumAllocatableIPv4() int {
@@ -393,6 +425,10 @@ func (n *Node) loggerLocked() *logrus.Entry {
 }
 
 func (n *Node) IsPrefixDelegated() bool {
+	return false
+}
+
+func (n *Node) IsIPv6PrefixDelegated() bool {
 	return false
 }
 

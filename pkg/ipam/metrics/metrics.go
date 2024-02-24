@@ -14,29 +14,41 @@ import (
 const ipamSubsystem = "ipam"
 
 type prometheusMetrics struct {
-	registry             metrics.RegisterGatherer
-	Allocation           *prometheus.HistogramVec
-	Release              *prometheus.HistogramVec
-	AllocateInterfaceOps *prometheus.CounterVec
-	AllocateIpOps        *prometheus.CounterVec
-	ReleaseIpOps         *prometheus.CounterVec
-	AvailableIPs         *prometheus.GaugeVec
-	UsedIPs              *prometheus.GaugeVec
-	NeededIPs            *prometheus.GaugeVec
+	registry                 metrics.RegisterGatherer
+	Allocation               *prometheus.HistogramVec
+	IPv6Allocation           *prometheus.HistogramVec
+	Release                  *prometheus.HistogramVec
+	IPv6Release              *prometheus.HistogramVec
+	AllocateInterfaceOps     *prometheus.CounterVec
+	AllocateIPv6InterfaceOps *prometheus.CounterVec
+	AllocateIpOps            *prometheus.CounterVec
+	ReleaseIpOps             *prometheus.CounterVec
+	AvailableIPs             *prometheus.GaugeVec
+	UsedIPs                  *prometheus.GaugeVec
+	NeededIPs                *prometheus.GaugeVec
+	AllocateIPv6Ops          *prometheus.CounterVec
+	ReleaseIPv6Ops           *prometheus.CounterVec
+	AvailableIPv6s           *prometheus.GaugeVec
+	UsedIPv6s                *prometheus.GaugeVec
+	NeededIPv6s              *prometheus.GaugeVec
 	// Deprecated, will be removed in version 1.15.
 	// Use AvailableIPs, UsedIPs and NeededIPs instead.
 	IPsAllocated *prometheus.GaugeVec
 	// Deprecated, will be removed in version 1.14:
 	// Use InterfaceCandidates and EmptyInterfaceSlots instead
-	AvailableInterfaces   prometheus.Gauge
-	InterfaceCandidates   prometheus.Gauge
-	EmptyInterfaceSlots   prometheus.Gauge
-	AvailableIPsPerSubnet *prometheus.GaugeVec
-	Nodes                 *prometheus.GaugeVec
-	Resync                prometheus.Counter
-	poolMaintainer        *triggerMetrics
-	k8sSync               *triggerMetrics
-	resync                *triggerMetrics
+	AvailableInterfaces     prometheus.Gauge
+	AvailableIPv6Interfaces prometheus.Gauge
+	InterfaceCandidates     prometheus.Gauge
+	IPv6InterfaceCandidates prometheus.Gauge
+	EmptyInterfaceSlots     prometheus.Gauge
+	AvailableIPsPerSubnet   *prometheus.GaugeVec
+	AvailableIPv6sPerSubnet *prometheus.GaugeVec
+	Nodes                   *prometheus.GaugeVec
+	Resync                  prometheus.Counter
+	poolMaintainer          *triggerMetrics
+	ipv6PoolMaintainer      *triggerMetrics
+	k8sSync                 *triggerMetrics
+	resync                  *triggerMetrics
 }
 
 const LabelTargetNodeName = "target_node"
@@ -52,28 +64,49 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "available_ips",
-		Help:      "Total available IPs on Node for IPAM allocation",
+		Help:      "Total available IPv4 addresses on Node for IPAM allocation",
+	}, []string{LabelTargetNodeName})
+
+	m.AvailableIPv6s = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "available_ipv6s",
+		Help:      "Total available IPv6 addresses on Node for IPAM allocation",
 	}, []string{LabelTargetNodeName})
 
 	m.UsedIPs = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "used_ips",
-		Help:      "Total used IPs on Node for IPAM allocation",
+		Help:      "Total used IPv4 addresses on Node for IPAM allocation",
+	}, []string{LabelTargetNodeName})
+
+	m.UsedIPv6s = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "used_ipv6s",
+		Help:      "Total used IPv6 addresses on Node for IPAM allocation",
 	}, []string{LabelTargetNodeName})
 
 	m.NeededIPs = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "needed_ips",
-		Help:      "Number of IPs that are needed on the Node to satisfy IPAM allocation requests",
+		Help:      "Number of IPv4 addresses that are needed on the Node to satisfy IPAM allocation requests",
+	}, []string{LabelTargetNodeName})
+
+	m.NeededIPv6s = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "needed_ipv6s",
+		Help:      "Number of IPv6 addresses that are needed on the Node to satisfy IPAM allocation requests",
 	}, []string{LabelTargetNodeName})
 
 	m.IPsAllocated = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "ips",
-		Help:      "Number of IPs allocated",
+		Help:      "Number of IPv4 addresses allocated",
 	}, []string{"type"})
 
 	m.AllocateIpOps = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -87,28 +120,56 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "ip_release_ops",
-		Help:      "Number of IP release operations",
+		Help:      "Number of IPv4 release operations",
+	}, []string{"subnet_id"})
+
+	m.ReleaseIPv6Ops = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "ipv6_release_ops",
+		Help:      "Number of IPv6 release operations",
 	}, []string{"subnet_id"})
 
 	m.AllocateInterfaceOps = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "interface_creation_ops",
-		Help:      "Number of interfaces allocated",
+		Help:      "Number of IPv4 interfaces allocated",
+	}, []string{"subnet_id"})
+
+	m.AllocateIPv6InterfaceOps = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "ipv6_interface_creation_ops",
+		Help:      "Number of IPv6 interfaces allocated",
 	}, []string{"subnet_id"})
 
 	m.AvailableInterfaces = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "available_interfaces",
-		Help:      "Number of interfaces with addresses available",
+		Help:      "Number of interfaces with IPv4 addresses available",
+	})
+
+	m.AvailableIPv6Interfaces = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "available_ipv6_interfaces",
+		Help:      "Number of interfaces with IPv6 addresses available",
 	})
 
 	m.InterfaceCandidates = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "interface_candidates",
-		Help:      "Number of attached interfaces with IPs available for allocation",
+		Help:      "Number of attached interfaces with IPv4 addresses available for allocation",
+	})
+
+	m.IPv6InterfaceCandidates = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "ipv6_interface_candidates",
+		Help:      "Number of attached interfaces with IPv6 addresses available for allocation",
 	})
 
 	m.EmptyInterfaceSlots = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -122,7 +183,14 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "available_ips_per_subnet",
-		Help:      "Number of available IPs per subnet ID",
+		Help:      "Number of available IPv4 addresses per subnet ID",
+	}, []string{"subnet_id", "availability_zone"})
+
+	m.AvailableIPv6sPerSubnet = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "available_ipv6s_per_subnet",
+		Help:      "Number of available IPv6 addresses per subnet ID",
 	}, []string{"subnet_id", "availability_zone"})
 
 	m.Nodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -143,7 +211,18 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "allocation_duration_seconds",
-		Help:      "Allocation ip or interface latency in seconds",
+		Help:      "Allocation ipv4 or interface latency in seconds",
+		Buckets: merge(
+			prometheus.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
+			prometheus.LinearBuckets(1, 1, 60),      // 1s, 2s, 3s, ... 60s,
+		),
+	}, []string{"type", "status", "subnet_id"})
+
+	m.IPv6Allocation = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "ipv6_allocation_duration_seconds",
+		Help:      "Allocation ipv6 or interface latency in seconds",
 		Buckets: merge(
 			prometheus.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
 			prometheus.LinearBuckets(1, 1, 60),      // 1s, 2s, 3s, ... 60s,
@@ -154,7 +233,18 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "release_duration_seconds",
-		Help:      "Release ip or interface latency in seconds",
+		Help:      "Release ipv4 or interface latency in seconds",
+		Buckets: merge(
+			prometheus.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
+			prometheus.LinearBuckets(1, 1, 60),      // 1s, 2s, 3s, ... 60s,
+		),
+	}, []string{"type", "status", "subnet_id"})
+
+	m.IPv6Release = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Subsystem: ipamSubsystem,
+		Name:      "ipv6_release_duration_seconds",
+		Help:      "Release ipv6 or interface latency in seconds",
 		Buckets: merge(
 			prometheus.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
 			prometheus.LinearBuckets(1, 1, 60),      // 1s, 2s, 3s, ... 60s,
@@ -164,6 +254,7 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 	// pool_maintainer is a more generic name, but for backward compatibility
 	// of dashboard, keep the metric name deficit_resolver unchanged
 	m.poolMaintainer = NewTriggerMetrics(namespace, "deficit_resolver")
+	m.ipv6PoolMaintainer = NewTriggerMetrics(namespace, "ipv6_deficit_resolver")
 	m.k8sSync = NewTriggerMetrics(namespace, "k8s_sync")
 	m.resync = NewTriggerMetrics(namespace, "resync")
 
@@ -183,7 +274,21 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 	registry.MustRegister(m.Resync)
 	registry.MustRegister(m.Allocation)
 	registry.MustRegister(m.Release)
+
+	registry.MustRegister(m.AvailableIPv6s)
+	registry.MustRegister(m.UsedIPv6s)
+	registry.MustRegister(m.NeededIPv6s)
+	registry.MustRegister(m.AllocateIPv6Ops)
+	registry.MustRegister(m.ReleaseIPv6Ops)
+	registry.MustRegister(m.AllocateIPv6InterfaceOps)
+	registry.MustRegister(m.AvailableIPv6Interfaces)
+	registry.MustRegister(m.IPv6InterfaceCandidates)
+	registry.MustRegister(m.AvailableIPv6sPerSubnet)
+	registry.MustRegister(m.IPv6Allocation)
+	registry.MustRegister(m.IPv6Release)
+
 	m.poolMaintainer.Register(registry)
+	m.ipv6PoolMaintainer.Register(registry)
 	m.k8sSync.Register(registry)
 	m.resync.Register(registry)
 
@@ -192,6 +297,10 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 
 func (p *prometheusMetrics) PoolMaintainerTrigger() trigger.MetricsObserver {
 	return p.poolMaintainer
+}
+
+func (p *prometheusMetrics) IPv6PoolMaintainerTrigger() trigger.MetricsObserver {
+	return p.ipv6PoolMaintainer
 }
 
 func (p *prometheusMetrics) K8sSyncTrigger() trigger.MetricsObserver {
@@ -234,6 +343,10 @@ func (p *prometheusMetrics) SetAvailableIPsPerSubnet(subnetID string, availabili
 	p.AvailableIPsPerSubnet.WithLabelValues(subnetID, availabilityZone).Set(float64(available))
 }
 
+func (p *prometheusMetrics) SetAvailableIPv6sPerSubnet(subnetID string, availabilityZone string, available int) {
+	p.AvailableIPv6sPerSubnet.WithLabelValues(subnetID, availabilityZone).Set(float64(available))
+}
+
 func (p *prometheusMetrics) SetNodes(label string, nodes int) {
 	p.Nodes.WithLabelValues(label).Set(float64(nodes))
 }
@@ -255,12 +368,24 @@ func (p *prometheusMetrics) SetIPAvailable(node string, cap int) {
 	p.AvailableIPs.WithLabelValues(node).Set(float64(cap))
 }
 
+func (p *prometheusMetrics) SetIPv6Available(node string, cap int) {
+	p.AvailableIPv6s.WithLabelValues(node).Set(float64(cap))
+}
+
 func (p *prometheusMetrics) SetIPUsed(node string, usage int) {
 	p.UsedIPs.WithLabelValues(node).Set(float64(usage))
 }
 
+func (p *prometheusMetrics) SetIPv6Used(node string, usage int) {
+	p.UsedIPv6s.WithLabelValues(node).Set(float64(usage))
+}
+
 func (p *prometheusMetrics) SetIPNeeded(node string, usage int) {
 	p.NeededIPs.WithLabelValues(node).Set(float64(usage))
+}
+
+func (p *prometheusMetrics) SetIPv6Needed(node string, usage int) {
+	p.NeededIPv6s.WithLabelValues(node).Set(float64(usage))
 }
 
 // DeleteNode removes all per-node metrics for a particular node (i.e. those labeled with "target_node").
@@ -339,25 +464,29 @@ func (m *NoOpMetricsObserver) QueueEvent(reason string)                         
 // NoOpMetrics is a no-operation implementation of the metrics
 type NoOpMetrics struct{}
 
-func (m *NoOpMetrics) AllocationAttempt(typ, status, subnetID string, observe float64)           {}
-func (m *NoOpMetrics) ReleaseAttempt(typ, status, subnetID string, observe float64)              {}
-func (m *NoOpMetrics) IncInterfaceAllocation(subnetID string)                                    {}
-func (m *NoOpMetrics) AddIPAllocation(subnetID string, allocated int64)                          {}
-func (m *NoOpMetrics) AddIPRelease(subnetID string, released int64)                              {}
-func (m *NoOpMetrics) SetAllocatedIPs(typ string, allocated int)                                 {}
-func (m *NoOpMetrics) SetAvailableInterfaces(available int)                                      {}
-func (m *NoOpMetrics) SetInterfaceCandidates(interfaceCandidates int)                            {}
-func (m *NoOpMetrics) SetEmptyInterfaceSlots(emptyInterfaceSlots int)                            {}
-func (m *NoOpMetrics) SetAvailableIPsPerSubnet(subnetID, availabilityZone string, available int) {}
-func (m *NoOpMetrics) SetNodes(category string, nodes int)                                       {}
-func (m *NoOpMetrics) IncResyncCount()                                                           {}
-func (m *NoOpMetrics) SetIPAvailable(node string, n int)                                         {}
-func (m *NoOpMetrics) SetIPUsed(node string, n int)                                              {}
-func (m *NoOpMetrics) SetIPNeeded(node string, n int)                                            {}
-func (m *NoOpMetrics) PoolMaintainerTrigger() trigger.MetricsObserver                            { return &NoOpMetricsObserver{} }
-func (m *NoOpMetrics) K8sSyncTrigger() trigger.MetricsObserver                                   { return &NoOpMetricsObserver{} }
-func (m *NoOpMetrics) ResyncTrigger() trigger.MetricsObserver                                    { return &NoOpMetricsObserver{} }
-func (m *NoOpMetrics) DeleteNode(n string)                                                       {}
+func (m *NoOpMetrics) AllocationAttempt(typ, status, subnetID string, observe float64)             {}
+func (m *NoOpMetrics) ReleaseAttempt(typ, status, subnetID string, observe float64)                {}
+func (m *NoOpMetrics) IncInterfaceAllocation(subnetID string)                                      {}
+func (m *NoOpMetrics) AddIPAllocation(subnetID string, allocated int64)                            {}
+func (m *NoOpMetrics) AddIPRelease(subnetID string, released int64)                                {}
+func (m *NoOpMetrics) SetAllocatedIPs(typ string, allocated int)                                   {}
+func (m *NoOpMetrics) SetAvailableInterfaces(available int)                                        {}
+func (m *NoOpMetrics) SetInterfaceCandidates(interfaceCandidates int)                              {}
+func (m *NoOpMetrics) SetEmptyInterfaceSlots(emptyInterfaceSlots int)                              {}
+func (m *NoOpMetrics) SetAvailableIPsPerSubnet(subnetID, availabilityZone string, available int)   {}
+func (m *NoOpMetrics) SetAvailableIPv6sPerSubnet(subnetID, availabilityZone string, available int) {}
+func (m *NoOpMetrics) SetNodes(category string, nodes int)                                         {}
+func (m *NoOpMetrics) IncResyncCount()                                                             {}
+func (m *NoOpMetrics) SetIPAvailable(node string, n int)                                           {}
+func (m *NoOpMetrics) SetIPUsed(node string, n int)                                                {}
+func (m *NoOpMetrics) SetIPNeeded(node string, n int)                                              {}
+func (m *NoOpMetrics) PoolMaintainerTrigger() trigger.MetricsObserver                              { return &NoOpMetricsObserver{} }
+func (m *NoOpMetrics) IPv6PoolMaintainerTrigger() trigger.MetricsObserver {
+	return &NoOpMetricsObserver{}
+}
+func (m *NoOpMetrics) K8sSyncTrigger() trigger.MetricsObserver { return &NoOpMetricsObserver{} }
+func (m *NoOpMetrics) ResyncTrigger() trigger.MetricsObserver  { return &NoOpMetricsObserver{} }
+func (m *NoOpMetrics) DeleteNode(n string)                     {}
 
 func merge(slices ...[]float64) []float64 {
 	result := make([]float64, 1)

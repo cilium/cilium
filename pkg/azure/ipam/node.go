@@ -55,17 +55,27 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	})
 }
 
-// PrepareIPRelease prepares the release of IPs
+// PrepareIPRelease prepares the release of IPv4 addresses
 func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
 	return &ipam.ReleaseAction{}
 }
 
-// ReleaseIPs performs the IP release operation
+// PrepareIPv6Release prepares the release of IPv6 addresses
+func (n *Node) PrepareIPv6Release(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
+	return &ipam.ReleaseAction{}
+}
+
+// ReleaseIPs performs the IPv4 release operation
 func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	return fmt.Errorf("not implemented")
 }
 
-// PrepareIPAllocation returns the number of IPs that can be allocated/created.
+// ReleaseIPv6s performs the IPv6 release operation
+func (n *Node) ReleaseIPv6s(ctx context.Context, r *ipam.ReleaseAction) error {
+	return fmt.Errorf("not implemented")
+}
+
+// PrepareIPAllocation returns the number of IPv4 addresses that can be allocated/created.
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
 	a = &ipam.AllocationAction{}
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
@@ -116,7 +126,12 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 	return
 }
 
-// AllocateIPs performs the Azure IP allocation operation
+// PrepareIPv6Allocation returns the number of IPv6 addresses that can be allocated/created.
+func (n *Node) PrepareIPv6Allocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
+	return a, fmt.Errorf("not implemented")
+}
+
+// AllocateIPs performs the Azure IPv4 address allocation operation
 func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
 	iface, ok := a.Interface.Resource.(*types.AzureInterface)
 	if !ok {
@@ -130,9 +145,18 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 	}
 }
 
+// AllocateIPv6s performs the Azure IPv6 address allocation operation
+func (n *Node) AllocateIPv6s(ctx context.Context, a *ipam.AllocationAction) error {
+	return fmt.Errorf("not implemented")
+}
+
 // CreateInterface is called to create a new interface. This operation is
 // currently not supported on Azure.
 func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
+	return 0, "", fmt.Errorf("not implemented")
+}
+
+func (n *Node) CreateIPv6Interface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
 	return 0, "", fmt.Errorf("not implemented")
 }
 
@@ -197,12 +221,27 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	return available, stats, nil
 }
 
+// ResyncInterfacesAndIPv6s is called to retrieve interfaces and IPv6 addresses
+// known to the Azure API and return them
+func (n *Node) ResyncInterfacesAndIPv6s(ctx context.Context, scopedLog *logrus.Entry) (
+	available ipamTypes.AllocationMap,
+	stats stats.InterfaceStats,
+	err error) {
+	return available, stats, fmt.Errorf("ipv6 is unsupported")
+}
+
 // GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
 // that can be allocated to the instance
 func (n *Node) GetMaximumAllocatableIPv4() int {
 	// An Azure node can allocate up to 256 private IP addresses
 	// source: https://github.com/MicrosoftDocs/azure-docs/blob/master/includes/azure-virtual-network-limits.md#networking-limits---azure-resource-manager
 	return types.InterfaceAddressLimit
+}
+
+// GetMaximumAllocatableIPv6 returns the maximum amount of IPv6 addresses
+// that can be allocated to the instance
+func (n *Node) GetMaximumAllocatableIPv6() int {
+	return 0
 }
 
 // GetMinimumAllocatableIPv4 returns the minimum amount of IPv4 addresses that
@@ -212,6 +251,10 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 }
 
 func (n *Node) IsPrefixDelegated() bool {
+	return false
+}
+
+func (n *Node) IsIPv6PrefixDelegated() bool {
 	return false
 }
 

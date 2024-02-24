@@ -11,22 +11,23 @@ import (
 )
 
 type mockMetrics struct {
-	mutex                 lock.RWMutex
-	allocationAttempts    map[string]histogram
-	releaseAttempts       map[string]histogram
-	ipAllocations         map[string]int64
-	ipReleases            map[string]int64
-	interfaceAllocations  map[string]int64
-	allocatedIPs          map[string]int
-	availableInterfaces   int
-	interfaceCandidates   int
-	emptyInterfaceSlots   int
-	availableIPsPerSubnet map[string]int
-	nodes                 map[string]int
-	resyncCount           int64
-	nodeIPAvailable       map[string]int
-	nodeIPUsed            map[string]int
-	nodeIPNeeded          map[string]int
+	mutex                   lock.RWMutex
+	allocationAttempts      map[string]histogram
+	releaseAttempts         map[string]histogram
+	ipAllocations           map[string]int64
+	ipReleases              map[string]int64
+	interfaceAllocations    map[string]int64
+	allocatedIPs            map[string]int
+	availableInterfaces     int
+	interfaceCandidates     int
+	emptyInterfaceSlots     int
+	availableIPsPerSubnet   map[string]int
+	availableIPv6sPerSubnet map[string]int
+	nodes                   map[string]int
+	resyncCount             int64
+	nodeIPAvailable         map[string]int
+	nodeIPUsed              map[string]int
+	nodeIPNeeded            map[string]int
 }
 
 type histogram struct {
@@ -37,17 +38,18 @@ type histogram struct {
 // NewMockMetrics returns a new metrics implementation with a mocked backend
 func NewMockMetrics() *mockMetrics {
 	return &mockMetrics{
-		allocationAttempts:    map[string]histogram{},
-		releaseAttempts:       map[string]histogram{},
-		interfaceAllocations:  map[string]int64{},
-		ipAllocations:         map[string]int64{},
-		ipReleases:            map[string]int64{},
-		allocatedIPs:          map[string]int{},
-		nodes:                 map[string]int{},
-		availableIPsPerSubnet: map[string]int{},
-		nodeIPAvailable:       map[string]int{},
-		nodeIPUsed:            map[string]int{},
-		nodeIPNeeded:          map[string]int{},
+		allocationAttempts:      map[string]histogram{},
+		releaseAttempts:         map[string]histogram{},
+		interfaceAllocations:    map[string]int64{},
+		ipAllocations:           map[string]int64{},
+		ipReleases:              map[string]int64{},
+		allocatedIPs:            map[string]int{},
+		nodes:                   map[string]int{},
+		availableIPsPerSubnet:   map[string]int{},
+		availableIPv6sPerSubnet: map[string]int{},
+		nodeIPAvailable:         map[string]int{},
+		nodeIPUsed:              map[string]int{},
+		nodeIPNeeded:            map[string]int{},
 	}
 }
 
@@ -167,6 +169,12 @@ func (m *mockMetrics) SetAvailableIPsPerSubnet(subnetID, availabilityZone string
 	m.mutex.Unlock()
 }
 
+func (m *mockMetrics) SetAvailableIPv6sPerSubnet(subnetID, availabilityZone string, available int) {
+	m.mutex.Lock()
+	m.availableIPv6sPerSubnet[fmt.Sprintf("subnetId=%s, availabilityZone=%s", subnetID, availabilityZone)] = available
+	m.mutex.Unlock()
+}
+
 func (m *mockMetrics) ResyncCount() int64 {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -222,6 +230,10 @@ func (m *mockMetrics) DeleteNode(n string) {
 }
 
 func (m *mockMetrics) PoolMaintainerTrigger() trigger.MetricsObserver {
+	return nil
+}
+
+func (m *mockMetrics) IPv6PoolMaintainerTrigger() trigger.MetricsObserver {
 	return nil
 }
 

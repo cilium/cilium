@@ -65,7 +65,7 @@ func (m *InstancesManager) HasInstance(instanceID string) bool {
 	return m.instances.Exists(instanceID)
 }
 
-// GetPoolQuota returns the number of available IPs in all IP pools
+// GetPoolQuota returns the number of available IPv4 addresses in all IP pools
 func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
 	pool := ipamTypes.PoolQuotaMap{}
 	for subnetID, subnet := range m.GetVSwitches() {

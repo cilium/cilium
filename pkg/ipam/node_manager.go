@@ -51,16 +51,25 @@ type NodeOperations interface {
 	PopulateStatusFields(resource *v2.CiliumNode)
 
 	// CreateInterface is called to create a new interface. This is only
-	// done if PrepareIPAllocation indicates that no more IPs are available
-	// (AllocationAction.AvailableForAllocation == 0) for allocation but
+	// done if PrepareIPAllocation indicates that no more IPv4 addresses are available
+	// (AllocationAction.IPv4.AvailableForAllocation == 0) for allocation but
 	// interfaces are available for creation
 	// (AllocationAction.EmptyInterfaceSlots > 0). This function must
 	// create the interface *and* allocate up to
-	// AllocationAction.MaxIPsToAllocate.
+	// AllocationAction.IPv4.MaxIPsToAllocate.
 	CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error)
 
+	// CreatCreateIPv6InterfaceeInterface is called to create a new interface. This is only
+	// done if PrepareIPv6Allocation indicates that no more IPv6 addresses are available
+	// (AllocationAction.IPv6.AvailableForAllocation == 0) for allocation but
+	// interfaces are available for creation
+	// (AllocationAction.EmptyInterfaceSlots > 0). This function must
+	// create the interface *and* allocate up to
+	// AllocationAction.IPv6.MaxIPsToAllocate.
+	CreateIPv6Interface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error)
+
 	// ResyncInterfacesAndIPs is called to synchronize the latest list of
-	// interfaces and IPs associated with the node. This function is called
+	// interfaces and IPv4 addressses associated with the node. This function is called
 	// sparingly as this information is kept in sync based on the success
 	// of the functions AllocateIPs(), ReleaseIPs() and CreateInterface().
 	// It returns all available ip in node and remaining available interfaces
@@ -68,19 +77,42 @@ type NodeOperations interface {
 	// and error occurred during execution.
 	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, ipamStats.InterfaceStats, error)
 
+	// ResyncInterfacesAndIPs is called to synchronize the latest list of
+	// interfaces and IPv6 addresses associated with the node. This function is called
+	// sparingly as this information is kept in sync based on the success
+	// of the functions AllocateIPs(), ReleaseIPs() and CreateInterface().
+	// It returns all available ip in node and remaining available interfaces
+	// that can either be allocated or have not yet exhausted the instance specific quota of addresses
+	// and error occurred during execution.
+	ResyncInterfacesAndIPv6s(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, ipamStats.InterfaceStats, error)
+
 	// PrepareIPAllocation is called to calculate the number of IPs that
 	// can be allocated on the node and whether a new network interface
 	// must be attached to the node.
 	PrepareIPAllocation(scopedLog *logrus.Entry) (*AllocationAction, error)
 
+	// PrepareIPv6Allocation is called to calculate the number of IPv6 addresses that
+	// can be allocated on the node and whether a new network interface
+	// must be attached to the node.
+	PrepareIPv6Allocation(scopedLog *logrus.Entry) (*AllocationAction, error)
+
 	// AllocateIPs is called after invoking PrepareIPAllocation and needs
-	// to perform the actual allocation.
+	// to perform the actual IPv4 allocation.
 	AllocateIPs(ctx context.Context, allocation *AllocationAction) error
+
+	// AllocateIPv6s is called after invoking PrepareIPv6Allocation and needs
+	// to perform the actual IPv6 allocation.
+	AllocateIPv6s(ctx context.Context, allocation *AllocationAction) error
 
 	// PrepareIPRelease is called to calculate whether any IP excess needs
 	// to be resolved. It behaves identical to PrepareIPAllocation but
 	// indicates a need to release IPs.
 	PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ReleaseAction
+
+	// PrepareIPv6Release is called to calculate whether any IPv6 excess needs
+	// to be resolved. It behaves identical to PrepareIPv6Allocation but
+	// indicates a need to release IPv6 addresses.
+	PrepareIPv6Release(excessIPs int, scopedLog *logrus.Entry) *ReleaseAction
 
 	// ReleaseIPs is called after invoking PrepareIPRelease and needs to
 	// perform the release of IPs.
@@ -90,16 +122,31 @@ type NodeOperations interface {
 	// that can be allocated to the instance
 	GetMaximumAllocatableIPv4() int
 
+	// GetMaximumAllocatableIPv6 returns the maximum amount of IPv6 addresses
+	// that can be allocated to the instance
+	GetMaximumAllocatableIPv6() int
+
 	// GetMinimumAllocatableIPv4 returns the minimum amount of IPv4 addresses that
 	// must be allocated to the instance.
 	GetMinimumAllocatableIPv4() int
 
-	// IsPrefixDelegated helps identify if a node supports prefix delegation
+	// GetMinimumAllocatableIPv6 returns the minimum amount of IPv6 addresses that
+	// must be allocated to the instance.
+	GetMinimumAllocatableIPv6() int
+
+	// IsPrefixDelegated helps identify if a node supports IPv4 prefix delegation
 	IsPrefixDelegated() bool
 
-	// GetUsedIPWithPrefixes returns the total number of used IPs including all IPs in a prefix if at-least one of
-	// the prefix IPs is in use.
+	// IsIPv6PrefixDelegated helps identify if a node supports IPv6 prefix delegation
+	IsIPv6PrefixDelegated() bool
+
+	// GetUsedIPWithPrefixes returns the total number of used IPv4 addressess including
+	// all IPs in a prefix if at-least one of the prefix IPs is in use.
 	GetUsedIPWithPrefixes() int
+
+	// GetUsedIPv6WithPrefixes returns the total number of used IPv6 addressess including
+	// all IPs in a prefix if at-least one of the prefix IPs is in use.
+	GetUsedIPv6WithPrefixes() int
 }
 
 // AllocationImplementation is the interface an implementation must provide.
@@ -112,7 +159,7 @@ type AllocationImplementation interface {
 	// node context provided.
 	CreateNode(obj *v2.CiliumNode, node *Node) NodeOperations
 
-	// GetPoolQuota is called to retrieve the remaining IP addresses in all
+	// GetPoolQuota is called to retrieve the remaining IPv4 addresses in all
 	// IP pools known to the IPAM implementation.
 	GetPoolQuota() ipamTypes.PoolQuotaMap
 
@@ -145,9 +192,11 @@ type MetricsAPI interface {
 	SetAvailableInterfaces(available int)
 	SetInterfaceCandidates(interfaceCandidates int)
 	SetEmptyInterfaceSlots(emptyInterfaceSlots int)
-	SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int)
+	SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, ipv4Available int)
+	SetAvailableIPv6sPerSubnet(subnetID string, availabilityZone string, ipv6Available int)
 	SetNodes(category string, nodes int)
 	IncResyncCount()
+	IPv6PoolMaintainerTrigger() trigger.MetricsObserver
 	PoolMaintainerTrigger() trigger.MetricsObserver
 	K8sSyncTrigger() trigger.MetricsObserver
 	ResyncTrigger() trigger.MetricsObserver
@@ -292,7 +341,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		}
 
 		if n.ipv6PrefixDelegation {
-			node.ipv6Alloc = IPAllocAttrs{
+			node.ipv6Alloc = ipAllocAttrs{
 				ipsMarkedForRelease: make(map[string]time.Time),
 				ipReleaseStatus:     make(map[string]string),
 			}
@@ -335,6 +384,37 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 			return
 		}
 
+		ipv6PoolMaintainer := new(trigger.Trigger)
+		if n.ipv6PrefixDelegation {
+			ipv6PoolMaintainer, err = trigger.NewTrigger(trigger.Parameters{
+				Name:            fmt.Sprintf("ipam-ipv6-pool-maintainer-%s", resource.Name),
+				MinInterval:     10 * time.Millisecond,
+				MetricsObserver: n.metricsAPI.IPv6PoolMaintainerTrigger(),
+				TriggerFunc: func(reasons []string) {
+					if err := node.MaintainIPv6Pool(ctx); err != nil {
+						node.logger().WithError(err).Warning("Unable to maintain ipv6 pools of node")
+						backoff.Wait(ctx)
+					}
+				},
+				ShutdownFunc: cancel,
+			})
+			if err != nil {
+				node.logger().WithError(err).Error("Unable to create ipv6-pool-maintainer trigger")
+				return
+			}
+
+			v6Retry, err := trigger.NewTrigger(trigger.Parameters{
+				Name:        fmt.Sprintf("ipam-ipv6-pool-maintainer-%s-retry", resource.Name),
+				MinInterval: time.Minute, // large minimal interval to not retry too often
+				TriggerFunc: func(reasons []string) { ipv6PoolMaintainer.Trigger() },
+			})
+			if err != nil {
+				node.logger().WithError(err).Error("Unable to create ipv6-pool-maintainer-retry trigger")
+				return
+			}
+			node.ipv6Retry = v6Retry
+		}
+
 		retry, err := trigger.NewTrigger(trigger.Parameters{
 			Name:        fmt.Sprintf("ipam-pool-maintainer-%s-retry", resource.Name),
 			MinInterval: time.Minute, // large minimal interval to not retry too often
@@ -356,6 +436,9 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		})
 		if err != nil {
 			poolMaintainer.Shutdown()
+			if n.ipv6PrefixDelegation {
+				ipv6PoolMaintainer.Shutdown()
+			}
 			node.logger().WithError(err).Error("Unable to create k8s-sync trigger")
 			return
 		}
@@ -372,6 +455,9 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		})
 		if err != nil {
 			poolMaintainer.Shutdown()
+			if n.ipv6PrefixDelegation {
+				ipv6PoolMaintainer.Shutdown()
+			}
 			k8sSync.Shutdown()
 			node.logger().WithError(err).Error("Unable to create instance-sync trigger")
 			return
@@ -379,6 +465,9 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		node.instanceSync = instanceSync
 
 		node.poolMaintainer = poolMaintainer
+		if n.ipv6PrefixDelegation {
+			node.ipv6PoolMaintainer = ipv6PoolMaintainer
+		}
 		node.k8sSync = k8sSync
 		n.nodes[node.name] = node
 		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
@@ -430,51 +519,6 @@ func (n *NodeManager) Get(nodeName string) *Node {
 	n.mutex.RUnlock()
 	return node
 }
-
-// GetNodesByIPWatermarkLocked returns all nodes that require addresses to be
-// allocated or released, sorted by the total number of addresses (IPv4 and, if applicable, IPv6)
-// needed to be operated in descending order. Number of addresses to be released is
-// represented as a negative value, so that nodes with IP deficit are resolved first.
-// The caller must hold the NodeManager lock.
-/*func (n *NodeManager) GetNodesByIPWatermarkLocked() []*Node {
-	list := make([]*Node, 0, len(n.nodes))
-	for _, node := range n.nodes {
-		// Start with IPv4 needed addresses.
-		totalAddrsNeeded := node.GetNeededAddresses()
-
-		// Add IPv6 needed addresses if ipv6PrefixDelegation is enabled.
-		if n.ipv6PrefixDelegation {
-			totalAddrsNeeded += node.GetNeededIPv6Addresses()
-		}
-
-		// Only consider nodes with a non-zero total of needed addresses.
-		if totalAddrsNeeded != 0 {
-			list = append(list, node)
-		}
-	}
-
-	// Sort the list based on the total needed addresses.
-	sort.Slice(list, func(i, j int) bool {
-		totalAddrsNeededI := list[i].GetNeededAddresses()
-		if n.ipv6PrefixDelegation {
-			totalAddrsNeededI += list[i].GetNeededIPv6Addresses()
-		}
-
-		totalNeededAddressesJ := list[j].GetNeededAddresses()
-		if n.ipv6PrefixDelegation {
-			totalNeededAddressesJ += list[j].GetNeededIPv6Addresses()
-		}
-
-		// For releasing addresses (negative values), nodes with more excess addresses are released earlier.
-		if totalAddrsNeededI < 0 && totalNeededAddressesJ < 0 {
-			return totalAddrsNeededI < totalNeededAddressesJ
-		}
-		// For allocating addresses, nodes with higher deficits are prioritized.
-		return totalAddrsNeededI > totalNeededAddressesJ
-	})
-
-	return list
-}*/
 
 // GetNodesByIPWatermarkLocked returns all nodes that require IPv4 addresses to be
 // allocated or released, sorted by the number of addresses needed to be operated
@@ -533,6 +577,7 @@ func (n *NodeManager) GetNodesByIPv6WatermarkLocked() []*Node {
 type resyncStats struct {
 	mutex               lock.Mutex
 	ipv4                ipResyncStats
+	ipv6                ipResyncStats
 	emptyInterfaceSlots int
 }
 
@@ -593,6 +638,48 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	node.k8sSync.Trigger()
 }
 
+func (n *NodeManager) resyncIPv6Node(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
+	node.recalculateIPv6()
+	allocationNeeded := node.ipv6AllocationNeeded()
+	releaseNeeded := node.ipv6ReleaseNeeded()
+	if allocationNeeded || releaseNeeded {
+		node.requireIPv6PoolMaintenance()
+		node.ipv6PoolMaintainer.Trigger()
+	}
+
+	nodeStats := node.Stats()
+
+	stats.mutex.Lock()
+	defer stats.mutex.Unlock()
+
+	stats.ipv6.totalUsed += nodeStats.IPv6.UsedIPs
+	// availableOnNode is the number of available IPs on the node at this
+	// current moment. It does not take into account the number of IPs that
+	// can be allocated in the future.
+	availableOnNode := nodeStats.IPv6.AvailableIPs - nodeStats.IPv6.UsedIPs
+	stats.ipv6.totalAvailable += availableOnNode
+	stats.ipv6.totalNeeded += nodeStats.IPv6.NeededIPs
+	stats.ipv6.remainingInterfaces += nodeStats.IPv6.RemainingInterfaces
+	stats.ipv6.interfaceCandidates += nodeStats.IPv6.InterfaceCandidates
+	//stats.emptyInterfaceSlots += nodeStats.EmptyInterfaceSlots
+	stats.ipv6.nodes++
+
+	stats.ipv6.nodeCapacity = nodeStats.IPv6.Capacity
+
+	// Set per Node metrics.
+	n.metricsAPI.SetIPAvailable(node.name, stats.ipv6.nodeCapacity)
+	n.metricsAPI.SetIPUsed(node.name, nodeStats.IPv6.UsedIPs)
+	n.metricsAPI.SetIPNeeded(node.name, nodeStats.IPv6.NeededIPs)
+
+	if allocationNeeded {
+		stats.ipv6.nodesInDeficit++
+	}
+
+	if nodeStats.IPv6.RemainingInterfaces == 0 && availableOnNode == 0 {
+		stats.ipv6.nodesAtCapacity++
+	}
+}
+
 // Resync will attend all nodes and resolves IP deficits. The order of
 // attendance is defined by the number of IPs needed to reach the configured
 // watermarks. Any updates to the node resource are synchronized to the
@@ -623,7 +710,7 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 				continue
 			}
 			go func(node *Node, stats *resyncStats) {
-				n.resyncNode(ctx, node, stats, syncTime)
+				n.resyncIPv6Node(ctx, node, stats, syncTime)
 				sem.Release(1)
 			}(node, &stats)
 		}
@@ -642,6 +729,8 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	n.metricsAPI.SetNodes("total", stats.ipv4.nodes)
 	n.metricsAPI.SetNodes("in-deficit", stats.ipv4.nodesInDeficit)
 	n.metricsAPI.SetNodes("at-capacity", stats.ipv4.nodesAtCapacity)
+
+	// TODO Add support for IPv6 metrics
 
 	for poolID, quota := range n.instancesAPI.GetPoolQuota() {
 		n.metricsAPI.SetAvailableIPsPerSubnet(string(poolID), quota.AvailabilityZone, quota.AvailableIPs)

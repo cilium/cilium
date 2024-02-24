@@ -1,0 +1,88 @@
+level=info msg="Initializing cluster-pool IPAM" subsys=ipam v4Prefix=1.1.1.0/24 v6Prefix="cafe::/96"
+level=warning msg="Released IP after expiration" ip=1.1.1.150 pool=default subsys=ipam uuid=1684f26f-e2a4-4b0d-ad9e-2e694904fadd
+level=warning msg="Released IP after expiration" ip="cafe::584f" pool=default subsys=ipam uuid=2127fe01-7b4d-4f4b-9348-ef07e4fcf7fa
+level=warning msg="Released IP after expiration" ip="cafe::19b0" pool=default subsys=ipam uuid=28bfe25e-858a-48c0-a587-cc220b872142
+level=info msg="Initializing cluster-pool IPAM" subsys=ipam v4Prefix=1.1.1.0/24 v6Prefix="cafe::/96"
+level=info msg="Initializing cluster-pool IPAM" subsys=ipam v4Prefix=1.1.1.0/24 v6Prefix="cafe::/96"
+level=info msg="Initializing cluster-pool IPAM" subsys=ipam v4Prefix=1.1.1.0/24 v6Prefix="cafe::/96"
+level=warning msg="Released IP after expiration" ip=1.1.1.1 pool=default subsys=ipam uuid=e0ae1f69-1c3f-4fc4-b827-3784a2ee7eaf
+level=info msg="Initializing cluster-pool IPAM" subsys=ipam v4Prefix=1.1.1.0/24 v6Prefix="cafe::/96"
+level=info msg="Initializing cluster-pool IPAM" subsys=ipam v4Prefix=1.1.1.0/24 v6Prefix="cafe::/96"
+level=info msg="Initializing cluster-pool IPAM" subsys=ipam v4Prefix=1.1.1.0/24 v6Prefix="cafe::/96"
+level=info msg="Initializing CRD-based IPAM" subsys=ipam
+level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+level=info msg="UpdatedResource()" name=node1 subsys=ipam
+level=info msg="recalculate()" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() ResyncInterfacesAndIPs() returned alloc: map[] stats: {NodeCapacity:0 RemainingAvailableInterfaceCount:0 NodeIPv6Capacity:0 RemainingAvailableIPv6InterfaceCount:0}, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() ipv4Alloc available: map[]" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() IPv4 stats before calc UsedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() NeedIPs: 8" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() ExcessIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="Recalculated needed IPv4 addresses" available=0 capacity=0 instanceID= name=node1 remainingInterfaces=0 resyncNeeded="0001-01-01 00:00:00 +0000 UTC" subsys=ipam toAlloc=8 toRelease=0 used=0 waitingForPoolMaintenance=false
+level=info msg="IPv4 alloc needed" instanceID= name=node1 subsys=ipam
+level=info msg="IPv6 PD enabled" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() ResyncInterfacesAndIPs() returned alloc: map[] stats: {NodeCapacity:0 RemainingAvailableInterfaceCount:0 NodeIPv6Capacity:0 RemainingAvailableIPv6InterfaceCount:0}, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() GetUsedIPv6WithPrefixes() returned: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() ipv6Alloc available: map[]" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() IPv6 stats before calc UsedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() NeedIPs: 8" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() ExcessIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="Recalculated needed IPv6 addresses" instanceID= ipv6Available=0 ipv6Capacity=0 ipv6ToAlloc=8 ipv6ToRelease=0 ipv6Used=0 name=node1 remainingIPv6Interfaces=0 resyncNeeded="0001-01-01 00:00:00 +0000 UTC" subsys=ipam waitingForIPv6PoolMaintenance=false
+level=info msg="IPv6 alloc needed" instanceID= name=node1 subsys=ipam
+level=info msg="Is IPv4 alloc needed: true" instanceID= name=node1 subsys=ipam
+level=info msg="Is IPv6 alloc needed: true" instanceID= name=node1 subsys=ipam
+level=info msg="MaintainIPv6Pool()" instanceID= name=node1 subsys=ipam
+level=info msg="determineIPv6MaintenanceAction()" instanceID= name=node1 subsys=ipam
+level=info msg="MaintainIPPool()" instanceID= name=node1 subsys=ipam
+level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID= name=node1 subsys=ipam
+level=info msg="Resolving IPv4 deficit of node" available=0 availableForAllocation=2048 emptyInterfaceSlots=0 instanceID= maxIPsToAllocate=8 name=node1 neededIPs=8 remainingInterfaces=0 selectedInterface= selectedPoolID=global subsys=ipam used=0
+level=info msg="recalculate()" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() ResyncInterfacesAndIPs() returned alloc: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}] stats: {NodeCapacity:0 RemainingAvailableInterfaceCount:0 NodeIPv6Capacity:0 RemainingAvailableIPv6InterfaceCount:0}, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() ipv4Alloc available: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}]" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() IPv4 stats before calc UsedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() NeedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() ExcessIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="Recalculated needed IPv4 addresses" available=8 capacity=0 instanceID= name=node1 remainingInterfaces=0 resyncNeeded="2024-02-27 03:59:01.841091107 +0000 UTC m=+2.239584058" subsys=ipam toAlloc=0 toRelease=0 used=0 waitingForPoolMaintenance=false
+level=info msg="determineIPv6MaintenanceAction() PrepareIPv6Allocation() a.allocation: &{InterfaceID: Interface:{Resource:<nil> Fingerprint:} PoolID:global EmptyInterfaceSlots:0 IPv4:{AvailableForAllocation:0 MaxIPsToAllocate:0 InterfaceCandidates:0} IPv6:{AvailableForAllocation:2048 MaxIPsToAllocate:0 InterfaceCandidates:0}}" instanceID= name=node1 subsys=ipam
+level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() ResyncInterfacesAndIPs() returned alloc: map[] stats: {NodeCapacity:0 RemainingAvailableInterfaceCount:0 NodeIPv6Capacity:0 RemainingAvailableIPv6InterfaceCount:0}, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate()" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() ResyncInterfacesAndIPs() returned alloc: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}] stats: {NodeCapacity:0 RemainingAvailableInterfaceCount:0 NodeIPv6Capacity:0 RemainingAvailableIPv6InterfaceCount:0}, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="determineIPv6MaintenanceAction() MaxIPsToAllocate is from a.allocation: 8 + 0 + 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() ipv4Alloc available: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}]" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() IPv4 stats before calc UsedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() NeedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() ExcessIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="Recalculated needed IPv4 addresses" available=8 capacity=0 instanceID= name=node1 remainingInterfaces=0 resyncNeeded="0001-01-01 00:00:00 +0000 UTC" subsys=ipam toAlloc=0 toRelease=0 used=0 waitingForPoolMaintenance=false
+level=info msg="recalculateIPv6() GetUsedIPv6WithPrefixes() returned: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() ipv6Alloc available: map[]" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() IPv6 stats before calc UsedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() NeedIPs: 8" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() ExcessIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="Recalculated needed IPv6 addresses" instanceID= ipv6Available=0 ipv6Capacity=0 ipv6ToAlloc=8 ipv6ToRelease=0 ipv6Used=0 name=node1 remainingIPv6Interfaces=0 resyncNeeded="0001-01-01 00:00:00 +0000 UTC" subsys=ipam waitingForIPv6PoolMaintenance=true
+level=info msg="Resolving IPv6 deficit of node" availableIPv6sForAllocation=2048 emptyInterfaceSlots=0 instanceID= ipv6sAvailable=0 ipv6sUsed=0 maxIPv6sToAllocate=8 name=node1 neededIPv6s=8 remainingIPv6Interfaces=0 selectedInterface= selectedPoolID=global subsys=ipam
+level=info msg="recalculateIPv6() ResyncInterfacesAndIPs() returned alloc: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}] stats: {NodeCapacity:0 RemainingAvailableInterfaceCount:0 NodeIPv6Capacity:0 RemainingAvailableIPv6InterfaceCount:0}, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() GetUsedIPv6WithPrefixes() returned: 8" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() ipv6Alloc available: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}]" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() IPv6 stats before calc UsedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() NeedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() ExcessIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="Recalculated needed IPv6 addresses" instanceID= ipv6Available=8 ipv6Capacity=0 ipv6ToAlloc=0 ipv6ToRelease=0 ipv6Used=0 name=node1 remainingIPv6Interfaces=0 resyncNeeded="2024-02-27 03:59:01.841891221 +0000 UTC m=+2.240384173" subsys=ipam waitingForIPv6PoolMaintenance=false
+level=info msg="Triggering instanceSync, instanceMutated: true, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="MaintainIPv6Pool() complete, err value: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate()" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() ResyncInterfacesAndIPs() returned alloc: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}] stats: {NodeCapacity:0 RemainingAvailableInterfaceCount:0 NodeIPv6Capacity:0 RemainingAvailableIPv6InterfaceCount:0}, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() ipv4Alloc available: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}]" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() IPv4 stats before calc UsedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() NeedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() ExcessIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="Recalculated needed IPv4 addresses" available=8 capacity=0 instanceID= name=node1 remainingInterfaces=0 resyncNeeded="0001-01-01 00:00:00 +0000 UTC" subsys=ipam toAlloc=0 toRelease=0 used=0 waitingForPoolMaintenance=false
+level=info msg="recalculateIPv6() ResyncInterfacesAndIPs() returned alloc: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}] stats: {NodeCapacity:0 RemainingAvailableInterfaceCount:0 NodeIPv6Capacity:0 RemainingAvailableIPv6InterfaceCount:0}, err: <nil>" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() GetUsedIPv6WithPrefixes() returned: 8" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() ipv6Alloc available: map[1:{Owner: Resource:} 2:{Owner: Resource:} 3:{Owner: Resource:} 4:{Owner: Resource:} 5:{Owner: Resource:} 6:{Owner: Resource:} 7:{Owner: Resource:} 8:{Owner: Resource:}]" instanceID= name=node1 subsys=ipam
+level=info msg="recalculateIPv6() IPv6 stats before calc UsedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() NeedIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="recalculate() after calculateNeededIPs() ExcessIPs: 0" instanceID= name=node1 subsys=ipam
+level=info msg="Recalculated needed IPv6 addresses" instanceID= ipv6Available=8 ipv6Capacity=0 ipv6ToAlloc=0 ipv6ToRelease=0 ipv6Used=0 name=node1 remainingIPv6Interfaces=0 resyncNeeded="0001-01-01 00:00:00 +0000 UTC" subsys=ipam waitingForIPv6PoolMaintenance=false
+PASS
+ok  	github.com/cilium/cilium/pkg/ipam	2.260s

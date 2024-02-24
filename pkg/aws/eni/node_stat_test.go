@@ -100,8 +100,9 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 // mocks ipamNodeActions interface
 type mockIPAMNode struct {
-	instanceID       string
-	prefixDelegation bool
+	instanceID           string
+	prefixDelegation     bool
+	ipv6PrefixDelegation bool
 }
 
 func (m *mockIPAMNode) SetOpts(ipam.NodeOperations)           {}
@@ -110,6 +111,7 @@ func (m *mockIPAMNode) UpdatedResource(*v2.CiliumNode) bool   { panic("not impl"
 func (m *mockIPAMNode) Update(*v2.CiliumNode)                 {}
 func (m *mockIPAMNode) InstanceID() string                    { return m.instanceID }
 func (m *mockIPAMNode) IsPrefixDelegationEnabled() bool       { return m.prefixDelegation }
+func (m *mockIPAMNode) IsIPv6PrefixDelegationEnabled() bool   { return m.ipv6PrefixDelegation }
 func (m *mockIPAMNode) Ops() ipam.NodeOperations              { panic("not impl") }
 func (m *mockIPAMNode) SetRunning(_ bool)                     { panic("not impl") }
 

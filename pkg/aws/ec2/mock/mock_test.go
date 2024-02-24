@@ -27,13 +27,13 @@ type MockSuite struct{}
 var _ = check.Suite(&MockSuite{})
 
 func (e *MockSuite) TestMock(c *check.C) {
-	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
+	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100, AvailableIPv6Addresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1", IPv6CIDRs: []string{"2001:db8::/56"}}}, []*types.SecurityGroup{{ID: "sg-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
-	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 
-	eniID2, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID2, _, err := api.CreateNetworkInterface(context.TODO(), 8, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 
 	_, err = api.AttachNetworkInterface(context.TODO(), 0, "i-1", eniID1)
@@ -99,7 +99,7 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	mockError := errors.New("error")
 
 	api.SetMockError(CreateNetworkInterface, mockError)
-	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(AttachNetworkInterface, mockError)
@@ -128,7 +128,7 @@ func (e *MockSuite) TestSetLimiter(c *check.C) {
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetLimiter(10.0, 2)
-	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	c.Assert(err, check.IsNil)
 }
 
@@ -152,6 +152,15 @@ func (e *MockSuite) TestPrefixToIps(c *check.C) {
 	ips, _ := ip.PrefixToIps(subnetStr, 0)
 	c.Assert(ips[0], checker.Equals, "10.128.0.0")
 	c.Assert(ips[len(ips)-1], checker.Equals, "10.128.0.15")
+
+	_, v6CidrTest, _ := net.ParseCIDR("2001:db8::/56")
+	v6CidrSet, _ := cidrset.NewCIDRSet(v6CidrTest, 64)
+	v6Subnet, err := v6CidrSet.AllocateNext()
+	c.Assert(err, check.IsNil)
+	v6SubnetStr := v6Subnet.String()
+	v6Ips, _ := ip.PrefixToIps(v6SubnetStr, 64)
+	c.Assert(v6Ips[0], checker.Equals, "2001:db8::")
+	c.Assert(v6Ips[len(v6Ips)-1], checker.Equals, "2001:db8::3f") // 63 in decimal
 }
 
 func (e *MockSuite) TestPrefixCeil(c *check.C) {
