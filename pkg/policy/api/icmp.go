@@ -16,50 +16,50 @@ const (
 )
 
 var icmpIpv4TypeNameToCode = map[string]string{
-	"Echo Reply":              "0",
-	"Destination Unreachable": "3",
-	"Redirect":                "5",
-	"Echo":                    "8",
-	"Echo Request":            "8",
-	"Router Advertisement":    "9",
-	"Router Selection":        "10",
-	"Time Exceeded":           "11",
-	"Parameter Problem":       "12",
-	"Timestamp":               "13",
-	"Timestamp Reply":         "14",
-	"Photuris":                "40",
-	"Extended Echo Request":   "42",
-	"Extended Echo Reply":     "43",
+	"EchoReply":              "0",
+	"DestinationUnreachable": "3",
+	"Redirect":               "5",
+	"Echo":                   "8",
+	"EchoRequest":            "8",
+	"RouterAdvertisement":    "9",
+	"RouterSelection":        "10",
+	"TimeExceeded":           "11",
+	"ParameterProblem":       "12",
+	"Timestamp":              "13",
+	"TimestampReply":         "14",
+	"Photuris":               "40",
+	"ExtendedEchoRequest":    "42",
+	"ExtendedEchoReply":      "43",
 }
 
 var icmpIpv6TypeNameToCode = map[string]string{
-	"Destination Unreachable":                    "1",
-	"Packet Too Big":                             "2",
-	"Time Exceeded":                              "3",
-	"Parameter Problem":                          "4",
-	"Echo Request":                               "128",
-	"Echo Reply":                                 "129",
-	"Multicast Listener Query":                   "130",
-	"Multicast Listener Report":                  "131",
-	"Multicast Listener Done":                    "132",
-	"Router Solicitation":                        "133",
-	"Router Advertisement":                       "134",
-	"Neighbor Solicitation":                      "135",
-	"Neighbor Advertisement":                     "136",
-	"Redirect Message":                           "137",
-	"Router Renumbering":                         "138",
-	"ICMP Node Information Query":                "139",
-	"ICMP Node Information Response":             "140",
-	"Inverse Neighbor Discovery Solicitation":    "141",
-	"Inverse Neighbor Discovery Advertisement":   "142",
-	"Home Agent Address Discovery Request":       "144",
-	"Home Agent Address Discovery Reply":         "145",
-	"Mobile Prefix Solicitation":                 "146",
-	"Mobile Prefix Advertisement":                "147",
-	"Duplicate Address Request Code Suffix":      "157",
-	"Duplicate Address Confirmation Code Suffix": "158",
-	"Extended Echo Request":                      "160",
-	"Extended Echo Reply":                        "161",
+	"DestinationUnreachable":                 "1",
+	"PacketTooBig":                           "2",
+	"TimeExceeded":                           "3",
+	"ParameterProblem":                       "4",
+	"EchoRequest":                            "128",
+	"EchoReply":                              "129",
+	"MulticastListenerQuery":                 "130",
+	"MulticastListenerReport":                "131",
+	"MulticastListenerDone":                  "132",
+	"RouterSolicitation":                     "133",
+	"RouterAdvertisement":                    "134",
+	"NeighborSolicitation":                   "135",
+	"NeighborAdvertisement":                  "136",
+	"RedirectMessage":                        "137",
+	"RouterRenumbering":                      "138",
+	"ICMPNodeInformationQuery":               "139",
+	"ICMPNodeInformationResponse":            "140",
+	"InverseNeighborDiscoverySolicitation":   "141",
+	"InverseNeighborDiscoveryAdvertisement":  "142",
+	"HomeAgentAddressDiscoveryRequest":       "144",
+	"HomeAgentAddressDiscoveryReply":         "145",
+	"MobilePrefixSolicitation":               "146",
+	"MobilePrefixAdvertisement":              "147",
+	"DuplicateAddressRequestCodeSuffix":      "157",
+	"DuplicateAddressConfirmationCodeSuffix": "158",
+	"ExtendedEchoRequest":                    "160",
+	"ExtendedEchoReply":                      "161",
 }
 
 type ICMPRules []ICMPRule
@@ -87,23 +87,23 @@ type ICMPField struct {
 	Family string `json:"family,omitempty"`
 
 	// Type is a ICMP-type.
-	// It should be an 8bit code (0-255), or it's name (for example, "Echo Reply").
+	// It should be an 8bit code (0-255), or it's CamelCase name (for example, "EchoReply").
 	// Allowed ICMP types are:
-	//     Ipv4: Echo Reply | Destination Unreachable | Redirect | Echo | Echo Request |
-	//		     Router Advertisement |Router Selection |Time Exceeded |Parameter Problem |
-	//			 Timestamp | Timestamp Reply | Photuris | Extended Echo Request | Extended Echo Reply
-	//     Ipv6: Destination Unreachable | Packet Too Big | Time Exceeded | Parameter Problem |
-	//			 Echo Request | Echo Reply | Multicast Listener Query| Multicast Listener Report |
-	// 			 Multicast Listener Done | Router Solicitation | Router Advertisement | Neighbor Solicitation |
-	// 			 Neighbor Advertisement | Redirect Message | Router Renumbering | ICMP Node Information Query |
-	// 			 ICMP Node Information Response | Inverse Neighbor Discovery Solicitation | Inverse Neighbor Discovery Advertisement |
-	// 			 Home Agent Address Discovery Request | Home Agent Address Discovery Reply | Mobile Prefix Solicitation |
-	// 			 Mobile Prefix Advertisement | Duplicate Address Request Code Suffix | Duplicate Address Confirmation Code Suffix |
-	// 			 Extended Echo Request | Extended Echo Reply
+	//     Ipv4: EchoReply | DestinationUnreachable | Redirect | Echo | EchoRequest |
+	//		     RouterAdvertisement | RouterSelection | TimeExceeded | ParameterProblem |
+	//			 Timestamp | TimestampReply | Photuris | ExtendedEcho Request | ExtendedEcho Reply
+	//     Ipv6: DestinationUnreachable | PacketTooBig | TimeExceeded | ParameterProblem |
+	//			 EchoRequest | EchoReply | MulticastListenerQuery| MulticastListenerReport |
+	// 			 MulticastListenerDone | RouterSolicitation | RouterAdvertisement | NeighborSolicitation |
+	// 			 NeighborAdvertisement | RedirectMessage | RouterRenumbering | ICMPNodeInformationQuery |
+	// 			 ICMPNodeInformationResponse | InverseNeighborDiscoverySolicitation | InverseNeighborDiscoveryAdvertisement |
+	// 			 HomeAgentAddressDiscoveryRequest | HomeAgentAddressDiscoveryReply | MobilePrefixSolicitation |
+	// 			 MobilePrefixAdvertisement | DuplicateAddressRequestCodeSuffix | DuplicateAddressConfirmationCodeSuffix |
+	// 			 ExtendedEchoRequest | ExtendedEchoReply
 	//
 	// +deepequal-gen=false
 	// +kubebuilder:validation:XIntOrString
-	// +kubebuilder:validation:Pattern="^([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]|Echo Reply|Destination Unreachable|Redirect|Echo|Router Advertisement|Router Selection|Time Exceeded|Parameter Problem|Timestamp|Timestamp Reply|Photuris|Extended Echo Request|Extended Echo Reply|Packet Too Big|Parameter Problem|Echo Request|Multicast Listener Query|Multicast Listener Report|Multicast Listener Done|Router Solicitation|Router Advertisement|Neighbor Solicitation|Neighbor Advertisement|Redirect Message|Router Renumbering|ICMP Node Information Query|ICMP Node Information Response|Inverse Neighbor Discovery Solicitation|Inverse Neighbor Discovery Advertisement|Home Agent Address Discovery Request|Home Agent Address Discovery Reply|Mobile Prefix Solicitation|Mobile Prefix Advertisement|Duplicate Address Request Code Suffix|Duplicate Address Confirmation Code Suffix)$"
+	// +kubebuilder:validation:Pattern="^([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]|EchoReply|DestinationUnreachable|Redirect|Echo|RouterAdvertisement|RouterSelection|TimeExceeded|ParameterProblem|Timestamp|TimestampReply|Photuris|ExtendedEchoRequest|ExtendedEcho Reply|PacketTooBig|ParameterProblem|EchoRequest|MulticastListenerQuery|MulticastListenerReport|MulticastListenerDone|RouterSolicitation|RouterAdvertisement|NeighborSolicitation|NeighborAdvertisement|RedirectMessage|RouterRenumbering|ICMPNodeInformationQuery|ICMPNodeInformationResponse|InverseNeighborDiscoverySolicitation|InverseNeighborDiscoveryAdvertisement|HomeAgentAddressDiscoveryRequest|HomeAgentAddressDiscoveryReply|MobilePrefixSolicitation|MobilePrefixAdvertisement|DuplicateAddressRequestCodeSuffix|DuplicateAddressConfirmationCodeSuffix)$"
 	Type *intstr.IntOrString `json:"type"`
 }
 
