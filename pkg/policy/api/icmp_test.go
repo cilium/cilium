@@ -24,15 +24,15 @@ func (s *PolicyAPITestSuite) TestICMPFieldUnmarshal(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check ICMPFIeld can treat ICMP type name
-	value2 := []byte("{\"family\": \"IPv4\", \"type\": \"Echo Request\"}")
+	value2 := []byte("{\"family\": \"IPv4\", \"type\": \"EchoRequest\"}")
 	err = json.Unmarshal(value2, &i)
 
-	icmpType = intstr.FromString("Echo Request")
+	icmpType = intstr.FromString("EchoRequest")
 	c.Assert(i, checker.DeepEquals, ICMPField{Family: IPv4Family, Type: &icmpType})
 	c.Assert(err, IsNil)
 
 	// ICMP Node Information Query is only for IPv6
-	value3 := []byte("{\"family\": \"IPv4\", \"type\": \"ICMP Node Information Query\"}")
+	value3 := []byte("{\"family\": \"IPv4\", \"type\": \"ICMPNodeInformationQuery\"}")
 	err = json.Unmarshal(value3, &i)
 
 	c.Assert(err, NotNil)

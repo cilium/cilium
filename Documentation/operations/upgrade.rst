@@ -399,7 +399,7 @@ Changed Metrics
   is disabled), it will fail to initialize and will log an error instead of silently
   fall back to iptables based masquerading.
 * The ICMP ``type`` field in Network Policy now can be either an ICMP message type integer
-  (for example, ``0`` for Echo Reply), or a corresponding message type string (``Echo Reply``).
+  (for example, ``0`` for Echo Reply), or a corresponding CamelCase message type string (``EchoReply``).
 
 .. _upgrade_cilium_cli_helm_mode:
 
