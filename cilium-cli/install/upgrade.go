@@ -6,153 +6,15 @@ package install
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
-	appsv1 "k8s.io/api/apps/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium-cli/status"
 )
-
-func (k *K8sInstaller) Upgrade(ctx context.Context) error {
-	k.autodetect(ctx)
-
-	if err := k.detectDatapathMode(); err != nil {
-		return err
-	}
-
-	daemonSet, err := k.client.GetDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to retrieve DaemonSet of cilium-agent: %s", err)
-	}
-
-	deployment, err := k.client.GetDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to retrieve Deployment of cilium-operator: %s", err)
-	}
-
-	var patched int
-
-	if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
-		deployment:         deployment,
-		imageExcludeDigest: k.fqOperatorImage(),
-		containerName:      defaults.OperatorContainerName,
-	}, &patched); err != nil {
-		return err
-	}
-
-	agentImage := k.fqAgentImage()
-	var containerPatches []string
-	for _, c := range daemonSet.Spec.Template.Spec.Containers {
-		if c.Image != agentImage {
-			containerPatches = append(containerPatches, `{"name":"`+c.Name+`", "image":"`+agentImage+`"}`)
-		}
-	}
-	var initContainerPatches []string
-	for _, c := range daemonSet.Spec.Template.Spec.InitContainers {
-		if c.Image != agentImage {
-			initContainerPatches = append(initContainerPatches, `{"name":"`+c.Name+`", "image":"`+agentImage+`"}`)
-		}
-	}
-
-	if len(containerPatches) == 0 && len(initContainerPatches) == 0 {
-		k.Log("✅ Cilium is already up to date")
-	} else {
-		k.Log("🚀 Upgrading cilium to version %s...", k.fqAgentImage())
-
-		patch := []byte(`{"spec":{"template":{"spec":{"containers":[` + strings.Join(containerPatches, ",") + `], "initContainers":[` + strings.Join(initContainerPatches, ",") + `]}}}}`)
-		_, err = k.client.PatchDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to patch DaemonSet %s with patch %q: %w", defaults.AgentDaemonSetName, patch, err)
-		}
-
-		patched++
-	}
-
-	hubbleRelayDeployment, err := k.client.GetDeployment(ctx, k.params.Namespace, defaults.RelayDeploymentName, metav1.GetOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("unable to retrieve Deployment of %s: %w", defaults.RelayDeploymentName, err)
-	}
-
-	if err == nil { // only update if hubble relay deployment was found on the cluster
-		if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
-			deployment:         hubbleRelayDeployment,
-			imageExcludeDigest: k.fqRelayImage(),
-			containerName:      defaults.RelayContainerName,
-		}, &patched); err != nil {
-			return err
-		}
-	}
-
-	clustermeshAPIServerDeployment, err := k.client.GetDeployment(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName, metav1.GetOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("unable to retrieve Deployment of %s: %w", defaults.ClusterMeshDeploymentName, err)
-	}
-
-	if err == nil { // only update clustermesh-apiserver if deployment was found on the cluster
-		if err = upgradeDeployment(ctx, k, upgradeDeploymentParams{
-			deployment:         clustermeshAPIServerDeployment,
-			imageExcludeDigest: k.fqClusterMeshAPIImage(),
-			containerName:      defaults.ClusterMeshContainerName,
-		}, &patched); err != nil {
-			return err
-		}
-	}
-
-	if patched > 0 && k.params.Wait {
-		k.Log("⌛ Waiting for Cilium to be upgraded...")
-		collector, err := status.NewK8sStatusCollector(k.client, status.K8sStatusParameters{
-			Namespace:       k.params.Namespace,
-			Wait:            true,
-			WaitDuration:    k.params.WaitDuration,
-			WarningFreePods: []string{defaults.AgentDaemonSetName, defaults.OperatorDeploymentName, defaults.RelayDeploymentName, defaults.ClusterMeshDeploymentName},
-		})
-		if err != nil {
-			return err
-		}
-
-		s, err := collector.Status(ctx)
-		if err != nil {
-			fmt.Print(s.Format())
-			return err
-		}
-	}
-
-	return nil
-}
-
-type upgradeDeploymentParams struct {
-	deployment         *appsv1.Deployment
-	imageExcludeDigest string
-	containerName      string
-}
-
-func upgradeDeployment(ctx context.Context, k *K8sInstaller, params upgradeDeploymentParams, patched *int) error {
-	if params.deployment.Spec.Template.Spec.Containers[0].Image == params.imageExcludeDigest {
-		k.Log("✅ %s is already up to date", params.deployment.Name)
-		return nil
-	}
-
-	k.Log("🚀 Upgrading %s to version %s...", params.deployment.Name, params.imageExcludeDigest)
-	containerPath := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name": "%s", "image":"`, params.containerName)
-	patch := []byte(containerPath + params.imageExcludeDigest + `"}]}}}}`)
-
-	_, err := k.client.PatchDeployment(ctx, k.params.Namespace, params.deployment.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to patch Deployment %s with patch %q: %w", params.deployment.Name, patch, err)
-	}
-
-	*patched++
-	return nil
-}
 
 func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Client) error {
 	if k.params.ListVersions {

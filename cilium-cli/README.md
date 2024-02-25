@@ -46,10 +46,6 @@ binary releases.
 | [v0.15.23](https://github.com/cilium/cilium-cli/releases/tag/v0.15.23) | Yes        | Cilium 1.14 and newer      |
 | [v0.14.8](https://github.com/cilium/cilium-cli/releases/tag/v0.14.8)   | Yes        | Cilium 1.13                |
 
-Please see [`helm` installation mode](#helm-installation-mode) section
-regarding our plan to migrate to the new `helm` installation mode and deprecate
-the current implementation.
-
 ## Capabilities
 
 ### Install Cilium
@@ -345,27 +341,6 @@ Install a Cilium in a cluster and enable encryption with IPsec
     🚀 Creating Agent DaemonSet...
     🚀 Creating Operator Deployment...
     ⌛ Waiting for Cilium to be installed...
-
-## `helm` installation mode
-
-`cilium-cli` v0.14 introduces a new `helm` installation mode. In the current installation mode
-(we now call it `classic` mode), `cilium-cli` directly calls Kubernetes APIs to manage resources
-related to Cilium. In the new `helm` mode, `cilium-cli` delegates all the installation state
-management to Helm. This enables you to use `cilium-cli` and `helm` interchangeably to manage your
-Cilium installation, while taking advantage of `cilium-cli`'s advanced features such as Cilium
-configuration auto-detection.
-
-In `cilium-cli` v0.15, the `helm` mode is the default installation mode, and the `classic` mode is
-deprecated. To use the `classic` mode, set `CILIUM_CLI_MODE` environment variable to `classic`:
-
-    export CILIUM_CLI_MODE=classic
-
-> **Warnings**
-> - The `classic` installation mode will be removed after v0.15 release.
-> - Cilium CLI does not support converting `classic` mode installations to
->   `helm` mode installations and vice versa.
-> - Cilium CLI does not support running commands in `helm` mode against classic
->   mode installations.
 
 ### Examples
 

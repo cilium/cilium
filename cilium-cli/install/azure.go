@@ -4,19 +4,11 @@
 package install
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
-	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 )
 
 type accountInfo struct {
@@ -138,12 +130,7 @@ func (k *K8sInstaller) azureRetrieveAKSClusterInfo() error {
 		return err
 	}
 	if k.params.Azure.ResourceGroupName == "" {
-		var requiredFlagsNote string
-		if utils.IsInHelmMode() {
-			requiredFlagsNote = "azure.resourceGroup Helm value"
-		} else {
-			requiredFlagsNote = "--azure-resource-group or azure.resourceGroup Helm value"
-		}
+		requiredFlagsNote := "azure.resourceGroup Helm value"
 		k.Log("❌ Azure resource group is required, please specify %s", requiredFlagsNote)
 		return fmt.Errorf("missing Azure resource group name")
 	}
@@ -232,42 +219,4 @@ func (k *K8sInstaller) azureSetupServicePrincipal() error {
 func (k *K8sInstaller) azExec(args ...string) ([]byte, error) {
 	args = append(args, "--output", "json", "--only-show-errors")
 	return k.Exec("az", args...)
-}
-
-func (k *K8sInstaller) createAKSSecrets(ctx context.Context) error {
-	// Check if secret already exists and reuse it
-	_, err := k.client.GetSecret(ctx, k.params.Namespace, defaults.AKSSecretName, metav1.GetOptions{})
-	if err == nil {
-		k.Log("🔑 Found existing AKS secret %s", defaults.AKSSecretName)
-		return nil
-	}
-
-	var (
-		secretFileName string
-	)
-
-	switch {
-	case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
-		secretFileName = "templates/cilium-operator/secret.yaml"
-	default:
-		return fmt.Errorf("cilium version unsupported %s", k.chartVersion)
-	}
-
-	secretFile := k.manifests[secretFileName]
-
-	var secret corev1.Secret
-	yamlUtils.MustUnmarshal([]byte(secretFile), &secret)
-
-	k.Log("🔑 Generated AKS secret %s", defaults.AKSSecretName)
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, &secret, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to create AKS secret %s/%s: %w", k.params.Namespace, defaults.AKSSecretName, err)
-	}
-	k.pushRollbackStep(func(ctx context.Context) {
-		if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.AKSSecretName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s Secret: %s", defaults.AKSSecretName, err)
-		}
-	})
-
-	return nil
 }
