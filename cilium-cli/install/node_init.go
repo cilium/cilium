@@ -5,12 +5,9 @@ package install
 
 import (
 	"github.com/blang/semver/v4"
-	appsv1 "k8s.io/api/apps/v1"
-
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/k8s"
-	yamlUtils "github.com/cilium/cilium-cli/utils/yaml"
 )
 
 func needsNodeInit(k k8s.Kind, version semver.Version) bool {
@@ -24,23 +21,4 @@ func needsNodeInit(k k8s.Kind, version semver.Version) bool {
 		}
 	}
 	return false
-}
-
-func (k *K8sInstaller) generateNodeInitDaemonSet(_ k8s.Kind) *appsv1.DaemonSet {
-	var (
-		dsFileName string
-	)
-
-	switch {
-	case versioncheck.MustCompile(">1.10.99")(k.chartVersion):
-		dsFileName = "templates/cilium-nodeinit/daemonset.yaml"
-	case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
-		dsFileName = "templates/cilium-nodeinit-daemonset.yaml"
-	}
-
-	dsFile := k.manifests[dsFileName]
-
-	var ds appsv1.DaemonSet
-	yamlUtils.MustUnmarshal([]byte(dsFile), &ds)
-	return &ds
 }
