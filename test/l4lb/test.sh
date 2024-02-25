@@ -105,7 +105,7 @@ nsenter -t $(docker inspect nginx -f '{{ .State.Pid }}') -n /bin/sh -c \
     "ip a a dev eth0 ${LB_VIP}/32"
 
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --k8s-node-port
+    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --k8s-load-balancer
 
 LB_NODE_IP=$(docker exec lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1)
 ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
@@ -131,7 +131,7 @@ done
 
 # Set nginx to maintenance
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --backend-weights "0" --k8s-node-port
+    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --backend-weights "0" --k8s-load-balancer
 
 # Do not stop on error
 set +e
@@ -142,6 +142,22 @@ for i in $(seq 1 10); do
     if [ ! "$?" -eq 7 ]; then
         exit -1;
     fi
+done
+
+# Stop on error
+set -e
+docker exec -t lb-node docker exec -t cilium-lb \
+    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --backend-weights "1" --k8s-load-balancer
+
+curl -o /dev/null "${LB_VIP}:80" -m1 || (echo "Failed"; exit -1)
+
+# Restart cilium-agent and issue 50 requests to LB
+docker exec -d lb-node docker restart cilium-lb
+
+# Requests should not timeout when agent is starting up
+for i in $(seq 1 50); do
+    curl -o /dev/null "${LB_VIP}:80" -m1 || (echo "Failed"; exit -1)
+    sleep 0.2
 done
 
 # Cleanup

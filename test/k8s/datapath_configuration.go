@@ -299,7 +299,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	SkipContextIf(func() bool {
-		return helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOn419OrLaterKernel()
+		return helpers.DoesNotExistNodeWithoutCilium()
 	}, "Check BPF masquerading with ip-masq-agent", func() {
 		var (
 			tmpEchoPodPath string

@@ -84,6 +84,15 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if r.isEffectiveLoadbalancerModeDedicated(ingress) {
 		scopedLog.Debug("Updating dedicated resources")
 		if err := r.createOrUpdateDedicatedResources(ctx, ingress); err != nil {
+			if k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+				// The creation of one of the resources failed because the
+				// namespace is terminating. The ingress itself is also expected
+				// to be marked for deletion, but we haven't yet received the
+				// corresponding event, so let's not print an error message.
+				scopedLog.Info("Aborting reconciliation because namespace is being terminated")
+				return controllerruntime.Success()
+			}
+
 			return controllerruntime.Fail(err)
 		}
 
@@ -207,13 +216,11 @@ func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2
 		if annotations.GetAnnotationTLSPassthroughEnabled(&item) {
 			m.TLS = append(m.TLS, ingestion.IngressPassthrough(item, r.defaultSecretNamespace, r.defaultSecretName)...)
 		} else {
-			m.HTTP = append(m.HTTP, ingestion.Ingress(item, r.defaultSecretNamespace, r.defaultSecretName)...)
+			m.HTTP = append(m.HTTP, ingestion.Ingress(item, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS)...)
 		}
 	}
 
-	cec, _, _, err := r.sharedTranslator.Translate(m)
-
-	return cec, err
+	return r.cecTranslator.Translate(r.ciliumNamespace, r.sharedResourcesName, m)
 }
 
 func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
@@ -222,7 +229,7 @@ func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress
 	if annotations.GetAnnotationTLSPassthroughEnabled(ingress) {
 		m.TLS = append(m.TLS, ingestion.IngressPassthrough(*ingress, r.defaultSecretNamespace, r.defaultSecretName)...)
 	} else {
-		m.HTTP = append(m.HTTP, ingestion.Ingress(*ingress, r.defaultSecretNamespace, r.defaultSecretName)...)
+		m.HTTP = append(m.HTTP, ingestion.Ingress(*ingress, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS)...)
 	}
 
 	cec, svc, ep, err := r.dedicatedTranslator.Translate(m)
@@ -357,7 +364,7 @@ func (r *ingressReconciler) updateIngressLoadbalancerStatus(ctx context.Context,
 		serviceNamespacedName.Name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingress.Name)
 	} else {
 		serviceNamespacedName.Namespace = r.ciliumNamespace
-		serviceNamespacedName.Name = r.sharedLBServiceName
+		serviceNamespacedName.Name = r.sharedResourcesName
 	}
 
 	loadbalancerService := corev1.Service{}

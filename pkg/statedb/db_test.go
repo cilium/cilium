@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/statedb/index"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 func TestMain(m *testing.M) {
@@ -161,6 +162,7 @@ func TestDB_LowerBound_ByRevision(t *testing.T) {
 	require.False(t, ok)
 
 }
+
 func TestDB_DeleteTracker(t *testing.T) {
 	t.Parallel()
 
@@ -231,9 +233,8 @@ func TestDB_DeleteTracker(t *testing.T) {
 	// Consume the deletions using the first delete tracker.
 	nExist := 0
 	nDeleted := 0
-	rev, _, err := deleteTracker.Process(
+	_, err = deleteTracker.IterateWithError(
 		txn,
-		0,
 		func(obj testObject, deleted bool, _ Revision) error {
 			if deleted {
 				nDeleted++
@@ -245,7 +246,6 @@ func TestDB_DeleteTracker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, nDeleted, 2)
 	require.Equal(t, nExist, 1)
-	require.Equal(t, table.Revision(txn), rev-1)
 
 	// Since the second delete tracker has not processed the deletions,
 	// the graveyard index should still hold them.
@@ -256,9 +256,8 @@ func TestDB_DeleteTracker(t *testing.T) {
 	nExist = 0
 	nDeleted = 0
 	failErr := errors.New("fail")
-	rev, _, err = deleteTracker2.Process(
+	_, err = deleteTracker2.IterateWithError(
 		txn,
-		0,
 		func(obj testObject, deleted bool, _ Revision) error {
 			if deleted {
 				nDeleted++
@@ -273,22 +272,18 @@ func TestDB_DeleteTracker(t *testing.T) {
 	nExist = 0
 	nDeleted = 0
 
-	// Process again from the failed revision.
-	rev, _, err = deleteTracker2.Process(
+	// Process again, but this time using Iterate (retrying the failed revision)
+	_ = deleteTracker2.Iterate(
 		txn,
-		rev,
-		func(obj testObject, deleted bool, _ Revision) error {
+		func(obj testObject, deleted bool, _ Revision) {
 			if deleted {
 				nDeleted++
 			} else {
 				nExist++
 			}
-			return nil
 		})
-	require.NoError(t, err)
 	require.Equal(t, nDeleted, 2)
 	require.Equal(t, nExist, 0) // This was already processed.
-	require.Equal(t, table.Revision(txn), rev-1)
 
 	// Graveyard will now be GCd.
 	eventuallyGraveyardIsEmpty(t, db)
@@ -330,6 +325,42 @@ func TestDB_DeleteTracker(t *testing.T) {
 
 	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableObjectCount))
 	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableDeleteTrackerCount))
+}
+
+func TestDB_Observable(t *testing.T) {
+	t.Parallel()
+
+	db, table, _ := newTestDB(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	events := stream.ToChannel(ctx, Observable[testObject](db, table))
+
+	txn := db.WriteTxn(table)
+	table.Insert(txn, testObject{ID: uint64(1)})
+	table.Insert(txn, testObject{ID: uint64(2)})
+	txn.Commit()
+
+	event := <-events
+	require.False(t, event.Deleted, "expected insert")
+	require.Equal(t, uint64(1), event.Object.ID)
+	event = <-events
+	require.False(t, event.Deleted, "expected insert")
+	require.Equal(t, uint64(2), event.Object.ID)
+
+	txn = db.WriteTxn(table)
+	table.Delete(txn, testObject{ID: uint64(1)})
+	table.Delete(txn, testObject{ID: uint64(2)})
+	txn.Commit()
+
+	event = <-events
+	require.True(t, event.Deleted, "expected delete")
+	require.Equal(t, uint64(1), event.Object.ID)
+	event = <-events
+	require.True(t, event.Deleted, "expected delete")
+	require.Equal(t, uint64(2), event.Object.ID)
+
+	cancel()
+	ev, ok := <-events
+	require.False(t, ok, "expected channel to close, got event: %+v", ev)
 }
 
 func TestDB_All(t *testing.T) {

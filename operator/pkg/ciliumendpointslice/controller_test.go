@@ -14,6 +14,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/k8s"
+	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -120,7 +121,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 }
 
 func createCEPandVerifyCESCreated(fakeClient k8sClient.FakeClientset, ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint], ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) (bool, error) {
-	cep := createStoreEndpoint("cep1", "ns", 1)
+	cep := tu.CreateStoreEndpoint("cep1", "ns", 1)
 	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(context.Background(), cep, meta_v1.CreateOptions{})
 	cepStore, _ := ciliumEndpoint.Store(context.Background())
 	if err := testutils.WaitUntil(func() bool {

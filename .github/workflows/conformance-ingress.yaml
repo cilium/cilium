@@ -58,9 +58,8 @@ env:
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.20.0
+  kind_version: v0.22.0
   kind_config: .github/kind-config.yaml
-  metallb_version: 0.12.1
   timeout: 5m
 
 jobs:
@@ -70,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -82,31 +81,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - name: Without XDP
+        - name: Without_XDP
           kube-proxy-replacement: true
           enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: false
-        - name: With XDP
+        - name: With_XDP
           kube-proxy-replacement: true
           enable-node-port: false
           bpf-lb-acceleration: native
           loadbalancer-mode: dedicated
           default-ingress-controller: false
-        - name: With Shared LB
+        - name: With_Shared_LB
           kube-proxy-replacement: true
           enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: shared
           default-ingress-controller: false
-        - name: With Default Ingress Controller
+        - name: With_Default_Ingress_Controller
           kube-proxy-replacement: true
           enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: true
-        - name: Without KPR
+        - name: Without_KPR
           kube-proxy-replacement: false
           enable-node-port: true
           bpf-lb-acceleration: disabled
@@ -124,7 +123,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@32109b32259a487c803648a3c9463cdcafa4c0c3 # v0.15.19
+        uses: cilium/cilium-cli@7306e3cdc6caee738157f08e3e1ba26179f104e5 # v0.15.23
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -135,6 +134,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set image tag
         id: vars
@@ -161,9 +161,13 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+            examples
 
       - name: Create kind cluster
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config }}
@@ -243,12 +247,12 @@ jobs:
           kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
           if [ ${{ matrix.default-ingress-controller }} = "true" ]; then
             # remove ingressClassName line from basic-ingress.yaml
-            sed -i '/ingressClassName/d' examples/kubernetes/servicemesh/basic-ingress.yaml
-            kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+            sed -i '/ingressClassName/d' untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
+            kubectl apply -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
             kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
           fi
 
-          kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl apply -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
           kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
       - name: Run Sanity check (external)
@@ -275,7 +279,7 @@ jobs:
         timeout-minutes: 5
         run: |
           # Clean up after sanity check to avoid any conflicts with the conformance test
-          kubectl delete -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl delete -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
           kubectl delete -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
           kubectl wait ingress basic-ingress --for=delete
 
@@ -290,15 +294,15 @@ jobs:
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --output-filename cilium-sysdump-out-${{ matrix.name }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: cilium-sysdump-out-${{ matrix.name }}
+          path: cilium-sysdump-out-*.zip
           retention-days: 5
 
   commit-status-final:
@@ -308,7 +312,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.ingress-conformance-test.result }}

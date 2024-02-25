@@ -396,7 +396,10 @@ func init() {
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Created",
+            "schema": {
+              "$ref": "#/definitions/Endpoint"
+            }
           },
           "400": {
             "description": "Invalid endpoint in request",
@@ -2201,6 +2204,10 @@ func init() {
     "BgpRoute": {
       "description": "Single BGP route retrieved from the RIB of underlying router",
       "properties": {
+        "neighbor": {
+          "description": "IP address specifying a BGP neighbor if the source table type is adj-rib-in or adj-rib-out",
+          "type": "string"
+        },
         "paths": {
           "description": "List of routing paths leading towards the prefix",
           "type": "array",
@@ -2812,6 +2819,10 @@ func init() {
     "EncryptionStatus": {
       "description": "Status of transparent encryption\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "ipsec": {
+          "description": "Status of the IPsec agent",
+          "$ref": "#/definitions/IPsecStatus"
+        },
         "mode": {
           "type": "string",
           "enum": [
@@ -2821,7 +2832,7 @@ func init() {
           ]
         },
         "msg": {
-          "description": "Human readable status/error/warning message",
+          "description": "Human readable error/warning message",
           "type": "string"
         },
         "wireguard": {
@@ -2938,6 +2949,12 @@ func init() {
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"
+        },
+        "properties": {
+          "description": "Properties is used to store information about the endpoint at creation. Useful for tests.",
+          "additionalProperties": {
+            "type": "object"
+          }
         },
         "state": {
           "description": "Current state of endpoint",
@@ -3613,6 +3630,37 @@ func init() {
         "maxGSO": {
           "description": "Maximum IPv6 GSO size",
           "type": "integer"
+        }
+      }
+    },
+    "IPsecStatus": {
+      "description": "Status of the IPsec agent\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "decrypt-interfaces": {
+          "description": "IPsec decryption interfaces",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error-count": {
+          "description": "IPsec error count",
+          "type": "integer"
+        },
+        "keys-in-use": {
+          "description": "IPsec keys in use",
+          "type": "integer"
+        },
+        "max-seq-number": {
+          "description": "IPsec max sequence number",
+          "type": "string"
+        },
+        "xfrm-errors": {
+          "description": "IPsec XFRM errors",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
         }
       }
     },
@@ -5956,7 +6004,10 @@ func init() {
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Created",
+            "schema": {
+              "$ref": "#/definitions/Endpoint"
+            }
           },
           "400": {
             "description": "Invalid endpoint in request",
@@ -7951,6 +8002,10 @@ func init() {
     "BgpRoute": {
       "description": "Single BGP route retrieved from the RIB of underlying router",
       "properties": {
+        "neighbor": {
+          "description": "IP address specifying a BGP neighbor if the source table type is adj-rib-in or adj-rib-out",
+          "type": "string"
+        },
         "paths": {
           "description": "List of routing paths leading towards the prefix",
           "type": "array",
@@ -8637,6 +8692,10 @@ func init() {
     "EncryptionStatus": {
       "description": "Status of transparent encryption\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "ipsec": {
+          "description": "Status of the IPsec agent",
+          "$ref": "#/definitions/IPsecStatus"
+        },
         "mode": {
           "type": "string",
           "enum": [
@@ -8646,7 +8705,7 @@ func init() {
           ]
         },
         "msg": {
-          "description": "Human readable status/error/warning message",
+          "description": "Human readable error/warning message",
           "type": "string"
         },
         "wireguard": {
@@ -8763,6 +8822,12 @@ func init() {
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"
+        },
+        "properties": {
+          "description": "Properties is used to store information about the endpoint at creation. Useful for tests.",
+          "additionalProperties": {
+            "type": "object"
+          }
         },
         "state": {
           "description": "Current state of endpoint",
@@ -9477,6 +9542,37 @@ func init() {
         "maxGSO": {
           "description": "Maximum IPv6 GSO size",
           "type": "integer"
+        }
+      }
+    },
+    "IPsecStatus": {
+      "description": "Status of the IPsec agent\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "decrypt-interfaces": {
+          "description": "IPsec decryption interfaces",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error-count": {
+          "description": "IPsec error count",
+          "type": "integer"
+        },
+        "keys-in-use": {
+          "description": "IPsec keys in use",
+          "type": "integer"
+        },
+        "max-seq-number": {
+          "description": "IPsec max sequence number",
+          "type": "string"
+        },
+        "xfrm-errors": {
+          "description": "IPsec XFRM errors",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
         }
       }
     },

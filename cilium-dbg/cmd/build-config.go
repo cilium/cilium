@@ -36,9 +36,11 @@ var buildConfigHive = hive.New(
 var buildConfigCmd = &cobra.Command{
 	Use:   "build-config --node-name $K8S_NODE_NAME",
 	Short: "Resolve all of the configuration sources that apply to this node",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Running")
-		return buildConfigHive.Run()
+		if err := buildConfigHive.Run(); err != nil {
+			Fatalf("Build config failed: %v\n", err)
+		}
 	},
 }
 
@@ -85,7 +87,7 @@ type buildConfig struct {
 	shutdowner hive.Shutdowner
 }
 
-func newBuildConfig(lc hive.Lifecycle, cfg buildConfigCfg, log logrus.FieldLogger, client k8sClient.Clientset, shutdowner hive.Shutdowner) (*buildConfig, error) {
+func newBuildConfig(lc cell.Lifecycle, cfg buildConfigCfg, log logrus.FieldLogger, client k8sClient.Clientset, shutdowner hive.Shutdowner) (*buildConfig, error) {
 	if cfg.Dest == "" {
 		return nil, fmt.Errorf("--dest is required")
 	}
@@ -97,12 +99,12 @@ func newBuildConfig(lc hive.Lifecycle, cfg buildConfigCfg, log logrus.FieldLogge
 		shutdowner: shutdowner,
 	}
 
-	lc.Append(hive.Hook{OnStart: obj.onStart})
+	lc.Append(cell.Hook{OnStart: obj.onStart})
 
 	return obj, nil
 }
 
-func (bc *buildConfig) onStart(ctx hive.HookContext) error {
+func (bc *buildConfig) onStart(ctx cell.HookContext) error {
 	sources := []resolver.ConfigSource{}
 	for _, sourceSpec := range bc.cfg.Source {
 		if sourceSpec == "" {

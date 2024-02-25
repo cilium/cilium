@@ -158,7 +158,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 		SkipContextIf(func() bool {
 			return helpers.RunsWithKubeProxyReplacement()
 		}, "Tests NodePort inside cluster (kube-proxy)", func() {
-			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
+			It("with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
@@ -619,9 +619,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			testNodePortExternal(kubectl, ni, false, true, false)
 		})
 
-		// Run on net-next and 4.19 but not on old versions, because of
-		// LRU requirement.
-		SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "Supports IPv4 fragments", func() {
+		It("Supports IPv4 fragments", func() {
 			options := map[string]string{}
 			// On GKE we need to disable endpoint routes as fragment tracking
 			// isn't compatible with that options. See #15958.
@@ -629,7 +627,12 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				options["gke.enabled"] = "false"
 				options["routingMode"] = "native"
 			}
+
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
+
+			cmd := fmt.Sprintf("cilium config %s=%s", helpers.OptionConntrackAccounting, helpers.OptionEnabled)
+			kubectl.CiliumExecMustSucceedOnAll(context.TODO(), cmd, "Unable to enable ConntrackAccounting option")
+			kubectl.CiliumPreFlightCheck()
 			testIPv4FragmentSupport(kubectl, ni)
 		})
 

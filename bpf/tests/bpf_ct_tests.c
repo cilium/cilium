@@ -133,7 +133,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 			ct_state_new.node_port = ct_state.node_port;
 			ct_state_new.ifindex = ct_state.ifindex;
 			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false, false, NULL);
+					 CT_EGRESS, &ct_state_new, NULL);
 			break;
 
 		default:
@@ -173,7 +173,6 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		struct iphdr *ip4;
 		int l3_off = ETH_HLEN;
 		int l4_off;
-		struct ct_state ct_state = {};
 		__u16 proto;
 		__u32 monitor = 0;
 
@@ -187,7 +186,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		l4_off = l3_off + ipv4_hdrlen(ip4);
 
 		ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
-			   CT_INGRESS, &ct_state, &monitor);
+			   CT_INGRESS, NULL, &monitor);
 
 		if (data + pkt_size > data_end)
 			test_fatal("packet shrank");

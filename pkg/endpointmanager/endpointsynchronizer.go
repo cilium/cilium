@@ -112,8 +112,8 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return fmt.Errorf("Kubernetes apiserver is not available")
 				}
 
-				namespace := e.GetK8sNamespace()
-				if namespace == "" {
+				cepOwner := e.GetCEPOwner()
+				if cepOwner.IsNil() {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
 					return nil
 				}
@@ -153,10 +153,10 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					if firstTry {
 						// First we try getting CEP from the API server cache, as it's cheaper.
 						// If it fails we get it from etcd to be sure to have fresh data.
-						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(ctx, cepName, meta_v1.GetOptions{ResourceVersion: "0"})
+						localCEP, err = ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Get(ctx, cepName, meta_v1.GetOptions{ResourceVersion: "0"})
 						firstTry = false
 					} else {
-						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(ctx, cepName, meta_v1.GetOptions{})
+						localCEP, err = ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Get(ctx, cepName, meta_v1.GetOptions{})
 					}
 					// It's only an error if it exists but something else happened
 					switch {
@@ -169,12 +169,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 							return err
 						}
 					case k8serrors.IsNotFound(err):
-						pod := e.GetPod()
-						if pod == nil {
-							scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod")
-							return nil
-						}
-
 						// We can't create localCEP directly, it must come from the k8s
 						// server via an API call.
 						cep := &cilium_v2.CiliumEndpoint{
@@ -182,19 +176,19 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 								Name: cepName,
 								OwnerReferences: []meta_v1.OwnerReference{
 									{
-										APIVersion: "v1",
-										Kind:       "Pod",
-										Name:       pod.GetObjectMeta().GetName(),
-										UID:        pod.ObjectMeta.UID,
+										APIVersion: cepOwner.GetAPIVersion(),
+										Kind:       cepOwner.GetKind(),
+										Name:       cepOwner.GetName(),
+										UID:        cepOwner.GetUID(),
 									},
 								},
 								// Mirror the labels of parent pod in CiliumEndpoint object to enable
 								// label based selection for CiliumEndpoints.
-								Labels: pod.GetObjectMeta().GetLabels(),
+								Labels: cepOwner.GetLabels(),
 							},
 							Status: *mdl,
 						}
-						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Create(ctx, cep, meta_v1.CreateOptions{})
+						localCEP, err = ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Create(ctx, cep, meta_v1.CreateOptions{})
 						if err != nil {
 							// Suppress logging an error if ep backing the pod was terminated
 							// before CEP could be created and shut down the controller.
@@ -231,7 +225,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// This is unexpected as there should be only 1 writer per CEP, this
 				// controller, and the localCEP created on startup will be used.
 				if localCEP == nil {
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(ctx, cepName, meta_v1.GetOptions{})
+					localCEP, err = ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Get(ctx, cepName, meta_v1.GetOptions{})
 					switch {
 					case err == nil:
 						// Backfill the CEP UID as we need to do if the CEP was
@@ -290,7 +284,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return err
 				}
 
-				localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(
+				localCEP, err = ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Patch(
 					ctx, cepName,
 					k8stypes.JSONPatchType,
 					createStatusPatch,
@@ -368,11 +362,11 @@ func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *ciliu
 	//
 	// The intent here is to check if a given pod is running on the same node
 	// this cilium is running on before taking over its CEP.
-	pod := e.GetPod()
-	if pod == nil {
+	cepOwner := e.GetCEPOwner()
+	if cepOwner.IsNil() {
 		return fmt.Errorf("endpoint sync cannot take ownership of CEP: no pod")
 	}
-	podHostIP := pod.Status.HostIP
+	podHostIP := cepOwner.GetHostIP()
 	if podHostIP == "" {
 		return fmt.Errorf("endpoint sync cannot take ownership of CEP: no pod HostIP")
 	}
@@ -442,9 +436,10 @@ func deleteCEP(ctx context.Context, scopedLog *logrus.Entry, ciliumClient v2.Cil
 		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no k8s cep name")
 		return nil
 	}
-	namespace := e.GetK8sNamespace()
-	if namespace == "" {
-		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no k8s namespace")
+
+	cepOwner := e.GetCEPOwner()
+	if cepOwner.IsNil() {
+		scopedLog.Debug("Skipping CiliumEndpoint deletion because owner is nil")
 		return nil
 	}
 
@@ -467,7 +462,7 @@ func deleteCEP(ctx context.Context, scopedLog *logrus.Entry, ciliumClient v2.Cil
 	}
 
 	scopedLog.WithField(logfields.CEPUID, cepUID).Debug("deleting CEP with UID")
-	if err := ciliumClient.CiliumEndpoints(namespace).Delete(ctx, cepName, meta_v1.DeleteOptions{
+	if err := ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Delete(ctx, cepName, meta_v1.DeleteOptions{
 		Preconditions: &meta_v1.Preconditions{
 			UID: &cepUID,
 		},

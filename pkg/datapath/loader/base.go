@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -32,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
-	"github.com/cilium/cilium/pkg/sysctl"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -47,7 +47,7 @@ const (
 	preFilterHeaderFileName = "filter_config.h"
 )
 
-func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
+func (l *loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
 	headerPath := filepath.Join(dir, netdevHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
@@ -64,7 +64,7 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 	return nil
 }
 
-func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
+func (l *loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 	nodeConfigPath := option.Config.GetNodeConfigPath()
 	f, err := os.Create(nodeConfigPath)
 	if err != nil {
@@ -98,7 +98,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	return fw.Flush()
 }
 
-func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
+func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
 	// AWS ENI mode requires symmetric routing, see
 	// iptables.addCiliumENIRules().
 	// The default AWS daemonset installs the following rules that are used
@@ -125,7 +125,7 @@ func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
 		return nil, fmt.Errorf("failed to find interface with default route: %w", err)
 	}
 
-	retSettings := append(sysSettings, sysctl.Setting{
+	retSettings := append(sysSettings, tables.Sysctl{
 		Name:      fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface.Attrs().Name),
 		Val:       "2",
 		IgnoreErr: false,
@@ -169,7 +169,7 @@ func cleanIngressQdisc() error {
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
-func (l *Loader) reinitializeIPSec(ctx context.Context) error {
+func (l *loader) reinitializeIPSec(ctx context.Context) error {
 	if !option.Config.EnableIPSec {
 		return nil
 	}
@@ -203,7 +203,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
 	var errs error
 	for _, iface := range interfaces {
-		if err := connector.DisableRpFilter(iface); err != nil {
+		if err := connector.DisableRpFilter(l.sysctl, iface); err != nil {
 			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
 		}
 
@@ -226,7 +226,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	return nil
 }
 
-func (l *Loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
+func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
 	// tunnelConfig.Protocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.Protocol() == tunnel.Disabled {
@@ -263,8 +263,8 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 	return nil
 }
 
-func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode, bpf.CiliumPath())
+func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
+	l.maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode, bpf.CiliumPath())
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
@@ -291,7 +291,7 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 // ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+func (l *loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
 	o.GetCompilationLock().Lock()
 	defer o.GetCompilationLock().Unlock()
 	return l.reinitializeXDPLocked(ctx, extraCArgs)
@@ -301,8 +301,8 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	sysSettings := []sysctl.Setting{
+func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
 		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
@@ -327,11 +327,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
 		sysSettings = append(sysSettings,
-			sysctl.Setting{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
+			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
 	}
 
 	// Datapath initialization
-	hostDev1, _, err := SetupBaseDevice(deviceMTU)
+	hostDev1, _, err := setupBaseDevice(l.sysctl, deviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
@@ -339,16 +339,16 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	if option.Config.EnableHealthDatapath {
 		sysSettings = append(
 			sysSettings,
-			sysctl.Setting{
+			tables.Sysctl{
 				Name: "net.core.fb_tunnels_only_for_init_net", Val: "2", IgnoreErr: true,
 			},
 		)
-		if err := setupIPIPDevices(option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
+		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
 			return fmt.Errorf("unable to create ipip encapsulation devices for health datapath")
 		}
 	}
 
-	if err := setupTunnelDevice(tunnelConfig.Protocol(), tunnelConfig.Port(), deviceMTU); err != nil {
+	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(), deviceMTU); err != nil {
 		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.Protocol(), err)
 	}
 
@@ -360,7 +360,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Any code that relies on sysctl settings being applied needs to be called after this.
-	if err := sysctl.ApplySettings(sysSettings); err != nil {
+	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
 		return err
 	}
 
@@ -406,10 +406,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
-		if err := CompileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
+		if err := compileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
 			log.WithError(err).Fatal("failed to compile bpf_sock.c")
 		}
-		if err := socketlb.Enable(); err != nil {
+		if err := socketlb.Enable(l.sysctl); err != nil {
 			return err
 		}
 	} else {
@@ -424,7 +424,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Compile alignchecker program
-	if err := Compile(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
+	if err := compileDefault(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
 		log.WithError(err).Fatal("alignchecker compile failed")
 	}
 	// Validate alignments of C and Go equivalent structs

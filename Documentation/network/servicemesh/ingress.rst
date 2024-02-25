@@ -90,23 +90,6 @@ Supported Ingress Annotations
        | Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``. If unspecified, a random
        | NodePort will be allocated by kubernetes.
      - unspecified
-   * - ``ingress.cilium.io/tcp-keep-alive``
-     - | Enable TCP keep-alive. Applicable values
-       | are ``enabled`` and ``disabled``.
-     - ``enabled``
-   * - ``ingress.cilium.io/tcp-keep-alive-idle``
-     - TCP keep-alive idle time (in seconds)
-     - ``10``
-   * - ``ingress.cilium.io/tcp-keep-alive-probe-interval``
-     - TCP keep-alive probe intervals (in seconds)
-     - ``5``
-   * - ``ingress.cilium.io/tcp-keep-alive-probe-max-failures``
-     - TCP keep-alive probe max failures
-     - ``10``
-   * - ``ingress.cilium.io/websocket``
-     - | Enable websocket passthrough support.
-       | Applicable values are ``enabled`` and ``disabled``.
-     - ``disabled``
    * - ``ingress.cilium.io/tls-passthrough``
      - | Enable TLS Passthrough mode for this Ingress.
        | Applicable values are ``enabled`` and ``disabled``,
@@ -127,6 +110,19 @@ Supported Ingress Annotations
        | the ``ssl-passthrough`` on other Ingress
        | controllers.
      - ``disabled``
+   * - ``ingress.cilium.io/force-https``
+     - | Enable enforced HTTPS redirects for this Ingress.
+       | Applicable values are ``enabled`` and ``disabled``,
+       | although boolean-style values will also be
+       | accepted.
+       |
+       | Note that if the annotation is not present, this
+       | behavior will be controlled by the ``enforce-ingress-https`` configuration
+       | file setting (or ``ingressController.enforceHttps`` in Helm).
+       | 
+       | Any host with TLS config will have redirects to HTTPS
+       | configured for each match specified in the Ingress.
+     - unspecified
 
 Additionally, cloud-provider specific annotations for the LoadBalancer service
 are supported.

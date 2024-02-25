@@ -126,7 +126,7 @@ spec:
       containers:
       - name: infra-backend-v1
         # From https://github.com/kubernetes-sigs/ingress-controller-conformance/tree/master/images/echoserver
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
         env:
         - name: POD_NAME
           valueFrom:
@@ -172,7 +172,7 @@ spec:
     spec:
       containers:
       - name: infra-backend-v2
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
         env:
         - name: POD_NAME
           valueFrom:
@@ -218,7 +218,7 @@ spec:
     spec:
       containers:
       - name: infra-backend-v3
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
         env:
         - name: POD_NAME
           valueFrom:
@@ -264,7 +264,7 @@ spec:
     spec:
       containers:
       - name: tls-backend
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
         volumeMounts:
         - name: secret-volume
           mountPath: /etc/secret-volume
@@ -333,7 +333,7 @@ spec:
     spec:
       containers:
       - name: tls-backend
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
         volumeMounts:
         - name: secret-volume
           mountPath: /etc/secret-volume
@@ -395,7 +395,7 @@ spec:
     spec:
       containers:
       - name: app-backend-v1
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
         env:
         - name: POD_NAME
           valueFrom:
@@ -441,7 +441,7 @@ spec:
     spec:
       containers:
       - name: app-backend-v2
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
         env:
         - name: POD_NAME
           valueFrom:
@@ -494,7 +494,7 @@ spec:
     spec:
       containers:
       - name: web-backend
-        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20231214-v1.0.0-140-gf544a46e
         env:
         - name: POD_NAME
           valueFrom:

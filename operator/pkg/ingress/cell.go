@@ -14,6 +14,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
+	ingressTranslation "github.com/cilium/cilium/operator/pkg/model/translation/ingress"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -29,7 +31,7 @@ var Cell = cell.Module(
 		EnableIngressProxyProtocol:  false,
 		EnableIngressSecretsSync:    true,
 		IngressSecretsNamespace:     "cilium-secrets",
-		IngressLBAnnotationPrefixes: []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"},
+		IngressLBAnnotationPrefixes: []string{"lbipam.cilium.io", "service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"},
 		IngressSharedLBServiceName:  "cilium-ingress",
 		IngressDefaultLBMode:        "dedicated",
 	}),
@@ -76,19 +78,23 @@ func registerReconciler(params ingressParams) error {
 		return nil
 	}
 
+	cecTranslator := translation.NewCECTranslator(params.Config.IngressSecretsNamespace, params.Config.EnableIngressProxyProtocol, false, operatorOption.Config.ProxyIdleTimeoutSeconds)
+	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator)
+
 	reconciler := newIngressReconciler(
 		params.Logger,
 		params.CtrlRuntimeManager.GetClient(),
+
+		cecTranslator,
+		dedicatedIngressTranslator,
+
 		operatorOption.Config.CiliumK8sNamespace,
-		params.Config.EnforceIngressHTTPS,
-		params.Config.EnableIngressProxyProtocol,
-		params.Config.IngressSecretsNamespace,
 		params.Config.IngressLBAnnotationPrefixes,
 		params.Config.IngressSharedLBServiceName,
 		params.Config.IngressDefaultLBMode,
 		params.Config.IngressDefaultSecretNamespace,
 		params.Config.IngressDefaultSecretName,
-		operatorOption.Config.ProxyIdleTimeoutSeconds,
+		params.Config.EnforceIngressHTTPS,
 	)
 
 	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {

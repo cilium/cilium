@@ -14,14 +14,15 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/ebpf/rlimit"
 
-	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -41,7 +42,7 @@ var (
 	_ = Suite(&ConfigSuite{})
 
 	dummyNodeCfg = datapath.LocalNodeConfiguration{
-		MtuConfig: &fake.MTU{},
+		MtuConfig: &fakeTypes.MTU{},
 	}
 	dummyDevCfg   = testutils.NewTestEndpoint()
 	dummyEPCfg    = testutils.NewTestEndpoint()
@@ -101,8 +102,9 @@ func writeConfig(c *C, header string, write writeFn) {
 		c.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
 			cell.Provide(
-				fake.NewNodeAddressing,
-				func() bandwidth.Manager { return &fake.BandwidthManager{} },
+				fakeTypes.NewNodeAddressing,
+				func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
+				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
 				NewHeaderfileWriter,
 			),
 			cell.Invoke(func(writer_ datapath.ConfigWriter) {
@@ -145,7 +147,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 
 	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint64, map[string]string) {
 		cfg := &HeaderfileWriter{}
-		varSub, stringSub := loader.ELFSubstitutions(t)
+		varSub, stringSub := loader.NewLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")).ELFSubstitutions(t)
 
 		var buf bytes.Buffer
 		cfg.writeStaticData(&buf, t)
@@ -230,7 +232,7 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg
 
-	varSub, stringSub := loader.ELFSubstitutions(ep)
+	varSub, stringSub := loader.NewLoader(sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")).ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
 	cfg.writeStaticData(&buf, ep)
@@ -361,12 +363,14 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	// Assert that configurations are propagated when all generated extra defines are valid
 	cfg, err := NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   fake.NewNodeAddressing(),
+		NodeAddressing:   fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 			func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
-		}})
+		},
+		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+	})
 	require.NoError(t, err)
 
 	buffer.Reset()
@@ -379,12 +383,13 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	// Assert that an error is returned when one extra define function returns an error
 	cfg, err = NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   fake.NewNodeAddressing(),
+		NodeAddressing:   fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
 		},
-		BandwidthManager: &fake.BandwidthManager{},
+		BandwidthManager: &fakeTypes.BandwidthManager{},
+		Sysctl:           sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	require.NoError(t, err)
 
@@ -393,13 +398,14 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 
 	// Assert that an error is returned when one extra define would overwrite an already existing entry
 	cfg, err = NewHeaderfileWriter(WriterParams{
-		NodeAddressing:   fake.NewNodeAddressing(),
+		NodeAddressing:   fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines: nil,
 		NodeExtraDefineFns: []dpdef.Fn{
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
 			func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
 		},
-		BandwidthManager: &fake.BandwidthManager{},
+		BandwidthManager: &fakeTypes.BandwidthManager{},
+		Sysctl:           sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	require.NoError(t, err)
 
@@ -415,19 +421,21 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	var buffer bytes.Buffer
 
 	_, err := NewHeaderfileWriter(WriterParams{
-		NodeAddressing:     fake.NewNodeAddressing(),
+		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
-		BandwidthManager:   &fake.BandwidthManager{},
+		BandwidthManager:   &fakeTypes.BandwidthManager{},
+		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
 
 	cfg, err := NewHeaderfileWriter(WriterParams{
-		NodeAddressing:     fake.NewNodeAddressing(),
+		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
-		BandwidthManager:   &fake.BandwidthManager{},
+		BandwidthManager:   &fakeTypes.BandwidthManager{},
+		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))

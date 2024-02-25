@@ -17,8 +17,11 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
+	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -30,8 +33,9 @@ var Cell = cell.Module(
 	"Manages the Gateway API controllers",
 
 	cell.Config(gatewayApiConfig{
-		EnableGatewayAPISecretsSync: true,
-		GatewayAPISecretsNamespace:  "cilium-secrets",
+		EnableGatewayAPISecretsSync:   true,
+		EnableGatewayAPIProxyProtocol: false,
+		GatewayAPISecretsNamespace:    "cilium-secrets",
 	}),
 	cell.Invoke(initGatewayAPIController),
 	cell.Provide(registerSecretSync),
@@ -47,12 +51,14 @@ var requiredGVK = []schema.GroupVersionKind{
 }
 
 type gatewayApiConfig struct {
-	EnableGatewayAPISecretsSync bool
-	GatewayAPISecretsNamespace  string
+	EnableGatewayAPISecretsSync   bool
+	EnableGatewayAPIProxyProtocol bool
+	GatewayAPISecretsNamespace    string
 }
 
 func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-secrets-sync", r.EnableGatewayAPISecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag)")
+	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 }
 
@@ -82,10 +88,16 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
+	if err := registerMCSAPITypesToScheme(params.K8sClient, params.Scheme); err != nil {
+		return err
+	}
+
+	cecTranslator := translation.NewCECTranslator(params.Config.GatewayAPISecretsNamespace, params.Config.EnableGatewayAPIProxyProtocol, true, operatorOption.Config.ProxyIdleTimeoutSeconds)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator)
+
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
-		params.Config.GatewayAPISecretsNamespace,
-		operatorOption.Config.ProxyIdleTimeoutSeconds,
+		gatewayAPITranslator,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -114,42 +126,47 @@ func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrati
 	}
 }
 
-func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error {
+func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.GroupVersionKind) error {
 	if !clientset.IsEnabled() {
 		return nil
 	}
 
-	var res error
-
-	for _, gvk := range requiredGVK {
-		crd, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, gvk.GroupKind().String(), metav1.GetOptions{})
-		if err != nil {
-			res = errors.Join(res, err)
-			continue
-		}
-
-		found := false
-		for _, v := range crd.Spec.Versions {
-			if v.Name == gvk.Version {
-				found = true
-				break
-			}
-		}
-		if !found {
-			res = errors.Join(res, fmt.Errorf("CRD %q does not have version %q", gvk.GroupKind().String(), gvk.Version))
-		}
+	crd, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, gvk.GroupKind().String(), metav1.GetOptions{})
+	if err != nil {
+		return err
 	}
 
+	found := false
+	for _, v := range crd.Spec.Versions {
+		if v.Name == gvk.Version {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("CRD %q does not have version %q", gvk.GroupKind().String(), gvk.Version)
+	}
+
+	return nil
+}
+
+func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error {
+	var res error
+	for _, gvk := range requiredGVK {
+		if err := checkCRD(ctx, clientset, gvk); err != nil {
+			res = errors.Join(res, err)
+		}
+	}
 	return res
 }
 
 // registerReconcilers registers the Gateway API reconcilers to the controller-runtime library manager.
-func registerReconcilers(mgr ctrlRuntime.Manager, secretsNamespace string, idleTimeoutSeconds int) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator) error {
 	reconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr),
-		newGatewayReconciler(mgr, secretsNamespace, idleTimeoutSeconds),
+		newGatewayReconciler(mgr, translator),
 		newReferenceGrantReconciler(mgr),
 		newHTTPRouteReconciler(mgr),
 		newGRPCRouteReconciler(mgr),
@@ -174,6 +191,17 @@ func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) error {
 		if err := f(scheme); err != nil {
 			return fmt.Errorf("failed to add types from %s to scheme: %w", gv, err)
 		}
+	}
+
+	return nil
+}
+
+func registerMCSAPITypesToScheme(clientset k8sClient.Clientset, scheme *runtime.Scheme) error {
+	serviceImportSupport := checkCRD(context.Background(), clientset, mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceimports")) == nil
+	log.WithField("enabled", serviceImportSupport).
+		Info("Multi-cluster Service API ServiceImport GatewayAPI integration")
+	if serviceImportSupport {
+		return mcsapiv1alpha1.AddToScheme(scheme)
 	}
 
 	return nil

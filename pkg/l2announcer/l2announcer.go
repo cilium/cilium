@@ -17,13 +17,11 @@ import (
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -38,7 +36,6 @@ import (
 	"golang.org/x/exp/maps"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -52,7 +49,7 @@ var Cell = cell.Module(
 	cell.Provide(l2AnnouncementPolicyResource),
 )
 
-func l2AnnouncementPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
+func l2AnnouncementPolicyResource(lc cell.Lifecycle, cs k8sClient.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -65,7 +62,7 @@ func l2AnnouncementPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resou
 type l2AnnouncerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
 
 	DaemonConfig         *option.DaemonConfig
@@ -642,7 +639,7 @@ func (l2a *L2Announcer) updatePolicyStatus(
 	}
 
 	_, err = policyClient.Patch(ctx, policy.Name,
-		types.JSONPatchType, createStatusPatch, v1.PatchOptions{
+		types.JSONPatchType, createStatusPatch, metav1.PatchOptions{
 			FieldManager: ciliumFieldManager,
 		}, "status")
 
@@ -1099,32 +1096,37 @@ func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cel
 
 	ss.ctx, ss.cancel = context.WithCancel(ctx)
 
-	leaderelection.RunOrDie(ss.ctx, leaderelection.LeaderElectionConfig{
-		Name:            ss.lock.LeaseMeta.Name,
-		Lock:            ss.lock,
-		ReleaseOnCancel: true,
+	for {
+		select {
+		case <-ss.ctx.Done():
+			return nil
+		default:
+			leaderelection.RunOrDie(ss.ctx, leaderelection.LeaderElectionConfig{
+				Name:            ss.lock.LeaseMeta.Name,
+				Lock:            ss.lock,
+				ReleaseOnCancel: true,
 
-		LeaseDuration: ss.leaseDuration,
-		RenewDeadline: ss.renewDeadline,
-		RetryPeriod:   ss.retryPeriod,
+				LeaseDuration: ss.leaseDuration,
+				RenewDeadline: ss.renewDeadline,
+				RetryPeriod:   ss.retryPeriod,
 
-		Callbacks: leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(ctx context.Context) {
-				ss.leaderChannel <- leaderElectionEvent{
-					typ:             leaderElectionLeading,
-					selectedService: ss,
-				}
-			},
-			OnStoppedLeading: func() {
-				ss.leaderChannel <- leaderElectionEvent{
-					typ:             leaderElectionStoppedLeading,
-					selectedService: ss,
-				}
-			},
-		},
-	})
-
-	return nil
+				Callbacks: leaderelection.LeaderCallbacks{
+					OnStartedLeading: func(ctx context.Context) {
+						ss.leaderChannel <- leaderElectionEvent{
+							typ:             leaderElectionLeading,
+							selectedService: ss,
+						}
+					},
+					OnStoppedLeading: func() {
+						ss.leaderChannel <- leaderElectionEvent{
+							typ:             leaderElectionStoppedLeading,
+							selectedService: ss,
+						}
+					},
+				},
+			})
+		}
+	}
 }
 
 func (ss *selectedService) stop() {

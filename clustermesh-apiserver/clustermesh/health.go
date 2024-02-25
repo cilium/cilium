@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
@@ -30,10 +29,11 @@ var healthAPIServerCell = cell.Module(
 	"ClusterMesh Health API Server",
 
 	cell.Config(HealthAPIServerConfig{}),
+	cell.Provide(NewSyncState),
 	cell.Invoke(registerHealthAPIServer),
 )
 
-func registerHealthAPIServer(lc hive.Lifecycle, clientset k8sClient.Clientset, cfg HealthAPIServerConfig) {
+func registerHealthAPIServer(lc cell.Lifecycle, clientset k8sClient.Clientset, cfg HealthAPIServerConfig, syncState *SyncState) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -50,13 +50,27 @@ func registerHealthAPIServer(lc hive.Lifecycle, clientset k8sClient.Clientset, c
 		}
 	})
 
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		statusCode := http.StatusInternalServerError
+		reply := "NotReady"
+
+		if syncState.Complete() {
+			statusCode = http.StatusOK
+			reply = "Ready"
+		}
+		w.WriteHeader(statusCode)
+		if _, err := w.Write([]byte(reply)); err != nil {
+			log.WithError(err).Error("Failed to respond to /readyz request")
+		}
+	})
+
 	srv := &http.Server{
 		Handler: mux,
 		Addr:    fmt.Sprintf(":%d", cfg.ClusterMeshHealthPort),
 	}
 
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			go func() {
 				log.Info("Started health API")
 				if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -65,6 +79,6 @@ func registerHealthAPIServer(lc hive.Lifecycle, clientset k8sClient.Clientset, c
 			}()
 			return nil
 		},
-		OnStop: func(ctx hive.HookContext) error { return srv.Shutdown(ctx) },
+		OnStop: func(ctx cell.HookContext) error { return srv.Shutdown(ctx) },
 	})
 }

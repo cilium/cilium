@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -26,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var (
@@ -70,15 +71,6 @@ type IPCache interface {
 	OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
 	RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
 	RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
-}
-
-// Configuration is the set of configuration options the node manager depends
-// on
-type Configuration interface {
-	TunnelingEnabled() bool
-	RemoteNodeIdentitiesEnabled() bool
-	NodeEncryptionEnabled() bool
-	IsLocalRouterIP(string) bool
 }
 
 var _ Notifier = (*manager)(nil)
@@ -121,7 +113,7 @@ type manager struct {
 
 	// conf is the configuration of the caller passed in via NewManager.
 	// This field is immutable after NewManager()
-	conf Configuration
+	conf *option.DaemonConfig
 
 	// ipcache is the set operations performed against the ipcache
 	ipcache IPCache
@@ -242,7 +234,7 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c Configuration, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
+func New(c *option.DaemonConfig, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *nodeMetrics, healthScope cell.Scope) (*manager, error) {
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
@@ -257,13 +249,13 @@ func New(c Configuration, ipCache IPCache, ipsetMgr ipsetManager, nodeMetrics *n
 	return m, nil
 }
 
-func (m *manager) Start(hive.HookContext) error {
+func (m *manager) Start(cell.HookContext) error {
 	m.workerpool = workerpool.New(numBackgroundWorkers)
 	return m.workerpool.Submit("backgroundSync", m.backgroundSync)
 }
 
 // Stop shuts down a node manager
-func (m *manager) Stop(hive.HookContext) error {
+func (m *manager) Stop(cell.HookContext) error {
 	if m.workerpool != nil {
 		if err := m.workerpool.Close(); err != nil {
 			return err
@@ -393,10 +385,10 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 	// encapsulation. In encryption case we also want to use vxlan device
 	// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
 	return address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
-		option.Config.EnableHostFirewall || option.Config.JoinCluster
+		m.conf.EnableHostFirewall || m.conf.JoinCluster
 }
 
-func (m *manager) nodeAddressHasEncryptKey(address nodeTypes.Address) bool {
+func (m *manager) nodeAddressHasEncryptKey() bool {
 	// If we are doing encryption, but not node based encryption, then do not
 	// add a key to the nodeIPs so that we avoid a trip through stack and attempting
 	// to encrypt something we know does not have an encryption policy installed
@@ -408,6 +400,22 @@ func (m *manager) nodeAddressHasEncryptKey(address nodeTypes.Address) bool {
 		!node.GetOptOutNodeEncryption()
 }
 
+// endpointEncryptionKey returns the encryption key index to use for the health
+// and ingress endpoints of a node. This is needed for WireGuard where the
+// node's EncryptionKey and the endpoint's EncryptionKey are not the same if
+// a node has opted out of node-to-node encryption by zeroing n.EncryptionKey.
+// With WireGuard, we always want to encrypt pod-to-pod traffic, thus we return
+// a static non-zero encrypt key here.
+// With IPSec (or no encryption), the node's encryption key index and the
+// encryption key of the endpoint on that node are the same.
+func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptKey {
+	if m.conf.EnableWireguard {
+		return ipcacheTypes.EncryptKey(types.StaticEncryptKey)
+	}
+
+	return ipcacheTypes.EncryptKey(n.EncryptionKey)
+}
+
 func (m *manager) nodeAddressSkipsIPCache(address nodeTypes.Address) bool {
 	return m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP
 }
@@ -417,13 +425,13 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 	if m.conf.RemoteNodeIdentitiesEnabled() {
 		if n.IsLocal() {
 			nodeLabels = labels.NewFrom(labels.LabelHost)
-			if option.Config.PolicyCIDRMatchesNodes() {
+			if m.conf.PolicyCIDRMatchesNodes() {
 				for _, address := range n.IPAddresses {
 					addr, ok := ip.AddrFromIP(address.IP)
 					if ok {
 						bitLen := addr.BitLen()
-						if option.Config.EnableIPv4 && bitLen == net.IPv4len*8 ||
-							option.Config.EnableIPv6 && bitLen == net.IPv6len*8 {
+						if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
+							m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
 							prefix, err := addr.Prefix(bitLen)
 							if err == nil {
 								cidrLabels := labels.GetCIDRLabels(prefix)
@@ -437,6 +445,10 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 			// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
 			nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
 			hasOverride = true
+		} else if !n.IsLocal() && option.Config.PerNodeLabelsEnabled() {
+			lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
+			filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
+			nodeLabels.MergeLabels(filteredLbls)
 		}
 	} else {
 		nodeLabels = labels.NewFrom(labels.LabelHost)
@@ -473,11 +485,15 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
 	nodeLabels, nodeIdentityOverride := m.nodeIdentityLabels(n)
 
+	var ipsetEntries []netip.Prefix
 	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix
 
 	for _, address := range n.IPAddresses {
-		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+		prefix := ip.IPToNetPrefix(address.IP)
+
+		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			m.ipsetMgr.AddToNodeIpset(address.IP)
+			ipsetEntries = append(ipsetEntries, prefix)
 		}
 
 		if m.nodeAddressSkipsIPCache(address) {
@@ -490,11 +506,10 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		}
 
 		var key uint8
-		if m.nodeAddressHasEncryptKey(address) {
+		if m.nodeAddressHasEncryptKey() {
 			key = n.EncryptionKey
 		}
 
-		prefix := ip.IPToNetPrefix(address.IP)
 		// We expect the node manager to have a source of either Kubernetes,
 		// CustomResource, or KVStore. Prioritize the KVStore source over the
 		// rest as it is the strongest source, i.e. only trigger datapath
@@ -516,7 +531,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 		lbls := nodeLabels
 		// Add the CIDR labels for this node, if we allow selecting nodes by CIDR
-		if option.Config.PolicyCIDRMatchesNodes() {
+		if m.conf.PolicyCIDRMatchesNodes() {
 			lbls = labels.NewFrom(nodeLabels)
 			lbls.MergeLabels(labels.GetCIDRLabels(prefix))
 		}
@@ -545,7 +560,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.ipcache.UpsertMetadata(healthIP, n.Source, resource,
 			labels.LabelHealth,
 			ipcacheTypes.TunnelPeer{Addr: nodeIP},
-			ipcacheTypes.EncryptKey(n.EncryptionKey))
+			m.endpointEncryptionKey(&n))
 		healthIPsAdded = append(healthIPsAdded, healthIP)
 	}
 
@@ -561,7 +576,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.ipcache.UpsertMetadata(ingressIP, n.Source, resource,
 			labels.LabelIngress,
 			ipcacheTypes.TunnelPeer{Addr: nodeIP},
-			ipcacheTypes.EncryptKey(n.EncryptionKey))
+			m.endpointEncryptionKey(&n))
 		ingressIPsAdded = append(ingressIPsAdded, ingressIP)
 	}
 
@@ -604,7 +619,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			}
 		}
 
-		m.removeNodeFromIPCache(oldNode, resource, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
+		m.removeNodeFromIPCache(oldNode, resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded)
 
 		entry.mutex.Unlock()
 	} else {
@@ -641,10 +656,11 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 // removeNodeFromIPCache removes all addresses associated with oldNode from the IPCache,
 // unless they are present in the nodeIPsAdded, healthIPsAdded, ingressIPsAdded lists.
+// Removes ipset entry associated with oldNode if it is not present in ipsetEntries.
 //
 // The removal logic in this function should mirror the upsert logic in NodeUpdated.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
-	nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix) {
+	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix) {
 
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
@@ -660,7 +676,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			continue
 		}
 
-		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+		if m.conf.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP &&
+			!slices.Contains(ipsetEntries, oldPrefix) {
 			m.ipsetMgr.RemoveFromNodeIpset(address.IP)
 		}
 
@@ -674,7 +691,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		}
 
 		var oldKey uint8
-		if m.nodeAddressHasEncryptKey(address) {
+		if m.nodeAddressHasEncryptKey() {
 			oldKey = oldNode.EncryptionKey
 		}
 
@@ -697,7 +714,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		m.ipcache.RemoveMetadata(healthIP, resource,
 			labels.LabelHealth,
 			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
-			ipcacheTypes.EncryptKey(oldNode.EncryptionKey))
+			m.endpointEncryptionKey(&oldNode))
 	}
 
 	// Delete the old ingress IP addresses if they have changed in this node.
@@ -710,7 +727,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		m.ipcache.RemoveMetadata(ingressIP, resource,
 			labels.LabelIngress,
 			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
-			ipcacheTypes.EncryptKey(oldNode.EncryptionKey))
+			m.endpointEncryptionKey(&oldNode))
 	}
 }
 
@@ -755,7 +772,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil)
+	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
 
 	m.metrics.NumNodes.Dec()
 	m.metrics.ProcessNodeDeletion(n.Cluster, n.Name)
@@ -841,14 +858,14 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 						// To avoid flooding network with arping requests
 						// at the same time, spread them over the
 						// [0; ARPPingRefreshPeriod/2) period.
-						n := randGen.Int63n(int64(option.Config.ARPPingRefreshPeriod / 2))
+						n := randGen.Int63n(int64(m.conf.ARPPingRefreshPeriod / 2))
 						time.Sleep(time.Duration(n))
 						nh.NodeNeighborRefresh(c, e)
 					}(ctx, entryNode)
 				}
 				return nil
 			},
-			RunInterval: option.Config.ARPPingRefreshPeriod,
+			RunInterval: m.conf.ARPPingRefreshPeriod,
 		},
 	)
 }

@@ -11,6 +11,7 @@ import (
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -22,7 +23,7 @@ import (
 
 var healthControllerGroup = controller.NewGroup("cilium-health")
 
-func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
+func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl sysctl.Sysctl) {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	log.Info("Launching Cilium health daemon")
 	if ch, err := health.Launch(spec, d.datapath.Loader().HostDatapathInitialized()); err != nil {
@@ -80,6 +81,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 						d.l7Proxy,
 						d.identityAllocator,
 						d.healthEndpointRouting,
+						sysctl,
 					)
 					if launchErr != nil {
 						if err != nil {

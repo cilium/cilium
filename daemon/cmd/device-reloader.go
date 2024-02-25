@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/node"
@@ -46,7 +45,7 @@ type deviceReloader struct {
 // or the devices change. This leads to potentially inconsistent, observable state when the device
 // changes have not yet propagated to the NodeAddress changes. Components which depend on both need
 // to live with this fact and come up with component-specific strategies to deal with it.
-func registerDeviceReloader(lc hive.Lifecycle, p deviceReloaderParams) {
+func registerDeviceReloader(lc cell.Lifecycle, p deviceReloaderParams) {
 	if !p.Config.EnableRuntimeDeviceDetection {
 		return
 	}
@@ -55,7 +54,7 @@ func registerDeviceReloader(lc hive.Lifecycle, p deviceReloaderParams) {
 }
 
 // Start listening to changed devices if requested.
-func (d *deviceReloader) Start(ctx hive.HookContext) error {
+func (d *deviceReloader) Start(ctx cell.HookContext) error {
 	if !d.params.Config.AreDevicesRequired() {
 		log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
 		return nil
@@ -64,7 +63,7 @@ func (d *deviceReloader) Start(ctx hive.HookContext) error {
 	// Force an initial reload by supplying a closed channel.
 	c := make(chan struct{})
 	close(c)
-	d.devsChanged = c
+	d.addrsChanged = c
 
 	jg := d.params.Jobs.NewGroup(d.params.Scope)
 	jg.Add(job.Timer("device-reloader", d.reload, time.Second))
@@ -72,20 +71,17 @@ func (d *deviceReloader) Start(ctx hive.HookContext) error {
 	return jg.Start(ctx)
 }
 
-func (d *deviceReloader) Stop(ctx hive.HookContext) error {
+func (d *deviceReloader) Stop(ctx cell.HookContext) error {
 	if d.jg != nil {
 		return d.jg.Stop(ctx)
 	}
 	return nil
 }
 
-func (d *deviceReloader) query() []string {
-	rxn := d.params.DB.ReadTxn()
-	_, d.addrsChanged = d.params.NodeAddresses.All(rxn)
-
-	var devices []*tables.Device
-	devices, d.devsChanged = tables.SelectedDevices(d.params.Devices, rxn)
-	return tables.DeviceNames(devices)
+func (d *deviceReloader) queryDevices(rxn statedb.ReadTxn) []string {
+	var nativeDevices []*tables.Device
+	nativeDevices, d.devsChanged = tables.SelectedDevices(d.params.Devices, rxn)
+	return tables.DeviceNames(nativeDevices)
 }
 
 func (d *deviceReloader) reload(ctx context.Context) error {
@@ -103,7 +99,12 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 	// consistent.
 
 	// Setup new watch channels.
-	devices := d.query()
+	rxn := d.params.DB.ReadTxn()
+	if addrsChanged {
+		_, d.addrsChanged = d.params.NodeAddresses.All(rxn)
+	}
+	devices := d.queryDevices(rxn)
+
 	// Don't do any work if we don't need to.
 	if slices.Equal(d.prevDevices, devices) && !addrsChanged {
 		return nil
@@ -123,12 +124,6 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 	}
 	if daemon.l2announcer != nil {
 		daemon.l2announcer.DevicesChanged(devices)
-	}
-
-	if d.params.Config.EnableNodePort {
-		// Synchronize services and endpoints to reflect new addresses onto lbmap.
-		daemon.svc.SyncServicesOnDeviceChange(daemon.Datapath().LocalNodeAddressing())
-		daemon.controllers.TriggerController(syncHostIPsController)
 	}
 
 	// Reload the datapath.

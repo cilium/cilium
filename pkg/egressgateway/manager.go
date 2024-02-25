@@ -4,11 +4,12 @@
 package egressgateway
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"net/netip"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -64,8 +64,6 @@ const (
 	eventK8sSyncDone
 	eventAddPolicy
 	eventDeletePolicy
-	eventUpdateNode
-	eventDeleteNode
 	eventUpdateEndpoint
 	eventDeleteEndpoint
 )
@@ -101,10 +99,8 @@ type Manager struct {
 	// their initial state synced.
 	allCachesSynced bool
 
-	// nodeDataStore stores node name to node mapping
-	nodeDataStore map[string]nodeTypes.Node
-
-	// nodes stores nodes sorted by their name
+	// nodes stores nodes sorted by their name. The entries are sorted
+	// to ensure consistent gateway selection across all agents.
 	nodes []nodeTypes.Node
 
 	// policies allows reading policy CRD from k8s.
@@ -129,7 +125,7 @@ type Manager struct {
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
 
-	// policyMap communicates the active policies to the dapath.
+	// policyMap communicates the active policies to the datapath.
 	policyMap egressmap.PolicyMap
 
 	// reconciliationTriggerInterval is the amount of time between triggers
@@ -162,7 +158,7 @@ type Params struct {
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 }
 
 func NewEgressGatewayManager(p Params) (out struct {
@@ -222,7 +218,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
-		nodeDataStore:                 make(map[string]nodeTypes.Node),
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
@@ -256,8 +251,8 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
-	p.Lifecycle.Append(hive.Hook{
-		OnStart: func(hc hive.HookContext) error {
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
 			if probes.HaveLargeInstructionLimit() != nil {
 				return fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 			}
@@ -266,7 +261,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 
 			return nil
 		},
-		OnStop: func(hc hive.HookContext) error {
+		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
 			wg.Wait()
@@ -516,33 +511,30 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 	manager.Lock()
 	defer manager.Unlock()
 
-	if event.Kind == resource.Upsert {
-		manager.nodeDataStore[node.Name] = node
-		manager.onChangeNodeLocked(eventUpdateNode)
-	} else {
-		delete(manager.nodeDataStore, node.Name)
-		manager.onChangeNodeLocked(eventDeleteNode)
-	}
-}
-
-func (manager *Manager) onChangeNodeLocked(e eventType) {
-	manager.nodes = []nodeTypes.Node{}
-	for _, n := range manager.nodeDataStore {
-		manager.nodes = append(manager.nodes, n)
-	}
-	sort.Slice(manager.nodes, func(i, j int) bool {
-		return manager.nodes[i].Name < manager.nodes[j].Name
+	// Find the node if we already have it.
+	nidx, found := slices.BinarySearchFunc(manager.nodes, node, func(a nodeTypes.Node, b nodeTypes.Node) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 
-	reason := ""
-	if e == eventUpdateNode {
-		reason = "node updated"
-	} else if e == eventDeleteNode {
-		reason = "node deleted"
+	if event.Kind == resource.Delete {
+		// Delete the node if we're aware of it.
+		if found {
+			manager.nodes = slices.Delete(manager.nodes, nidx, nidx+1)
+		}
+
+		manager.reconciliationTrigger.TriggerWithReason("node deleted")
+		return
 	}
 
-	manager.setEventBitmap(e)
-	manager.reconciliationTrigger.TriggerWithReason(reason)
+	// Update the node if we have it, otherwise insert in the correct
+	// position.
+	if found {
+		manager.nodes[nidx] = node
+	} else {
+		manager.nodes = slices.Insert(manager.nodes, nidx, node)
+	}
+
+	manager.reconciliationTrigger.TriggerWithReason("node updated")
 }
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {

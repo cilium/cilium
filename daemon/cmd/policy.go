@@ -18,14 +18,15 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -67,11 +68,12 @@ func (d *Daemon) initPolicy() error {
 type policyParams struct {
 	cell.In
 
-	Lifecycle       hive.Lifecycle
+	Lifecycle       cell.Lifecycle
 	EndpointManager endpointmanager.EndpointManager
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
 	CacheStatus     k8s.CacheStatus
+	ClusterInfo     cmtypes.ClusterInfo
 }
 
 type policyOut struct {
@@ -92,6 +94,11 @@ type policyOut struct {
 // The three have a circular dependency on each other and therefore require
 // special care.
 func newPolicyTrifecta(params policyParams) (policyOut, error) {
+	if option.Config.EnableWellKnownIdentities {
+		// Must be done before calling policy.NewPolicyRepository() below.
+		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
+		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
+	}
 	iao := &identityAllocatorOwner{}
 	idAlloc := cache.NewCachingIdentityAllocator(iao)
 
@@ -119,12 +126,12 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		CacheStatus:       params.CacheStatus,
 	})
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hc hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
 			iao.policy.Start()
 			return nil
 		},
-		OnStop: func(hc hive.HookContext) error {
+		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
 			// Preserve the order of shutdown but still propagate the error

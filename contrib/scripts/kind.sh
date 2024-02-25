@@ -17,6 +17,7 @@ default_operator_port_prefix="235"
 default_network="kind-cilium"
 default_apiserver_addr="127.0.0.1"
 default_apiserver_port=0 # kind will randomly select
+default_kubeconfig=""
 secondary_network="${default_network}-secondary"
 
 PROG=${0}
@@ -37,6 +38,13 @@ if [ "${1:-}" = "--secondary-network" ]; then
 fi
 readonly secondary_network_flag
 
+optimize_sysctl=false
+if [ "${1:-}" = "--optimize-sysctl" ]; then
+  optimize_sysctl=true
+  shift
+fi
+readonly optimize_sysctl
+
 controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"
 workers="${2:-${WORKERS:=${default_workers}}}"
 cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
@@ -46,6 +54,7 @@ kubeproxy_mode="${5:-${KUBEPROXY_MODE:=${default_kubeproxy_mode}}}"
 ipfamily="${6:-${IPFAMILY:=${default_ipfamily}}}"
 apiserver_addr="${7:-${APISERVER_ADDR:=${default_apiserver_addr}}}"
 apiserver_port="${8:-${APISERVER_PORT:=${default_apiserver_port}}}"
+kubeconfig="${9:-${KUBECONFIG:=${default_kubeconfig}}}"
 pod_subnet="${PODSUBNET:=${default_pod_subnet}}"
 service_subnet="${SERVICESUBNET:=${default_service_subnet}}"
 agent_port_prefix="${AGENTPORTPREFIX:=${default_agent_port_prefix}}"
@@ -60,7 +69,7 @@ v6_prefix_secondary="fc00:c112::/64"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
-  echo "Usage: ${PROG} [--xdp] [--secondary-network] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family] [apiserver-addr] [apiserver-port]"
+  echo "Usage: ${PROG} [--xdp] [--secondary-network] [--optimize-sysctl] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family] [apiserver-addr] [apiserver-port] [kubeconfig-path]"
 }
 
 have_kind() {
@@ -83,7 +92,7 @@ if ! have_kubectl; then
     exit 1
 fi
 
-if [ ${#} -gt 8 ]; then
+if [ ${#} -gt 9 ]; then
   usage
   exit 1
 fi
@@ -100,6 +109,14 @@ if [[ -n "${cluster_name}" ]]; then
 fi
 if [[ -n "${image}" ]]; then
   kind_cmd+=" --image ${image}"
+fi
+if [[ -n "${kubeconfig}" ]]; then
+  dir=$(cd $(dirname ${kubeconfig} ); pwd)
+  file_name=$(basename ${kubeconfig})
+  mkdir -p ${dir} &>/dev/null
+  kubeconfig=${dir}/${file_name}
+  kind_cmd+=" --kubeconfig ${kubeconfig}"
+  export KUBECONFIG=${kubeconfig}
 fi
 
 node_config() {
@@ -150,6 +167,19 @@ if ! docker network inspect "${default_network}" >/dev/null 2>&1; then
     -o "com.docker.network.bridge.name=${bridge_dev}" \
     --ipv6 --subnet "${v6_prefix}" \
     "${default_network}"
+fi
+
+if [ "${optimize_sysctl}" = true ]; then
+    if [ "$(uname 2>/dev/null)" == "Linux" ] ; then
+        # fix a typical issue to make sure the kind cluster succeed to run even if the resource is short
+        # issue: https://github.com/kubernetes-sigs/kind/issues/2744
+        # issue: https://github.com/kubernetes-sigs/kind/issues/2586
+        sysctl -w fs.inotify.max_user_watches=1048576
+        sysctl -w fs.inotify.max_user_instances=512
+    else
+        echo "ERROR: no support for optimizing sysctl on a non-linux host"
+        exit 1
+    fi
 fi
 
 export KIND_EXPERIMENTAL_DOCKER_NETWORK="${default_network}"
@@ -227,6 +257,13 @@ kubectl taint nodes --all node-role.kubernetes.io/master-
 set -e
 
 echo
+if [[ -n "${kubeconfig}" ]]; then
+  echo "export KUBECONFIG=${kubeconfig}"
+fi
 echo "Kind is up! Time to install cilium:"
 echo "  make kind-image"
 echo "  make kind-install-cilium"
+echo ""
+echo "On Linux, the below can be used for faster feedback:"
+echo "  make kind-image-fast"
+echo "  make kind-install-cilium-fast"

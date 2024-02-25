@@ -4,9 +4,10 @@
 package service
 
 import (
+	"net/netip"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/time"
@@ -44,20 +45,24 @@ type ServiceManager interface {
 	// InitMaps opens or creates BPF maps used by services.
 	InitMaps(ipv6, ipv4, sockMaps, restore bool) error
 
-	// RegisterL7LBService makes the given service to be locally forwarded to th given proxy port.
-	RegisterL7LBService(serviceName, resourceName lb.ServiceName, ports []string, proxyPort uint16) error
+	// RegisterL7LBServiceRedirect makes the given service to be locally redirected to the given proxy port.
+	RegisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName, proxyPort uint16) error
 
-	// RegisterL7LBServiceBackendSync synchronizes the backends of a service to Envoy.
-	RegisterL7LBServiceBackendSync(serviceName, resourceName lb.ServiceName, ports []string) error
+	// DeregisterL7LBServiceRedirect deregisters a Service from being redirected to a L7 LB.
+	DeregisterL7LBServiceRedirect(serviceName lb.ServiceName, resourceName L7LBResourceName) error
 
-	// RemoveL7LBService removes a service from L7 load balancing.
-	RemoveL7LBService(serviceName, resourceName lb.ServiceName) error
+	// RegisterL7LBServiceBackendSync registers a backend sync registration for the service.
+	RegisterL7LBServiceBackendSync(serviceName lb.ServiceName, backendSyncRegistration BackendSyncer) error
+
+	// DeregisterL7LBServiceBackendSync deregisters a backend sync registration for the service.
+	DeregisterL7LBServiceBackendSync(serviceName lb.ServiceName, backendSyncRegistration BackendSyncer) error
 
 	// RestoreServices restores services from BPF maps.
 	RestoreServices() error
 
-	// SyncServicesOnDeviceChange finds and adds missing load-balancing entries for new devices.
-	SyncServicesOnDeviceChange(nodeAddressing types.NodeAddressing)
+	// SyncNodePortFrontends updates all NodePort service frontends with a new set of frontend
+	// IP addresses.
+	SyncNodePortFrontends(sets.Set[netip.Addr]) error
 
 	// SyncWithK8sFinished removes services which we haven't heard about during
 	// a sync period of cilium-agent's k8s service cache.

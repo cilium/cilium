@@ -42331,6 +42331,11 @@ func awsEc2query_serializeDocumentInstanceRequirements(v *types.InstanceRequirem
 		}
 	}
 
+	if v.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice != nil {
+		objectKey := object.Key("MaxSpotPriceAsPercentageOfOptimalOnDemandPrice")
+		objectKey.Integer(*v.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice)
+	}
+
 	if v.MemoryGiBPerVCpu != nil {
 		objectKey := object.Key("MemoryGiBPerVCpu")
 		if err := awsEc2query_serializeDocumentMemoryGiBPerVCpu(v.MemoryGiBPerVCpu, objectKey); err != nil {
@@ -42485,6 +42490,11 @@ func awsEc2query_serializeDocumentInstanceRequirementsRequest(v *types.InstanceR
 		if err := awsEc2query_serializeDocumentLocalStorageTypeSet(v.LocalStorageTypes, objectKey); err != nil {
 			return err
 		}
+	}
+
+	if v.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice != nil {
+		objectKey := object.Key("MaxSpotPriceAsPercentageOfOptimalOnDemandPrice")
+		objectKey.Integer(*v.MaxSpotPriceAsPercentageOfOptimalOnDemandPrice)
 	}
 
 	if v.MemoryGiBPerVCpu != nil {
@@ -48678,6 +48688,11 @@ func awsEc2query_serializeOpDocumentAdvertiseByoipCidrInput(v *AdvertiseByoipCid
 		objectKey.Boolean(*v.DryRun)
 	}
 
+	if v.NetworkBorderGroup != nil {
+		objectKey := object.Key("NetworkBorderGroup")
+		objectKey.String(*v.NetworkBorderGroup)
+	}
+
 	return nil
 }
 
@@ -51694,6 +51709,11 @@ func awsEc2query_serializeOpDocumentCreateNetworkAclInput(v *CreateNetworkAclInp
 	object := value.Object()
 	_ = object
 
+	if v.ClientToken != nil {
+		objectKey := object.Key("ClientToken")
+		objectKey.String(*v.ClientToken)
+	}
+
 	if v.DryRun != nil {
 		objectKey := object.Key("DryRun")
 		objectKey.Boolean(*v.DryRun)
@@ -52218,6 +52238,11 @@ func awsEc2query_serializeOpDocumentCreateRouteInput(v *CreateRouteInput, value 
 func awsEc2query_serializeOpDocumentCreateRouteTableInput(v *CreateRouteTableInput, value query.Value) error {
 	object := value.Object()
 	_ = object
+
+	if v.ClientToken != nil {
+		objectKey := object.Key("ClientToken")
+		objectKey.String(*v.ClientToken)
+	}
 
 	if v.DryRun != nil {
 		objectKey := object.Key("DryRun")
@@ -66029,6 +66054,11 @@ func awsEc2query_serializeOpDocumentProvisionByoipCidrInput(v *ProvisionByoipCid
 	if v.MultiRegion != nil {
 		objectKey := object.Key("MultiRegion")
 		objectKey.Boolean(*v.MultiRegion)
+	}
+
+	if v.NetworkBorderGroup != nil {
+		objectKey := object.Key("NetworkBorderGroup")
+		objectKey.String(*v.NetworkBorderGroup)
 	}
 
 	if v.PoolTagSpecifications != nil {

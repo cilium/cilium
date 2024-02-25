@@ -19,15 +19,14 @@ import (
 	"go4.org/netipx"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipalloc"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -45,9 +44,7 @@ const (
 	ciliumPoolIPsUsedCondition      = "cilium.io/IPsUsed"
 	ciliumPoolConflict              = "cilium.io/PoolConflict"
 
-	// The annotation LB IPAM will look for when searching for requested IPs
-	ciliumSvcLBIPSAnnotation = "io.cilium/lb-ipam-ips"
-	ciliumSvcLBISKAnnotation = "io.cilium/lb-ipam-sharing-key"
+	ciliumSvcLBISKCNWildward = "*"
 
 	// The string used in the FieldManager field on update options
 	ciliumFieldManager = "cilium-operator-lb-ipam"
@@ -66,7 +63,7 @@ var (
 )
 
 type poolClient interface {
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumLoadBalancerIPPool, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts meta_v1.PatchOptions, subresources ...string) (result *cilium_api_v2alpha1.CiliumLoadBalancerIPPool, err error)
 }
 
 type lbIPAMParams struct {
@@ -455,6 +452,7 @@ func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.S
 	sv.RequestedFamilies.IPv4, sv.RequestedFamilies.IPv6 = ipam.serviceIPFamilyRequest(svc)
 	sv.RequestedIPs = getSVCRequestedIPs(ipam.logger, svc)
 	sv.SharingKey = getSVCSharingKey(ipam.logger, svc)
+	sv.SharingCrossNamespace = getSVCSharingCrossNamespace(ipam.logger, svc)
 	sv.ExternalTrafficPolicy = svc.Spec.ExternalTrafficPolicy
 	sv.Ports = make([]slim_core_v1.ServicePort, len(svc.Spec.Ports))
 	copy(sv.Ports, svc.Spec.Ports)
@@ -682,8 +680,8 @@ func getSVCRequestedIPs(log logrus.FieldLogger, svc *slim_core_v1.Service) []net
 		}
 	}
 
-	if annotation := svc.Annotations[ciliumSvcLBIPSAnnotation]; annotation != "" {
-		for _, ipStr := range strings.Split(annotation, ",") {
+	if value, _ := annotation.Get(svc, annotation.LBIPAMIPsKey, annotation.LBIPAMIPKeyAlias); value != "" {
+		for _, ipStr := range strings.Split(value, ",") {
 			ip, err := netip.ParseAddr(strings.TrimSpace(ipStr))
 			if err == nil {
 				ips = append(ips, ip)
@@ -699,10 +697,17 @@ func getSVCRequestedIPs(log logrus.FieldLogger, svc *slim_core_v1.Service) []net
 }
 
 func getSVCSharingKey(log logrus.FieldLogger, svc *slim_core_v1.Service) string {
-	if annotation := svc.Annotations[ciliumSvcLBISKAnnotation]; annotation != "" {
-		return annotation
+	if val, _ := annotation.Get(svc, annotation.LBIPAMSharingKey, annotation.LBIPAMSharingKeyAlias); val != "" {
+		return val
 	}
 	return ""
+}
+
+func getSVCSharingCrossNamespace(log logrus.FieldLogger, svc *slim_core_v1.Service) []string {
+	if val, _ := annotation.Get(svc, annotation.LBIPAMSharingAcrossNamespace, annotation.LBIPAMSharingAcrossNamespaceAlias); val != "" {
+		return strings.Split(val, ",")
+	}
+	return []string{}
 }
 
 func (ipam *LBIPAM) handleDeletedService(svc *slim_core_v1.Service) {
@@ -1378,6 +1383,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 	}
 
 	existingRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
+	existingRanges = slices.Clone(existingRanges)
 
 	// Remove existing ranges that no longer exist
 	for _, extRange := range existingRanges {

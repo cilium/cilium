@@ -24,11 +24,32 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func xdpModeToFlag(xdpMode string) link.XDPAttachFlags {
+func xdpConfigModeToFlag(xdpMode string) link.XDPAttachFlags {
 	switch xdpMode {
 	case option.XDPModeNative, option.XDPModeLinkDriver, option.XDPModeBestEffort:
 		return link.XDPDriverMode
 	case option.XDPModeGeneric, option.XDPModeLinkGeneric:
+		return link.XDPGenericMode
+	}
+	return 0
+}
+
+// These constant values are returned by the kernel when querying the XDP program attach mode.
+// Important: they differ from constants that are used when attaching an XDP program to a netlink device.
+const (
+	xdpAttachedNone uint32 = iota
+	xdpAttachedDriver
+	xdpAttachedGeneric
+)
+
+// xdpAttachedModeToFlag maps the attach mode that is returned in the metadata when
+// querying netlink devices to the attach flags that were used to configure the
+// xdp program attachement.
+func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
+	switch mode {
+	case xdpAttachedDriver:
+		return link.XDPDriverMode
+	case xdpAttachedGeneric:
 		return link.XDPGenericMode
 	}
 	return 0
@@ -39,7 +60,7 @@ func xdpModeToFlag(xdpMode string) link.XDPAttachFlags {
 //
 // bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
-func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string) {
+func (l *loader) maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		log.WithError(err).Warn("Failed to list links for XDP unload")
@@ -59,7 +80,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string)
 		used := false
 		for _, xdpDev := range xdpDevs {
 			if link.Attrs().Name == xdpDev &&
-				linkxdp.AttachMode == uint32(xdpModeToFlag(xdpMode)) {
+				xdpAttachedModeToFlag(linkxdp.AttachMode) == xdpConfigModeToFlag(xdpMode) {
 				// XDP mode matches; don't unload, otherwise we might introduce
 				// intermittent connectivity problems
 				used = true
@@ -67,7 +88,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode, bpffsBase string)
 			}
 		}
 		if !used {
-			if err := DetachXDP(link, bpffsBase, symbolFromHostNetdevXDP); err != nil {
+			if err := l.DetachXDP(link, bpffsBase, symbolFromHostNetdevXDP); err != nil {
 				log.WithError(err).Warn("Failed to detach obsolete XDP program")
 			}
 		}
@@ -232,7 +253,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 //
 // bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
 // during tests.
-func DetachXDP(iface netlink.Link, bpffsBase, progName string) error {
+func (l *loader) DetachXDP(iface netlink.Link, bpffsBase, progName string) error {
 	pin := filepath.Join(bpffsDeviceLinksDir(bpffsBase, iface), progName)
 	err := bpf.UnpinLink(pin)
 	if err == nil {

@@ -146,6 +146,8 @@ paths:
       responses:
         '201':
           description: Created
+          schema:
+            "$ref": "#/definitions/Endpoint"
         '400':
           description: Invalid endpoint in request
           x-go-name: Invalid
@@ -1543,6 +1545,13 @@ definitions:
         type: boolean
       datapath-configuration:
         "$ref": "#/definitions/EndpointDatapathConfiguration"
+      properties:
+        description: >-
+          Properties is used to store information about the endpoint at
+          creation.
+          Useful for tests.
+        additionalProperties:
+          type: object
   EndpointBatchDeleteRequest:
     description: |
       Properties selecting a batch of endpoints to delete.
@@ -3849,7 +3858,10 @@ definitions:
           - Wireguard
       msg:
         type: string
-        description: Human readable status/error/warning message
+        description: Human readable error/warning message
+      ipsec:
+        description: Status of the IPsec agent
+        "$ref": "#/definitions/IPsecStatus"
       wireguard:
         description: Status of the WireGuard agent
         "$ref": "#/definitions/WireguardStatus"
@@ -3867,6 +3879,31 @@ definitions:
           - flannel
           - generic-veth
           - portmap
+  IPsecStatus:
+    description: |-
+      Status of the IPsec agent
+
+      +k8s:deepcopy-gen=true
+    properties:
+      decrypt-interfaces:
+        description: IPsec decryption interfaces
+        type: array
+        items:
+          type: string
+      max-seq-number:
+        description: IPsec max sequence number
+        type: string
+      keys-in-use:
+        description: IPsec keys in use
+        type: integer
+      error-count:
+        description: IPsec error count
+        type: integer
+      xfrm-errors:
+        description: IPsec XFRM errors
+        type: object
+        additionalProperties:
+          type: integer
   WireguardStatus:
     description: |-
       Status of the WireGuard agent
@@ -4042,6 +4079,9 @@ definitions:
       router-asn:
         description: Autonomous System Number (ASN) identifying a BGP virtual router instance
         type: integer
+      neighbor:
+        description: IP address specifying a BGP neighbor if the source table type is adj-rib-in or adj-rib-out
+        type: string
       prefix:
         description: IP prefix of the route
         type: string

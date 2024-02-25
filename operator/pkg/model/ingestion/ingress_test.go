@@ -1358,6 +1358,233 @@ var multiplePathTypesListeners = []model.HTTPListener{
 	},
 }
 
+// hostRulesForceHTTPSenabled tests the force-https annotation and should produce
+// three listeners, one for host with no TLS config, then one insecure and one
+// secure for the host with TLS config.
+var hostRulesForceHTTPSenabled = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "host-rules",
+		Namespace: "random-namespace",
+		Annotations: map[string]string{
+			"ingress.cilium.io/force-https": "enabled",
+		},
+	},
+	Spec: networkingv1.IngressSpec{
+		TLS: []networkingv1.IngressTLS{
+			{
+				Hosts:      []string{"foo.bar.com"},
+				SecretName: "conformance-tls",
+			},
+		},
+		Rules: []networkingv1.IngressRule{
+			{
+				Host: "*.foo.com",
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
+							{
+								Path: "/",
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "wildcard-foo-com",
+										Port: networkingv1.ServiceBackendPort{
+											Number: 8080,
+										},
+									},
+								},
+								PathType: &prefixPathType,
+							},
+						},
+					},
+				},
+			},
+			{
+				Host: "foo.bar.com",
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
+							{
+								Path: "/",
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "foo-bar-com",
+										Port: networkingv1.ServiceBackendPort{
+											Name: "http",
+										},
+									},
+								},
+								PathType: &prefixPathType,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var hostRulesForceHTTPSenabledListeners = []model.HTTPListener{
+	{
+		Name: "ing-host-rules-random-namespace-*.foo.com",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "host-rules",
+				Namespace: "random-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "*.foo.com",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "wildcard-foo-com",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "ing-host-rules-random-namespace-foo.bar.com",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "host-rules",
+				Namespace: "random-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "foo.bar.com",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-bar-com",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Name: "http",
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "ing-host-rules-random-namespace-foo.bar.com",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "host-rules",
+				Namespace: "random-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     443,
+		Hostname: "foo.bar.com",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "conformance-tls",
+				Namespace: "random-namespace",
+			},
+		},
+		ForceHTTPtoHTTPSRedirect: true,
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-bar-com",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Name: "http",
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+// forceHTTPSenabled tests the force-https annotation and should produce
+// three listeners, one for host with no TLS config, then one insecure and one
+// secure for the host with TLS config.
+var hostRulesForceHTTPSdisabled = networkingv1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "host-rules",
+		Namespace: "random-namespace",
+		Annotations: map[string]string{
+			"ingress.cilium.io/force-https": "disabled",
+		},
+	},
+	Spec: networkingv1.IngressSpec{
+		TLS: []networkingv1.IngressTLS{
+			{
+				Hosts:      []string{"foo.bar.com"},
+				SecretName: "conformance-tls",
+			},
+		},
+		Rules: []networkingv1.IngressRule{
+			{
+				Host: "*.foo.com",
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
+							{
+								Path: "/",
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "wildcard-foo-com",
+										Port: networkingv1.ServiceBackendPort{
+											Number: 8080,
+										},
+									},
+								},
+								PathType: &prefixPathType,
+							},
+						},
+					},
+				},
+			},
+			{
+				Host: "foo.bar.com",
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
+							{
+								Path: "/",
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
+										Name: "foo-bar-com",
+										Port: networkingv1.ServiceBackendPort{
+											Name: "http",
+										},
+									},
+								},
+								PathType: &prefixPathType,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func stringp(in string) *string {
 	return &in
 }
@@ -1415,6 +1642,7 @@ func removeIngressHTTPRuleValues(ing networkingv1.Ingress) networkingv1.Ingress 
 type testcase struct {
 	ingress       networkingv1.Ingress
 	defaultSecret bool
+	enforceHTTPS  bool
 	want          []model.HTTPListener
 }
 
@@ -1518,15 +1746,38 @@ func TestIngress(t *testing.T) {
 			ingress: multiplePathTypes,
 			want:    multiplePathTypesListeners,
 		},
+		"force-https annotation present and enabled": {
+			ingress: hostRulesForceHTTPSenabled,
+			want:    hostRulesForceHTTPSenabledListeners,
+		},
+		"force-https annotation present and enabled, enforceHTTPS enabled": {
+			ingress:      hostRulesForceHTTPSenabled,
+			want:         hostRulesForceHTTPSenabledListeners,
+			enforceHTTPS: true,
+		},
+		"force-https annotation present and disabled, enforceHTTPS enabled": {
+			ingress:      hostRulesForceHTTPSdisabled,
+			want:         hostRulesListeners,
+			enforceHTTPS: true,
+		},
+		"force-https annotation present and disabled, enforceHTTPS disabled": {
+			ingress: hostRulesForceHTTPSdisabled,
+			want:    hostRulesListeners,
+		},
+		"force-https annotation not present, enforceHTTPS enabled": {
+			ingress:      hostRules,
+			want:         hostRulesForceHTTPSenabledListeners,
+			enforceHTTPS: true,
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			var listeners []model.HTTPListener
 			if tc.defaultSecret {
-				listeners = Ingress(tc.ingress, defaultSecretNamespace, defaultSecretName)
+				listeners = Ingress(tc.ingress, defaultSecretNamespace, defaultSecretName, tc.enforceHTTPS)
 			} else {
-				listeners = Ingress(tc.ingress, "", "")
+				listeners = Ingress(tc.ingress, "", "", tc.enforceHTTPS)
 			}
 
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")

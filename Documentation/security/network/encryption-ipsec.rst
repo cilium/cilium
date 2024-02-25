@@ -218,10 +218,10 @@ Troubleshooting
    receive pod traffic (for example, ENI interfaces).
 
  * All XFRM errors correspond to a packet drop in the kernel. Except for
-   ``XfrmFwdHdrError`` and ``XfrmInError``, all XFRM errors indicate a bug in
-   Cilium or an operational mistake. ``XfrmOutStateSeqError``,
-   ``XfrmInStateProtoError``, and ``XfrmInNoStates`` may be caused by
-   operational mistakes, as detailed in the following points.
+   ``XfrmFwdHdrError``, ``XfrmInError``, and ``XfrmInStateInvalid``, all XFRM
+   errors indicate a bug in Cilium or an operational mistake.
+   ``XfrmOutStateSeqError``, ``XfrmInStateProtoError``, and ``XfrmInNoStates``
+   may be caused by operational mistakes, as detailed in the following points.
 
  * If the sequence number reaches its maximum value for any XFRM OUT state, it
    will result in packet drops and XFRM errors of type
@@ -249,6 +249,10 @@ Troubleshooting
    errors can also happen under memory pressure when the kernel fails to
    allocate memory.
 
+ * ``XfrmInStateInvalid`` can happen on rare occasions if packets are received
+   while an XFRM state is being deleted. XFRM states get deleted as part of
+   node scale-downs and for some upgrades and downgrades.
+
  * The following table documents the known explanations for several XFRM errors
    that were observed in the past. Many other error types exist, but they are
    usually for Linux subfeatures that Cilium doesn't use (e.g., XFRM
@@ -262,6 +266,8 @@ Troubleshooting
                             allocate memory.
    XfrmInNoStates           Bug in the XFRM configuration for decryption.
    XfrmInStateProtoError    There is a key mismatch between nodes.
+   XfrmInStateInvalid       A received packet matched an XFRM state that is
+                            being deleted.
    XfrmInTmplMismatch       Bug in the XFRM configuration for decryption.
    XfrmInNoPols             Bug in the XFRM configuration for decryption.
    XfrmInPolBlock           Explicit drop, not used by Cilium.
@@ -297,6 +303,9 @@ Limitations
     * Transparent encryption is not currently supported when chaining Cilium on
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
+    * IPsec encryption does not work when using :ref:`kube-proxy replacement
+      <kubeproxy-free>`. Be aware that other features may require a kube-proxy
+      free environment in which case they are mutual exclusive.
     * IPsec encryption is not currently supported in combination with IPv6-only clusters.
     * IPsec encryption is not supported on clusters or clustermeshes with more
       than 65535 nodes.

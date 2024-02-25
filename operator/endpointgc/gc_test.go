@@ -20,7 +20,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -212,19 +211,19 @@ func createOwnerReference(kind, name string) meta_v1.OwnerReference {
 	}
 }
 
-func createPod(name, namespace string, isRunning bool) *v1.Pod {
+func createPod(name, namespace string, isRunning bool) *slim_corev1.Pod {
 	var phase slim_corev1.PodPhase
 	if isRunning {
 		phase = slim_corev1.PodRunning
 	} else {
 		phase = slim_corev1.PodSucceeded
 	}
-	return &v1.Pod{
+	return &slim_corev1.Pod{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Status: v1.PodStatus{
+		Status: slim_corev1.PodStatus{
 			Phase: phase,
 		},
 	}

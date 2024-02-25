@@ -303,8 +303,8 @@ func (c *consulClient) LockPath(ctx context.Context, path string) (KVLocker, err
 	return nil, fmt.Errorf("maximum retries (%d) reached", maxLockRetries)
 }
 
-// Watch starts watching for changes in a prefix
-func (c *consulClient) Watch(ctx context.Context, w *Watcher) {
+// watch starts watching for changes in a prefix
+func (c *consulClient) watch(ctx context.Context, w *Watcher) {
 	// Last known state of all KVPairs matching the prefix
 	localState := map[string]consulAPI.KVPair{}
 	nextIndex := uint64(0)
@@ -467,17 +467,6 @@ func (c *consulClient) DeletePrefix(ctx context.Context, path string) (err error
 	return err
 }
 
-// Set sets value of key
-func (c *consulClient) Set(ctx context.Context, key string, value []byte) (err error) {
-	defer func() { Trace("Set", err, logrus.Fields{fieldKey: key, fieldValue: string(value)}) }()
-
-	duration := spanstat.Start()
-	wo := &consulAPI.WriteOptions{}
-	_, err = c.KV().Put(&consulAPI.KVPair{Key: key, Value: value}, wo.WithContext(ctx))
-	increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
-	return err
-}
-
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
 func (c *consulClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) (err error) {
 	defer func() { Trace("DeleteIfLocked", err, logrus.Fields{fieldKey: key}) }()
@@ -519,38 +508,6 @@ func (c *consulClient) Get(ctx context.Context, key string) (bv []byte, err erro
 		return nil, nil
 	}
 	return pair.Value, nil
-}
-
-// GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
-func (c *consulClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
-	return c.getPrefix(ctx, prefix)
-}
-
-// GetPrefix returns the first key which matches the prefix and its value
-func (c *consulClient) GetPrefix(ctx context.Context, prefix string) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
-	return c.getPrefix(ctx, prefix)
-}
-
-func (c *consulClient) getPrefix(ctx context.Context, prefix string) (k string, bv []byte, err error) {
-	duration := spanstat.Start()
-	opts := &consulAPI.QueryOptions{}
-	pairs, _, err := c.KV().List(prefix, opts.WithContext(ctx))
-	increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
-	if err != nil {
-		return "", nil, err
-	}
-
-	if len(pairs) == 0 {
-		return "", nil, nil
-	}
-
-	return pairs[0].Key, pairs[0].Value, nil
 }
 
 // UpdateIfLocked updates a key if the client is still holding the given lock.
@@ -656,49 +613,6 @@ func (c *consulClient) createOnly(ctx context.Context, key string, value []byte,
 	return success, nil
 }
 
-// createIfExists creates a key with the value only if key condKey exists
-func (c *consulClient) createIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) error {
-	// Consul does not support transactions which would allow to check for
-	// the presence of a conditional key if the key is not the key being
-	// manipulated
-	//
-	// Lock the conditional key to serialize all CreateIfExists() calls
-
-	l, err := LockPath(ctx, c, condKey)
-	if err != nil {
-		return fmt.Errorf("unable to lock condKey for CreateIfExists: %s", err)
-	}
-
-	defer l.Unlock(context.Background())
-
-	// Create the key if it does not exist
-	if _, err := c.CreateOnly(ctx, key, value, lease); err != nil {
-		return err
-	}
-
-	// Consul does not support transactions which would allow to check for
-	// the presence of another key
-	masterKey, err := c.Get(ctx, condKey)
-	if err != nil || masterKey == nil {
-		c.Delete(ctx, key)
-		return fmt.Errorf("conditional key not present")
-	}
-
-	return nil
-}
-
-// CreateIfExists creates a key with the value only if key condKey exists
-func (c *consulClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) (err error) {
-	defer func() {
-		Trace("CreateIfExists", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldCondition: condKey, fieldAttachLease: lease})
-	}()
-
-	duration := spanstat.Start()
-	err = c.createIfExists(ctx, condKey, key, value, lease)
-	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
-	return err
-}
-
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 func (c *consulClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (v KeyValuePairs, err error) {
 	defer func() { Trace("ListPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)}) }()
@@ -743,11 +657,6 @@ func (c *consulClient) Close(ctx context.Context) {
 	}
 }
 
-// GetCapabilities returns the capabilities of the backend
-func (c *consulClient) GetCapabilities() Capabilities {
-	return Capabilities(0)
-}
-
 // Encode encodes a binary slice into a character set that the backend supports
 func (c *consulClient) Encode(in []byte) (out string) {
 	defer func() { Trace("Encode", nil, logrus.Fields{"in": in, "out": out}) }()
@@ -766,7 +675,7 @@ func (c *consulClient) ListAndWatch(ctx context.Context, prefix string, chanSize
 
 	log.WithField(fieldPrefix, prefix).Debug("Starting watcher...")
 
-	go c.Watch(ctx, w)
+	go c.watch(ctx, w)
 
 	return w
 }

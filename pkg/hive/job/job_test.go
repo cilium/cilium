@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,7 +37,7 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m, goleak.Cleanup(cleanup))
 }
 
-func fixture(fn func(Registry, cell.Scope, hive.Lifecycle)) *hive.Hive {
+func fixture(fn func(Registry, cell.Scope, cell.Lifecycle)) *hive.Hive {
 	logging.SetLogLevel(logrus.DebugLevel)
 	return hive.New(
 		Cell,
@@ -46,9 +47,11 @@ func fixture(fn func(Registry, cell.Scope, hive.Lifecycle)) *hive.Hive {
 
 // This test asserts that a OneShot jobs is started and completes. This test will timeout on failure
 func TestOneShot_ShortRun(t *testing.T) {
+	t.Parallel()
+
 	stop := make(chan struct{})
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -69,10 +72,12 @@ func TestOneShot_ShortRun(t *testing.T) {
 
 // This test asserts that the context given to a one shot job cancels when the lifecycle of the group ends.
 func TestOneShot_LongRun(t *testing.T) {
+	t.Parallel()
+
 	started := make(chan struct{})
 	stopped := make(chan struct{})
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -96,21 +101,24 @@ func TestOneShot_LongRun(t *testing.T) {
 
 // This test asserts that we will stop retrying after the retry limit
 func TestOneShot_RetryFail(t *testing.T) {
+	t.Parallel()
+
 	var (
 		g Group
 		i int
 	)
 
 	const retries = 3
+	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(10*time.Millisecond, 20*time.Millisecond)
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
 			OneShot("retry-fail", func(ctx context.Context, health cell.HealthReporter) error {
 				defer func() { i++ }()
 				return errors.New("Always error")
-			}, WithRetry(retries, workqueue.DefaultControllerRateLimiter())),
+			}, WithRetry(retries, rateLimiter)),
 		)
 
 		l.Append(g)
@@ -136,20 +144,19 @@ func TestOneShot_RetryFail(t *testing.T) {
 // Run the actual test multiple times, as long as 1 out of 5 is good, we accept it, only fail if we are consistently
 // broken. This is due to the time based nature of the test which is unreliable in certain CI environments.
 func TestOneShot_RetryBackoff(t *testing.T) {
-	ok := 0
+	t.Parallel()
+
 	for i := 0; i < 5; i++ {
 		failed, err := testOneShot_RetryBackoff()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !failed {
-			ok++
+			return
 		}
 	}
 
-	if ok == 0 {
-		t.Fatal("0/5 retry backoff tests succeeded")
-	}
+	t.Fatal("0/5 retry backoff tests succeeded")
 }
 
 // This test asserts that the one shot jobs have a delay equal to the expected behavior of the passed in ratelimiter.
@@ -162,9 +169,14 @@ func testOneShot_RetryBackoff() (bool, error) {
 
 	failed := false
 
-	const retries = 6
+	const (
+		retries  = 6
+		retryMin = 5 * time.Millisecond
+		retryMax = retryMin * (1 << retries)
+	)
+	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(retryMin, retryMax)
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -172,7 +184,7 @@ func testOneShot_RetryBackoff() (bool, error) {
 				defer func() { i++ }()
 				times = append(times, time.Now())
 				return errors.New("Always error")
-			}, WithRetry(retries, workqueue.NewItemExponentialFailureRateLimiter(50*time.Millisecond, 10*time.Second))),
+			}, WithRetry(retries, rateLimiter)),
 		)
 
 		l.Append(g)
@@ -193,10 +205,12 @@ func testOneShot_RetryBackoff() (bool, error) {
 	for i := 1; i < len(times); i++ {
 		diff := times[i].Sub(times[i-1])
 		if i > 2 {
-			// Test that the rate of change is 2 +- 50%, the 50% to account for CI time dilation.
+			// Test that the rate of change is 2x (+- 50%, the 50% to account for CI time dilation).
 			// The 10 factor is to add avoid integer rounding.
-			fract := uint64(diff * 10 / last * 10)
-			if fract < 150 || fract > 250 {
+			fract := diff * 10 / last
+			if fract < 15 || fract > 25 {
+				// The retry backoff wait time was less than 1.5x or more than 2.5x than
+				// the previous attempt.
 				failed = true
 			}
 		}
@@ -208,6 +222,8 @@ func testOneShot_RetryBackoff() (bool, error) {
 
 // This test asserts that we do not keep retrying after the job function has recovered
 func TestOneShot_RetryRecover(t *testing.T) {
+	t.Parallel()
+
 	var (
 		g Group
 		i int
@@ -215,7 +231,9 @@ func TestOneShot_RetryRecover(t *testing.T) {
 
 	const retries = 3
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(10*time.Millisecond, 20*time.Millisecond)
+
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -226,7 +244,7 @@ func TestOneShot_RetryRecover(t *testing.T) {
 				}
 
 				return nil
-			}, WithRetry(retries, workqueue.DefaultControllerRateLimiter())),
+			}, WithRetry(retries, rateLimiter)),
 		)
 
 		l.Append(g)
@@ -250,8 +268,10 @@ func TestOneShot_RetryRecover(t *testing.T) {
 
 // This tests asserts that returning an error on a one shot job with the WithShutdown option will shutdown the hive.
 func TestOneShot_Shutdown(t *testing.T) {
+	t.Parallel()
+
 	targetErr := errors.New("Always error")
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -272,19 +292,22 @@ func TestOneShot_Shutdown(t *testing.T) {
 // This test asserts that when the retry and shutdown options are used, the hive is only shutdown after all retries
 // failed
 func TestOneShot_RetryFailShutdown(t *testing.T) {
+	t.Parallel()
+
 	var i int
 
 	const retries = 3
+	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(10*time.Millisecond, 20*time.Millisecond)
 
 	targetErr := errors.New("Always error")
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
 			OneShot("retry-fail-shutdown", func(ctx context.Context, health cell.HealthReporter) error {
 				defer func() { i++ }()
 				return targetErr
-			}, WithRetry(retries, workqueue.DefaultControllerRateLimiter()), WithShutdown()),
+			}, WithRetry(retries, rateLimiter), WithShutdown()),
 		)
 
 		l.Append(g)
@@ -303,6 +326,8 @@ func TestOneShot_RetryFailShutdown(t *testing.T) {
 // This test asserts that when both the WithRetry and WithShutdown options are used, and the one shot function recovers
 // that the hive does not shutdown.
 func TestOneShot_RetryRecoverNoShutdown(t *testing.T) {
+	t.Parallel()
+
 	var (
 		g Group
 		i int
@@ -312,7 +337,7 @@ func TestOneShot_RetryRecoverNoShutdown(t *testing.T) {
 
 	const retries = 5
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -356,16 +381,19 @@ func TestOneShot_RetryRecoverNoShutdown(t *testing.T) {
 // This test asserts that when the WithRetry option is used, retries are not
 // attempted after that the hive shutdown process has started.
 func TestOneShot_RetryWhileShuttingDown(t *testing.T) {
+	t.Parallel()
+
 	var (
 		g    Group
 		runs int
 	)
 
 	const retries = 5
+	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(10*time.Millisecond, 50*time.Millisecond)
 	started := make(chan struct{})
 	shutdown := make(chan struct{})
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -377,7 +405,7 @@ func TestOneShot_RetryWhileShuttingDown(t *testing.T) {
 				runs++
 				<-ctx.Done()
 				return ctx.Err()
-			}, WithRetry(retries, workqueue.DefaultControllerRateLimiter())),
+			}, WithRetry(retries, rateLimiter)),
 		)
 
 		l.Append(g)
@@ -401,10 +429,12 @@ func TestOneShot_RetryWhileShuttingDown(t *testing.T) {
 // timeliness in the CI or even locally. This makes assertions of test timing inherently flaky,
 // leading to a need of large tolerances that diminish value of such assertions.
 func TestTimer_OnInterval(t *testing.T) {
+	t.Parallel()
+
 	stop := make(chan struct{})
 	i := 0
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -434,13 +464,15 @@ func TestTimer_OnInterval(t *testing.T) {
 
 // This test asserts that a timer will run when triggered, even when its interval has not yet expired
 func TestTimer_Trigger(t *testing.T) {
+	t.Parallel()
+
 	ran := make(chan struct{})
 
 	var i int
 
 	trigger := NewTrigger()
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -480,13 +512,15 @@ func TestTimer_Trigger(t *testing.T) {
 
 // This test asserts that, if a trigger is called multiple times before a job is finished, that the events will coalesce
 func TestTimer_DoubleTrigger(t *testing.T) {
+	t.Parallel()
+
 	ran := make(chan struct{})
 
 	var i int
 
 	trigger := NewTrigger()
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -528,8 +562,10 @@ func TestTimer_DoubleTrigger(t *testing.T) {
 
 // This test asserts that the timer will stop as soon as the lifecycle has stopped, when waiting for an interval pulse
 func TestTimer_ExitOnClose(t *testing.T) {
+	t.Parallel()
+
 	var i int
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -558,18 +594,18 @@ func TestTimer_ExitOnClose(t *testing.T) {
 // This test asserts that the context given to the timer closes when the lifecycle ends, and that the timer stops
 // after the fn return.
 func TestTimer_ExitOnCloseFnCtx(t *testing.T) {
+	t.Parallel()
+
 	var i int
 	started := make(chan struct{})
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
+		var closer sync.Once
 		g.Add(
 			Timer("on-interval", func(ctx context.Context) error {
 				i++
-				if started != nil {
-					close(started)
-					started = nil
-				}
+				closer.Do(func() { close(started) })
 				<-ctx.Done()
 				return nil
 			}, 1*time.Millisecond),
@@ -595,6 +631,8 @@ func TestTimer_ExitOnCloseFnCtx(t *testing.T) {
 
 // This test asserts that an observer job will stop after a stream has been completed.
 func TestObserver_ShortStream(t *testing.T) {
+	t.Parallel()
+
 	var (
 		g Group
 		i int
@@ -602,7 +640,7 @@ func TestObserver_ShortStream(t *testing.T) {
 
 	streamSlice := []string{"a", "b", "c"}
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -634,6 +672,8 @@ func TestObserver_ShortStream(t *testing.T) {
 // This test asserts that the observer will stop without errors when the lifecycle ends, even if the stream has not
 // gone away.
 func TestObserver_LongStream(t *testing.T) {
+	t.Parallel()
+
 	var (
 		g Group
 		i int
@@ -641,7 +681,7 @@ func TestObserver_LongStream(t *testing.T) {
 
 	inChan := make(chan struct{})
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 
 		g.Add(
@@ -670,11 +710,13 @@ func TestObserver_LongStream(t *testing.T) {
 // This test asserts that the context given to the observer fn is closed when the lifecycle ends and the observer
 // stops even if there are still pending items in the stream.
 func TestObserver_CtxClose(t *testing.T) {
+	t.Parallel()
+
 	started := make(chan struct{})
 	i := 0
 	streamSlice := []string{"a", "b", "c"}
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 
 		g.Add(
@@ -704,13 +746,15 @@ func TestObserver_CtxClose(t *testing.T) {
 
 // This test asserts that the test registry hold on to references to its groups
 func TestRegistry(t *testing.T) {
+	t.Parallel()
+
 	var (
 		r1 Registry
 		g1 Group
 		g2 Group
 	)
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		r1 = r
 		g1 = r.NewGroup(s)
 		g2 = r.NewGroup(s)
@@ -727,7 +771,9 @@ func TestRegistry(t *testing.T) {
 
 // This test asserts that jobs are queued, until the hive has been started
 func TestGroup_JobQueue(t *testing.T) {
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	t.Parallel()
+
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g := r.NewGroup(s)
 		g.Add(
 			OneShot("queued1", func(ctx context.Context, health cell.HealthReporter) error { return nil }),
@@ -748,12 +794,14 @@ func TestGroup_JobQueue(t *testing.T) {
 
 // This test asserts that jobs can be added at runtime.
 func TestGroup_JobRuntime(t *testing.T) {
+	t.Parallel()
+
 	var (
 		g Group
 		i int
 	)
 
-	h := fixture(func(r Registry, s cell.Scope, l hive.Lifecycle) {
+	h := fixture(func(r Registry, s cell.Scope, l cell.Lifecycle) {
 		g = r.NewGroup(s)
 		l.Append(g)
 	})

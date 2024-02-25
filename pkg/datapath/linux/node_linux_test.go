@@ -15,29 +15,30 @@ import (
 
 	check "github.com/cilium/checkmate"
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
-	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type linuxPrivilegedBaseTestSuite struct {
+	sysctl         sysctl.Sysctl
 	nodeAddressing datapath.NodeAddressing
 	mtuConfig      mtu.Configuration
 	enableIPv4     bool
@@ -88,6 +89,8 @@ const (
 )
 
 func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
+	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+
 	rlimit.RemoveMemlock()
 	s.nodeAddressing = addressing
 	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
@@ -123,17 +126,17 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpTest(c *check.C) {
-	addressing := fake.NewIPv6OnlyNodeAddressing()
+	addressing := fakeTypes.NewIPv6OnlyNodeAddressing()
 	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, true, false)
 }
 
 func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpTest(c *check.C) {
-	addressing := fake.NewIPv4OnlyNodeAddressing()
+	addressing := fakeTypes.NewIPv4OnlyNodeAddressing()
 	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, false, true)
 }
 
 func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
-	addressing := fake.NewNodeAddressing()
+	addressing := fakeTypes.NewNodeAddressing()
 	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, true, true)
 }
 
@@ -329,10 +332,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulationWithOverride(c *check.C) {
-	s.commonNodeUpdateEncapsulation(c, false, func(*types.Node) bool { return true })
+	s.commonNodeUpdateEncapsulation(c, false, func(*nodeTypes.Node) bool { return true })
 }
 
-func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(c *check.C, encap bool, override func(*types.Node) bool) {
+func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(c *check.C, encap bool, override func(*nodeTypes.Node) bool) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
@@ -1266,17 +1269,17 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	tmpDir := c.MkDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := sysctl.Read(baseIPv6Time)
+	baseTimeOld, err := s.sysctl.Read(baseIPv6Time)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", baseTime))
+	err = s.sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", baseTime))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseIPv6Time, baseTimeOld) }()
+	defer func() { s.sysctl.Write(baseIPv6Time, baseTimeOld) }()
 
-	mcastNumOld, err := sysctl.Read(mcastNumIPv6)
+	mcastNumOld, err := s.sysctl.Read(mcastNumIPv6)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
+	err = s.sysctl.Write(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(mcastNumIPv6, mcastNumOld) }()
+	defer func() { s.sysctl.Write(mcastNumIPv6, mcastNumOld) }()
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
@@ -2084,17 +2087,17 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	tmpDir := c.MkDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := sysctl.Read(baseIPv6Time)
+	baseTimeOld, err := s.sysctl.Read(baseIPv6Time)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", baseTime))
+	err = s.sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", baseTime))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseIPv6Time, baseTimeOld) }()
+	defer func() { s.sysctl.Write(baseIPv6Time, baseTimeOld) }()
 
-	mcastNumOld, err := sysctl.Read(mcastNumIPv6)
+	mcastNumOld, err := s.sysctl.Read(mcastNumIPv6)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
+	err = s.sysctl.Write(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(mcastNumIPv6, mcastNumOld) }()
+	defer func() { s.sysctl.Write(mcastNumIPv6, mcastNumOld) }()
 
 	// 1. Test whether another node with multiple paths can be arpinged.
 	//    Each node has two devices and the other node in the different netns
@@ -2521,17 +2524,17 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	tmpDir := c.MkDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := sysctl.Read(baseIPv4Time)
+	baseTimeOld, err := s.sysctl.Read(baseIPv4Time)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", baseTime))
+	err = s.sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", baseTime))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseIPv4Time, baseTimeOld) }()
+	defer func() { s.sysctl.Write(baseIPv4Time, baseTimeOld) }()
 
-	mcastNumOld, err := sysctl.Read(mcastNumIPv4)
+	mcastNumOld, err := s.sysctl.Read(mcastNumIPv4)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
+	err = s.sysctl.Write(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(mcastNumIPv4, mcastNumOld) }()
+	defer func() { s.sysctl.Write(mcastNumIPv4, mcastNumOld) }()
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
@@ -3340,17 +3343,17 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	tmpDir := c.MkDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := sysctl.Read(baseIPv4Time)
+	baseTimeOld, err := s.sysctl.Read(baseIPv4Time)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", baseTime))
+	err = s.sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", baseTime))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(baseIPv4Time, baseTimeOld) }()
+	defer func() { s.sysctl.Write(baseIPv4Time, baseTimeOld) }()
 
-	mcastNumOld, err := sysctl.Read(mcastNumIPv4)
+	mcastNumOld, err := s.sysctl.Read(mcastNumIPv4)
 	c.Assert(err, check.IsNil)
-	err = sysctl.Write(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
+	err = s.sysctl.Write(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
 	c.Assert(err, check.IsNil)
-	defer func() { sysctl.Write(mcastNumIPv4, mcastNumOld) }()
+	defer func() { s.sysctl.Write(mcastNumIPv4, mcastNumOld) }()
 
 	// 1. Test whether another node with multiple paths can be arpinged.
 	//    Each node has two devices and the other node in the different netns

@@ -6,8 +6,8 @@ package config
 import (
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -19,7 +19,8 @@ type WriterParams struct {
 	NodeAddressing     datapath.NodeAddressing
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
-	BandwidthManager   bandwidth.Manager
+	BandwidthManager   datapath.BandwidthManager
+	Sysctl             sysctl.Sysctl
 }
 
 var Cell = cell.Module(

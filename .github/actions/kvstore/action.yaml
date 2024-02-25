@@ -1,0 +1,120 @@
+name: Setup external etcd clusters for Cilium
+description: Generates the appropriate TLS certificates and starts the given number of single replica etcd clusters
+
+inputs:
+  clusters:
+    description: "Number of etcd single replica clusters to create"
+    default: "1"
+  etcd-image:
+    description: "etcd docker image"
+    default: gcr.io/etcd-development/etcd:v3.5.12@sha256:cebe24b890641de3e7ff8a640c4597bdda321090c29f4dedcedaa8cadbbe08e1
+  name:
+    description: "Base name of the etcd containers (to which the index is appended)"
+    default: kvstore
+  network:
+    description: "The Docker network the etcd containers are attached to"
+    default: kind
+
+outputs:
+  cilium_etcd_secrets_path:
+    description: "Path to the generated cilium-etcd-secrets Kubernetes secret"
+    value: ${{ steps.kvstore-vars.outputs.cilium_etcd_secrets_path }}
+  cilium_install_kvstore:
+    description: "The Cilium configuration to connect to the etcd cluster (parametrized by $KVSTORE_ID)"
+    value: ${{ steps.kvstore-vars.outputs.settings }}
+  cilium_install_clustermesh:
+    description: "The Cluster Mesh configuration to connect to the other clusters"
+    value: ${{ steps.clustermesh-vars.outputs.settings }}
+
+runs:
+  using: composite
+  steps:
+    - name: Generate certificates
+      id: generate-certs
+      shell: bash
+      run: |
+        DIR=$(mktemp -d)
+        echo "certs_dir=$DIR" >> $GITHUB_OUTPUT
+
+        # Generate the TLS certificates
+        openssl genrsa 4096 > $DIR/kvstore-ca-key.pem
+        openssl genrsa 4096 > $DIR/kvstore-server-key.pem
+        openssl genrsa 4096 > $DIR/kvstore-client-key.pem
+
+        # We reuse the same certificates for all etcd clusters for simplicity,
+        # as we are interested in a working setup, not a production-ready one.
+        openssl req -new -x509 -nodes -days 1 -subj "/CN=KVStore CA/" \
+          -key $DIR/kvstore-ca-key.pem -out $DIR/kvstore-ca-crt.pem
+        openssl req -new -x509 -nodes -days 1 -subj "/CN=server/" \
+          -addext "subjectAltName=$(printf DNS:${{ inputs.name }}%d, {1..${{ inputs.clusters }}})DNS:*.mesh.cilium.io" \
+          -key $DIR/kvstore-server-key.pem -out $DIR/kvstore-server-crt.pem \
+          -CA $DIR/kvstore-ca-crt.pem -CAkey $DIR/kvstore-ca-key.pem
+        openssl req -new -x509 -nodes -days 1 -subj "/CN=client/" \
+          -key $DIR/kvstore-client-key.pem -out $DIR/kvstore-client-crt.pem \
+          -CA $DIR/kvstore-ca-crt.pem -CAkey $DIR/kvstore-ca-key.pem
+
+    - name: Start kvstore containers
+      shell: bash
+      run: |
+        DIR=${{ steps.generate-certs.outputs.certs_dir }}
+
+        ETCD_VOLUMES=" \
+          --volume=$DIR/kvstore-ca-crt.pem:/tmp/tls/ca.crt:ro \
+          --volume=$DIR/kvstore-server-crt.pem:/tmp/tls/tls.crt:ro \
+          --volume=$DIR/kvstore-server-key.pem:/tmp/tls/tls.key:ro \
+        "
+
+        ETCD_FLAGS=" \
+          --client-cert-auth \
+          --trusted-ca-file=/tmp/tls/ca.crt \
+          --cert-file=/tmp/tls/tls.crt \
+          --key-file=/tmp/tls/tls.key \
+          --listen-client-urls=https://0.0.0.0:2379 \
+          --advertise-client-urls=https://0.0.0.0:2379 \
+        "
+
+        for i in {1..${{ inputs.clusters }}}; do
+          docker run --name ${{ inputs.name }}$i --detach --network=${{ inputs.network }} \
+            ${ETCD_VOLUMES} ${{ inputs.etcd-image }} etcd ${ETCD_FLAGS}
+        done
+
+    - name: Set kvstore connection parameters
+      shell: bash
+      id: kvstore-vars
+      run: |
+        DIR=${{ steps.generate-certs.outputs.certs_dir }}
+
+        echo "settings= \
+          --set etcd.enabled=true \
+          --set etcd.endpoints={https://${{ inputs.name }}\${KVSTORE_ID}:2379} \
+          --set etcd.ssl=true \
+          --set identityAllocationMode=kvstore \
+        " >> $GITHUB_OUTPUT
+
+        SECRET_PATH=$DIR/cilium-etcd-secrets.yaml
+        echo "cilium_etcd_secrets_path=$SECRET_PATH" >> $GITHUB_OUTPUT
+        kubectl create secret generic cilium-etcd-secrets --dry-run=client -o yaml \
+          --from-file etcd-client-ca.crt=$DIR/kvstore-ca-crt.pem \
+          --from-file etcd-client.crt=$DIR/kvstore-client-crt.pem \
+          --from-file etcd-client.key=$DIR/kvstore-client-key.pem \
+          > $SECRET_PATH
+
+    - name: Set clustermesh connection parameters
+      shell: bash
+      id: clustermesh-vars
+      run: |
+        DIR=${{ steps.generate-certs.outputs.certs_dir }}
+        SETTINGS=""
+
+        for i in {1..${{ inputs.clusters }}}; do
+          IP=$(docker inspect --format '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${{ inputs.name }}$i)
+          SETTINGS="$SETTINGS \
+            --set clustermesh.config.clusters[$(( i-1 ))].ips={$IP} \
+            --set clustermesh.config.clusters[$(( i-1 ))].port=2379 \
+            --set clustermesh.config.clusters[$(( i-1 ))].tls.caCert=$(base64 -w0 $DIR/kvstore-ca-crt.pem) \
+            --set clustermesh.config.clusters[$(( i-1 ))].tls.cert=$(base64 -w0 $DIR/kvstore-client-crt.pem) \
+            --set clustermesh.config.clusters[$(( i-1 ))].tls.key=$(base64 -w0 $DIR/kvstore-client-key.pem) \
+          "
+        done
+
+        echo "settings=$SETTINGS" >> $GITHUB_OUTPUT

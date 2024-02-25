@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metallbk8s "go.universe.tf/metallb/pkg/k8s"
-	mlbk8s "go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/workqueue"
@@ -26,7 +25,7 @@ const (
 
 var (
 	errTimeout = errors.New("timeout occurred before mock received event")
-	emptyEps   = mlbk8s.EpsOrSlices{
+	emptyEps   = metallbk8s.EpsOrSlices{
 		Type: metallbk8s.Eps,
 	}
 )
@@ -44,11 +43,11 @@ func TestManagerEventNoService(t *testing.T) {
 		lock.Mutex
 		name  string
 		srvRo *v1.Service
-		eps   mlbk8s.EpsOrSlices
+		eps   metallbk8s.EpsOrSlices
 	}
 
 	mockCtrl := &mock.MockMetalLBController{
-		SetBalancer_: func(name string, srvRo *v1.Service, eps mlbk8s.EpsOrSlices) types.SyncState {
+		SetBalancer_: func(name string, srvRo *v1.Service, eps metallbk8s.EpsOrSlices) types.SyncState {
 			rr.Lock()
 			rr.name, rr.srvRo, rr.eps = name, srvRo, eps
 			rr.Unlock()
@@ -114,11 +113,11 @@ func TestManagerEvent(t *testing.T) {
 		lock.Mutex
 		name  string
 		srvRo *v1.Service
-		eps   mlbk8s.EpsOrSlices
+		eps   metallbk8s.EpsOrSlices
 	}
 
 	mockCtrl := &mock.MockMetalLBController{
-		SetBalancer_: func(name string, srvRo *v1.Service, eps mlbk8s.EpsOrSlices) types.SyncState {
+		SetBalancer_: func(name string, srvRo *v1.Service, eps metallbk8s.EpsOrSlices) types.SyncState {
 			rr.Lock()
 			rr.name, rr.srvRo, rr.eps = name, srvRo, eps
 			rr.Unlock()

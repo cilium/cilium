@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"strings"
 	"sync"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -204,10 +204,6 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 			close(k.podStoreSet)
 		})
 
-		if option.Config.LegacyTurnOffK8sEventHandover {
-			return
-		}
-
 		// Replace pod controller by only receiving events from our own
 		// node once we are connected to the kvstore.
 		<-kvstore.Connected()
@@ -358,7 +354,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 
 	newK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(strippedNewLabels, labels.LabelSourceK8s))
 	newPodLabels := newK8sPodLabels.K8sStringMap()
-	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
+	labelsChanged := !maps.Equal(oldPodLabels, newPodLabels)
 
 	lrpNeedsReassign := false
 	// The relevant updates are : podIPs and label updates.
@@ -479,8 +475,8 @@ func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoin
 		controller.ControllerParams{
 			Group: ciliumEndpointSyncPodLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) (err error) {
-				pod := ep.GetPod()
-				if pod == nil {
+				cepOwner := ep.GetCEPOwner()
+				if cepOwner.IsNil() {
 					err := errors.New("Skipping CiliumEndpoint update because it has no k8s pod")
 					scopedLog.WithFields(logrus.Fields{
 						logfields.EndpointID: ep.GetID(),
@@ -504,7 +500,7 @@ func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoin
 					return err
 				}
 
-				_, err = ciliumClient.CiliumEndpoints(pod.GetNamespace()).Patch(
+				_, err = ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Patch(
 					ctx, ep.GetK8sCEPName(),
 					types.JSONPatchType,
 					labelsPatch,
@@ -880,7 +876,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
 
-	hostKey := node.GetIPsecKeyIdentity()
+	hostKey := node.GetEndpointEncryptKeyIndex()
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,

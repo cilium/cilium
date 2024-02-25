@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/operator/auth/identity"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -22,7 +21,7 @@ type params struct {
 	cell.In
 
 	Logger         logrus.FieldLogger
-	Lifecycle      hive.Lifecycle
+	Lifecycle      cell.Lifecycle
 	IdentityClient identity.Provider
 	Identity       resource.Resource[*ciliumv2.CiliumIdentity]
 
@@ -51,13 +50,13 @@ func registerIdentityWatcher(p params) {
 		wg:             workerpool.New(1),
 		cfg:            p.Cfg,
 	}
-	p.Lifecycle.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			return iw.wg.Submit("identity-watcher", func(ctx context.Context) error {
 				return iw.run(ctx)
 			})
 		},
-		OnStop: func(_ hive.HookContext) error {
+		OnStop: func(_ cell.HookContext) error {
 			return iw.wg.Close()
 		},
 	})

@@ -5,6 +5,7 @@ package v2alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -88,7 +89,7 @@ type CiliumBGPPeerConfigSpec struct {
 	// If not specified, the default families of IPv6/unicast and IPv4/unicast will be created.
 	//
 	// +kubebuilder:validation:Optional
-	Families []CiliumBGPFamily `json:"families,omitempty"`
+	Families []CiliumBGPFamilyWithAdverts `json:"families,omitempty"`
 }
 
 // CiliumBGPFamily represents a AFI/SAFI address family pair.
@@ -104,6 +105,11 @@ type CiliumBGPFamily struct {
 	// +kubebuilder:validation:Enum=unicast;multicast;mpls_label;encapsulation;vpls;evpn;ls;sr_policy;mup;mpls_vpn;mpls_vpn_multicast;route_target_constraints;flowspec_unicast;flowspec_vpn;key_value
 	// +kubebuilder:validation:Required
 	Safi string `json:"safi"`
+}
+
+// CiliumBGPFamilyWithAdverts represents a AFI/SAFI address family pair along with reference to BGP Advertisements.
+type CiliumBGPFamilyWithAdverts struct {
+	CiliumBGPFamily `json:",inline"`
 
 	// Advertisements selects group of BGP Advertisement(s) to advertise for this family.
 	//
@@ -139,6 +145,16 @@ type CiliumBGPTransport struct {
 	PeerPort *int32 `json:"peerPort,omitempty"`
 }
 
+func (t *CiliumBGPTransport) SetDefaults() {
+	if t.LocalPort == nil || *t.LocalPort == 0 {
+		t.LocalPort = ptr.To[int32](DefaultBGPPeerLocalPort)
+	}
+
+	if t.PeerPort == nil || *t.PeerPort == 0 {
+		t.PeerPort = ptr.To[int32](DefaultBGPPeerPort)
+	}
+}
+
 type CiliumBGPTimers struct {
 	// ConnectRetryTimeSeconds defines the initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
 	//
@@ -171,4 +187,60 @@ type CiliumBGPTimers struct {
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=30
 	KeepAliveTimeSeconds *int32 `json:"keepAliveTimeSeconds,omitempty"`
+}
+
+func (t *CiliumBGPTimers) SetDefaults() {
+	if t.ConnectRetryTimeSeconds == nil || *t.ConnectRetryTimeSeconds == 0 {
+		t.ConnectRetryTimeSeconds = ptr.To[int32](DefaultBGPConnectRetryTimeSeconds)
+	}
+
+	if t.HoldTimeSeconds == nil || *t.HoldTimeSeconds == 0 {
+		t.HoldTimeSeconds = ptr.To[int32](DefaultBGPHoldTimeSeconds)
+	}
+
+	if t.KeepAliveTimeSeconds == nil || *t.KeepAliveTimeSeconds == 0 {
+		t.KeepAliveTimeSeconds = ptr.To[int32](DefaultBGPKeepAliveTimeSeconds)
+	}
+}
+
+func (p *CiliumBGPPeerConfigSpec) SetDefaults() {
+	if p == nil {
+		return
+	}
+
+	if p.Transport == nil {
+		p.Transport = &CiliumBGPTransport{}
+	}
+	p.Transport.SetDefaults()
+
+	if p.Timers == nil {
+		p.Timers = &CiliumBGPTimers{}
+	}
+	p.Timers.SetDefaults()
+
+	if p.EBGPMultihop == nil {
+		p.EBGPMultihop = ptr.To[int32](DefaultBGPEBGPMultihopTTL)
+	}
+
+	if p.GracefulRestart == nil {
+		p.GracefulRestart = &CiliumBGPNeighborGracefulRestart{}
+	}
+	p.GracefulRestart.SetDefaults()
+
+	if len(p.Families) == 0 {
+		p.Families = []CiliumBGPFamilyWithAdverts{
+			{
+				CiliumBGPFamily: CiliumBGPFamily{
+					Afi:  "ipv6",
+					Safi: "unicast",
+				},
+			},
+			{
+				CiliumBGPFamily: CiliumBGPFamily{
+					Afi:  "ipv4",
+					Safi: "unicast",
+				},
+			},
+		}
+	}
 }

@@ -10,9 +10,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
@@ -35,7 +33,7 @@ type epBPFProgWatchdogParams struct {
 
 	Config        epBPFProgWatchdogConfig
 	Logger        logrus.FieldLogger
-	Lifecycle     hive.Lifecycle
+	Lifecycle     cell.Lifecycle
 	DaemonPromise promise.Promise[*Daemon]
 	Scope         cell.Scope
 }
@@ -64,8 +62,8 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 		ctx, cancel = context.WithCancel(context.Background())
 		mgr         = controller.NewManager()
 	)
-	p.Lifecycle.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			mgr.UpdateController(
 				epBPFProgWatchdog,
 				controller.ControllerParams{
@@ -85,7 +83,7 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 
 			return nil
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			cancel()
 			mgr.RemoveAllAndWait()
 			return nil
@@ -104,11 +102,11 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		if ep.GetState() != endpoint.StateReady {
 			continue
 		}
-		if !ep.HasBPFPolicyMap() {
+		if ep.IsProperty(endpoint.PropertyWithouteBPFDatapath) {
 			// Skip Endpoints without BPF datapath
 			continue
 		}
-		loaded, err = loader.DeviceHasTCProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
+		loaded, err = d.datapath.Loader().DeviceHasTCProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
 		if err != nil {
 			log.WithField(logfields.Endpoint, ep.HostInterface()).
 				WithField(logfields.EndpointID, ep.ID).

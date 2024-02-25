@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -31,7 +30,7 @@ type params struct {
 	cell.In
 
 	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 
 	Clientset           k8sClient.Clientset
 	Identity            resource.Resource[*v2.CiliumIdentity]
@@ -80,8 +79,7 @@ type GC struct {
 	// processing each one individually.
 	rateLimiter *rate.Limiter
 
-	allocationCfg identityAllocationConfig
-	allocator     *allocator.Allocator
+	allocator *allocator.Allocator
 
 	// counters for GC failed/successful runs
 	failedRuns     int
@@ -114,13 +112,10 @@ func registerGC(p params) {
 			p.Cfg.RateInterval,
 			p.Cfg.RateLimit,
 		),
-		allocationCfg: identityAllocationConfig{
-			k8sNamespace: p.SharedCfg.K8sNamespace,
-		},
 		metrics: p.Metrics,
 	}
-	p.Lifecycle.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
 			gc.wp = workerpool.New(1)
 
 			switch gc.allocationMode {
@@ -132,7 +127,7 @@ func registerGC(p params) {
 				return fmt.Errorf("unknown Cilium identity allocation mode: %q", gc.allocationMode)
 			}
 		},
-		OnStop: func(ctx hive.HookContext) error {
+		OnStop: func(ctx cell.HookContext) error {
 			if gc.allocationMode == option.IdentityAllocationModeCRD {
 				// CRD mode GC runs in an additional goroutine
 				gc.mgr.RemoveAllAndWait()
@@ -143,13 +138,4 @@ func registerGC(p params) {
 			return nil
 		},
 	})
-}
-
-// identityAllocationConfig is a helper struct that satisfies the Configuration interface.
-type identityAllocationConfig struct {
-	k8sNamespace string
-}
-
-func (cfg identityAllocationConfig) CiliumNamespaceName() string {
-	return cfg.k8sNamespace
 }

@@ -254,7 +254,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 				result["IPV4_MASQUERADE"] = 0
 			}
 		}
-		result["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheDisabled)
+		result["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
 	} else {
 		result["LXC_ID"] = uint64(ep.GetID())
 	}
@@ -282,6 +282,6 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 // ELFSubstitutions fetches the set of variable and map substitutions that
 // must be implemented against an ELF template to configure the datapath for
 // the specified endpoint.
-func ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
+func (l *loader) ELFSubstitutions(ep datapath.Endpoint) (map[string]uint64, map[string]string) {
 	return elfVariableSubstitutions(ep), elfMapSubstitutions(ep)
 }

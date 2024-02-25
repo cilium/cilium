@@ -4,11 +4,16 @@
 package limits
 
 import (
+	"context"
 	"testing"
 
 	check "github.com/cilium/checkmate"
 
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"k8s.io/utils/pointer"
+
 	"github.com/cilium/cilium/operator/option"
+	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 )
 
 func Test(t *testing.T) {
@@ -83,4 +88,27 @@ func (e *ENILimitsSuite) TestParseLimitString(c *check.C) {
 
 	limit, err = parseLimitString(limitString6)
 	c.Assert(err.Error(), check.Equals, "invalid limit value")
+}
+
+func (e *ENILimitsSuite) TestUpdateFromEC2API(c *check.C) {
+	instanceTypes := []ec2_types.InstanceTypeInfo{
+		{
+			Hypervisor:   ec2_types.InstanceTypeHypervisorXen,
+			InstanceType: ec2_types.InstanceType("newinstance.medium"),
+			NetworkInfo: &ec2_types.NetworkInfo{
+				Ipv4AddressesPerInterface: pointer.Int32(30),
+				Ipv6AddressesPerInterface: pointer.Int32(30),
+				MaximumNetworkInterfaces:  pointer.Int32(8),
+			},
+		},
+	}
+	api := ec2mock.NewAPI(nil, nil, nil)
+	api.UpdateInstanceTypes(instanceTypes)
+	UpdateFromEC2API(context.Background(), api)
+
+	limit, ok := Get("newinstance.medium")
+	c.Assert(ok, check.Equals, true)
+	c.Assert(limit.Adapters, check.Equals, 8)
+	c.Assert(limit.IPv4, check.Equals, 30)
+	c.Assert(limit.IPv6, check.Equals, 30)
 }

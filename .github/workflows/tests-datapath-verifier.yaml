@@ -51,9 +51,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   # renovate: datasource=golang-version depName=go
-  go-version: 1.21.5
+  go-version: 1.22.0
 
 jobs:
   commit-status-start:
@@ -61,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -72,23 +71,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '4.19-20231220.153727'
-            ci-kernel: '419'
-          # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.4-20231220.153727'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: '5.4-20240215.093821'
             ci-kernel: '54'
-          # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.10-20231220.153727'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: 'rhel8-20240221.094422'
+            ci-kernel: '54'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: '5.10-20240215.093821'
             ci-kernel: '510'
-          # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.15-20231220.153727'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: '5.15-20240215.093821'
             ci-kernel: '510'
-          # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '6.1-20231220.153727'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: '6.1-20240215.093821'
             ci-kernel: '61'
-          # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: 'bpf-next-20231220.153727'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: 'bpf-next-20240215.093821'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
@@ -101,7 +100,7 @@ jobs:
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+        uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
         with:
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
@@ -120,7 +119,7 @@ jobs:
             go${{ env.go-version }} download
 
       - name: Run verifier tests
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+        uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
         with:
           provision: 'false'
           cmd: |
@@ -130,7 +129,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+        uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
         with:
           provision: 'false'
           cmd: |
@@ -140,7 +139,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: datapath-verifier_${{ matrix.kernel }}
           path: datapath-verifier
@@ -153,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}

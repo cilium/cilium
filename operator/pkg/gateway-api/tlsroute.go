@@ -20,6 +20,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -42,17 +43,49 @@ func newTLSRouteReconciler(mgr ctrl.Manager) *tlsRouteReconciler {
 func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, backendServiceIndex,
 		func(rawObj client.Object) []string {
-			hr, ok := rawObj.(*gatewayv1alpha2.TLSRoute)
+			route, ok := rawObj.(*gatewayv1alpha2.TLSRoute)
 			if !ok {
 				return nil
 			}
 			var backendServices []string
-			for _, rule := range hr.Spec.Rules {
+			for _, rule := range route.Spec.Rules {
 				for _, backend := range rule.BackendRefs {
-					if !helpers.IsService(backend.BackendObjectReference) {
+					namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
+					backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
+					if err != nil {
+						log.WithFields(logrus.Fields{
+							logfields.Controller: "tlsRoute",
+							logfields.Resource:   client.ObjectKeyFromObject(rawObj),
+						}).WithError(err).Error("Failed to get backend service name")
 						continue
 					}
 					backendServices = append(backendServices,
+						types.NamespacedName{
+							Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+							Name:      backendServiceName,
+						}.String(),
+					)
+				}
+			}
+			return backendServices
+		},
+	); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, backendServiceImportIndex,
+		func(rawObj client.Object) []string {
+			hr, ok := rawObj.(*gatewayv1alpha2.TLSRoute)
+			if !ok {
+				return nil
+			}
+			var backendServiceImports []string
+			for _, rule := range hr.Spec.Rules {
+				for _, backend := range rule.BackendRefs {
+					if !helpers.IsServiceImport(backend.BackendObjectReference) {
+						continue
+					}
+					backendServiceImports = append(backendServiceImports,
 						types.NamespacedName{
 							Namespace: helpers.NamespaceDerefOr(backend.Namespace, hr.Namespace),
 							Name:      string(backend.Name),
@@ -60,7 +93,7 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					)
 				}
 			}
-			return backendServices
+			return backendServiceImports
 		},
 	); err != nil {
 		return err
@@ -87,7 +120,7 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to TLSRoute
 		For(&gatewayv1alpha2.TLSRoute{}).
 		// Watch for changes to Backend services
@@ -98,14 +131,26 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
 				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName)),
-			)).
-		Complete(r)
+			))
+
+	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
+		// Watch for changes to Backend Service Imports
+		builder = builder.Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport())
+	}
+
+	return builder.Complete(r)
 }
 
 // enqueueRequestForBackendService makes sure that TLS Routes are reconciled
 // if the backend services are updated.
 func (r *tlsRouteReconciler) enqueueRequestForBackendService() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
+}
+
+// enqueueRequestForBackendServiceImport makes sure that TLS Routes are reconciled
+// if the backend Service Imports are updated.
+func (r *tlsRouteReconciler) enqueueRequestForBackendServiceImport() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceImportIndex))
 }
 
 // enqueueRequestForReferenceGrant makes sure that all TLS Routes are reconciled

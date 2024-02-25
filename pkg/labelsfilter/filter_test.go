@@ -4,6 +4,8 @@
 package labelsfilter
 
 import (
+	"reflect"
+	"regexp"
 	"testing"
 
 	. "github.com/cilium/checkmate"
@@ -31,7 +33,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"foo2.lizards.k8s":            labels.NewLabel("foo2.lizards.k8s", "web", labels.LabelSourceK8s),
 	}
 
-	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, "")
+	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, []string{}, "")
 	c.Assert(err, IsNil)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
@@ -87,7 +89,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"ioXkubernetes":               labels.NewLabel("ioXkubernetes", "foo", labels.LabelSourceContainer),
 	}
 
-	err := ParseLabelPrefixCfg([]string{}, "")
+	err := ParseLabelPrefixCfg([]string{}, []string{}, "")
 	c.Assert(err, IsNil)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
@@ -134,7 +136,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabelsDocExample(c *C) {
 		"io.kubernetes.pod.namespace":    labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceAny),
 	}
 
-	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name"}, "")
+	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name"}, []string{}, "")
 	c.Assert(err, IsNil)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
@@ -162,4 +164,68 @@ func (s *LabelsPrefCfgSuite) TestFilterLabelsDocExample(c *C) {
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 6)
 	c.Assert(filtered, checker.DeepEquals, wanted)
+}
+
+func TestFilterLabelsByRegex(t *testing.T) {
+	type args struct {
+		excludePatterns []*regexp.Regexp
+		labels          map[string]string
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]string
+	}{
+		{
+			name: "exclude_test",
+			args: args{
+				[]*regexp.Regexp{regexp.MustCompile("foobar.*")},
+				map[string]string{
+					"topology.kubernetes.io/region": "us-east-1",
+					"foobar.com":                    "unwanted-label",
+				},
+			},
+			want: map[string]string{
+				"topology.kubernetes.io/region": "us-east-1",
+			},
+		},
+		{
+			name: "multi_exclude_test",
+			args: args{
+				[]*regexp.Regexp{
+					regexp.MustCompile("foo.*"),
+					regexp.MustCompile("bar.*"),
+				},
+				map[string]string{
+					"topology.kubernetes.io/region": "us-east-1",
+					"foo.com":                       "unwanted-label",
+					"bar.com":                       "unwanted-label",
+				},
+			},
+			want: map[string]string{
+				"topology.kubernetes.io/region": "us-east-1",
+			},
+		},
+		{
+			name: "baseline_test",
+			args: args{
+				[]*regexp.Regexp{},
+				map[string]string{
+					"topology.kubernetes.io/region": "us-east-1",
+					"foobar.com":                    "unwanted-label",
+				},
+			},
+			want: map[string]string{
+				"topology.kubernetes.io/region": "us-east-1",
+				"foobar.com":                    "unwanted-label",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FilterLabelsByRegex(tt.args.excludePatterns, tt.args.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FilterLabelsByRegex() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

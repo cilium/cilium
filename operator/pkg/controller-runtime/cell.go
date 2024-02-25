@@ -17,7 +17,6 @@ import (
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -53,7 +52,7 @@ type managerParams struct {
 	cell.In
 
 	Logger      logrus.FieldLogger
-	Lifecycle   hive.Lifecycle
+	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
 	Scope       cell.Scope
 

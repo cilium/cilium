@@ -79,6 +79,7 @@ type ModifyInstanceAttributeRequest struct {
 	UserData                    string                                         `position:"Query" name:"UserData"`
 	Password                    string                                         `position:"Query" name:"Password"`
 	HostName                    string                                         `position:"Query" name:"HostName"`
+	CpuOptionsTopologyType      string                                         `position:"Query" name:"CpuOptions.TopologyType"`
 	EnableJumboFrame            requests.Boolean                               `position:"Query" name:"EnableJumboFrame"`
 	ResourceOwnerAccount        string                                         `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount                string                                         `position:"Query" name:"OwnerAccount"`

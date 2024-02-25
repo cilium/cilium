@@ -338,14 +338,30 @@ func (s *Server) runActiveServices() error {
 	prober := newProber(s, nodesAdded)
 	prober.MaxRTT = s.ProbeInterval
 	prober.OnIdle = func() {
-		// Update set of nodes to probe every ProbeInterval and then fetch
-		// results
+		// OnIdle is called every ProbeInterval after sending out all icmp pings.
+		// There are a few important consideration here:
+		// (1) ICMP prober doesn't report failed probes
+		// (2) We can receive the same nodes multiple times in nodesAdded in case of updates
+		// (3) We need to clean icmp status to not retain stale probe results
+		// (4) We don't want to report stale nodes in metrics
+
 		if nodesAdded, nodesRemoved, err := s.getNodes(); err != nil {
+			// reset the cache by setting clientID to 0 and removing all current nodes
+			s.clientID = 0
+			prober.setNodes(nil, prober.nodes)
 			log.WithError(err).Error("unable to get cluster nodes")
+			return
 		} else {
+			// (1) Mark ips that did not receive ICMP as unreachable.
+			prober.updateIcmpStatus()
+			// (2) setNodes implementation doesn't override results for existing nodes.
+			// (4) Remove stale nodes so we don't report them in metrics before updating results
 			prober.setNodes(nodesAdded, nodesRemoved)
+			// (4) Update results without stale nodes
+			s.updateCluster(prober.getResults())
+			// (3) Cleanup icmp results for next iteration of probing
+			prober.clearIcmpStatus()
 		}
-		s.updateCluster(prober.getResults())
 	}
 	prober.RunLoop()
 	defer prober.Stop()

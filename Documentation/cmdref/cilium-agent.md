@@ -39,7 +39,6 @@ cilium-agent [flags]
       --bpf-fragments-map-max int                                 Maximum number of entries in fragments tracking map (default 8192)
       --bpf-lb-acceleration string                                BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                   BPF load balancing algorithm ("random", "maglev") (default "random")
-      --bpf-lb-dev-ip-addr-inherit string                         Device name which IP addr is inherited by devices running LB BPF program (--devices)
       --bpf-lb-dsr-dispatch string                                BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")
       --bpf-lb-dsr-l4-xlate string                                BPF load balancing DSR L4 DNAT method for IPIP ("frontend", "backend") (default "frontend")
       --bpf-lb-external-clusterip                                 Enable external access to ClusterIP services (default false)
@@ -86,6 +85,7 @@ cilium-agent [flags]
       --dns-policy-unload-on-shutdown                             Unload DNS policy rules on graceful shutdown
       --dnsproxy-concurrency-limit int                            Limit concurrency of DNS message processing
       --dnsproxy-concurrency-processing-grace-period duration     Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing
+      --dnsproxy-enable-transparent-mode                          Enable DNS proxy transparent mode
       --egress-gateway-policy-map-max int                         Maximum number of entries in egress gateway policy map (default 16384)
       --egress-gateway-reconciliation-trigger-interval duration   Time between triggers of egress gateway state reconciliations (default 1s)
       --egress-masquerade-interfaces strings                      Limit iptables-based egress masquerading to interface selector
@@ -106,6 +106,7 @@ cilium-agent [flags]
       --enable-endpoint-routes                                    Use per endpoint routes instead of routing via cilium_host
       --enable-envoy-config                                       Enable Envoy Config CRDs
       --enable-external-ips                                       Enable k8s service externalIPs feature (requires enabling enable-node-port)
+      --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-health-check-loadbalancer-ip                       Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
       --enable-health-check-nodeport                              Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                                    Enable connectivity health checking (default true)
@@ -116,6 +117,7 @@ cilium-agent [flags]
       --enable-hubble                                             Enable hubble server
       --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
       --enable-identity-mark                                      Enable setting identity mark for local traffic (default true)
+      --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
       --enable-ipsec                                              Enable IPSec support
       --enable-ipsec-key-watcher                                  Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
@@ -142,6 +144,7 @@ cilium-agent [flags]
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --enable-nat46x64-gateway                                   Enable NAT46 and NAT64 gateway
       --enable-node-port                                          Enable NodePort type services by Cilium
+      --enable-node-selector-labels                               Enable use of node label based identity
       --enable-pmtu-discovery                                     Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                      Enable policy enforcement (default "default")
       --enable-recorder                                           Enable BPF datapath pcap recorder
@@ -167,9 +170,12 @@ cilium-agent [flags]
       --endpoint-status strings                                   Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
       --envoy-config-timeout duration                             Timeout duration for Envoy Config acknowledgements (default 2m0s)
       --envoy-log string                                          Path to a separate Envoy log file, if any
+      --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
       --exclude-local-address strings                             Exclude CIDR from being recognized as local address
+      --exclude-node-label-patterns strings                       List of k8s node label regex patterns to be excluded from CiliumNode
       --external-envoy-proxy                                      whether the Envoy is deployed externally in form of a DaemonSet or not
       --fixed-identity-mapping map                                Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
+      --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
   -h, --help                                                      help for cilium-agent
       --http-idle-timeout uint                                    Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
@@ -179,6 +185,9 @@ cilium-agent [flags]
       --http-retry-count uint                                     Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                                   Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --hubble-disable-tls                                        Allow Hubble server to run on the given listen address without TLS.
+      --hubble-drop-events                                        Emit packet drop Events related to pods
+      --hubble-drop-events-interval duration                      Minimum time between emitting same events (default 2m0s)
+      --hubble-drop-events-reasons string                         Drop reasons to emit events for (default "auth_required,policy_denied")
       --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                               Buffer size of the channel to receive monitor events.
       --hubble-export-allowlist strings                           Specify allowlist as JSON encoded FlowFilters to Hubble exporter.
@@ -210,6 +219,7 @@ cilium-agent [flags]
       --identity-allocation-mode string                           Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration                     Time to wait before using new identity on endpoint identity change (default 5s)
       --identity-restore-grace-period duration                    Time to wait before releasing unused restored CIDR identities during agent restart (default 10m0s)
+      --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
       --install-no-conntrack-iptables-rules                       Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.
       --ip-allocation-timeout duration                            Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
       --ip-masq-agent-config-path string                          ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
@@ -281,9 +291,11 @@ cilium-agent [flags]
       --monitor-queue-size int                                    Size of the event queue when reading monitor events
       --mtu int                                                   Overwrite auto-detected MTU of underlying network
       --node-encryption-opt-out-labels string                     Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")
+      --node-labels strings                                       List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)
       --node-port-bind-protection                                 Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-range strings                                   Set the min/max NodePort port range (default [30000,32767])
       --nodeport-addresses strings                                A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
+      --policy-accounting                                         Enable policy accounting (default true)
       --policy-audit-mode                                         Enable policy audit (non-drop) mode
       --policy-cidr-match-mode strings                            The entities that can be selected by CIDR policy. Supported values: 'nodes'
       --policy-queue-size int                                     Size of queues for policy-related events (default 100)
@@ -292,7 +304,7 @@ cilium-agent [flags]
       --pprof-port uint16                                         Port that pprof listens on (default 6060)
       --preallocate-bpf-maps                                      Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                                   Prepend custom iptables chains instead of appending (default true)
-      --procfs string                                             Root's proc filesystem path (default "/proc")
+      --procfs string                                             Path to the host's proc filesystem mount (default "/proc")
       --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --proxy-connect-timeout uint                                Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)
@@ -305,7 +317,6 @@ cilium-agent [flags]
       --route-metric int                                          Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
       --routing-mode string                                       Routing mode ("native" or "tunnel") (default "tunnel")
       --service-no-backend-response string                        Response to traffic for a service without backends (default "reject")
-      --sidecar-istio-proxy-image string                          Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --socket-path string                                        Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                                          Directory path to store runtime state (default "/var/run/cilium")
       --tofqdns-dns-reject-response-code string                   DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")

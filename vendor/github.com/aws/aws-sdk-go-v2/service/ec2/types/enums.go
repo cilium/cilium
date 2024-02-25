@@ -582,6 +582,7 @@ const (
 	AvailabilityZoneStateInformation AvailabilityZoneState = "information"
 	AvailabilityZoneStateImpaired    AvailabilityZoneState = "impaired"
 	AvailabilityZoneStateUnavailable AvailabilityZoneState = "unavailable"
+	AvailabilityZoneStateConstrained AvailabilityZoneState = "constrained"
 )
 
 // Values returns all known values for AvailabilityZoneState. Note that this can
@@ -593,6 +594,7 @@ func (AvailabilityZoneState) Values() []AvailabilityZoneState {
 		"information",
 		"impaired",
 		"unavailable",
+		"constrained",
 	}
 }
 
@@ -3697,6 +3699,8 @@ const (
 	InstanceTypeM7iMetal48xl    InstanceType = "m7i.metal-48xl"
 	InstanceTypeR7iMetal24xl    InstanceType = "r7i.metal-24xl"
 	InstanceTypeR7iMetal48xl    InstanceType = "r7i.metal-48xl"
+	InstanceTypeR7izMetal16xl   InstanceType = "r7iz.metal-16xl"
+	InstanceTypeR7izMetal32xl   InstanceType = "r7iz.metal-32xl"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4485,6 +4489,8 @@ func (InstanceType) Values() []InstanceType {
 		"m7i.metal-48xl",
 		"r7i.metal-24xl",
 		"r7i.metal-48xl",
+		"r7iz.metal-16xl",
+		"r7iz.metal-32xl",
 	}
 }
 
@@ -7288,8 +7294,9 @@ type SubnetState string
 
 // Enum values for SubnetState
 const (
-	SubnetStatePending   SubnetState = "pending"
-	SubnetStateAvailable SubnetState = "available"
+	SubnetStatePending     SubnetState = "pending"
+	SubnetStateAvailable   SubnetState = "available"
+	SubnetStateUnavailable SubnetState = "unavailable"
 )
 
 // Values returns all known values for SubnetState. Note that this can be expanded
@@ -7299,6 +7306,7 @@ func (SubnetState) Values() []SubnetState {
 	return []SubnetState{
 		"pending",
 		"available",
+		"unavailable",
 	}
 }
 

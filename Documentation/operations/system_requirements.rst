@@ -20,7 +20,7 @@ When running Cilium using the container image ``cilium/cilium``, the host
 system must meet these requirements:
 
 - Hosts with either AMD64 or AArch64 architecture
-- `Linux kernel`_ >= 4.19.57 or equivalent (e.g., 4.18 on RHEL8)
+- `Linux kernel`_ >= 5.4 or equivalent (e.g., 4.18 on RHEL 8.6)
 
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
@@ -37,7 +37,7 @@ must be met:
 ======================== ============================== ===================
 Requirement              Minimum Version                In cilium container
 ======================== ============================== ===================
-`Linux kernel`_          >= 4.19.57 or >= 4.18 on RHEL8 no
+`Linux kernel`_          >= 5.4 or >= 4.18 on RHEL 8.6  no
 Key-Value store (etcd)   >= 3.1.0                       no
 clang+LLVM               >= 10.0                        yes
 ======================== ============================== ===================
@@ -63,28 +63,32 @@ Distribution               Minimum Version
 ========================== ====================
 `Amazon Linux 2`_          all
 `Bottlerocket OS`_         all
-`CentOS`_                  >= 8.0
-`Container-Optimized OS`_  all
-`CoreOS`_                  all
+`CentOS`_                  >= 8.6
+`Container-Optimized OS`_  >= 85
 Debian_                    >= 10 Buster
+`Fedora CoreOS`_           >= 31.20200108.3.0
 Flatcar_                   all
 LinuxKit_                  all
 Opensuse_                  Tumbleweed, >=Leap 15.4
-`RedHat Enterprise Linux`_ >= 8.0
-Ubuntu_                    >= 18.04.3
+`RedHat Enterprise Linux`_ >= 8.6
+`RedHat CoreOS`_           >= 4.12
+`Talos Linux`_             >= 1.5.0
+Ubuntu_                    >= 20.04
 ========================== ====================
 
-.. _Amazon Linux 2: https://aws.amazon.com/amazon-linux-2/
+.. _Amazon Linux 2: https://docs.aws.amazon.com/AL2/latest/relnotes/relnotes-al2.html
 .. _CentOS: https://centos.org
 .. _Container-Optimized OS: https://cloud.google.com/container-optimized-os/docs
-.. _CoreOS: https://getfedora.org/coreos?stream=stable
-.. _Debian: https://wiki.debian.org/DebianStretch
-.. _Flatcar: https://www.flatcar-linux.org/
+.. _Fedora CoreOS: https://fedoraproject.org/coreos/release-notes
+.. _Debian: https://www.debian.org/releases/
+.. _Flatcar: https://www.flatcar.org/releases
 .. _LinuxKit: https://github.com/linuxkit/linuxkit/tree/master/kernel
 .. _RedHat Enterprise Linux: https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux
-.. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
-.. _Opensuse: https://www.opensuse.org/
+.. _RedHat CoreOS: https://access.redhat.com/articles/6907891
+.. _Ubuntu: https://www.releases.ubuntu.com/
+.. _Opensuse: https://en.opensuse.org/openSUSE:Roadmap
 .. _Bottlerocket OS: https://github.com/bottlerocket-os/bottlerocket
+.. _Talos Linux: https://www.talos.dev/
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a

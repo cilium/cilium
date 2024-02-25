@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/daemon/restapi"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -37,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -374,6 +376,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		"sync-build":                 epTemplate.SyncBuildEndpoint,
 	}).Info("Create endpoint request")
 
+	// We don't need to create the endpoint with the labels. This might cause
+	// the endpoint regeneration to not be triggered further down, with the
+	// ep.UpdateLabels or the ep.RunMetadataResolver, because the regeneration
+	// is only triggered in case the labels are changed, which they might not
+	// change because NewEndpointFromChangeModel would contain the
+	// epTemplate.Labels, the same labels we would be calling ep.UpdateLabels or
+	// the ep.RunMetadataResolver.
+	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
+	epTemplate.Labels = nil
+
 	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
@@ -412,7 +424,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return invalidDataError(ep, err)
 	}
 
-	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
 	infoLabels := labels.NewLabelsFromModel([]string{})
 
 	if len(apiLabels) > 0 {
@@ -455,6 +466,15 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 					logfields.Annotations: logfields.Repr(annotations),
 				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					bandwidth.EgressBandwidth)
+			}
+			if hwAddr, ok := annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
+				m, err := mac.ParseMAC(hwAddr)
+				if err != nil {
+					log.WithField(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName).
+						WithError(err).Error("Unable to parse MAC address")
+					return invalidDataError(ep, err)
+				}
+				ep.SetMac(m)
 			}
 		}
 	}
@@ -577,7 +597,7 @@ func putEndpointIDHandler(d *Daemon, params PutEndpointIDParams) (resp middlewar
 
 	ep.Logger(daemonSubsys).Info("Successful endpoint creation")
 
-	return NewPutEndpointIDCreated()
+	return NewPutEndpointIDCreated().WithPayload(ep.GetModel())
 }
 
 // validPatchTransitionState checks whether the state to which the provided

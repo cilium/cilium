@@ -1,8 +1,8 @@
 # See https://golangci-lint.run/usage/configuration/ for available options.
-# Also https://github.com/cilium/cilium/blob/master/.golangci.yaml as a
+# Also https://github.com/cilium/cilium/blob/main/.golangci.yaml as a
 # reference.
 run:
-  go: '1.20'
+  go: '1.21'
 linters:
   disable-all: true
   enable:
@@ -40,6 +40,7 @@ linters:
     - ineffassign
     - interfacebloat
     - makezero
+    - mirror
     - misspell
     - musttag
     - nakedret
@@ -48,13 +49,18 @@ linters:
     - nilnil
     - noctx
     - nosprintfhostport
+    - perfsprint
     - prealloc
     - predeclared
+    - protogetter
     - reassign
     - revive
     - rowserrcheck
+    - sloglint
     - staticcheck
+    - tagalign
     - tenv
+    - testifylint
     - thelper
     - tparallel
     - typecheck

@@ -181,7 +181,7 @@ var (
 // getXDSNetworkPolicies returns the representation of the xDS network policies
 // as a map of IP addresses to NetworkPolicy objects
 func (ds *DaemonSuite) getXDSNetworkPolicies(c *C, resourceNames []string) map[string]*cilium.NetworkPolicy {
-	networkPolicies, err := ds.d.l7Proxy.GetNetworkPolicies(resourceNames)
+	networkPolicies, err := ds.d.envoyXdsServer.GetNetworkPolicies(resourceNames)
 	c.Assert(err, IsNil)
 	return networkPolicies
 }
@@ -213,7 +213,10 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	if qa {
 		testEndpointID = testQAEndpointID
 	}
-	e := endpoint.NewEndpointWithState(ds.d, ds.d, testipcache.NewMockIPCache(), ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
+	e := endpoint.NewTestEndpointWithState(c, ds.d, ds.d, testipcache.NewMockIPCache(), ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
+	e.SetPropertyValue(endpoint.PropertyFakeEndpoint, false)
+	e.SetPropertyValue(endpoint.PropertyWithouteBPFDatapath, true)
+	e.SetPropertyValue(endpoint.PropertySkipBPFPolicy, true)
 	if qa {
 		e.IPv6 = QAIPv6Addr
 		e.IPv4 = QAIPv4Addr
@@ -253,7 +256,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 					},
 				},
 				{
-
 					IngressCommonRule: api.IngressCommonRule{
 						FromEndpoints: []api.EndpointSelector{
 							api.NewESFromLabels(lblFoo),
@@ -271,7 +273,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			Ingress: []api.IngressRule{
 				{
 					IngressCommonRule: api.IngressCommonRule{
-
 						FromRequires: []api.EndpointSelector{
 							api.NewESFromLabels(lblQA),
 						},
@@ -293,7 +294,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		},
 	}
 
-	ds.d.l7Proxy.RemoveAllNetworkPolicies()
+	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
 	c.Assert(err3, Equals, nil)
@@ -453,7 +454,6 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 				},
 				{
 					IngressCommonRule: api.IngressCommonRule{
-
 						FromEndpoints: []api.EndpointSelector{
 							api.NewESFromLabels(lblFoo),
 						},
@@ -467,7 +467,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 		},
 	}
 
-	ds.d.l7Proxy.RemoveAllNetworkPolicies()
+	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
 	c.Assert(err, Equals, nil)
@@ -537,7 +537,6 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 				},
 				{
 					IngressCommonRule: api.IngressCommonRule{
-
 						FromEndpoints: []api.EndpointSelector{
 							api.NewESFromLabels(lblFoo),
 						},
@@ -551,7 +550,7 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 		},
 	}
 
-	ds.d.l7Proxy.RemoveAllNetworkPolicies()
+	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
 	c.Assert(err, Equals, nil)
@@ -638,7 +637,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 		},
 	}
 
-	ds.d.l7Proxy.RemoveAllNetworkPolicies()
+	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
 	c.Assert(err, Equals, nil)
@@ -794,7 +793,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 		},
 	}
 
-	ds.d.l7Proxy.RemoveAllNetworkPolicies()
+	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
 	c.Assert(err3, Equals, nil)
@@ -879,7 +878,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 		},
 	}
 
-	ds.d.l7Proxy.RemoveAllNetworkPolicies()
+	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
 	c.Assert(err3, Equals, nil)

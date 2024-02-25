@@ -6,6 +6,7 @@ package metrics
 import (
 	"errors"
 	"net/http"
+	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -19,11 +20,14 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
+// goCustomCollectorsRX tracks enabled go runtime metrics.
+var goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
+
 type params struct {
 	cell.In
 
 	Logger     logrus.FieldLogger
-	Lifecycle  hive.Lifecycle
+	Lifecycle  cell.Lifecycle
 	Shutdowner hive.Shutdowner
 
 	Cfg       Config
@@ -41,7 +45,7 @@ type metricsManager struct {
 	metrics []metric.WithMetadata
 }
 
-func (mm *metricsManager) Start(ctx hive.HookContext) error {
+func (mm *metricsManager) Start(ctx cell.HookContext) error {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
 	mm.server.Handler = mux
@@ -57,7 +61,7 @@ func (mm *metricsManager) Start(ctx hive.HookContext) error {
 	return nil
 }
 
-func (mm *metricsManager) Stop(ctx hive.HookContext) error {
+func (mm *metricsManager) Stop(ctx cell.HookContext) error {
 	if err := mm.server.Shutdown(ctx); err != nil {
 		mm.logger.WithError(err).Error("Shutdown operator metrics server failed")
 		return err
@@ -87,6 +91,10 @@ func registerMetricsManager(p params) {
 		Registry = controllerRuntimeMetrics.Registry
 	} else {
 		Registry = prometheus.NewPedanticRegistry()
+		Registry.MustRegister(collectors.NewGoCollector(
+			collectors.WithGoCollectorRuntimeMetrics(
+				collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
+			)))
 	}
 
 	Registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: metrics.CiliumOperatorNamespace}))

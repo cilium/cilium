@@ -9,15 +9,17 @@ import (
 	"fmt"
 
 	. "github.com/cilium/checkmate"
+	"github.com/spf13/afero"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type NodePortSuite struct {
 	prevEphemeralPortRange string
 	prevReservedPortRanges string
+	sysctl                 sysctl.Sysctl
 }
 
 var _ = Suite(&NodePortSuite{})
@@ -27,18 +29,19 @@ func (s *NodePortSuite) SetUpSuite(c *C) {
 }
 
 func (s *NodePortSuite) SetUpTest(c *C) {
-	prevEphemeralPortRange, err := sysctl.Read("net.ipv4.ip_local_port_range")
+	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+	prevEphemeralPortRange, err := s.sysctl.Read("net.ipv4.ip_local_port_range")
 	c.Assert(err, IsNil)
 	s.prevEphemeralPortRange = prevEphemeralPortRange
-	prevReservedPortRanges, err := sysctl.Read("net.ipv4.ip_local_reserved_ports")
+	prevReservedPortRanges, err := s.sysctl.Read("net.ipv4.ip_local_reserved_ports")
 	c.Assert(err, IsNil)
 	s.prevReservedPortRanges = prevReservedPortRanges
 }
 
 func (s *NodePortSuite) TearDownTest(c *C) {
-	err := sysctl.Write("net.ipv4.ip_local_port_range", s.prevEphemeralPortRange)
+	err := s.sysctl.Write("net.ipv4.ip_local_port_range", s.prevEphemeralPortRange)
 	c.Assert(err, IsNil)
-	err = sysctl.Write("net.ipv4.ip_local_reserved_ports", s.prevReservedPortRanges)
+	err = s.sysctl.Write("net.ipv4.ip_local_reserved_ports", s.prevReservedPortRanges)
 	c.Assert(err, IsNil)
 }
 
@@ -68,18 +71,18 @@ func (s *NodePortSuite) TestCheckNodePortAndEphemeralPortRanges(c *C) {
 		option.Config.NodePortMin = test.npMin
 		option.Config.NodePortMax = test.npMax
 		option.Config.EnableAutoProtectNodePortRange = test.autoProtect
-		err := sysctl.Write("net.ipv4.ip_local_port_range",
+		err := s.sysctl.Write("net.ipv4.ip_local_port_range",
 			fmt.Sprintf("%d %d", test.epMin, test.epMax))
 		c.Assert(err, IsNil)
-		err = sysctl.Write("net.ipv4.ip_local_reserved_ports", test.resPorts)
+		err = s.sysctl.Write("net.ipv4.ip_local_reserved_ports", test.resPorts)
 		c.Assert(err, IsNil)
 
-		err = checkNodePortAndEphemeralPortRanges()
+		err = checkNodePortAndEphemeralPortRanges(s.sysctl)
 		if test.expErr {
 			c.Assert(err, ErrorMatches, test.expErrMatch)
 		} else {
 			c.Assert(err, IsNil)
-			resPorts, err := sysctl.Read("net.ipv4.ip_local_reserved_ports")
+			resPorts, err := s.sysctl.Read("net.ipv4.ip_local_reserved_ports")
 			c.Assert(err, IsNil)
 			c.Assert(resPorts, Equals, test.expResPorts)
 		}

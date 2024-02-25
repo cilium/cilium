@@ -6,17 +6,18 @@
 
 .. _chaining_azure:
 
-*********
-Azure CNI
-*********
+******************
+Azure CNI (Legacy)
+******************
 
 .. note::
 
    For most users, the best way to run Cilium on AKS is either
    AKS BYO CNI as described in :ref:`k8s_install_quick`
-   or `Azure CNI Powered by Cilium <https://aka.ms/aks/cilium-dataplane>`_.
+   or `Azure CNI Powered by Cilium <https://aka.ms/aks/cilium-dataplane>`__.
    This guide provides alternative instructions to run Cilium with Azure CNI
-   in a chaining configuration.
+   in a chaining configuration. This is the legacy way of running Azure CNI with
+   cilium as Azure IPAM is legacy, for more information see :ref:`ipam_azure`.
 
 .. include:: cni-chaining-limitations.rst
 

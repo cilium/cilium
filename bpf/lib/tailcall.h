@@ -101,14 +101,14 @@
 #define declare_tailcall_if(COND, NAME)       \
 	__eval(__declare_tailcall_if_, COND)(NAME)
 
-#define __invoke_tailcall_if_0(NAME, FUNC)    \
+#define __invoke_tailcall_if_0(NAME, FUNC, EXT_ERR)			\
 	FUNC(ctx)
-#define __invoke_tailcall_if_1(NAME, FUNC)				\
+#define __invoke_tailcall_if_1(NAME, FUNC, EXT_ERR)			\
 	({								\
-		tail_call_internal(ctx, NAME, NULL);			\
+		tail_call_internal(ctx, NAME, EXT_ERR);			\
 	})
-#define invoke_tailcall_if(COND, NAME, FUNC)  \
-	__eval(__invoke_tailcall_if_, COND)(NAME, FUNC)
+#define invoke_tailcall_if(COND, NAME, FUNC, EXT_ERR)			\
+	__eval(__invoke_tailcall_if_, COND)(NAME, FUNC, EXT_ERR)
 
 #define __invoke_traced_tailcall_if_0(NAME, FUNC, TRACE, EXT_ERR)	\
 	FUNC(ctx, TRACE, EXT_ERR)

@@ -181,7 +181,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 		option.Config.ToFQDNsEnableDNSCompression,
-		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.lookupIPsBySecID,
+		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
 		d.notifyOnDNSMsg, option.Config.DNSProxyConcurrencyLimit, option.Config.DNSProxyConcurrencyProcessingGracePeriod)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
@@ -235,10 +235,6 @@ func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpo
 	}
 
 	return e, nil
-}
-
-func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
-	return d.ipcache.LookupByIdentity(nid)
 }
 
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
@@ -350,10 +346,57 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			serverPort = uint16(serverPortUint64)
 		}
 	}
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverPort, proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
+
+		// Create a critical section especially for when multiple DNS requests
+		// are in-flight for the same name (i.e. cilium.io).
+		//
+		// In the absence of such a critical section, consider the following
+		// race condition:
+		//
+		//              G1                                    G2
+		//
+		// T0 --> NotifyOnDNSMsg()               NotifyOnDNSMsg()            <-- T0
+		//
+		// T1 --> UpdateGenerateDNS()            UpdateGenerateDNS()         <-- T1
+		//
+		// T2 ----> mutex.Lock()                 +--------------------------+
+		//                                       |No selectors need updating|
+		// T3 ----> wg := UpdatePolicyMaps()     +--------------------------+
+		//
+		// T4 ----> mutex.Unlock()               mutex.Lock() / mutex.Unlock() <-- T4
+		//
+		// T5 ----> wg.Wait()                    DNS released back to pod    <-- T5
+		//                                                    |
+		// T6 --> DNS released back to pod                    |
+		//              |                                     |
+		//              |                                     |
+		//              v                                     v
+		//       Traffic flows fine                   Leads to policy drop until T6
+		//
+		// Note how G2 releases the DNS msg back to the pod at T5 because
+		// UpdateGenerateDNS() was a no-op. It's a no-op because G1 had executed
+		// UpdateGenerateDNS() first at T1 and performed the necessary policy
+		// updates for the response IPs. Due to G1 performing all the work
+		// first, G2 executes T4 also as a no-op and releases the msg back to the
+		// pod at T5 before G1 would at T6.
+		mutexAcquireStart := time.Now()
+		d.dnsNameManager.LockName(qname)
+		defer d.dnsNameManager.UnlockName(qname)
+
+		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
+			log.WithFields(logrus.Fields{
+				logfields.DNSName:  qname,
+				logfields.Duration: d,
+				logfields.Expected: option.Config.DNSProxyLockTimeout,
+			}).Warnf("Name lock acquisition time took longer than expected. "+
+				"Potentially too many parallel DNS requests being processed, "+
+				"consider adjusting --%s and/or --%s",
+				option.DNSProxyLockCount, option.DNSProxyLockTimeout)
+		}
 
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.

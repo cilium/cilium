@@ -187,8 +187,8 @@ Users (Alphabetically)
 
     * N: Datadog
       D: Datadog is using Cilium in AWS (self-hosted k8s)
-      U: ENI Networking, Service load-balancing, Encryption
-      Q: @lbernail, @roboll
+      U: ENI Networking, Service load-balancing, Encryption, Network Policies, Hubble
+      Q: @lbernail, @roboll, @mvisonneau
 
     * N: Dcode.tech
       D: We specialize in AWS and Kubernetes, and actively implement Cilium at our clients. 
@@ -234,6 +234,12 @@ Users (Alphabetically)
       U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
       L: https://metal.equinix.com/
       Q: @matoszz
+
+    * N: Equinix
+      D: Equinix NL Managed Services is using Cilium with their Managed Kubernetes offering
+      U: CNI, network policies, visibility
+      L: https://www.equinix.nl/products/support-services/managed-services/netherlands
+      Q: @jonkerj
 
     * N: Exoscale
       D: Exoscale is offering Cilium as a CNI option on its managed Kubernetes service named SKS (Scalable Kubernetes Service)
@@ -422,6 +428,11 @@ Users (Alphabetically)
       L: https://mux.com
       Q: @dilyevsky
 
+    * N: NETWAYS Web Services
+      D: NETWAYS Web Services offers Cilium to their clients as CNI option for their Managed Kubernetes clusters.
+      U: Networking (CNI), Observability (Hubble)
+      L: https://nws.netways.de/managed-kubernetes/
+
     * N: New York Times (the)
       D: The New York Times is using Cilium on EKS to build multi-region multi-tenant shared clusters
       U: Networking (CNI, EKS IPAM, Maglev, kube-proxy replacement, Direct Routing),  Observability (Network metrics with Hubble, policy troubleshooting) and Security (Network Policy)
@@ -464,6 +475,13 @@ Users (Alphabetically)
       U: Security, eBPF, Tetragon
       L: https://www.parseable.io/blog/ebpf-log-analytics
       Q: @nitisht
+
+    * N: Pionative
+      D: Pionative supplies all its clients across cloud providers with
+      Kubernetes running Cilium to deliver the best performance out there.
+      U: CNI, Networking, Security, eBPF
+      L: https://www.pionative.com
+      Q: @Pionerd
 
     * N: Plaid Inc
       D: Plaid is using Cilium as their CNI plugin in self-hosted Kubernetes on AWS.
@@ -537,6 +555,11 @@ Users (Alphabetically)
       U: CNI, Overlay networking
       Q: @Madhu CS
 
+    * N: Santa Claus & the Elves
+      D: All our infrastructure to process children's letters and wishes, toy making, and delivery, distributed over multiple clusters around the world, is now powered by Cilium.
+      U: ClusterMesh, L4LB, XDP acceleration, Bandwidth manager, Encryption, Hubble
+      L: https://qmonnet.github.io/whirl-offload/2024/01/02/santa-switches-to-cilium/
+
     * N: SAP
       D: SAP uses Cilium for multiple internal scenarios. For examples for self-hosted Kubernetes scenarios on AWS with SAP Concur and for managed Kubernetes clusters provided with Gardener Project across AWS, Azure, GCP, and OpenStack.
       U: CNI , Overlay Network, Network Policies
@@ -554,6 +577,12 @@ Users (Alphabetically)
       U: CNI, Monitoring, kube-proxy replacement
       L: https://www.dbschenker.com/global
       Q: @amirkkn
+
+    * N: Sealos
+      D: Sealos is using Cilium as a consistent CNI for our Sealos Cloud.
+      U: Networking, Service, kube-proxy replacement, Network Policy, Hubble
+      L: https://sealos.io
+      Q: @fanux, @yangchuansheng
 
     * N: Seznam.cz
       D: Seznam.cz uses Cilium in multiple scenarios in on-prem DCs. At first as L4LB which loadbalances external traffic into k8s+openstack clusters then as CNI in multiple k8s and openstack clusters which are all connected in a clustermesh to enforce NetworkPolicies across pods/VMs.
@@ -608,11 +637,6 @@ Users (Alphabetically)
       D: S&P Global uses Cilium as their multi-cloud CNI
       U: CNI
       L: https://www.youtube.com/watch?v=6CZ_SSTqb4g
-
-    * N: Sphere Knowledge
-      D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
-      U: ENI Networking, Network policies, Service load-balancing, Hubble
-      Q: @mvisonneau
 
     * N: Spherity
       D: Spherity  is using Cilium on AWS EKS
@@ -703,7 +727,7 @@ Users (Alphabetically)
     * N: Wildlife Studios
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
       U: ClusterMesh, Global Service Load Balancing.
-      Q: @Oki @luanguimaraesla
+      Q: @Oki @luanguimaraesla @rsafonseca
 
     * N: Yahoo!
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services

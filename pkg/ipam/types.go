@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // AllocationResult is the result of an allocation
@@ -82,7 +83,7 @@ type Allocator interface {
 // IPAM is the configuration used for a particular IPAM type.
 type IPAM struct {
 	nodeAddressing types.NodeAddressing
-	config         Configuration
+	config         *option.DaemonConfig
 
 	IPv6Allocator Allocator
 	IPv4Allocator Allocator

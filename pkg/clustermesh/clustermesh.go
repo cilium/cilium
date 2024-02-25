@@ -10,9 +10,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -36,7 +34,7 @@ type Configuration struct {
 	common.Config
 
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
-	ClusterInfo types.ClusterInfo
+	ClusterInfo cmtypes.ClusterInfo
 
 	// NodeKeyCreator is the function used to create node instances as
 	// nodes are being discovered in remote clusters
@@ -63,7 +61,7 @@ type Configuration struct {
 
 	// ConfigValidationMode defines whether the CiliumClusterConfig is always
 	// expected to be exposed by remote clusters.
-	ConfigValidationMode types.ValidationMode `optional:"true"`
+	ConfigValidationMode cmtypes.ValidationMode `optional:"true"`
 
 	// IPCacheWatcherExtraOpts returns extra options for watching ipcache entries.
 	IPCacheWatcherExtraOpts IPCacheWatcherOptsFn `optional:"true"`
@@ -106,7 +104,7 @@ type ClusterMesh struct {
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
-	globalServices *globalServiceCache
+	globalServices *common.GlobalServiceCache
 
 	// nodeName is the name of the local node. This is used for logging and metrics
 	nodeName string
@@ -114,7 +112,7 @@ type ClusterMesh struct {
 
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
-func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
+func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 	if c.ClusterInfo.ID == 0 || c.ClusterMeshConfig == "" {
 		return nil
 	}
@@ -123,7 +121,7 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 	cm := &ClusterMesh{
 		conf:     c,
 		nodeName: nodeName,
-		globalServices: newGlobalServiceCache(
+		globalServices: common.NewGlobalServiceCache(
 			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterInfo.Name, nodeName),
 		),
 	}
@@ -229,7 +227,7 @@ func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster)
 // Status returns the status of the ClusterMesh subsystem
 func (cm *ClusterMesh) Status() (status *models.ClusterMeshStatus) {
 	status = &models.ClusterMeshStatus{
-		NumGlobalServices: int64(cm.globalServices.size()),
+		NumGlobalServices: int64(cm.globalServices.Size()),
 	}
 
 	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {

@@ -10,10 +10,11 @@ BGP
 ---
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :glob:
 
    bgp-control-plane
+   bgp-control-plane-troubleshooting
    lb-ipam
    bgp
    kube-router

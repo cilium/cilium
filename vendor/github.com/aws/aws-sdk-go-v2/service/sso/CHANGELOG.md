@@ -1,3 +1,16 @@
+# v1.19.0 (2024-02-13)
+
+* **Feature**: Bump minimum Go version to 1.20 per our language support policy.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.7 (2024-01-18)
+
+* No change notes available for this release.
+
+# v1.18.6 (2024-01-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.18.5 (2023-12-08)
 
 * **Bug Fix**: Reinstate presence of default Retryer in functional options, but still respect max attempts set therein.

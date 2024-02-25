@@ -248,10 +248,8 @@ func newEnvoyLogPiper() io.WriteCloser {
 			case "off", "critical", "error":
 				scopedLog.Error(msg)
 			case "warning":
-				// Silently drop expected warnings if Envoy tracing is not enabled
-				// TODO: Remove this what at Envoy 1.28, as this warning is no
-				// longer be issued then.
-				if !tracing && strings.Contains(msg, "message 'envoy.extensions.bootstrap.internal_listener.v3.InternalListener' is contained in proto file 'envoy/extensions/bootstrap/internal_listener/v3/internal_listener.proto' marked as work-in-progress.") {
+				if !tracing && (strings.Contains(msg, "Usage of the deprecated runtime key overload.global_downstream_max_connections, consider switching to `envoy.resource_monitors.downstream_connections` instead.This runtime key will be removed in future.") ||
+					strings.Contains(msg, "There is no configured limit to the number of allowed active downstream connections. Configure a limit in `envoy.resource_monitors.downstream_connections` resource monitor.")) {
 					continue
 				}
 				scopedLog.Warn(msg)
@@ -429,8 +427,8 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 			},
 		},
 		DynamicResources: &envoy_config_bootstrap.Bootstrap_DynamicResources{
-			LdsConfig: ciliumXDS,
-			CdsConfig: ciliumXDS,
+			LdsConfig: CiliumXDSConfigSource,
+			CdsConfig: CiliumXDSConfigSource,
 		},
 		Admin: &envoy_config_bootstrap.Admin{
 			Address: &envoy_config_core.Address{

@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"net/netip"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -62,8 +63,9 @@ var ciliumHostIPLinkScoped = net.ParseIP("9.9.9.8")
 var nodeAddressTests = []struct {
 	name         string
 	addrs        []tables.DeviceAddress // Addresses to add to the "test" device
-	wantLocal    []net.IP               // e.g. LocalAddresses()
-	wantNodePort []net.IP               // e.g. LoadBalancerNodeAddresses()
+	wantAddrs    []net.IP
+	wantPrimary  []net.IP
+	wantNodePort []net.IP
 }{
 	{
 		name: "ipv4 simple",
@@ -73,9 +75,13 @@ var nodeAddressTests = []struct {
 				Scope: unix.RT_SCOPE_SITE,
 			},
 		},
-		wantLocal: []net.IP{
+		wantAddrs: []net.IP{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
+			net.ParseIP("10.0.0.1"),
+		},
+		wantPrimary: []net.IP{
+			ciliumHostIP,
 			net.ParseIP("10.0.0.1"),
 		},
 		wantNodePort: []net.IP{
@@ -90,9 +96,13 @@ var nodeAddressTests = []struct {
 				Scope: unix.RT_SCOPE_SITE,
 			},
 		},
-		wantLocal: []net.IP{
+		wantAddrs: []net.IP{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
+			net.ParseIP("2001:db8::1"),
+		},
+		wantPrimary: []net.IP{
+			ciliumHostIP,
 			net.ParseIP("2001:db8::1"),
 		},
 		wantNodePort: []net.IP{
@@ -112,9 +122,14 @@ var nodeAddressTests = []struct {
 			},
 		},
 
-		wantLocal: []net.IP{
+		wantAddrs: []net.IP{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
+			net.ParseIP("2001:db8::1"),
+			net.ParseIP("10.0.0.1"),
+		},
+		wantPrimary: []net.IP{
+			ciliumHostIP,
 			net.ParseIP("2001:db8::1"),
 			net.ParseIP("10.0.0.1"),
 		},
@@ -144,9 +159,14 @@ var nodeAddressTests = []struct {
 
 		// The default AddressMaxScope is set to LINK-1, so addresses with
 		// scope LINK or above are ignored (except for cilium_host addresses)
-		wantLocal: []net.IP{
+		wantAddrs: []net.IP{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
+			net.ParseIP("10.0.1.1"),
+		},
+
+		wantPrimary: []net.IP{
+			ciliumHostIP,
 			net.ParseIP("10.0.1.1"),
 		},
 
@@ -167,13 +187,23 @@ var nodeAddressTests = []struct {
 				Scope:     unix.RT_SCOPE_UNIVERSE,
 				Secondary: true,
 			},
+			{
+				Addr:  netip.MustParseAddr("1.1.1.1"),
+				Scope: unix.RT_SCOPE_UNIVERSE,
+			},
 		},
 
-		wantLocal: []net.IP{
+		wantAddrs: []net.IP{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
 			net.ParseIP("10.0.0.1"),
 			net.ParseIP("10.0.0.2"),
+			net.ParseIP("1.1.1.1"),
+		},
+
+		wantPrimary: []net.IP{
+			ciliumHostIP,
+			net.ParseIP("1.1.1.1"),
 		},
 
 		wantNodePort: []net.IP{
@@ -183,21 +213,32 @@ var nodeAddressTests = []struct {
 	{
 		name: "ipv6 multiple",
 		addrs: []tables.DeviceAddress{
-			{
+			{ // Second public address
 				Addr:  netip.MustParseAddr("2600:beef::2"),
 				Scope: unix.RT_SCOPE_SITE,
 			},
-			{
+			{ // First public address
+				Addr:  netip.MustParseAddr("2600:beef::3"),
+				Scope: unix.RT_SCOPE_UNIVERSE,
+			},
+
+			{ // First private address (preferred for NodePort)
 				Addr:  netip.MustParseAddr("2001:db8::1"),
 				Scope: unix.RT_SCOPE_UNIVERSE,
 			},
 		},
 
-		wantLocal: []net.IP{
+		wantAddrs: []net.IP{
 			ciliumHostIP,
 			ciliumHostIPLinkScoped,
 			net.ParseIP("2001:db8::1"),
 			net.ParseIP("2600:beef::2"),
+			net.ParseIP("2600:beef::3"),
+		},
+
+		wantPrimary: []net.IP{
+			ciliumHostIP,
+			net.ParseIP("2600:beef::3"),
 		},
 
 		wantNodePort: []net.IP{
@@ -244,14 +285,19 @@ func TestNodeAddress(t *testing.T) {
 			addrs := statedb.Collect(iter)
 			local := []string{}
 			nodePort := []string{}
+			primary := []string{}
 			for _, addr := range addrs {
 				local = append(local, addr.Addr.String())
 				if addr.NodePort {
 					nodePort = append(nodePort, addr.Addr.String())
 				}
+				if addr.Primary {
+					primary = append(primary, addr.Addr.String())
+				}
 			}
-			assert.ElementsMatch(t, local, ipStrings(tt.wantLocal), "LocalAddresses do not match")
-			assert.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "LoadBalancerNodeAddresses do not match")
+			assert.ElementsMatch(t, local, ipStrings(tt.wantAddrs), "Addresses do not match")
+			assert.ElementsMatch(t, nodePort, ipStrings(tt.wantNodePort), "NodePort addresses do not match")
+			assert.ElementsMatch(t, primary, ipStrings(tt.wantPrimary), "Primary addresses do not match")
 			assertOnePrimaryPerDevice(t, addrs)
 		})
 	}
@@ -492,12 +538,13 @@ func ipStrings(ips []net.IP) (ss []string) {
 	return
 }
 
-func shuffleSlice[T any](xs []T) {
+func shuffleSlice[T any](xs []T) []T {
 	rand.Shuffle(
 		len(xs),
 		func(i, j int) {
 			xs[i], xs[j] = xs[j], xs[i]
 		})
+	return xs
 }
 
 func assertOnePrimaryPerDevice(t *testing.T, addrs []tables.NodeAddress) {
@@ -528,4 +575,60 @@ func assertOnePrimaryPerDevice(t *testing.T, addrs []tables.NodeAddress) {
 			assert.Fail(t, "device %q had no primary addresses", dev)
 		}
 	}
+}
+
+func TestSortedAddresses(t *testing.T) {
+	// Test cases to consider. These are in the order we expect. The test shuffles
+	// them and verifies  that expected order is recovered.
+	testCases := [][]tables.DeviceAddress{
+		// Primary vs Secondary
+		{
+			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: unix.RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
+		},
+		{
+			{Addr: netip.MustParseAddr("1002::1"), Scope: unix.RT_SCOPE_SITE},
+			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
+		},
+
+		// Scope
+		{
+			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: unix.RT_SCOPE_SITE},
+		},
+		{
+			{Addr: netip.MustParseAddr("1002::1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_SITE},
+		},
+
+		// Public vs private
+		{
+			{Addr: netip.MustParseAddr("200.0.0.1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("192.168.1.1"), Scope: unix.RT_SCOPE_UNIVERSE},
+		},
+		{
+			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("100::1"), Scope: unix.RT_SCOPE_UNIVERSE},
+		},
+
+		// Address itself
+		{
+			{Addr: netip.MustParseAddr("1.1.1.1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("2.2.2.2"), Scope: unix.RT_SCOPE_UNIVERSE},
+		},
+		{
+			{Addr: netip.MustParseAddr("1001::1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("1002::1"), Scope: unix.RT_SCOPE_UNIVERSE},
+		},
+	}
+
+	for _, expected := range testCases {
+		actual := tables.SortedAddresses(shuffleSlice(slices.Clone(expected)))
+		assert.EqualValues(t, expected, actual)
+
+		// Shuffle again.
+		actual = tables.SortedAddresses(shuffleSlice(slices.Clone(expected)))
+		assert.Equal(t, expected, actual)
+	}
+
 }

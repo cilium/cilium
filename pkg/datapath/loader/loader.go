@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -35,7 +36,7 @@ import (
 )
 
 const (
-	Subsystem = "datapath-loader"
+	subsystem = "datapath-loader"
 
 	symbolFromEndpoint = "cil_from_container"
 	symbolToEndpoint   = "cil_to_container"
@@ -56,15 +57,15 @@ const (
 )
 
 const (
-	SecctxFromIpcacheDisabled = iota + 1
-	SecctxFromIpcacheEnabled
+	secctxFromIpcacheDisabled = iota + 1
+	secctxFromIpcacheEnabled
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
-// Loader is a wrapper structure around operations related to compiling,
+// loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
-type Loader struct {
+type loader struct {
 	once sync.Once
 
 	// templateCache is the cache of pre-compiled datapaths.
@@ -74,18 +75,22 @@ type Loader struct {
 
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
+
+	sysctl sysctl.Sysctl
 }
 
-// NewLoader returns a new loader.
-func NewLoader() *Loader {
-	return &Loader{hostDpInitialized: make(chan struct{})}
+func newLoader(sysctl sysctl.Sysctl) *loader {
+	return &loader{
+		hostDpInitialized: make(chan struct{}),
+		sysctl:            sysctl,
+	}
 }
 
 // Init initializes the datapath cache with base program hashes derived from
 // the LocalNodeConfiguration.
-func (l *Loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
+func (l *loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
 	l.once.Do(func() {
-		l.templateCache = NewObjectCache(dp, nodeCfg)
+		l.templateCache = newObjectCache(dp, nodeCfg, option.Config.StateDir)
 		ignorePrefixes := ignoredELFPrefixes
 		if !option.Config.EnableIPv4 {
 			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
@@ -141,7 +146,7 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 // (cilium_host).
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
-func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
+func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
 	bpfMasqIPv4Addrs, bpfMasqIPv6Addrs map[string]net.IP) error {
 
 	hostObj, err := elf.Open(objPath)
@@ -150,7 +155,7 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	}
 	defer hostObj.Close()
 
-	opts, strings := ELFSubstitutions(ep)
+	opts, strings := l.ELFSubstitutions(ep)
 
 	// The NODE_MAC value is specific to each attachment interface.
 	mac, err := link.GetHardwareAddr(ifName)
@@ -171,9 +176,9 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	}
 
 	if !option.Config.EnableHostLegacyRouting {
-		opts["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheEnabled)
+		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheEnabled)
 	} else {
-		opts["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheDisabled)
+		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
 	}
 
 	if option.Config.EnableNodePort {
@@ -288,7 +293,7 @@ func removeObsoleteNetdevPrograms() error {
 // - cilium_host: ingress and egress
 // - cilium_net: ingress
 // - native devices: ingress and (optionally) egress if certain features require it
-func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string) error {
+func (l *loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string) error {
 	// Warning: here be dragons. There used to be a single loop over
 	// interfaces+objs+progs here from the iproute2 days, but this was never
 	// correct to begin with. Tail call maps were always reused when possible,
@@ -307,7 +312,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	}
 	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
 	if err != nil {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
 			logfields.Veth: ep.InterfaceName(),
 		})
@@ -329,7 +334,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	}
 
 	secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
-	if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
+	if err := l.patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
 		return err
 	}
 
@@ -339,7 +344,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	finalize, err = replaceDatapath(ctx, defaults.SecondHostDevice, secondDevObjPath, progs, "")
 	if err != nil {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
 			logfields.Veth: defaults.SecondHostDevice,
 		})
@@ -358,7 +363,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		}
 
 		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device+".o")
-		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device,
+		if err := l.patchHostNetdevDatapath(ep, objPath, netdevObjPath, device,
 			node.GetMasqIPv4AddrsWithDevices(), node.GetMasqIPv6AddrsWithDevices()); err != nil {
 			return err
 		}
@@ -385,7 +390,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 		finalize, err := replaceDatapath(ctx, device, netdevObjPath, progs, "")
 		if err != nil {
-			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+			scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: device,
 			})
@@ -404,13 +409,14 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	}
 
 	l.hostDpInitializedOnce.Do(func() {
+		log.Debug("Initialized host datapath")
 		close(l.hostDpInitialized)
 	})
 
 	return nil
 }
 
-func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo) error {
+func (l *loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
 
@@ -433,7 +439,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 
 		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
 		if err != nil {
-			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+			scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
 			})
@@ -449,7 +455,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	}
 
 	if ep.RequireEndpointRoute() {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+		scopedLog := ep.Logger(subsystem).WithFields(logrus.Fields{
 			logfields.Veth: ep.InterfaceName(),
 		})
 		if ip := ep.IPv4Address(); ip.IsValid() {
@@ -467,7 +473,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	return nil
 }
 
-func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) error {
+func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) error {
 	if err := compileOverlay(ctx, cArgs); err != nil {
 		log.WithError(err).Fatal("failed to compile overlay programs")
 	}
@@ -486,9 +492,9 @@ func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 	return nil
 }
 
-func (l *Loader) compileAndLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
+func (l *loader) compileAndLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
 	stats.BpfCompilation.Start()
-	err := compileDatapath(ctx, dirs, ep.IsHost(), ep.Logger(Subsystem))
+	err := compileDatapath(ctx, dirs, ep.IsHost(), ep.Logger(subsystem))
 	stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return err
@@ -504,7 +510,7 @@ func (l *Loader) compileAndLoad(ctx context.Context, ep datapath.Endpoint, dirs 
 // and loads it onto the interface associated with the endpoint.
 //
 // Expects the caller to have created the directory at the path ep.StateDir().
-func (l *Loader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (l *loader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
 	if ep == nil {
 		log.Fatalf("LoadBPF() doesn't support non-endpoint load")
 	}
@@ -531,13 +537,14 @@ func (l *Loader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	templatePath, _, err := l.templateCache.fetchOrCompile(ctx, ep, stats)
+func (l *loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+	templateFile, _, err := l.templateCache.fetchOrCompile(ctx, ep, stats)
 	if err != nil {
 		return err
 	}
+	defer templateFile.Close()
 
-	template, err := elf.Open(templatePath)
+	template, err := elf.NewELF(templateFile, ep.Logger(subsystem))
 	if err != nil {
 		return err
 	}
@@ -559,9 +566,9 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 			Err:  err,
 		}
 	}
-	if err := os.Symlink(templatePath, symPath); err != nil {
+	if err := os.Symlink(templateFile.Name(), symPath); err != nil {
 		return &os.PathError{
-			Op:   fmt.Sprintf("Failed to create symlink to %s", templatePath),
+			Op:   fmt.Sprintf("Failed to create symlink to %s", templateFile.Name()),
 			Path: symPath,
 			Err:  err,
 		}
@@ -573,7 +580,7 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 		epObj = hostEndpointObj
 	}
 	dstPath := path.Join(ep.StateDir(), epObj)
-	opts, strings := ELFSubstitutions(ep)
+	opts, strings := l.ELFSubstitutions(ep)
 	if err = template.Write(dstPath, opts, strings); err != nil {
 		stats.BpfWriteELF.End(err == nil)
 		return err
@@ -584,7 +591,7 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 }
 
 // ReloadDatapath reloads the BPF datapath programs for the specified endpoint.
-func (l *Loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (err error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -598,7 +605,7 @@ func (l *Loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 }
 
 // Unload removes the datapath specific program aspects
-func (l *Loader) Unload(ep datapath.Endpoint) {
+func (l *loader) Unload(ep datapath.Endpoint) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsValid() {
 			removeEndpointRoute(ep, *iputil.AddrToIPNet(ip))
@@ -612,23 +619,23 @@ func (l *Loader) Unload(ep datapath.Endpoint) {
 
 // EndpointHash hashes the specified endpoint configuration with the current
 // datapath hash cache and returns the hash as string.
-func (l *Loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
 	return l.templateCache.baseHash.sumEndpoint(l.templateCache, cfg, true)
 }
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
-func (l *Loader) CallsMapPath(id uint16) string {
+func (l *loader) CallsMapPath(id uint16) string {
 	return bpf.LocalMapPath(callsmap.MapName, id)
 }
 
 // CustomCallsMapPath gets the BPF Custom Calls Map for the endpoint with the
 // specified ID.
-func (l *Loader) CustomCallsMapPath(id uint16) string {
+func (l *loader) CustomCallsMapPath(id uint16) string {
 	return bpf.LocalMapPath(callsmap.CustomCallsMapName, id)
 }
 
 // HostDatapathInitialized returns a channel which is closed when the
 // host datapath has been loaded for the first time.
-func (l *Loader) HostDatapathInitialized() <-chan struct{} {
+func (l *loader) HostDatapathInitialized() <-chan struct{} {
 	return l.hostDpInitialized
 }

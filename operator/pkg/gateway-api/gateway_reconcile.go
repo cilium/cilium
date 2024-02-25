@@ -20,12 +20,12 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
-	translation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -60,11 +60,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	gw := original.DeepCopy()
-	defer func() {
-		if err := r.updateStatus(ctx, original, gw); err != nil {
-			scopedLog.WithError(err).Error("Unable to update Gateway status")
-		}
-	}()
 
 	// Step 2: Gather all required information for the ingestion model
 	gwc := &gatewayv1.GatewayClass{}
@@ -74,41 +69,49 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			Error("Unable to get GatewayClass")
 		if k8serrors.IsNotFound(err) {
 			setGatewayAccepted(gw, false, "GatewayClass does not exist")
-			return controllerruntime.Fail(err)
+			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 		}
 		setGatewayAccepted(gw, false, "Unable to get GatewayClass")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	httpRouteList := &gatewayv1.HTTPRouteList{}
 	if err := r.Client.List(ctx, httpRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list HTTPRoutes")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	grpcRouteList := &gatewayv1alpha2.GRPCRouteList{}
 	if err := r.Client.List(ctx, grpcRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list GRPCRoutes")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	tlsRouteList := &gatewayv1alpha2.TLSRouteList{}
 	if err := r.Client.List(ctx, tlsRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list TLSRoutes")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	// TODO(tam): Only list the services used by accepted Routes
+	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list Services")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+
+	serviceImportsList := &mcsapiv1alpha1.ServiceImportList{}
+	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
+		if err := r.Client.List(ctx, serviceImportsList); err != nil {
+			scopedLog.WithError(err).Error("Unable to list ServiceImports")
+			return controllerruntime.Fail(err)
+		}
 	}
 
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
 		scopedLog.WithError(err).Error("Unable to list ReferenceGrants")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	httpListeners, tlsListeners := ingestion.GatewayAPI(ingestion.Input{
@@ -118,50 +121,55 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		TLSRoutes:       r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
 		GRPCRoutes:      r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
 		Services:        servicesList.Items,
+		ServiceImports:  serviceImportsList.Items,
 		ReferenceGrants: grants.Items,
 	})
 
 	if err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to set listener status")
 		setGatewayAccepted(gw, false, "Unable to set listener status")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled")
 
 	// Step 3: Translate the listeners into Cilium model
-	cec, svc, ep, err := translation.NewTranslator(r.SecretsNamespace, r.IdleTimeoutSeconds).Translate(&model.Model{HTTP: httpListeners, TLS: tlsListeners})
+	cec, svc, ep, err := r.translator.Translate(&model.Model{HTTP: httpListeners, TLS: tlsListeners})
 	if err != nil {
 		scopedLog.WithError(err).Error("Unable to translate resources")
 		setGatewayAccepted(gw, false, "Unable to translate resources")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	if err = r.ensureService(ctx, svc); err != nil {
 		scopedLog.WithError(err).Error("Unable to create Service")
 		setGatewayAccepted(gw, false, "Unable to create Service resource")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	if err = r.ensureEndpoints(ctx, ep); err != nil {
 		scopedLog.WithError(err).Error("Unable to ensure Endpoints")
 		setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.WithError(err).Error("Unable to ensure CiliumEnvoyConfig")
 		setGatewayAccepted(gw, false, "Unable to ensure CEC resource")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	// Step 4: Update the status of the Gateway
 	if err = r.setAddressStatus(ctx, gw); err != nil {
 		scopedLog.WithError(err).Error("Address is not ready")
 		setGatewayProgrammed(gw, false, "Address is not ready")
-		return controllerruntime.Fail(err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	setGatewayProgrammed(gw, true, "Gateway successfully reconciled")
+	if err := r.updateStatus(ctx, original, gw); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update Gateway status: %w", err)
+	}
+
 	scopedLog.Info("Successfully reconciled Gateway")
 	return controllerruntime.Success()
 }
@@ -515,4 +523,12 @@ func isValidPemFormat(b []byte) bool {
 		return true
 	}
 	return isValidPemFormat(rest)
+}
+
+func (r *gatewayReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.Gateway, modified *gatewayv1.Gateway) (ctrl.Result, error) {
+	if err := r.updateStatus(ctx, original, modified); err != nil {
+		return controllerruntime.Fail(fmt.Errorf("failed to update Gateway status while handling the reconcile error %w: %w", reconcileErr, err))
+	}
+
+	return controllerruntime.Fail(reconcileErr)
 }

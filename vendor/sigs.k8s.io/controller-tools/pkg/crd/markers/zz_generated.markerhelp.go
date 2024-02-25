@@ -467,3 +467,23 @@ func (XPreserveUnknownFields) Help() *markers.DefinitionHelp {
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
 }
+
+func (XValidation) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "marks a field as requiring a value for which a given expression evaluates to true. ",
+			Details: "This marker may be repeated to specify multiple expressions, all of which must evaluate to true.",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"Rule": {
+				Summary: "",
+				Details: "",
+			},
+			"Message": {
+				Summary: "",
+				Details: "",
+			},
+		},
+	}
+}

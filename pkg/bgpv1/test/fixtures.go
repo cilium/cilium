@@ -86,6 +86,7 @@ type fixture struct {
 	policyClient  v2alpha1.CiliumBGPPeeringPolicyInterface
 	secretClient  clientset_core_v1.SecretInterface
 	hive          *hive.Hive
+	cells         []cell.Cell
 	bgp           *agent.Controller
 	ciliumNode    daemon_k8s.LocalCiliumNodeResource
 }
@@ -140,7 +141,7 @@ func newFixture(conf fixtureConfig) *fixture {
 	f.fakeClientSet.SlimFakeClientset.Tracker().Add(&conf.secret)
 
 	// Construct a new Hive with mocked out dependency cells.
-	f.hive = hive.New(
+	f.cells = []cell.Cell{
 		cell.Config(k8sPkg.DefaultConfig),
 
 		// service
@@ -153,7 +154,7 @@ func newFixture(conf fixtureConfig) *fixture {
 		cell.Provide(k8sPkg.LBIPPoolsResource),
 
 		// cilium node
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) daemon_k8s.LocalCiliumNodeResource {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) daemon_k8s.LocalCiliumNodeResource {
 			store := resource.New[*cilium_api_v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](
 					c.CiliumV2().CiliumNodes(),
@@ -184,7 +185,8 @@ func newFixture(conf fixtureConfig) *fixture {
 
 		job.Cell,
 		bgpv1.Cell,
-	)
+	}
+	f.hive = hive.New(f.cells...)
 
 	return f
 }
@@ -205,8 +207,15 @@ func setupSingleNeighbor(ctx context.Context, f *fixture, peerASN uint32) error 
 	return err
 }
 
-// setup configures dummy links, gobgp and cilium bgp cell.
+// setup configures the test environment based on provided gobgp and fixture config.
 func setup(ctx context.Context, peerConfigs []gobgpConfig, fixConfig fixtureConfig) (peers []*goBGP, f *fixture, cleanup func(), err error) {
+	f = newFixture(fixConfig)
+	peers, cleanup, err = start(ctx, peerConfigs, f)
+	return
+}
+
+// start configures dummy links, starts gobgp and cilium bgp cell.
+func start(ctx context.Context, peerConfigs []gobgpConfig, f *fixture) (peers []*goBGP, cleanup func(), err error) {
 	// cleanup old dummy links if they are hanging around
 	_ = teardownLinks()
 
@@ -220,7 +229,7 @@ func setup(ctx context.Context, peerConfigs []gobgpConfig, fixConfig fixtureConf
 		return
 	}
 
-	// setup goBGP
+	// start goBGP
 	for _, pConf := range peerConfigs {
 		var peer *goBGP
 		peer, err = startGoBGP(ctx, pConf)
@@ -230,8 +239,7 @@ func setup(ctx context.Context, peerConfigs []gobgpConfig, fixConfig fixtureConf
 		peers = append(peers, peer)
 	}
 
-	// setup cilium
-	f = newFixture(fixConfig)
+	// start cilium
 	err = f.hive.Start(ctx)
 	if err != nil {
 		return

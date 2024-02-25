@@ -13,7 +13,7 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -63,7 +63,7 @@ func (s *EndpointSuite) SetUpSuite(c *C) {
 
 	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
 	// GetConfig the default labels prefix filter
-	err := labelsfilter.ParseLabelPrefixCfg(nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
 	}
@@ -236,7 +236,7 @@ func (s *EndpointSuite) TestEndpointDatapathOptions(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(c, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -275,7 +275,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(c, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 	e.unconditionalLock()
 	defer e.unlock()
 
@@ -525,19 +525,31 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 	e := &Endpoint{ID: 123, policyRevision: 0}
 	e.UpdateLogger(nil)
 
-	id, port := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
+	id, port := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "")
 	c.Assert(id, Not(Equals), "")
 	c.Assert(port, Equals, uint16(8080))
 
-	endpointID, ingress, protocol, port, err := policy.ParseProxyID(id)
+	endpointID, ingress, protocol, port, listener, err := policy.ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))
 	c.Assert(ingress, Equals, true)
 	c.Assert(protocol, Equals, "TCP")
 	c.Assert(port, Equals, uint16(8080))
+	c.Assert(listener, Equals, "")
+	c.Assert(err, IsNil)
+
+	id, port = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD}, "test-listener")
+	c.Assert(id, Not(Equals), "")
+	c.Assert(port, Equals, uint16(8080))
+	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
+	c.Assert(endpointID, Equals, uint16(123))
+	c.Assert(ingress, Equals, true)
+	c.Assert(protocol, Equals, "TCP")
+	c.Assert(port, Equals, uint16(8080))
+	c.Assert(listener, Equals, "test-listener")
 	c.Assert(err, IsNil)
 
 	// Undefined named port
-	id, port = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true})
+	id, port = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "")
 	c.Assert(id, Equals, "")
 	c.Assert(port, Equals, uint16(0))
 }
@@ -640,23 +652,23 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponStop(c *C) {
 	// Need to modify global configuration (hooray!), change back when test is
 	// done.
 	oldQueueSize := option.Config.EndpointQueueSize
-	oldDryMode := option.Config.DryMode
 	option.Config.EndpointQueueSize = 1
-	option.Config.DryMode = true
 	defer func() {
 		option.Config.EndpointQueueSize = oldQueueSize
-		option.Config.DryMode = oldDryMode
 	}()
 
 	oldDatapath := s.datapath
 
-	s.datapath = fake.NewDatapath()
+	s.datapath = fakeTypes.NewDatapath()
 
 	defer func() {
 		s.datapath = oldDatapath
 	}()
 
-	ep := NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewTestEndpointWithState(c, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+
+	ep.properties[PropertyFakeEndpoint] = true
+	ep.properties[PropertySkipBPFPolicy] = true
 
 	// In case deadlock occurs, provide a timeout of 3 (number of events) *
 	// deadlockTimeout + 1 seconds to ensure that we are actually testing for
@@ -727,7 +739,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponStop(c *C) {
 }
 
 func BenchmarkEndpointGetModel(b *testing.B) {
-	e := NewEndpointWithState(&suite, &suite, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(b, &suite, &suite, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
 
 	for i := 0; i < 256; i++ {
 		e.LogStatusOK(BPF, "Hello World!")

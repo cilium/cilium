@@ -32,12 +32,14 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
+	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -140,7 +142,6 @@ var (
 		) identitygc.SharedConfig {
 			return identitygc.SharedConfig{
 				IdentityAllocationMode: daemonCfg.IdentityAllocationMode,
-				K8sNamespace:           daemonCfg.CiliumNamespaceName(),
 			}
 		}),
 
@@ -180,7 +181,9 @@ var (
 			apis.RegisterCRDsCell,
 			operatorK8s.ResourcesCell,
 
+			bgpv2.Cell,
 			lbipam.Cell,
+			nodeipam.Cell,
 			auth.Cell,
 			store.Cell,
 			legacyCell,
@@ -293,10 +296,10 @@ func Execute(cmd *cobra.Command) {
 	}
 }
 
-func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func registerOperatorHooks(lc cell.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	var wg sync.WaitGroup
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			wg.Add(1)
 			go func() {
 				runOperator(llc, clientset, shutdowner)
@@ -304,7 +307,7 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 			}()
 			return nil
 		},
-		OnStop: func(ctx hive.HookContext) error {
+		OnStop: func(ctx cell.HookContext) error {
 			if err := llc.Stop(ctx); err != nil {
 				return err
 			}
@@ -447,7 +450,7 @@ func kvstoreEnabled() bool {
 
 var legacyCell = cell.Invoke(registerLegacyOnLeader)
 
-func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:          ctx,
@@ -456,7 +459,7 @@ func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, re
 		resources:    resources,
 		storeFactory: factory,
 	}
-	lc.Append(hive.Hook{
+	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
 		OnStop:  legacy.onStop,
 	})
@@ -471,7 +474,7 @@ type legacyOnLeader struct {
 	storeFactory store.Factory
 }
 
-func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
+func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
 	legacy.cancel()
 
 	// Wait for background goroutines to finish.
@@ -482,7 +485,7 @@ func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
 
 // OnOperatorStartLeading is the function called once the operator starts leading
 // in HA mode.
-func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
+func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	isLeader.Store(true)
 
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
@@ -563,6 +566,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 				Endpoints:    legacy.resources.Endpoints,
 				SharedOnly:   true,
 				StoreFactory: legacy.storeFactory,
+				SyncCallback: func(_ context.Context) {},
 			})
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
@@ -664,22 +668,16 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			log.WithError(err).Fatal("Unable to setup cilium node synchronizer")
 		}
 
-		if operatorOption.Config.SkipCNPStatusStartupClean {
-			log.Info("Skipping clean up of CNP and CCNP node status updates")
-		} else {
-			// If CNP status updates are disabled, we clean up all the
-			// possible updates written when the option was enabled.
-			// This is done to avoid accumulating stale updates and thus
-			// hindering scalability for large clusters.
-			RunCNPStatusNodesCleaner(
-				legacy.ctx,
-				legacy.clientset,
-				xrate.NewLimiter(
-					xrate.Limit(operatorOption.Config.CNPStatusCleanupQPS),
-					operatorOption.Config.CNPStatusCleanupBurst,
-				),
-			)
-		}
+		// This is done to avoid accumulating stale updates and thus
+		// hindering scalability for large clusters.
+		RunCNPStatusNodesCleaner(
+			legacy.ctx,
+			legacy.clientset,
+			xrate.NewLimiter(
+				xrate.Limit(operatorOption.Config.CNPStatusCleanupQPS),
+				operatorOption.Config.CNPStatusCleanupBurst,
+			),
+		)
 
 		if operatorOption.Config.NodesGCInterval != 0 {
 			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore, operatorOption.Config.NodesGCInterval)

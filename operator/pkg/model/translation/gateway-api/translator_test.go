@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -142,6 +143,15 @@ func Test_translator_Translate(t *testing.T) {
 			want: requestHeaderModifierHTTPListenersCiliumEnvoyConfig,
 		},
 		{
+			name: "Conformance/HTTPRouteBackendRefsRequestHeaderModifier",
+			args: args{
+				m: &model.Model{
+					HTTP: backendRefsRequestHeaderModifierHTTPListeners,
+				},
+			},
+			want: backendRefsRequestHeaderModifierHTTPListenersCiliumEnvoyConfig,
+		},
+		{
 			name: "Conformance/HTTPRouteRequestRedirect",
 			args: args{
 				m: &model.Model{
@@ -158,6 +168,15 @@ func Test_translator_Translate(t *testing.T) {
 				},
 			},
 			want: responseHeaderModifierHTTPListenersCiliumEnvoyConfig,
+		},
+		{
+			name: "Conformance/HTTPRouteBackendRefsResponseHeaderModifier",
+			args: args{
+				m: &model.Model{
+					HTTP: backendRefsResponseHeaderModifierHTTPListeners,
+				},
+			},
+			want: backendRefsResponseHeaderModifierHTTPListenersCiliumEnvoyConfig,
 		},
 		{
 			name: "Conformance/HTTPRouteRewriteHost",
@@ -189,8 +208,8 @@ func Test_translator_Translate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &translator{
-				idleTimeoutSeconds: 60,
+			trans := &gatewayAPITranslator{
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, 60),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
@@ -290,8 +309,8 @@ func Test_translator_TranslateResource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &translator{
-				idleTimeoutSeconds: 60,
+			trans := &gatewayAPITranslator{
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, 60),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")

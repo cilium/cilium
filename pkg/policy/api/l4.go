@@ -139,7 +139,7 @@ type EnvoyConfig struct {
 
 // Listener defines a reference to an Envoy listener specified in a CEC or CCEC resource.
 type Listener struct {
-	// EnvoyConfig is a reference to the CEC or CCNP resource in which
+	// EnvoyConfig is a reference to the CEC or CCEC resource in which
 	// the listener is defined.
 	//
 	// +kubebuilder:validation:Required
@@ -150,6 +150,14 @@ type Listener struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
+
+	// Priority for this Listener that is used when multiple rules would apply different
+	// listeners to a policy map entry. Behavior of this is implementation dependent.
+	//
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=100
+	// +kubebuilder:validation:Optional
+	Priority uint16 `json:"priority"`
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7

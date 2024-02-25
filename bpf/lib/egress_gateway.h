@@ -29,17 +29,31 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 				      __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
-	__u32 old_oif = ctx_get_ifindex(ctx);
+	int oif = 0;
 
 	*ext_err = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
 
-	if (*ext_err != BPF_FIB_LKUP_RET_SUCCESS && *ext_err != BPF_FIB_LKUP_RET_NO_NEIGH)
-		return DROP_NO_FIB;
+	switch (*ext_err) {
+	case BPF_FIB_LKUP_RET_SUCCESS:
+		break;
+	case BPF_FIB_LKUP_RET_NO_NEIGH:
+		/* Don't redirect if we can't update the L2 DMAC: */
+		if (!neigh_resolver_available())
+			return CTX_ACT_OK;
 
-	if (old_oif == fib_params.l.ifindex)
+		/* Don't redirect without a valid target ifindex: */
+		if (!is_defined(HAVE_FIB_IFINDEX))
+			return CTX_ACT_OK;
+		break;
+	default:
+		return DROP_NO_FIB;
+	}
+
+	/* Skip redirect in to-netdev if we stay on the same iface: */
+	if (is_defined(IS_BPF_HOST) && fib_params.l.ifindex == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, ext_err, (int *)&old_oif);
+	return fib_do_redirect(ctx, true, &fib_params, false, ext_err, &oif);
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY

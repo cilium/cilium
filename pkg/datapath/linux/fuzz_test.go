@@ -9,7 +9,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -22,8 +22,8 @@ func FuzzNodeHandler(f *testing.F) {
 			t.Skip()
 		}
 		dpConfig := DatapathConfiguration{HostDevice: "veth0"}
-		fakeNodeAddressing := fake.NewNodeAddressing()
-		linuxNodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing, nil, &fake.MTU{})
+		fakeNodeAddressing := fakeTypes.NewNodeAddressing()
+		linuxNodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing, nil, &fakeTypes.MTU{})
 		if linuxNodeHandler == nil {
 			panic("Should not be nil")
 		}

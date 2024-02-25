@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/auth/spire"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -73,7 +72,7 @@ type authManagerParams struct {
 	cell.In
 
 	Logger      logrus.FieldLogger
-	Lifecycle   hive.Lifecycle
+	Lifecycle   cell.Lifecycle
 	JobRegistry job.Registry
 	Scope       cell.Scope
 
@@ -109,8 +108,8 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 
 	// Register auth components to lifecycle hooks & jobs
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hookContext hive.HookContext) error {
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(hookContext cell.HookContext) error {
 			if err := mapCache.restoreCache(); err != nil {
 				return fmt.Errorf("failed to restore auth map cache: %w", err)
 			}
@@ -158,14 +157,14 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm si
 	return nil
 }
 
-func registerGCJobs(jobGroup job.Group, lifecycle hive.Lifecycle, mapGC *authMapGarbageCollector, cfg config, nodeManager nodeManager.NodeManager, endpointManager endpointmanager.EndpointManager, identityChanges stream.Observable[cache.IdentityChange]) {
-	lifecycle.Append(hive.Hook{
-		OnStart: func(hookContext hive.HookContext) error {
+func registerGCJobs(jobGroup job.Group, lifecycle cell.Lifecycle, mapGC *authMapGarbageCollector, cfg config, nodeManager nodeManager.NodeManager, endpointManager endpointmanager.EndpointManager, identityChanges stream.Observable[cache.IdentityChange]) {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(hookContext cell.HookContext) error {
 			mapGC.subscribeToNodeEvents(nodeManager)
 			mapGC.subscribeToEndpointEvents(endpointManager)
 			return nil
 		},
-		OnStop: func(hookContext hive.HookContext) error {
+		OnStop: func(hookContext cell.HookContext) error {
 			nodeManager.Unsubscribe(mapGC)
 			endpointManager.Unsubscribe(mapGC)
 			return nil

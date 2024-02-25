@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/k8s"
+	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -19,38 +19,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
-
-func createManagerEndpoint(name string, identity int64) cilium_v2a1.CoreCiliumEndpoint {
-	return cilium_v2a1.CoreCiliumEndpoint{
-		Name:       name,
-		IdentityID: identity,
-	}
-}
-
-func createStoreEndpoint(name string, namespace string, identity int64) *cilium_v2.CiliumEndpoint {
-	return &cilium_v2.CiliumEndpoint{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Status: cilium_v2.EndpointStatus{
-			Identity: &cilium_v2.EndpointIdentity{
-				ID: identity,
-			},
-			Networking: &cilium_v2.EndpointNetworking{},
-		},
-	}
-}
-
-func createStoreEndpointSlice(name string, namespace string, endpoints []cilium_v2a1.CoreCiliumEndpoint) *cilium_v2a1.CiliumEndpointSlice {
-	return &cilium_v2a1.CiliumEndpointSlice{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: name,
-		},
-		Namespace: namespace,
-		Endpoints: endpoints,
-	}
-}
 
 func TestSyncCESsInLocalCache(t *testing.T) {
 	var r *reconciler
@@ -86,22 +54,21 @@ func TestSyncCESsInLocalCache(t *testing.T) {
 		ciliumEndpointSlice: ciliumEndpointSlice,
 		reconciler:          r,
 		manager:             m,
-		writeQPSBurst:       2,
-		writeQPSLimit:       1,
+		rateLimit:           getRateLimitConfig(params{Cfg: Config{CESWriteQPSLimit: 2, CESWriteQPSBurst: 1}}),
 		enqueuedAt:          make(map[CESName]time.Time),
 	}
 	cesController.initializeQueue()
 
-	cep1 := createManagerEndpoint("cep1", 1)
-	cep2 := createManagerEndpoint("cep2", 1)
-	cep3 := createManagerEndpoint("cep3", 2)
-	cep4 := createManagerEndpoint("cep4", 2)
-	ces1 := createStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep1, cep2, cep3, cep4})
+	cep1 := tu.CreateManagerEndpoint("cep1", 1)
+	cep2 := tu.CreateManagerEndpoint("cep2", 1)
+	cep3 := tu.CreateManagerEndpoint("cep3", 2)
+	cep4 := tu.CreateManagerEndpoint("cep4", 2)
+	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep1, cep2, cep3, cep4})
 	cesStore.CacheStore().Add(ces1)
-	cep5 := createManagerEndpoint("cep5", 1)
-	cep6 := createManagerEndpoint("cep6", 1)
-	cep7 := createManagerEndpoint("cep7", 2)
-	ces2 := createStoreEndpointSlice("ces2", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep5, cep6, cep7})
+	cep5 := tu.CreateManagerEndpoint("cep5", 1)
+	cep6 := tu.CreateManagerEndpoint("cep6", 1)
+	cep7 := tu.CreateManagerEndpoint("cep7", 2)
+	ces2 := tu.CreateStoreEndpointSlice("ces2", "ns", []cilium_v2a1.CoreCiliumEndpoint{cep5, cep6, cep7})
 	cesStore.CacheStore().Add(ces2)
 
 	cesController.syncCESsInLocalCache(context.Background())

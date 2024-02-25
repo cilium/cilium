@@ -242,13 +242,20 @@ func TestPodIPPoolReconciler(t *testing.T) {
 			if tt.nodeAllocs != nil {
 				node.Spec.IPAM.Pools.Allocated = append(node.Spec.IPAM.Pools.Allocated, tt.nodeAllocs...)
 			}
-			err = reconciler.Reconcile(context.Background(), ReconcileParams{
-				CurrentServer: testSC,
-				DesiredConfig: testSC.Config,
-				CiliumNode:    node,
-			})
-			if err != nil {
-				t.Fatalf("failed to reconcile pool cidr advertisements: %v", err)
+
+			// Run the reconciler twice to ensure idempotency. This
+			// simulates the retrying behavior of the controller.
+			for i := 0; i < 2; i++ {
+				t.Run(tt.name, func(t *testing.T) {
+					err = reconciler.Reconcile(context.Background(), ReconcileParams{
+						CurrentServer: testSC,
+						DesiredConfig: testSC.Config,
+						CiliumNode:    node,
+					})
+					if err != nil {
+						t.Fatalf("failed to reconcile pool cidr advertisements: %v", err)
+					}
+				})
 			}
 
 			podIPPoolAnnouncements := reconciler.getMetadata(testSC)

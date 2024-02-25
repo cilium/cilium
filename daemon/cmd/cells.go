@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -31,6 +32,7 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -39,11 +41,14 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
 
 var (
@@ -105,9 +110,18 @@ var (
 		// DB provides an extendable in-memory database with rich transactions
 		// and multi-version concurrency control through immutable radix trees.
 		statedb.Cell,
+
+		// Reconciler provides a general utility for reconciling a statedb table
+		// with a target defined via set of operations. This cell provides the
+		// common objects used by all reconcilers such as the shared metrics.
+		reconciler.Cell,
+
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
+
+		// Reconciler cell provides the shared metrics for all the reconcilers.
+		reconciler.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -136,6 +150,10 @@ var (
 		// Shared resources provide access to k8s resources as event streams or as
 		// read-only stores.
 		agentK8s.ResourcesCell,
+
+		// Shared synchronization structures for waiting on K8s resources to
+		// be synced
+		k8sSynced.Cell,
 
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,
@@ -172,6 +190,10 @@ var (
 		// It is used to provide support for Ingress, GatewayAPI and L7 network policies (e.g. HTTP).
 		envoy.Cell,
 
+		// CiliumEnvoyConfig provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
+		// and L7 loadbalancing.
+		ciliumenvoyconfig.Cell,
+
 		// Cilium REST API handlers
 		restapi.Cell,
 
@@ -195,6 +217,15 @@ var (
 
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		k8s.ServiceCacheCell,
+
+		// K8s policy resource watcher cell. It depends on the daemon which we cast into
+		// the interface type here to avoid a circular package import
+		cell.Provide(func(p promise.Promise[*Daemon]) promise.Promise[policyK8s.PolicyManager] {
+			return promise.Map(p, func(d *Daemon) policyK8s.PolicyManager {
+				return d
+			})
+		}),
+		policyK8s.Cell,
 
 		// ClusterMesh is the Cilium's multicluster implementation.
 		cell.Config(cmtypes.DefaultClusterInfo),
@@ -236,5 +267,4 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, swaggerSpec 
 		}
 	}
 	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
-
 }

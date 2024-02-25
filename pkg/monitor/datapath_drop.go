@@ -48,6 +48,8 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 }
 
 var sourceFileNames = map[int]string{
+	// @@ source files list begin
+
 	// source files from bpf/
 	1: "bpf_host.c",
 	2: "bpf_lxc.c",
@@ -57,12 +59,13 @@ var sourceFileNames = map[int]string{
 	// header files from bpf/lib/
 	101: "arp.h",
 	102: "drop.h",
-	103: "egress_policies.h",
+	103: "srv6.h",
 	104: "icmp6.h",
 	105: "nodeport.h",
 	106: "lb.h",
 	107: "mcast.h",
-	//end
+
+	// @@ source files list end
 }
 
 // DecodeDropNotify will decode 'data' into the provided DropNotify structure

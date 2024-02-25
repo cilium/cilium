@@ -4,15 +4,14 @@
 package cmd
 
 import (
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 // LeaderLifecycle is the inner lifecycle of the operator that is started when this
-// operator instance is elected leader. It implements hive.Lifecycle allowing cells
+// operator instance is elected leader. It implements cell.Lifecycle allowing cells
 // to use it.
 type LeaderLifecycle struct {
-	hive.DefaultLifecycle
+	cell.DefaultLifecycle
 }
 
 func WithLeaderLifecycle(cells ...cell.Cell) cell.Cell {
@@ -24,7 +23,7 @@ func WithLeaderLifecycle(cells ...cell.Cell) cell.Cell {
 			func() *LeaderLifecycle { return &LeaderLifecycle{} },
 		),
 		cell.Decorate(
-			func(lc *LeaderLifecycle) hive.Lifecycle {
+			func(lc *LeaderLifecycle) cell.Lifecycle {
 				return lc
 			},
 			cells...,

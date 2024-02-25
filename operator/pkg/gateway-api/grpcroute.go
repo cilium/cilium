@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -40,7 +41,12 @@ func newGRPCRouteReconciler(mgr ctrl.Manager) *grpcRouteReconciler {
 // SetupWithManager sets up the controller with the Manager.
 func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
-		backendServiceIndex, getBackendServiceForGRPCRoute,
+		backendServiceIndex, r.getBackendServiceForGRPCRoute,
+	); err != nil {
+		return err
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
+		backendServiceImportIndex, r.getBackendServiceImportForGRPCRoute,
 	); err != nil {
 		return err
 	}
@@ -51,7 +57,7 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to GRPCRoute
 		For(&gatewayv1alpha2.GRPCRoute{}).
 		// Watch for changes to Backend services
@@ -61,8 +67,13 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Gateways and enqueue GRPCRoutes that reference them
 		Watches(&gatewayv1beta1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
-				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName)))).
-		Complete(r)
+				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName))))
+
+	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
+		// Watch for changes to Backend Service Imports
+		builder = builder.Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport())
+	}
+	return builder.Complete(r)
 }
 
 func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
@@ -85,7 +96,7 @@ func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
 	return gateways
 }
 
-func getBackendServiceForGRPCRoute(rawObj client.Object) []string {
+func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object) []string {
 	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
 	if !ok {
 		return nil
@@ -93,13 +104,19 @@ func getBackendServiceForGRPCRoute(rawObj client.Object) []string {
 	var backendServices []string
 	for _, rule := range route.Spec.Rules {
 		for _, backend := range rule.BackendRefs {
-			if !helpers.IsService(backend.BackendObjectReference) {
+			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
+			backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.Controller: "grpcRoute",
+					logfields.Resource:   client.ObjectKeyFromObject(rawObj),
+				}).WithError(err).Error("Failed to get backend service name")
 				continue
 			}
 			backendServices = append(backendServices,
 				types.NamespacedName{
 					Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
-					Name:      string(backend.Name),
+					Name:      backendServiceName,
 				}.String(),
 			)
 		}
@@ -107,10 +124,38 @@ func getBackendServiceForGRPCRoute(rawObj client.Object) []string {
 	return backendServices
 }
 
+func (r *grpcRouteReconciler) getBackendServiceImportForGRPCRoute(rawObj client.Object) []string {
+	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
+	if !ok {
+		return nil
+	}
+	var backendServiceImports []string
+	for _, rule := range route.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			if !helpers.IsServiceImport(backend.BackendObjectReference) {
+				continue
+			}
+			backendServiceImports = append(backendServiceImports,
+				types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+					Name:      string(backend.Name),
+				}.String(),
+			)
+		}
+	}
+	return backendServiceImports
+}
+
 // enqueueRequestForBackendService makes sure that GRPC Routes are reconciled
 // if the backend services are updated.
 func (r *grpcRouteReconciler) enqueueRequestForBackendService() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceIndex))
+}
+
+// enqueueRequestForBackendServiceImport makes sure that TLS Routes are reconciled
+// if the backend Service Imports are updated.
+func (r *grpcRouteReconciler) enqueueRequestForBackendServiceImport() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(backendServiceImportIndex))
 }
 
 // enqueueRequestForReferenceGrant makes sure that all GRPC Routes are reconciled

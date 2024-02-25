@@ -277,7 +277,6 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	const __u32 move_len_v4_geneve = 14 + 20 + 8 + 8; /* eth, ipv4, udp, geneve */
 	const __u32 move_len_v4 = 14 + 20;
 	const __u32 move_len_v6 = 14 + 40;
-	void *data, *data_end;
 	int ret;
 
 	/* Note: when bumping len_diff, consider headroom on popular NICs. */
@@ -291,25 +290,24 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	 * this must be made more generic.
 	 */
 	if (!ret) {
-		data_end = ctx_data_end(ctx);
-		data = ctx_data(ctx);
+		__u32 move_len = 0;
+
+		/* Based on the specified `len_diff`, we now *guess* at what
+		 * location the free space is needed.
+		 *
+		 * We either want to push some additional headers to the front
+		 * (move_len == 0), or insert headers at an offset (move_len > 0).
+		 */
+
 		switch (len_diff) {
 		case 28: /* struct {iphdr + icmphdr} */
 			break;
 		case 12: /* struct geneve_dsr_opt4 */
-			if (data + move_len_v4_geneve + len_diff <= data_end)
-				__bpf_memmove_fwd(data, data + len_diff,
-						  move_len_v4_geneve);
-			else
-				ret = -EFAULT;
+			move_len = move_len_v4_geneve;
 			break;
 		case 20: /* struct iphdr */
-		case 8:  /* __u32 opt[2] */
-			if (data + move_len_v4 + len_diff <= data_end)
-				__bpf_memmove_fwd(data, data + len_diff,
-						  move_len_v4);
-			else
-				ret = -EFAULT;
+		case 8:  /* struct dsr_opt_v4 */
+			move_len = move_len_v4;
 			break;
 		case 50: /* struct {ethhdr + iphdr + udphdr + genevehdr / vxlanhdr} */
 		case 50 + 12: /* geneve with IPv4 DSR option */
@@ -319,16 +317,26 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 			break;
 		case 40: /* struct ipv6hdr */
 		case 24: /* struct dsr_opt_v6 */
-			if (data + move_len_v6 + len_diff <= data_end)
-				__bpf_memmove_fwd(data, data + len_diff,
-						  move_len_v6);
-			else
-				ret = -EFAULT;
+			move_len = move_len_v6;
 			break;
 		default:
 			__throw_build_bug();
 		}
+
+		/* Move existing headers to the front, to create space for
+		 * inserting additional headers.
+		 */
+		if (move_len) {
+			void *data_end = ctx_data_end(ctx);
+			void *data = ctx_data(ctx);
+
+			if (data + len_diff + move_len <= data_end)
+				__bpf_memmove_fwd(data, data + len_diff, move_len);
+			else
+				ret = -EFAULT;
+		}
 	}
+
 	return ret;
 }
 
@@ -407,6 +415,21 @@ ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 
 	if (always_succeeds(data_meta))
 		return data_meta[off];
+	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
+	return 0;
+}
+
+static __always_inline __maybe_unused __u32
+ctx_load_and_clear_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
+{
+	__u32 val, zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+
+	if (always_succeeds(data_meta)) {
+		val = data_meta[off];
+		data_meta[off] = 0;
+		return val;
+	}
+
 	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
 	return 0;
 }

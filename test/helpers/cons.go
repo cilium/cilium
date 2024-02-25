@@ -176,9 +176,9 @@ const (
 
 	// CiliumStableHelmChartVersion should be the chart version that points
 	// to the v1.X branch
-	CiliumStableHelmChartVersion = "1.14"
+	CiliumStableHelmChartVersion = "1.15"
 	CiliumStableVersion          = "v" + CiliumStableHelmChartVersion
-	CiliumLatestHelmChartVersion = "1.15.0-dev"
+	CiliumLatestHelmChartVersion = "1.16.0-dev"
 
 	MonitorLogFileName = "monitor.log"
 
@@ -244,33 +244,32 @@ const (
 	failedToUpdateLock         = "Failed to update lock:"
 	failedToReleaseLock        = "Failed to release lock:"
 	errorCreatingInitialLeader = "error initially creating leader election record:"
-	cantEnableJIT              = "bpf_jit_enable: no such file or directory"                               // Because we run tests in Kind.
-	delMissingService          = "Deleting no longer present service"                                      // cf. https://github.com/cilium/cilium/issues/29679
-	failedIpcacheRestore       = "Failed to restore existing identities from the previous ipcache"         // cf. https://github.com/cilium/cilium/issues/29328
-	podCIDRUnavailable         = " PodCIDR not available"                                                  // cf. https://github.com/cilium/cilium/issues/29680
-	wipEnvoyFeature            = "envoy/extensions/bootstrap/internal_listener/v3/internal_listener.proto" // cf. https://github.com/cilium/cilium/issues/29682
-	unableGetNode              = "Unable to get node resource"                                             // cf. https://github.com/cilium/cilium/issues/29710
-	disableSocketLBTracing     = "Disabling socket-LB tracing"                                             // cf. https://github.com/cilium/cilium/issues/29734
-	sessionAffinitySocketLB    = "Session affinity for host reachable services needs kernel"               // cf. https://github.com/cilium/cilium/issues/29736
-	objectHasBeenModified      = "the object has been modified; please apply your changes"                 // cf. https://github.com/cilium/cilium/issues/29712
-	noBackendResponse          = "The kernel does not support --service-no-backend-response=reject"        // cf. https://github.com/cilium/cilium/issues/29733
-	unsupportedSocketLookup    = "Without socket lookup kernel functionality"                              // cf. https://github.com/cilium/cilium/issues/29735
-	legacyBGPFeature           = "You are using the legacy BGP feature"                                    // Expected when testing the legacy BGP feature.
-	etcdTimeout                = "etcd client timeout exceeded"                                            // cf. https://github.com/cilium/cilium/issues/29714
-	endpointRestoreFailed      = "Unable to restore endpoint, ignoring"                                    // cf. https://github.com/cilium/cilium/issues/29716
-	failedPeerSync             = "Failed to create peer client for peers synchronization"                  // cf. https://github.com/cilium/cilium/issues/29726
-	policyMapSyncFix           = "Policy map sync fixed errors"                                            // cf. https://github.com/cilium/cilium/issues/29727
-	unableRestoreRouterIP      = "Unable to restore router IP from filesystem"                             // cf. https://github.com/cilium/cilium/issues/29715
-	routerIPReallocated        = "Router IP could not be re-allocated"                                     // cf. https://github.com/cilium/cilium/issues/29715
-	cantFindIdentityInCache    = "unable to release identity: unable to find key in local cache"           // cf. https://github.com/cilium/cilium/issues/29732
-	kubeApiserverConnLost1     = ":6443/version\\\": http2: client connection lost"                        // cf. https://github.com/cilium/cilium/issues/29737
-	kubeApiserverConnLost2     = ":6443/healthz\\\": http2: client connection lost"                        // cf. https://github.com/cilium/cilium/issues/29737
-	heartbeatTimedOut          = "Heartbeat timed out, restarting client connections"                      // cf. https://github.com/cilium/cilium/issues/29737
-	keyAllocFailedFoundMaster  = "Found master key after proceeding with new allocation"                   // cf. https://github.com/cilium/cilium/issues/29738
-	cantRecreateMasterKey      = "unable to re-create missing master key"                                  // cf. https://github.com/cilium/cilium/issues/29738
-	cantUpdateCRDIdentity      = "Unable update CRD identity information with a reference for this node"   // cf. https://github.com/cilium/cilium/issues/29739
-	cantDeleteFromPolicyMap    = "cilium_call_policy: delete: key does not exist"                          // cf. https://github.com/cilium/cilium/issues/29754
-
+	cantEnableJIT              = "bpf_jit_enable: no such file or directory"                             // Because we run tests in Kind.
+	delMissingService          = "Deleting no longer present service"                                    // cf. https://github.com/cilium/cilium/issues/29679
+	failedIpcacheRestore       = "Failed to restore existing identities from the previous ipcache"       // cf. https://github.com/cilium/cilium/issues/29328
+	podCIDRUnavailable         = " PodCIDR not available"                                                // cf. https://github.com/cilium/cilium/issues/29680
+	unableGetNode              = "Unable to get node resource"                                           // cf. https://github.com/cilium/cilium/issues/29710
+	disableSocketLBTracing     = "Disabling socket-LB tracing"                                           // cf. https://github.com/cilium/cilium/issues/29734
+	sessionAffinitySocketLB    = "Session affinity for host reachable services needs kernel"             // cf. https://github.com/cilium/cilium/issues/29736
+	objectHasBeenModified      = "the object has been modified; please apply your changes"               // cf. https://github.com/cilium/cilium/issues/29712
+	noBackendResponse          = "The kernel does not support --service-no-backend-response=reject"      // cf. https://github.com/cilium/cilium/issues/29733
+	unsupportedSocketLookup    = "Without socket lookup kernel functionality"                            // cf. https://github.com/cilium/cilium/issues/29735
+	legacyBGPFeature           = "You are using the legacy BGP feature"                                  // Expected when testing the legacy BGP feature.
+	etcdTimeout                = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
+	endpointRestoreFailed      = "Unable to restore endpoint, ignoring"                                  // cf. https://github.com/cilium/cilium/issues/29716
+	failedPeerSync             = "Failed to create peer client for peers synchronization"                // cf. https://github.com/cilium/cilium/issues/29726
+	unableRestoreRouterIP      = "Unable to restore router IP from filesystem"                           // cf. https://github.com/cilium/cilium/issues/29715
+	routerIPReallocated        = "Router IP could not be re-allocated"                                   // cf. https://github.com/cilium/cilium/issues/29715
+	cantFindIdentityInCache    = "unable to release identity: unable to find key in local cache"         // cf. https://github.com/cilium/cilium/issues/29732
+	kubeApiserverConnLost1     = ":6443/version\\\": http2: client connection lost"                      // cf. https://github.com/cilium/cilium/issues/29737
+	kubeApiserverConnLost2     = ":6443/healthz\\\": http2: client connection lost"                      // cf. https://github.com/cilium/cilium/issues/29737
+	heartbeatTimedOut          = "Heartbeat timed out, restarting client connections"                    // cf. https://github.com/cilium/cilium/issues/29737
+	keyAllocFailedFoundMaster  = "Found master key after proceeding with new allocation"                 // cf. https://github.com/cilium/cilium/issues/29738
+	cantRecreateMasterKey      = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
+	cantUpdateCRDIdentity      = "Unable update CRD identity information with a reference for this node" // cf. https://github.com/cilium/cilium/issues/29739
+	cantDeleteFromPolicyMap    = "cilium_call_policy: delete: key does not exist"                        // cf. https://github.com/cilium/cilium/issues/29754
+	deprecatedEnvoyRuntimeKey  = "Usage of the deprecated runtime key overload.global_downstream_max_connections"
+	noConnLimitEnvoy           = "There is no configured limit to the number of allowed active downstream connections"
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
 
@@ -337,13 +336,13 @@ var badLogMessages = map[string][]string{
 		removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName,
 		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
 	logutils.WarningLogs: {cantEnableJIT, delMissingService, failedIpcacheRestore,
-		podCIDRUnavailable, wipEnvoyFeature, unableGetNode,
+		podCIDRUnavailable, unableGetNode,
 		disableSocketLBTracing, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
 		unsupportedSocketLookup, legacyBGPFeature, etcdTimeout, endpointRestoreFailed,
-		failedPeerSync, policyMapSyncFix, unableRestoreRouterIP, routerIPReallocated,
+		failedPeerSync, unableRestoreRouterIP, routerIPReallocated,
 		cantFindIdentityInCache, kubeApiserverConnLost1, kubeApiserverConnLost2, heartbeatTimedOut,
 		keyAllocFailedFoundMaster, cantRecreateMasterKey, cantUpdateCRDIdentity,
-		cantDeleteFromPolicyMap},
+		cantDeleteFromPolicyMap, deprecatedEnvoyRuntimeKey, noConnLimitEnvoy, failedToListCRDs},
 }
 
 var ciliumCLICommands = map[string]string{

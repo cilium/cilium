@@ -55,6 +55,53 @@ func (it *iterator[Obj]) Next() (obj Obj, revision uint64, ok bool) {
 	return
 }
 
+// Map applies a function to transform every object returned by the iterator
+func Map[In, Out any, It Iterator[In]](iter It, transform func(In) Out) Iterator[Out] {
+	return &mapIterator[In, Out]{
+		iter:      iter,
+		transform: transform,
+	}
+}
+
+type mapIterator[In, Out any] struct {
+	iter      Iterator[In]
+	transform func(In) Out
+}
+
+func (it *mapIterator[In, Out]) Next() (out Out, revision Revision, ok bool) {
+	obj, rev, ok := it.iter.Next()
+	if ok {
+		return it.transform(obj), rev, true
+	}
+	return
+}
+
+// Filter skips objects for which the supplied predicate returns true
+func Filter[Obj any, It Iterator[Obj]](iter It, pred func(Obj) bool) Iterator[Obj] {
+	return &filterIterator[Obj]{
+		iter: iter,
+		pred: pred,
+	}
+}
+
+type filterIterator[Obj any] struct {
+	iter Iterator[Obj]
+	pred func(Obj) bool
+}
+
+func (it *filterIterator[Obj]) Next() (out Obj, revision Revision, ok bool) {
+	for {
+		out, revision, ok = it.iter.Next()
+		if !ok {
+			break
+		}
+		if it.pred(out) {
+			return out, revision, true
+		}
+	}
+	return
+}
+
 // uniqueIterator iterates over objects in a unique index. Since
 // we find the node by prefix search, we may see a key that shares
 // the search prefix but is longer. We skip those objects.

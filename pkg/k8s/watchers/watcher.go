@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -22,20 +23,18 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -67,20 +66,9 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
-	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
-	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
 
-	metricKNP            = "NetworkPolicy"
-	metricNS             = "Namespace"
-	metricSecret         = "Secret"
-	metricCiliumNode     = "CiliumNode"
-	metricCiliumEndpoint = "CiliumEndpoint"
-	metricCLRP           = "CiliumLocalRedirectPolicy"
-	metricCEGP           = "CiliumEgressGatewayPolicy"
-	metricCCEC           = "CiliumClusterwideEnvoyConfig"
-	metricCEC            = "CiliumEnvoyConfig"
-	metricPod            = "Pod"
-	metricNode           = "Node"
+	metricCLRP = "CiliumLocalRedirectPolicy"
+	metricPod  = "Pod"
 )
 
 func init() {
@@ -118,12 +106,6 @@ func init() {
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s-watcher")
-
-	k8sCM = controller.NewManager()
-
-	importMetadataCache = ruleImportMetadataCache{
-		ruleImportMetadataMap: make(map[string]policyImportMetadata),
-	}
 )
 
 type endpointManager interface {
@@ -157,9 +139,6 @@ type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
-	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
-	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
-	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
 }
 
 type redirectPolicyManager interface {
@@ -177,17 +156,6 @@ type bgpSpeakerManager interface {
 	OnDeleteService(svc *slim_corev1.Service) error
 
 	OnUpdateEndpoints(eps *k8s.Endpoints) error
-}
-
-type envoyConfigManager interface {
-	UpsertEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
-	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error
-	DeleteEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
-
-	// envoy.PortAllocator
-	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
-	AckProxyPort(ctx context.Context, name string) error
-	ReleaseProxyPort(name string) error
 }
 
 type cgroupManager interface {
@@ -216,11 +184,11 @@ type K8sWatcher struct {
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
-	k8sResourceSynced synced.Resources
+	k8sResourceSynced *synced.Resources
 
 	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
 	// and may be disabled while the agent runs.
-	k8sAPIGroups synced.APIGroups
+	k8sAPIGroups *synced.APIGroups
 
 	// K8sSvcCache is a cache of all Kubernetes services and endpoints
 	K8sSvcCache *k8s.ServiceCache
@@ -234,10 +202,9 @@ type K8sWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	ipcache               ipcacheManager
-	envoyConfigManager    envoyConfigManager
 	cgroupManager         cgroupManager
 
-	bandwidthManager bandwidth.Manager
+	bandwidthManager datapath.BandwidthManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -252,24 +219,9 @@ type K8sWatcher struct {
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
 
-	ciliumNodeStoreMU lock.RWMutex
-	ciliumNodeStore   cache.Store
-
-	ciliumEndpointIndexerMU lock.RWMutex
-	ciliumEndpointIndexer   cache.Indexer
-
-	ciliumEndpointSliceIndexerMU lock.RWMutex
-	// note: this store only contains endpointslices referencing local endpoints.
-	ciliumEndpointSliceIndexer cache.Indexer
+	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
 
 	datapath datapath.Datapath
-
-	// networkPoliciesInitOnce is used to guarantee only one call to NetworkPoliciesInit is
-	// executed.
-	networkPoliciesInitOnce sync.Once
-	//networkPoliciesStoreSet is closed once the networkpolicyStore is set.
-	networkPoliciesStoreSet chan struct{}
-	networkpolicyStore      cache.Store
 
 	cfg WatcherConfiguration
 
@@ -278,6 +230,8 @@ type K8sWatcher struct {
 
 func NewK8sWatcher(
 	clientset client.Clientset,
+	k8sResourceSynced *synced.Resources,
+	k8sAPIGroups *synced.APIGroups,
 	endpointManager endpointManager,
 	nodeDiscoverManager nodeDiscoverManager,
 	policyManager policyManager,
@@ -286,35 +240,34 @@ func NewK8sWatcher(
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
-	envoyConfigManager envoyConfigManager,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
 	resources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
-	bandwidthManager bandwidth.Manager,
+	bandwidthManager datapath.BandwidthManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		clientset:               clientset,
-		K8sSvcCache:             serviceCache,
-		endpointManager:         endpointManager,
-		nodeDiscoverManager:     nodeDiscoverManager,
-		policyManager:           policyManager,
-		policyRepository:        policyRepository,
-		svcManager:              svcManager,
-		ipcache:                 ipcache,
-		controllersStarted:      make(chan struct{}),
-		stop:                    make(chan struct{}),
-		podStoreSet:             make(chan struct{}),
-		networkPoliciesStoreSet: make(chan struct{}),
-		datapath:                datapath,
-		redirectPolicyManager:   redirectPolicyManager,
-		bgpSpeakerManager:       bgpSpeakerManager,
-		cgroupManager:           cgroupManager,
-		bandwidthManager:        bandwidthManager,
-		envoyConfigManager:      envoyConfigManager,
-		cfg:                     cfg,
-		resources:               resources,
+		clientset:             clientset,
+		k8sResourceSynced:     k8sResourceSynced,
+		k8sAPIGroups:          k8sAPIGroups,
+		K8sSvcCache:           serviceCache,
+		endpointManager:       endpointManager,
+		nodeDiscoverManager:   nodeDiscoverManager,
+		policyManager:         policyManager,
+		policyRepository:      policyRepository,
+		svcManager:            svcManager,
+		ipcache:               ipcache,
+		controllersStarted:    make(chan struct{}),
+		stop:                  make(chan struct{}),
+		podStoreSet:           make(chan struct{}),
+		datapath:              datapath,
+		redirectPolicyManager: redirectPolicyManager,
+		bgpSpeakerManager:     bgpSpeakerManager,
+		cgroupManager:         cgroupManager,
+		bandwidthManager:      bandwidthManager,
+		cfg:                   cfg,
+		resources:             resources,
 	}
 }
 
@@ -419,7 +372,7 @@ func (k *K8sWatcher) GetAPIGroups() []string {
 // watcher, as those resource controllers need the resources to be registered
 // with K8s first.
 func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
-	return synced.SyncCRDs(ctx, k.clientset, synced.AgentCRDResourceNames(), &k.k8sResourceSynced, &k.k8sAPIGroups)
+	return synced.SyncCRDs(ctx, k.clientset, synced.AgentCRDResourceNames(), k.k8sResourceSynced, k.k8sAPIGroups)
 }
 
 type watcherKind int
@@ -431,9 +384,9 @@ const (
 	// start causes watcher to be started as soon as possible.
 	start
 
-	// afterNodeInit causes watcher to be started after local node has been initialized
-	// so that e.g., local node addressing info is available.
-	afterNodeInit
+	// waitOnly will not start a watcher for this resource, but cause us to
+	// wait for an external go routine to initialize it
+	waitOnly
 )
 
 type watcherInfo struct {
@@ -442,28 +395,33 @@ type watcherInfo struct {
 }
 
 var ciliumResourceToGroupMapping = map[string]watcherInfo{
-	synced.CRDResourceName(v2.CNPName):                  {start, k8sAPIGroupCiliumNetworkPolicyV2},
-	synced.CRDResourceName(v2.CCNPName):                 {start, k8sAPIGroupCiliumClusterwideNetworkPolicyV2},
-	synced.CRDResourceName(v2.CEPName):                  {start, k8sAPIGroupCiliumEndpointV2}, // ipcache
-	synced.CRDResourceName(v2.CNName):                   {start, k8sAPIGroupCiliumNodeV2},
-	synced.CRDResourceName(v2.CIDName):                  {skip, ""}, // Handled in pkg/k8s/identitybackend/
-	synced.CRDResourceName(v2.CLRPName):                 {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
-	synced.CRDResourceName(v2.CEWName):                  {skip, ""}, // Handled in clustermesh-apiserver/
-	synced.CRDResourceName(v2.CEGPName):                 {skip, ""}, // Handled via Resource[T].
+	synced.CRDResourceName(cilium_v2.CNPName):           {waitOnly, k8sAPIGroupCiliumNetworkPolicyV2},            // Handled in pkg/policy/k8s/
+	synced.CRDResourceName(cilium_v2.CCNPName):          {waitOnly, k8sAPIGroupCiliumClusterwideNetworkPolicyV2}, // Handled in pkg/policy/k8s/
+	synced.CRDResourceName(cilium_v2.CEPName):           {start, k8sAPIGroupCiliumEndpointV2},                    // ipcache
+	synced.CRDResourceName(cilium_v2.CNName):            {start, k8sAPIGroupCiliumNodeV2},
+	synced.CRDResourceName(cilium_v2.CIDName):           {skip, ""}, // Handled in pkg/k8s/identitybackend/
+	synced.CRDResourceName(cilium_v2.CLRPName):          {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
+	synced.CRDResourceName(cilium_v2.CEWName):           {skip, ""}, // Handled in clustermesh-apiserver/
+	synced.CRDResourceName(cilium_v2.CEGPName):          {skip, ""}, // Handled via Resource[T].
 	synced.CRDResourceName(v2alpha1.CESName):            {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
-	synced.CRDResourceName(v2.CCECName):                 {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
-	synced.CRDResourceName(v2.CECName):                  {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
+	synced.CRDResourceName(cilium_v2.CCECName):          {skip, ""}, // Handled via CiliumEnvoyConfig watcher via Resource[T]
+	synced.CRDResourceName(cilium_v2.CECName):           {skip, ""}, // Handled via CiliumEnvoyConfig watcher via Resource[T]
 	synced.CRDResourceName(v2alpha1.BGPPName):           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPCCName):          {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPAName):           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPPCName):          {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPNCName):          {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPNCOName):         {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.LBIPPoolName):       {skip, ""}, // Handled in LB IPAM
 	synced.CRDResourceName(v2alpha1.CNCName):            {skip, ""}, // Handled by init directly
-	synced.CRDResourceName(v2alpha1.CCGName):            {start, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
+	synced.CRDResourceName(v2alpha1.CCGName):            {waitOnly, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
 	synced.CRDResourceName(v2alpha1.L2AnnouncementName): {skip, ""}, // Handled by L2 announcement directly
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
 // which the Cilium agent watches to implement CNI functionality.
-func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups []string) {
+func (k *K8sWatcher) resourceGroups() (resourceGroups, waitForCachesOnly []string) {
 	k8sGroups := []string{
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
@@ -485,13 +443,7 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		// We need all network policies in place before restoring to
 		// make sure we are enforcing the correct policies for each
 		// endpoint before restarting.
-		k8sGroups = append(k8sGroups, k8sAPIGroupNetworkingV1Core)
-	}
-
-	if k.cfg.K8sIngressControllerEnabled() || k.cfg.K8sGatewayAPIEnabled() {
-		// While Ingress controller is part of operator, we need to watch
-		// TLS secrets in pre-defined namespace for populating Envoy xDS SDS cache.
-		k8sGroups = append(k8sGroups, resources.K8sAPIGroupSecretV1Core)
+		waitForCachesOnly = append(waitForCachesOnly, k8sAPIGroupNetworkingV1Core)
 	}
 
 	ciliumResources := synced.AgentCRDResourceNames()
@@ -506,12 +458,12 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 			continue
 		case start:
 			ciliumGroups = append(ciliumGroups, groupInfo.group)
-		case afterNodeInit:
-			afterNodeInitGroups = append(afterNodeInitGroups, groupInfo.group)
+		case waitOnly:
+			waitForCachesOnly = append(waitForCachesOnly, groupInfo.group)
 		}
 	}
 
-	return append(k8sGroups, ciliumGroups...), afterNodeInitGroups
+	return append(k8sGroups, ciliumGroups...), waitForCachesOnly
 }
 
 // InitK8sSubsystem takes a channel for which it will be closed when all
@@ -520,7 +472,7 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 // already been registered.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
 	log.Info("Enabling k8s event listener")
-	resources, afterNodeInitResources := k.resourceGroups()
+	resources, waitForCachesOnly := k.resourceGroups()
 	if err := k.enableK8sWatchers(ctx, resources); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
@@ -531,17 +483,9 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 	close(k.controllersStarted)
 
 	go func() {
-		log.Info("Waiting until local node addressing before starting watchers depending on it")
-		k.nodeDiscoverManager.WaitForLocalNodeInit()
-		if err := k.enableK8sWatchers(ctx, afterNodeInitResources); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
-			}
-			// If the context was canceled it means the daemon is being stopped
-			return
-		}
 		log.Info("Waiting until all pre-existing resources have been received")
-		if err := k.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, append(resources, afterNodeInitResources...)...); err != nil {
+		allResources := append(resources, waitForCachesOnly...)
+		if err := k.WaitForCacheSyncWithTimeout(option.Config.K8sSyncTimeout, allResources...); err != nil {
 			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
 		close(cachesSynced)
@@ -550,8 +494,6 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 
 // WatcherConfiguration is the required configuration for enableK8sWatchers
 type WatcherConfiguration interface {
-	utils.IngressConfiguration
-	utils.GatewayAPIConfiguration
 	utils.PolicyConfiguration
 }
 
@@ -563,8 +505,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 	}
 	asyncControllers := &sync.WaitGroup{}
 
-	// CNP, CCNP, and CCG resources are handled together.
-	var cnpOnce sync.Once
 	for _, r := range resourceNames {
 		switch r {
 		// Core Cilium
@@ -575,31 +515,17 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			asyncControllers.Add(1)
-			go k.ciliumNodeInit(k.clientset, asyncControllers)
-		// Kubernetes built-in resources
-		case k8sAPIGroupNetworkingV1Core:
-			k.NetworkPoliciesInit()
+			go k.ciliumNodeInit(ctx, asyncControllers)
 		case resources.K8sAPIGroupServiceV1Core:
 			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
 			k.endpointsInit()
-		case resources.K8sAPIGroupSecretV1Core:
-			swgSecret := lock.NewStoppableWaitGroup()
-			// only watch secrets in specific namespaces
-			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespaces, swgSecret)
-		// Custom resource definitions
-		case k8sAPIGroupCiliumNetworkPolicyV2, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, k8sAPIGroupCiliumCIDRGroupV2Alpha1:
-			cnpOnce.Do(func() { k.ciliumNetworkPoliciesInit(ctx, k.clientset) })
 		case k8sAPIGroupCiliumEndpointV2:
-			k.initCiliumEndpointOrSlices(k.clientset, asyncControllers)
+			k.initCiliumEndpointOrSlices(ctx, asyncControllers)
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
 			k.ciliumLocalRedirectPolicyInit(k.clientset)
-		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2:
-			k.ciliumClusterwideEnvoyConfigInit(ctx, k.clientset)
-		case k8sAPIGroupCiliumEnvoyConfigV2:
-			k.ciliumEnvoyConfigInit(ctx, k.clientset)
 		default:
 			log.WithFields(logrus.Fields{
 				logfields.Resource: r,
@@ -1019,45 +945,15 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
 }
 
-// GetStore returns the k8s cache store for the given resource name.
-// It's possible for valid resource names to return nil stores if that
-// watcher is not in use.
-// Objects gotten using returned stores should *not* be mutated as they
-// are references to internal k8s watcher store state.
-func (k *K8sWatcher) GetStore(name string) cache.Store {
-	switch name {
-	case "networkpolicy":
-		<-k.networkPoliciesStoreSet
-		return k.networkpolicyStore
-	case "pod":
-		// Wait for podStore to get initialized.
-		<-k.podStoreSet
-		// Access to podStore is protected by podStoreMU.
-		k.podStoreMU.RLock()
-		defer k.podStoreMU.RUnlock()
-		return k.podStore
-	case "ciliumendpoint":
-		k.ciliumEndpointIndexerMU.RLock()
-		defer k.ciliumEndpointIndexerMU.RUnlock()
-		return k.ciliumEndpointIndexer
-	case "ciliumendpointslice":
-		k.ciliumEndpointSliceIndexerMU.RLock()
-		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
-		return k.ciliumEndpointSliceIndexer
-	default:
-		panic("no such store: " + name)
-	}
-}
-
 // initCiliumEndpointOrSlices intializes the ciliumEndpoints or ciliumEndpointSlice
-func (k *K8sWatcher) initCiliumEndpointOrSlices(clientset client.Clientset, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) initCiliumEndpointOrSlices(ctx context.Context, asyncControllers *sync.WaitGroup) {
 	// If CiliumEndpointSlice feature is enabled, Cilium-agent watches CiliumEndpointSlice
 	// objects instead of CiliumEndpoints. Hence, skip watching CiliumEndpoints if CiliumEndpointSlice
 	// feature is enabled.
 	asyncControllers.Add(1)
 	if option.Config.EnableCiliumEndpointSlice {
-		go k.ciliumEndpointSliceInit(clientset, asyncControllers)
+		go k.ciliumEndpointSliceInit(ctx, asyncControllers)
 	} else {
-		go k.ciliumEndpointsInit(clientset, asyncControllers)
+		go k.ciliumEndpointsInit(ctx, asyncControllers)
 	}
 }

@@ -9,9 +9,9 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/sysctl"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-connector")
@@ -45,6 +45,6 @@ func truncateString(epID string, maxLen uint) string {
 }
 
 // DisableRpFilter tries to disable rpfilter on specified interface
-func DisableRpFilter(ifName string) error {
+func DisableRpFilter(sysctl sysctl.Sysctl, ifName string) error {
 	return sysctl.Disable(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifName))
 }

@@ -29,7 +29,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check code changes
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        uses: dorny/paths-filter@ebc4d7e9ebcb0b1eb21480bb8f43113e996ac77a # v3.0.1
         id: docs-tree
         with:
           # For `push` events, compare against the `ref` base branch
@@ -61,7 +61,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build HTML
-        uses: docker://quay.io/cilium/docs-builder:d88a9684e1be32661e9e56d6b7e1e1350db7a1b1@sha256:f051371b2a910088a43dc5bd4289c9ca3a8754a8afb15f60f86f385660c1fd09
+        uses: docker://quay.io/cilium/docs-builder:6f53f8ad89e205c78afcce5e106061a4e45484de@sha256:db358ec7730851a641cc8ee99fde367072e2bd0b13d35b5856eee6b2d0eaa7d5
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
@@ -79,7 +79,7 @@ jobs:
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.21.5
+          go-version: 1.22.0
 
       - name: Set clang directory
         id: set_clang_dir
@@ -87,7 +87,7 @@ jobs:
 
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         with:
           path: ${{ steps.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0

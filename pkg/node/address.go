@@ -482,10 +482,6 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 // the node_config.h file if is present; or by deriving it from
 // defaults.HostDevice interface, on which only the IPv4 is possible to derive.
 func ExtractCiliumHostIPFromFS() (ipv4GW, ipv6Router net.IP) {
-	if !option.Config.EnableHostIPRestore {
-		return nil, nil
-	}
-
 	nodeConfig := option.Config.GetNodeConfigPath()
 	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
 	if ipv4GW != nil || ipv6Router != nil {
@@ -507,11 +503,6 @@ func SetIPsecKeyIdentity(id uint8) {
 	})
 }
 
-// GetIPsecKeyIdentity returns the IPsec key identity of the node
-func GetIPsecKeyIdentity() uint8 {
-	return getLocalNode().EncryptionKey
-}
-
 // GetK8sNodeIPs returns k8s Node IP addr.
 func GetK8sNodeIP() net.IP {
 	n := getLocalNode()
@@ -524,12 +515,6 @@ func GetWireguardPubKey() string {
 
 func GetOptOutNodeEncryption() bool {
 	return getLocalNode().OptOutNodeEncryption
-}
-
-func SetOptOutNodeEncryption(b bool) {
-	localNode.Update(func(node *LocalNode) {
-		node.OptOutNodeEncryption = b
-	})
 }
 
 // SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
@@ -580,18 +565,20 @@ func GetIngressIPv6() net.IP {
 	return getLocalNode().IPv6IngressIP
 }
 
-// GetEncryptKeyIndex returns the encryption key value for the local node.
-// With IPSec encryption, this is equivalent to GetIPsecKeyIdentity().
-// With WireGuard encryption, this function returns a non-zero static value
-// if the local node has WireGuard enabled.
-func GetEncryptKeyIndex() uint8 {
+// GetEndpointEncryptKeyIndex returns the encryption key value for an endpoint
+// owned by the local node.
+// With IPSec encryption, this is the ID of the currently loaded key.
+// With WireGuard, this returns a non-zero static value.
+// Note that the key index returned by this function is only valid for _endpoints_
+// of the local node. If you want to obtain the key index of the local node itself,
+// access the `EncryptionKey` field via the LocalNodeStore.
+func GetEndpointEncryptKeyIndex() uint8 {
 	switch {
 	case option.Config.EnableIPSec:
-		return GetIPsecKeyIdentity()
+		return getLocalNode().EncryptionKey
 	case option.Config.EnableWireguard:
-		if len(GetWireguardPubKey()) > 0 {
-			return wgTypes.StaticEncryptKey
-		}
+		return wgTypes.StaticEncryptKey
+
 	}
 	return 0
 }

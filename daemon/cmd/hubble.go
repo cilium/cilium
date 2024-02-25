@@ -12,7 +12,6 @@ import (
 	"github.com/go-openapi/strfmt"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
-	k8scache "k8s.io/client-go/tools/cache"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
+	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
@@ -108,6 +108,29 @@ func (d *Daemon) launchHubble() {
 		} else {
 			observerOpts = append(observerOpts, observeroption.WithOnMonitorEvent(monitorFilter))
 		}
+	}
+
+	if option.Config.HubbleDropEvents {
+		logger.
+			WithField("interval", option.Config.HubbleDropEventsInterval).
+			WithField("reasons", option.Config.HubbleDropEventsReasons).
+			Info("Starting packet drop events emitter")
+
+		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
+			option.Config.HubbleDropEventsInterval,
+			option.Config.HubbleDropEventsReasons,
+			d.clientset,
+		)
+
+		observerOpts = append(observerOpts,
+			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+				err := dropEventEmitter.ProcessFlow(ctx, flow)
+				if err != nil {
+					logger.WithError(err).Error("Failed to ProcessFlow in drop events handler")
+				}
+				return false, nil
+			}),
+		)
 	}
 
 	if option.Config.HubbleMetricsServer != "" {
@@ -411,15 +434,6 @@ func (d *Daemon) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
 		Namespace: namespace,
 		Name:      name,
 	}
-}
-
-// GetK8sStore returns the k8s watcher cache store for the given resource name.
-// It implements hubble parser's StoreGetter.GetK8sStore
-// WARNING: the objects returned by these stores can't be used to create
-// update objects into k8s as well as the objects returned by these stores
-// should only be used for reading.
-func (d *Daemon) GetK8sStore(name string) k8scache.Store {
-	return d.k8sWatcher.GetStore(name)
 }
 
 // getHubbleEventBufferCapacity returns the user configured capacity for

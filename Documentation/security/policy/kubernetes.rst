@@ -4,7 +4,7 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-Using Kubernetes Constructs in Policy
+Using Kubernetes Constructs In Policy
 =====================================
 
 This section covers Kubernetes specific network policy aspects.
@@ -20,7 +20,12 @@ including `NetworkPolicy` and `CiliumNetworkPolicy` belong to a particular
 namespace.
 
 Known Pitfalls
-~~~~~~~~~~~~~~
+--------------
+
+This section covers known pitfalls when using Kubernetes constructs in policy.
+
+Considerations Of Namespace Boundaries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Depending on how a policy is defined and created, Kubernetes namespaces are automatically taken into account.
 
@@ -28,30 +33,10 @@ Network policies imported directly with the :ref:`api_ref` apply to all
 namespaces unless a namespace selector is specified as described in
 :ref:`example_cnp_ns_boundaries`.
 
-Network policies created and imported as `CiliumNetworkPolicy` CRD and
-`NetworkPolicy` apply within the namespace. In other words, the policy **only** applies
-to pods within that namespace. It's possible, however, to grant access to and
-from pods in other namespaces as described in :ref:`example_cnp_across_ns`.
-
-Specifying the namespace by way of the label
-``k8s:io.kubernetes.pod.namespace`` in the ``fromEndpoints`` and
-``toEndpoints`` fields is supported as described in 
-:ref:`example_cnp_egress_to_kube_system`.
-However, Kubernetes prohibits specifying the namespace in the ``endpointSelector``,
-as it would violate the namespace isolation principle of Kubernetes. The
-``endpointSelector`` always applies to pods in the namespace 
-associated with the `CiliumNetworkPolicy` resource itself.
-
-Using namespace-specific information like
-``io.cilium.k8s.namespace.labels`` within a ``fromEndpoints`` or
-``toEndpoints`` is supported only for a `CiliumClusterwideNetworkPolicy`
-and not a `CiliumNetworkPolicy`. Hence, ``io.cilium.k8s.namespace.labels``
-will be ignored in `CiliumNetworkPolicy` resources.
-
 .. _example_cnp_ns_boundaries:
 
-Example: Enforce namespace boundaries
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Example
+^^^^^^^
 
 This example demonstrates how to enforce Kubernetes namespace-based boundaries
 for the namespaces ``ns1`` and ``ns2`` by enabling default-deny on all pods of
@@ -79,10 +64,18 @@ namespace.
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/isolate-namespaces.json
 
+Policies Only Apply Within The Namespace
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Network policies created and imported as `CiliumNetworkPolicy` CRD and
+`NetworkPolicy` apply within the namespace. In other words, the policy **only** applies
+to pods within that namespace. It's possible, however, to grant access to and
+from pods in other namespaces as described in :ref:`example_cnp_across_ns`.
+
 .. _example_cnp_across_ns:
 
-Example: Expose pods across namespaces
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Example
+^^^^^^^
 
 The following example exposes all pods with the label ``name=leia`` in the
 namespace ``ns1`` to all pods with the label ``name=luke`` in the namespace
@@ -105,10 +98,22 @@ for a fully functional example including pods deployed to different namespaces.
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/namespace-policy.json
 
+Specifying Namespace In EndpointSelector, FromEndpoints, ToEndpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Specifying the namespace by way of the label
+``k8s:io.kubernetes.pod.namespace`` in the ``fromEndpoints`` and
+``toEndpoints`` fields is supported as described in 
+:ref:`example_cnp_egress_to_kube_system`.
+However, Kubernetes prohibits specifying the namespace in the ``endpointSelector``,
+as it would violate the namespace isolation principle of Kubernetes. The
+``endpointSelector`` always applies to pods in the namespace 
+associated with the `CiliumNetworkPolicy` resource itself.
+
 .. _example_cnp_egress_to_kube_system:
 
-Example: Allow egress to kube-dns in kube-system namespace
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Example
+^^^^^^^
 
 The following example allows all pods in the ``public`` namespace in which the
 policy is created to communicate with kube-dns on port 53/UDP in the ``kube-system``
@@ -129,8 +134,62 @@ namespace.
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/kubedns-policy.json
 
 
+Namespace Specific Information
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Using namespace-specific information like
+``io.cilium.k8s.namespace.labels`` within a ``fromEndpoints`` or
+``toEndpoints`` is supported only for a :ref:`CiliumClusterwideNetworkPolicy`
+and not a :ref:`CiliumNetworkPolicy`. Hence, ``io.cilium.k8s.namespace.labels``
+will be ignored in :ref:`CiliumNetworkPolicy` resources.
+
+Match Expressions
+~~~~~~~~~~~~~~~~~
+
+When using ``matchExpressions`` in a :ref:`CiliumNetworkPolicy` or a
+:ref:`CiliumClusterwideNetworkPolicy`, the list values are
+treated as a logical AND. If you want to match multiple keys
+with a logical OR, you must use multiple ``matchExpressions``.
+
+.. _example_multiple_match_expressions:
+
+Example
+^^^^^^^
+
+This example demonstrates how to enforce a policy with multiple ``matchExpressions``
+that achieves a logical OR between the keys and its values.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/or-statement.yaml
+
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/or-statement.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/or-statement.json
+
+
+The following example shows a logical AND using a single ``matchExpression``.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/and-statement.yaml
+
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l3/match-expressions/and-statement.json
+
 ServiceAccounts
-----------------
+~~~~~~~~~~~~~~~
 
 Kubernetes `Service Accounts
 <https://kubernetes.io/docs/concepts/security/service-accounts/>`_ are used
@@ -156,7 +215,7 @@ resource like this:
           ...
 
 Example
-~~~~~~~
+^^^^^^^
 
 The following example grants any pod running under the service account of
 "luke" to issue a ``HTTP GET /public`` request on TCP port 80 to all pods
@@ -182,7 +241,7 @@ resources.
         .. literalinclude:: ../../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
 
 Multi-Cluster
--------------
+~~~~~~~~~~~~~
 
 When operating multiple cluster with cluster mesh, the cluster name is exposed
 via the label ``io.cilium.k8s.policy.cluster`` and can be used to restrict
@@ -208,7 +267,7 @@ policy itself is applied in, which may be not what is wanted when
 deploying cross-cluster policies.
 
 Clusterwide Policies
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 `CiliumNetworkPolicy` only allows to bind a policy restricted to a particular namespace. There can be situations
 where one wants to have a cluster-scoped effect of the policy, which can be done using Cilium's
@@ -229,8 +288,8 @@ namespace to pods matching the labels ``name=leia`` in any namespace.
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
 
-Example: Allow all ingress to kube-dns
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Allow All Cilium Managed Endpoints To Communicate With Kube-dns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following example allows all Cilium managed endpoints in the cluster to communicate
 with kube-dns on port 53/UDP in the ``kube-system`` namespace.
@@ -246,9 +305,9 @@ with kube-dns on port 53/UDP in the ``kube-system`` namespace.
 
         .. literalinclude:: ../../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
 
-.. _health_endpoint:
+.. _health_endpoint: 
 
-Example: Add health endpoint
+Example: Add Health Endpoint
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following example adds the health entity to all Cilium managed endpoints in order to check

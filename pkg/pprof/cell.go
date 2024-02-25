@@ -8,13 +8,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	_ "net/http/pprof"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -64,7 +62,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Uint16(PprofPort, def.PprofPort, "Port that pprof listens on")
 }
 
-func newServer(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) Server {
+func newServer(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) Server {
 	if !cfg.Pprof {
 		return nil
 	}
@@ -89,7 +87,7 @@ type server struct {
 	listener net.Listener
 }
 
-func (s *server) Start(ctx hive.HookContext) error {
+func (s *server) Start(ctx cell.HookContext) error {
 	listener, err := net.Listen("tcp", net.JoinHostPort(s.address, strconv.FormatUint(uint64(s.port), 10)))
 	if err != nil {
 		return err
@@ -121,7 +119,7 @@ func (s *server) Start(ctx hive.HookContext) error {
 	return nil
 }
 
-func (s *server) Stop(ctx hive.HookContext) error {
+func (s *server) Stop(ctx cell.HookContext) error {
 	s.logger.Info("Stopped pprof server")
 	return s.httpSrv.Shutdown(ctx)
 }

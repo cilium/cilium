@@ -547,6 +547,7 @@ Geneve dispatch enabled would look as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set routingMode=native \\
+        --set tunnelProtocol=geneve \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=geneve \\
@@ -1632,6 +1633,10 @@ Limitations
       host network namespace) making long-lived connections using (connected) UDP,
       you can enable ``bpf-lb-sock-hostns-only`` in order to enable the socket-LB
       feature only in the host network namespace.
+    * Cilium's BPF-based masquerading is recommended over iptables when using the
+      BPF-based NodePort. Otherwise, there is a risk for port collisions between
+      BPF and iptables SNAT, which might result in dropped NodePort
+      connections :gh-issue:`23604`.
 
 Further Readings
 ################

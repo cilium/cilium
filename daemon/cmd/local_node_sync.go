@@ -9,27 +9,30 @@ import (
 	"net"
 
 	"golang.org/x/exp/maps"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 type localNodeSynchronizerParams struct {
 	cell.In
 
-	Config       *option.DaemonConfig
-	K8sLocalNode agentK8s.LocalNodeResource
+	Config             *option.DaemonConfig
+	K8sLocalNode       agentK8s.LocalNodeResource
+	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
+
+	WireGuard *wg.Agent // nil if WireGuard is disabled
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
@@ -52,6 +55,11 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 	if err := ini.initFromK8s(ctx, n); err != nil {
 		return err
 	}
+
+	if ini.WireGuard != nil {
+		ini.WireGuard.InitLocalNodeFromWireGuard(n)
+	}
+
 	return nil
 }
 
@@ -120,6 +128,28 @@ func (ini *localNodeSynchronizer) getK8sLocalNode(ctx context.Context) (*slim_co
 	return nil, ctx.Err()
 }
 
+// getK8sLocalCiliumNode returns the CiliumNode object for the local node if it exists at the type
+// of the call.
+// In the case that the resource event is synced without a ciliumnode upsert event, we return nil.
+func (ini *localNodeSynchronizer) getK8sLocalCiliumNode(ctx context.Context) *v2.CiliumNode {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		return nil
+	case ev := <-ini.K8sCiliumLocalNode.Events(ctx):
+		ev.Done(nil)
+		switch ev.Kind {
+		case resource.Upsert:
+			return ev.Object
+		case resource.Sync:
+			log.Debug("sync event received before local ciliumnode upsert, skipping ciliumnode sync")
+			return nil
+		}
+	}
+	return nil
+}
+
 func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.LocalNode) error {
 	if ini.K8sLocalNode == nil {
 		return nil
@@ -149,14 +179,29 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 			node.SetNodeExternalIP(addr.IP)
 		}
 	}
-
 	ini.syncFromK8s(node, parsedNode)
 
-	if ini.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(node.Labels)) {
-		log.WithField(logfields.Selector, ini.Config.NodeEncryptionOptOutLabels).
-			Infof("Opting out from node-to-node encryption on this node as per '%s' label selector",
-				option.NodeEncryptionOptOutLabels)
-		node.OptOutNodeEncryption = true
+	// In cases where no local CiliumNode exists (such as on a fresh node) we skip restoring
+	// the CiliumNode information from k8s.
+	k8sCiliumNode := ini.getK8sLocalCiliumNode(ctx)
+	if k8sCiliumNode != nil {
+		for _, addr := range k8sCiliumNode.Spec.Addresses {
+			if addr.Type == addressing.NodeCiliumInternalIP {
+				node.SetCiliumInternalIP(net.ParseIP(addr.IP))
+			}
+		}
+
+		if ini.Config.EnableHealthChecking && ini.Config.EnableEndpointHealthChecking {
+			if ini.Config.EnableIPv4 {
+				node.IPv4HealthIP = net.ParseIP(k8sCiliumNode.Spec.HealthAddressing.IPv4)
+			}
+
+			if ini.Config.EnableIPv6 {
+				node.IPv6HealthIP = net.ParseIP(k8sCiliumNode.Spec.HealthAddressing.IPv6)
+			}
+		}
+	} else {
+		log.Info("no local ciliumnode found, will not restore cilium internal and health ips from k8s")
 	}
 
 	return nil

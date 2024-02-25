@@ -48,6 +48,20 @@ update_release() {
     printf "%10s %10s %10s %10s\n" "current" "old_date" "new_date" "elease"
     printf "%10s %10s %10s %10s\n" $current  $old_date  $new_date  $elease
 
+    # Do not replace vX.Y-rc.A with vX.Y-pre.B. This situation arises after
+    # cutting a patch release, before a new minor release is cut. The
+    # README.rst contains a reference to a -rc tag from the forked branch for
+    # the next minor release, and we shouldn't overwrite it with the latest,
+    # oldest -pre tag from the main branch.
+    if [[ "$current" =~ "-rc." && "$latest" =~ "-pre." && \
+        "${current%-rc.*}" == "${latest%-pre.*}" &&
+        "$(date -d "$old_date" '+%s')" -gt "$(date -d "$new_date" '+%s')" ]]; then
+        echo "Skipping $old_branch:"
+        echo "  $current on $old_date is a release candidate"
+        echo "  $latest on $new_date is an older preview"
+        return
+    fi
+
     echo "Updating $old_branch:"
     echo "  $current on $old_date with project $old_proj to"
     echo "  $latest on $new_date with project $new_proj"

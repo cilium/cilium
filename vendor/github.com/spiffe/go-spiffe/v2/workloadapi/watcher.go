@@ -129,7 +129,7 @@ func (w *watcher) Close() error {
 		w.cancel()
 		w.wg.Wait()
 
-		// Close() can be called by New() to close a partially intialized source.
+		// Close() can be called by New() to close a partially initialized source.
 		// Only close the client if it has been set and the source owns it.
 		if w.client != nil && w.ownsClient {
 			w.closeErr = w.client.Close()
@@ -141,10 +141,10 @@ func (w *watcher) Close() error {
 
 func (w *watcher) OnX509ContextUpdate(x509Context *X509Context) {
 	w.x509ContextFn(x509Context)
+	w.triggerUpdated()
 	w.x509ContextSetOnce.Do(func() {
 		close(w.x509ContextSet)
 	})
-	w.triggerUpdated()
 }
 
 func (w *watcher) OnX509ContextWatchError(err error) {
@@ -154,10 +154,10 @@ func (w *watcher) OnX509ContextWatchError(err error) {
 
 func (w *watcher) OnJWTBundlesUpdate(jwtBundles *jwtbundle.Set) {
 	w.jwtBundlesFn(jwtBundles)
+	w.triggerUpdated()
 	w.jwtBundlesSetOnce.Do(func() {
 		close(w.jwtBundlesSet)
 	})
-	w.triggerUpdated()
 }
 
 func (w *watcher) OnJWTBundlesWatchError(error) {

@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -195,7 +195,7 @@ func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []strin
 // * regenerates the endpoint
 // Returns an error if any operation fails while trying to perform the above
 // operations.
-func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm bandwidth.Manager, resolveMetadata MetadataResolverCB) error {
+func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm dptypes.BandwidthManager, resolveMetadata MetadataResolverCB) error {
 	if err := e.restoreIdentity(regenerator); err != nil {
 		return err
 	}
@@ -405,6 +405,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		K8sNamespace:             e.K8sNamespace,
 		DatapathConfiguration:    e.DatapathConfiguration,
 		CiliumEndpointUID:        e.ciliumEndpointUID,
+		Properties:               e.properties,
 	}
 }
 
@@ -510,6 +511,9 @@ type serializableEndpoint struct {
 	// This is used to avoid overwriting/deleting ciliumendpoints that are managed
 	// by other endpoints.
 	CiliumEndpointUID types.UID
+
+	// Properties are used to store some internal property about this Endpoint.
+	Properties map[string]interface{}
 }
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
@@ -562,4 +566,9 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.DatapathConfiguration = r.DatapathConfiguration
 	ep.Options = r.Options
 	ep.ciliumEndpointUID = r.CiliumEndpointUID
+	if r.Properties != nil {
+		ep.properties = r.Properties
+	} else {
+		ep.properties = map[string]interface{}{}
+	}
 }

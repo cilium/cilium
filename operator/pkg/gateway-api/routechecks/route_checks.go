@@ -37,12 +37,12 @@ func CheckAgainstCrossNamespaceBackendReferences(input Input) (bool, error) {
 	return continueChecks, nil
 }
 
-func CheckBackendIsService(input Input) (bool, error) {
+func CheckBackend(input Input) (bool, error) {
 	continueChecks := true
 
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
-			if !helpers.IsService(be.BackendObjectReference) {
+			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) {
 				input.SetAllParentCondition(metav1.Condition{
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
@@ -58,7 +58,7 @@ func CheckBackendIsService(input Input) (bool, error) {
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonInvalidKind),
-					Message: "Must have port for Service reference",
+					Message: "Must have port for backend object reference",
 				})
 
 				continueChecks = false
@@ -70,15 +70,51 @@ func CheckBackendIsService(input Input) (bool, error) {
 	return continueChecks, nil
 }
 
-func CheckBackendIsExistingService(input Input) (bool, error) {
-	continueChecks := true
+func CheckHasServiceImportSupport(input Input) (bool, error) {
+	for _, rule := range input.GetRules() {
+		for _, be := range rule.GetBackendRefs() {
+			if !helpers.IsServiceImport(be.BackendObjectReference) {
+				continue
+			}
 
+			if !helpers.HasServiceImportSupport(input.GetClient().Scheme()) {
+				input.SetAllParentCondition(metav1.Condition{
+					Type:   string(gatewayv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionFalse,
+					Reason: string(gatewayv1.RouteReasonBackendNotFound),
+					Message: "Attempt to reference a ServiceImport backend while " +
+						"the corresponding CRD is not installed, " +
+						"please restart the cilium-operator if the CRD is already installed",
+				})
+				return false, nil
+			}
+			return true, nil
+		}
+	}
+
+	return true, nil
+}
+
+func CheckBackendIsExistingService(input Input) (bool, error) {
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
 			ns := helpers.NamespaceDerefOr(be.Namespace, input.GetNamespace())
-
+			svcName, err := helpers.GetBackendServiceName(input.GetClient(), ns, be.BackendObjectReference)
+			if err != nil {
+				// Service Import does not exist, update the status for all the parents
+				// The `Accepted` condition on a route only describes whether
+				// the route attached successfully to its parent, so no error
+				// is returned here, so that the next validation can be run.
+				input.SetAllParentCondition(metav1.Condition{
+					Type:    string(gatewayv1.RouteConditionResolvedRefs),
+					Status:  metav1.ConditionFalse,
+					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
+					Message: err.Error(),
+				})
+				continue
+			}
 			svc := &corev1.Service{}
-			if err := input.GetClient().Get(input.GetContext(), client.ObjectKey{Namespace: ns, Name: string(be.Name)}, svc); err != nil {
+			if err := input.GetClient().Get(input.GetContext(), client.ObjectKey{Name: svcName, Namespace: ns}, svc); err != nil {
 				if !k8serrors.IsNotFound(err) {
 					input.Log().WithError(err).Error("Failed to get Service")
 					return false, err
@@ -97,5 +133,5 @@ func CheckBackendIsExistingService(input Input) (bool, error) {
 		}
 	}
 
-	return continueChecks, nil
+	return true, nil
 }

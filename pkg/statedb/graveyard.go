@@ -24,7 +24,13 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 	defer limiter.Stop()
 	defer close(db.gcExited)
 
-	for range db.gcTrigger {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-db.gcTrigger:
+		}
+
 		// Throttle garbage collection.
 		if err := limiter.Wait(ctx); err != nil {
 			return
@@ -47,7 +53,10 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 			dtIter := table.deleteTrackers.Root().Iterator()
 			for _, dt, ok := dtIter.Next(); ok; _, dt, ok = dtIter.Next() {
 				rev := dt.getRevision()
-				if rev < lowWatermark {
+				// If the revision is higher than zero than the tracker has been observed
+				// at least once. If it is zero, then no objects have been seen and thus
+				// we don't need to hold onto deleted objects for it.
+				if rev > 0 && rev < lowWatermark {
 					lowWatermark = rev
 				}
 			}
@@ -90,7 +99,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 				if existed {
 					// The dead object still existed (and wasn't replaced by a create->delete),
 					// delete it from the primary index.
-					key = meta.primaryIndexer().fromObject(oldObj).First()
+					key = meta.primary().fromObject(oldObj).First()
 					txn.mustIndexWriteTxn(tableName, GraveyardIndex).txn.Delete(key)
 				}
 			}

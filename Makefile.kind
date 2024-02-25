@@ -1,0 +1,372 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+##@ Development (Kind)
+
+.PHONY: kind
+kind: ## Create a kind cluster for Cilium development.
+	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh
+
+.PHONY: kind-egressgw
+kind-egressgw: ## Create a kind cluster for egress gateway Cilium development.
+	$(QUIET)SED=$(SED) WORKERS=3 ./contrib/scripts/kind.sh
+	kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+
+.PHONY: kind-down
+kind-down: ## Destroy a kind cluster for Cilium development.
+	$(QUIET)./contrib/scripts/kind-down.sh
+
+.PHONY: kind-clustermesh
+kind-clustermesh: ## Create two kind clusters for clustermesh development.
+	@echo " If you have problems with too many open file, check https://kind.sigs.k8s.io/docs/user/known-issues/#pod-errors-due-to-too-many-open-files"
+	$(QUIET) CLUSTER_NAME=clustermesh1 IPFAMILY=dual PODSUBNET=10.1.0.0/16,fd00:10:1::/48 SERVICESUBNET=172.20.1.0/24,fd00:10:f1::/112 ./contrib/scripts/kind.sh
+	$(QUIET) CLUSTER_NAME=clustermesh2 AGENTPORTPREFIX=236 OPERATORPORTPREFIX=237 IPFAMILY=dual PODSUBNET=10.2.0.0/16,fd00:10:2::/48 SERVICESUBNET=172.20.2.0/24,fd00:10:f2::/112 ./contrib/scripts/kind.sh
+
+.PHONY: kind-clustermesh-down
+kind-clustermesh-down: ## Destroy kind clusters for clustermesh development.
+	$(QUIET)./contrib/scripts/kind-down.sh clustermesh1 clustermesh2
+
+.PHONY: kind-clustermesh-ready
+kind-clustermesh-ready: ## Check if both kind clustermesh clusters exist
+	@$(ECHO_CHECK) clustermesh kind is ready...
+	@kind get clusters 2>&1 | grep "clustermesh1" \
+		&& exit 0 || exit 1
+	@kind get clusters 2>&1 | grep "clustermesh2" \
+		&& exit 0 || exit 1
+
+.PHONY: kind-bgp-v4
+kind-bgp-v4:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 deploy
+
+.PHONY: kind-bgp-v4-down
+kind-bgp-v4-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 destroy
+
+.PHONY: kind-bgp-v4-apply-policy
+kind-bgp-v4-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 apply-policy
+
+.PHONY: kind-bgp-v6
+kind-bgp-v6:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 deploy
+
+.PHONY: kind-bgp-v6-down
+kind-bgp-v6-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 destroy
+
+.PHONY: kind-bgp-v6-apply-policy
+kind-bgp-v6-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 apply-policy
+
+.PHONY: kind-bgp-dual
+kind-bgp-dual:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual deploy
+
+.PHONY: kind-bgp-dual-down
+kind-bgp-dual-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual destroy
+
+.PHONY: kind-bgp-dual-apply-policy
+kind-bgp-dual-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual apply-policy
+
+# Template for kind environment for a target. Parameters are:
+# $(1) Makefile target name
+define KIND_ENV
+.PHONY: $(1)
+$(1): export DOCKER_REGISTRY=localhost:5000
+$(1): export LOCAL_AGENT_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/cilium-dev:$$(LOCAL_IMAGE_TAG)
+$(1): export LOCAL_OPERATOR_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/operator-generic:$$(LOCAL_IMAGE_TAG)
+$(1): export LOCAL_CLUSTERMESH_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/clustermesh-apiserver:$$(LOCAL_IMAGE_TAG)
+endef
+
+$(eval $(call KIND_ENV,kind-clustermesh-images))
+kind-clustermesh-images: kind-clustermesh-ready kind-build-clustermesh-apiserver kind-build-image-agent kind-build-image-operator ## Builds images and imports them into clustermesh clusters
+	$(QUIET)kind load docker-image $(LOCAL_CLUSTERMESH_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_CLUSTERMESH_IMAGE) --name clustermesh2
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) --name clustermesh2
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh2
+
+.PHONY: kind-connect-clustermesh ## Connect the ClusterMesh clusters.
+kind-connect-clustermesh: kind-clustermesh-ready
+	@echo "  CONNECT the two clusters"
+	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
+
+ENABLE_KVSTOREMESH ?= false
+$(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
+kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
+	@echo "  INSTALL cilium on clustermesh1 cluster"
+	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
+	$(CILIUM_CLI) --context=kind-clustermesh1 install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
+		--set=image.override=$(LOCAL_AGENT_IMAGE) \
+		--set=operator.image.override=$(LOCAL_OPERATOR_IMAGE) \
+		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
+	@echo "  INSTALL cilium on clustermesh2 cluster"
+	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
+	$(KUBECTL) --context=kind-clustermesh1 get secret -n kube-system cilium-ca -o yaml | \
+		$(KUBECTL) --context=kind-clustermesh2 replace --force -f -
+	$(CILIUM_CLI) --context=kind-clustermesh2 install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
+		--set=image.override=$(LOCAL_AGENT_IMAGE) \
+		--set=operator.image.override=$(LOCAL_OPERATOR_IMAGE) \
+		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
+	$(MAKE) kind-connect-clustermesh
+
+.PHONY: kind-install-cilium-clustermesh-fast
+kind-install-cilium-clustermesh-fast: kind-clustermesh-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into the ClusterMesh clusters and enable ClusterMesh.
+	@echo "  INSTALL cilium on clustermesh1 cluster"
+	docker pull quay.io/cilium/cilium-ci:latest
+	kind load docker-image --name clustermesh1 quay.io/cilium/cilium-ci:latest
+	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
+	$(CILIUM_CLI) --context=kind-clustermesh1 install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
+		--values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
+	@echo "  INSTALL cilium on clustermesh2 cluster"
+	kind load docker-image --name clustermesh2 quay.io/cilium/cilium-ci:latest
+	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
+	$(KUBECTL) --context=kind-clustermesh1 get secret -n kube-system cilium-ca -o yaml | \
+		$(KUBECTL) --context=kind-clustermesh2 replace --force -f -
+	$(CILIUM_CLI) --context=kind-clustermesh2 install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
+		--values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
+	$(MAKE) kind-image-fast
+	$(MAKE) kind-connect-clustermesh
+
+KIND_CLUSTER_NAME ?= $(shell kind get clusters -q | head -n1)
+
+.PHONY: kind-ready
+kind-ready:
+	@$(ECHO_CHECK) kind-ready
+	@if [ -n "$(shell kind get clusters -q)" ]; then echo "kind is ready"; else echo "kind not ready"; exit 1; fi
+
+$(eval $(call KIND_ENV,kind-build-image-agent))
+kind-build-image-agent: ## Build cilium-dev docker image
+	$(QUIET)$(MAKE) dev-docker-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+
+$(eval $(call KIND_ENV,kind-image-agent))
+kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME)
+
+$(eval $(call KIND_ENV,kind-build-image-operator))
+kind-build-image-operator: ## Build cilium-operator-dev docker image
+	$(QUIET)$(MAKE) dev-docker-operator-generic-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+
+$(eval $(call KIND_ENV,kind-image-operator))
+kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME)
+
+$(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
+kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
+	$(QUIET)$(MAKE) docker-clustermesh-apiserver-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+
+.PHONY: kind-image
+kind-image: ## Build cilium and operator images and import them into kind.
+	$(MAKE) kind-image-agent
+	$(MAKE) kind-image-operator
+
+define KIND_VALUES_FAST_FILES
+--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
+--helm-values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml
+endef
+
+ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
+	KIND_VALUES_FAST_FILES := $(KIND_VALUES_FAST_FILES) --helm-values=$(ROOT_DIR)/contrib/testing/kind-custom.yaml
+endif
+
+.PHONY: kind-install-cilium-fast
+kind-install-cilium-fast: kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
+	@echo "  INSTALL cilium"
+	docker pull quay.io/cilium/cilium-ci:latest
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		kind load docker-image --name $$cluster_name quay.io/cilium/cilium-ci:latest; \
+		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
+		$(CILIUM_CLI) install --context=kind-$$cluster_name \
+			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+			$(KIND_VALUES_FAST_FILES) \
+			--version= >/dev/null 2>&1 & \
+	done
+
+.PHONY: build-cli
+build-cli: ## Build cilium cli binary
+	$(QUIET)$(MAKE) -C cilium-dbg GOOS=linux
+
+.PHONY: build-agent
+build-agent: ## Build cilium daemon binary
+	$(QUIET)$(MAKE) -C daemon GOOS=linux
+
+.PHONY: build-operator
+build-operator: ## Build cilium operator binary
+	$(QUIET)$(MAKE) -C operator cilium-operator-generic GOOS=linux
+
+.PHONY: build-clustermesh-apiserver
+build-clustermesh-apiserver: ## Build cilium clustermesh-apiserver binary
+	$(QUIET)$(MAKE) -C clustermesh-apiserver  GOOS=linux
+
+.PHONY: kind-image-fast-agent
+kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and daemon binaries. Copy the bins and bpf files to kind nodes.
+	$(eval dst:=/cilium-binaries)
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
+			docker exec -ti $${node_name} mkdir -p "${dst}"; \
+			\
+			docker exec -ti $${node_name} rm -rf "${dst}/var/lib/cilium"; \
+			docker exec -ti $${node_name} mkdir -p "${dst}/var/lib/cilium"; \
+			docker cp "./bpf/" $${node_name}:"${dst}/var/lib/cilium/bpf"; \
+			docker exec -ti $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
+			\
+			docker exec -ti $${node_name} rm -f "${dst}/cilium-dbg"; \
+			docker cp "./cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/cilium-dbg"; \
+			\
+			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
+			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/cilium-agent"; \
+		done; \
+		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
+	done
+
+.PHONY: kind-image-fast-operator
+kind-image-fast-operator: kind-ready build-operator ## Build cilium operator binary and copy it to all kind nodes.
+	$(eval dst:=/cilium-binaries)
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
+			docker exec -ti $${node_name} mkdir -p "${dst}"; \
+			\
+			docker exec -ti $${node_name} rm -f "${dst}/cilium-operator-generic"; \
+			docker cp "./operator/cilium-operator-generic" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/cilium-operator-generic"; \
+		done; \
+	kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l name=cilium-operator --force; \
+	done
+
+.PHONY: kind-image-fast-clustermesh-apiserver
+kind-image-fast-clustermesh-apiserver: kind-ready build-clustermesh-apiserver ## Build clustermesh-apiserver binary and copy it to all kind nodes.
+	$(eval dst:=/cilium-binaries)
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
+			docker exec -ti $${node_name} mkdir -p "${dst}"; \
+			\
+			docker exec -ti $${node_name} rm -f "${dst}/clustermesh-apiserver"; \
+			docker cp "./clustermesh-apiserver/clustermesh-apiserver" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/clustermesh-apiserver"; \
+		done; \
+	kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=clustermesh-apiserver --force; \
+	done
+
+.PHONY: kind-image-fast
+kind-image-fast: kind-image-fast-agent kind-image-fast-operator kind-image-fast-clustermesh-apiserver ## Build all binaries and copy them to kind nodes.
+
+define KIND_VALUES_FILES
+--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
+--helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml
+endef
+
+ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
+	KIND_VALUES_FILES := $(KIND_VALUES_FILES) --helm-values=$(ROOT_DIR)/contrib/testing/kind-custom.yaml
+endif
+
+.PHONY: kind-install-cilium
+kind-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
+	# cilium-cli's --wait flag doesn't work, so we just force it to run
+	# in the background instead and wait for the resources to be available.
+	# https://github.com/cilium/cilium-cli/issues/1070
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		$(KIND_VALUES_FILES) \
+		--version= \
+		>/dev/null 2>&1 &
+
+
+.PHONY: kind-egressgw-install-cilium
+kind-egressgw-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
+	# cilium-cli's --wait flag doesn't work, so we just force it to run
+	# in the background instead and wait for the resources to be available.
+	# https://github.com/cilium/cilium-cli/issues/1070
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		$(KIND_VALUES_FILES) \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-egressgw-values.yaml \
+		--nodes-without-cilium=kind-worker3 \
+		--version= \
+		>/dev/null 2>&1 &
+
+.PHONY: kind-uninstall-cilium
+kind-uninstall-cilium: ## Uninstall Cilium from the cluster.
+	@echo "  UNINSTALL cilium"
+	-$(CILIUM_CLI) uninstall
+
+.PHONY: kind-check-cilium
+kind-check-cilium:
+	@echo "  CHECK  cilium is ready..."
+	$(CILIUM_CLI) status --wait --wait-duration 1s >/dev/null 2>/dev/null
+
+# Template for kind debug targets. Parameters are:
+# $(1) agent target
+define DEBUG_KIND_TEMPLATE
+.PHONY: kind-image$(1)-debug
+kind-image$(1)-debug: export DEBUGGER_SUFFIX=-debug
+kind-image$(1)-debug: export NOSTRIP=1
+kind-image$(1)-debug: export NOOPT=1
+kind-image$(1)-debug: ## Build cilium$(1) docker image with a dlv debugger wrapper and import it into kind.
+	$(MAKE) kind-image$(1)
+endef
+
+# kind-image-agent-debug
+$(eval $(call DEBUG_KIND_TEMPLATE,-agent))
+
+# kind-image-operator-debug
+$(eval $(call DEBUG_KIND_TEMPLATE,-operator))
+
+$(eval $(call KIND_ENV,kind-debug-agent))
+kind-debug-agent: ## Create a local kind development environment with cilium-agent attached to a debugger.
+	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
+		|| $(MAKE) kind
+	$(MAKE) kind-image-agent-debug
+	# Not debugging cilium-operator here; any image is good enough.
+	kind load docker-image $(LOCAL_OPERATOR_IMAGE) \
+		|| $(MAKE) kind-image-operator
+	$(MAKE) kind-check-cilium 2>/dev/null \
+		|| $(MAKE) kind-install-cilium
+	@echo "Attach delve to localhost on these ports to continue:"
+	@echo " - 23401: cilium-agent (kind-control-plane)"
+	@echo " - 23411: cilium-agent (kind-worker)"
+
+$(eval $(call KIND_ENV,kind-debug))
+kind-debug: ## Create a local kind development environment with cilium-agent & cilium-operator attached to a debugger.
+	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
+		|| $(MAKE) kind
+	$(MAKE) kind-image-agent-debug
+	$(MAKE) kind-image-operator-debug
+	$(MAKE) kind-check-cilium 2>/dev/null \
+		|| $(MAKE) kind-install-cilium
+	@echo "Attach delve to localhost on these ports to continue:"
+	@echo " - 23401: cilium-agent    (kind-control-plane)"
+	@echo " - 23411: cilium-agent    (kind-worker)"
+	@echo " - 23511: cilium-operator (kind-worker)"

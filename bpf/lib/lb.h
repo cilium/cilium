@@ -751,7 +751,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 	};
 	struct lb_affinity_val *val;
 
-	ipv6_addr_copy(&key.client_id.client_ip, &id->client_ip);
+	ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
 
 	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
 	if (val != NULL) {
@@ -800,7 +800,7 @@ __lb6_update_affinity(const struct lb6_service *svc, bool netns_cookie,
 		.last_used	= now,
 	};
 
-	ipv6_addr_copy(&key.client_id.client_ip, &id->client_ip);
+	ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
 
 	map_update_elem(&LB6_AFFINITY_MAP, &key, &val, 0);
 }
@@ -896,8 +896,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
+		state->proxy_redirect = false;
+		state->from_l7lb = false;
 
-		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, ext_err);
+		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
@@ -1011,14 +1013,11 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
 						  struct ct_state *state,
 						 __u16 *proxy_port)
 {
-	state->rev_nat_index = (__u16)ctx_load_meta(ctx, CB_CT_STATE);
-	/* Clear to not leak state to later stages of the datapath. */
-	ctx_store_meta(ctx, CB_CT_STATE, 0);
+	state->rev_nat_index = (__u16)ctx_load_and_clear_meta(ctx, CB_CT_STATE);
 
 	/* No loopback support for IPv6, see lb6_local() above. */
 
-	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
+	*proxy_port = ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16;
 }
 
 #else
@@ -1067,9 +1066,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		old_sip = tuple->saddr;
 		tuple->saddr = nat->address;
 	} else {
-		ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
-		if (IS_ERR(ret))
-			return ret;
+		if (ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4) < 0)
+			return DROP_INVALID;
 	}
 
 #ifndef DISABLE_LOOPBACK_LB
@@ -1082,9 +1080,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		 */
 		__be32 old_dip;
 
-		ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
-		if (IS_ERR(ret))
-			return ret;
+		if (ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4) < 0)
+			return DROP_INVALID;
 
 		cilium_dbg_lb(ctx, DBG_LB4_LOOPBACK_SNAT_REV, old_dip, old_sip);
 
@@ -1575,8 +1572,10 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
+		state->proxy_redirect = false;
+		state->from_l7lb = false;
 
-		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, ext_err);
+		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
@@ -1727,22 +1726,17 @@ static __always_inline void
 lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 		       __u16 *proxy_port, __u32 *cluster_id __maybe_unused)
 {
-	__u32 meta = ctx_load_meta(ctx, CB_CT_STATE);
+	__u32 meta = ctx_load_and_clear_meta(ctx, CB_CT_STATE);
 #ifndef DISABLE_LOOPBACK_LB
 	if (meta & 1)
 		state->loopback = 1;
 #endif
 	state->rev_nat_index = meta >> 16;
 
-	/* Clear to not leak state to later stages of the datapath. */
-	ctx_store_meta(ctx, CB_CT_STATE, 0);
-
-	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
+	*proxy_port = ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	*cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
+	*cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 #endif
 }
 

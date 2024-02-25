@@ -2,6 +2,7 @@ AArch
 AKS
 Alemayhu
 Alibaba
+Aquantia
 Attestor
 Bertin
 Blanco
@@ -34,6 +35,8 @@ Dockerfile
 Dockerfiles
 Donenfeld
 ENI
+Efx
+Engleder
 FIt
 Fastabend
 Fosdem
@@ -71,11 +74,14 @@ Lx
 Majkowski
 Marek
 Mbit
+Mediatek
 Mellanox
 Meltwater
 Menlo
 MiB
 Monnet
+Multihop
+Multiprotocol
 Mythbusters
 NDP
 Neovim
@@ -88,9 +94,10 @@ PaaS
 Palantir
 Pepelnjak
 Pfaff
+PodCIDR
 Polytechnique
 QCon
-Qlogic
+QLogic
 RuleParser
 SRv
 Sharma
@@ -104,6 +111,7 @@ Starovoitov
 Stormtroopers
 Suchakra
 Suricata
+Talos
 Telco
 Terraform
 Tierney
@@ -112,6 +120,7 @@ Twilio
 Uncompress
 Uncordon
 VM
+VMware
 VNet
 VPC
 Vagrantcloud
@@ -143,6 +152,7 @@ apiserver
 arithmetics
 artii
 asm
+atlantic
 au
 auth
 autoMount
@@ -276,6 +286,7 @@ dpaa
 dropdown
 dryRun
 dwarfris
+eBGP
 eBPF
 eXpress
 ebpf
@@ -289,6 +300,8 @@ endian
 endianness
 endpointSelector
 endpointmanager
+enet
+enetc
 etcd
 eth
 ethernet
@@ -300,6 +313,7 @@ externalTrafficPolicy
 extraConfig
 facto
 failover
+fec
 filesystem
 filesystems
 firewalling
@@ -329,6 +343,7 @@ goroutine
 goroutines
 grafana
 graphviz
+gve
 hairpinned
 hardcode
 hardcoded
@@ -355,9 +370,12 @@ hubble
 hubblecertgen
 hugepages
 hv
+iBGP
 icmp
 ie
 ifindex
+igb
+igc
 impactful
 ingressing
 init
@@ -425,6 +443,7 @@ kubespray
 kvstore
 kvstoremesh
 kvstores
+lan
 latencies
 leia
 len
@@ -450,6 +469,7 @@ loadBalancerIP
 loadbalancer
 loadbalancers
 loadbalancing
+loadinfo
 localhost
 lockless
 logfile
@@ -459,11 +479,13 @@ lrp
 lsm
 luke
 lwt
+lxc
 mTLS
 macOS
 maglev
 mainboard
 makefile
+mana
 masq
 matchPattern
 maxUnavailable
@@ -482,6 +504,7 @@ modularity
 modularizing
 mountPath
 mov
+mtk
 mul
 multicore
 multihoming
@@ -489,6 +512,7 @@ musl
 mutex
 mutexes
 mvneta
+mvpp
 myCA
 mysql
 nameError
@@ -502,6 +526,7 @@ netdevice
 netdevices
 netdevsim
 netfilter
+netfront
 netns
 netperf
 netsec
@@ -526,6 +551,7 @@ openSUSE
 openapi
 openssl
 originatingTLS
+otx
 pahole
 parsable
 parserfactory
@@ -591,6 +617,7 @@ reparsing
 repo
 repos
 reproducibility
+requireIPv
 retpoline
 retransmission
 retransmissions
@@ -633,6 +660,7 @@ stateful
 statefulset
 statsd
 stdout
+stmmac
 structs
 subclasses
 subcommand
@@ -684,6 +712,7 @@ tracepoint
 tracepoints
 tracestate
 transpiling
+tsne
 tunnelProtocol
 ubuntu
 udp
@@ -694,6 +723,7 @@ unaudited
 uncommented
 unencrypted
 unexported
+unicast
 uninline
 unix
 unlabel
@@ -703,6 +733,7 @@ unsettable
 untriaged
 untrusted
 unwinded
+upgradeCompatibility
 uplink
 uprobes
 uptime
@@ -723,8 +754,10 @@ virtualbox
 virtualized
 vlan
 vmlinux
+vmxnet
 volumeMounts
 vrf
+vrouter
 vtep
 vxlan
 waker
@@ -739,6 +772,7 @@ workqueue
 www
 xDS
 xdp
+xen
 xfrm
 xml
 xoring
@@ -746,3 +780,4 @@ xt
 xwing
 yaml
 zsh
+matchExpressions

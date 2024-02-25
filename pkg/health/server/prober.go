@@ -137,7 +137,7 @@ func skipAddress(elem *ciliumModels.NodeAddressingElement) bool {
 // resolveIP attempts to sanitize 'node' and 'ip', and if successful, returns
 // the name of the node and the IP address specified in the addressing element.
 // If validation fails or this IP should not be pinged, 'ip' is returned as nil.
-func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
+func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, primary bool) (string, *net.IPAddr) {
 	node := n.NodeElement
 	network := "ip6:icmp"
 	if isIPv4(addr.IP) {
@@ -152,7 +152,6 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 			logfields.NodeName: node.Name,
 			logfields.IPAddr:   addr.IP,
 			"primary":          primary,
-			"protocol":         proto,
 		})
 	}
 
@@ -162,7 +161,7 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 	}
 
 	ra, err := net.ResolveIPAddr(network, addr.IP)
-	if err != nil {
+	if err != nil || ra.String() == "" {
 		scopedLog.Debug("Unable to resolve address")
 		return "", nil
 	}
@@ -201,14 +200,12 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 
 	for _, n := range added {
 		for elem, primary := range n.Addresses() {
-			_, addr := resolveIP(&n, elem, "icmp", primary)
+			_, addr := resolveIP(&n, elem, primary)
 			if addr == nil {
 				continue
 			}
 
 			ip := ipString(elem.IP)
-			result := &models.ConnectivityStatus{}
-			result.Status = "Connection timed out"
 			p.AddIPAddr(addr)
 			p.nodes[ip] = n
 
@@ -217,8 +214,28 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 					IP: elem.IP,
 				}
 			}
-			p.results[ip].Icmp = result
 		}
+	}
+}
+
+func (p *prober) updateIcmpStatus() {
+	p.Lock()
+	defer p.Unlock()
+
+	for _, status := range p.results {
+		if status.Icmp == nil {
+			status.Icmp = &models.ConnectivityStatus{}
+			status.Icmp.Status = "Connection timed out"
+		}
+	}
+}
+
+func (p *prober) clearIcmpStatus() {
+	p.Lock()
+	defer p.Unlock()
+
+	for _, status := range p.results {
+		status.Icmp = nil
 	}
 }
 
@@ -279,7 +296,7 @@ func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
 		}
 		nodes[node.Name] = []*net.IPAddr{}
 		for elem, primary := range node.Addresses() {
-			if _, addr := resolveIP(&node, elem, "http", primary); addr != nil {
+			if _, addr := resolveIP(&node, elem, primary); addr != nil {
 				nodes[node.Name] = append(nodes[node.Name], addr)
 			}
 		}
@@ -338,6 +355,7 @@ func (p *prober) runHTTPProbe() {
 func (p *prober) Run() error {
 	err := p.Pinger.Run()
 	p.runHTTPProbe()
+	p.updateIcmpStatus()
 	return err
 }
 
@@ -360,6 +378,7 @@ func (p *prober) RunLoop() {
 
 	go func() {
 		tick := time.NewTicker(p.server.ProbeInterval)
+		p.runHTTPProbe()
 	loop:
 		for {
 			select {

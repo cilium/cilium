@@ -9,7 +9,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -35,7 +34,7 @@ type lbipamCellParams struct {
 
 	Logger logrus.FieldLogger
 
-	LC          hive.Lifecycle
+	LC          cell.Lifecycle
 	JobRegistry job.Registry
 	Scope       cell.Scope
 

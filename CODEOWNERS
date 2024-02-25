@@ -207,6 +207,9 @@
 #   Responsible for all policy logic from Kubernetes down to eBPF policymap
 #   entries, including all intermediate layers such as the Policy Repository,
 #   SelectorCache, PolicyCache, CachedSelectorPolicy, EndpointPolicy, etc.
+# - @cilium/sig-scalability:
+#   Maintain scalability and performance tests. Provide input on scalability
+#   and performance related changes.
 # - @cilium/sig-servicemesh:
 #   Provide input on the way that Service Mesh constructs such as Gateway API
 #   are converted into lower-level constructs backed by eBPF or Envoy
@@ -230,8 +233,10 @@
 /.devcontainer @cilium/contributing
 /.gitattributes @cilium/tophat
 /.github/ @cilium/contributing
+/.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
+/.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*clustermesh*.yaml @cilium/sig-clustermesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
@@ -239,6 +244,8 @@
 /.github/workflows/*externalworkloads*.yaml @cilium/sig-clustermesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ipsec*.yaml @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ingress*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*scale*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*perf*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/tophat
 /.golangci.yaml @cilium/ci-structure
 /.mailmap @cilium/tophat
@@ -263,6 +270,7 @@ Makefile* @cilium/build
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/encrypt.h @cilium/ipsec
+/bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
 /bugtool/ @cilium/tophat
 /bugtool/cmd/ @cilium/cli
 /cilium-dbg/ @cilium/cli
@@ -351,6 +359,7 @@ Makefile* @cilium/build
 /Documentation/security/http.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/images/cilium_threat_model* @cilium/security @cilium/docs-structure
 /Documentation/security/network/encryption-ipsec.rst @cilium/ipsec @cilium/docs-structure
+/Documentation/security/network/encryption-wireguard.rst @cilium/wireguard @cilium/docs-structure
 /Documentation/security/network/proxy/ @cilium/proxy @cilium/docs-structure
 /Documentation/security/policy-creation.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/policy/ @cilium/sig-policy @cilium/docs-structure
@@ -383,6 +392,7 @@ Makefile* @cilium/build
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
+/operator/pkg/bgpv2 @cilium/sig-bgp
 /operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
 /operator/pkg/controller-runtime @cilium/sig-servicemesh
 /operator/pkg/gateway-api @cilium/sig-servicemesh
@@ -408,6 +418,7 @@ Makefile* @cilium/build
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/cgroups/ @cilium/sig-datapath
 /pkg/checker/ @cilium/ci-structure
+/pkg/ciliumenvoyconfig/ @cilium/envoy @cilium/sig-servicemesh
 /pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
@@ -415,6 +426,7 @@ Makefile* @cilium/build
 /pkg/common/ipsec/ @cilium/ipsec
 /pkg/completion/ @cilium/proxy
 /pkg/components/ @cilium/sig-agent
+/pkg/container/bitlpm/ @cilium/ipcache @cilium/sig-policy
 /pkg/contexthelpers/ @cilium/kvstore
 /pkg/controller @cilium/sig-agent
 /pkg/counter @cilium/sig-datapath
@@ -428,6 +440,7 @@ Makefile* @cilium/build
 /pkg/datapath/linux/node.go @cilium/sig-datapath
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
+/pkg/datapath/linux/sysctl/ @cilium/sig-datapath
 /pkg/datapath/types/ipsec.go @cilium/ipsec
 /pkg/datapath/types/loader.go @cilium/loader
 /pkg/datapath/loader/ @cilium/loader
@@ -435,7 +448,7 @@ Makefile* @cilium/build
 /pkg/defaults @cilium/sig-agent
 /pkg/ebpf @cilium/sig-datapath
 /pkg/egressgateway/ @cilium/egress-gateway
-/pkg/elf @cilium/sig-datapath
+/pkg/elf @cilium/loader
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointcleanup/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
@@ -461,9 +474,6 @@ Makefile* @cilium/build
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipmasq @cilium/sig-agent
 /pkg/k8s/ @cilium/sig-k8s
-/pkg/k8s/watchers/cilium_network_policy.go @cilium/sig-policy
-/pkg/k8s/watchers/cilium_cidr_group.go @cilium/sig-policy
-/pkg/k8s/watchers/cilium_cidr_group_test.go @cilium/sig-policy
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/cegp_types.go @cilium/egress-gateway
@@ -497,6 +507,7 @@ Makefile* @cilium/build
 /pkg/policy @cilium/sig-policy
 /pkg/policy/api/ @cilium/api
 /pkg/policy/groups/aws/ @cilium/sig-policy @cilium/aws
+/pkg/policy/k8s @cilium/sig-policy
 /pkg/pprof @cilium/sig-foundations
 /pkg/promise @cilium/sig-foundations
 /pkg/proxy/ @cilium/proxy
@@ -508,7 +519,6 @@ Makefile* @cilium/build
 /pkg/redirectpolicy @cilium/sig-lb
 /pkg/resiliency @cilium/sig-agent
 /pkg/safeio @cilium/sig-agent
-/pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
 /pkg/slices @cilium/sig-foundations
 /pkg/socketlb @cilium/loader
@@ -516,7 +526,6 @@ Makefile* @cilium/build
 /pkg/status/ @cilium/sig-agent
 /pkg/statedb @cilium/sig-foundations
 /pkg/stream @cilium/sig-foundations
-/pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
 /pkg/time @cilium/sig-agent
 /pkg/tuple @cilium/sig-datapath
@@ -528,6 +537,7 @@ Makefile* @cilium/build
 /plugins/cilium-docker/ @cilium/docker
 /README.rst @cilium/docs-structure
 /SECURITY.md @cilium/contributing
+/SECURITY-INSIGHTS.yml @cilium/security
 /stable.txt @cilium/tophat
 /test/ @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
@@ -572,3 +582,4 @@ Vagrantfile @cilium/ci-structure
 /vendor/ @cilium/vendor
 /VERSION @cilium/tophat
 /.clang-format @cilium/contributing
+/.openvex.json @cilium/security

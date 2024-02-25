@@ -8,13 +8,12 @@ import (
 	"net/netip"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
 	"github.com/spf13/pflag"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -66,13 +65,13 @@ type PolicyMap interface {
 
 // policyMap is the internal representation of an egress policy map.
 type policyMap struct {
-	m *ebpf.Map
+	m *bpf.Map
 }
 
 func createPolicyMapFromDaemonConfig(in struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	*option.DaemonConfig
 	PolicyConfig
 }) (out struct {
@@ -97,25 +96,31 @@ func createPolicyMapFromDaemonConfig(in struct {
 // CreatePrivatePolicyMap creates an unpinned policy map.
 //
 // Useful for testing.
-func CreatePrivatePolicyMap(lc hive.Lifecycle, cfg PolicyConfig) PolicyMap {
+func CreatePrivatePolicyMap(lc cell.Lifecycle, cfg PolicyConfig) PolicyMap {
 	return createPolicyMap(lc, cfg, ebpf.PinNone)
 }
 
-func createPolicyMap(lc hive.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {
-	m := ebpf.NewMap(&ebpf.MapSpec{
-		Name:       PolicyMapName,
-		Type:       ebpf.LPMTrie,
-		KeySize:    uint32(unsafe.Sizeof(EgressPolicyKey4{})),
-		ValueSize:  uint32(unsafe.Sizeof(EgressPolicyVal4{})),
-		MaxEntries: uint32(cfg.EgressGatewayPolicyMapMax),
-		Pinning:    pinning,
-	})
+func createPolicyMap(lc cell.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {
+	m := bpf.NewMap(
+		PolicyMapName,
+		ebpf.LPMTrie,
+		&EgressPolicyKey4{},
+		&EgressPolicyVal4{},
+		cfg.EgressGatewayPolicyMapMax,
+		0,
+	).WithPressureMetric()
 
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			return m.OpenOrCreate()
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			switch pinning {
+			case ebpf.PinNone:
+				return m.CreateUnpinned()
+			case ebpf.PinByName:
+				return m.OpenOrCreate()
+			}
+			return fmt.Errorf("received unexpected pin type: %d", pinning)
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			return m.Close()
 		},
 	})
@@ -124,7 +129,7 @@ func createPolicyMap(lc hive.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) 
 }
 
 func OpenPinnedPolicyMap() (PolicyMap, error) {
-	m, err := ebpf.LoadRegisterMap(PolicyMapName)
+	m, err := bpf.OpenMap(bpf.MapPath(PolicyMapName), &EgressPolicyKey4{}, &EgressPolicyVal4{})
 	if err != nil {
 		return nil, err
 	}
@@ -156,6 +161,14 @@ func NewEgressPolicyVal4(egressIP, gatewayIP netip.Addr) EgressPolicyVal4 {
 	return val
 }
 
+// String returns the string representation of an egress policy key.
+func (k *EgressPolicyKey4) String() string {
+	return fmt.Sprintf("%s %s/%d", k.SourceIP, k.DestCIDR, k.PrefixLen-PolicyStaticPrefixBits)
+}
+
+// New returns an egress policy key
+func (k *EgressPolicyKey4) New() bpf.MapKey { return &EgressPolicyKey4{} }
+
 // Match returns true if the sourceIP and destCIDR parameters match the egress
 // policy key.
 func (k *EgressPolicyKey4) Match(sourceIP netip.Addr, destCIDR netip.Prefix) bool {
@@ -174,6 +187,9 @@ func (k *EgressPolicyKey4) GetDestCIDR() netip.Prefix {
 	addr, _ := netipx.FromStdIP(k.DestCIDR.IP())
 	return netip.PrefixFrom(addr, int(k.PrefixLen-PolicyStaticPrefixBits))
 }
+
+// New returns an egress policy value
+func (v *EgressPolicyVal4) New() bpf.MapValue { return &EgressPolicyVal4{} }
 
 // Match returns true if the egressIP and gatewayIP parameters match the egress
 // policy value.
@@ -201,11 +217,12 @@ func (v *EgressPolicyVal4) String() string {
 // IP, destination CIDR) tuple.
 func (m *policyMap) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error) {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
-	val := EgressPolicyVal4{}
+	val, err := m.m.Lookup(&key)
+	if err != nil {
+		return nil, err
+	}
 
-	err := m.m.Lookup(&key, &val)
-
-	return &val, err
+	return val.(*EgressPolicyVal4), err
 }
 
 // Update updates the (sourceIP, destCIDR) egress policy entry with the provided
@@ -214,14 +231,14 @@ func (m *policyMap) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP,
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 	val := NewEgressPolicyVal4(egressIP, gatewayIP)
 
-	return m.m.Update(key, val, 0)
+	return m.m.Update(&key, &val)
 }
 
 // Delete deletes the (sourceIP, destCIDR) egress policy entry.
 func (m *policyMap) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 
-	return m.m.Delete(key)
+	return m.m.Delete(&key)
 }
 
 // EgressPolicyIterateCallback represents the signature of the callback function
@@ -232,11 +249,10 @@ type EgressPolicyIterateCallback func(*EgressPolicyKey4, *EgressPolicyVal4)
 // IterateWithCallback iterates through all the keys/values of an egress policy
 // map, passing each key/value pair to the cb callback.
 func (m policyMap) IterateWithCallback(cb EgressPolicyIterateCallback) error {
-	return m.m.IterateWithCallback(&EgressPolicyKey4{}, &EgressPolicyVal4{},
-		func(k, v interface{}) {
-			key := k.(*EgressPolicyKey4)
-			value := v.(*EgressPolicyVal4)
+	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*EgressPolicyKey4)
+		value := v.(*EgressPolicyVal4)
 
-			cb(key, value)
-		})
+		cb(key, value)
+	})
 }

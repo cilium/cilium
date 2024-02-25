@@ -25,10 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -55,8 +54,8 @@ const (
 	ciliumForwardChain    = "CILIUM_FORWARD"
 	feederDescription     = "cilium-feeder:"
 	xfrmDescription       = "cilium-xfrm-notrack:"
-	ciliumNodeIpsetV4     = "cilium_node_set_v4"
-	ciliumNodeIpsetV6     = "cilium_node_set_v6"
+	CiliumNodeIpsetV4     = "cilium_node_set_v4"
+	CiliumNodeIpsetV6     = "cilium_node_set_v6"
 )
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
@@ -109,8 +108,8 @@ func (ipt *ipt) initArgs(waitSeconds int) {
 
 // package name is iptables so we use ip4tables internally for "iptables"
 var (
-	ip4tables = &ipt{prog: "iptables", ipset: ciliumNodeIpsetV4}
-	ip6tables = &ipt{prog: "ip6tables", ipset: ciliumNodeIpsetV6}
+	ip4tables = &ipt{prog: "iptables", ipset: CiliumNodeIpsetV4}
+	ip6tables = &ipt{prog: "ip6tables", ipset: CiliumNodeIpsetV6}
 	ipset     = &ipt{prog: "ipset"}
 )
 
@@ -257,6 +256,7 @@ func (m *Manager) removeCiliumRules(table string, prog iptablesInterface, match 
 type Manager struct {
 	logger     logrus.FieldLogger
 	modulesMgr *modules.Manager
+	sysctl     sysctl.Sysctl
 	cfg        Config
 	sharedCfg  SharedConfig
 
@@ -277,9 +277,10 @@ type params struct {
 	cell.In
 
 	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 
 	ModulesMgr *modules.Manager
+	Sysctl     sysctl.Sysctl
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -289,6 +290,7 @@ func newIptablesManager(p params) *Manager {
 	iptMgr := &Manager{
 		logger:        p.Logger,
 		modulesMgr:    p.ModulesMgr,
+		sysctl:        p.Sysctl,
 		cfg:           p.Cfg,
 		sharedCfg:     p.SharedCfg,
 		haveIp6tables: true,
@@ -300,14 +302,18 @@ func newIptablesManager(p params) *Manager {
 }
 
 // Start initializes the iptables manager and checks for iptables kernel modules availability.
-func (m *Manager) Start(ctx hive.HookContext) error {
+func (m *Manager) Start(ctx cell.HookContext) error {
 	if os.Getenv("CILIUM_PREPEND_IPTABLES_CHAIN") != "" {
 		m.logger.Warning("CILIUM_PREPEND_IPTABLES_CHAIN env var has been deprecated. Please use 'CILIUM_PREPEND_IPTABLES_CHAINS' " +
 			"env var or '--prepend-iptables-chains' command line flag instead")
 	}
 
-	if err := enableIPForwarding(m.sharedCfg.EnableIPv6); err != nil {
+	if err := enableIPForwarding(m.sysctl, m.sharedCfg.EnableIPv6); err != nil {
 		m.logger.WithError(err).Warning("enabling IP forwarding via sysctl failed")
+	}
+
+	if m.sharedCfg.EnableIPSec && m.sharedCfg.EnableL7Proxy {
+		m.DisableIPEarlyDemux()
 	}
 
 	if err := m.modulesMgr.FindOrLoadModules(
@@ -365,14 +371,7 @@ func (m *Manager) Start(ctx hive.HookContext) error {
 			m.logger.WithError(err).Warning("xt_socket kernel module could not be loaded")
 
 			if m.sharedCfg.EnableXTSocketFallback {
-				disabled := sysctl.Disable("net.ipv4.ip_early_demux") == nil
-
-				if disabled {
-					m.ipEarlyDemuxDisabled = true
-					m.logger.Warning("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
-				} else {
-					m.logger.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
-				}
+				m.DisableIPEarlyDemux()
 			}
 		}
 	} else {
@@ -386,8 +385,22 @@ func (m *Manager) Start(ctx hive.HookContext) error {
 	return nil
 }
 
-func (m *Manager) Stop(ctx hive.HookContext) error {
+func (m *Manager) Stop(ctx cell.HookContext) error {
 	return nil
+}
+
+func (m *Manager) DisableIPEarlyDemux() {
+	if m.ipEarlyDemuxDisabled {
+		return
+	}
+
+	disabled := m.sysctl.Disable("net.ipv4.ip_early_demux") == nil
+	if disabled {
+		m.ipEarlyDemuxDisabled = true
+		m.logger.Info("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
+	} else {
+		m.logger.Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
+	}
 }
 
 // SupportsOriginalSourceAddr tells if an L7 proxy can use POD's original source address and port in
@@ -462,10 +475,12 @@ func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 	// 2. route original direction traffic that would otherwise be intercepted
 	//    by ip_early_demux
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	return []string{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
 		"-m", "socket", "--transparent",
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 		"-j", "MARK",
 		"--set-mark", toProxyMark}
@@ -787,29 +802,6 @@ func (m *Manager) addProxyRules(prog iptablesInterface, ip string, proxyPort uin
 	return nil
 }
 
-// install or remove rules for a single proxy port
-func (m *Manager) iptProxyRules(proxyPort uint16, ingress, localOnly bool, name string) error {
-	ipv4 := "0.0.0.0"
-	ipv6 := "::"
-
-	if localOnly {
-		ipv4 = "127.0.0.1"
-		ipv6 = "::1"
-	}
-	if m.sharedCfg.EnableIPv4 {
-		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, ingress, name); err != nil {
-			return err
-		}
-	}
-	if m.sharedCfg.EnableIPv6 {
-		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, ingress, name); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (m *Manager) endpointNoTrackRules(prog iptablesInterface, cmd string, IP string, port *lb.L4Addr) error {
 	var err error
 
@@ -996,6 +988,12 @@ func (m *Manager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
 }
 
 func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error {
+	if m.haveBPFSocketAssign {
+		log.WithField("port", proxyPort).
+			Debug("Skipping proxy rule install due to BPF support")
+		return nil
+	}
+
 	backoff := backoff.Exponential{
 		Min:  20 * time.Second,
 		Max:  3 * time.Minute,
@@ -1026,12 +1024,25 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool,
 	m.Lock()
 	defer m.Unlock()
 
-	if m.haveBPFSocketAssign {
-		log.WithField("port", proxyPort).
-			Debug("Skipping proxy rule install due to BPF support")
-		return nil
+	ipv4 := "0.0.0.0"
+	ipv6 := "::"
+
+	if localOnly {
+		ipv4 = "127.0.0.1"
+		ipv6 = "::1"
 	}
-	return m.iptProxyRules(proxyPort, ingress, localOnly, name)
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, ingress, name); err != nil {
+			return err
+		}
+	}
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, ingress, name); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetProxyPort finds a proxy port used for redirect 'name' installed earlier with InstallProxyRules.
@@ -1185,9 +1196,9 @@ func (m *Manager) installForwardChainRulesIpX(prog iptablesInterface, ifName, lo
 // or the IP already exist.
 func (m *Manager) AddToNodeIpset(nodeIP net.IP) {
 	scopedLog := log.WithField(logfields.IPAddr, nodeIP.String())
-	ciliumNodeIpset := ciliumNodeIpsetV4
+	ciliumNodeIpset := CiliumNodeIpsetV4
 	if ip.IsIPv6(nodeIP) {
-		ciliumNodeIpset = ciliumNodeIpsetV6
+		ciliumNodeIpset = CiliumNodeIpsetV6
 	}
 	if err := createIpset(ciliumNodeIpset, ip.IsIPv6(nodeIP)); err != nil {
 		scopedLog.WithError(err).Errorf("Failed to create ipset %s", ciliumNodeIpset)
@@ -1202,9 +1213,9 @@ func (m *Manager) AddToNodeIpset(nodeIP net.IP) {
 // RemoveFromBodeIpset removes an IP address from the ipset for cluster nodes.
 func (m *Manager) RemoveFromNodeIpset(nodeIP net.IP) {
 	scopedLog := log.WithField(logfields.IPAddr, nodeIP.String())
-	ciliumNodeIpset := ciliumNodeIpsetV4
+	ciliumNodeIpset := CiliumNodeIpsetV4
 	if ip.IsIPv6(nodeIP) {
-		ciliumNodeIpset = ciliumNodeIpsetV6
+		ciliumNodeIpset = CiliumNodeIpsetV6
 	}
 	progArgs := []string{"del", ciliumNodeIpset, nodeIP.String(), "-exist"}
 	if err := ipset.runProg(progArgs); err != nil {
@@ -1600,20 +1611,20 @@ func (m *Manager) doInstallRules(ifName string, firstInitialization, install boo
 	// needed depends on the configuration, but the content doesn't.
 	if m.sharedCfg.NodeIpsetNeeded {
 		if m.sharedCfg.IptablesMasqueradingIPv4Enabled {
-			if err := createIpset(ciliumNodeIpsetV4, false); err != nil {
+			if err := createIpset(CiliumNodeIpsetV4, false); err != nil {
 				return err
 			}
 		}
 		if m.sharedCfg.IptablesMasqueradingIPv6Enabled {
-			if err := createIpset(ciliumNodeIpsetV6, true); err != nil {
+			if err := createIpset(CiliumNodeIpsetV6, true); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := removeIpset(ciliumNodeIpsetV4); err != nil {
+		if err := removeIpset(CiliumNodeIpsetV4); err != nil {
 			return err
 		}
-		if err := removeIpset(ciliumNodeIpsetV6); err != nil {
+		if err := removeIpset(CiliumNodeIpsetV6); err != nil {
 			return err
 		}
 	}

@@ -11,7 +11,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 
-	"github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -41,8 +41,8 @@ func (rm *resourceMock) Store(context.Context) (resource.Store[*ciliumv2.CiliumN
 var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
-	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	fakeAddressing := fakeTypes.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	allocv4, allocv6, status := ipam.Dump()
 	c.Assert(status, Not(Equals), "")
@@ -60,8 +60,8 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	ip := net.ParseIP("1.1.1.1")
 	timeout := 50 * time.Millisecond
 
-	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	fakeAddressing := fakeTypes.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault())
 	c.Assert(err, IsNil)
@@ -125,8 +125,8 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	timeout := 50 * time.Millisecond
 
-	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	fakeAddressing := fakeTypes.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	// Allocate IPs and test expiration timer. 'pool' is empty in order to test
 	// that the allocated pool is passed to StartExpirationTimer

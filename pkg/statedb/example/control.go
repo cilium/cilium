@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -30,7 +29,7 @@ type controlParams struct {
 
 	Backends  statedb.RWTable[Backend]
 	DB        *statedb.DB
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Log       logrus.FieldLogger
 	Registry  job.Registry
 	Scope     cell.Scope

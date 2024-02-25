@@ -16,10 +16,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
-	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -73,7 +72,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	clusterName2 := s.randomName + "2"
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
-	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
+	s.svcCache = k8s.NewServiceCache(fakeTypes.NewNodeAddressing())
 
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
@@ -85,7 +84,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	for i, cluster := range []string{clusterName1, clusterName2} {
 		config := cmtypes.CiliumClusterConfig{
 			ID: uint32(i + 1),
-			Capabilities: types.CiliumClusterConfigCapabilities{
+			Capabilities: cmtypes.CiliumClusterConfigCapabilities{
 				MaxConnectedClusters: 255,
 			},
 		}
@@ -108,7 +107,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	store := store.NewFactory(store.MetricsProvider())
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
-		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
+		ClusterInfo:           cmtypes.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
 		ServiceMerger:         s.svcCache,
@@ -155,9 +154,9 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction,
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
-	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	kvstore.Client().Update(context.TODO(), k, []byte(v), false)
 	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
-	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	kvstore.Client().Update(context.TODO(), k, []byte(v), false)
 
 	swgSvcs := lock.NewStoppableWaitGroup()
 	k8sSvc := &slim_corev1.Service{
@@ -232,9 +231,9 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
-	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	kvstore.Client().Update(context.TODO(), k, []byte(v), false)
 	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
-	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	kvstore.Client().Update(context.TODO(), k, []byte(v), false)
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -263,7 +262,7 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	})
 
 	k, v = s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080")
-	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	kvstore.Client().Update(context.TODO(), k, []byte(v), false)
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")] != nil &&
 			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")].Ports["http"].DeepEqual(
@@ -274,7 +273,7 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	})
 
 	k, v = s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080")
-	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	kvstore.Client().Update(context.TODO(), k, []byte(v), false)
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")] != nil &&
 			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")].Ports["http"].DeepEqual(
@@ -305,9 +304,9 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesNonGlobal(c *C) {
 	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
-	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	kvstore.Client().Update(context.TODO(), k, []byte(v), false)
 	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
-	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	kvstore.Client().Update(context.TODO(), k, []byte(v), false)
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -359,7 +358,7 @@ func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
 	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
-	cache := newGlobalServiceCache(metrics.NoOpGauge)
+	cache := common.NewGlobalServiceCache(metrics.NoOpGauge)
 	merger := fakeServiceMerger{}
 
 	observer := remoteServiceObserver{
@@ -377,7 +376,7 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	observer.OnUpdate(&svc2)
 
 	c.Assert(merger.updated[svc1.String()], Equals, 0)
-	c.Assert(cache.byName, HasLen, 0)
+	c.Assert(cache.Size(), Equals, 0)
 
 	// Observe a new service update (for a shared service), and assert it is correctly added to the cache
 	merger.init()
@@ -386,11 +385,10 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	c.Assert(merger.updated[svc1.String()], Equals, 1)
 	c.Assert(merger.deleted[svc1.String()], Equals, 0)
 
-	c.Assert(cache.byName, HasLen, 1)
-	gs, ok := cache.byName[svc1.NamespaceServiceName()]
-	c.Assert(ok, Equals, true)
-	c.Assert(gs.clusterServices, HasLen, 1)
-	found, ok := gs.clusterServices[svc1.Cluster]
+	c.Assert(cache.Size(), Equals, 1)
+	gs := cache.GetGlobalService(svc1.NamespaceServiceName())
+	c.Assert(gs.ClusterServices, HasLen, 1)
+	found, ok := gs.ClusterServices[svc1.Cluster]
 	c.Assert(ok, Equals, true)
 	c.Assert(found, checker.DeepEquals, &svc1)
 
@@ -400,7 +398,7 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 
 	c.Assert(merger.updated[svc1.String()], Equals, 0)
 	c.Assert(merger.deleted[svc1.String()], Equals, 1)
-	c.Assert(cache.byName, HasLen, 0)
+	c.Assert(cache.Size(), Equals, 0)
 
 	// Observe two service updates in sequence (first shared, then non-shared),
 	// and assert that at the end it is not present in the cache (equivalent to update, then delete).
@@ -410,5 +408,5 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 
 	c.Assert(merger.updated[svc1.String()], Equals, 1)
 	c.Assert(merger.deleted[svc1.String()], Equals, 1)
-	c.Assert(cache.byName, HasLen, 0)
+	c.Assert(cache.Size(), Equals, 0)
 }

@@ -44,7 +44,7 @@ jobs:
           build-args: |
             OPERATOR_VARIANT=${{ matrix.image.name }}
       - name: Scan image
-        uses: anchore/scan-action@896d5f410043987c8fe18f60d91bf199e436840c # v3.3.8
+        uses: anchore/scan-action@3343887d815d7b07465f6fdcd395bd66508d486a # v3.6.4
         with:
           image: ${{ matrix.image.name }}:${{ matrix.branch }}
           output-format: table

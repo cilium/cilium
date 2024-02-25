@@ -39,6 +39,7 @@ If you are interested in extending Cilium to support migration between IPAM mode
    kubernetes
    multi-pool
    azure
+   azure-delegated-ipam
    eni
    gke
    crd

@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -106,7 +105,7 @@ type Client struct {
 
 // NewClient creates a new SPIRE client.
 // If the mutual authentication is not enabled, it returns a noop client.
-func NewClient(params params, lc hive.Lifecycle, cfg ClientConfig, log logrus.FieldLogger) identity.Provider {
+func NewClient(params params, lc cell.Lifecycle, cfg ClientConfig, log logrus.FieldLogger) identity.Provider {
 	if !cfg.MutualAuthEnabled {
 		return &noopClient{}
 	}
@@ -116,14 +115,14 @@ func NewClient(params params, lc hive.Lifecycle, cfg ClientConfig, log logrus.Fi
 		log:       log.WithField(logfields.LogSubsys, "spire-client"),
 	}
 
-	lc.Append(hive.Hook{
+	lc.Append(cell.Hook{
 		OnStart: client.onStart,
-		OnStop:  func(_ hive.HookContext) error { return nil },
+		OnStop:  func(_ cell.HookContext) error { return nil },
 	})
 	return client
 }
 
-func (c *Client) onStart(_ hive.HookContext) error {
+func (c *Client) onStart(_ cell.HookContext) error {
 	go func() {
 		c.log.Info("Initializing SPIRE client")
 		attempts := 0
@@ -135,7 +134,7 @@ func (c *Client) onStart(_ hive.HookContext) error {
 				c.entry = entryv1.NewEntryClient(conn)
 				break
 			}
-			c.log.WithError(err).Errorf("Unable to connect to SPIRE server, attempt %d", attempts+1)
+			c.log.WithError(err).Warnf("Unable to connect to SPIRE server, attempt %d", attempts+1)
 			time.Sleep(backoffTime.Duration(attempts))
 		}
 		c.log.Info("Initialized SPIRE client")
@@ -159,7 +158,7 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 	source, err := workloadapi.NewX509Source(timeoutCtx,
 		workloadapi.WithClientOptions(
 			workloadapi.WithAddr(fmt.Sprintf("unix://%s", c.cfg.SpireAgentSocketPath)),
-			workloadapi.WithLogger(c.log),
+			workloadapi.WithLogger(newSpiffeLogWrapper(c.log)),
 		),
 	)
 	if err != nil {

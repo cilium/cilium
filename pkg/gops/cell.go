@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -36,19 +35,19 @@ func (def GopsConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint16(option.GopsPort, def.GopsPort, "Port for gops server to listen on")
 }
 
-func registerGopsHooks(lc hive.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {
+func registerGopsHooks(lc cell.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {
 	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
 	addrField := logrus.Fields{"address": addr, logfields.LogSubsys: "gops"}
 	log = log.WithFields(addrField)
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			log.Info("Started gops server")
 			return gopsAgent.Listen(gopsAgent.Options{
 				Addr:                   addr,
 				ReuseSocketAddrAndPort: true,
 			})
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			gopsAgent.Close()
 			log.Info("Stopped gops server")
 			return nil

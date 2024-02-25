@@ -6,6 +6,7 @@ package statedb
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"runtime"
 	"strings"
@@ -14,7 +15,7 @@ import (
 	iradix "github.com/hashicorp/go-immutable-radix/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -150,11 +151,11 @@ func (db *DB) registerTable(table TableMeta, txn *iradix.Txn[tableEntry]) error 
 	entry.meta = table
 	entry.deleteTrackers = iradix.New[deleteTracker]()
 	indexTxn := iradix.New[indexEntry]().Txn()
-	indexTxn.Insert([]byte(table.primaryIndexer().name), indexEntry{iradix.New[object](), true})
+	indexTxn.Insert([]byte(table.primary().name), indexEntry{iradix.New[object](), true})
 	indexTxn.Insert([]byte(RevisionIndex), indexEntry{iradix.New[object](), true})
 	indexTxn.Insert([]byte(GraveyardIndex), indexEntry{iradix.New[object](), true})
 	indexTxn.Insert([]byte(GraveyardRevisionIndex), indexEntry{iradix.New[object](), true})
-	for index, indexer := range table.secondaryIndexers() {
+	for index, indexer := range table.secondary() {
 		indexTxn.Insert([]byte(index), indexEntry{iradix.New[object](), indexer.unique})
 	}
 	entry.indexes = indexTxn.CommitOnly()
@@ -224,7 +225,7 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 	}
 }
 
-func (db *DB) Start(hive.HookContext) error {
+func (db *DB) Start(cell.HookContext) error {
 	db.gcTrigger = make(chan struct{}, 1)
 	db.gcExited = make(chan struct{})
 	db.ctx, db.cancel = context.WithCancel(context.Background())
@@ -232,8 +233,7 @@ func (db *DB) Start(hive.HookContext) error {
 	return nil
 }
 
-func (db *DB) Stop(stopCtx hive.HookContext) error {
-	close(db.gcTrigger)
+func (db *DB) Stop(stopCtx cell.HookContext) error {
 	db.cancel()
 	select {
 	case <-stopCtx.Done():
@@ -241,6 +241,20 @@ func (db *DB) Stop(stopCtx hive.HookContext) error {
 	case <-db.gcExited:
 	}
 	return nil
+}
+
+// ServeHTTP is an HTTP handler for dumping StateDB as JSON.
+//
+// Example usage:
+//
+//	var db *statedb.DB
+//
+//	http.Handle("/db", db)
+//	http.ListenAndServe(":8080", nil)
+func (db *DB) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	db.ReadTxn().WriteJSON(w)
 }
 
 // setGCRateLimitInterval can set the graveyard GC interval before DB is started.

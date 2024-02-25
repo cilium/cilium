@@ -14,14 +14,12 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
-	"github.com/cilium/cilium/pkg/sysctl"
 )
 
 const (
@@ -97,7 +95,7 @@ func (m *manager) probe() error {
 	if !m.params.Config.EnableBandwidthManager {
 		return nil
 	}
-	if _, err := sysctl.Read("net.core.default_qdisc"); err != nil {
+	if _, err := m.params.Sysctl.Read("net.core.default_qdisc"); err != nil {
 		m.params.Log.WithError(err).Warn("BPF bandwidth manager could not read procfs. Disabling the feature.")
 		return nil
 	}
@@ -133,15 +131,6 @@ func (m *manager) probe() error {
 }
 
 func (m *manager) init() error {
-	// TODO make the bwmanager reactive by using the (currently ignored) watch channel, which is
-	// closed when there's new or changed devices.
-	devs := m.params.DaemonConfig.GetDevices()
-	if len(devs) == 0 {
-		m.params.Log.Warn("BPF bandwidth manager could not detect host devices. Disabling the feature.")
-		m.enabled = false
-		return nil
-	}
-
 	m.params.Log.Info("Setting up BPF bandwidth manager")
 
 	if err := bwmap.ThrottleMap().OpenOrCreate(); err != nil {
@@ -150,78 +139,6 @@ func (m *manager) init() error {
 
 	if err := setBaselineSysctls(m.params); err != nil {
 		return fmt.Errorf("failed to set sysctl needed by BPF bandwidth manager: %w", err)
-	}
-
-	// Pass 1: Set up Qdiscs.
-	for _, device := range devs {
-		link, err := netlink.LinkByName(device)
-		if err != nil {
-			m.params.Log.WithError(err).WithField("device", device).Warn("Link does not exist")
-			continue
-		}
-		// We strictly want to avoid a down/up cycle on the device at
-		// runtime, so given we've changed the default qdisc to FQ, we
-		// need to reset the root qdisc, and then set up MQ which will
-		// automatically get FQ leaf qdiscs (given it's been default).
-		qdisc := &netlink.GenericQdisc{
-			QdiscAttrs: netlink.QdiscAttrs{
-				LinkIndex: link.Attrs().Index,
-				Parent:    netlink.HANDLE_ROOT,
-			},
-			QdiscType: "noqueue",
-		}
-		if err := netlink.QdiscReplace(qdisc); err != nil {
-			return fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", qdisc.QdiscType, device, err)
-		}
-		qdisc = &netlink.GenericQdisc{
-			QdiscAttrs: netlink.QdiscAttrs{
-				LinkIndex: link.Attrs().Index,
-				Parent:    netlink.HANDLE_ROOT,
-			},
-			QdiscType: "mq",
-		}
-		which := "mq with fq leaves"
-		if err := netlink.QdiscReplace(qdisc); err != nil {
-			// No MQ support, so just replace to FQ directly.
-			fq := &netlink.Fq{
-				QdiscAttrs: netlink.QdiscAttrs{
-					LinkIndex: link.Attrs().Index,
-					Parent:    netlink.HANDLE_ROOT,
-				},
-				Pacing: 1,
-			}
-			// At this point there is nothing we can do about
-			// it if we fail here, so hard bail out.
-			if err = netlink.QdiscReplace(fq); err != nil {
-				return fmt.Errorf("cannot replace root Qdisc to %s on device %s: %w", fq.Type(), device, err)
-			}
-			which = "fq"
-		}
-		m.params.Log.WithField("device", device).Infof("Setting qdisc to %s", which)
-	}
-
-	// Pass 2: Iterate over leaf qdiscs and tweak their parameters.
-	for _, device := range devs {
-		link, err := netlink.LinkByName(device)
-		if err != nil {
-			m.params.Log.WithError(err).WithField("device", device).Warn("Link does not exist")
-			continue
-		}
-		qdiscs, err := netlink.QdiscList(link)
-		if err != nil {
-			m.params.Log.WithError(err).WithField("device", device).Warn("Cannot dump qdiscs")
-			continue
-		}
-		for _, qdisc := range qdiscs {
-			if qdisc.Type() == "fq" {
-				fq, _ := qdisc.(*netlink.Fq)
-				fq.Horizon = uint32(FqDefaultHorizon.Microseconds())
-				fq.Buckets = uint32(FqDefaultBuckets)
-				if err := netlink.QdiscReplace(qdisc); err != nil {
-					m.params.Log.WithError(err).WithField("device", device).Warn("Cannot upgrade qdisc attributes")
-				}
-			}
-		}
 	}
 	return nil
 }
@@ -235,7 +152,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 	}
 
 	for name, value := range baseIntSettings {
-		currentValue, err := sysctl.ReadInt(name)
+		currentValue, err := p.Sysctl.ReadInt(name)
 		if err != nil {
 			return fmt.Errorf("read sysctl %s failed: %s", name, err)
 		}
@@ -252,7 +169,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 		}
 
 		scopedLog.Info("Setting sysctl to baseline for BPF bandwidth manager")
-		if err := sysctl.WriteInt(name, value); err != nil {
+		if err := p.Sysctl.WriteInt(name, value); err != nil {
 			return fmt.Errorf("set sysctl %s=%d failed: %s", name, value, err)
 		}
 	}
@@ -274,7 +191,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 			"baselineValue":        value,
 		}).Info("Setting sysctl to baseline for BPF bandwidth manager")
 
-		if err := sysctl.Write(name, value); err != nil {
+		if err := p.Sysctl.Write(name, value); err != nil {
 			return fmt.Errorf("set sysctl %s=%s failed: %s", name, value, err)
 		}
 	}
@@ -293,7 +210,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 				"baselineValue":        value,
 			}).Info("Setting sysctl to baseline for BPF bandwidth manager")
 
-			if err := sysctl.WriteInt(name, value); err != nil {
+			if err := p.Sysctl.WriteInt(name, value); err != nil {
 				return fmt.Errorf("set sysctl %s=%d failed: %s", name, value, err)
 			}
 		}

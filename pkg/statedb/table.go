@@ -43,6 +43,7 @@ func NewTable[Obj any](
 		table:                tableName,
 		smu:                  lock.NewSortableMutex(),
 		primaryAnyIndexer:    toAnyIndexer(primaryIndexer),
+		primaryIndexer:       primaryIndexer,
 		secondaryAnyIndexers: make(map[string]anyIndexer, len(secondaryIndexers)),
 	}
 
@@ -88,6 +89,7 @@ func MustNewTable[Obj any](
 type genTable[Obj any] struct {
 	table                TableName
 	smu                  lock.SortableMutex
+	primaryIndexer       Indexer[Obj]
 	primaryAnyIndexer    anyIndexer
 	secondaryAnyIndexers map[string]anyIndexer
 }
@@ -96,11 +98,15 @@ func (t *genTable[Obj]) tableKey() []byte {
 	return []byte(t.table)
 }
 
-func (t *genTable[Obj]) primaryIndexer() anyIndexer {
+func (t *genTable[Obj]) PrimaryIndexer() Indexer[Obj] {
+	return t.primaryIndexer
+}
+
+func (t *genTable[Obj]) primary() anyIndexer {
 	return t.primaryAnyIndexer
 }
 
-func (t *genTable[Obj]) secondaryIndexers() map[string]anyIndexer {
+func (t *genTable[Obj]) secondary() map[string]anyIndexer {
 	return t.secondaryAnyIndexers
 }
 
@@ -114,6 +120,11 @@ func (t *genTable[Obj]) ToTable() Table[Obj] {
 
 func (t *genTable[Obj]) Revision(txn ReadTxn) Revision {
 	return txn.getTxn().GetRevision(t.table)
+}
+
+func (t *genTable[Obj]) NumObjects(txn ReadTxn) int {
+	indexTxn := txn.getTxn().mustIndexReadTxn(t.table, t.primaryAnyIndexer.name)
+	return indexTxn.entry.tree.Len()
 }
 
 func (t *genTable[Obj]) First(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, ok bool) {

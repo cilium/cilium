@@ -12,12 +12,14 @@
 #include "maps.h"
 
 static __always_inline int
-__account_and_check(struct __ctx_buff *ctx, struct policy_entry *policy,
+__account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *policy,
 		    __s8 *ext_err, __u16 *proxy_port)
 {
+#ifdef POLICY_ACCOUNTING
 	/* FIXME: Use per cpu counters */
 	__sync_fetch_and_add(&policy->packets, 1);
 	__sync_fetch_and_add(&policy->bytes, ctx_full_len(ctx));
+#endif
 
 	if (unlikely(policy->deny))
 		return DROP_POLICY_DENY;

@@ -21,6 +21,7 @@ import (
 	gops "github.com/google/gops/agent"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -37,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/hooks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
-	"github.com/cilium/cilium/pkg/sysctl"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/azure"
@@ -480,6 +481,8 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("failed to determine endpoint configuration: %w", err)
 	}
 
+	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+
 	for _, epConf := range configs {
 		if err = netns.RemoveIfFromNetNSIfExists(netNs, epConf.IfName()); err != nil {
 			return fmt.Errorf("failed removing interface %q from namespace %q: %w",
@@ -523,7 +526,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
 			veth, peer, tmpIfName, err := connector.SetupVeth(cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
+				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctl)
 			if err != nil {
 				return fmt.Errorf("unable to set up veth on host side: %w", err)
 			}
@@ -595,8 +598,13 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		var macAddrStr string
 		if err = netNs.Do(func(_ ns.NetNS) error {
 			if ipv6IsEnabled(ipam) {
-				if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
-					logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+				param := "net.ipv6.conf.all.disable_ipv6"
+				if err != nil {
+					logger.WithError(err).WithField(logfields.SysParamName, param).Warn("invalid sysctl parameter")
+				} else {
+					if err := sysctl.Disable(param); err != nil {
+						logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+					}
 				}
 			}
 			macAddrStr, err = configureIface(ipam, epConf.IfName(), state)
@@ -605,20 +613,27 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			return fmt.Errorf("unable to configure interfaces in container namespace: %w", err)
 		}
 
+		// Specify that endpoint must be regenerated synchronously. See GH-4409.
+		ep.SyncBuildEndpoint = true
+		var newEp *models.Endpoint
+		if newEp, err = c.EndpointCreate(ep); err != nil {
+			logger.WithError(err).WithFields(logrus.Fields{
+				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
+			return fmt.Errorf("unable to create endpoint: %s", err)
+		}
+		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
+			// Set the MAC address on the interface in the container namespace
+			err = netns.ReplaceMacAddressWithLinkName(netNs, args.IfName, newEp.Status.Networking.Mac)
+			if err != nil {
+				return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)
+			}
+			macAddrStr = newEp.Status.Networking.Mac
+		}
 		res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
 			Name:    epConf.IfName(),
 			Mac:     macAddrStr,
 			Sandbox: args.Netns,
 		})
-
-		// Specify that endpoint must be regenerated synchronously. See GH-4409.
-		ep.SyncBuildEndpoint = true
-		if err = c.EndpointCreate(ep); err != nil {
-			logger.WithError(err).WithFields(logrus.Fields{
-				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-			return fmt.Errorf("unable to create endpoint: %s", err)
-		}
-
 		logger.WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
 	}

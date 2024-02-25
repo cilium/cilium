@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ip"
@@ -173,7 +172,7 @@ type nodeAddressControllerParams struct {
 	HealthScope     cell.Scope
 	Log             logrus.FieldLogger
 	Config          NodeAddressConfig
-	Lifecycle       hive.Lifecycle
+	Lifecycle       cell.Lifecycle
 	Jobs            job.Registry
 	DB              *statedb.DB
 	Devices         statedb.Table[*Device]
@@ -207,8 +206,8 @@ func (n *nodeAddressController) register() {
 	g.Add(job.OneShot("node-address-update", n.run))
 
 	n.Lifecycle.Append(
-		hive.Hook{
-			OnStart: func(ctx hive.HookContext) error {
+		cell.Hook{
+			OnStart: func(ctx cell.HookContext) error {
 				txn := n.DB.WriteTxn(n.NodeAddresses, n.Devices /* for delete tracker */)
 				defer txn.Abort()
 
@@ -239,10 +238,9 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 	defer n.tracker.Close()
 
 	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
-	revision := statedb.Revision(0)
 	for {
 		txn := n.DB.WriteTxn(n.NodeAddresses)
-		process := func(dev *Device, deleted bool, rev statedb.Revision) error {
+		process := func(dev *Device, deleted bool, rev statedb.Revision) {
 			// Note: prefix match! existing may contain node addresses from devices with names
 			// prefixed by dev. See https://github.com/cilium/cilium/issues/29324.
 			addrIter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(dev.Name))
@@ -252,10 +250,8 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 				new = n.getAddressesFromDevice(dev)
 			}
 			n.update(txn, existing, new, reporter, dev.Name)
-			return nil
 		}
-		var watch <-chan struct{}
-		revision, watch, _ = n.tracker.Process(txn, revision, process)
+		watch := n.tracker.Iterate(txn, process)
 		txn.Commit()
 
 		select {
@@ -305,11 +301,9 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.
 	}
 }
 
-func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.Set[NodeAddress]) {
-	addrs = sets.New[NodeAddress]()
-
+func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[NodeAddress] {
 	if dev.Flags&net.FlagUp == 0 {
-		return
+		return nil
 	}
 
 	if dev.Name != defaults.HostDevice {
@@ -317,16 +311,24 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 		// considered node addresses and added to e.g. ipcache as HOST_IDs.
 		for _, prefix := range defaults.ExcludedDevicePrefixes {
 			if strings.HasPrefix(dev.Name, prefix) {
-				return
+				return nil
 			}
 		}
 	}
 
-	// ipv4Found and ipv6Found are set to true when the primary address is picked.
-	// Used to implement 'NodePort' and 'Primary' flags.
+	addrs := make([]NodeAddress, 0, len(dev.Addrs))
+
+	// ipv4Found and ipv6Found are set to true when the primary address is picked
+	// (used for the Primary flag)
 	ipv4Found, ipv6Found := false, false
 
-	for _, addr := range sortedAddresses(dev.Addrs) {
+	// The indexes for the first public and private addresses for picking NodePort
+	// addresses.
+	ipv4PublicIndex, ipv4PrivateIndex := -1, -1
+	ipv6PublicIndex, ipv6PrivateIndex := -1, -1
+
+	// Do a first pass to pick the addresses.
+	for i, addr := range SortedAddresses(dev.Addrs) {
 		// We keep the scope-based address filtering as was introduced
 		// in 080857bdedca67d58ec39f8f96c5f38b22f6dc0b.
 		skip := addr.Scope > uint8(n.AddressScopeMax) || addr.Addr.IsLoopback()
@@ -339,43 +341,67 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) (addrs sets.
 			continue
 		}
 
-		// Figure out if the address is usable for NodePort.
-		nodePort := false
+		isPublic := ip.IsPublicAddr(addr.Addr.AsSlice())
 		primary := false
-		if len(n.Config.NodePortAddresses) == 0 {
-			// The user has not specified IP ranges to filter on IPs on which to serve NodePort.
-			// Thus the default behavior is to use the primary IPv4 and IPv6 addresses of each
-			// device.
-			if addr.Addr.Is4() && !ipv4Found {
+		if addr.Addr.Is4() {
+			if !ipv4Found {
 				ipv4Found = true
-				nodePort = dev.Selected
 				primary = true
 			}
-			if addr.Addr.Is6() && !ipv6Found {
-				ipv6Found = true
-				nodePort = dev.Selected
-				primary = true
+			if ipv4PublicIndex < 0 && isPublic {
+				ipv4PublicIndex = i
 			}
-		} else if ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())}) {
-			// User specified --nodeport-addresses and this address was within the range.
-			nodePort = dev.Selected
-			if addr.Addr.Is4() && !ipv4Found {
-				primary = true
-				ipv4Found = true
-			} else if addr.Addr.Is6() && !ipv6Found {
-				primary = true
-				ipv6Found = true
+			if ipv4PrivateIndex < 0 && !isPublic {
+				ipv4PrivateIndex = i
 			}
 		}
 
-		addrs.Insert(NodeAddress{
-			Addr:       addr.Addr,
-			Primary:    primary,
-			NodePort:   nodePort,
-			DeviceName: dev.Name,
-		})
+		if addr.Addr.Is6() {
+			if !ipv6Found {
+				ipv6Found = true
+				primary = true
+			}
+
+			if ipv6PublicIndex < 0 && isPublic {
+				ipv6PublicIndex = i
+			}
+			if ipv6PrivateIndex < 0 && !isPublic {
+				ipv6PrivateIndex = i
+			}
+		}
+
+		// If the user has specified --nodeport-addresses use the addresses within the range for
+		// NodePort. If not, the first private (or public if private not found) will be picked
+		// by the logic following this loop.
+		nodePort := false
+		if len(n.Config.NodePortAddresses) > 0 {
+			nodePort = dev.Selected && ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())})
+		}
+		addrs = append(addrs,
+			NodeAddress{
+				Addr:       addr.Addr,
+				Primary:    primary,
+				NodePort:   nodePort,
+				DeviceName: dev.Name,
+			})
 	}
-	return
+
+	if len(n.Config.NodePortAddresses) == 0 {
+		// Pick the NodePort addresses. Prefer private addresses if possible.
+		if ipv4PrivateIndex >= 0 {
+			addrs[ipv4PrivateIndex].NodePort = dev.Selected
+		} else if ipv4PublicIndex >= 0 {
+			addrs[ipv4PublicIndex].NodePort = dev.Selected
+		}
+
+		if ipv6PrivateIndex >= 0 {
+			addrs[ipv6PrivateIndex].NodePort = dev.Selected
+		} else if ipv6PublicIndex >= 0 {
+			addrs[ipv6PublicIndex].NodePort = dev.Selected
+		}
+	}
+
+	return sets.New(addrs...)
 }
 
 // showAddresses formats a Set[NodeAddress] as "1.2.3.4 (eth0), fe80::1 (eth1)"
@@ -388,9 +414,16 @@ func showAddresses(addrs sets.Set[NodeAddress]) string {
 	return strings.Join(ss, ", ")
 }
 
-// sortedAddresses returns a copy of the addresses, sorted by primary (e.g. !iIFA_F_SECONDARY) and then by
-// address scope.
-func sortedAddresses(addrs []DeviceAddress) []DeviceAddress {
+// sortedAddresses returns a copy of the addresses sorted by following predicates
+// (first predicate matching in this order wins):
+// - Primary (e.g. !IFA_F_SECONDARY)
+// - Scope, with lower scope going first (e.g. UNIVERSE before LINK)
+// - Public addresses before private (e.g. 1.2.3.4 before 192.168.1.1)
+// - By address itself (192.168.1.1 before 192.168.1.2)
+//
+// The sorting order affects which address is marked 'Primary' and which is picked as
+// the 'NodePort' address (when --nodeport-addresses is not specified).
+func SortedAddresses(addrs []DeviceAddress) []DeviceAddress {
 	addrs = slices.Clone(addrs)
 
 	sort.SliceStable(addrs, func(i, j int) bool {
@@ -399,8 +432,16 @@ func sortedAddresses(addrs []DeviceAddress) []DeviceAddress {
 			return true
 		case addrs[i].Secondary && !addrs[j].Secondary:
 			return false
+		case addrs[i].Scope < addrs[j].Scope:
+			return true
+		case addrs[i].Scope > addrs[j].Scope:
+			return false
+		case ip.IsPublicAddr(addrs[i].Addr.AsSlice()) && !ip.IsPublicAddr(addrs[j].Addr.AsSlice()):
+			return true
+		case !ip.IsPublicAddr(addrs[i].Addr.AsSlice()) && ip.IsPublicAddr(addrs[j].Addr.AsSlice()):
+			return false
 		default:
-			return addrs[i].Scope < addrs[j].Scope
+			return addrs[i].Addr.Less(addrs[j].Addr)
 		}
 	})
 	return addrs

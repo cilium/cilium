@@ -75,6 +75,7 @@ type DescribeInvocationResultsRequest struct {
 	CommandId            string                          `position:"Query" name:"CommandId"`
 	PageNumber           requests.Integer                `position:"Query" name:"PageNumber"`
 	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
+	NextToken            string                          `position:"Query" name:"NextToken"`
 	ContentEncoding      string                          `position:"Query" name:"ContentEncoding"`
 	PageSize             requests.Integer                `position:"Query" name:"PageSize"`
 	Tag                  *[]DescribeInvocationResultsTag `position:"Query" name:"Tag"  type:"Repeated"`
@@ -85,6 +86,7 @@ type DescribeInvocationResultsRequest struct {
 	InstanceId           string                          `position:"Query" name:"InstanceId"`
 	InvokeRecordStatus   string                          `position:"Query" name:"InvokeRecordStatus"`
 	IncludeHistory       requests.Boolean                `position:"Query" name:"IncludeHistory"`
+	MaxResults           requests.Integer                `position:"Query" name:"MaxResults"`
 }
 
 // DescribeInvocationResultsTag is a repeated param struct in DescribeInvocationResultsRequest

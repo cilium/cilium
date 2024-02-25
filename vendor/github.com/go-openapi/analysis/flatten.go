@@ -267,6 +267,12 @@ func nameInlinedSchemas(opts *FlattenOpts) error {
 }
 
 func removeUnused(opts *FlattenOpts) {
+	for removeUnusedSinglePass(opts) {
+		// continue until no unused definition remains
+	}
+}
+
+func removeUnusedSinglePass(opts *FlattenOpts) (hasRemoved bool) {
 	expected := make(map[string]struct{})
 	for k := range opts.Swagger().Definitions {
 		expected[path.Join(definitionsPath, jsonpointer.Escape(k))] = struct{}{}
@@ -277,6 +283,7 @@ func removeUnused(opts *FlattenOpts) {
 	}
 
 	for k := range expected {
+		hasRemoved = true
 		debugLog("removing unused definition %s", path.Base(k))
 		if opts.Verbose {
 			log.Printf("info: removing unused definition: %s", path.Base(k))
@@ -285,6 +292,8 @@ func removeUnused(opts *FlattenOpts) {
 	}
 
 	opts.Spec.reload() // re-analyze
+
+	return hasRemoved
 }
 
 func importKnownRef(entry sortref.RefRevIdx, refStr, newName string, opts *FlattenOpts) error {
@@ -331,7 +340,7 @@ func importNewRef(entry sortref.RefRevIdx, refStr string, opts *FlattenOpts) err
 	}
 
 	// generate a unique name - isOAIGen means that a naming conflict was resolved by changing the name
-	newName, isOAIGen = uniqifyName(opts.Swagger().Definitions, nameFromRef(entry.Ref))
+	newName, isOAIGen = uniqifyName(opts.Swagger().Definitions, nameFromRef(entry.Ref, opts))
 	debugLog("new name for [%s]: %s - with name conflict:%t", strings.Join(entry.Keys, ", "), newName, isOAIGen)
 
 	opts.flattenContext.resolved[refStr] = newName
@@ -649,6 +658,7 @@ func namePointers(opts *FlattenOpts) error {
 
 	refsToReplace := make(map[string]SchemaRef, len(opts.Spec.references.schemas))
 	for k, ref := range opts.Spec.references.allRefs {
+		debugLog("name pointers: %q => %#v", k, ref)
 		if path.Dir(ref.String()) == definitionsPath {
 			// this a ref to a top-level definition: ok
 			continue
@@ -766,6 +776,10 @@ func flattenAnonPointer(key string, v SchemaRef, refsToReplace map[string]Schema
 
 	// identifying edge case when the namer did nothing because we point to a non-schema object
 	// no definition is created and we expand the $ref for all callers
+	debugLog("decide what to do with the schema pointed to: asch.IsSimpleSchema=%t, len(callers)=%d, parts.IsSharedParam=%t, parts.IsSharedResponse=%t",
+		asch.IsSimpleSchema, len(callers), parts.IsSharedParam(), parts.IsSharedResponse(),
+	)
+
 	if (!asch.IsSimpleSchema || len(callers) > 1) && !parts.IsSharedParam() && !parts.IsSharedResponse() {
 		debugLog("replace JSON pointer at [%s] by definition: %s", key, v.Ref.String())
 		if err := namer.Name(v.Ref.String(), v.Schema, asch); err != nil {
@@ -788,6 +802,7 @@ func flattenAnonPointer(key string, v SchemaRef, refsToReplace map[string]Schema
 		return nil
 	}
 
+	// everything that is a simple schema and not factorizable is expanded
 	debugLog("expand JSON pointer for key=%s", key)
 
 	if err := replace.UpdateRefWithSchema(opts.Swagger(), key, v.Schema); err != nil {

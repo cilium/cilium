@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
-	"golang.org/x/exp/slices"
 )
 
 // Mirrors MAX_RESOLVE_DEPTH in libbpf.
@@ -678,52 +678,31 @@ type Transformer func(Type) Type
 // typ may form a cycle. If transform is not nil, it is called with the
 // to be copied type, and the returned value is copied instead.
 func Copy(typ Type, transform Transformer) Type {
-	copies := copier{copies: make(map[Type]Type)}
-	copies.copy(&typ, transform)
-	return typ
+	copies := make(copier)
+	return copies.copy(typ, transform)
 }
 
-// copy a slice of Types recursively.
-//
-// See Copy for the semantics.
-func copyTypes(types []Type, transform Transformer) []Type {
-	result := make([]Type, len(types))
-	copy(result, types)
+// A map of a type to its copy.
+type copier map[Type]Type
 
-	copies := copier{copies: make(map[Type]Type, len(types))}
-	for i := range result {
-		copies.copy(&result[i], transform)
-	}
-
-	return result
-}
-
-type copier struct {
-	copies map[Type]Type
-	work   typeDeque
-}
-
-func (c *copier) copy(typ *Type, transform Transformer) {
-	for t := typ; t != nil; t = c.work.Pop() {
-		// *t is the identity of the type.
-		if cpy := c.copies[*t]; cpy != nil {
-			*t = cpy
-			continue
+func (c copier) copy(typ Type, transform Transformer) Type {
+	return modifyGraphPreorder(typ, func(t Type) (Type, bool) {
+		cpy, ok := c[t]
+		if ok {
+			// This has been copied previously, no need to continue.
+			return cpy, false
 		}
 
-		var cpy Type
 		if transform != nil {
-			cpy = transform(*t).copy()
+			cpy = transform(t).copy()
 		} else {
-			cpy = (*t).copy()
+			cpy = t.copy()
 		}
+		c[t] = cpy
 
-		c.copies[*t] = cpy
-		*t = cpy
-
-		// Mark any nested types for copying.
-		walkType(cpy, c.work.Push)
-	}
+		// This is a new copy, keep copying children.
+		return cpy, true
+	})
 }
 
 type typeDeque = internal.Deque[*Type]

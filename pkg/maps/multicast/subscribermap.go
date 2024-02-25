@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 
 	ciliumebpf "github.com/cilium/ebpf"
@@ -70,7 +69,7 @@ func NewGroupV4OuterMap(name string) *GroupV4OuterMap {
 // NewGroupV4Map constructor
 type ParamsIn struct {
 	cell.In
-	Lifecycle hive.Lifecycle
+	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
 	Config
 }
@@ -113,11 +112,11 @@ func NewGroupV4Map(in ParamsIn) ParamsOut {
 
 	out.MapOut = bpf.NewMapOut((GroupV4Map(groupMap)))
 
-	in.Lifecycle.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+	in.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
 			return groupMap.OpenOrCreate()
 		},
-		OnStop: func(hive.HookContext) error {
+		OnStop: func(cell.HookContext) error {
 			return groupMap.Close()
 		},
 	})

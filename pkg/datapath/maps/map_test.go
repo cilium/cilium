@@ -10,8 +10,8 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -59,8 +59,8 @@ func newTestEPManager() *testEPManager {
 	}
 }
 
-func newTestBWManager() bandwidth.Manager {
-	return &fake.BandwidthManager{}
+func newTestBWManager() types.BandwidthManager {
+	return &fakeTypes.BandwidthManager{}
 }
 
 func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {

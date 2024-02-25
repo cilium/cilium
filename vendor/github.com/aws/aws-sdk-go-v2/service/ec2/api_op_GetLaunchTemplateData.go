@@ -16,9 +16,9 @@ import (
 // data to create a launch template. This action calls on other describe actions to
 // get instance information. Depending on your instance configuration, you may need
 // to allow the following actions in your IAM policy: DescribeSpotInstanceRequests
-// , DescribeInstanceCreditSpecifications , DescribeVolumes ,
-// DescribeInstanceAttribute , and DescribeElasticGpus . Or, you can allow
-// describe* depending on your instance requirements.
+// , DescribeInstanceCreditSpecifications , DescribeVolumes , and
+// DescribeInstanceAttribute . Or, you can allow describe* depending on your
+// instance requirements.
 func (c *Client) GetLaunchTemplateData(ctx context.Context, params *GetLaunchTemplateDataInput, optFns ...func(*Options)) (*GetLaunchTemplateDataOutput, error) {
 	if params == nil {
 		params = &GetLaunchTemplateDataInput{}
