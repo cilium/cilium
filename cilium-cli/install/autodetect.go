@@ -6,11 +6,9 @@ package install
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,8 +28,6 @@ var (
 			&kindVersionValidation{},
 		},
 	}
-
-	clusterNameValidation = regexp.MustCompile(`^[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])$`)
 )
 
 func (p Parameters) checkDisabled(name string) bool {
@@ -41,14 +37,6 @@ func (p Parameters) checkDisabled(name string) bool {
 		}
 	}
 	return false
-}
-
-func (k *K8sUninstaller) autodetect(ctx context.Context) {
-	k.flavor = k.client.AutodetectFlavor(ctx)
-
-	if k.flavor.Kind != k8s.KindUnknown {
-		k.Log("🔮 Auto-detected Kubernetes kind: %s", k.flavor.Kind)
-	}
 }
 
 func (k *K8sInstaller) detectDatapathMode() error {
@@ -169,43 +157,12 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 		return err
 	}
 
-	// TODO: remove when removing "ipam" flag (marked as deprecated), kept for
-	// backwards compatibility
-	if k.params.IPAM != "" {
-		k.Log("ℹ️  Custom IPAM mode: %s", k.params.IPAM)
-	}
-
-	if !utils.IsInHelmMode() {
-		if strings.Contains(k.params.ClusterName, ".") {
-			k.Log("❌ Cluster name %q cannot contain dots", k.params.ClusterName)
-			return fmt.Errorf("invalid cluster name, dots are not allowed")
-		}
-
-		if !clusterNameValidation.MatchString(k.params.ClusterName) {
-			k.Log("❌ Cluster name %q is not valid, must match regular expression: %s", k.params.ClusterName, clusterNameValidation)
-			return fmt.Errorf("invalid cluster name")
-		}
-	}
-
-	switch k.params.Encryption {
-	case encryptionDisabled,
-		encryptionIPsec,
-		encryptionWireguard,
-		encryptionUnspecified:
-		// nothing to do for valid values
-	default:
-		k.Log("❌ Invalid encryption mode: %q", k.params.Encryption)
-		return fmt.Errorf("invalid encryption mode")
-	}
-
 	k.autodetectKubeProxy(ctx)
 	return k.autoEnableBPFMasq()
 }
 
 func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context) error {
-	if k.params.UserSetKubeProxyReplacement {
-		return nil
-	} else if k.flavor.Kind == k8s.KindK3s {
+	if k.flavor.Kind == k8s.KindK3s {
 		return nil
 	}
 
