@@ -3,7 +3,7 @@
 
 #ifdef ENABLE_IPV4
 static __always_inline void
-lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u16 rev_nat_index)
+lb_v4_add_service(__be32 addr, __be16 port, __u16 backend_count, __u32 rev_nat_index)
 {
 	struct lb4_key svc_key = {
 		.address = addr,
@@ -61,7 +61,7 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot,
 #ifdef ENABLE_IPV6
 static __always_inline void
 lb_v6_add_service(const union v6addr *addr, __be16 port, __u16 backend_count,
-		  __u16 rev_nat_index)
+		  __u32 rev_nat_index)
 {
 	struct lb6_key svc_key = {
 		.dport = port,

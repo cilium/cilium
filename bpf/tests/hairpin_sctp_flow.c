@@ -69,7 +69,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	volatile const __u8 *dst = mac_two;
 	struct iphdr *l3;
 	struct sctphdr *l4;
-	__u16 revnat_id = 1;
+	__u32 revnat_id = 1;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);

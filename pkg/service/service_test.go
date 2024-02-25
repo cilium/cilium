@@ -254,7 +254,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
@@ -266,7 +266,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id2, Equals, id1)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id2)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
 	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns1")
@@ -294,7 +294,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
@@ -306,7 +306,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id2, Equals, id1)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id2)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
 	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns1")
@@ -336,17 +336,17 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, true)
 	c.Assert(m.svc.svcByID[id1].sessionAffinityTimeoutSec, Equals, uint32(100))
-	c.Assert(m.lbmap.ServiceByID[uint16(id1)].SessionAffinity, Equals, true)
-	c.Assert(m.lbmap.ServiceByID[uint16(id1)].SessionAffinityTimeoutSec, Equals, uint32(100))
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
+	c.Assert(m.lbmap.ServiceByID[uint32(id1)].SessionAffinity, Equals, true)
+	c.Assert(m.lbmap.ServiceByID[uint32(id1)].SessionAffinityTimeoutSec, Equals, uint32(100))
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 2)
 	for bID := range m.lbmap.BackendByID {
-		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+		c.Assert(m.lbmap.AffinityMatch[uint32(id1)][bID], Equals, struct{}{})
 	}
 
 	// Should remove session affinity
@@ -355,13 +355,13 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 0)
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, false)
-	c.Assert(m.lbmap.ServiceByID[uint16(id1)].SessionAffinity, Equals, false)
+	c.Assert(m.lbmap.ServiceByID[uint32(id1)].SessionAffinity, Equals, false)
 	// TODO(brb) test that backends are the same
 	// TODO(brb) check that .backends =~ .backendsByHash
 
@@ -373,15 +373,15 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 1)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 1)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, true)
 	c.Assert(m.svc.svcByID[id1].sessionAffinityTimeoutSec, Equals, uint32(200))
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 1)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 1)
 	for bID := range m.lbmap.BackendByID {
-		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+		c.Assert(m.lbmap.AffinityMatch[uint32(id1)][bID], Equals, struct{}{})
 	}
 
 	// Should add another service
@@ -405,12 +405,12 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id2, Equals, lb.ID(2))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id2)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns2")
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 2)
-	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 2)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id2)]), Equals, 2)
+	c.Assert(len(m.lbmap.SourceRanges[uint32(id2)]), Equals, 2)
 
 	// Should add IPv6 service only if IPv6 is enabled
 	c.Assert(err, IsNil)
@@ -432,12 +432,12 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(created, Equals, true)
 		c.Assert(id3, Equals, lb.ID(3))
-		c.Assert(len(m.lbmap.ServiceByID[uint16(id3)].Backends), Equals, 2)
+		c.Assert(len(m.lbmap.ServiceByID[uint32(id3)].Backends), Equals, 2)
 		c.Assert(len(m.lbmap.BackendByID), Equals, 4)
 		c.Assert(m.svc.svcByID[id3].svcName.Name, Equals, "svc3")
 		c.Assert(m.svc.svcByID[id3].svcName.Namespace, Equals, "ns3")
-		c.Assert(len(m.lbmap.AffinityMatch[uint16(id3)]), Equals, 2)
-		c.Assert(len(m.lbmap.SourceRanges[uint16(id3)]), Equals, 1)
+		c.Assert(len(m.lbmap.AffinityMatch[uint32(id3)]), Equals, 2)
+		c.Assert(len(m.lbmap.SourceRanges[uint32(id3)]), Equals, 1)
 
 		// Should remove the IPv6 service
 		found, err := m.svc.DeleteServiceByID(lb.ServiceID(id3))
@@ -457,7 +457,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(found, Equals, true)
 	c.Assert(len(m.lbmap.ServiceByID), Equals, 1)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 0)
 
 	// Should delete both backends of service
 	p2.Backends = nil
@@ -466,12 +466,12 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id2, Equals, lb.ID(2))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id2)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
 	c.Assert(m.svc.svcByID[id2].svcName.Name, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcName.Namespace, Equals, "ns2")
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 0)
-	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 1)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id2)]), Equals, 0)
+	c.Assert(len(m.lbmap.SourceRanges[uint32(id2)]), Equals, 1)
 
 	// Should delete the remaining service
 	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
@@ -500,7 +500,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	created, id4, err := m.svc.UpsertService(p4)
 	c.Assert(created, Equals, true)
 	c.Assert(err, IsNil)
-	c.Assert(len(m.lbmap.SourceRanges[uint16(id4)]), Equals, 1)
+	c.Assert(len(m.lbmap.SourceRanges[uint32(id4)]), Equals, 1)
 }
 
 func (m *ManagerTestSuite) TestRestoreServices(c *C) {
@@ -550,10 +550,10 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 
 	// Services have been restored too
 	c.Assert(len(m.svc.svcByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id1].frontend, checker.DeepEquals, lbmap.ServiceByID[uint16(id1)].Frontend)
-	c.Assert(m.svc.svcByID[id1].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id1)].Backends)
-	c.Assert(m.svc.svcByID[id2].frontend, checker.DeepEquals, lbmap.ServiceByID[uint16(id2)].Frontend)
-	c.Assert(m.svc.svcByID[id2].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id2)].Backends)
+	c.Assert(m.svc.svcByID[id1].frontend, checker.DeepEquals, lbmap.ServiceByID[uint32(id1)].Frontend)
+	c.Assert(m.svc.svcByID[id1].backends, checker.DeepEquals, lbmap.ServiceByID[uint32(id1)].Backends)
+	c.Assert(m.svc.svcByID[id2].frontend, checker.DeepEquals, lbmap.ServiceByID[uint32(id2)].Frontend)
+	c.Assert(m.svc.svcByID[id2].backends, checker.DeepEquals, lbmap.ServiceByID[uint32(id2)].Backends)
 
 	// Session affinity too
 	c.Assert(m.svc.svcByID[id1].sessionAffinity, Equals, false)
@@ -574,8 +574,8 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	}
 
 	// Maglev lookup table too
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id2)], Equals, len(backends2))
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, len(backends1))
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id2)], Equals, len(backends2))
 }
 
 func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
@@ -601,7 +601,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	_, _, err = m.svc.UpsertService(p2)
 	c.Assert(err, IsNil)
 	c.Assert(len(m.svc.svcByID), Equals, 2)
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 2)
 
 	// Restart service, but keep the lbmap to restore services from
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
@@ -622,8 +622,8 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	// Add non-existing affinity matches
 	lbmap.AddAffinityMatch(20, 300)
 	lbmap.AddAffinityMatch(20, 301)
-	lbmap.AddAffinityMatch(uint16(id1), 302)
-	lbmap.AddAffinityMatch(uint16(id2), 305)
+	lbmap.AddAffinityMatch(uint32(id1), 302)
+	lbmap.AddAffinityMatch(uint32(id2), 305)
 
 	// cilium-agent finished the initialization, and thus SyncWithK8sFinished
 	// is called
@@ -643,9 +643,9 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	// Check that the non-existing affinity matches were removed
 	matches, _ := lbmap.DumpAffinityMatches()
 	c.Assert(len(matches), Equals, 1) // id2 svc has updated session affinity
-	c.Assert(len(matches[uint16(id2)]), Equals, 2)
-	for _, b := range lbmap.ServiceByID[uint16(id2)].Backends {
-		c.Assert(m.lbmap.AffinityMatch[uint16(id2)][b.ID], Equals, struct{}{})
+	c.Assert(len(matches[uint32(id2)]), Equals, 2)
+	for _, b := range lbmap.ServiceByID[uint32(id2)].Backends {
+		c.Assert(m.lbmap.AffinityMatch[uint32(id2)][b.ID], Equals, struct{}{})
 	}
 }
 
@@ -716,8 +716,8 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
 			require.NoError(t, err, "Failed to upsert service")
 
-			require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap not populated correctly")
-			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap not populated correctly")
+			require.Contains(t, lbmap.ServiceByID, uint32(id1), "lbmap not populated correctly")
+			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint32(id1)].Backends), "lbmap not populated correctly")
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
@@ -732,8 +732,8 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.Equal(t, id1, id1bis, "Service ID changed unexpectedly")
 
 			// No backend should have been removed yet
-			require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap incorrectly modified")
-			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap incorrectly modified")
+			require.Contains(t, lbmap.ServiceByID, uint32(id1), "lbmap incorrectly modified")
+			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint32(id1)].Backends), "lbmap incorrectly modified")
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap incorrectly modified")
 
 			// Let's do it once more
@@ -742,8 +742,8 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.Equal(t, id1, id1ter, "Service ID changed unexpectedly")
 
 			// No backend should have been removed yet
-			require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap incorrectly modified")
-			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap incorrectly modified")
+			require.Contains(t, lbmap.ServiceByID, uint32(id1), "lbmap incorrectly modified")
+			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint32(id1)].Backends), "lbmap incorrectly modified")
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap incorrectly modified")
 
 			svcID := k8s.ServiceID{Namespace: "foo", Name: "bar"}
@@ -755,12 +755,12 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			stale, err := svc.SyncWithK8sFinished(tt.localOnly, localServices)
 			require.NoError(t, err, "Failed to trigger garbage collection")
 
-			require.Contains(t, lbmap.ServiceByID, uint16(id1), "service incorrectly removed from lbmap")
+			require.Contains(t, lbmap.ServiceByID, uint32(id1), "service incorrectly removed from lbmap")
 
 			// Stale backends should now have been removed (if appropriate)
 			if tt.expectStaleBackends {
 				require.Empty(t, stale)
-				require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "stale backends should not have been removed from lbmap")
+				require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint32(id1)].Backends), "stale backends should not have been removed from lbmap")
 				require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "stale backends should not have been removed from lbmap")
 			} else {
 				require.ElementsMatch(t, stale, []k8s.ServiceID{svcID})
@@ -769,7 +769,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 				_, _, err := svc.upsertService(service("foo", "bar", "172.16.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.5"))
 				require.NoError(t, err, "Failed to upsert service")
 
-				require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "stale backends not correctly removed from lbmap")
+				require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(lbmap.ServiceByID[uint32(id1)].Backends), "stale backends not correctly removed from lbmap")
 				require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "stale backends not correctly removed from lbmap")
 			}
 		})
@@ -1092,7 +1092,7 @@ func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
 	// Only node-local backends are selected
 	c.Assert(len(svc.backends), Equals, len(localBackends))
 
-	svcFromLbMap, ok := m.lbmap.ServiceByID[uint16(id)]
+	svcFromLbMap, ok := m.lbmap.ServiceByID[uint32(id)]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(svcFromLbMap.Backends), Equals, len(svc.backends))
 }
@@ -1203,28 +1203,28 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, len(backends))
 
 	p.Backends[0].State = lb.BackendStateTerminating
 
 	_, _, err = m.svc.UpsertService(p)
 
 	c.Assert(err, IsNil)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends1))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, len(backends1))
 	// Sorted active backends by ID first followed by non-active
-	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[0].ID, Equals, lb.BackendID(2))
-	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[1].ID, Equals, lb.BackendID(3))
-	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[2].ID, Equals, lb.BackendID(1))
+	c.Assert(m.lbmap.ServiceByID[uint32(id1)].Backends[0].ID, Equals, lb.BackendID(2))
+	c.Assert(m.lbmap.ServiceByID[uint32(id1)].Backends[1].ID, Equals, lb.BackendID(3))
+	c.Assert(m.lbmap.ServiceByID[uint32(id1)].Backends[2].ID, Equals, lb.BackendID(1))
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 3)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 3)
 	for bID := range m.lbmap.BackendByID {
-		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+		c.Assert(m.lbmap.AffinityMatch[uint32(id1)][bID], Equals, struct{}{})
 	}
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, len(backends1))
 
 	// Delete terminating backends.
 	p.Backends = []*lb.Backend{}
@@ -1234,11 +1234,11 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 0)
 }
 
 // TestUpsertServiceWithOnlyTerminatingBackends tests that a terminating backend is still
@@ -1262,8 +1262,8 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOnlyTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
 
@@ -1275,9 +1275,9 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOnlyTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, 1)
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, 1)
 
 	// Delete terminating backends.
 	p.Backends = p.Backends[:1]
@@ -1287,9 +1287,9 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOnlyTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 1)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 1)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 1)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 1)
 
 	// The terminating backend should be considered since there are no more active
 	p.Backends[0].State = lb.BackendStateTerminating
@@ -1299,9 +1299,9 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOnlyTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 1)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 1)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, 0)
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, 0)
 
 	// Delete terminating backends.
 	p.Backends = []*lb.Backend{}
@@ -1311,11 +1311,11 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOnlyTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
-	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
+	c.Assert(len(m.lbmap.AffinityMatch[uint32(id1)]), Equals, 0)
 }
 
 // Tests whether upsert service provisions the Maglev LUT for ClusterIP,
@@ -1343,11 +1343,11 @@ func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends))
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, len(backends))
 }
 
 // Tests whether upsert service doesn't provision the Maglev LUT for ClusterIP,
@@ -1368,11 +1368,11 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOutExternalClusterIP(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 0)
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, 0)
 }
 
 // Tests terminating backend entries are not removed after service restore.
@@ -1396,8 +1396,8 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, len(backends))
 
 	p.Backends[0].State = lb.BackendStateTerminating
 
@@ -1423,11 +1423,11 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 	// Affinity matches including terminating ones were restored
 	matches, _ := m.lbmap.DumpAffinityMatches()
 	c.Assert(len(matches), Equals, 1)
-	c.Assert(len(matches[uint16(id1)]), Equals, 3)
-	for _, b := range m.lbmap.ServiceByID[uint16(id1)].Backends {
-		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][b.ID], Equals, struct{}{})
+	c.Assert(len(matches[uint32(id1)]), Equals, 3)
+	for _, b := range m.lbmap.ServiceByID[uint32(id1)].Backends {
+		c.Assert(m.lbmap.AffinityMatch[uint32(id1)][b.ID], Equals, struct{}{})
 	}
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, len(backends1))
 }
 
 // l7 load balancer service should be able to override any service type
@@ -1627,10 +1627,10 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 	c.Assert(m.svc.svcByID[id1].backends[1].State, Equals, lb.BackendStateActive)
 	c.Assert(m.svc.svcByID[id2].backends[0].State, Equals, lb.BackendStateActive)
 	c.Assert(m.svc.svcByID[id2].backends[1].State, Equals, lb.BackendStateActive)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, len(backends))
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends))
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id2)], Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id2)].Backends), Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id2)], Equals, len(backends))
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
 	// Backend states are persisted in the map.
 	c.Assert(m.lbmap.BackendByID[1].State, Equals, lb.BackendStateActive)
@@ -1648,10 +1648,10 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 	c.Assert(m.svc.svcByID[id1].backends[1].State, Equals, lb.BackendStateActive)
 	c.Assert(m.svc.svcByID[id2].backends[0].State, Equals, lb.BackendStateQuarantined)
 	c.Assert(m.svc.svcByID[id2].backends[1].State, Equals, lb.BackendStateActive)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, len(backends))
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, 1)
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id2)], Equals, 1)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id2)].Backends), Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, 1)
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id2)], Equals, 1)
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
 	// Updated backend states are persisted in the map.
 	c.Assert(m.lbmap.BackendByID[1].State, Equals, lb.BackendStateQuarantined)
@@ -1669,10 +1669,10 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 	c.Assert(m.svc.svcByID[id1].backends[1].State, Equals, lb.BackendStateActive)
 	c.Assert(m.svc.svcByID[id2].backends[0].State, Equals, lb.BackendStateActive)
 	c.Assert(m.svc.svcByID[id2].backends[1].State, Equals, lb.BackendStateActive)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, len(backends))
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends))
-	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id2)], Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id2)].Backends), Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id1)], Equals, len(backends))
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint32(id2)], Equals, len(backends))
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
 	// Updated backend states are persisted in the map.
 	c.Assert(m.lbmap.BackendByID[1].State, Equals, lb.BackendStateActive)
@@ -1705,7 +1705,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
 	c.Assert(len(m.svc.backendByHash), Equals, len(backends))
 
 	// Update backend states.
@@ -1737,7 +1737,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
 		}
 	}
 	c.Assert(statesMatched, Equals, len(backends))
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, 1)
 }
 
 func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
@@ -1765,7 +1765,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 3)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
 	hash := backends[1].L3n4Addr.Hash()
 	c.Assert(m.svc.backendByHash[hash].State, Equals, lb.BackendStateMaintenance)
@@ -1773,7 +1773,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 	hash2 := backends[2].L3n4Addr.Hash()
 	c.Assert(m.svc.backendByHash[hash2].State, Equals, lb.BackendStateActive)
 	c.Assert(m.svc.svcByID[id1].backendByHash[hash2].State, Equals, lb.BackendStateActive)
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 2)
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, 2)
 
 	// Update existing backend weight
 	p.Backends[2].Weight = 0
@@ -1783,10 +1783,10 @@ func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 3)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
 	c.Assert(m.svc.svcByID[id1].backendByHash[hash2].State, Equals, lb.BackendStateMaintenance)
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, 1)
 
 	// Delete backends with weight 0
 	p.Backends = backends[:1]
@@ -1795,9 +1795,9 @@ func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 1)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 1)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
+	c.Assert(m.lbmap.DummyMaglevTable[uint32(id1)], Equals, 1)
 }
 
 func (m *ManagerTestSuite) TestUpdateBackendsStateWithBackendSharedAcrossServices(c *C) {
@@ -1850,7 +1850,7 @@ func (m *ManagerTestSuite) TestUpdateBackendsStateWithBackendSharedAcrossService
 
 	// Assert expected backend states after consecutive upsert service calls that share the backends.
 	c.Assert(err, IsNil)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 3)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
 	c.Assert(m.svc.backendByHash[hash0].State, Equals, lb.BackendStateActive)
 	c.Assert(m.svc.backendByHash[hash1].State, Equals, lb.BackendStateActive)
@@ -1966,11 +1966,11 @@ func (m *ManagerTestSuite) TestTrafficPolicy(c *C) {
 	c.Assert(created, Equals, true)
 	c.Assert(err, IsNil)
 
-	svcFromLbMap1, ok := m.lbmap.ServiceByID[uint16(id1)]
+	svcFromLbMap1, ok := m.lbmap.ServiceByID[uint32(id1)]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(svcFromLbMap1.Backends), Equals, len(localBackends))
 
-	svcFromLbMap2, ok := m.lbmap.ServiceByID[uint16(id2)]
+	svcFromLbMap2, ok := m.lbmap.ServiceByID[uint32(id2)]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(svcFromLbMap2.Backends), Equals, len(allBackends))
 
@@ -1981,7 +1981,7 @@ func (m *ManagerTestSuite) TestTrafficPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(id3, Equals, id1)
 
-	svcFromLbMap3, ok := m.lbmap.ServiceByID[uint16(id1)]
+	svcFromLbMap3, ok := m.lbmap.ServiceByID[uint32(id1)]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(svcFromLbMap3.Backends), Equals, len(allBackends))
 
@@ -1992,7 +1992,7 @@ func (m *ManagerTestSuite) TestTrafficPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(id4, Equals, id2)
 
-	svcFromLbMap4, ok := m.lbmap.ServiceByID[uint16(id2)]
+	svcFromLbMap4, ok := m.lbmap.ServiceByID[uint32(id2)]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(svcFromLbMap4.Backends), Equals, len(localBackends))
 
@@ -2019,7 +2019,7 @@ func (m *ManagerTestSuite) TestDeleteServiceWithTerminatingBackends(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName, Equals, lb.ServiceName{Name: "svc1", Namespace: "ns1"})
 
@@ -2047,7 +2047,7 @@ func (m *ManagerTestSuite) TestRestoreServicesWithLeakedBackends(c *C) {
 
 	c.Assert(err1, IsNil)
 	c.Assert(id1, Equals, lb.ID(1))
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
 
 	// Simulate leaked backends with various leaked scenarios.
@@ -2073,7 +2073,7 @@ func (m *ManagerTestSuite) TestRestoreServicesWithLeakedBackends(c *C) {
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()
 	c.Assert(err, IsNil)
-	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
+	c.Assert(len(m.lbmap.ServiceByID[uint32(id1)].Backends), Equals, len(backends))
 	// Leaked backends should be deleted.
 	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
 }
