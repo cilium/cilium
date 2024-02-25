@@ -41,8 +41,8 @@ export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
 export CILIUM_NODEINIT_VERSION:=62093c5c233ea914bfa26a10ba41f8780d9b737f
 
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION:=v1.28.1-e62af1059e691fe025d97b53b56ed4e8afa366dc
-export CILIUM_ENVOY_DIGEST:=sha256:663a71073bfebde735bdde2d7afeb565ef7e5c37de1bf962afbb432f1062559f
+export CILIUM_ENVOY_VERSION:=v1.28.1-f6d0ca17bd2f445e82eaf1892b132dbf10cb2124
+export CILIUM_ENVOY_DIGEST:=sha256:223fe3d2b7d2c82d0ec3f4fcfd8c322fb7d5052d128519768f6ebc8f6ae43eb7
 
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
 export HUBBLE_UI_BACKEND_VERSION:=v0.13.0
