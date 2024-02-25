@@ -2744,7 +2744,8 @@ clustermesh:
     updateStrategy:
       type: RollingUpdate
       rollingUpdate:
-        maxUnavailable: 1
+        maxUnavailable: 0
+        maxSurge: 1
     # -- The priority class to use for clustermesh-apiserver
     priorityClassName: ""
     tls:
