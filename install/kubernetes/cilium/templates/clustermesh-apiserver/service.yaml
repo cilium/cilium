@@ -35,4 +35,8 @@ spec:
   {{- if .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
   internalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
   {{- end }}
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 600
 {{- end }}
