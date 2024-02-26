@@ -21,7 +21,6 @@ import (
 
 func freshNetNS(t *testing.T) {
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 
 	oldNetNS, err := netns.Get()
 	assert.NoError(t, err)
@@ -30,6 +29,7 @@ func freshNetNS(t *testing.T) {
 	t.Cleanup(func() {
 		testNetNS.Close()
 		netns.Set(oldNetNS)
+		runtime.UnlockOSThread()
 	})
 }
 
@@ -60,8 +60,7 @@ func TestOps(t *testing.T) {
 	qdiscs, err := netlink.QdiscList(link)
 	require.NoError(t, err, "QdiscList")
 	require.Len(t, qdiscs, 1)
-	t.Logf("qdiscs before: %+v", qdiscs)
-	require.Equal(t, "noqueue", qdiscs[0].Type()) // the default for dummys
+	require.Equal(t, "noqueue", qdiscs[0].Type(), "expected noqueue for dummy0, got: %#v", qdiscs) // the default for dummys
 
 	ops := &ops{
 		log:       logging.DefaultLogger,
@@ -84,8 +83,7 @@ func TestOps(t *testing.T) {
 	// qdisc should now have changed from "noqueue" to mq (or fq if mq not supported)
 	qdiscs, err = netlink.QdiscList(link)
 	require.NoError(t, err, "QdiscList")
-	require.Greater(t, len(qdiscs), 0)
-	t.Logf("qdiscs after: %+v", qdiscs)
+	require.Greater(t, len(qdiscs), 0, "unexpected qdiscs: %#v", qdiscs)
 
 	if qdiscs[0].Type() != "mq" {
 		require.Equal(t, "fq", qdiscs[0].Type())
