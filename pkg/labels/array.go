@@ -116,6 +116,11 @@ nextLabel:
 // Has returns whether the provided key exists.
 // Implementation of the
 // github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels.Labels interface.
+//
+// The key can be of source "any", in which case the source is
+// ignored. The inverse, however, is not true.
+// ["k8s.foo=bar"].Has("any.foo") => true
+// ["any.foo=bar"].Has("k8s.foo") => false
 func (ls LabelArray) Has(key string) bool {
 	// The key is submitted in the form of `source.key=value`
 	keyLabel := parseSelectLabel(key, '.')
@@ -139,6 +144,11 @@ func (ls LabelArray) Has(key string) bool {
 // Get returns the value for the provided key.
 // Implementation of the
 // github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels.Labels interface.
+//
+// The key can be of source "any", in which case the source is
+// ignored. In other words,
+// ["k8s.foo=bar"].Get("any.foo") => "bar"
+// ["any.foo=bar"].Get("k8s.foo") => ""
 func (ls LabelArray) Get(key string) string {
 	keyLabel := parseSelectLabel(key, '.')
 	if keyLabel.IsAnySource() {
