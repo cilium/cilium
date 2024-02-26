@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.6
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.6
@@ -58,7 +58,7 @@ jobs:
     name: Precheck
     steps:
       - name: Install Go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.6
@@ -78,7 +78,7 @@ jobs:
     name: Generate API
     steps:
       - name: Install Go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.6
@@ -98,7 +98,7 @@ jobs:
     name: Generate k8s API
     steps:
       - name: Install Go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.6

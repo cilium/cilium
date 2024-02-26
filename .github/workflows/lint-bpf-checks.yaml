@@ -30,7 +30,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check code changes
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        uses: dorny/paths-filter@ebc4d7e9ebcb0b1eb21480bb8f43113e996ac77a # v3.0.1
         id: changes
         with:
           # For `push` events, compare against the `ref` base branch
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.6
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.6
@@ -167,7 +167,7 @@ jobs:
           # TODO: re-enable coverage reporting, see https://github.com/cilium/cilium/issues/22088
           make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
       - name: Archive code coverage results
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: bpf-code-coverage-report
           path: bpf-coverage.html

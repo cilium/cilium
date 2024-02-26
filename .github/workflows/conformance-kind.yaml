@@ -93,7 +93,7 @@ jobs:
           persist-credentials: false
 
       - name: Create kind cluster
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config }}
@@ -158,7 +158,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip

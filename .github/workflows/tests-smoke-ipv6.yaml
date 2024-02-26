@@ -36,7 +36,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check code changes
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        uses: dorny/paths-filter@ebc4d7e9ebcb0b1eb21480bb8f43113e996ac77a # v3.0.1
         id: tested-tree
         with:
           # For `push` events, compare against the `ref` base branch
@@ -92,7 +92,7 @@ jobs:
           sudo systemctl restart docker
 
       - name: Create kind cluster
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -165,7 +165,7 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         if: ${{ failure() }}
         with:
           name: cilium-sysdump-out.zip

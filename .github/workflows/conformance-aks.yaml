@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -185,7 +185,7 @@ jobs:
           ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Login to Azure
-        uses: azure/login@de95379fe4dadc2defb305917eaa7e5dde727294 # v1.5.1
+        uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
@@ -317,14 +317,14 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdumps-${{ matrix.index }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-junits-${{ matrix.index }}
           path: cilium-junits/*.xml
@@ -343,7 +343,7 @@ jobs:
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.installation-and-connectivity.result == 'failure' }}
-        uses: actions/upload-artifact/merge@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact/merge@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -351,7 +351,7 @@ jobs:
           delete-merged: true
         continue-on-error: true
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact/merge@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-junits
           pattern: cilium-junits-*
@@ -365,7 +365,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.installation-and-connectivity.result }}
