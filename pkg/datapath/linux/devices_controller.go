@@ -84,6 +84,9 @@ type DevicesConfig struct {
 	// If empty the devices are auto-detected according to rules defined
 	// by isSelectedDevice().
 	Devices []string
+	// DirectRoutingDevice is the user-specified filter to select the direct
+	// routing device to use.
+	DirectRoutingDevice string
 }
 
 type devicesControllerParams struct {
@@ -105,6 +108,7 @@ type devicesController struct {
 
 	initialized    chan struct{}
 	filter         deviceFilter
+	drdfilter      deviceFilter
 	l3DevSupported bool
 
 	// deadLinkIndexes tracks the set of links that have been deleted. This is needed
@@ -120,10 +124,16 @@ func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*device
 		p.DeviceTable,
 		p.RouteTable,
 	)
+
+	var drdfilter deviceFilter
+	if p.Config.DirectRoutingDevice != "" {
+		drdfilter = deviceFilter([]string{p.Config.DirectRoutingDevice})
+	}
 	dc := &devicesController{
 		params:          p,
 		initialized:     make(chan struct{}),
 		filter:          deviceFilter(p.Config.Devices),
+		drdfilter:       drdfilter,
 		log:             p.Log,
 		deadLinkIndexes: sets.New[int](),
 	}
@@ -504,7 +514,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 
 const (
 	// Exclude devices that have one or more of these flags set.
-	excludedIfFlagsMask uint32 = unix.IFF_SLAVE | unix.IFF_LOOPBACK
+	excludedIfFlagsMask uint32 = unix.IFF_SLAVE
 
 	// Require these flags to be set.
 	requiredIfFlagsMask uint32 = unix.IFF_UP
@@ -551,6 +561,13 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 			return true, ""
 		}
 		return false, fmt.Sprintf("not matching user filter %v", dc.filter)
+	}
+
+	if dc.drdfilter.nonEmpty() {
+		if dc.drdfilter.match(d.Name) {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not matching direct routing device filter %v", dc.drdfilter)
 	}
 
 	// Never consider devices with any of the excluded devices.
