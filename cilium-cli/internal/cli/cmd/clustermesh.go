@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium-cli/clustermesh"
-	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/status"
 )
 
@@ -28,125 +27,11 @@ func newCmdClusterMesh() *cobra.Command {
 	cmd.AddCommand(
 		newCmdClusterMeshStatus(),
 		newCmdClusterMeshExternalWorkload(),
+		newCmdClusterMeshConnectWithHelm(),
+		newCmdClusterMeshDisconnectWithHelm(),
+		newCmdClusterMeshEnableWithHelm(),
+		newCmdClusterMeshDisableWithHelm(),
 	)
-
-	if utils.IsInHelmMode() {
-		cmd.AddCommand(
-			newCmdClusterMeshConnectWithHelm(),
-			newCmdClusterMeshDisconnectWithHelm(),
-			newCmdClusterMeshEnableWithHelm(),
-			newCmdClusterMeshDisableWithHelm(),
-		)
-	} else {
-		cmd.AddCommand(
-			newCmdClusterMeshConnect(),
-			newCmdClusterMeshDisconnect(),
-			newCmdClusterMeshEnable(),
-			newCmdClusterMeshDisable(),
-		)
-	}
-
-	return cmd
-}
-
-func newCmdClusterMeshEnable() *cobra.Command {
-	var params = clustermesh.Parameters{
-		Writer: os.Stdout,
-	}
-
-	cmd := &cobra.Command{
-		Use:   "enable",
-		Short: "Enable ClusterMesh ability in a cluster",
-		Long:  ``,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-
-			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			if err := cm.Enable(context.Background()); err != nil {
-				fatalf("Unable to enable ClusterMesh: %s", err)
-			}
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&params.ServiceType, "service-type", "", "Type of Kubernetes service to expose control plane { ClusterIP | LoadBalancer | NodePort }")
-	cmd.Flags().StringToStringVar(&params.ServiceAnnotations, "service-annotation", map[string]string{}, "Annotation to add to the Kubernetes service. Can be specified multiple times")
-	cmd.Flags().StringVar(&params.ApiserverImage, "apiserver-image", "", "Container image for clustermesh-apiserver")
-	cmd.Flags().StringVar(&params.ApiserverVersion, "apiserver-version", "", "Container image version for clustermesh-apiserver")
-	cmd.Flags().BoolVar(&params.CreateCA, "create-ca", true, "Automatically create CA if needed")
-	cmd.Flags().StringSliceVar(&params.ConfigOverwrites, "config", []string{}, "clustermesh-apiserver config entries (key=value)")
-
-	return cmd
-}
-
-func newCmdClusterMeshDisable() *cobra.Command {
-	var params = clustermesh.Parameters{
-		Writer: os.Stdout,
-	}
-
-	cmd := &cobra.Command{
-		Use:   "disable",
-		Short: "Disable ClusterMesh ability in a cluster",
-		Long:  ``,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-
-			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			if err := cm.Disable(context.Background()); err != nil {
-				fatalf("Unable to disable ClusterMesh: %s", err)
-			}
-			return nil
-		},
-	}
-
-	return cmd
-}
-
-func newCmdClusterMeshConnect() *cobra.Command {
-	var params = clustermesh.Parameters{
-		Writer: os.Stdout,
-	}
-
-	cmd := &cobra.Command{
-		Use:   "connect",
-		Short: "Connect to a remote cluster",
-		Long:  ``,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-
-			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			if err := cm.Connect(context.Background()); err != nil {
-				fatalf("Unable to connect cluster: %s", err)
-			}
-			return nil
-		},
-	}
-
-	addCommonConnectFlags(cmd, &params)
-
-	return cmd
-}
-
-func newCmdClusterMeshDisconnect() *cobra.Command {
-	var params = clustermesh.Parameters{
-		Writer: os.Stdout,
-	}
-
-	cmd := &cobra.Command{
-		Use:   "disconnect",
-		Short: "Disconnect from a remote cluster",
-		Long:  ``,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			if err := cm.Disconnect(context.Background()); err != nil {
-				fatalf("Unable to disconnect cluster: %s", err)
-			}
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&params.DestinationContext, "destination-context", "", "Kubernetes configuration context of destination cluster")
 
 	return cmd
 }
