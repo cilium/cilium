@@ -86,7 +86,7 @@ spec:
         {{- if semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version }}
         startupProbe:
           httpGet:
-            host: "localhost"
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
             port: {{ .Values.envoy.healthPort }}
             scheme: HTTP
@@ -97,7 +97,7 @@ spec:
         {{- end }}
         livenessProbe:
           httpGet:
-            host: "localhost"
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
             port: {{ .Values.envoy.healthPort }}
             scheme: HTTP
@@ -115,7 +115,7 @@ spec:
           timeoutSeconds: 5
         readinessProbe:
           httpGet:
-            host: "localhost"
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
             port: {{ .Values.envoy.healthPort }}
             scheme: HTTP
