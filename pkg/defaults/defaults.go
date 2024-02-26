@@ -150,6 +150,13 @@ const (
 	// This is used in DaemonConfig.Populate
 	ToFQDNsMinTTL = 0
 
+	// DNSGCJobInterval is the default value for DNS garbage collector job interval
+	DNSGCJobInterval = 1 * time.Minute
+
+	// ToFQDNsActiveConnectionsTTL is the default value for how long that connections
+	// should be idle for after the DNS TTL expires.
+	ToFQDNsActiveConnectionsTTL = int(2 * DNSGCJobInterval)
+
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = 50

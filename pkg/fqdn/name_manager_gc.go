@@ -13,13 +13,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-const DNSGCJobInterval = 1 * time.Minute
 
 const dnsGCJobName = "dns-garbage-collector-job"
 
@@ -50,7 +49,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		// marked active by the CT GC. Since we expire in this controller, we
 		// give these entries 2 cycles of TTL to allow for timing mismatches
 		// with the CT GC.
-		activeConnectionsTTL = int(2 * DNSGCJobInterval.Seconds())
+		activeConnectionsTTL = n.config.ActiveConnectionsTTL
 		activeConnections    = NewDNSCache(activeConnectionsTTL)
 	)
 	namesToClean := make(sets.Set[string])
@@ -150,7 +149,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 func (n *NameManager) StartGC(ctx context.Context) {
 	n.manager.UpdateController(dnsGCJobName, controller.ControllerParams{
 		Group:       dnsGCControllerGroup,
-		RunInterval: DNSGCJobInterval,
+		RunInterval: defaults.DNSGCJobInterval,
 		DoFunc:      n.GC,
 		Context:     ctx,
 	})
@@ -240,7 +239,7 @@ func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDN
 			alive, _ := possibleEP.DNSZombies.GC()
 			for _, zombie := range alive {
 				for _, name := range zombie.Names {
-					n.cache.Update(lookupTime, name, []netip.Addr{zombie.IP}, int(2*DNSGCJobInterval.Seconds()))
+					n.cache.Update(lookupTime, name, []netip.Addr{zombie.IP}, n.config.ActiveConnectionsTTL)
 				}
 			}
 		}

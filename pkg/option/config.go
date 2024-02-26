@@ -424,6 +424,9 @@ const (
 	// ToFQDNsMinTTL is the minimum time, in seconds, to use DNS data for toFQDNs policies.
 	ToFQDNsMinTTL = "tofqdns-min-ttl"
 
+	// ToFQDNsActiveConnectionsTTL is the time after which idle DNS entries will be garbage collected, following TTL expiry
+	ToFQDNsActiveConnectionsTTL = "tofqdns-active-connections-ttl"
+
 	// ToFQDNsProxyPort is the global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
 	ToFQDNsProxyPort = "tofqdns-proxy-port"
 
@@ -1686,22 +1689,22 @@ type DaemonConfig struct {
 	EnableMasqueradeRouteSource bool
 	EnableIPMasqAgent           bool
 	IPMasqAgentConfigPath       string
-
-	EnableBPFClockProbe     bool
-	EnableIPv4EgressGateway bool
-	EnableEnvoyConfig       bool
-	EnableIngressController bool
-	EnableGatewayAPI        bool
-	InstallIptRules         bool
-	MonitorAggregation      string
-	PreAllocateMaps         bool
-	IPv6NodeAddr            string
-	IPv4NodeAddr            string
-	SocketPath              string
-	TracePayloadlen         int
-	Version                 string
-	PrometheusServeAddr     string
-	ToFQDNsMinTTL           int
+	EnableBPFClockProbe         bool
+	EnableIPv4EgressGateway     bool
+	EnableEnvoyConfig           bool
+	EnableIngressController     bool
+	EnableGatewayAPI            bool
+	InstallIptRules             bool
+	MonitorAggregation          string
+	PreAllocateMaps             bool
+	IPv6NodeAddr                string
+	IPv4NodeAddr                string
+	SocketPath                  string
+	TracePayloadlen             int
+	Version                     string
+	PrometheusServeAddr         string
+	ToFQDNsMinTTL               int
+	ToFQDNsActiveConnectionsTTL int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules
@@ -3223,6 +3226,21 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	} else {
 		log.Fatalf("%s must be positive, or 0 to disable deferred connection deletion",
 			ToFQDNsMaxDeferredConnectionDeletes)
+	}
+	switch {
+	case vp.IsSet(ToFQDNsActiveConnectionsTTL): // set by user
+		if vp.GetInt(ToFQDNsActiveConnectionsTTL) < int(2*defaults.DNSGCJobInterval) {
+			c.ToFQDNsActiveConnectionsTTL = vp.GetInt(ToFQDNsActiveConnectionsTTL)
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.Key:          ToFQDNsActiveConnectionsTTL,
+				logfields.Value:        defaults.ToFQDNsActiveConnectionsTTL,
+				logfields.InvalidValue: vp.GetInt(ToFQDNsActiveConnectionsTTL),
+			}).Info("Invalid configuration value for key, using default value")
+			c.ToFQDNsActiveConnectionsTTL = int(defaults.ToFQDNsActiveConnectionsTTL)
+		}
+	default:
+		c.ToFQDNsActiveConnectionsTTL = int(defaults.ToFQDNsActiveConnectionsTTL)
 	}
 	switch {
 	case vp.IsSet(ToFQDNsMinTTL): // set by user

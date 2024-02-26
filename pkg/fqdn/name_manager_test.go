@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -146,4 +147,47 @@ func TestNameManagerMultiIPUpdate(t *testing.T) {
 	require.Equal(t, false, exists)
 	nameManager.Unlock()
 
+}
+
+func TestActiveConnectionsTTLUpdate(t *testing.T) {
+	now := time.Now()
+	dnsZombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	sharedIP := netip.MustParseAddr("1.1.1.1")
+	dnsZombies.Upsert(now, sharedIP, "cilium.io")
+
+	var (
+		activeConnectionTTL = int(2 * time.Second)
+		nameManager         = NewNameManager(Config{
+			MinTTL:               int(1 * time.Second),
+			Cache:                NewDNSCache(0),
+			ActiveConnectionsTTL: activeConnectionTTL,
+			IPCache:              testipcache.NewMockIPCache(),
+
+			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
+				return &sync.WaitGroup{}
+			},
+			GetEndpointsDNSInfo: func(_ string) []EndpointDNSInfo {
+				return []EndpointDNSInfo{
+					{
+						ID:         "1",
+						DNSHistory: NewDNSCache(0),
+						DNSZombies: dnsZombies,
+					},
+				}
+			}})
+	)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// GC should return 1 zombie with updated TTL
+	nameManager.GC(ctx)
+	for _, v := range nameManager.cache.forward {
+		for _, vv := range v {
+			expectedHr, expectedMin, expectedSec := time.Now().Add(time.Duration(activeConnectionTTL) * time.Second).Clock()
+			actualHr, actualMin, actualSec := vv.ExpirationTime.Clock()
+			require.Equal(t, expectedHr, actualHr)
+			require.Equal(t, expectedMin, actualMin)
+			require.Equal(t, expectedSec, actualSec)
+		}
+	}
 }
