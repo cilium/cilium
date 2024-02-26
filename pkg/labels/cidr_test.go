@@ -726,3 +726,30 @@ func TestGetPrintableModel(t *testing.T) {
 		cl.GetPrintableModel(),
 	)
 }
+
+func TestLabelToPrefix(t *testing.T) {
+	for _, pfx := range []string{
+		"1.1.1.1/32",
+		"1.1.1.0/24",
+		"2001::4/128",
+		"2001::fffc/126",
+		"::/0",
+		"2001::/64",
+		"0.0.0.0/0",
+	} {
+		want, err := netip.ParsePrefix(pfx)
+		if err != nil {
+			t.Fatalf("failed to parse prefix %s: %v", pfx, err)
+		}
+		want = want.Masked()
+
+		label := maskedIPToLabel(want.Addr().String(), want.Bits())
+		have, err := LabelToPrefix(label.Key)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if have != want {
+			t.Fatalf("prefixes did not match: want %s, have %s, label %s", want, have, label.Key)
+		}
+	}
+}

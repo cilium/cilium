@@ -53,6 +53,9 @@ const (
 	// Labels are any label, they may not be relevant to the security identity.
 	Labels = "labels"
 
+	// Label is a singular label, where relevant
+	Label = "label"
+
 	// SourceFilter is the label or node information source
 	SourceFilter = "sourceFilter"
 

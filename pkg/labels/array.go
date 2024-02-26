@@ -137,6 +137,11 @@ nextLabel:
 // ignored. The inverse, however, is not true.
 // ["k8s.foo=bar"].Has("any.foo") => true
 // ["any.foo=bar"].Has("k8s.foo") => false
+//
+// If the key is of source "cidr", this will also match
+// broader keys.
+// ["cidr:1.1.1.1/32"].Has("cidr.1.0.0.0/8") => true
+// ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
 func (ls LabelArray) Has(key string) bool {
 	// The key is submitted in the form of `source.key=value`
 	keyLabel := parseSelectLabel(key, '.')
@@ -156,6 +161,11 @@ func (ls LabelArray) Has(key string) bool {
 // ignored. The inverse, however, is not true.
 // ["k8s.foo=bar"].Get("any.foo") => "bar"
 // ["any.foo=bar"].Get("k8s.foo") => ""
+//
+// If the key is of source "cidr", this will also match
+// broader keys.
+// ["cidr:1.1.1.1/32"].Has("cidr.1.0.0.0/8") => true
+// ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
 func (ls LabelArray) Get(key string) string {
 	keyLabel := parseSelectLabel(key, '.')
 	for _, l := range ls {

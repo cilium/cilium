@@ -11,6 +11,10 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -153,6 +157,10 @@ type Label struct {
 	//
 	// +kubebuilder:validation:Optional
 	Source string `json:"source"`
+
+	// optimization for CIDR prefixes
+	// +deepequal-gen=false
+	cidr *netip.Prefix `json:"-"`
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
@@ -237,11 +245,21 @@ func NewLabel(key string, value string, source string) Label {
 		value = ""
 	}
 
-	return Label{
+	l := Label{
 		Key:    key,
 		Value:  value,
 		Source: source,
 	}
+	if l.Source == LabelSourceCIDR {
+		c, err := LabelToPrefix(l.Key)
+		if err != nil {
+			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+		} else {
+			l.cidr = &c
+		}
+	}
+
+	return l
 }
 
 // Equals returns true if source, Key and Value are equal and false otherwise.
@@ -263,20 +281,44 @@ func (l *Label) IsReservedSource() bool {
 }
 
 // Has returns true label L contains target.
-// target may be "looser" w.r.t source, i.e.
+// target may be "looser" w.r.t source or cidr, i.e.
 // "k8s:foo=bar".Has("any:foo=bar") is true
 // "any:foo=bar".Has("k8s:foo=bar") is false
+// "cidr:10.0.0.1/32".Has("cidr:10.0.0.0/24") is true
 func (l *Label) Has(target *Label) bool {
 	return l.HasKey(target) && l.Value == target.Value
 }
 
-// HasKey returns true if l has target's key
-// target may be "looser" w.r.t source, i.e.
+// HasKey returns true if l has target's key.
+// target may be "looser" w.r.t source or cidr, i.e.
 // "k8s:foo=bar".HasKey("any:foo") is true
 // "any:foo=bar".HasKey("k8s:foo") is false
+// "cidr:10.0.0.1/32".HasKey("cidr:10.0.0.0/24") is true
+// "cidr:10.0.0.0/24".HasKey("cidr:10.0.0.1/32") is false
 func (l *Label) HasKey(target *Label) bool {
 	if !target.IsAnySource() && l.Source != target.Source {
 		return false
+	}
+
+	// Do cidr-aware matching if both sources are "cidr".
+	if target.Source == LabelSourceCIDR && l.Source == LabelSourceCIDR {
+		tc := target.cidr
+		if tc == nil {
+			v, err := LabelToPrefix(target.Key)
+			if err != nil {
+				tc = &v
+			}
+		}
+		lc := l.cidr
+		if lc == nil {
+			v, err := LabelToPrefix(l.Key)
+			if err != nil {
+				lc = &v
+			}
+		}
+		if tc != nil && lc != nil && tc.Bits() <= lc.Bits() && tc.Contains(lc.Addr()) {
+			return true
+		}
 	}
 
 	return l.Key == target.Key
@@ -337,6 +379,15 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		l.Source = aux.Source
 		l.Key = aux.Key
 		l.Value = aux.Value
+	}
+
+	if l.Source == LabelSourceCIDR {
+		c, err := LabelToPrefix(l.Key)
+		if err == nil {
+			l.cidr = &c
+		} else {
+			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+		}
 	}
 
 	return nil
@@ -666,6 +717,18 @@ func parseLabel(str string, delim byte) (lbl Label) {
 		} else {
 			lbl.Key = next[:i]
 			lbl.Value = next[i+1:]
+		}
+	}
+
+	if lbl.Source == LabelSourceCIDR {
+		if lbl.Value != "" {
+			logrus.WithField(logfields.Label, lbl.String()).Error("Invalid CIDR label: labels with source cidr cannot have values.")
+		}
+		c, err := LabelToPrefix(lbl.Key)
+		if err != nil {
+			logrus.WithField(logfields.Label, str).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+		} else {
+			lbl.cidr = &c
 		}
 	}
 	return lbl

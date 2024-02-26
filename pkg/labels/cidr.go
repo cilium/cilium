@@ -78,6 +78,16 @@ func IPStringToLabel(ip string) (Label, error) {
 	}
 }
 
+func LabelToPrefix(key string) (netip.Prefix, error) {
+	prefixStr := strings.Replace(key, "-", ":", -1)
+	pfx, err := netip.ParsePrefix(prefixStr)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("failed to parse label prefix %s: %w", key, err)
+	}
+	return pfx, nil
+
+}
+
 // GetCIDRLabels turns a CIDR into a set of labels representing the cidr itself
 // and all broader CIDRS which include the specified CIDR in them. For example:
 // CIDR: 10.0.0.0/8 =>
@@ -175,6 +185,8 @@ func computeCIDRLabels(cache *simplelru.LRU[netip.Prefix, []Label], lbls Labels,
 
 	// Compute the label for this prefix (e.g. "cidr:10.0.0.0/8")
 	prefixLabel := maskedIPToLabel(prefix.Addr().String(), ones)
+	c := netip.PrefixFrom(prefix.Addr(), ones)
+	prefixLabel.cidr = &c
 	lbls[prefixLabel.Key] = prefixLabel
 
 	// Keep computing the rest (e.g. "cidr:10.0.0.0/7", ...).

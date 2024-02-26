@@ -123,7 +123,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 			fmt.Fprintf(fw, " * - %s\n", "(no labels)")
 		} else {
 			for _, v := range e.SecurityIdentity.Labels {
-				fmt.Fprintf(fw, " * - %s\n", v)
+				fmt.Fprintf(fw, " * - %s\n", v.String())
 			}
 		}
 	}
