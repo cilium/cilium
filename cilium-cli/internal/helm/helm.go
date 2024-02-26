@@ -117,74 +117,6 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-func valuesToString(prevKey string, b map[string]interface{}) string {
-	var out []string
-	for k, v := range b {
-		switch v := v.(type) {
-		case chartutil.Values:
-			if prevKey != "" {
-				out = append(out, valuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
-			} else {
-				out = append(out, valuesToString(k, v))
-			}
-			continue
-		case map[string]interface{}:
-			if prevKey != "" {
-				out = append(out, valuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
-			} else {
-				out = append(out, valuesToString(k, v))
-			}
-			continue
-		case []interface{}:
-			if prevKey != "" {
-				out = append(out, sliceValuesToString(fmt.Sprintf("%s.%s", prevKey, k), v))
-			} else {
-				out = append(out, sliceValuesToString(k, v))
-			}
-			continue
-		}
-		if prevKey != "" {
-			if strings.Contains(k, ".") {
-				k = strings.ReplaceAll(k, ".", `\\.`)
-			}
-			out = append(out, fmt.Sprintf("%s.%s=%v", prevKey, k, v))
-		} else {
-			out = append(out, fmt.Sprintf("%s=%v", k, v))
-		}
-	}
-	sort.Strings(out)
-	return strings.Join(out, ",")
-}
-
-func sliceValuesToString(prevKey string, b []interface{}) string {
-	var out []string
-	for i, v := range b {
-		switch v := v.(type) {
-		case chartutil.Values:
-			out = append(out, valuesToString(fmt.Sprintf("%s[%d]", prevKey, i), v))
-			continue
-		case map[string]interface{}:
-			out = append(out, valuesToString(fmt.Sprintf("%s[%d]", prevKey, i), v))
-			continue
-		case []interface{}:
-			out = append(out, sliceValuesToString(fmt.Sprintf("%s[%d]", prevKey, i), v))
-			continue
-		case string:
-			out = append(out, fmt.Sprintf("%s[%d]=%s", prevKey, i, v))
-			continue
-		case int, int8, int16, int32, int64,
-			uint, uint8, uint16, uint32, uint64:
-			out = append(out, fmt.Sprintf("%s[%d]=%d", prevKey, i, v))
-			continue
-		case float32, float64:
-			out = append(out, fmt.Sprintf("%s[%d]=%f", prevKey, i, v))
-			continue
-		}
-	}
-	sort.Strings(out)
-	return strings.Join(out, ",")
-}
-
 func newClient(namespace string, k8sVersion string, apiVersions []string) (*action.Install, error) {
 	actionConfig := new(action.Configuration)
 	helmClient := action.NewInstall(actionConfig)
@@ -388,32 +320,6 @@ func ParseVals(helmStrValues []string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("error parsing helm options %q: %w", helmValStr, err)
 	}
 	return helmValues, nil
-}
-
-// PrintHelmTemplateCommand will log a message so that users can replicate
-// the same behavior as the CLI. The log message will be slightly different
-// depending on if 'helmChartDirectory' is set or not.
-// If 'apiVersions' is given, said values will be added to the log message.
-func PrintHelmTemplateCommand(
-	logger utils.Logger,
-	helmValues map[string]any,
-	helmChartDirectory string,
-	namespace string,
-	ciliumVer semver2.Version,
-	apiVersions []string,
-) {
-	valsStr := valuesToString("", helmValues)
-	apiVersionsStr := ""
-	if len(apiVersions) > 0 {
-		for _, av := range apiVersions {
-			apiVersionsStr = fmt.Sprintf("%s --api-versions %s", apiVersionsStr, av)
-		}
-	}
-	if helmChartDirectory != "" {
-		logger.Log("ℹ️  helm template --namespace %s cilium %q --version %s --set %s%s", namespace, helmChartDirectory, ciliumVer, valsStr, apiVersionsStr)
-	} else {
-		logger.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s%s", namespace, ciliumVer, valsStr, apiVersionsStr)
-	}
 }
 
 // ListVersions returns a list of available Helm chart versions (with "v" prefix) sorted by semver in ascending order.
