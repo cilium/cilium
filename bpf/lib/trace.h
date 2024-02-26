@@ -79,23 +79,25 @@ enum {
  *
  * Update metrics based on a trace event
  */
+#define update_trace_metrics(ctx, obs_point, reason) \
+		_update_trace_metrics(ctx, obs_point, reason, __LINE__, __MAGIC_FILE__)
 static __always_inline void
-update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
-		     enum trace_reason reason)
+_update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
+		     enum trace_reason reason, __u16 line, __u8 file)
 {
 	__u8 encrypted;
 
 	switch (obs_point) {
 	case TRACE_TO_LXC:
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_FORWARDED);
+		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+			       REASON_FORWARDED, line, file);
 		break;
 	case TRACE_TO_HOST:
 	case TRACE_TO_STACK:
 	case TRACE_TO_OVERLAY:
 	case TRACE_TO_NETWORK:
-		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-			       REASON_FORWARDED);
+		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       REASON_FORWARDED, line, file);
 		break;
 	case TRACE_FROM_HOST:
 	case TRACE_FROM_STACK:
@@ -103,11 +105,11 @@ update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_FROM_NETWORK:
 		encrypted = reason & TRACE_REASON_ENCRYPTED;
 		if (!encrypted)
-			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-				       REASON_PLAINTEXT);
+			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				       REASON_PLAINTEXT, line, file);
 		else
-			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-				       REASON_DECRYPT);
+			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				       REASON_DECRYPT, line, file);
 		break;
 	/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery is handled
 	 * separately in ipv*_local_delivery() where we can bump an egress

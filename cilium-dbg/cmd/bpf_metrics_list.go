@@ -23,6 +23,8 @@ const (
 	directionTitle = "DIRECTION"
 	packetsTitle   = "PACKETS"
 	bytesTitle     = "BYTES"
+	lineTitle      = "LINE"
+	fileTitle      = "FILE"
 )
 
 type metricsRow struct {
@@ -31,11 +33,15 @@ type metricsRow struct {
 	direction  string
 	packets    int
 	bytes      int
+	line       uint16
+	file       string
 }
 
 type jsonMetricValues struct {
 	Packets uint64 `json:"packets"`
 	Bytes   uint64 `json:"bytes"`
+	Line    uint16 `json:"line"`
+	File    string `json:"file"`
 }
 
 type jsonMetric struct {
@@ -97,6 +103,8 @@ func listJSONMetrics(bpfMetricsList []*metricsRow) {
 		metricsByReason[row.reasonCode].Values[direction] = jsonMetricValues{
 			Packets: uint64(row.packets),
 			Bytes:   uint64(row.bytes),
+			Line:    row.line,
+			File:    row.file,
 		}
 	}
 
@@ -118,13 +126,13 @@ func listHumanReadableMetrics(bpfMetricsList []*metricsRow) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", reasonTitle, directionTitle, packetsTitle, bytesTitle)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", reasonTitle, directionTitle, packetsTitle, bytesTitle, lineTitle, fileTitle)
 
-	const numColumns = 4
+	const numColumns = 6
 	rows := [][numColumns]string{}
 
 	for _, row := range bpfMetricsList {
-		rows = append(rows, [numColumns]string{row.reasonDesc, row.direction, fmt.Sprintf("%d", row.packets), fmt.Sprintf("%d", row.bytes)})
+		rows = append(rows, [numColumns]string{row.reasonDesc, row.direction, fmt.Sprintf("%d", row.packets), fmt.Sprintf("%d", row.bytes), fmt.Sprintf("%d", row.line), row.file})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -140,14 +148,22 @@ func listHumanReadableMetrics(bpfMetricsList []*metricsRow) {
 	})
 
 	for _, r := range rows {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3])
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3], r[4], r[5])
 	}
 
 	w.Flush()
 }
 
 func extractRow(key *metricsmap.Key, values *metricsmap.Values) *metricsRow {
-	return &metricsRow{int(key.Reason), key.DropForwardReason(), key.Direction(), int(values.Count()), int(values.Bytes())}
+	return &metricsRow{
+		int(key.Reason),
+		key.DropForwardReason(),
+		key.Direction(),
+		int(values.Count()),
+		int(values.Bytes()),
+		key.Line,
+		key.FileName(),
+	}
 }
 
 func init() {

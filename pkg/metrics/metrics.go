@@ -254,6 +254,9 @@ const (
 	LabelAddressType          = "address_type"
 	LabelAddressTypePrimary   = "primary"
 	LabelAddressTypeSecondary = "secondary"
+
+	LabelLine = "line"
+	LabelFile = "file"
 )
 
 var (

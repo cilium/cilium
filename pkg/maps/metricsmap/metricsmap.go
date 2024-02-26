@@ -4,6 +4,7 @@
 package metricsmap
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -83,9 +85,13 @@ var direction = map[uint8]string{
 
 // Key must be in sync with struct metrics_key in <bpf/lib/common.h>
 type Key struct {
-	Reason   uint8     `align:"reason"`
-	Dir      uint8     `align:"dir"`
-	Reserved [3]uint16 `align:"reserved"`
+	Reason uint8 `align:"reason"`
+	Dir    uint8 `align:"dir"`
+	// Line contains the line number of the metrics statement.
+	Line uint16 `align:"line"`
+	// File is the number of the source file containing the metrics statement.
+	File     uint8    `align:"file"`
+	Reserved [3]uint8 `align:"reserved"`
 }
 
 // Value must be in sync with struct metrics_value in <bpf/lib/common.h>
@@ -123,6 +129,11 @@ func (k *Key) Direction() string {
 // DropForwardReason gets the forwarded/dropped reason in human readable string format
 func (k *Key) DropForwardReason() string {
 	return monitorAPI.DropReason(k.Reason)
+}
+
+// FileName returns the filename causing the event in string format.
+func (k *Key) FileName() string {
+	return monitor.DecodeBPFSourceFileName(k.File)
 }
 
 // IsDrop checks if the reason is drop or not.
@@ -179,12 +190,12 @@ func newMetricsMapCollector() prometheus.Collector {
 		droppedByteDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "drop_bytes_total"),
 			"Total dropped bytes, tagged by drop reason and ingress/egress direction",
-			[]string{metrics.LabelDropReason, metrics.LabelDirection}, nil,
+			[]string{metrics.LabelDropReason, metrics.LabelDirection, metrics.LabelLine, metrics.LabelFile}, nil,
 		),
 		droppedCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "drop_count_total"),
 			"Total dropped packets, tagged by drop reason and ingress/egress direction",
-			[]string{metrics.LabelDropReason, metrics.LabelDirection}, nil,
+			[]string{metrics.LabelDropReason, metrics.LabelDirection, metrics.LabelLine, metrics.LabelFile}, nil,
 		),
 		forwardCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "forward_count_total"),
@@ -206,6 +217,8 @@ type forwardLabels struct {
 type dropLabels struct {
 	direction string
 	reason    string
+	line      string
+	file      string
 }
 
 type metricValues struct {
@@ -237,6 +250,8 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 			labelSet := dropLabels{
 				direction: key.Direction(),
 				reason:    key.DropForwardReason(),
+				line:      fmt.Sprintf("%d", key.Line),
+				file:      key.FileName(),
 			}
 			mc.droppedMetricsMap.upsert(labelSet, values)
 		} else {
@@ -258,8 +273,8 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	for labels, value := range mc.droppedMetricsMap {
-		mc.updateCounterMetric(mc.droppedCountDesc, ch, value.count, labels.reason, labels.direction)
-		mc.updateCounterMetric(mc.droppedByteDesc, ch, value.bytes, labels.reason, labels.direction)
+		mc.updateCounterMetric(mc.droppedCountDesc, ch, value.count, labels.reason, labels.direction, labels.line, labels.file)
+		mc.updateCounterMetric(mc.droppedByteDesc, ch, value.bytes, labels.reason, labels.direction, labels.line, labels.file)
 	}
 }
 

@@ -44,14 +44,15 @@ fi
 #
 all_files=$(find bpf/ -maxdepth 1 -name '*.c'; find bpf/lib/ -maxdepth 1 -name '*.h')
 required_files=$(
-	grep -e '\<send_drop_notify\(\|_error\|_ext\|_error_ext\)\>' $all_files |
+	grep -e '\<send_drop_notify\(\|_error\|_ext\|_error_ext\)\>' -e 'update_metrics' -e 'update_trace_metrics' $all_files |
 	cut -f1 -d: |
 	sort -u |
+	grep -v "metrics.h" |
 	xargs -n1 basename
 )
 
 #
-# Check that all files which use send_drop_notify* are defined
+# Check that all files using macros depending on __MAGIC_FILE__ are defined.
 #
 retval=0
 for f in $required_files; do
@@ -62,11 +63,11 @@ for f in $required_files; do
 done
 
 #
-# Check that all defined files actually use send_drop_notify*
+# Check that all defined files actually use macros depending on __MAGIC_FILE__.
 #
 for f in $defined_files; do
 	if ! grep --silent -w "$f" <<<"$required_files"; then
-		echo "$0: $f is not using send_drop_notify*, please remove it from ${BPF_SOURCE_NAMES_TO_IDS}" >&2
+		echo "$0: $f is not using send_drop_notify* or update_(trace_)metrics, please remove it from ${BPF_SOURCE_NAMES_TO_IDS}" >&2
 		retval=1
 	fi
 done

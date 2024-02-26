@@ -117,7 +117,7 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	ctx_store_meta(ctx, 3, dst_id);
 	ctx_store_meta(ctx, 4, exitcode | file << 8 | line << 16);
 
-	update_metrics(ctx_full_len(ctx), direction, (__u8)reason);
+	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
 	ret = tail_call_internal(ctx, CILIUM_CALL_DROP_NOTIFY, NULL);
 	/* ignore the returned error, use caller-provided exitcode */
 
@@ -162,10 +162,6 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	typeof(ext_err) __ext_err = (ext_err); \
 	__DROP_REASON(err) | ((__u8)(__ext_err < -128 ? 0 : __ext_err) << 8); \
 })
-
-#include "../source_names_to_ids.h"
-
-#define __MAGIC_FILE__ (__u8)__source_file_name_to_id(__FILE_NAME__)
 
 #define send_drop_notify(ctx, src, dst, dst_id, reason, exitcode, direction) \
 	_send_drop_notify(__MAGIC_FILE__, __LINE__, ctx, src, dst, dst_id, \

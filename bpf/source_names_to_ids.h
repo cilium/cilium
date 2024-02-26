@@ -26,6 +26,7 @@ __source_file_name_to_id(const char *const header_name)
 	_strcase_(2, "bpf_lxc.c");
 	_strcase_(3, "bpf_overlay.c");
 	_strcase_(4, "bpf_xdp.c");
+	_strcase_(5, "bpf_sock.c");
 
 	/* header files from bpf/lib/ */
 	_strcase_(101, "arp.h");
@@ -35,6 +36,10 @@ __source_file_name_to_id(const char *const header_name)
 	_strcase_(105, "nodeport.h");
 	_strcase_(106, "lb.h");
 	_strcase_(107, "mcast.h");
+	_strcase_(108, "ipv4.h");
+	_strcase_(109, "conntrack.h");
+	_strcase_(110, "l3.h");
+	_strcase_(111, "trace.h");
 
 	/* @@ source files list end */
 

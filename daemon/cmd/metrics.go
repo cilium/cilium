@@ -20,7 +20,7 @@ func getMetricsHandler(_ *Daemon, params restapi.GetMetricsParams) middleware.Re
 	if err != nil {
 		return api.Error(
 			restapi.GetMetricsInternalServerErrorCode,
-			fmt.Errorf("Cannot gather metrics from daemon"))
+			fmt.Errorf("Cannot gather metrics from daemon: %w", err))
 	}
 
 	return restapi.NewGetMetricsOK().WithPayload(metrics)
