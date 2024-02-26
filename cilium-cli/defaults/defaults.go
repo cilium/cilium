@@ -133,11 +133,6 @@ const (
 )
 
 var (
-	// ClusterMeshDeploymentLabels are the labels set on the clustermesh API server by default.
-	ClusterMeshDeploymentLabels = map[string]string{
-		"k8s-app": "clustermesh-apiserver",
-	}
-
 	// CiliumScheduleAffinity is the node affinity to prevent Cilium from being schedule on
 	// nodes labeled with CiliumNoScheduleLabel.
 	CiliumScheduleAffinity = []string{
