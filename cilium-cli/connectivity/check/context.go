@@ -28,9 +28,9 @@ import (
 	"github.com/cilium/cilium/api/v1/observer"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
+	"github.com/cilium/cilium-cli/connectivity/internal/junit"
 	"github.com/cilium/cilium-cli/connectivity/perf/common"
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/junit"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
 )
