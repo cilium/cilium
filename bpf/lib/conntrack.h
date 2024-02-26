@@ -293,6 +293,12 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
+		/* For backward-compatibility we need to update reverse NAT
+		 * index in the CT_SERVICE entry for old connections.
+		 */
+		if (dir == CT_SERVICE && entry->rev_nat_index == 0)
+			entry->rev_nat_index = ct_state->rev_nat_index;
+
 		if (ct_state)
 			ct_lookup_fill_state(ct_state, entry, dir, syn);
 
@@ -1176,19 +1182,6 @@ ct_update_svc_entry(const void *map, const void *tuple,
 
 	entry->backend_id = backend_id;
 	entry->rev_nat_index = rev_nat_index;
-}
-
-static __always_inline void
-ct_update_rev_nat_index(const void *map, const void *tuple,
-			const struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->rev_nat_index = state->rev_nat_index;
 }
 
 static __always_inline void
