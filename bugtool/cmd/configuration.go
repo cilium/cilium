@@ -285,6 +285,8 @@ func catCommands() []string {
 	files := []string{
 		"/proc/sys/net/core/bpf_jit_enable",
 		"/proc/kallsyms",
+		"/proc/buddyinfo",
+		"/proc/pagetypeinfo",
 		"/etc/resolv.conf",
 		"/var/log/docker.log",
 		"/var/log/daemon.log",
