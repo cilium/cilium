@@ -22,25 +22,18 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"golang.org/x/exp/maps"
+	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"helm.sh/helm/v3/pkg/release"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/certs"
 	"github.com/cilium/cilium-cli/internal/helm"
-	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
 	"github.com/cilium/cilium-cli/utils/wait"
@@ -56,389 +49,20 @@ const (
 	configNameMaxConnectedClusters = "max-connected-clusters"
 
 	configNameIdentityAllocationMode = "identity-allocation-mode"
-
-	caSuffix   = ".etcd-client-ca.crt"
-	keySuffix  = ".etcd-client.key"
-	certSuffix = ".etcd-client.crt"
 )
 
 var (
-	replicas                 = int32(1)
-	deploymentMaxSurge       = intstr.FromInt(1)
-	deploymentMaxUnavailable = intstr.FromInt(1)
-	secretDefaultMode        = int32(0400)
 	// This can be replaced with cilium/pkg/defaults.MaxConnectedClusters once
 	// changes are merged there.
 	maxConnectedClusters = defaults.ClustermeshMaxConnectedClusters
 )
 
-var clusterRole = &rbacv1.ClusterRole{
-	ObjectMeta: metav1.ObjectMeta{
-		Name: defaults.ClusterMeshClusterRoleName,
-	},
-	Rules: []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{"discovery.k8s.io"},
-			Resources: []string{"endpointslices"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{"namespaces", "services", "endpoints"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{"apiextensions.k8s.io"},
-			Resources: []string{"customresourcedefinitions"},
-			Verbs:     []string{"list"},
-		},
-		{
-			APIGroups: []string{"cilium.io"},
-			Resources: []string{
-				"ciliumnodes",
-				"ciliumnodes/status",
-				"ciliumexternalworkloads",
-				"ciliumexternalworkloads/status",
-				"ciliumidentities",
-				"ciliumidentities/status",
-				"ciliumendpoints",
-				"ciliumendpoints/status",
-			},
-			Verbs: []string{"*"},
-		},
-	},
-}
-
-func (k *K8sClusterMesh) generateService() (*corev1.Service, error) {
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        defaults.ClusterMeshServiceName,
-			Labels:      defaults.ClusterMeshDeploymentLabels,
-			Annotations: map[string]string{},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Ports: []corev1.ServicePort{
-				{Port: int32(2379)},
-			},
-			Selector: defaults.ClusterMeshDeploymentLabels,
-		},
-	}
-
-	if k.params.ServiceType != "" {
-		if corev1.ServiceType(k.params.ServiceType) == corev1.ServiceTypeNodePort {
-			k.Log("⚠️  Using service type NodePort may fail when nodes are removed from the cluster!")
-		}
-		svc.Spec.Type = corev1.ServiceType(k.params.ServiceType)
-
-		svc.ObjectMeta.Annotations = k.params.ServiceAnnotations
-	} else {
-		switch k.flavor.Kind {
-		case k8s.KindGKE:
-			k.Log("🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=Internal)")
-			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
-			svc.ObjectMeta.Annotations["cloud.google.com/load-balancer-type"] = "Internal"
-			// if all the clusters are in the same region the next annotation can be removed
-			svc.ObjectMeta.Annotations["networking.gke.io/internal-load-balancer-allow-global-access"] = "true"
-		case k8s.KindAKS:
-			k.Log("🔮 Auto-exposing service within Azure VPC (service.beta.kubernetes.io/azure-load-balancer-internal)")
-			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
-			svc.ObjectMeta.Annotations["service.beta.kubernetes.io/azure-load-balancer-internal"] = "true"
-		case k8s.KindEKS:
-			k.Log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0")
-			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
-			svc.ObjectMeta.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] = "0.0.0.0/0"
-		default:
-			return nil, fmt.Errorf("cannot auto-detect service type, please specify using '--service-type' option")
-		}
-	}
-
-	return svc, nil
-}
-
-var initContainerArgs = []string{`rm -rf /var/run/etcd/*;
-export ETCDCTL_API=3;
-/usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
-export rootpw="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)";
-echo $rootpw | etcdctl --interactive=false user add root;
-etcdctl user grant-role root root;
-export vmpw="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)";
-echo $vmpw | etcdctl --interactive=false user add externalworkload;
-etcdctl role add externalworkload;
-etcdctl role grant-permission externalworkload --from-key read '';
-etcdctl role grant-permission externalworkload readwrite --prefix cilium/state/noderegister/v1/;
-etcdctl role grant-permission externalworkload readwrite --prefix cilium/.initlock/;
-etcdctl user grant-role externalworkload externalworkload;
-export remotepw="$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)";
-echo $remotepw | etcdctl --interactive=false user add remote;
-etcdctl role add remote;
-etcdctl role grant-permission remote --from-key read '';
-etcdctl user grant-role remote remote;
-etcdctl auth enable;
-exit`}
-
-func (k *K8sClusterMesh) apiserverImage() string {
-	return utils.BuildImagePath(k.params.ApiserverImage, k.params.ApiserverVersion, defaults.ClusterMeshApiserverImage, k.imageVersion)
-}
-
-func (k *K8sClusterMesh) etcdImage() string {
-	etcdVersion := "v3.5.4"
-	if k.clusterArch == "amd64" {
-		return "quay.io/coreos/etcd:" + etcdVersion
-	}
-	return "quay.io/coreos/etcd:" + etcdVersion + "-" + k.clusterArch
-}
-
-func (k *K8sClusterMesh) etcdEnvs() []corev1.EnvVar {
-	envs := []corev1.EnvVar{
-		{
-			Name:  "ETCDCTL_API",
-			Value: "3",
-		},
-		{
-			Name: "HOSTNAME_IP",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
-				},
-			},
-		},
-	}
-	if k.clusterArch == "arm64" {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "ETCD_UNSUPPORTED_ARCH",
-			Value: "arm64",
-		})
-	}
-	return envs
-}
-
-func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *appsv1.Deployment {
-
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   defaults.ClusterMeshDeploymentName,
-			Labels: defaults.ClusterMeshDeploymentLabels,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: defaults.ClusterMeshDeploymentLabels,
-			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.RollingUpdateDeploymentStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxUnavailable: &deploymentMaxUnavailable,
-					MaxSurge:       &deploymentMaxSurge,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   defaults.ClusterMeshDeploymentName,
-					Labels: defaults.ClusterMeshDeploymentLabels,
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyAlways,
-					ServiceAccountName: defaults.ClusterMeshServiceAccountName,
-					Containers: []corev1.Container{
-						{
-							Name:    "etcd",
-							Command: []string{"/usr/local/bin/etcd"},
-							Args: []string{
-								"--data-dir=/var/run/etcd",
-								"--name=clustermesh-apiserver",
-								"--client-cert-auth",
-								"--trusted-ca-file=/var/lib/etcd-secrets/ca.crt",
-								"--cert-file=/var/lib/etcd-secrets/tls.crt",
-								"--key-file=/var/lib/etcd-secrets/tls.key",
-								// Surrounding the IPv4 address with brackets works in this case, since etcd
-								// uses net.SplitHostPort() internally and it accepts that format.
-								"--listen-client-urls=https://127.0.0.1:2379,https://[$(HOSTNAME_IP)]:2379",
-								"--advertise-client-urls=https://[$(HOSTNAME_IP)]:2379",
-								"--initial-cluster-token=clustermesh-apiserver",
-								"--auto-compaction-retention=1",
-							},
-							Image:           k.etcdImage(),
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env:             k.etcdEnvs(),
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "etcd-server-secrets",
-									MountPath: "/var/lib/etcd-secrets",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "etcd-data-dir",
-									MountPath: "/var/run/etcd",
-								},
-							},
-						},
-						{
-							Name:    "apiserver",
-							Command: []string{"/usr/bin/clustermesh-apiserver"},
-							Args: append(clustermeshApiserverArgs,
-								"--cluster-name="+k.clusterName,
-								"--cluster-id="+k.clusterID,
-								"--kvstore-opt",
-								"etcd.config=/var/lib/cilium/etcd-config.yaml",
-							),
-							Image:           k.apiserverImage(),
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
-								{
-									Name: "CILIUM_CLUSTER_NAME",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: defaults.ConfigMapName,
-											},
-											Key: configNameClusterName,
-										},
-									},
-								},
-								{
-									Name: "CILIUM_CLUSTER_ID",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: defaults.ConfigMapName,
-											},
-											Key: configNameClusterID,
-										},
-									},
-								},
-								{
-									Name: "CILIUM_IDENTITY_ALLOCATION_MODE",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: defaults.ConfigMapName,
-											},
-											Key: "identity-allocation-mode",
-										},
-									},
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "etcd-admin-client",
-									MountPath: "/var/lib/cilium/etcd-secrets",
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					InitContainers: []corev1.Container{
-						{
-							Name:            "etcd-init",
-							Command:         []string{"/bin/sh", "-c"},
-							Args:            initContainerArgs,
-							Image:           k.etcdImage(),
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env:             k.etcdEnvs(),
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "etcd-data-dir",
-									MountPath: "/var/run/etcd",
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "etcd-data-dir",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "etcd-server-secrets",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									DefaultMode: &secretDefaultMode,
-									Sources: []corev1.VolumeProjection{
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: defaults.CASecretName,
-												},
-												Items: []corev1.KeyToPath{
-													{
-														Key:  defaults.CASecretCertName,
-														Path: "ca.crt",
-													},
-												},
-											},
-										},
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: defaults.ClusterMeshServerSecretName,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-						{
-							Name: "etcd-admin-client",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									DefaultMode: &secretDefaultMode,
-									Sources: []corev1.VolumeProjection{
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: defaults.CASecretName,
-												},
-												Items: []corev1.KeyToPath{
-													{
-														Key:  defaults.CASecretCertName,
-														Path: "ca.crt",
-													},
-												},
-											},
-										},
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: defaults.ClusterMeshAdminSecretName,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	return deployment
-}
-
 type k8sClusterMeshImplementation interface {
-	CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error)
-	PatchSecret(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.Secret, error)
-	DeleteSecret(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)
-	CreateServiceAccount(ctx context.Context, namespace string, account *corev1.ServiceAccount, opts metav1.CreateOptions) (*corev1.ServiceAccount, error)
-	DeleteServiceAccount(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
-	CreateClusterRole(ctx context.Context, role *rbacv1.ClusterRole, opts metav1.CreateOptions) (*rbacv1.ClusterRole, error)
-	DeleteClusterRole(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	CreateClusterRoleBinding(ctx context.Context, role *rbacv1.ClusterRoleBinding, opts metav1.CreateOptions) (*rbacv1.ClusterRoleBinding, error)
-	DeleteClusterRoleBinding(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
-	CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error)
 	GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error)
-	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	CheckDeploymentStatus(ctx context.Context, namespace, deployment string) error
-	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
-	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
-	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
@@ -450,38 +74,28 @@ type k8sClusterMeshImplementation interface {
 	GetCiliumExternalWorkload(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
-	GetPlatform(ctx context.Context) (*k8s.Platform, error)
 	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
-	GetHelmState(ctx context.Context, namespace string, secretName string) (*helm.State, error)
 }
 
 type K8sClusterMesh struct {
 	client          k8sClusterMeshImplementation
-	certManager     *certs.CertManager
 	statusCollector *status.K8sStatusCollector
 	flavor          k8s.Flavor
 	params          Parameters
 	clusterName     string
 	clusterID       string
-	imageVersion    string
-	clusterArch     string
 	externalKVStore bool
 }
 
 type Parameters struct {
 	Namespace            string
 	ServiceType          string
-	ServiceAnnotations   map[string]string
 	DestinationContext   string
 	Wait                 bool
 	WaitDuration         time.Duration
 	DestinationEndpoints []string
 	SourceEndpoints      []string
-	ApiserverImage       string
-	ApiserverVersion     string
-	CreateCA             bool
 	Writer               io.Writer
 	Labels               map[string]string
 	IPv4AllocCIDR        string
@@ -500,15 +114,6 @@ type Parameters struct {
 	EnableKVStoreMesh bool
 }
 
-func (p Parameters) validateParams() error {
-	if p.ApiserverImage != defaults.ClusterMeshApiserverImage {
-		return nil
-	} else if err := utils.CheckVersion(p.ApiserverVersion); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (p Parameters) waitTimeout() time.Duration {
 	if p.WaitDuration != time.Duration(0) {
 		return p.WaitDuration
@@ -519,9 +124,8 @@ func (p Parameters) waitTimeout() time.Duration {
 
 func NewK8sClusterMesh(client k8sClusterMeshImplementation, p Parameters) *K8sClusterMesh {
 	return &K8sClusterMesh{
-		client:      client,
-		params:      p,
-		certManager: certs.NewCertManager(client, certs.Parameters{Namespace: p.Namespace}),
+		client: client,
+		params: p,
 	}
 }
 
@@ -558,108 +162,6 @@ func (k *K8sClusterMesh) GetClusterConfig(ctx context.Context) error {
 	return nil
 }
 
-func (k *K8sClusterMesh) Disable(ctx context.Context) error {
-	k.Log("🔥 Deleting clustermesh-apiserver...")
-	k.client.DeleteService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.DeleteOptions{})
-	k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName, metav1.DeleteOptions{})
-	k.client.DeleteClusterRoleBinding(ctx, defaults.ClusterMeshClusterRoleName, metav1.DeleteOptions{})
-	k.client.DeleteClusterRole(ctx, defaults.ClusterMeshClusterRoleName, metav1.DeleteOptions{})
-	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.ClusterMeshServiceAccountName, metav1.DeleteOptions{})
-	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, metav1.DeleteOptions{})
-
-	k.deleteCertificates(ctx)
-
-	k.Log("✅ ClusterMesh disabled.")
-
-	return nil
-}
-
-func (p Parameters) validateForEnable() error {
-	switch corev1.ServiceType(p.ServiceType) {
-	case corev1.ServiceTypeClusterIP:
-	case corev1.ServiceTypeNodePort:
-	case corev1.ServiceTypeLoadBalancer:
-	case corev1.ServiceTypeExternalName:
-	case "":
-	default:
-		return fmt.Errorf("unknown service type %q", p.ServiceType)
-	}
-
-	return nil
-}
-
-func (k *K8sClusterMesh) Enable(ctx context.Context) error {
-	if err := k.params.validateParams(); err != nil {
-		return err
-	}
-
-	if err := k.params.validateForEnable(); err != nil {
-		return err
-	}
-
-	if err := k.GetClusterConfig(ctx); err != nil {
-		return err
-	}
-
-	var err error
-	k.imageVersion, err = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
-	if err != nil {
-		return err
-	}
-
-	p, err := k.client.GetPlatform(ctx)
-	if err != nil {
-		return err
-	}
-	k.clusterArch = p.Arch
-
-	svc, err := k.generateService()
-	if err != nil {
-		return err
-	}
-
-	_, err = k.client.GetDeployment(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName, metav1.GetOptions{})
-	if err == nil {
-		k.Log("✅ ClusterMesh is already enabled")
-		return nil
-	}
-
-	if err := k.installCertificates(ctx); err != nil {
-		return err
-	}
-
-	k.Log("✨ Deploying clustermesh-apiserver from %s...", k.apiserverImage())
-	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.ClusterMeshServiceAccountName), metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	if _, err := k.client.CreateClusterRole(ctx, clusterRole, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	if _, err := k.client.CreateClusterRoleBinding(ctx, k8s.NewClusterRoleBinding(defaults.ClusterMeshClusterRoleName, k.params.Namespace, defaults.ClusterMeshServiceAccountName), metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	for i, opt := range k.params.ConfigOverwrites {
-		if !strings.HasPrefix(opt, "--") {
-			k.params.ConfigOverwrites[i] = "--" + opt
-		}
-	}
-
-	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, k.generateDeployment(k.params.ConfigOverwrites), metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	if _, err := k.client.CreateService(ctx, k.params.Namespace, svc, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	k.Log("✅ ClusterMesh enabled!")
-
-	return nil
-}
-
 type accessInformation struct {
 	ServiceType          corev1.ServiceType `json:"service_type,omitempty"`
 	ServiceIPs           []string           `json:"service_ips,omitempty"`
@@ -673,16 +175,6 @@ type accessInformation struct {
 	ExternalWorkloadKey  []byte             `json:"external_workload_key,omitempty"`
 	Tunnel               string             `json:"tunnel,omitempty"`
 	MaxConnectedClusters int                `json:"max_connected_clusters,omitempty"`
-}
-
-func (ai *accessInformation) etcdConfiguration() string {
-	cfg := "endpoints:\n"
-	cfg += "- https://" + ai.ClusterName + ".mesh.cilium.io:" + fmt.Sprintf("%d", ai.ServicePort) + "\n"
-	cfg += "trusted-ca-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + caSuffix + "\n"
-	cfg += "key-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + keySuffix + "\n"
-	cfg += "cert-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + certSuffix + "\n"
-
-	return cfg
 }
 
 func (ai *accessInformation) validate() bool {
@@ -707,10 +199,7 @@ func getDeprecatedName(secretName string) string {
 }
 
 func getExternalWorkloadCertName() string {
-	if utils.IsInHelmMode() {
-		return defaults.ClusterMeshClientSecretName
-	}
-	return defaults.ClusterMeshExternalWorkloadSecretName
+	return defaults.ClusterMeshClientSecretName
 }
 
 // getDeprecatedSecret attempts to retrieve a secret using one or more deprecated names
@@ -986,45 +475,6 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 	return ai, nil
 }
 
-func (k *K8sClusterMesh) patchConfig(ctx context.Context, client k8sClusterMeshImplementation, ai *accessInformation) error {
-	_, err := client.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, metav1.GetOptions{})
-	if err != nil {
-		k.Log("🔑 Secret %s does not exist yet, creating it...", defaults.ClusterMeshSecretName)
-		_, err = client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshSecretName, k.params.Namespace, map[string][]byte{}), metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to create secret: %w", err)
-		}
-	}
-
-	k.Log("🔑 Patching existing secret %s...", defaults.ClusterMeshSecretName)
-
-	etcdBase64 := `"` + ai.ClusterName + `": "` + base64.StdEncoding.EncodeToString([]byte(ai.etcdConfiguration())) + `"`
-	caBase64 := `"` + ai.ClusterName + caSuffix + `": "` + base64.StdEncoding.EncodeToString(ai.CA) + `"`
-	keyBase64 := `"` + ai.ClusterName + keySuffix + `": "` + base64.StdEncoding.EncodeToString(ai.ClientKey) + `"`
-	certBase64 := `"` + ai.ClusterName + certSuffix + `": "` + base64.StdEncoding.EncodeToString(ai.ClientCert) + `"`
-
-	patch := []byte(`{"data":{` + etcdBase64 + `,` + caBase64 + `,` + keyBase64 + `,` + certBase64 + `}}`)
-	_, err = client.PatchSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to patch secret %s with patch %q: %w", defaults.ClusterMeshSecretName, patch, err)
-	}
-
-	var aliases []string
-	for _, ip := range ai.ServiceIPs {
-		aliases = append(aliases, `{"ip":"`+ip+`", "hostnames":["`+ai.ClusterName+`.mesh.cilium.io"]}`)
-	}
-
-	patch = []byte(`{"spec":{"template":{"spec":{"hostAliases":[` + strings.Join(aliases, ",") + `]}}}}`)
-
-	k.Log("✨ Patching DaemonSet with IP aliases %s...", defaults.ClusterMeshSecretName)
-	_, err = client.PatchDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to patch DaemonSet %s with patch %q: %w", defaults.AgentDaemonSetName, patch, err)
-	}
-
-	return nil
-}
-
 // getClientsForConnect returns a k8s.Client for the local and remote cluster, respectively
 func (k *K8sClusterMesh) getClientsForConnect() (*k8s.Client, *k8s.Client, error) {
 	remoteClient, err := k8s.NewClient(k.params.DestinationContext, "", k.params.Namespace)
@@ -1111,90 +561,6 @@ func (k *K8sClusterMesh) validateInfoForConnect(aiLocal, aiRemote *accessInforma
 	if aiRemote.ClusterID == aiLocal.ClusterID {
 		return fmt.Errorf("remote and local cluster have the same, non-unique ID: %s", aiLocal.ClusterID)
 	}
-
-	return nil
-}
-
-func (k *K8sClusterMesh) Connect(ctx context.Context) error {
-	localClient, remoteClient, err := k.getClientsForConnect()
-	if err != nil {
-		return err
-	}
-
-	aiLocal, aiRemote, err := k.getAccessInfoForConnect(ctx, localClient, remoteClient)
-	if err != nil {
-		return err
-	}
-
-	err = k.validateInfoForConnect(aiLocal, aiRemote)
-	if err != nil {
-		return err
-	}
-
-	k.Log("✨ Connecting cluster %s -> %s...", k.client.ClusterName(), remoteClient.ClusterName())
-	if err := k.patchConfig(ctx, k.client, aiRemote); err != nil {
-		return err
-	}
-
-	k.Log("✨ Connecting cluster %s -> %s...", remoteClient.ClusterName(), k.client.ClusterName())
-	if err := k.patchConfig(ctx, remoteClient, aiLocal); err != nil {
-		return err
-	}
-
-	k.Log("✅ Connected cluster %s and %s!", localClient.ClusterName(), remoteClient.ClusterName())
-
-	return nil
-}
-
-func (k *K8sClusterMesh) disconnectCluster(ctx context.Context, src, dst k8sClusterMeshImplementation) error {
-	cm, err := dst.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
-	}
-
-	if _, ok := cm.Data[configNameClusterName]; !ok {
-		return fmt.Errorf("%s is not set in ConfigMap %q", configNameClusterName, defaults.ConfigMapName)
-	}
-
-	clusterName := cm.Data[configNameClusterName]
-
-	k.Log("🔑 Patching existing secret %s...", defaults.ClusterMeshSecretName)
-	meshSecret, err := src.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("clustermesh configuration secret %s does not exist", defaults.ClusterMeshSecretName)
-	}
-
-	for _, suffix := range []string{"", caSuffix, keySuffix, certSuffix} {
-		if _, ok := meshSecret.Data[clusterName+suffix]; !ok {
-			k.Log("⚠️  Key %q does not exist in secret. Cluster already disconnected?", clusterName+suffix)
-			continue
-		}
-
-		patch := []byte(`[{"op": "remove", "path": "/data/` + clusterName + suffix + `"}]`)
-		_, err = src.PatchSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, types.JSONPatchType, patch, metav1.PatchOptions{})
-		if err != nil {
-			k.Log("❌ Warning: Unable to patch secret %s with path %q: %s", defaults.ClusterMeshSecretName, patch, err)
-		}
-	}
-
-	return nil
-}
-
-func (k *K8sClusterMesh) Disconnect(ctx context.Context) error {
-	remoteCluster, err := k8s.NewClient(k.params.DestinationContext, "", k.params.Namespace)
-	if err != nil {
-		return fmt.Errorf("unable to create Kubernetes client to access remote cluster %q: %w", k.params.DestinationContext, err)
-	}
-
-	if err := k.disconnectCluster(ctx, k.client, remoteCluster); err != nil {
-		return err
-	}
-
-	if err := k.disconnectCluster(ctx, remoteCluster, k.client); err != nil {
-		return err
-	}
-
-	k.Log("✅ Disconnected cluster %s and %s.", k.client.ClusterName(), remoteCluster.ClusterName())
 
 	return nil
 }
@@ -2097,14 +1463,6 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 		return err
 	}
 
-	ok, err := k.needsClassicMode(localRelease)
-	if err != nil {
-		return err
-	}
-	if ok {
-		return k.Connect(ctx)
-	}
-
 	localClient, remoteClient, err := k.getClientsForConnect()
 	if err != nil {
 		return err
@@ -2178,44 +1536,11 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	return nil
 }
 
-// Helm-based clustermesh connect/disconnect is only supported on Cilium
-// v1.14+ due to a lack of support in earlier versions for
-// autoconfigured certificates (tls.{crt,key}) for cluster
-// members when running in certgen (cronJob) PKI mode
-func (k *K8sClusterMesh) needsClassicMode(r *release.Release) (bool, error) {
-	if r == nil {
-		return false, fmt.Errorf("needs a valid helm release. got nil")
-	}
-
-	version := r.Chart.AppVersion()
-	semv, err := utils.ParseCiliumVersion(version)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse Cilium version: %w", err)
-	}
-	k.Log("✅ Detected Helm release with Cilium version %s", semv)
-
-	const ciliumHelmMinRev = "1.14.0"
-	cv := semver.MustParse(ciliumHelmMinRev)
-	if semv.Major == cv.Major && semv.Minor < cv.Minor {
-		k.Log("⚠️ Cilium Version is less than %s. Continuing in classic mode.", ciliumHelmMinRev)
-		return true, nil
-	}
-
-	return false, nil
-}
-
 func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	localRelease, err := getRelease(k.client.(*k8s.Client))
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the target cluster")
 		return err
-	}
-	ok, err := k.needsClassicMode(localRelease)
-	if err != nil {
-		return err
-	}
-	if ok {
-		return k.Disconnect(ctx)
 	}
 
 	localClient, remoteClient, err := k.getClientsForConnect()
