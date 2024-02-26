@@ -275,7 +275,6 @@ int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 	return 0;
 # endif
 }
-#endif
 
 /*
  * icmp6_send_time_exceeded
@@ -294,6 +293,7 @@ static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 
 	return tail_call_internal(ctx, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED, NULL);
 }
+#endif
 
 static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 {

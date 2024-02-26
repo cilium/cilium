@@ -28,15 +28,16 @@
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
-				   __u8 direction)
+				   __u8 __maybe_unused direction)
 {
 	int ret;
 
 	ret = ipv6_dec_hoplimit(ctx, l3_off);
 	if (IS_ERR(ret)) {
+#ifndef SKIP_ICMPV6_HOPLIMIT_HANDLING
 		if (ret == DROP_TTL_EXCEEDED)
 			return icmp6_send_time_exceeded(ctx, l3_off, direction);
-
+#endif
 		return ret;
 	}
 
