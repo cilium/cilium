@@ -304,8 +304,8 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 	}, nil, wg)
 	wg.Wait()
 
-	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
-	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
+	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceAny))
+	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceAny))
 
 	user1 := newUser(c, "user1", sc)
 	cached := user1.AddIdentitySelector(testSelector)
@@ -342,8 +342,8 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	}, nil, wg)
 	wg.Wait()
 
-	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
-	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
+	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceAny))
+	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceAny))
 
 	user1 := newUser(c, "user1", sc)
 	cached := user1.AddIdentitySelector(testSelector)
