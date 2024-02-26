@@ -150,6 +150,10 @@ const (
 	// This is used in DaemonConfig.Populate
 	ToFQDNsMinTTL = 0
 
+	// ToFQDNsActiveConnectionsTTL is the default value for how long that connections
+	// should be idle for after the DNS TTL expires.
+	ToFQDNsActiveConnectionsTTL = 120 * time.Second
+
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = 50

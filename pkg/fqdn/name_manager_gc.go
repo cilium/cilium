@@ -50,7 +50,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		// marked active by the CT GC. Since we expire in this controller, we
 		// give these entries 2 cycles of TTL to allow for timing mismatches
 		// with the CT GC.
-		activeConnectionsTTL = int(2 * DNSGCJobInterval.Seconds())
+		activeConnectionsTTL = n.config.ActiveConnectionsTTL
 		activeConnections    = NewDNSCache(activeConnectionsTTL)
 	)
 	namesToClean := make(sets.Set[string])

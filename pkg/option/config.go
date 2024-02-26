@@ -434,6 +434,9 @@ const (
 	// ToFQDNsMinTTL is the minimum time, in seconds, to use DNS data for toFQDNs policies.
 	ToFQDNsMinTTL = "tofqdns-min-ttl"
 
+	// ToFQDNsActiveConnectionsTTL is the time for which connections should be idle for after the DNS TTL expires
+	ToFQDNsActiveConnectionsTTL = "tofqdns-active-connections-ttl"
+
 	// ToFQDNsProxyPort is the global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
 	ToFQDNsProxyPort = "tofqdns-proxy-port"
 
@@ -1761,23 +1764,24 @@ type DaemonConfig struct {
 	DeriveMasqIPAddrFromDevice  string
 	IPMasqAgentConfigPath       string
 
-	EnableBPFClockProbe     bool
-	EnableIPv4EgressGateway bool
-	EnableEnvoyConfig       bool
-	EnableIngressController bool
-	EnableGatewayAPI        bool
-	EnvoyConfigTimeout      time.Duration
-	InstallIptRules         bool
-	MonitorAggregation      string
-	PreAllocateMaps         bool
-	IPv6NodeAddr            string
-	IPv4NodeAddr            string
-	SidecarIstioProxyImage  string
-	SocketPath              string
-	TracePayloadlen         int
-	Version                 string
-	PrometheusServeAddr     string
-	ToFQDNsMinTTL           int
+	EnableBPFClockProbe         bool
+	EnableIPv4EgressGateway     bool
+	EnableEnvoyConfig           bool
+	EnableIngressController     bool
+	EnableGatewayAPI            bool
+	EnvoyConfigTimeout          time.Duration
+	InstallIptRules             bool
+	MonitorAggregation          string
+	PreAllocateMaps             bool
+	IPv6NodeAddr                string
+	IPv4NodeAddr                string
+	SidecarIstioProxyImage      string
+	SocketPath                  string
+	TracePayloadlen             int
+	Version                     string
+	PrometheusServeAddr         string
+	ToFQDNsMinTTL               int
+	ToFQDNsActiveConnectionsTTL int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules
@@ -3277,6 +3281,13 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	} else {
 		log.Fatalf("%s must be positive, or 0 to disable deferred connection deletion",
 			ToFQDNsMaxDeferredConnectionDeletes)
+	}
+	switch {
+	case vp.IsSet(ToFQDNsActiveConnectionsTTL): // set by user
+		c.ToFQDNsActiveConnectionsTTL = vp.GetInt(ToFQDNsActiveConnectionsTTL)
+	default:
+		log.Infof("Using default value for %s: %d", ToFQDNsActiveConnectionsTTL, defaults.ToFQDNsActiveConnectionsTTL)
+		c.ToFQDNsActiveConnectionsTTL = int(defaults.ToFQDNsActiveConnectionsTTL)
 	}
 	switch {
 	case vp.IsSet(ToFQDNsMinTTL): // set by user
