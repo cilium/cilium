@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ !github.event.merge_group }}
 
 env:
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 93125c39bdc637b9b646fb7aa45dbdc8e530999b
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   KIND_VERSION: v0.22.0

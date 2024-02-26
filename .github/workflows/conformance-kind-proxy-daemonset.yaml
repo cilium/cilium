@@ -24,7 +24,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   kind_version: v0.22.0
   kind_config: .github/kind-config.yaml
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 93125c39bdc637b9b646fb7aa45dbdc8e530999b
   CILIUM_CLI_MODE: helm
 
 jobs:

@@ -59,7 +59,7 @@ env:
   kind_version: v0.22.0
   # renovate: datasource=docker depName=kindest/node
   k8s_version: v1.29.2
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 93125c39bdc637b9b646fb7aa45dbdc8e530999b
 
   clusterName1: cluster1
   clusterName2: cluster2
