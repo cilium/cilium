@@ -22,7 +22,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.20.0
+  kind_version: v0.22.0
   cluster_name: cilium-testing
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
