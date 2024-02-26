@@ -76,7 +76,7 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 
 	device := strings.TrimRight(dev.String(), "\n\r")
 
-	if tunnelEnabled {
+	if tunnelEnabled && !wgEncap {
 		// When tunneling is enabled, and the traffic is routed to the cilium IP space
 		// we want to capture on the tunnel interface.
 		if device == defaults.HostDevice {
