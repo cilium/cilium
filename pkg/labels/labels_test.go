@@ -364,10 +364,19 @@ func TestLabels_Has(t *testing.T) {
 		{
 			name: "has label",
 			l: Labels{
-				"foo":   NewLabel("foo", "bar", "any"),
+				"foo":   NewLabel("foo", "bar", "k8s"),
 				"other": NewLabel("other", "bar", ""),
 			},
-			in:   NewLabel("foo", "bar", "my-source"),
+			in:   NewLabel("foo", "bar", "k8s"),
+			want: true,
+		},
+		{
+			name: "has label, any source",
+			l: Labels{
+				"foo":   NewLabel("foo", "bar", "k8s"),
+				"other": NewLabel("other", "bar", ""),
+			},
+			in:   NewLabel("foo", "bar", "any"),
 			want: true,
 		},
 		{
