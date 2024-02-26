@@ -33,6 +33,7 @@ enum ct_entry_type {
 	CT_ENTRY_ANY		= 0,
 	CT_ENTRY_NODEPORT	= (1 << 0),
 	CT_ENTRY_DSR		= (1 << 1),
+	CT_ENTRY_SVC		= (1 << 2),
 };
 
 #ifdef ENABLE_IPV4
@@ -247,9 +248,14 @@ ct_entry_expired_rebalance(const struct ct_entry *entry)
 
 static __always_inline bool
 ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
-		       __u32 ct_entry_types)
+		       __u32 ct_entry_types, const struct ct_state *state)
 {
 	if (ct_entry_types == CT_ENTRY_ANY)
+		return true;
+
+	/* Only match CT entries that were created for the expected service: */
+	if ((ct_entry_types & CT_ENTRY_SVC) &&
+	    entry->rev_nat_index == state->rev_nat_index)
 		return true;
 
 #ifdef ENABLE_NODEPORT
@@ -280,7 +286,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
-		if (!ct_entry_matches_types(entry, ct_entry_types))
+		if (!ct_entry_matches_types(entry, ct_entry_types, ct_state))
 			goto ct_new;
 
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
