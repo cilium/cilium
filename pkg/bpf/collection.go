@@ -92,6 +92,8 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 	// Discover all tailcalls that are reachable from the given program.
 	visit := func(prog *ebpf.ProgramSpec, tailcalls map[uint32]*TailCall) error {
 		log.Debugf("visiting section '%s' / prog '%s'", prog.SectionName, prog.Name)
+
+		realOff := 2
 		for i := 3; i < len(prog.Instructions); i++ {
 			// The `tail_call_static` C function is always used to call tail calls when
 			// the map index is known at compile time.
@@ -103,6 +105,10 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 
 			// Find the tail call instruction.
 			inst := prog.Instructions[i]
+			realOff++
+			if inst.OpCode.IsDWordLoad() {
+				realOff++
+			}
 			if !inst.IsBuiltinCall() || inst.Constant != int64(asm.FnTailCall) {
 				continue
 			}
@@ -110,14 +116,14 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 			// Check that the previous instruction is a mov of the tail call index.
 			movIdx := prog.Instructions[i-1]
 			if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
-				log.Debugf("found tail call @ %d, R3 mismatch, skipping", i)
+				log.Debugf("found tail call @ %d, R3 mismatch, skipping", realOff)
 				continue
 			}
 
 			// Check that the instruction before that is the load of the tail call map.
 			movR2 := prog.Instructions[i-2]
 			if movR2.OpCode != asm.LoadImmOp(asm.DWord) || movR2.Src != asm.PseudoMapFD {
-				log.Debugf("found tail call @ %d, R2 mismatch, skipping", i)
+				log.Debugf("found tail call @ %d, R2 mismatch, skipping", realOff)
 				continue
 			}
 
@@ -125,16 +131,16 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 
 			// Ignore static tail calls made to maps that are not the calls map
 			if !strings.Contains(ref, callsmap.MapName) || strings.Contains(ref, callsmap.CustomCallsMapName) {
-				log.Debugf("found tail call @ %d, reference '%s', not a calls map, skipping", i, ref)
+				log.Debugf("found tail call @ %d, reference '%s', not a calls map, skipping", realOff, ref)
 				continue
 			}
 
 			tc := tailcalls[uint32(movIdx.Constant)]
 			if tc == nil {
-				return fmt.Errorf("tail call to unknown index @ %d, potential missed tailcall", i)
+				return fmt.Errorf("tail call to unknown index '%d' @ %d, potential missed tailcall", movIdx.Constant, realOff)
 			}
 
-			log.Debugf("found tail call @ %d, referencing section '%s' / prog '%s'", i, tc.spec.SectionName, tc.spec.Name)
+			log.Debugf("found tail call @ %d, referencing section '%s' / prog '%s'", realOff, tc.spec.SectionName, tc.spec.Name)
 			tc.referenced = true
 		}
 
@@ -153,7 +159,9 @@ outer:
 	for {
 		for _, tailcall := range tailcalls {
 			if tailcall.referenced && !tailcall.visited {
-				visit(tailcall.spec, tailcalls)
+				if err := visit(tailcall.spec, tailcalls); err != nil {
+					return err
+				}
 				tailcall.visited = true
 				continue outer
 			}
