@@ -361,15 +361,35 @@ func resolveAWSEndpointResolver(cfg aws.Config, o *Options) {
 }
 
 func addClientUserAgent(stack *middleware.Stack, options Options) error {
-	if err := awsmiddleware.AddSDKAgentKeyValue(awsmiddleware.APIMetadata, "ssooidc", goModuleVersion)(stack); err != nil {
+	ua, err := getOrAddRequestUserAgent(stack)
+	if err != nil {
 		return err
 	}
 
+	ua.AddSDKAgentKeyValue(awsmiddleware.APIMetadata, "ssooidc", goModuleVersion)
 	if len(options.AppID) > 0 {
-		return awsmiddleware.AddSDKAgentKey(awsmiddleware.ApplicationIdentifier, options.AppID)(stack)
+		ua.AddSDKAgentKey(awsmiddleware.ApplicationIdentifier, options.AppID)
 	}
 
 	return nil
+}
+
+func getOrAddRequestUserAgent(stack *middleware.Stack) (*awsmiddleware.RequestUserAgent, error) {
+	id := (*awsmiddleware.RequestUserAgent)(nil).ID()
+	mw, ok := stack.Build.Get(id)
+	if !ok {
+		mw = awsmiddleware.NewRequestUserAgent()
+		if err := stack.Build.Add(mw, middleware.After); err != nil {
+			return nil, err
+		}
+	}
+
+	ua, ok := mw.(*awsmiddleware.RequestUserAgent)
+	if !ok {
+		return nil, fmt.Errorf("%T for %s middleware did not match expected type", mw, id)
+	}
+
+	return ua, nil
 }
 
 type HTTPSignerV4 interface {
@@ -390,12 +410,48 @@ func newDefaultV4Signer(o Options) *v4.Signer {
 	})
 }
 
-func addRetryMiddlewares(stack *middleware.Stack, o Options) error {
-	mo := retry.AddRetryMiddlewaresOptions{
-		Retryer:          o.Retryer,
-		LogRetryAttempts: o.ClientLogMode.IsRetries(),
+func addClientRequestID(stack *middleware.Stack) error {
+	return stack.Build.Add(&awsmiddleware.ClientRequestID{}, middleware.After)
+}
+
+func addComputeContentLength(stack *middleware.Stack) error {
+	return stack.Build.Add(&smithyhttp.ComputeContentLength{}, middleware.After)
+}
+
+func addRawResponseToMetadata(stack *middleware.Stack) error {
+	return stack.Deserialize.Add(&awsmiddleware.AddRawResponse{}, middleware.Before)
+}
+
+func addRecordResponseTiming(stack *middleware.Stack) error {
+	return stack.Deserialize.Add(&awsmiddleware.RecordResponseTiming{}, middleware.After)
+}
+func addStreamingEventsPayload(stack *middleware.Stack) error {
+	return stack.Finalize.Add(&v4.StreamingEventsPayload{}, middleware.Before)
+}
+
+func addUnsignedPayload(stack *middleware.Stack) error {
+	return stack.Finalize.Insert(&v4.UnsignedPayload{}, "ResolveEndpointV2", middleware.After)
+}
+
+func addComputePayloadSHA256(stack *middleware.Stack) error {
+	return stack.Finalize.Insert(&v4.ComputePayloadSHA256{}, "ResolveEndpointV2", middleware.After)
+}
+
+func addContentSHA256Header(stack *middleware.Stack) error {
+	return stack.Finalize.Insert(&v4.ContentSHA256Header{}, (*v4.ComputePayloadSHA256)(nil).ID(), middleware.After)
+}
+
+func addRetry(stack *middleware.Stack, o Options) error {
+	attempt := retry.NewAttemptMiddleware(o.Retryer, smithyhttp.RequestCloner, func(m *retry.Attempt) {
+		m.LogAttempts = o.ClientLogMode.IsRetries()
+	})
+	if err := stack.Finalize.Insert(attempt, "Signing", middleware.Before); err != nil {
+		return err
 	}
-	return retry.AddRetryMiddlewares(stack, mo)
+	if err := stack.Finalize.Insert(&retry.MetricsHeader{}, attempt.ID(), middleware.After); err != nil {
+		return err
+	}
+	return nil
 }
 
 // resolves dual-stack endpoint configuration
@@ -428,12 +484,18 @@ func resolveUseFIPSEndpoint(cfg aws.Config, o *Options) error {
 	return nil
 }
 
+func addRecursionDetection(stack *middleware.Stack) error {
+	return stack.Build.Add(&awsmiddleware.RecursionDetection{}, middleware.After)
+}
+
 func addRequestIDRetrieverMiddleware(stack *middleware.Stack) error {
-	return awsmiddleware.AddRequestIDRetrieverMiddleware(stack)
+	return stack.Deserialize.Insert(&awsmiddleware.RequestIDRetriever{}, "OperationDeserializer", middleware.Before)
+
 }
 
 func addResponseErrorMiddleware(stack *middleware.Stack) error {
-	return awshttp.AddResponseErrorMiddleware(stack)
+	return stack.Deserialize.Insert(&awshttp.ResponseErrorWrapper{}, "RequestIDRetriever", middleware.Before)
+
 }
 
 func addRequestResponseLogging(stack *middleware.Stack, o Options) error {
