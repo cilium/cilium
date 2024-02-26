@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -131,13 +131,13 @@ jobs:
             install/kubernetes/cilium
 
       - name: Create kind cluster
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config }}
 
       - name: Install Go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.21.6
@@ -219,7 +219,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdump-out-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}
           path: cilium-sysdump-out-*.zip
@@ -232,7 +232,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.gateway-api-conformance-test.result }}

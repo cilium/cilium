@@ -91,7 +91,7 @@ jobs:
           ref: ${{ steps.tag.outputs.tag }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8 # v3.2.0
+        uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
 
       # v1.13 branch pushes
       - name: Install Bom
@@ -338,7 +338,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest

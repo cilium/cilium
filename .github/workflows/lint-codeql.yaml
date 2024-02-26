@@ -23,7 +23,7 @@ jobs:
       go-changes: ${{ steps.go-changes.outputs.src }}
     steps:
       - name: Check code changes
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        uses: dorny/paths-filter@ebc4d7e9ebcb0b1eb21480bb8f43113e996ac77a # v3.0.1
         id: go-changes
         with:
           filters: |
@@ -47,9 +47,9 @@ jobs:
         persist-credentials: false
         fetch-depth: 1
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@305f6546310b9203e892c28c1484e82977f4f63d # v2.22.10
+      uses: github/codeql-action/init@47b3d888fe66b639e431abf22ebca059152f1eea # v3.24.5
       with:
         languages: go
         debug: true
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@305f6546310b9203e892c28c1484e82977f4f63d # v2.22.10
+      uses: github/codeql-action/analyze@47b3d888fe66b639e431abf22ebca059152f1eea # v3.24.5

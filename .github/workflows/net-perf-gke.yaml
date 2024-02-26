@@ -161,7 +161,7 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@32109b32259a487c803648a3c9463cdcafa4c0c3 # v0.15.19
+        uses: cilium/cilium-cli@7306e3cdc6caee738157f08e3e1ba26179f104e5 # v0.15.23
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -169,12 +169,12 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591 # v2.0.0
+        uses: google-github-actions/auth@55bd3a7c6e2ae7cf1877fd1ccb9d54c0503c457c # v2.1.2
         with:
           credentials_json: '${{ secrets.GCP_PERF_SA_KEY }}'
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@825196879a077b7efa50db2e88409f44de4635c2 # v2.0.0
+        uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: "405.0.0"
@@ -256,7 +256,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@8a522b9d71254b6f6615c296e41a70610c9615ea # main
+        uses: cilium/scale-tests-action/export-results@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
