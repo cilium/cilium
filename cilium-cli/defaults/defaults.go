@@ -47,23 +47,11 @@ const (
 	OperatorImageAWS           = "quay.io/cilium/operator-aws"
 	OperatorImageAzure         = "quay.io/cilium/operator-azure"
 
-	HubbleServerSecretName = "hubble-server-certs"
+	RelayContainerName  = "hubble-relay"
+	RelayDeploymentName = "hubble-relay"
+	RelayConfigMapName  = "hubble-relay-config"
 
-	RelayContainerName       = "hubble-relay"
-	RelayDeploymentName      = "hubble-relay"
-	RelayClusterRoleName     = "hubble-relay"
-	RelayServiceAccountName  = "hubble-relay"
-	RelayConfigMapName       = "hubble-relay-config"
-	RelayImage               = "quay.io/cilium/hubble-relay"
-	RelayServerSecretName    = "hubble-relay-server-certs"
-	RelayClientSecretName    = "hubble-relay-client-certs"
-	HubbleUIClientSecretName = "hubble-ui-client-certs"
-
-	HubbleUIClusterRoleName    = "hubble-ui"
-	HubbleUIServiceAccountName = "hubble-ui"
-	HubbleUIDeploymentName     = "hubble-ui"
-	HubbleUIImage              = "quay.io/cilium/hubble-ui"
-	HubbleUIBackendImage       = "quay.io/cilium/hubble-ui-backend"
+	HubbleUIDeploymentName = "hubble-ui"
 
 	ClusterMeshDeploymentName             = "clustermesh-apiserver"
 	ClusterMeshContainerName              = "apiserver"
@@ -148,25 +136,6 @@ var (
 	// ClusterMeshDeploymentLabels are the labels set on the clustermesh API server by default.
 	ClusterMeshDeploymentLabels = map[string]string{
 		"k8s-app": "clustermesh-apiserver",
-	}
-
-	// HubbleKeys are all hubble values from `cilium-config` configmap:
-	// https://github.com/cilium/cilium/blob/d9a04be9d714e5f5544cbca7ef8db7a151bfce96/install/kubernetes/cilium/templates/cilium-configmap.yaml#L709-L750
-	// this list is used to cherry-pick only hubble related values for configmap patch
-	// when running in unknown install state (i.e. when `cilium-cli-helm-values` doesn't exist)
-	HubbleKeys = []string{
-		"enable-hubble",
-		"hubble-disable-tls",
-		"hubble-event-buffer-capacity",
-		"hubble-event-queue-size",
-		"hubble-flow-buffer-size",
-		"hubble-listen-address",
-		"hubble-metrics",
-		"hubble-metrics-server",
-		"hubble-socket-path",
-		"hubble-tls-cert-file",
-		"hubble-tls-client-ca-files",
-		"hubble-tls-key-file",
 	}
 
 	// CiliumScheduleAffinity is the node affinity to prevent Cilium from being schedule on
