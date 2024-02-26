@@ -228,6 +228,21 @@ func TestKubernetesWithTransformAndQueryAll(t *testing.T) {
 		txn.Commit()
 	}
 
+	// Wait for the leftover pod to be removed. This is necessary, as we don't
+	// have a real api-server to cover the gap between the reflectors List and
+	// Watch calls. If the above transaction falls into that window, and we
+	// wouldn't wait for the removal here, it's possible that the Get query
+	// below would be invalidated by the removal of the leftover pod, instead
+	// signalling the addition of the expected pod. On the other hand, we cannot
+	// simply wait for this query to invalidate, as it is also possible that the
+	// leftover pod was removed before we query, here.
+	_, _, changed, leftover := table.FirstWatch(db.ReadTxn(), podNameIndex.Query("test1/leftover"))
+	if leftover {
+		<-changed
+	}
+	_, _, leftover = table.First(db.ReadTxn(), podNameIndex.Query("test1/leftover"))
+	require.False(t, leftover, "leftover pod should be gone")
+
 	_, watchAll := table.Get(db.ReadTxn(), podSourceIndex.Query("k8s"))
 
 	// Send a new pod and wait for table to update.
