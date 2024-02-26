@@ -4,7 +4,6 @@
 package utils
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -12,50 +11,6 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestCheckVersion(t *testing.T) {
-	tests := []struct {
-		version string
-		valid   bool
-	}{
-		{"0.0.1", true},
-		{"v0.0.1", true},
-		{"v1.9.6", true},
-		{"v1.9.6.5", false},
-		{"1.9.6", true},
-		{"1.9.6.5", false},
-		{"v1.10.0-rc1", true},
-		{"1.10.0-rc1", true},
-		{"1.14.0-snapshot.0", true},
-		{"10.42.0", true},
-		{"1.9", false},
-		{"v1.9", false},
-		{"1", false},
-		{"a01..0..0", false},
-		{".1.9", false},
-		{"..1.9", false},
-		{"1...9", false},
-		{"ddd", false},
-		{"v.1.9", false},
-		{"v..1.9", false},
-		{":latest", true},
-		{"92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", true},
-		{":92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", true},
-		{":92ff7ffa762f6f8bc397a28e6f3147906e20e8fa@sha256:4fde4abc19a1cbedb5084f683f5d91c0ea04b964a029e6d0ba43961e1ff5b5d8", true},
-		{"-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa", true},
-		{"-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa@sha256:4fde4abc19a1cbedb5084f683f5d91c0ea04b964a029e6d0ba43961e1ff5b5d8", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.version, func(t *testing.T) {
-			err := CheckVersion(tt.version)
-			if err != nil && tt.valid {
-				t.Errorf("CheckVersion(%q) = %v, want no error", tt.version, err)
-			} else if err == nil && !tt.valid {
-				t.Errorf("CheckVersion(%q) returned no error, want an error", tt.version)
-			}
-		})
-	}
-}
 
 func TestParseCiliumVersion(t *testing.T) {
 	tests := []struct {
@@ -103,88 +58,6 @@ func TestParseCiliumVersion(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("PetCiliumVersion(%q) = %v, want %v", tt.version, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestBuildImagePath(t *testing.T) {
-	tests := []struct {
-		userImage      string
-		userVersion    string
-		defaultImage   string
-		defaultVersion string
-		want           string
-	}{
-		{
-			userVersion:    "",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium:v1.10.4",
-		},
-		{
-			userVersion:    "v1.9.10",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium:v1.9.10",
-		},
-		{
-			userVersion:    "1.9.10",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium:v1.9.10",
-		},
-		{
-			userVersion:    "-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa",
-		},
-		{
-			userVersion:    ":latest",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium:latest",
-		},
-		{
-			userImage:      "quay.io/cilium/cilium-ci",
-			userVersion:    "v1.9.10",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium-ci:v1.9.10",
-		},
-		{
-			userImage:      "quay.io/cilium/cilium-ci",
-			userVersion:    "latest",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium-ci:latest",
-		},
-		{
-			userImage:      "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa",
-		},
-		{
-			userVersion:    "v1.11.0",
-			defaultImage:   "quay.io/cilium/cilium",
-			defaultVersion: "v1.10.4",
-			want:           "quay.io/cilium/cilium:v1.11.0",
-		},
-		{
-			userVersion:    "-service-mesh:v1.11.0-beta.1",
-			defaultImage:   "quay.io/cilium/hubble-relay",
-			defaultVersion: "v1.11.0",
-			want:           "quay.io/cilium/hubble-relay-service-mesh:v1.11.0-beta.1",
-		},
-	}
-	for _, tt := range tests {
-		ui, uv, di, dv := tt.userImage, tt.userVersion, tt.defaultImage, tt.defaultVersion
-		fn := fmt.Sprintf("BuildImagePath(%q, %q, %q, %q)", ui, uv, di, dv)
-		t.Run(fn, func(t *testing.T) {
-			if got := BuildImagePath(ui, uv, di, dv); got != tt.want {
-				t.Errorf("%s == %q, want %q", fn, got, tt.want)
 			}
 		})
 	}
