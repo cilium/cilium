@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -204,6 +205,18 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 
 	if err := compileCmd.Run(); err != nil {
 		err = fmt.Errorf("Failed to compile %s: %w", prog.Output, err)
+
+		// In linux/unix based implementations, cancelling the context for a cmd.Run() will
+		// return errors: "context cancelled" if the context is cancelled prior to the process
+		// starting and "signal: killed" if it is already running.
+		// This can mess up calling logging logic which expects the returned error to have
+		// context.Cancelled so we join this error in to fix that.
+		if errors.Is(ctx.Err(), context.Canceled) &&
+			compileCmd.ProcessState != nil &&
+			!compileCmd.ProcessState.Exited() &&
+			strings.HasSuffix(err.Error(), syscall.SIGKILL.String()) {
+			err = errors.Join(err, ctx.Err())
+		}
 
 		if !errors.Is(err, context.Canceled) {
 			log.WithFields(logrus.Fields{
