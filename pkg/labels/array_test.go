@@ -6,6 +6,7 @@ package labels
 import (
 	"net/netip"
 	"sort"
+	"strings"
 	"testing"
 
 	. "github.com/cilium/checkmate"
@@ -324,4 +325,64 @@ func TestLabelArray_Has(t *testing.T) {
 	} {
 		assert.Equal(t, expected, lbls.Has(key), key)
 	}
+}
+
+func TestLabelArray_Intersects(t *testing.T) {
+	for _, tc := range []struct {
+		a    string
+		b    string
+		want bool
+	}{
+		{
+			"k8s:foo=bar",
+			"k8s:foo=bar",
+			true,
+		},
+		{
+			"",
+			"k8s:foo=bar",
+			false,
+		},
+		{
+			"k8s:foo=bar",
+			"",
+			false,
+		},
+		{
+			"k8s:foo=bar",
+			"k8s:foo=baz",
+			false,
+		},
+		{
+			"k8s:foo=bar",
+			"any:foo=baz",
+			false,
+		},
+		{
+			"k8s:a=b k8s:a1=b1 k8s:c=d",
+			"k8s:a2=b2 k8s:c=d k8s:e=f",
+			true,
+		},
+		{
+			"k8s:foo=bar",
+			"any:foo=bar",
+			true,
+		},
+		{
+			"any:foo=bar",
+			"k8s:foo=bar",
+			false,
+		},
+	} {
+		la := ParseLabelArray(strings.Split(tc.a, " ")...)
+		lb := ParseLabelArray(strings.Split(tc.b, " ")...)
+		assert.Equal(t, tc.want, la.Intersects(lb), "[%s].Intersects([%s])", tc.a, tc.b)
+
+	}
+
+	// Test a careful CIDR case that catches naive sorting
+	la := GetCIDRLabels(netip.MustParsePrefix("11.11.11.11/32")).LabelArray()
+	lb := ParseLabelArray("cidr:110.0.0.0/8", "cidr:8.0.0.0/5")
+	assert.True(t, la.Intersects(lb))
+
 }
