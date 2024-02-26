@@ -66,8 +66,9 @@ func (s *immutableTypes) typeByID(id TypeID) (Type, bool) {
 // mutableTypes is a set of types which may be changed.
 type mutableTypes struct {
 	imm           immutableTypes
+	mu            *sync.RWMutex   // protects copies below
 	copies        map[Type]Type   // map[orig]copy
-	copiedTypeIDs map[Type]TypeID //map[copy]origID
+	copiedTypeIDs map[Type]TypeID // map[copy]origID
 }
 
 // add a type to the set of mutable types.
@@ -75,6 +76,20 @@ type mutableTypes struct {
 // Copies type and all of its children once. Repeated calls with the same type
 // do not copy again.
 func (mt *mutableTypes) add(typ Type, typeIDs map[Type]TypeID) Type {
+	mt.mu.RLock()
+	cpy, ok := mt.copies[typ]
+	mt.mu.RUnlock()
+
+	if ok {
+		// Fast path: the type has been copied before.
+		return cpy
+	}
+
+	// modifyGraphPreorder copies the type graph node by node, so we can't drop
+	// the lock in between.
+	mt.mu.Lock()
+	defer mt.mu.Unlock()
+
 	return modifyGraphPreorder(typ, func(t Type) (Type, bool) {
 		cpy, ok := mt.copies[t]
 		if ok {
@@ -98,9 +113,14 @@ func (mt *mutableTypes) add(typ Type, typeIDs map[Type]TypeID) Type {
 func (mt *mutableTypes) copy() mutableTypes {
 	mtCopy := mutableTypes{
 		mt.imm,
+		&sync.RWMutex{},
 		make(map[Type]Type, len(mt.copies)),
 		make(map[Type]TypeID, len(mt.copiedTypeIDs)),
 	}
+
+	// Prevent concurrent modification of mt.copiedTypeIDs.
+	mt.mu.RLock()
+	defer mt.mu.RUnlock()
 
 	copies := make(map[Type]Type, len(mt.copies))
 	for orig, copy := range mt.copies {
@@ -121,6 +141,9 @@ func (mt *mutableTypes) typeID(typ Type) (TypeID, error) {
 		// Equality is weird for void, since it is a zero sized type.
 		return 0, nil
 	}
+
+	mt.mu.RLock()
+	defer mt.mu.RUnlock()
 
 	id, ok := mt.copiedTypeIDs[typ]
 	if !ok {
@@ -343,6 +366,7 @@ func loadRawSpec(btf io.ReaderAt, bo binary.ByteOrder, base *Spec) (*Spec, error
 				typesByName,
 				bo,
 			},
+			&sync.RWMutex{},
 			make(map[Type]Type),
 			make(map[Type]TypeID),
 		},

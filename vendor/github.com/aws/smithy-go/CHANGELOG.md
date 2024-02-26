@@ -1,3 +1,9 @@
+# Release (2024-02-21)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.20.1
+  * **Bug Fix**: Remove runtime dependency on go-cmp.
+
 # Release (2024-02-13)
 
 ## Module Highlights

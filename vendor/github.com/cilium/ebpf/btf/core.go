@@ -43,7 +43,15 @@ func (f *COREFixup) Apply(ins *asm.Instruction) error {
 	if f.poison {
 		const badRelo = 0xbad2310
 
-		*ins = asm.BuiltinFunc(badRelo).Call()
+		// Relocation is poisoned, replace the instruction with an invalid one.
+
+		if ins.OpCode.IsDWordLoad() {
+			// Replace a dword load with a invalid dword load to preserve instruction size.
+			*ins = asm.LoadImm(asm.R10, badRelo, asm.DWord)
+		} else {
+			// Replace all single size instruction with a invalid call instruction.
+			*ins = asm.BuiltinFunc(badRelo).Call()
+		}
 		return nil
 	}
 

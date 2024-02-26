@@ -68,12 +68,12 @@ if [[ "${1:-}" = "--exec-vm" ]]; then
   fi
 
   for ((i = 0; i < 3; i++)); do
-    if ! $sudo virtme-run --kimg "${input}/boot/vmlinuz" --memory 768M --pwd \
+    if ! $sudo virtme-run --kimg "${input}/boot/vmlinuz" --cpus 2 --memory 768M --pwd \
       --rwdir="${testdir}=${testdir}" \
       --rodir=/run/input="${input}" \
       --rwdir=/run/output="${output}" \
-      --script-sh "$(quote_env "${preserved_env[@]}") \"$script\" --exec-test $cmd" \
-      --kopt possible_cpus=2; then # need at least two CPUs for some tests
+      --script-sh "$(quote_env "${preserved_env[@]}") \"$script\" \
+      --exec-test $cmd"; then
       exit 23
     fi
 
