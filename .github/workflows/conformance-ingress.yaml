@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -114,7 +114,7 @@ jobs:
             examples
 
       - name: Create minikube cluster with multiple nodes
-        uses: medyagh/setup-minikube@e0505489c98496aff6ed17db0ba68bf7ecadf730 # v0.0.14
+        uses: medyagh/setup-minikube@606b71970c783154fe49b711486c717f5780f485 # v0.0.15
         with:
           minikube-version: ${{ env.minikube_version }}
           network-plugin: cni
@@ -209,7 +209,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
@@ -222,7 +222,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.ingress-conformance-test.result }}
