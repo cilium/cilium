@@ -595,13 +595,13 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			bool __maybe_unused is_dsr = false;
 
 			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, ext_err, &is_dsr);
-
+#ifdef ENABLE_IPV6
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
 				return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
 							  ext_err);
 			}
-
+#endif
 			/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
 			 * place after L7 LB has processed the packet, so we
