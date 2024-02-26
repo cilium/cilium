@@ -872,6 +872,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (unlikely(svc->count == 0))
 		return DROP_NO_SERVICE;
 
+	state->rev_nat_index = svc->rev_nat_index;
+
 	/* See lb4_local comments re svc endpoint lookup process */
 	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, CT_SERVICE,
 			      SCOPE_REVERSE, CT_ENTRY_ANY, state, &monitor);
@@ -895,7 +897,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 
 		state->backend_id = backend_id;
-		state->rev_nat_index = svc->rev_nat_index;
 		state->proxy_redirect = false;
 		state->from_l7lb = false;
 
@@ -908,12 +909,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 		break;
 	case CT_REPLY:
-		/* See lb4_local comment */
-		if (state->rev_nat_index == 0) {
-			state->rev_nat_index = svc->rev_nat_index;
-			ct_update_rev_nat_index(map, tuple, state);
-		}
-
 		/* See lb4_local comment */
 		if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
@@ -1548,6 +1543,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (unlikely(svc->count == 0))
 		return DROP_NO_SERVICE;
 
+	state->rev_nat_index = svc->rev_nat_index;
+
 	ret = ct_lazy_lookup4(map, tuple, ctx, is_fragment, l4_off, has_l4_header,
 			      CT_SERVICE, SCOPE_REVERSE, CT_ENTRY_ANY, state, &monitor);
 	switch (ret) {
@@ -1571,7 +1568,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 
 		state->backend_id = backend_id;
-		state->rev_nat_index = svc->rev_nat_index;
 		state->proxy_redirect = false;
 		state->from_l7lb = false;
 
@@ -1584,17 +1580,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 		break;
 	case CT_REPLY:
-		/* For backward-compatibility we need to update reverse NAT
-		 * index in the CT_SERVICE entry for old connections, as later
-		 * in the code we check whether the right backend is used.
-		 * Having it set to 0 would trigger a new backend selection
-		 * which would in many cases would pick a different backend.
-		 */
-		if (unlikely(state->rev_nat_index == 0)) {
-			state->rev_nat_index = svc->rev_nat_index;
-			ct_update_rev_nat_index(map, tuple, state);
-		}
-
 		/* If the CT_SERVICE entry is from a non-related connection (e.g.
 		 * endpoint has been removed, but its CT entries were not (it is
 		 * totally possible due to the bug in DumpReliablyWithCallback)),
