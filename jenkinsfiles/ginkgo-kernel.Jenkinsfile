@@ -97,7 +97,7 @@ pipeline {
                         env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                         env.RACE = 1
                         env.LOCKDEBUG = 1
-                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:645ba2c3bb5a0aed5666f79287cbe965eb727530@sha256:e188764f45440519f8450c207113990f3e4a739a8ca0b25d0d6b7ece5644cb57"
+                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:6e58bd1d77ca7a8fa8bd9bafdc6fbd10b3b0c061@sha256:65779b9eda33d264fe2c2618454059f7e99c52a206824677bb92916c11de9ae0"
                     }
                 }
             }
