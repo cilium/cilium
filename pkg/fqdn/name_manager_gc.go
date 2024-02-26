@@ -23,9 +23,7 @@ const DNSGCJobInterval = 1 * time.Minute
 
 const dnsGCJobName = "dns-garbage-collector-job"
 
-var (
-	dnsGCControllerGroup = controller.NewGroup(dnsGCJobName)
-)
+var dnsGCControllerGroup = controller.NewGroup(dnsGCJobName)
 
 // This implements some garbage collection and cleanup functions for the NameManager
 
@@ -50,7 +48,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 		// marked active by the CT GC. Since we expire in this controller, we
 		// give these entries 2 cycles of TTL to allow for timing mismatches
 		// with the CT GC.
-		activeConnectionsTTL = int(2 * DNSGCJobInterval.Seconds())
+		activeConnectionsTTL = n.config.ActiveConnectionsTTL * int(DNSGCJobInterval.Seconds())
 		activeConnections    = NewDNSCache(activeConnectionsTTL)
 	)
 	namesToClean := make(sets.Set[string])
