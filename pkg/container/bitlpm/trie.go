@@ -56,21 +56,20 @@ type Trie[K, T any] interface {
 	Delete(prefix uint, key K) bool
 	// Len returns the number of entries in the Trie
 	Len() uint
-	// ForEach iterates over every element of the Trie.
-	// If the function argument returns false the iteration
-	// stops.
+	// ForEach iterates over every element of the Trie in no particular
+	// order. If the function argument returns false the iteration stops.
 	ForEach(fn func(uint, K, T) bool)
 }
 
 // Key is an interface that implements all the necessary
 // methods to index and retrieve keys.
 type Key[K any] interface {
-	// CommonPrefix returns the amount of bits that
+	// CommonPrefix returns the number of bits that
 	// are the same between this key and the argument
 	// value, starting from MSB.
 	CommonPrefix(K) uint
 	// BitValueAt returns the value of the bit at an argument
-	// index. MSB is 0 and LSB is n.
+	// index. MSB is 0 and LSB is n-1.
 	BitValueAt(uint) uint8
 	// Value returns the underlying value of the Key.
 	Value() K
@@ -102,28 +101,64 @@ type node[K, T any] struct {
 	value        T
 }
 
-// Lookup returns the longest prefix match to a specific
+// Lookup returns the value for the key with longest prefix match to the given
 // key.
 func (t *trie[K, T]) Lookup(k Key[K]) T {
 	// default return value
-	var ret T
-	t.Ancestors(t.maxPrefix, k, func(_ uint, _ Key[K], v T) bool {
-		ret = v
+	var empty T
+	ret := &empty
+	t.traverse(t.maxPrefix, k, func(currentNode *node[K, T], matchLen uint) bool {
+		ret = &currentNode.value
 		return true
 	})
-	return ret
+	return *ret
 }
 
-// Ancestors iterates over every prefix-key pair that contains the
-// prefix-key argument pair in order from shortest to longest prefix
-// match. If the Ancestors function argument returns false the
-// iteration will stop.
+// Ancestors calls the function argument for every prefix/key/value in the trie
+// that contains the prefix-key argument pair in order from shortest to longest
+// prefix match. If the function argument returns false the iteration stops.
 //
-// Ancestors starts traversal at the root key (or "node") in the trie.
+// Note: Ancestors sets any prefixLen argument that exceeds the maximum
+// prefix allowed by the trie to the maximum prefix allowed by the
+// trie.
+func (t *trie[K, T]) Ancestors(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
+	prefixLen = min(prefixLen, t.maxPrefix)
+	t.traverse(prefixLen, k, func(currentNode *node[K, T], matchLen uint) bool {
+		return fn(currentNode.prefixLen, currentNode.key, currentNode.value)
+	})
+}
+
+// Descendants calls the function argument for every prefix/key/value in the
+// trie that is contained by the prefix-key argument pair. If the function
+// argument returns false the iteration stops. Descendants does **not** iterate
+// over matches in any guaranteed order.
+//
+// Note: Descendants sets any prefixLen argument that exceeds the maximum
+// prefix allowed by the trie to the maximum prefix allowed by the
+// trie.
+func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
+	prefixLen = min(prefixLen, t.maxPrefix)
+	t.traverse(prefixLen, k, func(currentNode *node[K, T], matchLen uint) bool {
+		// Skip nodes with shorter match than the prefixLen argument.
+		if matchLen < prefixLen {
+			return true
+		}
+		// currentNode is the one with the shortest match of the
+		// prefix-key argument. Iterate it and all its descendants.
+		currentNode.forEach(fn)
+		return false
+	})
+}
+
+// traverse iterates over every prefix-key pair that contains the
+// prefix-key argument pair in order from shortest to longest prefix
+// match. If the function argument returns false the iteration will stop.
+//
+// traverse starts at the root node in the trie.
 // The key and prefix being searched (the "search" key and prefix) are
 // compared to the a trie node's key and prefix (the "node" key and
 // prefix) to determine the extent to which the keys match (from MSB to
-// LSB) up to the **least** specific (or lowest) prefix of the two keys
+// LSB) up to the **least** specific (or shortest) prefix of the two keys
 // (for example, if one of the keys has a prefix length of 2 and the other has
 // a prefix length of 3 then the two keys will be compared up to the 2nd bit).
 // If the key's match less than the node prefix (that is, the search
@@ -131,84 +166,28 @@ func (t *trie[K, T]) Lookup(k Key[K]) T {
 // If the key's match was greater than or equal to the node prefix
 // then the node key is iterated over as a potential match,
 // but traversal continues to ensure that there is not a more specific
-// (that is, higher) match. The next bit, after the match length (between
-// the pimary key and node key), on the primary key is looked up to
+// (that is, longer) match. The next bit, after the match length (between
+// the search key and node key), on the search key is looked up to
 // determine which children of the current node to traverse (to
 // check if there is a more specific match). If there is no child then
 // traversal ends. Otherwise traversal continues.
-//
-// Note: Ancestors sets any prefixLen argument that exceeds the maximum
-// prefix allowed by the trie to the maximum prefix allowed by the
-// trie.
-func (t *trie[K, T]) Ancestors(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
+func (t *trie[K, T]) traverse(prefixLen uint, k Key[K], fn func(currentNode *node[K, T], matchLen uint) bool) {
 	if k == nil {
 		return
 	}
-	prefixLen = min(prefixLen, t.maxPrefix)
-	currentNode := t.root
-	for currentNode != nil {
+	for currentNode := t.root; currentNode != nil; currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)] {
 		matchLen := prefixMatch(currentNode, prefixLen, k)
-		// The keys match to the maximum prefix allowed by
-		// the trie, we can stop searching.
-		if matchLen == t.maxPrefix {
-			if !currentNode.intermediate {
-				fn(currentNode.prefixLen, currentNode.key, currentNode.value)
-			}
-			return
-		}
-		// The current-node does not match,
-		// the last call was the last valid match.
+		// The current-node does not match.
 		if matchLen < currentNode.prefixLen {
 			return
 		}
-		if !currentNode.intermediate &&
-			!fn(currentNode.prefixLen, currentNode.key, currentNode.value) {
+		// Skip over intermediate nodes
+		if currentNode.intermediate {
+			continue
+		}
+		if !fn(currentNode, matchLen) || matchLen == t.maxPrefix {
 			return
 		}
-		currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
-	}
-}
-
-// Descendants iterates over every prefix-key pair that is contained
-// by the prefix-key argument pair. If the Descendants function argument
-// returns false the iteration will stop. Descendants does **not** iterate
-// over matches in any guaranteed order.
-//
-// Descendants starts traversal at the root key (or "node") in the trie.
-// The key and prefix being searched (the "search" key and prefix) are
-// compared to the a trie node's key and prefix (the "node" key and
-// prefix) to determine the extent to which the keys match (from MSB to
-// LSB) up to the **least** specific (or lowest) prefix of the two keys
-// (for example, if one of the keys has a prefix length of 2 and the other has
-// a prefix length of 3 then the two keys will be compared up to the 2nd bit).
-// If the key's match less than the node prefix (that is, the search
-// key did not fully match the node key) then the traversal continues,
-// without calls the argument function.
-// If the key's match was greater than or equal to the node prefix
-// then all descendants of that node are contained by that matching node,
-// and a simple forEach iteration finishes the traversal.
-//
-// Note: Descendants sets any prefixLen argument that exceeds the maximum
-// prefix allowed by the trie to the maximum prefix allowed by the
-// trie.
-func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
-	if k == nil {
-		return
-	}
-	prefixLen = min(prefixLen, t.maxPrefix)
-	searchNode := &node[K, T]{
-		key:       k,
-		prefixLen: prefixLen,
-	}
-	currentNode := t.root
-	for currentNode != nil {
-		matchLen := prefixMatch(searchNode, currentNode.prefixLen, currentNode.key)
-		// The currentNode matches the prefix-key argument.
-		if matchLen >= prefixLen {
-			currentNode.forEach(fn)
-			return
-		}
-		currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
 	}
 }
 
@@ -219,7 +198,7 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 //
 // Upsert starts with the root key (or "node"). The upsert key and node
 // key are compared for the match length between them (see the
-// `Ancestors` comments for details on how this works). If the match
+// `traverse` comments for details on how this works). If the match
 // length is exactly equal to the node prefix then traversal
 // continues as the next bit after the match length in the upsert key
 // corresponds to one of the two child slots that belong to the node
@@ -228,7 +207,7 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 // upsert prefix (these conditions are not mutually exclusive) then traversal
 // is finished. There are four possible insertion/replacement condtions
 // to consider:
-//  1. The node key is nil (that is, an empty "slot"), in which
+//  1. The node key is nil (that is, an empty children "slot"), in which
 //     case the previous key iterated over should be the upsert-key's
 //     parent. If there is no parent then the node key is now the
 //     root node.
@@ -247,8 +226,7 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 // Intermediate keys/nodes:
 // Sometimes when a new key is inserted it does not match any key up to
 // its own prefix or its closest matching key's prefix. When this
-// happens an intermediate key is inserted that has the closest matching
-// key's prefix with a new prefix that equals the match between the upsert
+// happens an intermediate node with the common prefix of the upsert
 // key and closest match key. The new intermediate key replaces the closest
 // match key's position in the trie and takes the closest match key and
 // upsert key as children.
@@ -256,21 +234,19 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 // For example, assuming a key size of 8 bytes, adding the prefix-keys of
 // "0b001/8"(1-1), "0b010/7"(2-3), and "0b100/6"(4-7) would follow this logic:
 //
-//  1. "0b001/8" gets added as the first key. It becomes the root key.
-//  2. "0b010/7" is added. It will match "0b001/8" (the root key) up to
-//     6 bits, because "0b010/7"'s 7th bit (which is prefixed/protected)
-//     is 1  and "0b001/8" has a prefixed/protected 7th bit of 0.
-//     In this case, an intermediate key will be created with a key of
-//     0b001 and a prefix of 6 (the extent to which "0b010/7"
-//     and "0b001/8" match). The new intermediate key, "0b001/6", will have
-//     children "0b001/8" (in the 0 slot) and "0b010/7" (in the 1 slot).
-//     This new intermediate key become the new root key.
+//  1. "0b001/8" gets added first. It becomes the root node.
+//  2. "0b010/7" is added. It will match "0b001/8" (the root node) up to
+//     6 bits, because "0b010/7"'s 7th bit is 1 and "0b001/8" has 7th bit of 0.
+//     In this case, an intermediate node "0b001/6" will be created (the extent
+//     to which "0b010/7" and "0b001/8" match). The new intermediate node will
+//     have children "0b001/8" (in the 0 slot) and "0b010/7" (in the 1 slot).
+//     This new intermediate node become the new root node.
 //  3. When "0b100/6" is added it will match the new root (which happens to
-//     be an intermediate key) "0b001/6" up to 5 bits. Therefore another
-//     intermediate key of "0b001/5" will be created, becoming the new root
-//     key. "0b001/6" will become the new intermediate key's child in the
-//     0 slot and "0b100/6" will be in the 1 slot. "0b001/5" becomes the
-//     new root key.
+//     be an intermediate node) "0b001/6" up to 5 bits. Therefore another
+//     intermediate node of "0b001/5" will be created, becoming the new root
+//     node. "0b001/6" will become the new intermediate node's child in the
+//     0 slot and "0b100/6" will become the other child in the 1 slot.
+//     "0b001/5" becomes the new root node.
 //
 // Note: Upsert sets any "prefixLen" argument that exceeds the maximum
 // prefix allowed by the trie to the maximum prefix allowed by the
@@ -325,20 +301,18 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 	//    upsert-node. Then the current-node should become a child
 	//    of the upsert-node.
 	// 3. The current-node does not match with the upsert-node,
-	//    but they overlap. Then an intermediate-node should replace
-	//    the current-node with a prefix equal to the match
-	//    extent between the current-node and the upsert-node.
+	//    but they overlap. Then a new intermediate-node should replace
+	//    the current-node with a prefix equal to the overlap.
 	//    The current-node and the upsert-node become children
-	//    of the intermediate node.
+	//    of the new intermediate node.
 	//
 	//    For example, given two keys, "current" and "upsert":
 	//        current: 0b1010/4
 	//        upsert:  0b1000/3
-	//    A new key of "0b1010/2" would then be added as an
-	//    intermediate key (note: the 3rd bit does not matter, but
-	//    unsetting is an extra operation). "current" would be a child of
-	//    intermediate at index "1" and "upsert" would be
-	//    at index "0".
+	//    A new key of "0b1010/2" would then be added as an intermediate key
+	//    (note: the 3rd bit does not matter, but unsetting is an extra
+	//    operation that we avoid). "current" would be a child of
+	//    intermediate at index "1" and "upsert" would be at index "0".
 
 	// The upsert-node matches the current-node up to the
 	// current-node's prefix, replace the current-node.
