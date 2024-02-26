@@ -15,6 +15,7 @@
 #include "lib/drop.h"
 #include "lib/eth.h"
 #include "linux/bpf.h"
+#include "lib/encap.h"
 
 /* the below structures are define outside of an IFDEF guard to satisfy
  * enterprise_bpf_alignchecker.c requirement
@@ -341,6 +342,7 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 				struct _mcast_ep_delivery_ctx *cb_ctx)
 {
 	int ret = 0;
+	__u32 tunnel_id = WORLD_ID;
 	__u8 from_overlay = 0;
 	struct bpf_tunnel_key tun_key = {0};
 
@@ -372,7 +374,13 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 		if (from_overlay)
 			return 0;
 
-		tun_key.tunnel_id = 2; /* WORLD ID FOR NOW */
+#ifdef ENABLE_ENCRYPTED_OVERLAY
+		/* if encrypted overlay is enabled we'll mark the packet for
+		 * encryption via the tunnel ID.
+		 */
+		tunnel_id = ENCRYPTED_OVERLAY_ID;
+#endif /* ENABLE_ENCRYPTED_OVERLAY */
+		tun_key.tunnel_id = tunnel_id;
 		tun_key.remote_ipv4 = bpf_ntohl(sub->saddr);
 		tun_key.tunnel_ttl = IPDEFTTL;
 
