@@ -1090,9 +1090,12 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 	union v6addr addr6;
 
 	ctx_get_v6_address(ctx, &addr6);
+#ifdef ENABLE_IPV4
 	if (is_v4_in_v6(&addr6)) {
 		return __sock4_health_fwd(ctx);
-	} else {
+	} else
+#endif /* ENABLE_IPV4 */
+    {
 #ifdef ENABLE_IPV6
 		__sock_cookie key = get_socket_cookie(ctx);
 		struct lb6_health *val = NULL;
