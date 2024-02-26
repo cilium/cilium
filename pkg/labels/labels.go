@@ -262,9 +262,24 @@ func (l *Label) IsReservedSource() bool {
 	return l.Source == LabelSourceReserved
 }
 
-// matches returns true if l matches the target
-func (l *Label) matches(target *Label) bool {
-	return l.Equals(target)
+// Has returns true label L contains target.
+// target may be "looser" w.r.t source, i.e.
+// "k8s:foo=bar".Has("any:foo=bar") is true
+// "any:foo=bar".Has("k8s:foo=bar") is false
+func (l *Label) Has(target *Label) bool {
+	return l.HasKey(target) && l.Value == target.Value
+}
+
+// HasKey returns true if l has target's key
+// target may be "looser" w.r.t source, i.e.
+// "k8s:foo=bar".HasKey("any:foo") is true
+// "any:foo=bar".HasKey("k8s:foo") is false
+func (l *Label) HasKey(target *Label) bool {
+	if !target.IsAnySource() && l.Source != target.Source {
+		return false
+	}
+
+	return l.Key == target.Key
 }
 
 // String returns the string representation of Label in the for of Source:Key=Value or
@@ -590,7 +605,7 @@ func (l Labels) IsReserved() bool {
 // Has returns true if l contains the given label.
 func (l Labels) Has(label Label) bool {
 	for _, lbl := range l {
-		if lbl.matches(&label) {
+		if lbl.Has(&label) {
 			return true
 		}
 	}
