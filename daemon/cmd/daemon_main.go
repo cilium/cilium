@@ -795,6 +795,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.ToFQDNsMinTTL, defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies")
 	option.BindEnv(vp, option.ToFQDNsMinTTL)
 
+	flags.Int(option.ToFQDNsActiveConnectionsTTL, defaults.ToFQDNsActiveConnectionsTTL, "Time after which idle DNS entries will be garbage collected, following TTL expiry")
+	option.BindEnv(vp, option.ToFQDNsActiveConnectionsTTL)
+
 	flags.Int(option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
 	option.BindEnv(vp, option.ToFQDNsProxyPort)
 
