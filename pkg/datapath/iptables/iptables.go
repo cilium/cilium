@@ -284,9 +284,9 @@ type reconcilerParams struct {
 	localNodeStore *node.LocalNodeStore
 	db             *statedb.DB
 	devices        statedb.Table[*tables.Device]
-	proxies        chan proxyInfo
-	addNoTrackPod  chan noTrackPodInfo
-	delNoTrackPod  chan noTrackPodInfo
+	proxies        chan reconciliationRequest[proxyInfo]
+	addNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
+	delNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
 }
 
 type params struct {
@@ -320,9 +320,9 @@ func newIptablesManager(p params) *Manager {
 			localNodeStore: p.LocalNodeStore,
 			db:             p.DB,
 			devices:        p.Devices,
-			proxies:        make(chan proxyInfo),
-			addNoTrackPod:  make(chan noTrackPodInfo),
-			delNoTrackPod:  make(chan noTrackPodInfo),
+			proxies:        make(chan reconciliationRequest[proxyInfo]),
+			addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+			delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
 		},
 		haveIp6tables:    true,
 		cniConfigManager: p.CNIConfigManager,
@@ -959,7 +959,9 @@ func (m *Manager) InstallNoTrackRules(ip netip.Addr, port uint16) {
 		return
 	}
 
-	m.reconcilerParams.addNoTrackPod <- noTrackPodInfo{ip, port}
+	reconciled := make(chan struct{})
+	m.reconcilerParams.addNoTrackPod <- reconciliationRequest[noTrackPodInfo]{noTrackPodInfo{ip, port}, reconciled}
+	<-reconciled
 }
 
 // See comments for InstallNoTrackRules.
@@ -969,11 +971,15 @@ func (m *Manager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 		return
 	}
 
-	m.reconcilerParams.delNoTrackPod <- noTrackPodInfo{ip, port}
+	reconciled := make(chan struct{})
+	m.reconcilerParams.delNoTrackPod <- reconciliationRequest[noTrackPodInfo]{noTrackPodInfo{ip, port}, reconciled}
+	<-reconciled
 }
 
 func (m *Manager) InstallProxyRules(proxyPort uint16, isLocalOnly bool, name string) {
-	m.reconcilerParams.proxies <- proxyInfo{name, proxyPort, isLocalOnly}
+	reconciled := make(chan struct{})
+	m.reconcilerParams.proxies <- reconciliationRequest[proxyInfo]{proxyInfo{name, proxyPort, isLocalOnly}, reconciled}
+	<-reconciled
 }
 
 func (m *Manager) doInstallProxyRules(proxyPort uint16, localOnly bool, name string) error {
