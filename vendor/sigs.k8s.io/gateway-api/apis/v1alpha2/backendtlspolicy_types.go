@@ -85,7 +85,8 @@ type BackendTLSPolicyConfig struct {
 	// If CACertRefs is empty or unspecified, then WellKnownCACerts must be
 	// specified. Only one of CACertRefs or WellKnownCACerts may be specified,
 	// not both. If CACertRefs is empty or unspecified, the configuration for
-	// WellKnownCACerts MUST be honored instead.
+	// WellKnownCACerts MUST be honored instead if supported by the
+	// implementation.
 	//
 	// References to a resource in a different namespace are invalid for the
 	// moment, although we will revisit this in the future.
@@ -109,9 +110,12 @@ type BackendTLSPolicyConfig struct {
 	//
 	// If WellKnownCACerts is unspecified or empty (""), then CACertRefs must be
 	// specified with at least one entry for a valid configuration. Only one of
-	// CACertRefs or WellKnownCACerts may be specified, not both.
+	// CACertRefs or WellKnownCACerts may be specified, not both. If an
+	// implementation does not support the WellKnownCACerts field or the value
+	// supplied is not supported, the Status Conditions on the Policy MUST be
+	// updated to include an Accepted: False Condition with Reason: Invalid.
 	//
-	// Support: Core for "System"
+	// Support: Implementation-specific
 	//
 	// +optional
 	WellKnownCACerts *WellKnownCACertType `json:"wellKnownCACerts,omitempty"`
