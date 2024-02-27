@@ -85,10 +85,10 @@ func (p *PolicyWatcher) updateCIDRGroupRefPolicies(
 	return errors.Join(errs...)
 }
 
-func (p *PolicyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP) *types.SlimCNP {
+func (p *PolicyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP) {
 	refs := getCIDRGroupRefs(cnp)
 	if len(refs) == 0 {
-		return cnp
+		return
 	}
 
 	cidrsSets, err := p.cidrGroupRefsToCIDRsSets(refs)
@@ -101,9 +101,7 @@ func (p *PolicyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP) *types.SlimCNP {
 		}).WithError(err).Warning("Unable to translate all CIDR groups to CIDRs")
 	}
 
-	translated := translateCIDRGroupRefs(cnp, cidrsSets)
-
-	return translated
+	translateCIDRGroupRefs(cnp, cidrsSets)
 }
 
 func hasCIDRGroupRef(cnp *types.SlimCNP, cidrGroup string) bool {
@@ -195,18 +193,15 @@ func (p *PolicyWatcher) cidrGroupRefsToCIDRsSets(cidrGroupRefs []string) (map[st
 	return cidrsSet, errors.Join(errs...)
 }
 
-func translateCIDRGroupRefs(cnp *types.SlimCNP, cidrsSets map[string][]api.CIDR) *types.SlimCNP {
-	cnpCpy := cnp.DeepCopy()
-
-	if cnpCpy.Spec != nil {
-		translateSpec(cnpCpy.Spec, cidrsSets)
+func translateCIDRGroupRefs(cnp *types.SlimCNP, cidrsSets map[string][]api.CIDR) {
+	if cnp.Spec != nil {
+		translateSpec(cnp.Spec, cidrsSets)
 	}
-	for i := range cnpCpy.Specs {
-		if cnpCpy.Specs[i] != nil {
-			translateSpec(cnpCpy.Specs[i], cidrsSets)
+	for i := range cnp.Specs {
+		if cnp.Specs[i] != nil {
+			translateSpec(cnp.Specs[i], cidrsSets)
 		}
 	}
-	return cnpCpy
 }
 
 func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {

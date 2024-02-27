@@ -95,16 +95,16 @@ func (p *PolicyWatcher) resolveCiliumNetworkPolicyRefs(
 	// We need to deepcopy this structure because we are writing
 	// fields in cnp.Parse() in upsertCiliumNetworkPolicyV2.
 	// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
-	cnpCpy := cnp.DeepCopy()
+	translatedCNP := cnp.DeepCopy()
 
 	// Resolve CiliumCIDRGroup references
 	translationStart := time.Now()
-	translatedCNP := p.resolveCIDRGroupRef(cnpCpy)
+	p.resolveCIDRGroupRef(translatedCNP)
 	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 	if err == nil {
-		p.cnpCache[key] = cnpCpy
+		p.cnpCache[key] = cnp
 	}
 
 	return err

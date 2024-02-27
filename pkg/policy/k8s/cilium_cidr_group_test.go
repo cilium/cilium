@@ -1350,9 +1350,9 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := translateCIDRGroupRefs(tc.cnp, tc.cidrsSets)
-			if !reflect.DeepEqual(got, tc.expected) {
-				t.Fatalf("expected translated cnp to be\n%v\n, got\n%v\n", tc.expected, got)
+			translateCIDRGroupRefs(tc.cnp, tc.cidrsSets)
+			if !reflect.DeepEqual(tc.cnp, tc.expected) {
+				t.Fatalf("expected translated cnp to be\n%v\n, got\n%v\n", tc.expected, tc.cnp)
 			}
 		})
 	}
