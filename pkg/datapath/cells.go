@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
+	"github.com/cilium/cilium/pkg/datapath/orchestrator"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -111,6 +112,8 @@ var Cell = cell.Module(
 	// MTU provides the MTU configuration of the node.
 	mtu.Cell,
 
+	orchestrator.Cell,
+
 	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
 		return dp.NodeIDs()
 	}),
@@ -170,6 +173,7 @@ func newDatapath(params datapathParams) types.Datapath {
 		NodeManager:    params.NodeManager,
 		DB:             params.DB,
 		Devices:        params.Devices,
+		Orchestrator:   params.Orchestrator,
 	}, datapathConfig)
 
 	params.LC.Append(cell.Hook{
@@ -216,4 +220,6 @@ type datapathParams struct {
 	Loader loaderTypes.Loader
 
 	NodeManager nodeManager.NodeManager
+
+	Orchestrator types.Orchestrator
 }
