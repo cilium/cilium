@@ -57,7 +57,7 @@ type Proxy interface {
 type IptablesManager interface {
 	// InstallProxyRules creates the necessary datapath config (e.g., iptables
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
-	InstallProxyRules(proxyPort uint16, isLocalOnly bool, name string)
+	InstallProxyRules(proxyPort uint16, localOnly bool, name string)
 
 	// SupportsOriginalSourceAddr tells if the datapath supports
 	// use of original source addresses in proxy upstream
