@@ -90,7 +90,7 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 	return config.nodeSelector.Matches(k8sLabels.Set(node.Labels))
 }
 
-func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
+func (config *PolicyConfig) regenerateGatewayConfig(nodes []nodeTypes.Node) {
 	gwc := gatewayConfig{
 		egressIP:  netip.IPv4Unspecified(),
 		gatewayIP: GatewayNotFoundIPv4,
@@ -98,7 +98,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 	policyGwc := config.policyGwConfig
 
-	for _, node := range manager.nodes {
+	for _, node := range nodes {
 		if !policyGwc.selectsNodeAsGateway(node) {
 			continue
 		}

@@ -540,7 +540,7 @@ func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 
 func (manager *Manager) regenerateGatewayConfigs() {
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.regenerateGatewayConfig(manager)
+		policyConfig.regenerateGatewayConfig(manager.nodes)
 	}
 }
 
