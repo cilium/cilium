@@ -19,7 +19,6 @@ require (
 	github.com/cilium/tetragon/pkg/k8s v0.0.0-20231127174521-c97da4b42413
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
-	github.com/distribution/reference v0.5.0
 	github.com/go-openapi/strfmt v0.22.0
 	github.com/google/gops v0.3.28
 	github.com/mholt/archiver/v3 v3.5.1

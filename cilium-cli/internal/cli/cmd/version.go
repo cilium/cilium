@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,7 +43,7 @@ func newCmdVersion() *cobra.Command {
 			if clientOnly {
 				return nil
 			}
-			version, err := k8sClient.GetRunningCiliumVersion(context.Background(), namespace)
+			version, err := k8sClient.GetRunningCiliumVersion(namespace)
 			if err != nil {
 				fmt.Printf("cilium image (running): unknown. Unable to obtain cilium version. Reason: %s\n", err.Error())
 			} else {

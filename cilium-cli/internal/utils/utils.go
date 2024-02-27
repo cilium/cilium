@@ -5,7 +5,6 @@ package utils
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/blang/semver/v4"
@@ -13,13 +12,6 @@ import (
 
 func ParseCiliumVersion(version string) (semver.Version, error) {
 	return semver.ParseTolerant(version)
-}
-
-const CLIModeVariableName = "CILIUM_CLI_MODE"
-
-// IsInHelmMode returns true if cilium-cli is in "helm" mode. Otherwise, it returns false.
-func IsInHelmMode() bool {
-	return os.Getenv(CLIModeVariableName) != "classic"
 }
 
 func MustParseBool(v string) bool {
