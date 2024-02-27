@@ -736,4 +736,7 @@ const (
 
 	// State is the state of an individual component (apiserver, kvstore etc)
 	State = "state"
+
+	// EtcdClusterID is the ID of the etcd cluster
+	EtcdClusterID = "etcdClusterID"
 )
