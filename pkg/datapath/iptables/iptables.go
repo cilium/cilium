@@ -332,7 +332,8 @@ func newIptablesManager(p params) *Manager {
 		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.HealthReporter) error {
 			return reconciliationLoop(
 				ctx, p.Logger, health,
-				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams, iptMgr.doInstallRules,
+				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
+				iptMgr.doInstallRules, iptMgr.doInstallProxyRules,
 			)
 		}),
 	)

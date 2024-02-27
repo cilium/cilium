@@ -97,6 +97,7 @@ func reconciliationLoop(
 	installIptRules bool,
 	params *reconcilerParams,
 	updateRules func(state desiredState, firstInit bool) error,
+	updateProxyRules func(proxyPort uint16, ingress, localOnly bool, name string) error,
 ) error {
 	// The minimum interval between reconciliation attempts
 	const minReconciliationInterval = time.Second / 5
@@ -150,15 +151,36 @@ stop:
 			}
 			state.localNodeInfo = localNodeInfo
 			stateChanged = true
-		case proxyInfo, ok := <-params.proxies:
+		case newProxyInfo, ok := <-params.proxies:
 			if !ok {
 				break stop
 			}
-			if state.proxies.Has(proxyInfo) {
+			if state.proxies.Has(newProxyInfo) {
 				continue
 			}
-			state.proxies.Insert(proxyInfo)
-			stateChanged = true
+
+			// first, remove previous entries related to the same proxy name (see Manager.addProxyRules)
+			for info := range state.proxies {
+				if info.name == newProxyInfo.name {
+					delete(state.proxies, info)
+				}
+			}
+			// then, insert the new proxy
+			state.proxies.Insert(newProxyInfo)
+
+			if !firstInit {
+				// first init not yet completed, proxy rules will be updated as part of that
+				stateChanged = true
+				continue
+			}
+
+			if err := updateProxyRules(newProxyInfo.port, newProxyInfo.isIngress, newProxyInfo.isLocalOnly, newProxyInfo.name); err != nil {
+				health.Degraded("iptables proxy rules incremental update failed, will retry a full reconciliation", err)
+				// incremental rules update failed, schedule a full iptables reconciliation
+				stateChanged = true
+			} else {
+				health.OK("iptables proxy rules update completed")
+			}
 		case noTrackPod, ok := <-params.addNoTrackPod:
 			if !ok {
 				break stop
