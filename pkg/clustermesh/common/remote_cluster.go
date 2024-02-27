@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -138,7 +139,9 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			DoFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
 
-				extraOpts := rc.makeExtraOpts()
+				clusterLock := newClusterLock()
+
+				extraOpts := rc.makeExtraOpts(clusterLock)
 
 				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
 					rc.makeEtcdOpts(), &extraOpts)
@@ -160,7 +163,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.backend = backend
 				rc.mutex.Unlock()
 
-				rc.logger.Info("Connection to remote cluster established")
+				rc.logger.WithField(logfields.ClusterID, clusterLock.clusterId.Load()).Info("Connection to remote cluster established")
 
 				config, err := rc.getClusterConfig(ctx, backend, rc.ClusterConfigRequired())
 				if err == nil && config == nil {
@@ -175,7 +178,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				ctx, cancel := context.WithCancel(ctx)
 				rc.wg.Add(1)
 				go func() {
-					rc.watchdog(ctx, backend)
+					rc.watchdog(ctx, backend, clusterLock)
 					rc.wg.Done()
 				}()
 
@@ -210,20 +213,28 @@ func (rc *remoteCluster) restartRemoteConnection() {
 	)
 }
 
-func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOperations) {
+func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOperations, clusterLock *clusterLock) {
+	handleError := func(err error) {
+		rc.logger.WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
+		rc.mutex.Lock()
+		rc.failures++
+		rc.lastFailure = time.Now()
+		rc.metricLastFailureTimestamp.SetToCurrentTime()
+		rc.metricTotalFailures.Set(float64(rc.failures))
+		rc.metricReadinessStatus.Set(metrics.BoolToFloat64(rc.isReadyLocked()))
+		rc.mutex.Unlock()
+
+		rc.restartRemoteConnection()
+	}
 	select {
 	case err, ok := <-backend.StatusCheckErrors():
 		if ok && err != nil {
-			rc.logger.WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
-			rc.mutex.Lock()
-			rc.failures++
-			rc.lastFailure = time.Now()
-			rc.metricLastFailureTimestamp.SetToCurrentTime()
-			rc.metricTotalFailures.Set(float64(rc.failures))
-			rc.metricReadinessStatus.Set(metrics.BoolToFloat64(rc.isReadyLocked()))
-			rc.mutex.Unlock()
+			handleError(err)
+		}
 
-			rc.restartRemoteConnection()
+	case err, ok := <-clusterLock.errors:
+		if ok && err != nil {
+			handleError(err)
 		}
 
 	case <-ctx.Done():
@@ -318,8 +329,11 @@ func (rc *remoteCluster) makeEtcdOpts() map[string]string {
 	return opts
 }
 
-func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
+func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOptions {
 	var dialOpts []grpc.DialOption
+
+	dialOpts = append(dialOpts, grpc.WithStreamInterceptor(newStreamInterceptor(clusterLock)), grpc.WithUnaryInterceptor(newUnaryInterceptor(clusterLock)))
+
 	if rc.serviceIPGetter != nil {
 		// Allow to resolve service names without depending on the DNS. This prevents the need
 		// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
