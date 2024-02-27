@@ -96,9 +96,7 @@ func (b *BGPResourceManager) reconcileBGPPAdvertisement(ctx context.Context, bgp
 				advertisements = append(advertisements, cilium_api_v2alpha1.BGPAdvertisement{
 					AdvertisementType: cilium_api_v2alpha1.BGPServiceAdvert,
 					Service: &cilium_api_v2alpha1.BGPServiceOptions{
-						Addresses: []cilium_api_v2alpha1.BGPServiceAddressType{
-							cilium_api_v2alpha1.BGPLoadBalancerIPAddr,
-						},
+						Addresses: vr.ServiceAdvertisements,
 					},
 					Selector:   vr.ServiceSelector,
 					Attributes: getAttributes(neigh, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolSelectorName),

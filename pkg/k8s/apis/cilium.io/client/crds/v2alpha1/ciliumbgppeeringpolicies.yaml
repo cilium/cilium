@@ -506,6 +506,21 @@ spec:
                             only "value". The requirements are ANDed.
                           type: object
                       type: object
+                    serviceAdvertisements:
+                      default:
+                      - LoadBalancerIP
+                      description: ServiceAdvertisements selects a group of BGP Advertisement(s)
+                        to advertise for the selected services.
+                      items:
+                        description: "BGPServiceAddressType defines type of service
+                          address to be advertised. \n Note list of supported service
+                          addresses is not exhaustive and can be extended in the future.
+                          Consumer of this API should be able to handle unknown values."
+                        enum:
+                        - LoadBalancerIP
+                        - ClusterIP
+                        type: string
+                      type: array
                     serviceSelector:
                       description: "ServiceSelector selects a group of load balancer
                         services which this virtual router will announce. The loadBalancerClass

@@ -40,7 +40,7 @@ var ConfigReconcilers = cell.Provide(
 	NewNeighborReconciler,
 	NewExportPodCIDRReconciler,
 	NewPodIPPoolReconciler,
-	NewLBServiceReconciler,
+	NewServiceReconciler,
 	NewRoutePolicyReconciler,
 )
 

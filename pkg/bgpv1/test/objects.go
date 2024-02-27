@@ -88,6 +88,32 @@ func newLBServiceObj(conf lbSrvConfig) slim_core_v1.Service {
 	return srvObj
 }
 
+// clusterIPSrvConfig contains ClusterIP service configuration data
+type clusterIPSrvConfig struct {
+	name      string
+	clusterIP string
+}
+
+// newClusterIPServiceObj creates slim_core_v1.Service object based on lbSrvConfig
+func newClusterIPServiceObj(conf clusterIPSrvConfig) slim_core_v1.Service {
+	srvObj := slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name: conf.name,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type:       slim_core_v1.ServiceTypeClusterIP,
+			ClusterIP:  conf.clusterIP,
+			ClusterIPs: []string{conf.clusterIP},
+		},
+	}
+
+	srvObj.Status = slim_core_v1.ServiceStatus{
+		LoadBalancer: slim_core_v1.LoadBalancerStatus{},
+	}
+
+	return srvObj
+}
+
 // lbSrvConfig contains lb service configuration data
 type lbPoolConfig struct {
 	name   string
