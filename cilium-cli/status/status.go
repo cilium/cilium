@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 const (
@@ -380,9 +379,7 @@ func (s *Status) Format() string {
 
 	fmt.Fprintf(w, "Cluster Pods:\t%s\n", formatPodsCount(s.PodsCount))
 
-	if utils.IsInHelmMode() {
-		fmt.Fprintf(w, "Helm chart version:\t%s\n", s.HelmChartVersion)
-	}
+	fmt.Fprintf(w, "Helm chart version:\t%s\n", s.HelmChartVersion)
 	if len(s.ImageCount) > 0 {
 		header := "Image versions"
 		for name, imageCount := range s.ImageCount {
