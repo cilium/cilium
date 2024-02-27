@@ -189,6 +189,8 @@ func (g *GC) checkIfCEPShouldBeDeleted(cep *cilium_api_v2.CiliumEndpoint, scoped
 			if result.validated {
 				return result.shouldBeDeleted
 			}
+		default:
+			return false
 		}
 	}
 	if !podChecked {
