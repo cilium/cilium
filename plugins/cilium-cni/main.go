@@ -337,7 +337,7 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 func setupLogging(n *types.NetConf) error {
 	f := n.LogFormat
 	if f == "" {
-		f = string(logging.DefaultLogFormat)
+		f = string(logging.DefaultLogFormatTimestamp)
 	}
 	logOptions := logging.LogOptions{
 		logging.FormatOpt: f,
