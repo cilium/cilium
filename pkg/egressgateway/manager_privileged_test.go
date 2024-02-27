@@ -122,6 +122,7 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 	k.endpoints = make(fakeResource[*k8sTypes.CiliumEndpoint])
 	var (
 		pct statedb.RWTable[PolicyConfig]
+		emt statedb.RWTable[endpointMetadata]
 		db  *statedb.DB
 	)
 
@@ -130,12 +131,15 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 		cell.ProvidePrivate(
 			NewPolicyConfigTable,
 			statedb.RWTable[PolicyConfig].ToTable,
+			NewEndpointMetadataTable,
+			statedb.RWTable[endpointMetadata].ToTable,
 		),
 		cell.Invoke(
-			statedb.RegisterTable[PolicyConfig],
-			func(d *statedb.DB, pt statedb.RWTable[PolicyConfig]) {
+			statedb.RegisterTable[PolicyConfig], statedb.RegisterTable[endpointMetadata],
+			func(d *statedb.DB, pt statedb.RWTable[PolicyConfig], et statedb.RWTable[endpointMetadata]) {
 				db = d
 				pct = pt
+				emt = et
 			}),
 	).Populate()
 
@@ -144,16 +148,17 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 
 	var err error
 	k.manager, err = newEgressGatewayManager(Params{
-		Lifecycle:         lc,
-		Config:            Config{true, 1 * time.Millisecond},
-		DaemonConfig:      &option.DaemonConfig{},
-		IdentityAllocator: identityAllocator,
-		PolicyMap:         policyMap,
-		Policies:          k.policies,
-		Nodes:             k.nodes,
-		Endpoints:         k.endpoints,
-		DB:                db,
-		PolicyConfigTable: pct,
+		Lifecycle:             lc,
+		Config:                Config{true, 1 * time.Millisecond},
+		DaemonConfig:          &option.DaemonConfig{},
+		IdentityAllocator:     identityAllocator,
+		PolicyMap:             policyMap,
+		Policies:              k.policies,
+		Nodes:                 k.nodes,
+		Endpoints:             k.endpoints,
+		DB:                    db,
+		PolicyConfigTable:     pct,
+		EndpointMetadataTable: emt,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(k.manager, NotNil)
@@ -701,6 +706,7 @@ func BenchmarkReconcileMap(b *testing.B) {
 		nodes     = make(fakeResource[*cilium_api_v2.CiliumNode])
 		endpoints = make(fakeResource[*k8sTypes.CiliumEndpoint])
 		pct       statedb.RWTable[PolicyConfig]
+		emt       statedb.RWTable[endpointMetadata]
 		db        *statedb.DB
 	)
 
@@ -709,12 +715,15 @@ func BenchmarkReconcileMap(b *testing.B) {
 		cell.ProvidePrivate(
 			NewPolicyConfigTable,
 			statedb.RWTable[PolicyConfig].ToTable,
+			NewEndpointMetadataTable,
+			statedb.RWTable[endpointMetadata].ToTable,
 		),
 		cell.Invoke(
-			statedb.RegisterTable[PolicyConfig],
-			func(d *statedb.DB, pt statedb.RWTable[PolicyConfig]) {
+			statedb.RegisterTable[PolicyConfig], statedb.RegisterTable[endpointMetadata],
+			func(d *statedb.DB, pt statedb.RWTable[PolicyConfig], et statedb.RWTable[endpointMetadata]) {
 				db = d
 				pct = pt
+				emt = et
 			}),
 	).Populate()
 
@@ -722,16 +731,17 @@ func BenchmarkReconcileMap(b *testing.B) {
 	policyMap := FakeEgressPolicyMap{backingMap: make(map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4)}
 
 	manager, err := newEgressGatewayManager(Params{
-		Lifecycle:         lc,
-		Config:            Config{false, 1 * time.Millisecond},
-		DaemonConfig:      &option.DaemonConfig{},
-		IdentityAllocator: identityAllocator,
-		PolicyMap:         &policyMap,
-		Policies:          policies,
-		Nodes:             nodes,
-		Endpoints:         endpoints,
-		DB:                db,
-		PolicyConfigTable: pct,
+		Lifecycle:             lc,
+		Config:                Config{false, 1 * time.Millisecond},
+		DaemonConfig:          &option.DaemonConfig{},
+		IdentityAllocator:     identityAllocator,
+		PolicyMap:             &policyMap,
+		Policies:              policies,
+		Nodes:                 nodes,
+		Endpoints:             endpoints,
+		DB:                    db,
+		PolicyConfigTable:     pct,
+		EndpointMetadataTable: emt,
 	})
 	if err != nil {
 		b.Error(err)

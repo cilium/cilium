@@ -76,7 +76,7 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 }
 
 // updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]endpointMetadata) {
+func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore []endpointMetadata) {
 	config.matchedEndpoints = make(map[endpointID]endpointMetadata)
 
 	for _, endpoint := range epDataStore {

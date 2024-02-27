@@ -60,8 +60,10 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		NewPolicyConfigTable,
 		statedb.RWTable[PolicyConfig].ToTable,
+		NewEndpointMetadataTable,
+		statedb.RWTable[endpointMetadata].ToTable,
 	),
-	cell.Invoke(statedb.RegisterTable[PolicyConfig]),
+	cell.Invoke(statedb.RegisterTable[PolicyConfig], statedb.RegisterTable[endpointMetadata]),
 )
 
 type eventType int
@@ -124,8 +126,8 @@ type Manager struct {
 	// policyConfigs stores policy configs in a statedb table
 	policyConfigs statedb.RWTable[PolicyConfig]
 
-	// epDataStore stores endpointId to endpoint metadata mapping
-	epDataStore map[endpointID]endpointMetadata
+	// epDataStore stores endpointMetadata in a statedb table
+	edpDataStore statedb.RWTable[endpointMetadata]
 
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
@@ -155,14 +157,15 @@ type Manager struct {
 type Params struct {
 	cell.In
 
-	Config            Config
-	DaemonConfig      *option.DaemonConfig
-	IdentityAllocator identityCache.IdentityAllocator
-	PolicyMap         egressmap.PolicyMap
-	Policies          resource.Resource[*Policy]
-	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
-	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
-	PolicyConfigTable statedb.RWTable[PolicyConfig]
+	Config                Config
+	DaemonConfig          *option.DaemonConfig
+	IdentityAllocator     identityCache.IdentityAllocator
+	PolicyMap             egressmap.PolicyMap
+	Policies              resource.Resource[*Policy]
+	Nodes                 resource.Resource[*cilium_api_v2.CiliumNode]
+	Endpoints             resource.Resource[*k8sTypes.CiliumEndpoint]
+	PolicyConfigTable     statedb.RWTable[PolicyConfig]
+	EndpointMetadataTable statedb.RWTable[endpointMetadata]
 
 	Lifecycle cell.Lifecycle
 	DB        *statedb.DB
@@ -226,7 +229,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		DB:                            p.DB,
-		epDataStore:                   make(map[endpointID]endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
 		policyMap:                     p.PolicyMap,
@@ -234,6 +236,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		ciliumNodes:                   p.Nodes,
 		endpoints:                     p.Endpoints,
 		policyConfigs:                 p.PolicyConfigTable,
+		edpDataStore:                  p.EndpointMetadataTable,
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -404,10 +407,12 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 	manager.Lock()
 	defer manager.Unlock()
 
-	txn := manager.DB.WriteTxn(manager.policyConfigs)
+	txn := manager.DB.WriteTxn(manager.policyConfigs, manager.edpDataStore)
 	defer txn.Commit()
 
-	config.updateMatchedEndpointIDs(manager.epDataStore)
+	iter, _ := manager.edpDataStore.All(txn)
+
+	config.updateMatchedEndpointIDs(statedb.Collect(iter))
 	if _, had, _ := manager.policyConfigs.Insert(txn, *config); had {
 		logger.Debug("Updated CiliumEgressGatewayPolicy")
 	} else {
@@ -463,13 +468,14 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 		return nil
 	}
 
-	if _, ok := manager.epDataStore[epData.id]; ok {
+	txn := manager.DB.WriteTxn(manager.edpDataStore)
+	defer txn.Commit()
+
+	if _, had, _ := manager.edpDataStore.Insert(txn, epData); had {
 		logger.Debug("Updated CiliumEndpoint")
 	} else {
 		logger.Debug("Added CiliumEndpoint")
 	}
-
-	manager.epDataStore[epData.id] = epData
 
 	manager.setEventBitmap(eventUpdateEndpoint)
 	manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
@@ -487,8 +493,11 @@ func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		logfields.K8sUID:          endpoint.UID,
 	})
 
+	txn := manager.DB.WriteTxn(manager.edpDataStore)
+	defer txn.Commit()
+
+	manager.edpDataStore.Delete(txn, endpointMetadata{id: endpoint.UID})
 	logger.Debug("Deleted CiliumEndpoint")
-	delete(manager.epDataStore, endpoint.UID)
 
 	manager.setEventBitmap(eventDeleteEndpoint)
 	manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
@@ -541,12 +550,14 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 }
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
-	txn := manager.DB.WriteTxn(manager.policyConfigs)
+	txn := manager.DB.WriteTxn(manager.policyConfigs, manager.edpDataStore)
 	defer txn.Commit()
 
-	iter, _ := manager.policyConfigs.All(txn)
-	for _, policy := range statedb.Collect(iter) {
-		policy.updateMatchedEndpointIDs(manager.epDataStore)
+	pcIter, _ := manager.policyConfigs.All(txn)
+	edpIter, _ := manager.edpDataStore.All(txn)
+	allEndpoints := statedb.Collect(edpIter)
+	for _, policy := range statedb.Collect(pcIter) {
+		policy.updateMatchedEndpointIDs(allEndpoints)
 		manager.policyConfigs.Insert(txn, policy)
 	}
 }
