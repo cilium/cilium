@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +29,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -318,25 +316,6 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	l.init(o.Datapath(), o.LocalConfig())
 
-	var nodeIPv4, nodeIPv6 net.IP
-	if option.Config.EnableIPv4 {
-		nodeIPv4 = node.GetInternalIPv4Router()
-	}
-	if option.Config.EnableIPv6 {
-		nodeIPv6 = node.GetIPv6Router()
-		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
-		// interface (https://github.com/docker/libnetwork/issues/1720)
-		// Enable IPv6 for now
-		sysSettings = append(sysSettings,
-			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
-	}
-
-	// Datapath initialization
-	hostDev1, _, err := setupBaseDevice(l.sysctl, deviceMTU)
-	if err != nil {
-		return fmt.Errorf("failed to setup base devices: %w", err)
-	}
-
 	if option.Config.EnableHealthDatapath {
 		sysSettings = append(
 			sysSettings,
@@ -363,11 +342,6 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	// Any code that relies on sysctl settings being applied needs to be called after this.
 	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
 		return err
-	}
-
-	// add internal ipv4 and ipv6 addresses to cilium_host
-	if err := addHostDeviceAddr(hostDev1, nodeIPv4, nodeIPv6); err != nil {
-		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
 	}
 
 	if err := cleanIngressQdisc(); err != nil {

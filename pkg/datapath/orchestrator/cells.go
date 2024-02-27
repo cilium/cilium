@@ -13,6 +13,7 @@ var Cell = cell.Module(
 	"Orchestrator",
 
 	cell.Provide(NewOrchestrator),
+	cell.ProvidePrivate(newRealNetlink),
 )
 
 func NewOrchestrator(params orchestratorParams) types.Orchestrator {
