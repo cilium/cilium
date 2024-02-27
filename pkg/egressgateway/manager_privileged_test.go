@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -118,6 +120,24 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 	k.policies = make(fakeResource[*Policy])
 	k.nodes = make(fakeResource[*cilium_api_v2.CiliumNode])
 	k.endpoints = make(fakeResource[*k8sTypes.CiliumEndpoint])
+	var (
+		pct statedb.RWTable[PolicyConfig]
+		db  *statedb.DB
+	)
+
+	hive.New(
+		statedb.Cell,
+		cell.ProvidePrivate(
+			NewPolicyConfigTable,
+			statedb.RWTable[PolicyConfig].ToTable,
+		),
+		cell.Invoke(
+			statedb.RegisterTable[PolicyConfig],
+			func(d *statedb.DB, pt statedb.RWTable[PolicyConfig]) {
+				db = d
+				pct = pt
+			}),
+	).Populate()
 
 	lc := hivetest.Lifecycle(c)
 	policyMap := egressmap.CreatePrivatePolicyMap(lc, egressmap.DefaultPolicyConfig)
@@ -132,6 +152,8 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 		Policies:          k.policies,
 		Nodes:             k.nodes,
 		Endpoints:         k.endpoints,
+		DB:                db,
+		PolicyConfigTable: pct,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(k.manager, NotNil)
@@ -479,7 +501,7 @@ func (k *EgressGatewayTestSuite) TestEndpointDataStore(c *C) {
 }
 
 func TestCell(t *testing.T) {
-	err := hive.New(Cell).Populate()
+	err := hive.New(statedb.Cell, Cell).Populate()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -678,7 +700,23 @@ func BenchmarkReconcileMap(b *testing.B) {
 		policies  = make(fakeResource[*Policy])
 		nodes     = make(fakeResource[*cilium_api_v2.CiliumNode])
 		endpoints = make(fakeResource[*k8sTypes.CiliumEndpoint])
+		pct       statedb.RWTable[PolicyConfig]
+		db        *statedb.DB
 	)
+
+	hive.New(
+		statedb.Cell,
+		cell.ProvidePrivate(
+			NewPolicyConfigTable,
+			statedb.RWTable[PolicyConfig].ToTable,
+		),
+		cell.Invoke(
+			statedb.RegisterTable[PolicyConfig],
+			func(d *statedb.DB, pt statedb.RWTable[PolicyConfig]) {
+				db = d
+				pct = pt
+			}),
+	).Populate()
 
 	lc := hivetest.Lifecycle(b)
 	policyMap := FakeEgressPolicyMap{backingMap: make(map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4)}
@@ -692,6 +730,8 @@ func BenchmarkReconcileMap(b *testing.B) {
 		Policies:          policies,
 		Nodes:             nodes,
 		Endpoints:         endpoints,
+		DB:                db,
+		PolicyConfigTable: pct,
 	})
 	if err != nil {
 		b.Error(err)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -34,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -55,6 +57,11 @@ var Cell = cell.Module(
 	cell.Config(defaultConfig),
 	cell.Provide(NewEgressGatewayManager),
 	cell.Provide(newPolicyResource),
+	cell.ProvidePrivate(
+		NewPolicyConfigTable,
+		statedb.RWTable[PolicyConfig].ToTable,
+	),
+	cell.Invoke(statedb.RegisterTable[PolicyConfig]),
 )
 
 type eventType int
@@ -95,6 +102,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type Manager struct {
 	lock.Mutex
 
+	DB *statedb.DB
+
 	// allCachesSynced is true when all k8s objects we depend on have had
 	// their initial state synced.
 	allCachesSynced bool
@@ -112,8 +121,8 @@ type Manager struct {
 	// endpoints allows reading endpoint CRD from k8s.
 	endpoints resource.Resource[*k8sTypes.CiliumEndpoint]
 
-	// policyConfigs stores policy configs indexed by policyID
-	policyConfigs map[policyID]*PolicyConfig
+	// policyConfigs stores policy configs in a statedb table
+	policyConfigs statedb.RWTable[PolicyConfig]
 
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]endpointMetadata
@@ -153,8 +162,10 @@ type Params struct {
 	Policies          resource.Resource[*Policy]
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
+	PolicyConfigTable statedb.RWTable[PolicyConfig]
 
 	Lifecycle cell.Lifecycle
+	DB        *statedb.DB
 }
 
 func NewEgressGatewayManager(p Params) (out struct {
@@ -214,7 +225,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
-		policyConfigs:                 make(map[policyID]*PolicyConfig),
+		DB:                            p.DB,
 		epDataStore:                   make(map[endpointID]endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
@@ -222,6 +233,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		policies:                      p.Policies,
 		ciliumNodes:                   p.Nodes,
 		endpoints:                     p.Endpoints,
+		policyConfigs:                 p.PolicyConfigTable,
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -392,15 +404,15 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 	manager.Lock()
 	defer manager.Unlock()
 
-	if _, ok := manager.policyConfigs[config.id]; !ok {
-		logger.Debug("Added CiliumEgressGatewayPolicy")
-	} else {
-		logger.Debug("Updated CiliumEgressGatewayPolicy")
-	}
+	txn := manager.DB.WriteTxn(manager.policyConfigs)
+	defer txn.Commit()
 
 	config.updateMatchedEndpointIDs(manager.epDataStore)
-
-	manager.policyConfigs[config.id] = config
+	if _, had, _ := manager.policyConfigs.Insert(txn, *config); had {
+		logger.Debug("Updated CiliumEgressGatewayPolicy")
+	} else {
+		logger.Debug("Added CiliumEgressGatewayPolicy")
+	}
 
 	manager.setEventBitmap(eventAddPolicy)
 	manager.reconciliationTrigger.TriggerWithReason("policy added")
@@ -410,20 +422,20 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 // onDeleteEgressPolicy deletes the internal state associated with the given
 // policy, including egress eBPF map entries.
 func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
-	configID := ParseCEGPConfigID(policy)
+	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, policy.ObjectMeta.Name)
 
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, configID.Name)
+	txn := manager.DB.WriteTxn(manager.policyConfigs)
+	defer txn.Commit()
 
-	if manager.policyConfigs[configID] == nil {
+	_, had, _ := manager.policyConfigs.Delete(txn, PolicyConfig{id: types.NamespacedName{Name: policy.ObjectMeta.Name}})
+	if had {
+		logger.Debug("Deleted CiliumEgressGatewayPolicy")
+	} else {
 		logger.Warn("Can't delete CiliumEgressGatewayPolicy: policy not found")
 	}
-
-	logger.Debug("Deleted CiliumEgressGatewayPolicy")
-
-	delete(manager.policyConfigs, configID)
 
 	manager.setEventBitmap(eventDeletePolicy)
 	manager.reconciliationTrigger.TriggerWithReason("policy deleted")
@@ -529,23 +541,36 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 }
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
-	for _, policy := range manager.policyConfigs {
+	txn := manager.DB.WriteTxn(manager.policyConfigs)
+	defer txn.Commit()
+
+	iter, _ := manager.policyConfigs.All(txn)
+	for _, policy := range statedb.Collect(iter) {
 		policy.updateMatchedEndpointIDs(manager.epDataStore)
+		manager.policyConfigs.Insert(txn, policy)
 	}
 }
 
 func (manager *Manager) regenerateGatewayConfigs() {
-	for _, policyConfig := range manager.policyConfigs {
+	txn := manager.DB.WriteTxn(manager.policyConfigs)
+	defer txn.Commit()
+
+	iter, _ := manager.policyConfigs.All(txn)
+	for _, policyConfig := range statedb.Collect(iter) {
 		policyConfig.regenerateGatewayConfig(manager.nodes)
+		manager.policyConfigs.Insert(txn, policyConfig)
 	}
 }
 
 // reconcileEgressRules takes all of the current manager state and
 // safely reconciles with the bpf map.
 func (manager *Manager) reconcileEgressRules() {
+	txn := manager.DB.ReadTxn()
+	iter, _ := manager.policyConfigs.All(txn)
+
 	// Generate our desired state.
 	desired := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
-	for _, pc := range manager.policyConfigs {
+	statedb.ProcessEach(iter, func(pc PolicyConfig, u uint64) error {
 		egressIP := pc.gatewayConfig.egressIP
 		for _, endpoint := range pc.matchedEndpoints {
 			for _, endpointIP := range endpoint.ips {
@@ -564,7 +589,8 @@ func (manager *Manager) reconcileEgressRules() {
 				}
 			}
 		}
-	}
+		return nil
+	})
 
 	// To ensure no connectivity disruption, first add/update rules,
 	// then delete obsolete ones.
