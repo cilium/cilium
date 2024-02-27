@@ -5,8 +5,12 @@ package store
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/watch"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
@@ -25,13 +29,29 @@ type DiffStoreFixture struct {
 	signaler  *signaler.BGPCPSignaler
 	slimCs    *slim_fake.Clientset
 	hive      *hive.Hive
+	watching  chan struct{} // closed once we have ensured there is a service watcher registered
 }
 
 func newDiffStoreFixture() *DiffStoreFixture {
-	fixture := &DiffStoreFixture{}
+	fixture := &DiffStoreFixture{
+		watching: make(chan struct{}),
+	}
 
 	// Create a new faked CRD client set with the pools as initial objects
 	fixture.slimCs = slim_fake.NewSimpleClientset()
+
+	var once sync.Once
+	fixture.slimCs.PrependWatchReactor("*", func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		w := action.(k8sTesting.WatchAction)
+		gvr := w.GetResource()
+		ns := w.GetNamespace()
+		watch, err := fixture.slimCs.Tracker().Watch(gvr, ns)
+		if err != nil {
+			return false, nil, err
+		}
+		once.Do(func() { close(fixture.watching) })
+		return true, watch, nil
+	})
 
 	// Construct a new Hive with faked out dependency cells.
 	fixture.hive = hive.New(
@@ -90,6 +110,7 @@ func TestDiffSignal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	<-fixture.watching
 
 	timer := time.NewTimer(5 * time.Second)
 	select {
@@ -187,6 +208,7 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	<-fixture.watching
 
 	// Add first object
 	err = tracker.Add(&slimv1.Service{
