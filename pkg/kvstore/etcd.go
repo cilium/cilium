@@ -678,7 +678,11 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		close(errChan)
 		close(ec.firstSession)
 
-		go ec.statusChecker()
+		if opts != nil && opts.DisableStatusChecks {
+			ec.logger.Debug("Status checks are disabled")
+		} else {
+			go ec.statusChecker()
+		}
 
 		watcher := ec.ListAndWatch(ctx, HeartbeatPath, 128)
 
