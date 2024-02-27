@@ -80,7 +80,10 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 	return nil
 }
 
-func (f *FakeDatapath) InstallProxyRules(uint16, bool, bool, string) {
+func (f *FakeDatapath) InstallProxyRules(uint16, bool, bool, string) <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }
 
 func (f *FakeDatapath) SupportsOriginalSourceAddr() bool {
@@ -91,10 +94,16 @@ func (m *FakeDatapath) GetProxyPort(name string) uint16 {
 	return 0
 }
 
-func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {
+func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }
 
-func (m *FakeDatapath) RemoveNoTrackRules(ip netip.Addr, port uint16) {
+func (m *FakeDatapath) RemoveNoTrackRules(ip netip.Addr, port uint16) <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }
 
 func (f *FakeDatapath) Loader() datapath.Loader {

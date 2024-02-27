@@ -26,7 +26,8 @@ var _ = Suite(&ProxySuite{})
 
 type MockDatapathUpdater struct{}
 
-func (m *MockDatapathUpdater) InstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) {
+func (m *MockDatapathUpdater) InstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) <-chan struct{} {
+	return nil
 }
 
 func (m *MockDatapathUpdater) SupportsOriginalSourceAddr() bool {

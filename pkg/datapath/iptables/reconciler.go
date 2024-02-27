@@ -78,6 +78,17 @@ func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
 	}
 }
 
+type info interface {
+	proxyInfo | noTrackPodInfo
+}
+
+type reconciliationRequest[T info] struct {
+	info T
+
+	// closed when the state is reconciled successfully
+	updated chan struct{}
+}
+
 type proxyInfo struct {
 	name        string
 	port        uint16
@@ -130,6 +141,9 @@ func reconciliationLoop(
 
 	firstInit := true
 
+	// list of pending channels waiting for reconciliation
+	var updatedChs []chan<- struct{}
+
 stop:
 	for {
 		select {
@@ -153,79 +167,91 @@ stop:
 			}
 			state.localNodeInfo = localNodeInfo
 			stateChanged = true
-		case newProxyInfo, ok := <-params.proxies:
+		case req, ok := <-params.proxies:
 			if !ok {
 				break stop
 			}
-			if state.proxies.Has(newProxyInfo) {
+			if state.proxies.Has(req.info) {
+				close(req.updated)
 				continue
 			}
 
 			// first, remove previous entries related to the same proxy name (see Manager.addProxyRules)
 			for info := range state.proxies {
-				if info.name == newProxyInfo.name {
+				if info.name == req.info.name {
 					delete(state.proxies, info)
 				}
 			}
 			// then, insert the new proxy
-			state.proxies.Insert(newProxyInfo)
+			state.proxies.Insert(req.info)
 
 			if !firstInit {
 				// first init not yet completed, proxy rules will be updated as part of that
 				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
 				continue
 			}
 
-			if err := updateProxyRules(newProxyInfo.port, newProxyInfo.isIngress, newProxyInfo.isLocalOnly, newProxyInfo.name); err != nil {
+			if err := updateProxyRules(req.info.port, req.info.isIngress, req.info.isLocalOnly, req.info.name); err != nil {
 				health.Degraded("iptables proxy rules incremental update failed, will retry a full reconciliation", err)
 				// incremental rules update failed, schedule a full iptables reconciliation
 				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
 			} else {
 				health.OK("iptables proxy rules update completed")
+				close(req.updated)
 			}
-		case noTrackPod, ok := <-params.addNoTrackPod:
+		case req, ok := <-params.addNoTrackPod:
 			if !ok {
 				break stop
 			}
-			if state.noTrackPods.Has(noTrackPod) {
+			if state.noTrackPods.Has(req.info) {
+				close(req.updated)
 				continue
 			}
-			state.noTrackPods.Insert(noTrackPod)
+			state.noTrackPods.Insert(req.info)
 
 			if !firstInit {
 				// first init not yet completed, no track pod rules will be updated as part of that
 				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
 				continue
 			}
 
-			if err := installNoTrackRules(noTrackPod.ip, noTrackPod.port); err != nil {
+			if err := installNoTrackRules(req.info.ip, req.info.port); err != nil {
 				health.Degraded("iptables no track rules incremental install failed, will retry a full reconciliation", err)
 				// incremental rules update failed, schedule a full iptables reconciliation
 				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
 			} else {
 				health.OK("iptables no track rules update completed")
+				close(req.updated)
 			}
-		case noTrackPod, ok := <-params.delNoTrackPod:
+		case req, ok := <-params.delNoTrackPod:
 			if !ok {
 				break stop
 			}
-			if !state.noTrackPods.Has(noTrackPod) {
+			if !state.noTrackPods.Has(req.info) {
+				close(req.updated)
 				continue
 			}
-			state.noTrackPods.Delete(noTrackPod)
+			state.noTrackPods.Delete(req.info)
 
 			if !firstInit {
 				// first init not yet completed, no track pod rules will be updated as part of that
 				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
 				continue
 			}
 
-			if err := removeNoTrackRules(noTrackPod.ip, noTrackPod.port); err != nil {
+			if err := removeNoTrackRules(req.info.ip, req.info.port); err != nil {
 				health.Degraded("iptables no track rules incremental removal failed, will retry a full reconciliation", err)
 				// incremental rules update failed, schedule a full iptables reconciliation
 				stateChanged = true
+				updatedChs = append(updatedChs, req.updated)
 			} else {
 				health.OK("iptables no track rules update completed")
+				close(req.updated)
 			}
 		case <-ticker.C:
 			if !stateChanged {
@@ -239,11 +265,21 @@ stop:
 				health.OK("iptables rules update completed")
 				firstInit = false
 				stateChanged = false
+				// close all channels waiting for reconciliation
+				for _, ch := range updatedChs {
+					close(ch)
+				}
+				updatedChs = updatedChs[:0]
 			}
 		}
 	}
 
 	cancel()
+
+	// close all channels waiting for reconciliation
+	for _, ch := range updatedChs {
+		close(ch)
+	}
 
 	// drain channels
 	for range localNodeEvents {

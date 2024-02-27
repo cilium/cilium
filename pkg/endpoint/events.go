@@ -158,18 +158,18 @@ func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
 		log.Debug("Updating NOTRACK rules")
 		if e.IPv4.IsValid() {
 			if port > 0 {
-				e.owner.Datapath().InstallNoTrackRules(e.IPv4, port)
+				<-e.owner.Datapath().InstallNoTrackRules(e.IPv4, port)
 			}
 			if e.noTrackPort > 0 {
-				e.owner.Datapath().RemoveNoTrackRules(e.IPv4, e.noTrackPort)
+				<-e.owner.Datapath().RemoveNoTrackRules(e.IPv4, e.noTrackPort)
 			}
 		}
 		if e.IPv6.IsValid() {
 			if port > 0 {
-				e.owner.Datapath().InstallNoTrackRules(e.IPv6, port)
+				<-e.owner.Datapath().InstallNoTrackRules(e.IPv6, port)
 			}
 			if e.noTrackPort > 0 {
-				e.owner.Datapath().RemoveNoTrackRules(e.IPv6, e.noTrackPort)
+				<-e.owner.Datapath().RemoveNoTrackRules(e.IPv6, e.noTrackPort)
 			}
 		}
 		e.noTrackPort = port
