@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"strings"
 
@@ -19,11 +18,9 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/inctimer"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -436,150 +433,6 @@ func (l *loader) reloadIPSecOnLinkChanges() {
 			}
 		}
 	}()
-}
-
-// addHostDeviceAddr add internal ipv4 and ipv6 addresses to the cilium_host device.
-func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
-	if ipv4 != nil {
-		addr := netlink.Addr{
-			IPNet: &net.IPNet{
-				IP:   ipv4,
-				Mask: net.CIDRMask(32, 32), // corresponds to /32
-			},
-		}
-
-		if err := netlink.AddrReplace(hostDev, &addr); err != nil {
-			return err
-		}
-	}
-	if ipv6 != nil {
-		addr := netlink.Addr{
-			IPNet: &net.IPNet{
-				IP:   ipv6,
-				Mask: net.CIDRMask(128, 128), // corresponds to /128
-			},
-		}
-
-		if err := netlink.AddrReplace(hostDev, &addr); err != nil {
-			return err
-		}
-
-	}
-	return nil
-}
-
-// setupTunnelDevice ensures the cilium_{mode} device is created and
-// unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(sysctl sysctl.Sysctl, mode tunnel.Protocol, port uint16, mtu int) error {
-	switch mode {
-	case tunnel.Geneve:
-		if err := setupGeneveDevice(sysctl, port, mtu); err != nil {
-			return fmt.Errorf("setting up geneve device: %w", err)
-		}
-		if err := removeDevice(defaults.VxlanDevice); err != nil {
-			return fmt.Errorf("removing %s: %w", defaults.VxlanDevice, err)
-		}
-
-	case tunnel.VXLAN:
-		if err := setupVxlanDevice(sysctl, port, mtu); err != nil {
-			return fmt.Errorf("setting up vxlan device: %w", err)
-		}
-		if err := removeDevice(defaults.GeneveDevice); err != nil {
-			return fmt.Errorf("removing %s: %w", defaults.GeneveDevice, err)
-		}
-
-	default:
-		if err := removeDevice(defaults.VxlanDevice); err != nil {
-			return fmt.Errorf("removing %s: %w", defaults.VxlanDevice, err)
-		}
-		if err := removeDevice(defaults.GeneveDevice); err != nil {
-			return fmt.Errorf("removing %s: %w", defaults.GeneveDevice, err)
-		}
-	}
-
-	return nil
-}
-
-// setupGeneveDevice ensures the cilium_geneve device is created with the given
-// destination port and mtu.
-//
-// Changing the destination port will recreate the device. Changing the MTU will
-// modify the device without recreating it.
-func setupGeneveDevice(sysctl sysctl.Sysctl, dport uint16, mtu int) error {
-	mac, err := mac.GenerateRandMAC()
-	if err != nil {
-		return err
-	}
-
-	dev := &netlink.Geneve{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:         defaults.GeneveDevice,
-			MTU:          mtu,
-			HardwareAddr: net.HardwareAddr(mac),
-		},
-		FlowBased: true,
-		Dport:     dport,
-	}
-
-	l, err := ensureDevice(sysctl, dev)
-	if err != nil {
-		return fmt.Errorf("creating geneve device: %w", err)
-	}
-
-	// Recreate the device with the correct destination port. Modifying the device
-	// without recreating it is not supported.
-	geneve, _ := l.(*netlink.Geneve)
-	if geneve.Dport != dport {
-		if err := netlink.LinkDel(l); err != nil {
-			return fmt.Errorf("deleting outdated geneve device: %w", err)
-		}
-		if _, err := ensureDevice(sysctl, dev); err != nil {
-			return fmt.Errorf("recreating geneve device %s: %w", defaults.GeneveDevice, err)
-		}
-	}
-
-	return nil
-}
-
-// setupVxlanDevice ensures the cilium_vxlan device is created with the given
-// port and mtu.
-//
-// Changing the port will recreate the device. Changing the MTU will modify the
-// device without recreating it.
-func setupVxlanDevice(sysctl sysctl.Sysctl, port uint16, mtu int) error {
-	mac, err := mac.GenerateRandMAC()
-	if err != nil {
-		return err
-	}
-
-	dev := &netlink.Vxlan{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:         defaults.VxlanDevice,
-			MTU:          mtu,
-			HardwareAddr: net.HardwareAddr(mac),
-		},
-		FlowBased: true,
-		Port:      int(port),
-	}
-
-	l, err := ensureDevice(sysctl, dev)
-	if err != nil {
-		return fmt.Errorf("creating vxlan device: %w", err)
-	}
-
-	// Recreate the device with the correct destination port. Modifying the device
-	// without recreating it is not supported.
-	vxlan, _ := l.(*netlink.Vxlan)
-	if vxlan.Port != int(port) {
-		if err := netlink.LinkDel(l); err != nil {
-			return fmt.Errorf("deleting outdated vxlan device: %w", err)
-		}
-		if _, err := ensureDevice(sysctl, dev); err != nil {
-			return fmt.Errorf("recreating vxlan device %s: %w", defaults.VxlanDevice, err)
-		}
-	}
-
-	return nil
 }
 
 // setupIPIPDevices ensures the specified v4 and/or v6 devices are created and

@@ -63,5 +63,9 @@ func (o *orchestrator) Reinitialize(ctx context.Context, owner datapath.BaseProg
 		return err
 	}
 
+	if err := o.setupTunnelDevice(tunnelConfig); err != nil {
+		return err
+	}
+
 	return o.params.Loader.Reinitialize(ctx, owner, tunnelConfig, deviceMTU, iptMgr, p)
 }

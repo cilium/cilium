@@ -14,6 +14,7 @@ type netlink interface {
 	LinkAdd(link vnl.Link) error
 	LinkSetUp(link vnl.Link) error
 	AddrReplace(link vnl.Link, addr *vnl.Addr) error
+	LinkDel(link vnl.Link) error
 }
 
 func newRealNetlink() netlink {

@@ -10,6 +10,7 @@ import (
 	vnl "github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -151,5 +152,173 @@ func (o *orchestrator) addHostDeviceAddr(hostDev vnl.Link, ipv4, ipv6 net.IP) er
 		}
 
 	}
+	return nil
+}
+
+// setupTunnelDevice ensures the cilium_{mode} device is created and
+// unused leftover devices are cleaned up in case mode changes.
+func (o *orchestrator) setupTunnelDevice(cfg tunnel.Config) error {
+	switch cfg.Protocol() {
+	case tunnel.Geneve:
+		if err := o.setupGeneveDevice(cfg); err != nil {
+			return fmt.Errorf("setting up geneve device: %w", err)
+		}
+		if err := o.removeDevice(defaults.VxlanDevice); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.VxlanDevice, err)
+		}
+
+	case tunnel.VXLAN:
+		if err := o.setupVxlanDevice(cfg); err != nil {
+			return fmt.Errorf("setting up vxlan device: %w", err)
+		}
+		if err := o.removeDevice(defaults.GeneveDevice); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.GeneveDevice, err)
+		}
+
+	default:
+		if err := o.removeDevice(defaults.VxlanDevice); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.VxlanDevice, err)
+		}
+		if err := o.removeDevice(defaults.GeneveDevice); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.GeneveDevice, err)
+		}
+	}
+
+	return nil
+}
+
+// setupGeneveDevice ensures the cilium_geneve device is created with the given
+// destination port and mtu.
+//
+// Changing the destination port will recreate the device. Changing the MTU will
+// modify the device without recreating it.
+func (o *orchestrator) setupGeneveDevice(cfg tunnel.Config) error {
+	mac, err := mac.GenerateRandMAC()
+	if err != nil {
+		return err
+	}
+
+	dev := &vnl.Geneve{
+		LinkAttrs: vnl.LinkAttrs{
+			Name:         defaults.GeneveDevice,
+			MTU:          o.params.Mtu.GetDeviceMTU(),
+			HardwareAddr: net.HardwareAddr(mac),
+		},
+		FlowBased: true,
+		Dport:     cfg.Port(),
+	}
+
+	l, err := o.ensureDevice(dev)
+	if err != nil {
+		return fmt.Errorf("creating geneve device: %w", err)
+	}
+
+	// Recreate the device with the correct destination port. Modifying the device
+	// without recreating it is not supported.
+	geneve, _ := l.(*vnl.Geneve)
+	if geneve.Dport != cfg.Port() {
+		if err := o.params.Netlink.LinkDel(l); err != nil {
+			return fmt.Errorf("deleting outdated geneve device: %w", err)
+		}
+		if _, err := o.ensureDevice(dev); err != nil {
+			return fmt.Errorf("recreating geneve device %s: %w", defaults.GeneveDevice, err)
+		}
+	}
+
+	return nil
+}
+
+// setupVxlanDevice ensures the cilium_vxlan device is created with the given
+// port and mtu.
+//
+// Changing the port will recreate the device. Changing the MTU will modify the
+// device without recreating it.
+func (o *orchestrator) setupVxlanDevice(cfg tunnel.Config) error {
+	mac, err := mac.GenerateRandMAC()
+	if err != nil {
+		return err
+	}
+
+	dev := &vnl.Vxlan{
+		LinkAttrs: vnl.LinkAttrs{
+			Name:         defaults.VxlanDevice,
+			MTU:          o.params.Mtu.GetDeviceMTU(),
+			HardwareAddr: net.HardwareAddr(mac),
+		},
+		FlowBased: true,
+		Port:      int(cfg.Port()),
+	}
+
+	l, err := o.ensureDevice(dev)
+	if err != nil {
+		return fmt.Errorf("creating vxlan device: %w", err)
+	}
+
+	// Recreate the device with the correct destination port. Modifying the device
+	// without recreating it is not supported.
+	vxlan, _ := l.(*vnl.Vxlan)
+	if vxlan.Port != int(cfg.Port()) {
+		if err := vnl.LinkDel(l); err != nil {
+			return fmt.Errorf("deleting outdated vxlan device: %w", err)
+		}
+		if _, err := o.ensureDevice(dev); err != nil {
+			return fmt.Errorf("recreating vxlan device %s: %w", defaults.VxlanDevice, err)
+		}
+	}
+
+	return nil
+}
+
+// ensureDevice ensures a device with the given attrs is present on the system.
+// If a device with the given name already exists, device creation is skipped and
+// the existing device will be used as-is for the subsequent configuration steps.
+// The device is never recreated.
+//
+// The device's state is set to 'up', L3 forwarding sysctls are applied, and MTU
+// is set.
+func (o *orchestrator) ensureDevice(attrs vnl.Link) (vnl.Link, error) {
+	name := attrs.Attrs().Name
+
+	// Reuse existing tunnel interface created by previous runs.
+	l, err := o.params.Netlink.LinkByName(name)
+	if err != nil {
+		if err := o.params.Netlink.LinkAdd(attrs); err != nil {
+			return nil, fmt.Errorf("creating device %s: %w", name, err)
+		}
+
+		// Fetch the link we've just created.
+		l, err = o.params.Netlink.LinkByName(name)
+		if err != nil {
+			return nil, fmt.Errorf("retrieving created device %s: %w", name, err)
+		}
+	}
+
+	if err := o.enableForwarding(l); err != nil {
+		return nil, fmt.Errorf("setting up device %s: %w", name, err)
+	}
+
+	// Update MTU on the link if necessary.
+	wantMTU, gotMTU := attrs.Attrs().MTU, l.Attrs().MTU
+	if wantMTU != 0 && wantMTU != gotMTU {
+		if err := o.params.Netlink.LinkSetMTU(l, wantMTU); err != nil {
+			return nil, fmt.Errorf("setting MTU on %s: %w", name, err)
+		}
+	}
+
+	return l, nil
+}
+
+// removeDevice removes the device with the given name. Returns error if the
+// device exists but was unable to be removed.
+func (o *orchestrator) removeDevice(name string) error {
+	link, err := o.params.Netlink.LinkByName(name)
+	if err != nil {
+		return nil
+	}
+
+	if err := o.params.Netlink.LinkDel(link); err != nil {
+		return fmt.Errorf("removing device %s: %w", name, err)
+	}
+
 	return nil
 }

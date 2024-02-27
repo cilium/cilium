@@ -328,10 +328,6 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	}
 
-	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(), deviceMTU); err != nil {
-		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.Protocol(), err)
-	}
-
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		var err error
 		if sysSettings, err = addENIRules(sysSettings); err != nil {
