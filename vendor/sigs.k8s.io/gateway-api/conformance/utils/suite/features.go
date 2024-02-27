@@ -56,12 +56,12 @@ const (
 	SupportGatewayStaticAddresses SupportedFeature = "GatewayStaticAddresses"
 )
 
-// StandardExtendedFeatures are extra generic features that implementations may
-// choose to support as an opt-in.
+// GatewayExtendedFeatures are extra generic features that implementations may
+// choose to support as an opt-in. This does not include any Core Features.
 var GatewayExtendedFeatures = sets.New(
 	SupportGatewayPort8080,
 	SupportGatewayStaticAddresses,
-).Insert(GatewayCoreFeatures.UnsortedList()...)
+)
 
 // -----------------------------------------------------------------------------
 // Features - ReferenceGrant Conformance (Core)
@@ -138,9 +138,9 @@ const (
 	SupportHTTPRouteParentRefPort SupportedFeature = "HTTPRouteParentRefPort"
 )
 
-// HTTPRouteExtendedFeatures includes all the supported features for HTTPRoute
-// conformance and can be used to opt-in to run all HTTPRoute tests, including
-// extended features.
+// HTTPRouteExtendedFeatures includes all extended features for HTTPRoute
+// conformance and can be used to opt-in to run all HTTPRoute extended features tests.
+// This does not include any Core Features.
 var HTTPRouteExtendedFeatures = sets.New(
 	SupportHTTPRouteQueryParamMatching,
 	SupportHTTPRouteMethodMatching,
@@ -220,6 +220,7 @@ var MeshCoreFeatures = sets.New(
 //
 // NOTE: as new feature sets are added they should be inserted into this set.
 var AllFeatures = sets.New[SupportedFeature]().
+	Insert(GatewayCoreFeatures.UnsortedList()...).
 	Insert(GatewayExtendedFeatures.UnsortedList()...).
 	Insert(ReferenceGrantCoreFeatures.UnsortedList()...).
 	Insert(HTTPRouteCoreFeatures.UnsortedList()...).
