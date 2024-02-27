@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -71,11 +71,25 @@ func TestReconciliationLoop(t *testing.T) {
 	)
 
 	var (
-		lastState atomic.Pointer[desiredState]
+		state desiredState
+		mu    lock.Mutex
 	)
 
-	updateFunc := func(state desiredState, firstInit bool) error {
-		lastState.Store(&state)
+	updateFunc := func(newState desiredState, firstInit bool) error {
+		mu.Lock()
+		defer mu.Unlock()
+		state = newState
+		return nil
+	}
+	updateProxyFunc := func(proxyPort uint16, ingress, localOnly bool, name string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		state.proxies.Insert(proxyInfo{
+			name:        name,
+			port:        proxyPort,
+			isIngress:   ingress,
+			isLocalOnly: localOnly,
+		})
 		return nil
 	}
 
@@ -303,17 +317,14 @@ func TestReconciliationLoop(t *testing.T) {
 	errs := make(chan error)
 	go func() {
 		defer close(errs)
-		errs <- reconciliationLoop(ctx, log, health, true, params, updateFunc)
+		errs <- reconciliationLoop(ctx, log, health, true, params, updateFunc, updateProxyFunc)
 	}()
 
 	// wait for reconciler to react to the initial state
 	assert.Eventually(t, func() bool {
-		curState := lastState.Load()
-		if curState == nil {
-			// not yet loaded
-			return false
-		}
-		if err := assertIptablesState(*curState, testCases[0].expected); err != nil {
+		mu.Lock()
+		defer mu.Unlock()
+		if err := assertIptablesState(state, testCases[0].expected); err != nil {
 			t.Logf("assertIptablesState: %s", err)
 			return false
 		}
@@ -328,8 +339,9 @@ func TestReconciliationLoop(t *testing.T) {
 
 			// wait for reconciler to react to the update
 			assert.Eventuallyf(t, func() bool {
-				curState := lastState.Load()
-				if err := assertIptablesState(*curState, tc.expected); err != nil {
+				mu.Lock()
+				defer mu.Unlock()
+				if err := assertIptablesState(state, tc.expected); err != nil {
 					t.Logf("assertIptablesState: %s", err)
 					return false
 				}
