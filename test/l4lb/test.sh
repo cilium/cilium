@@ -110,11 +110,6 @@ docker exec -t lb-node docker exec -t cilium-lb \
 LB_NODE_IP=$(docker exec lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1)
 ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
 
-# Add the neighbor entry for the nginx node to avoid the LB failing to forward
-# the requests due to the FIB lookup drops (nsenter, as busybox iproute2
-# doesn't support neigh entries creation).
-nsenter -t $CONTROL_PLANE_PID -n ip neigh add ${WORKER_IP} dev eth0 lladdr ${WORKER_MAC}
-
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
     curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)

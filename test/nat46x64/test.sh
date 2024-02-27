@@ -83,12 +83,6 @@ fi
 LB_NODE_IP=$(docker exec -t lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
 
-# Add the neighbor entry for the nginx node to avoid the LB failing to forward
-# the requests due to the FIB lookup drops (nsenter, as busybox iproute2
-# doesn't support neigh entries creation).
-CONTROL_PLANE_PID=$(docker inspect lb-node -f '{{ .State.Pid }}')
-nsenter -t $CONTROL_PLANE_PID -n ip neigh add ${WORKER_IP6} dev eth0 lladdr ${WORKER_MAC}
-
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
     curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
@@ -187,7 +181,6 @@ done
 
 ${CILIUM_EXEC} cilium-dbg service delete 1
 ${CILIUM_EXEC} cilium-dbg service delete 2
-nsenter -t $CONTROL_PLANE_PID -n ip neigh del ${WORKER_IP6} dev eth0
 
 # NAT 6->4 test suite (services)
 ################################
@@ -211,12 +204,6 @@ fi
 
 LB_NODE_IP=$(docker exec -t lb-node ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip -6 r a "${LB_VIP}/128" via "$LB_NODE_IP"
-
-# Add the neighbor entry for the nginx node to avoid the LB failing to forward
-# the requests due to the FIB lookup drops (nsenter, as busybox iproute2
-# doesn't support neigh entries creation).
-CONTROL_PLANE_PID=$(docker inspect lb-node -f '{{ .State.Pid }}')
-nsenter -t $CONTROL_PLANE_PID -n ip neigh add ${WORKER_IP4} dev eth0 lladdr ${WORKER_MAC}
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
@@ -308,7 +295,6 @@ done
 
 ${CILIUM_EXEC} cilium-dbg service delete 1
 ${CILIUM_EXEC} cilium-dbg service delete 2
-nsenter -t $CONTROL_PLANE_PID -n ip neigh del ${WORKER_IP4} dev eth0
 
 # Misc compilation tests
 ########################
