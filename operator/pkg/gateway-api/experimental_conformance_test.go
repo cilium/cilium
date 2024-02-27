@@ -7,13 +7,12 @@ import (
 	"os"
 	"testing"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/yaml"
-
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -21,6 +20,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/flags"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -34,6 +34,8 @@ var (
 	namespaceLabels      map[string]string
 	namespaceAnnotations map[string]string
 	implementation       *confv1a1.Implementation
+	mode                 string
+	allowCRDsMismatch    bool
 	conformanceProfiles  sets.Set[suite.ConformanceProfileName]
 	skipTests            []string
 )
@@ -58,6 +60,7 @@ func TestExperimentalConformance(t *testing.T) {
 	_ = v1alpha2.AddToScheme(mgrClient.Scheme())
 	_ = v1beta1.AddToScheme(mgrClient.Scheme())
 	_ = v1.AddToScheme(mgrClient.Scheme())
+	_ = apiextensionsv1.AddToScheme(mgrClient.Scheme())
 
 	// standard conformance flags
 	supportedFeatures = suite.ParseSupportedFeatures(*flags.SupportedFeatures)
@@ -110,6 +113,8 @@ func testExperimentalConformance(t *testing.T) {
 				NamespaceAnnotations:       namespaceAnnotations,
 				SkipTests:                  skipTests,
 			},
+			Mode:                mode,
+			AllowCRDsMismatch:   allowCRDsMismatch,
 			Implementation:      *implementation,
 			ConformanceProfiles: conformanceProfiles,
 		})
