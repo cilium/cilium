@@ -54,7 +54,7 @@ type PolicyConfig struct {
 	dstCIDRs          []netip.Prefix
 	excludedCIDRs     []netip.Prefix
 
-	policyGwConfig *policyGatewayConfig
+	policyGwConfig policyGatewayConfig
 
 	matchedEndpoints map[endpointID]endpointMetadata
 	gatewayConfig    gatewayConfig
@@ -110,7 +110,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(nodes []nodeTypes.Node) {
 		gwc.gatewayIP = addr
 
 		if node.IsLocal() {
-			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
+			err := gwc.deriveFromPolicyGatewayConfig(&policyGwc)
 			if err != nil {
 				logger := log.WithFields(logrus.Fields{
 					logfields.CiliumEgressGatewayPolicyName: config.id,
@@ -200,7 +200,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 
 	// EgressIP is not a required field, ignore the error if unable to parse.
 	addr, _ := netip.ParseAddr(egressGateway.EgressIP)
-	policyGwc := &policyGatewayConfig{
+	policyGwc := policyGatewayConfig{
 		nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
 		iface:        egressGateway.Interface,
 		egressIP:     addr,
