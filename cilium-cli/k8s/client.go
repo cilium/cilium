@@ -199,56 +199,12 @@ func (c *Client) GetClusterRole(ctx context.Context, name string, opts metav1.Ge
 	return c.Clientset.RbacV1().ClusterRoles().Get(ctx, name, opts)
 }
 
-func (c *Client) CreateClusterRole(ctx context.Context, role *rbacv1.ClusterRole, opts metav1.CreateOptions) (*rbacv1.ClusterRole, error) {
-	return c.Clientset.RbacV1().ClusterRoles().Create(ctx, role, opts)
-}
-
-func (c *Client) DeleteClusterRole(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.Clientset.RbacV1().ClusterRoles().Delete(ctx, name, opts)
-}
-
-func (c *Client) CreateClusterRoleBinding(ctx context.Context, role *rbacv1.ClusterRoleBinding, opts metav1.CreateOptions) (*rbacv1.ClusterRoleBinding, error) {
-	return c.Clientset.RbacV1().ClusterRoleBindings().Create(ctx, role, opts)
-}
-
-func (c *Client) DeleteClusterRoleBinding(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.Clientset.RbacV1().ClusterRoleBindings().Delete(ctx, name, opts)
-}
-
-func (c *Client) CreateRole(ctx context.Context, namespace string, role *rbacv1.Role, opts metav1.CreateOptions) (*rbacv1.Role, error) {
-	return c.Clientset.RbacV1().Roles(namespace).Create(ctx, role, opts)
-}
-
-func (c *Client) UpdateRole(ctx context.Context, namespace string, role *rbacv1.Role, opts metav1.UpdateOptions) (*rbacv1.Role, error) {
-	return c.Clientset.RbacV1().Roles(namespace).Update(ctx, role, opts)
-}
-
-func (c *Client) DeleteRole(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error {
-	return c.Clientset.RbacV1().Roles(namespace).Delete(ctx, name, opts)
-}
-
-func (c *Client) CreateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.CreateOptions) (*rbacv1.RoleBinding, error) {
-	return c.Clientset.RbacV1().RoleBindings(namespace).Create(ctx, roleBinding, opts)
-}
-
-func (c *Client) UpdateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.UpdateOptions) (*rbacv1.RoleBinding, error) {
-	return c.Clientset.RbacV1().RoleBindings(namespace).Update(ctx, roleBinding, opts)
-}
-
-func (c *Client) DeleteRoleBinding(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
-	return c.Clientset.RbacV1().RoleBindings(namespace).Delete(ctx, name, opts)
-}
-
 func (c *Client) GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error) {
 	return c.Clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, opts)
 }
 
 func (c *Client) PatchConfigMap(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.ConfigMap, error) {
 	return c.Clientset.CoreV1().ConfigMaps(namespace).Patch(ctx, name, pt, data, opts)
-}
-
-func (c *Client) UpdateConfigMap(ctx context.Context, configMap *corev1.ConfigMap, opts metav1.UpdateOptions) (*corev1.ConfigMap, error) {
-	return c.Clientset.CoreV1().ConfigMaps(configMap.Namespace).Update(ctx, configMap, opts)
 }
 
 func (c *Client) CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error) {
@@ -263,16 +219,8 @@ func (c *Client) GetService(ctx context.Context, namespace, name string, opts me
 	return c.Clientset.CoreV1().Services(namespace).Get(ctx, name, opts)
 }
 
-func (c *Client) CreateEndpoints(ctx context.Context, namespace string, ep *corev1.Endpoints, opts metav1.CreateOptions) (*corev1.Endpoints, error) {
-	return c.Clientset.CoreV1().Endpoints(namespace).Create(ctx, ep, opts)
-}
-
 func (c *Client) GetEndpoints(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Endpoints, error) {
 	return c.Clientset.CoreV1().Endpoints(namespace).Get(ctx, name, opts)
-}
-
-func (c *Client) DeleteEndpoints(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
-	return c.Clientset.CoreV1().Endpoints(namespace).Delete(ctx, name, opts)
 }
 
 func (c *Client) CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error) {
@@ -285,10 +233,6 @@ func (c *Client) GetDeployment(ctx context.Context, namespace, name string, opts
 
 func (c *Client) DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.AppsV1().Deployments(namespace).Delete(ctx, name, opts)
-}
-
-func (c *Client) PatchDeployment(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.Deployment, error) {
-	return c.Clientset.AppsV1().Deployments(namespace).Patch(ctx, name, pt, data, opts)
 }
 
 func (c *Client) CheckDeploymentStatus(ctx context.Context, namespace, deployment string) error {
@@ -565,22 +509,6 @@ func (c *Client) GetCRD(ctx context.Context, name string, opts metav1.GetOptions
 
 // Kubernetes Network Policies specific commands
 
-func (c *Client) ListKubernetesNetworkPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
-	return c.Clientset.NetworkingV1().NetworkPolicies(namespace).List(ctx, opts)
-}
-
-func (c *Client) GetKubernetesNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*networkingv1.NetworkPolicy, error) {
-	return c.Clientset.NetworkingV1().NetworkPolicies(namespace).Get(ctx, name, opts)
-}
-
-func (c *Client) CreateKubernetesNetworkPolicy(ctx context.Context, policy *networkingv1.NetworkPolicy, opts metav1.CreateOptions) (*networkingv1.NetworkPolicy, error) {
-	return c.Clientset.NetworkingV1().NetworkPolicies(policy.Namespace).Create(ctx, policy, opts)
-}
-
-func (c *Client) UpdateKubernetesNetworkPolicy(ctx context.Context, policy *networkingv1.NetworkPolicy, opts metav1.UpdateOptions) (*networkingv1.NetworkPolicy, error) {
-	return c.Clientset.NetworkingV1().NetworkPolicies(policy.Namespace).Update(ctx, policy, opts)
-}
-
 func (c *Client) DeleteKubernetesNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.NetworkingV1().NetworkPolicies(namespace).Delete(ctx, name, opts)
 }
@@ -708,18 +636,6 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 	return f
 }
 
-func (c *Client) CreateResourceQuota(ctx context.Context, namespace string, rq *corev1.ResourceQuota, opts metav1.CreateOptions) (*corev1.ResourceQuota, error) {
-	return c.Clientset.CoreV1().ResourceQuotas(namespace).Create(ctx, rq, opts)
-}
-
-func (c *Client) DeleteResourceQuota(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
-	return c.Clientset.CoreV1().ResourceQuotas(namespace).Delete(ctx, name, opts)
-}
-
-func (c *Client) GetCiliumEndpoint(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEndpoint, error) {
-	return c.CiliumClientset.CiliumV2().CiliumEndpoints(namespace).Get(ctx, name, opts)
-}
-
 func (c *Client) ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumEndpoints(namespace).List(ctx, options)
 }
@@ -764,36 +680,12 @@ func (c *Client) ListCiliumNetworkPolicies(ctx context.Context, namespace string
 	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).List(ctx, opts)
 }
 
-func (c *Client) GetCiliumNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumNetworkPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).Get(ctx, name, opts)
-}
-
-func (c *Client) CreateCiliumNetworkPolicy(ctx context.Context, cnp *ciliumv2.CiliumNetworkPolicy, opts metav1.CreateOptions) (*ciliumv2.CiliumNetworkPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(cnp.Namespace).Create(ctx, cnp, opts)
-}
-
-func (c *Client) UpdateCiliumNetworkPolicy(ctx context.Context, cnp *ciliumv2.CiliumNetworkPolicy, opts metav1.UpdateOptions) (*ciliumv2.CiliumNetworkPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(cnp.Namespace).Update(ctx, cnp, opts)
-}
-
 func (c *Client) DeleteCiliumNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).Delete(ctx, name, opts)
 }
 
 func (c *Client) ListCiliumEgressGatewayPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumEgressGatewayPolicyList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().List(ctx, opts)
-}
-
-func (c *Client) GetCiliumEgressGatewayPolicy(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEgressGatewayPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Get(ctx, name, opts)
-}
-
-func (c *Client) CreateCiliumEgressGatewayPolicy(ctx context.Context, cegp *ciliumv2.CiliumEgressGatewayPolicy, opts metav1.CreateOptions) (*ciliumv2.CiliumEgressGatewayPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Create(ctx, cegp, opts)
-}
-
-func (c *Client) UpdateCiliumEgressGatewayPolicy(ctx context.Context, cegp *ciliumv2.CiliumEgressGatewayPolicy, opts metav1.UpdateOptions) (*ciliumv2.CiliumEgressGatewayPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Update(ctx, cegp, opts)
 }
 
 func (c *Client) DeleteCiliumEgressGatewayPolicy(ctx context.Context, name string, opts metav1.DeleteOptions) error {
@@ -814,18 +706,6 @@ func (c *Client) ListCiliumClusterwideNetworkPolicies(ctx context.Context, opts 
 
 func (c *Client) ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumClusterwideEnvoyConfigs().List(ctx, opts)
-}
-
-func (c *Client) GetCiliumClusterwideNetworkPolicy(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumClusterwideNetworkPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().Get(ctx, name, opts)
-}
-
-func (c *Client) CreateCiliumClusterwideNetworkPolicy(ctx context.Context, ccnp *ciliumv2.CiliumClusterwideNetworkPolicy, opts metav1.CreateOptions) (*ciliumv2.CiliumClusterwideNetworkPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().Create(ctx, ccnp, opts)
-}
-
-func (c *Client) UpdateCiliumClusterwideNetworkPolicy(ctx context.Context, ccnp *ciliumv2.CiliumClusterwideNetworkPolicy, opts metav1.UpdateOptions) (*ciliumv2.CiliumClusterwideNetworkPolicy, error) {
-	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().Update(ctx, ccnp, opts)
 }
 
 func (c *Client) DeleteCiliumClusterwideNetworkPolicy(ctx context.Context, name string, opts metav1.DeleteOptions) error {
@@ -991,21 +871,6 @@ func (c *Client) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace 
 	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).List(ctx, opts)
 }
 
-func (c *Client) GetPlatform(_ context.Context) (*Platform, error) {
-	v, err := c.Clientset.Discovery().ServerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Kubernetes version: %w", err)
-	}
-	fileds := strings.Split(v.Platform, "/")
-	if len(fileds) != 2 {
-		return nil, fmt.Errorf("unknown platform type")
-	}
-	return &Platform{
-		OS:   fileds[0],
-		Arch: fileds[1],
-	}, err
-}
-
 func (c *Client) GetServerVersion() (*semver.Version, error) {
 	sv, err := c.Clientset.Discovery().ServerVersion()
 	if err != nil {
@@ -1031,20 +896,12 @@ func (c *Client) GetServerVersion() (*semver.Version, error) {
 	return nil, fmt.Errorf("unable to parse Kubernetes version (got %s): %s", sv.String(), err)
 }
 
-func (c *Client) CreateIngressClass(ctx context.Context, ingressClass *networkingv1.IngressClass, opts metav1.CreateOptions) (*networkingv1.IngressClass, error) {
-	return c.Clientset.NetworkingV1().IngressClasses().Create(ctx, ingressClass, opts)
-}
-
 func (c *Client) GetIngress(ctx context.Context, namespace string, name string, opts metav1.GetOptions) (*networkingv1.Ingress, error) {
 	return c.Clientset.NetworkingV1().Ingresses(namespace).Get(ctx, name, opts)
 }
 
 func (c *Client) CreateIngress(ctx context.Context, namespace string, ingress *networkingv1.Ingress, opts metav1.CreateOptions) (*networkingv1.Ingress, error) {
 	return c.Clientset.NetworkingV1().Ingresses(namespace).Create(ctx, ingress, opts)
-}
-
-func (c *Client) DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.Clientset.NetworkingV1().IngressClasses().Delete(ctx, name, opts)
 }
 
 // GetHelmValues is the function for cilium cli sysdump to collect the helm values from the release directly
@@ -1070,18 +927,6 @@ func (c *Client) GetHelmValues(_ context.Context, releaseName string, namespace 
 	}
 	return valuesBuf.String(), nil
 
-}
-
-func (c *Client) ListAPIResources(_ context.Context) ([]string, error) {
-	lists, err := c.Clientset.Discovery().ServerPreferredResources()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list api resources: %w", err)
-	}
-	results := make([]string, 0, len(lists))
-	for _, list := range lists {
-		results = append(results, list.GroupVersion)
-	}
-	return results, nil
 }
 
 // CreateEphemeralContainer will create a EphemeralContainer (debug container) in the specified pod.
