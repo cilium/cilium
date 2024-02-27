@@ -48,10 +48,10 @@ const (
 	// version is verified even if connectivity is given
 	k8sVersionCheckInterval = 15 * time.Minute
 
-	// k8sMinimumEventHearbeat is the time interval in which any received
+	// k8sMinimumEventHeartbeat is the time interval in which any received
 	// event will be considered proof that the apiserver connectivity is
-	// healthty
-	k8sMinimumEventHearbeat = time.Minute
+	// healthy
+	k8sMinimumEventHeartbeat = time.Minute
 )
 
 var randGen = rand.NewSafeRand(time.Now().UnixNano())
@@ -66,7 +66,7 @@ func (k *k8sVersion) cachedVersion() (string, bool) {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 
-	if time.Since(k8smetrics.LastInteraction.Time()) > k8sMinimumEventHearbeat {
+	if time.Since(k8smetrics.LastSuccessInteraction.Time()) > k8sMinimumEventHeartbeat {
 		return "", false
 	}
 
