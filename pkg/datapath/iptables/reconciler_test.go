@@ -78,7 +78,9 @@ func TestReconciliationLoop(t *testing.T) {
 	updateFunc := func(newState desiredState, firstInit bool) error {
 		mu.Lock()
 		defer mu.Unlock()
-		state = newState
+		// copy newState to avoid a race with the reconciler mutating it
+		// and the test asserting the expected values with Eventually
+		state = newState.deepCopy()
 		return nil
 	}
 	updateProxyFunc := func(proxyPort uint16, ingress, localOnly bool, name string) error {
@@ -381,4 +383,25 @@ func assertIptablesState(current, expected desiredState) error {
 			expected.noTrackPods.UnsortedList(), current.noTrackPods.UnsortedList())
 	}
 	return nil
+}
+
+func (s desiredState) deepCopy() desiredState {
+	ipv4 := make(net.IP, len(s.localNodeInfo.internalIPv4))
+	copy(ipv4, s.localNodeInfo.internalIPv4)
+	ipv6 := make(net.IP, len(s.localNodeInfo.internalIPv6))
+	copy(ipv6, s.localNodeInfo.internalIPv6)
+	return desiredState{
+		installRules: s.installRules,
+		devices:      s.devices.Clone(),
+		localNodeInfo: localNodeInfo{
+			internalIPv4:          ipv4,
+			internalIPv6:          ipv6,
+			ipv4AllocCIDR:         s.localNodeInfo.ipv4AllocCIDR,
+			ipv6AllocCIDR:         s.localNodeInfo.ipv6AllocCIDR,
+			ipv4NativeRoutingCIDR: s.localNodeInfo.ipv4NativeRoutingCIDR,
+			ipv6NativeRoutingCIDR: s.localNodeInfo.ipv6NativeRoutingCIDR,
+		},
+		proxies:     s.proxies.Clone(),
+		noTrackPods: s.noTrackPods.Clone(),
+	}
 }
