@@ -202,7 +202,7 @@ func isDisabledChain(disableIptablesFeederRules []string, chain string) bool {
 	return false
 }
 
-func (m *Manager) removeCiliumRules(table string, prog runnable, match string) error {
+func (m *Manager) removeOldCiliumRules(table string, prog runnable) error {
 	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
 	if err != nil {
 		return err
@@ -212,22 +212,17 @@ func (m *Manager) removeCiliumRules(table string, prog runnable, match string) e
 	for scanner.Scan() {
 		rule := scanner.Text()
 
-		// All rules installed by cilium either belong to a chain with
-		// the name CILIUM_ or call a chain with the name CILIUM_:
-		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
-		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
-		if !strings.Contains(rule, match) {
-			continue
-		}
-
-		// Temporary fix while Iptables is upgraded to >= 1.8.5
-		// (See GH-20884).
+		// All old rules installed by cilium either belong to a chain with
+		// the name OLD_CILIUM_ (where "OLD_" is the oldCiliumPrefix) or call
+		// a chain with the name OLD_CILIUM_:
 		//
-		// The version currently shipped with Cilium (1.8.4) does not
-		// support the deletion of NOTRACK rules, so we will just ignore
-		// them here and let the agent remove them when it deletes the
-		// entire chain.
-		if strings.Contains(rule, "-j NOTRACK") {
+		// -A OLD_CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
+		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j OLD_CILIUM_POST
+		//
+		// We want to remove only the second type of rules, since we are gonna
+		// remove the entire "OLD_" prefixes chains immediately after. To do that,
+		// we include "-j " as part of the match string.
+		if !strings.Contains(rule, "-j "+oldCiliumPrefix+"CILIUM_") {
 			continue
 		}
 
@@ -467,12 +462,12 @@ func (m *Manager) removeRules(prefix string) error {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
-		if err := m.removeCiliumRules(t, ip4tables, prefix+"CILIUM_"); err != nil {
+		if err := m.removeOldCiliumRules(t, ip4tables); err != nil {
 			return err
 		}
 
 		if m.haveIp6tables {
-			if err := m.removeCiliumRules(t, ip6tables, prefix+"CILIUM_"); err != nil {
+			if err := m.removeOldCiliumRules(t, ip6tables); err != nil {
 				return err
 			}
 		}
