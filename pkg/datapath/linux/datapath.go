@@ -33,6 +33,7 @@ type linuxDatapath struct {
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
 	bwmgr          datapath.BandwidthManager
+	orchestrator   datapath.Orchestrator
 }
 
 type DatapathParams struct {
@@ -47,6 +48,7 @@ type DatapathParams struct {
 	NodeManager    manager.NodeManager
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
+	Orchestrator   datapath.Orchestrator
 }
 
 // NewDatapath creates a new Linux datapath
@@ -60,6 +62,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		wgAgent:         p.WGAgent,
 		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
+		orchestrator:    p.Orchestrator,
 	}
 
 	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.MTU, p.NodeManager, p.DB, p.Devices)
@@ -107,4 +110,8 @@ func (l *linuxDatapath) BandwidthManager() datapath.BandwidthManager {
 
 func (l *linuxDatapath) DeleteEndpointBandwidthLimit(epID uint16) error {
 	return l.bwmgr.DeleteEndpointBandwidthLimit(epID)
+}
+
+func (l *linuxDatapath) Orchestrator() datapath.Orchestrator {
+	return l.orchestrator
 }

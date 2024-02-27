@@ -117,6 +117,10 @@ func (f *FakeDatapath) BandwidthManager() datapath.BandwidthManager {
 	return &BandwidthManager{}
 }
 
+func (f *FakeDatapath) Orchestrator() datapath.Orchestrator {
+	return &FakeOrchestrator{}
+}
+
 // Loader is an interface to abstract out loading of datapath programs.
 type FakeLoader struct {
 }
@@ -163,4 +167,10 @@ func (f *FakeLoader) RestoreTemplates(stateDir string) error {
 
 func (f *FakeLoader) DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
 	return false, nil
+}
+
+type FakeOrchestrator struct{}
+
+func (f *FakeOrchestrator) Reinitialize(ctx context.Context, owner datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	return nil
 }
