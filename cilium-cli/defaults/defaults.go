@@ -13,39 +13,23 @@ const (
 
 	CiliumPodSelector = "app.kubernetes.io/part-of=cilium"
 
-	AgentContainerName      = "cilium-agent"
-	AgentServiceAccountName = "cilium"
-	AgentClusterRoleName    = "cilium"
-	AgentSecretsRoleName    = "cilium-secrets"
-	AgentConfigRoleName     = "cilium-config-agent"
-	AgentDaemonSetName      = "cilium"
-	AgentPodSelector        = "k8s-app=cilium"
-	AgentResourceQuota      = "cilium-resource-quota"
-	AgentImage              = "quay.io/cilium/cilium"
+	AgentContainerName   = "cilium-agent"
+	AgentClusterRoleName = "cilium"
+	AgentDaemonSetName   = "cilium"
+	AgentPodSelector     = "k8s-app=cilium"
 
 	EnvoyDaemonSetName = "cilium-envoy"
 	EnvoyConfigMapName = "cilium-envoy-config"
 
 	CASecretName     = "cilium-ca"
-	CASecretKeyName  = "ca.key"
 	CASecretCertName = "ca.crt"
 
 	EncryptionSecretName = "cilium-ipsec-keys"
-	AKSSecretName        = "cilium-azure"
 
-	NodeInitDaemonSetName = "cilium-node-init"
-
-	OperatorServiceAccountName = "cilium-operator"
-	OperatorClusterRoleName    = "cilium-operator"
-	OperatorPodSelector        = "io.cilium/app=operator"
-	OperatorSecretsRoleName    = "cilium-operator-secrets"
-	OperatorContainerName      = "cilium-operator"
-	OperatorMetricsPortName    = "prometheus"
-	OperatorDeploymentName     = "cilium-operator"
-	OperatorResourceQuota      = "cilium-operator-resource-quota"
-	OperatorImage              = "quay.io/cilium/operator-generic"
-	OperatorImageAWS           = "quay.io/cilium/operator-aws"
-	OperatorImageAzure         = "quay.io/cilium/operator-azure"
+	OperatorPodSelector     = "io.cilium/app=operator"
+	OperatorContainerName   = "cilium-operator"
+	OperatorMetricsPortName = "prometheus"
+	OperatorDeploymentName  = "cilium-operator"
 
 	RelayContainerName  = "hubble-relay"
 	RelayDeploymentName = "hubble-relay"
@@ -61,9 +45,6 @@ const (
 	ClusterMeshKVStoreMeshMetricsPortName = "kvmesh-metrics"
 	ClusterMeshEtcdContainerName          = "etcd"
 	ClusterMeshEtcdMetricsPortName        = "etcd-metrics"
-	ClusterMeshServiceAccountName         = "clustermesh-apiserver"
-	ClusterMeshClusterRoleName            = "clustermesh-apiserver"
-	ClusterMeshApiserverImage             = "quay.io/cilium/clustermesh-apiserver"
 	ClusterMeshServiceName                = "clustermesh-apiserver"
 	ClusterMeshSecretName                 = "cilium-clustermesh" // Secret which contains the clustermesh configuration
 	ClusterMeshServerSecretName           = "clustermesh-apiserver-server-cert"
@@ -108,10 +89,7 @@ const (
 
 	UninstallTimeout = 5 * time.Minute
 
-	IngressClassName        = "cilium"
-	IngressService          = "cilium-ingress"
-	IngressControllerName   = "cilium.io/ingress-controller"
-	IngressSecretsNamespace = "cilium-secrets"
+	IngressClassName = "cilium"
 
 	// HelmReleaseName is the default Helm release name for Cilium.
 	HelmReleaseName               = "cilium"
