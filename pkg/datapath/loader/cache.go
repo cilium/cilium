@@ -75,6 +75,8 @@ var ignoredELFPrefixes = []string{
 	".debug_line",                 // Debug
 	".debug_frame",                // Debug
 	".debug_loc",                  // Debug
+	".debug_addr",                 // Debug
+	".debug_str_offsets",          // Debug
 	// Endpoint IPv6 address. It's possible for the template object to have
 	// these symbols while the endpoint doesn't, if IPv6 was just enabled and
 	// the endpoint restored.
