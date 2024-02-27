@@ -82,6 +82,8 @@ func reconciliationLoop(
 	params *reconcilerParams,
 	updateRules func(state desiredState, firstInit bool) error,
 	updateProxyRules func(proxyPort uint16, localOnly bool, name string) error,
+	installNoTrackRules func(addr netip.Addr, port uint16) error,
+	removeNoTrackRules func(addr netip.Addr, port uint16) error,
 ) error {
 	// The minimum interval between reconciliation attempts
 	const minReconciliationInterval = 200 * time.Millisecond
@@ -175,7 +177,18 @@ stop:
 				continue
 			}
 			state.noTrackPods.Insert(noTrackPod)
-			stateChanged = true
+
+			if !firstInit {
+				// first init not yet completed, no track pod rules will be updated as part of that
+				stateChanged = true
+				continue
+			}
+
+			if err := installNoTrackRules(noTrackPod.ip, noTrackPod.port); err != nil {
+				log.WithError(err).Warning("iptables no track rules incremental install failed, will retry a full reconciliation")
+				// incremental rules update failed, schedule a full iptables reconciliation
+				stateChanged = true
+			}
 		case noTrackPod, ok := <-params.delNoTrackPod:
 			if !ok {
 				break stop
@@ -184,7 +197,18 @@ stop:
 				continue
 			}
 			state.noTrackPods.Delete(noTrackPod)
-			stateChanged = true
+
+			if !firstInit {
+				// first init not yet completed, no track pod rules will be updated as part of that
+				stateChanged = true
+				continue
+			}
+
+			if err := removeNoTrackRules(noTrackPod.ip, noTrackPod.port); err != nil {
+				log.WithError(err).Warning("iptables no track rules incremental removal failed, will retry a full reconciliation")
+				// incremental rules update failed, schedule a full iptables reconciliation
+				stateChanged = true
+			}
 		case <-ticker.C:
 			if !stateChanged {
 				continue
