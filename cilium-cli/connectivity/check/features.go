@@ -319,14 +319,6 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 	return nil
 }
 
-func (ct *ConnectivityTest) UpdateFeaturesFromNodes(ctx context.Context) error {
-	if err := ct.getNodes(ctx); err != nil {
-		return err
-	}
-	ct.Features.ExtractFromNodes(ct.nodesWithoutCilium)
-	return nil
-}
-
 func (ct *ConnectivityTest) ForceDisableFeature(feature features.Feature) {
 	ct.Features[feature] = features.Status{Enabled: false}
 }
