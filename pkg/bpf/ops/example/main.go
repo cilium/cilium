@@ -78,7 +78,7 @@ var Hive = hive.New(
 )
 
 func newReconcilerConfigAndOperations(m exampleMap) (reconciler.Config[*Example], reconciler.Operations[*Example]) {
-	ops, batchOps := ops.NewMapOps[*Example](m.Map)
+	ops, batchOps := ops.NewMapOps[*Example](m.Map.Map)
 
 	// Reconcile at most every 5 milliseconds to allow for batch to build
 	// up.

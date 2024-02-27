@@ -76,7 +76,7 @@ func initSVC(params InitParams) {
 			&Service4Value{},
 			ServiceMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		). /* FIXME: WithPressureMetric(). */
 			WithEvents(option.Config.GetEventBufferConfig(Service4MapV2Name))
 		Backend4Map = bpf.NewMap(Backend4MapName,
 			ebpf.Hash,
@@ -119,7 +119,7 @@ func initSVC(params InitParams) {
 			&Service6Value{},
 			ServiceMapMaxEntries,
 			0,
-		).WithCache().WithPressureMetric().
+		). /* FIXME: WithCache().WithPressureMetric(). */
 			WithEvents(option.Config.GetEventBufferConfig(Service6MapV2Name))
 		Backend6Map = bpf.NewMap(Backend6MapName,
 			ebpf.Hash,

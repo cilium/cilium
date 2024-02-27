@@ -109,6 +109,10 @@ type Map struct {
 	group string
 }
 
+func (m *Map) Map() *ebpf.Map {
+	return m.m
+}
+
 func (m *Map) Type() ebpf.MapType {
 	if m.m != nil {
 		return m.m.Type()

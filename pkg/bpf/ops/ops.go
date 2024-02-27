@@ -11,10 +11,9 @@ import (
 	"reflect"
 	"unsafe"
 
-	cilium_ebpf "github.com/cilium/ebpf"
+	"github.com/cilium/ebpf"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
@@ -117,7 +116,7 @@ func (ops *mapOps[KV]) Update(ctx context.Context, txn statedb.ReadTxn, entry KV
 		var value []byte
 		err := ops.m.Lookup(entry.Key(), &value)
 		if err != nil {
-			if errors.Is(err, cilium_ebpf.ErrKeyNotExist) {
+			if errors.Is(err, ebpf.ErrKeyNotExist) {
 				*changed = true
 			} else {
 				return err
@@ -156,7 +155,7 @@ func (ops *mapOps[KV]) UpdateBatch(ctx context.Context, txn statedb.ReadTxn, bat
 	for _, e := range batch {
 		values = append(values, e.Object.Value())
 	}
-	n, err := ops.m.BatchUpdate(sliceMarshaler(keys), sliceMarshaler(values), &cilium_ebpf.BatchOptions{
+	n, err := ops.m.BatchUpdate(sliceMarshaler(keys), sliceMarshaler(values), &ebpf.BatchOptions{
 		ElemFlags: unix.BPF_ANY,
 	})
 	for i := n; i < len(batch); i++ {
@@ -170,7 +169,7 @@ func (ops *mapOps[KV]) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, bat
 		buf = append(buf, e.Object.Key())
 	}
 	n, err := ops.m.BatchDelete(sliceMarshaler(buf), nil)
-	if errors.Is(err, cilium_ebpf.ErrKeyNotExist) {
+	if errors.Is(err, ebpf.ErrKeyNotExist) {
 		err = nil
 	}
 	for i := n; i < len(batch); i++ {

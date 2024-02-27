@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -56,6 +57,9 @@ var Cell = cell.Module(
 
 	// The cilium events map, used by the monitor agent.
 	eventsmap.Cell,
+
+	// Load-balancer BPF maps: services, backends, maglev, affinity.
+	lbmap.Cell,
 
 	// The monitor agent, which multicasts cilium and agent events to its subscribers.
 	monitorAgent.Cell,
@@ -173,6 +177,7 @@ func newDatapath(params datapathParams) types.Datapath {
 		NodeAddressing: params.NodeAddressing,
 		BWManager:      params.BandwidthManager,
 		Loader:         params.Loader,
+		LBMap:          params.LBMap,
 	}, datapathConfig)
 
 	params.LC.Append(cell.Hook{
@@ -215,4 +220,6 @@ type datapathParams struct {
 	TunnelConfig tunnel.Config
 
 	Loader loaderTypes.Loader
+
+	LBMap types.LBMap
 }
