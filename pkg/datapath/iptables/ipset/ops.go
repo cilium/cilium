@@ -46,14 +46,14 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, s *tables.IPSet, 
 	}
 
 	// reconcile the set
-	toAdd := s.Addrs.Difference(cur)
-	for addr := range toAdd {
+	toAdd := s.Addrs.Difference(cur).AsSlice()
+	for _, addr := range toAdd {
 		if err := ops.ipset.add(ctx, s.Name, addr); err != nil {
 			return err
 		}
 	}
-	toDel := cur.Difference(s.Addrs)
-	for addr := range toDel {
+	toDel := cur.Difference(s.Addrs).AsSlice()
+	for _, addr := range toDel {
 		if err := ops.ipset.del(ctx, s.Name, addr); err != nil {
 			return err
 		}
