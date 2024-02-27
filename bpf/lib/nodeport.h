@@ -1513,8 +1513,8 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
-				  trace.monitor);
+		send_trace_notify(ctx, obs_point, 0, 0, 0, NATIVE_DEV_IFINDEX,
+				  trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -2968,8 +2968,8 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
-				  trace.monitor);
+		send_trace_notify(ctx, obs_point, 0, 0, 0, NATIVE_DEV_IFINDEX,
+				  trace.reason, trace.monitor);
 
 	return ret;
 }
