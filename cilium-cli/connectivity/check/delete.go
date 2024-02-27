@@ -40,7 +40,7 @@ func (ct *ConnectivityTest) deleteCiliumPods(ctx context.Context) error {
 		// or the secret parsing failed for whatever reason, then we create a default helm state.
 		ct.Logf("Error parsing helm cli secret: %s", err)
 		ct.Logf("Proceeding in unknown installation state")
-		helmState, err = ct.generateDefaultHelmState(ctx, ct.client, ct.params.CiliumNamespace)
+		helmState, err = ct.generateDefaultHelmState(ct.client, ct.params.CiliumNamespace)
 		if err != nil {
 			return err
 		}
@@ -181,8 +181,8 @@ func (ct *ConnectivityTest) generateManifestsNodeAffinity(ctx context.Context, h
 	return nil
 }
 
-func (ct *ConnectivityTest) generateDefaultHelmState(ctx context.Context, client *k8s.Client, namespace string) (*helm.State, error) {
-	version, err := client.GetRunningCiliumVersion(ctx, namespace)
+func (ct *ConnectivityTest) generateDefaultHelmState(client *k8s.Client, namespace string) (*helm.State, error) {
+	version, err := client.GetRunningCiliumVersion(namespace)
 	if version == "" || err != nil {
 		return nil, fmt.Errorf("unable to obtain cilium version, no Cilium pods found in namespace %q", namespace)
 	}

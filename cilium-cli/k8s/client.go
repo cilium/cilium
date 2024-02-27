@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/distribution/reference"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli/output"
@@ -957,47 +955,6 @@ func (c *Client) GetLogs(ctx context.Context, namespace, name, container string,
 	return b.String(), nil
 }
 
-func getCiliumVersionFromImage(image string) (string, error) {
-	// default to "latest" as k8s may not include it explicitly
-	version := "latest"
-
-	ref, err := reference.Parse(image)
-	if err != nil {
-		// Image has an invalid name, skip it
-		return "", err
-	}
-
-	tagged, isTagged := ref.(reference.Tagged)
-	if isTagged {
-		version = tagged.Tag()
-	}
-
-	named, isNamed := ref.(reference.Named)
-	if isNamed {
-		path := reference.Path(named)
-		strs := strings.Split(path, "/")
-
-		// Take the last element as an image name
-		imageName := strs[len(strs)-1]
-		if !strings.HasPrefix(imageName, "cilium") {
-			// Not likely to be Cilium
-			return "", fmt.Errorf("image name %s is not prefixed with cilium", imageName)
-		}
-
-		// Add any part in the pod image separated by a '-` to the version,
-		// e.g., "quay.io/cilium/cilium-ci:1234" -> "-ci:1234"
-		dash := strings.Index(imageName, "-")
-		if dash >= 0 {
-			version = imageName[dash:] + ":" + version
-		}
-	} else {
-		// Image somehow doesn't contain name, skip it.
-		return "", fmt.Errorf("image does't contain name")
-	}
-
-	return version, nil
-}
-
 // GetCiliumVersion returns a semver.Version representing the version of cilium
 // running in the cilium-agent pod
 func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.Version, error) {
@@ -1021,32 +978,15 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 	return &podVersion, nil
 }
 
-func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error) {
-	if utils.IsInHelmMode() {
-		release, err := helm.Get(c.HelmActionConfig, helm.GetParameters{
-			Namespace: namespace,
-			Name:      defaults.HelmReleaseName,
-		})
-		if err != nil {
-			return "", err
-		}
-		return release.Chart.Metadata.Version, nil
-	}
-	pods, err := c.ListPods(ctx, namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
+func (c *Client) GetRunningCiliumVersion(namespace string) (string, error) {
+	release, err := helm.Get(c.HelmActionConfig, helm.GetParameters{
+		Namespace: namespace,
+		Name:      defaults.HelmReleaseName,
+	})
 	if err != nil {
-		return "", fmt.Errorf("unable to list cilium pods: %w", err)
+		return "", err
 	}
-	if len(pods.Items) > 0 && len(pods.Items[0].Spec.Containers) > 0 {
-		for _, container := range pods.Items[0].Spec.Containers {
-			version, err := getCiliumVersionFromImage(container.Image)
-			if err != nil {
-				continue
-			}
-			return version, nil
-		}
-		return "", errors.New("unable to obtain cilium version: no cilium container found")
-	}
-	return "", errors.New("unable to obtain cilium version: no cilium pods found")
+	return release.Chart.Metadata.Version, nil
 }
 
 func (c *Client) ListCiliumLoadBalancerIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
