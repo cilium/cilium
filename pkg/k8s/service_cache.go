@@ -297,6 +297,27 @@ func (s *ServiceCache) GetNodeAddressing() types.NodeAddressing {
 	return s.nodeAddressing
 }
 
+// ForEachService runs the yield callback for each service and its endpoints.
+// If yield returns false, the iteration is terminated early.
+// Services are iterated in random order.
+// The ServiceCache is read-locked during this function call. The passed in
+// Service and Endpoints references are read-only.
+func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, eps *Endpoints) bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for svcID, ep := range s.endpoints {
+		svc, ok := s.services[svcID]
+		if !ok {
+			continue
+		}
+		eps := ep.GetEndpoints()
+		if !yield(svcID, svc, eps) {
+			return
+		}
+	}
+}
+
 // UpdateService parses a Kubernetes service and adds or updates it in the
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
