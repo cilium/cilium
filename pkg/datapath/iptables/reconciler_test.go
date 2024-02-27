@@ -94,6 +94,24 @@ func TestReconciliationLoop(t *testing.T) {
 		})
 		return nil
 	}
+	installNoTrackFunc := func(addr netip.Addr, port uint16) error {
+		mu.Lock()
+		defer mu.Unlock()
+		state.noTrackPods.Insert(noTrackPodInfo{
+			ip:   addr,
+			port: port,
+		})
+		return nil
+	}
+	removeNoTrackFunc := func(addr netip.Addr, port uint16) error {
+		mu.Lock()
+		defer mu.Unlock()
+		state.noTrackPods.Delete(noTrackPodInfo{
+			ip:   addr,
+			port: port,
+		})
+		return nil
+	}
 
 	testCases := []struct {
 		name     string
@@ -319,7 +337,7 @@ func TestReconciliationLoop(t *testing.T) {
 	errs := make(chan error)
 	go func() {
 		defer close(errs)
-		errs <- reconciliationLoop(ctx, log, health, true, params, updateFunc, updateProxyFunc)
+		errs <- reconciliationLoop(ctx, log, health, true, params, updateFunc, updateProxyFunc, installNoTrackFunc, removeNoTrackFunc)
 	}()
 
 	// wait for reconciler to react to the initial state
