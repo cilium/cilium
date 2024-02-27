@@ -5,6 +5,7 @@ package node
 
 import (
 	"context"
+	"io"
 	"sync"
 
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -63,8 +64,11 @@ type LocalNodeStore struct {
 	// Changes to the local node are observable.
 	stream.Observable[LocalNode]
 
-	mu       lock.Mutex
+	mu    lock.Mutex
+	getMu lock.RWMutex
+
 	value    LocalNode
+	hasValue <-chan struct{}
 	emit     func(LocalNode)
 	complete func(error)
 }
@@ -77,11 +81,17 @@ func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 		emit:       emit,
 		complete:   complete,
 		value:      mockNode,
+		hasValue: func() <-chan struct{} {
+			ch := make(chan struct{})
+			close(ch)
+			return ch
+		}(),
 	}
 }
 
 func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 	src, emit, complete := stream.Multicast[LocalNode](stream.EmitLatest)
+	hasValue := make(chan struct{})
 
 	s := &LocalNodeStore{
 		Observable: src,
@@ -91,6 +101,7 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
 		}},
+		hasValue: hasValue,
 	}
 
 	bctx, cancel := context.WithCancel(context.Background())
@@ -121,6 +132,7 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 			s.emit = emit
 			s.complete = complete
 			emit(s.value)
+			close(hasValue)
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -130,8 +142,10 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 
 			s.mu.Lock()
 			s.complete(nil)
+			s.getMu.Lock()
 			s.complete = nil
 			s.emit = nil
+			s.getMu.Unlock()
 			s.mu.Unlock()
 
 			localNode = nil
@@ -146,8 +160,22 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 // e.g. in API handlers. Do not assume the value does not change over time.
 // Blocks until the store has been initialized.
 func (s *LocalNodeStore) Get(ctx context.Context) (LocalNode, error) {
-	// Subscribe to the stream of updates and take the first (latest) state.
-	return stream.First[LocalNode](ctx, s)
+	select {
+	case <-s.hasValue:
+		s.getMu.RLock()
+		defer s.getMu.RUnlock()
+
+		if s.complete == nil {
+			// Return EOF when the LocalNodeStore is stopped, to preserve the
+			// same behavior of stream.First[LocalNode].
+			return LocalNode{}, io.EOF
+		}
+
+		return s.value, nil
+
+	case <-ctx.Done():
+		return LocalNode{}, ctx.Err()
+	}
 }
 
 // Update modifies the local node with a mutator. The updated value
@@ -156,7 +184,9 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.getMu.Lock()
 	update(&s.value)
+	s.getMu.Unlock()
 
 	if s.emit != nil {
 		s.emit(s.value)
