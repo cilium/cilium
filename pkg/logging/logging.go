@@ -28,12 +28,20 @@ const (
 	FormatOpt = "format"
 
 	LogFormatText          LogFormat = "text"
+	LogFormatTextTimestamp LogFormat = "text-ts"
 	LogFormatJSON          LogFormat = "json"
 	LogFormatJSONTimestamp LogFormat = "json-ts"
 
 	// DefaultLogFormat is the string representation of the default logrus.Formatter
 	// we want to use (possible values: text or json)
 	DefaultLogFormat LogFormat = LogFormatText
+
+	// DefaultLogFormat is the string representation of the default logrus.Formatter
+	// including timestamps.
+	// We don't use this for general runtime logs since kubernetes log capture handles those.
+	// This is only used for applications such as CNI which is written to disk so we have no
+	// way to correlate with other logs.
+	DefaultLogFormatTimestamp LogFormat = LogFormatTextTimestamp
 
 	// DefaultLogLevel is the default log level we want to use for our logrus.Formatter
 	DefaultLogLevel logrus.Level = logrus.InfoLevel
@@ -200,6 +208,11 @@ func GetFormatter(format LogFormat) logrus.Formatter {
 	case LogFormatText:
 		return &logrus.TextFormatter{
 			DisableTimestamp: true,
+			DisableColors:    true,
+		}
+	case LogFormatTextTimestamp:
+		return &logrus.TextFormatter{
+			DisableTimestamp: false,
 			DisableColors:    true,
 		}
 	case LogFormatJSON:
