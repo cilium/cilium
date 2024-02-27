@@ -84,9 +84,6 @@ type ConnectivityTest struct {
 	controlPlaneNodes  map[string]*corev1.Node
 	nodesWithoutCilium map[string]struct{}
 	ciliumNodes        map[NodeIdentity]*ciliumv2.CiliumNode
-
-	manifests      map[string]string
-	helmYAMLValues string
 }
 
 // NodeIdentity uniquely identifies a Node by Cluster and Name.
@@ -391,14 +388,6 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHoo
 func (ct *ConnectivityTest) Run(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
-	}
-
-	if len(ct.params.DeleteCiliumOnNodes) > 0 {
-		// Delete Cilium pods so only the datapath plumbing remains
-		ct.Debug("Deleting Cilium pods from specified nodes")
-		if err := ct.deleteCiliumPods(ctx); err != nil {
-			return err
-		}
 	}
 
 	ct.Debug("Registered connectivity tests:")
