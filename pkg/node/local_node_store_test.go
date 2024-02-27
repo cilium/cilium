@@ -99,3 +99,15 @@ func TestLocalNodeStore(t *testing.T) {
 		t.Fatalf("Unexpected values observed: %v, expected: %v", observed, expected)
 	}
 }
+
+func BenchmarkLocalNodeStoreGet(b *testing.B) {
+	ctx := context.Background()
+	lns := NewTestLocalNodeStore(LocalNode{})
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, _ = lns.Get(ctx)
+	}
+}
