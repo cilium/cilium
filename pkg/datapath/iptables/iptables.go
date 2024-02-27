@@ -341,7 +341,10 @@ func newIptablesManager(p params) *Manager {
 			return reconciliationLoop(
 				ctx, p.Logger, health,
 				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
-				iptMgr.doInstallRules, iptMgr.doInstallProxyRules,
+				iptMgr.doInstallRules,
+				iptMgr.doInstallProxyRules,
+				iptMgr.installNoTrackRules,
+				iptMgr.removeNoTrackRules,
 			)
 		}),
 	)
@@ -1573,19 +1576,8 @@ func (m *Manager) installRules(state desiredState) error {
 	}
 
 	for noTrackPodInfo := range state.noTrackPods {
-		if noTrackPodInfo.ip.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
-			noTrackPodInfo.ip.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
-			continue
-		}
-
-		prog := ip4tables
-		if noTrackPodInfo.ip.Is6() {
-			prog = ip6tables
-		}
-		for _, p := range noTrackPorts(noTrackPodInfo.port) {
-			if err := m.endpointNoTrackRules(prog, "-A", noTrackPodInfo.ip.String(), p); err != nil {
-				return err
-			}
+		if err := m.installNoTrackRules(noTrackPodInfo.ip, noTrackPodInfo.port); err != nil {
+			return err
 		}
 	}
 
@@ -1697,6 +1689,46 @@ func (m *Manager) addCiliumNoTrackXfrmRules() (err error) {
 	}
 	if m.sharedCfg.EnableIPv6 {
 		return m.ciliumNoTrackXfrmRules(ip6tables, "-I")
+	}
+	return nil
+}
+
+func (m *Manager) installNoTrackRules(addr netip.Addr, port uint16) error {
+	// Do not install per endpoint NOTRACK rules if we are already skipping
+	// conntrack for all pod traffic.
+	if addr.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
+		addr.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
+		return nil
+	}
+
+	prog := ip4tables
+	if addr.Is6() {
+		prog = ip6tables
+	}
+	for _, p := range noTrackPorts(port) {
+		if err := m.endpointNoTrackRules(prog, "-A", addr.String(), p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Manager) removeNoTrackRules(addr netip.Addr, port uint16) error {
+	// Do not remove per endpoint NOTRACK rules if we are already skipping
+	// conntrack for all pod traffic.
+	if addr.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
+		addr.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
+		return nil
+	}
+
+	prog := ip4tables
+	if addr.Is6() {
+		prog = ip6tables
+	}
+	for _, p := range noTrackPorts(port) {
+		if err := m.endpointNoTrackRules(prog, "-D", addr.String(), p); err != nil {
+			return err
+		}
 	}
 	return nil
 }
