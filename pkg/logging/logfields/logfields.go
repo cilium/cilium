@@ -768,4 +768,7 @@ const (
 	Entries = "entries"
 	// Action is the summarized action from a reconciliation.
 	Action = "action"
+
+	// EtcdClusterID is the ID of the etcd cluster
+	EtcdClusterID = "etcdClusterID"
 )
