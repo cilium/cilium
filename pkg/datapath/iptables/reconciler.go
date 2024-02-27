@@ -24,7 +24,7 @@ type desiredState struct {
 
 	devices       sets.Set[string]
 	localNodeInfo localNodeInfo
-	proxies       sets.Set[proxyInfo]
+	proxies       map[string]proxyInfo
 	noTrackPods   sets.Set[noTrackPodInfo]
 }
 
@@ -81,13 +81,14 @@ func reconciliationLoop(
 	installIptRules bool,
 	params *reconcilerParams,
 	updateRules func(state desiredState, firstInit bool) error,
+	updateProxyRules func(proxyPort uint16, localOnly bool, name string) error,
 ) error {
 	// The minimum interval between reconciliation attempts
 	const minReconciliationInterval = 200 * time.Millisecond
 
 	state := desiredState{
 		installRules: installIptRules,
-		proxies:      sets.New[proxyInfo](),
+		proxies:      make(map[string]proxyInfo),
 		noTrackPods:  sets.New[noTrackPodInfo](),
 	}
 
@@ -143,15 +144,29 @@ stop:
 			}
 			state.localNodeInfo = localNodeInfo
 			stateChanged = true
-		case proxyInfo, ok := <-params.proxies:
+		case newProxyInfo, ok := <-params.proxies:
 			if !ok {
 				break stop
 			}
-			if state.proxies.Has(proxyInfo) {
+			if info, ok := state.proxies[newProxyInfo.name]; ok && info == newProxyInfo {
 				continue
 			}
-			state.proxies.Insert(proxyInfo)
-			stateChanged = true
+
+			// if existing, previous rules related to the previous entry for the same proxy name
+			// will be deleted by the manager (see Manager.addProxyRules)
+			state.proxies[newProxyInfo.name] = newProxyInfo
+
+			if !firstInit {
+				// first init not yet completed, proxy rules will be updated as part of that
+				stateChanged = true
+				continue
+			}
+
+			if err := updateProxyRules(newProxyInfo.port, newProxyInfo.isLocalOnly, newProxyInfo.name); err != nil {
+				log.WithError(err).Warning("iptables proxy rules incremental update failed, will retry a full reconciliation")
+				// incremental rules update failed, schedule a full iptables reconciliation
+				stateChanged = true
+			}
 		case noTrackPod, ok := <-params.addNoTrackPod:
 			if !ok {
 				break stop

@@ -336,12 +336,15 @@ func newIptablesManager(p params) *Manager {
 		job.WithPprofLabels(pprof.Labels("cell", "iptables")),
 	)
 
-	jg.Add(job.OneShot("reconciliation-loop", func(ctx context.Context, health cell.HealthReporter) error {
-		return reconciliationLoop(
-			ctx, p.Logger, health,
-			iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams, iptMgr.doInstallRules,
-		)
-	}))
+	jg.Add(
+		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.HealthReporter) error {
+			return reconciliationLoop(
+				ctx, p.Logger, health,
+				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
+				iptMgr.doInstallRules, iptMgr.doInstallProxyRules,
+			)
+		}),
+	)
 
 	p.Lifecycle.Append(jg)
 
@@ -1469,7 +1472,7 @@ func (m *Manager) doInstallRules(state desiredState, firstInit bool) error {
 			}
 		}
 
-		for proxy := range state.proxies {
+		for _, proxy := range state.proxies {
 			if err := m.doInstallProxyRules(proxy.port, proxy.isLocalOnly, proxy.name); err != nil {
 				return fmt.Errorf("cannot install proxy rules for %s: %w", proxy.name, err)
 			}
