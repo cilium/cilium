@@ -266,5 +266,4 @@ type GatewayClassList struct {
 
 // SupportedFeature is used to describe distinct features that are covered by
 // conformance tests.
-// +kubebuilder:validation:Enum=Gateway;GatewayPort8080;GatewayStaticAddresses;HTTPRoute;HTTPRouteDestinationPortMatching;HTTPRouteHostRewrite;HTTPRouteMethodMatching;HTTPRoutePathRedirect;HTTPRoutePathRewrite;HTTPRoutePortRedirect;HTTPRouteQueryParamMatching;HTTPRouteRequestMirror;HTTPRouteRequestMultipleMirrors;HTTPRouteResponseHeaderModification;HTTPRouteSchemeRedirect;Mesh;ReferenceGrant;TLSRoute
 type SupportedFeature string

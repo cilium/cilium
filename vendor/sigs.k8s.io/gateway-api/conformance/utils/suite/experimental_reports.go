@@ -17,6 +17,7 @@ limitations under the License.
 package suite
 
 import (
+	"fmt"
 	"sort"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -128,6 +129,7 @@ func (p profileReportsMap) compileResults(supportedFeaturesMap map[ConformancePr
 				report.Extended.Result = confv1a1.Success
 			}
 		}
+		report.Summary = buildSummary(report)
 		p[key] = report
 
 		supportedFeatures := supportedFeaturesMap[ConformanceProfileName(report.Name)]
@@ -182,4 +184,26 @@ func isTestExtended(profile ConformanceProfile, test ConformanceTest) bool {
 		}
 	}
 	return false
+}
+
+// buildSummary creates a human-readable message about each profile's test outcomes.
+func buildSummary(report confv1a1.ProfileReport) (reportSummary string) {
+	reportSummary = fmt.Sprintf("Core tests %s", buildReportSummary(report.Core))
+	if report.Extended != nil {
+		reportSummary = fmt.Sprintf("%s. Extended tests %s", reportSummary, buildReportSummary(report.Extended.Status))
+	}
+	return fmt.Sprintf("%s.", reportSummary)
+}
+
+func buildReportSummary(status confv1a1.Status) string {
+	var message string
+	switch status.Result {
+	case confv1a1.Success:
+		message = "succeeded"
+	case confv1a1.Partial:
+		message = fmt.Sprintf("partially succeeded with %d test skips", status.Statistics.Skipped)
+	case confv1a1.Failure:
+		message = fmt.Sprintf("failed with %d test failures", status.Statistics.Failed)
+	}
+	return message
 }

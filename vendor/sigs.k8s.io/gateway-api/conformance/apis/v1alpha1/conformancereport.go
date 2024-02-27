@@ -34,6 +34,13 @@ type ConformanceReport struct {
 	// test report was made for.
 	GatewayAPIVersion string `json:"gatewayAPIVersion"`
 
+	// Mode is the operating mode the implementation used to run conformance tests.
+	Mode string `json:"mode"`
+
+	// GatewayAPIChannel indicates which release channel of Gateway API this
+	// test report was made for.
+	GatewayAPIChannel string `json:"gatewayAPIChannel"`
+
 	// ProfileReports is a list of the individual reports for each conformance
 	// profile that was enabled for a test run.
 	ProfileReports []ProfileReport `json:"profiles"`

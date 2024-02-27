@@ -23,6 +23,10 @@ type ProfileReport struct {
 	// "TLS", "Mesh", e.t.c.).
 	Name string `json:"name"`
 
+	// Summary is a human-readable message intended for end-users to understand
+	// the overall status at a glance.
+	Summary string `json:"summary"`
+
 	// Core indicates the core support level which includes the set of tests
 	// which are the minimum the implementation must pass to be considered at
 	// all conformant.
@@ -50,10 +54,6 @@ type ExtendedStatus struct {
 // Status includes details on the results of a test.
 type Status struct {
 	Result `json:"result"`
-
-	// Summary is a human-readable message intended for end-users to understand
-	// the overall status at a glance.
-	Summary string `json:"summary"`
 
 	// Statistics includes numerical statistics on the result of the test run.
 	Statistics `json:"statistics"`

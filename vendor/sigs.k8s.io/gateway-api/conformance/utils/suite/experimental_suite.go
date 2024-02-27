@@ -17,6 +17,7 @@ limitations under the License.
 package suite
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -25,14 +26,17 @@ import (
 	"testing"
 	"time"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"sigs.k8s.io/gateway-api/conformance"
 	confv1a1 "sigs.k8s.io/gateway-api/conformance/apis/v1alpha1"
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
+	"sigs.k8s.io/gateway-api/conformance/utils/flags"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
+	"sigs.k8s.io/gateway-api/pkg/consts"
 )
 
 // -----------------------------------------------------------------------------
@@ -47,9 +51,23 @@ import (
 type ExperimentalConformanceTestSuite struct {
 	ConformanceTestSuite
 
+	// mode is the operating mode of the implementation.
+	// The default value for it is "default".
+	mode string
+
 	// implementation contains the details of the implementation, such as
 	// organization, project, etc.
 	implementation confv1a1.Implementation
+
+	// apiVersion is the version of the Gateway API installed in the cluster
+	// and is extracted by the annotation gateway.networking.k8s.io/bundle-version
+	// in the Gateway API CRDs.
+	apiVersion string
+
+	// apiChannel is the channel of the Gateway API installed in the cluster
+	// and is extracted by the annotation gateway.networking.k8s.io/channel
+	// in the Gateway API CRDs.
+	apiChannel string
 
 	// conformanceProfiles is a compiled list of profiles to check
 	// conformance against.
@@ -78,43 +96,74 @@ type ExperimentalConformanceTestSuite struct {
 type ExperimentalConformanceOptions struct {
 	Options
 
+	Mode                string
+	AllowCRDsMismatch   bool
 	Implementation      confv1a1.Implementation
 	ConformanceProfiles sets.Set[ConformanceProfileName]
 }
 
-// NewExperimentalConformanceTestSuite is a helper to use for creating a new ExperimentalConformanceTestSuite.
-func NewExperimentalConformanceTestSuite(s ExperimentalConformanceOptions) (*ExperimentalConformanceTestSuite, error) {
-	config.SetupTimeoutConfig(&s.TimeoutConfig)
+const (
+	undefinedKeyword = "UNDEFINED"
+)
 
-	roundTripper := s.RoundTripper
+// NewExperimentalConformanceTestSuite is a helper to use for creating a new ExperimentalConformanceTestSuite.
+func NewExperimentalConformanceTestSuite(options ExperimentalConformanceOptions) (*ExperimentalConformanceTestSuite, error) {
+	config.SetupTimeoutConfig(&options.TimeoutConfig)
+
+	roundTripper := options.RoundTripper
 	if roundTripper == nil {
-		roundTripper = &roundtripper.DefaultRoundTripper{Debug: s.Debug, TimeoutConfig: s.TimeoutConfig}
+		roundTripper = &roundtripper.DefaultRoundTripper{Debug: options.Debug, TimeoutConfig: options.TimeoutConfig}
+	}
+
+	installedCRDs := &apiextensionsv1.CustomResourceDefinitionList{}
+	err := options.Client.List(context.TODO(), installedCRDs)
+	if err != nil {
+		return nil, err
+	}
+	apiVersion, apiChannel, err := getAPIVersionAndChannel(installedCRDs.Items)
+	if err != nil {
+		// in case an error is returned and the AllowCRDsMismatch flag is false, the suite fails.
+		// This is the default behavior but can be customized in case one wants to experiment
+		// with mixed versions/channels of the API.
+		if !options.AllowCRDsMismatch {
+			return nil, err
+		}
+		apiVersion = undefinedKeyword
+		apiChannel = undefinedKeyword
+	}
+
+	mode := flags.DefaultMode
+	if options.Mode != "" {
+		mode = options.Mode
 	}
 
 	suite := &ExperimentalConformanceTestSuite{
 		results:                     make(map[string]testResult),
 		extendedUnsupportedFeatures: make(map[ConformanceProfileName]sets.Set[SupportedFeature]),
 		extendedSupportedFeatures:   make(map[ConformanceProfileName]sets.Set[SupportedFeature]),
-		conformanceProfiles:         s.ConformanceProfiles,
-		implementation:              s.Implementation,
+		conformanceProfiles:         options.ConformanceProfiles,
+		implementation:              options.Implementation,
+		mode:                        mode,
+		apiVersion:                  apiVersion,
+		apiChannel:                  apiChannel,
 	}
 
 	// test suite callers are required to provide a conformance profile OR at
 	// minimum a list of features which they support.
-	if s.SupportedFeatures == nil && s.ConformanceProfiles.Len() == 0 && !s.EnableAllSupportedFeatures {
+	if options.SupportedFeatures == nil && options.ConformanceProfiles.Len() == 0 && !options.EnableAllSupportedFeatures {
 		return nil, fmt.Errorf("no conformance profile was selected for test run, and no supported features were provided so no tests could be selected")
 	}
 
 	// test suite callers can potentially just run all tests by saying they
 	// cover all features, if they don't they'll need to have provided a
 	// conformance profile or at least some specific features they support.
-	if s.EnableAllSupportedFeatures {
-		s.SupportedFeatures = AllFeatures
-	} else if s.SupportedFeatures == nil {
-		s.SupportedFeatures = sets.New[SupportedFeature]()
+	if options.EnableAllSupportedFeatures {
+		options.SupportedFeatures = AllFeatures
+	} else if options.SupportedFeatures == nil {
+		options.SupportedFeatures = sets.New[SupportedFeature]()
 	}
 
-	for _, conformanceProfileName := range s.ConformanceProfiles.UnsortedList() {
+	for _, conformanceProfileName := range options.ConformanceProfiles.UnsortedList() {
 		conformanceProfile, err := getConformanceProfileForName(conformanceProfileName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve conformance profile: %w", err)
@@ -122,12 +171,12 @@ func NewExperimentalConformanceTestSuite(s ExperimentalConformanceOptions) (*Exp
 		// the use of a conformance profile implicitly enables any features of
 		// that profile which are supported at a Core level of support.
 		for _, f := range conformanceProfile.CoreFeatures.UnsortedList() {
-			if !s.SupportedFeatures.Has(f) {
-				s.SupportedFeatures.Insert(f)
+			if !options.SupportedFeatures.Has(f) {
+				options.SupportedFeatures.Insert(f)
 			}
 		}
 		for _, f := range conformanceProfile.ExtendedFeatures.UnsortedList() {
-			if s.SupportedFeatures.Has(f) {
+			if options.SupportedFeatures.Has(f) {
 				if suite.extendedSupportedFeatures[conformanceProfileName] == nil {
 					suite.extendedSupportedFeatures[conformanceProfileName] = sets.New[SupportedFeature]()
 				}
@@ -139,40 +188,40 @@ func NewExperimentalConformanceTestSuite(s ExperimentalConformanceOptions) (*Exp
 				suite.extendedUnsupportedFeatures[conformanceProfileName].Insert(f)
 			}
 			// Add Exempt Features into unsupported features list
-			if s.ExemptFeatures.Has(f) {
+			if options.ExemptFeatures.Has(f) {
 				suite.extendedUnsupportedFeatures[conformanceProfileName].Insert(f)
 			}
 		}
 	}
 
-	for feature := range s.ExemptFeatures {
-		s.SupportedFeatures.Delete(feature)
+	for feature := range options.ExemptFeatures {
+		options.SupportedFeatures.Delete(feature)
 	}
 
-	if s.FS == nil {
-		s.FS = &conformance.Manifests
+	if options.FS == nil {
+		options.FS = &conformance.Manifests
 	}
 
 	suite.ConformanceTestSuite = ConformanceTestSuite{
-		Client:           s.Client,
-		Clientset:        s.Clientset,
-		RestConfig:       s.RestConfig,
+		Client:           options.Client,
+		Clientset:        options.Clientset,
+		RestConfig:       options.RestConfig,
 		RoundTripper:     roundTripper,
-		GatewayClassName: s.GatewayClassName,
-		Debug:            s.Debug,
-		Cleanup:          s.CleanupBaseResources,
-		BaseManifests:    s.BaseManifests,
-		MeshManifests:    s.MeshManifests,
+		GatewayClassName: options.GatewayClassName,
+		Debug:            options.Debug,
+		Cleanup:          options.CleanupBaseResources,
+		BaseManifests:    options.BaseManifests,
+		MeshManifests:    options.MeshManifests,
 		Applier: kubernetes.Applier{
-			NamespaceLabels:      s.NamespaceLabels,
-			NamespaceAnnotations: s.NamespaceAnnotations,
+			NamespaceLabels:      options.NamespaceLabels,
+			NamespaceAnnotations: options.NamespaceAnnotations,
 		},
-		SupportedFeatures:        s.SupportedFeatures,
-		TimeoutConfig:            s.TimeoutConfig,
-		SkipTests:                sets.New(s.SkipTests...),
-		FS:                       *s.FS,
-		UsableNetworkAddresses:   s.UsableNetworkAddresses,
-		UnusableNetworkAddresses: s.UnusableNetworkAddresses,
+		SupportedFeatures:        options.SupportedFeatures,
+		TimeoutConfig:            options.TimeoutConfig,
+		SkipTests:                sets.New(options.SkipTests...),
+		FS:                       *options.FS,
+		UsableNetworkAddresses:   options.UsableNetworkAddresses,
+		UnusableNetworkAddresses: options.UnusableNetworkAddresses,
 	}
 
 	// apply defaults
@@ -281,8 +330,10 @@ func (suite *ExperimentalConformanceTestSuite) Report() (*confv1a1.ConformanceRe
 			Kind:       "ConformanceReport",
 		},
 		Date:              time.Now().Format(time.RFC3339),
+		Mode:              suite.mode,
 		Implementation:    suite.implementation,
-		GatewayAPIVersion: "TODO",
+		GatewayAPIVersion: suite.apiVersion,
+		GatewayAPIChannel: suite.apiChannel,
 		ProfileReports:    profileReports.list(),
 	}, nil
 }
@@ -330,4 +381,35 @@ func ParseConformanceProfiles(p string) sets.Set[ConformanceProfileName] {
 		res.Insert(ConformanceProfileName(value))
 	}
 	return res
+}
+
+// getAPIVersionAndChannel iterates over all the crds installed in the cluster and check the version and channel annotations.
+// In case the annotations are not found or there are crds with different versions or channels, an error is returned.
+func getAPIVersionAndChannel(crds []apiextensionsv1.CustomResourceDefinition) (version string, channel string, err error) {
+	for _, crd := range crds {
+		v, okv := crd.Annotations[consts.BundleVersionAnnotation]
+		c, okc := crd.Annotations[consts.ChannelAnnotation]
+		if !okv && !okc {
+			continue
+		}
+		if !okv || !okc {
+			return "", "", errors.New("detected CRDs with partial version and channel annotations")
+		}
+		if version != "" && v != version {
+			return "", "", errors.New("multiple gateway API CRDs versions detected")
+		}
+		if channel != "" && c != channel {
+			return "", "", errors.New("multiple gateway API CRDs channels detected")
+		}
+		version = v
+		channel = c
+	}
+	if version == "" || channel == "" {
+		return "", "", errors.New("no Gateway API CRDs with the proper annotations found in the cluster")
+	}
+	if version != consts.BundleVersion {
+		return "", "", errors.New("the installed CRDs version is different from the suite version")
+	}
+
+	return version, channel, nil
 }

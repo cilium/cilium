@@ -19,7 +19,14 @@ limitations under the License.
 // among the various suites that are all run by the same Makefile invocation.
 package flags
 
-import "flag"
+import (
+	"flag"
+)
+
+const (
+	// DefaultMode is the operating mode to default to in case no mode is specified.
+	DefaultMode = "default"
+)
 
 var (
 	ImplementationOrganization = flag.String("organization", "", "Implementation's Organization to issue conformance to")
@@ -27,6 +34,8 @@ var (
 	ImplementationURL          = flag.String("url", "", "Implementation's url to issue conformance to")
 	ImplementationVersion      = flag.String("version", "", "Implementation's version to issue conformance to")
 	ImplementationContact      = flag.String("contact", "", "Comma-separated list of contact information for the maintainers")
+	Mode                       = flag.String("mode", DefaultMode, "The operating mode of the implementation.")
+	AllowCRDsMismatch          = flag.Bool("allow-crds-mismatch", false, "Flag to allow the suite not to fail in case there is a mismatch between CRDs versions and channels.")
 	ConformanceProfiles        = flag.String("conformance-profiles", "", "Comma-separated list of the conformance profiles to run")
 	ReportOutput               = flag.String("report-output", "", "The file where to write the conformance report")
 )
