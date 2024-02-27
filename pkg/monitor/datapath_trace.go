@@ -130,17 +130,19 @@ const (
 	TraceReasonUnknown
 	TraceReasonSRv6Encap
 	TraceReasonSRv6Decap
+	TraceReasonEncryptOverlay
 )
 
 var traceReasons = map[uint8]string{
-	TraceReasonPolicy:        "new",
-	TraceReasonCtEstablished: "established",
-	TraceReasonCtReply:       "reply",
-	TraceReasonCtRelated:     "related",
-	TraceReasonCtReopened:    "reopened",
-	TraceReasonUnknown:       "unknown",
-	TraceReasonSRv6Encap:     "srv6-encap",
-	TraceReasonSRv6Decap:     "srv6-decap",
+	TraceReasonPolicy:         "new",
+	TraceReasonCtEstablished:  "established",
+	TraceReasonCtReply:        "reply",
+	TraceReasonCtRelated:      "related",
+	TraceReasonCtReopened:     "reopened",
+	TraceReasonUnknown:        "unknown",
+	TraceReasonSRv6Encap:      "srv6-encap",
+	TraceReasonSRv6Decap:      "srv6-decap",
+	TraceReasonEncryptOverlay: "encrypt-overlay",
 }
 
 func connState(reason uint8) string {
@@ -162,7 +164,7 @@ func TraceReasonIsKnown(reason uint8) bool {
 
 func TraceReasonIsEncap(reason uint8) bool {
 	switch reason & ^TraceReasonEncryptMask {
-	case TraceReasonSRv6Encap:
+	case TraceReasonSRv6Encap, TraceReasonEncryptOverlay:
 		return true
 	default:
 		return false
