@@ -322,3 +322,89 @@ func (o *orchestrator) removeDevice(name string) error {
 
 	return nil
 }
+
+// renameDevice renames a network device from and to a given value. Returns nil
+// if the device does not exist.
+func (o *orchestrator) renameDevice(from, to string) error {
+	link, err := o.params.Netlink.LinkByName(from)
+	if err != nil {
+		return nil
+	}
+
+	if err := o.params.Netlink.LinkSetName(link, to); err != nil {
+		return fmt.Errorf("renaming device %s to %s: %w", from, to, err)
+	}
+
+	return nil
+}
+
+// setupIPIPDevices ensures the specified v4 and/or v6 devices are created and
+// configured with their respective sysctls.
+//
+// Calling this function may result in tunl0 (v4) or ip6tnl0 (v6) fallback
+// interfaces being created as a result of loading the ipip and ip6_tunnel
+// kernel modules by creating cilium_ tunnel interfaces. These are catch-all
+// interfaces for the ipip decapsulation stack. By default, these interfaces
+// will be created in new network namespaces, but Cilium disables this behaviour
+// by setting net.core.fb_tunnels_only_for_init_net = 2.
+//
+// In versions of Cilium prior to 1.15, the behaviour was as follows:
+//   - Repurpose the default tunl0 by setting it into collect_md mode and renaming
+//     it to cilium_ipip4. Use the interface for production traffic.
+//   - The same cannot be done for ip6tunl0, as collect_md cannot be enabled on
+//     this interface. Leave it unused.
+//   - Rename sit0 to cilium_sit, if present. This was potentially a mistake,
+//     as the sit module is not involved with ip6tnl interfaces.
+//
+// As of Cilium 1.15, if present, tunl0 is renamed to cilium_tunl and ip6tnl0 is
+// renamed to cilium_ip6tnl. This is to communicate to the user that Cilium has
+// taken control of the encapsulation stack on the node, as it currently doesn't
+// explicitly support sharing it with other tools/CNIs. Fallback devices are left
+// unused for production traffic. Only devices that were explicitly created are used.
+func (o *orchestrator) setupIPIPDevices(ipv4, ipv6 bool) error {
+	// FlowBased sets IFLA_IPTUN_COLLECT_METADATA, the equivalent of 'ip link add
+	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
+	// bpf_skb_[gs]et_tunnel_key() on packets flowing through tunnels.
+
+	if ipv4 {
+		// Set up IPv4 tunnel device if requested.
+		if _, err := o.ensureDevice(&vnl.Iptun{
+			LinkAttrs: vnl.LinkAttrs{Name: defaults.IPIPv4Device},
+			FlowBased: true,
+		}); err != nil {
+			return fmt.Errorf("creating %s: %w", defaults.IPIPv4Device, err)
+		}
+
+		// Rename fallback device created by potential kernel module load after
+		// creating tunnel interface.
+		if err := o.renameDevice("tunl0", "cilium_tunl"); err != nil {
+			return fmt.Errorf("renaming fallback device %s: %w", "tunl0", err)
+		}
+	} else {
+		if err := o.removeDevice(defaults.IPIPv4Device); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.IPIPv4Device, err)
+		}
+	}
+
+	if ipv6 {
+		// Set up IPv6 tunnel device if requested.
+		if _, err := o.ensureDevice(&vnl.Ip6tnl{
+			LinkAttrs: vnl.LinkAttrs{Name: defaults.IPIPv6Device},
+			FlowBased: true,
+		}); err != nil {
+			return fmt.Errorf("creating %s: %w", defaults.IPIPv6Device, err)
+		}
+
+		// Rename fallback device created by potential kernel module load after
+		// creating tunnel interface.
+		if err := o.renameDevice("ip6tnl0", "cilium_ip6tnl"); err != nil {
+			return fmt.Errorf("renaming fallback device %s: %w", "tunl0", err)
+		}
+	} else {
+		if err := o.removeDevice(defaults.IPIPv6Device); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.IPIPv6Device, err)
+		}
+	}
+
+	return nil
+}

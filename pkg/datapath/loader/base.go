@@ -316,18 +316,6 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	l.init(o.Datapath(), o.LocalConfig())
 
-	if option.Config.EnableHealthDatapath {
-		sysSettings = append(
-			sysSettings,
-			tables.Sysctl{
-				Name: "net.core.fb_tunnels_only_for_init_net", Val: "2", IgnoreErr: true,
-			},
-		)
-		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
-			return fmt.Errorf("unable to create ipip encapsulation devices for health datapath")
-		}
-	}
-
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		var err error
 		if sysSettings, err = addENIRules(sysSettings); err != nil {

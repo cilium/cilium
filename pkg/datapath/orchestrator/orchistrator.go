@@ -5,6 +5,7 @@ package orchestrator
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -61,6 +62,14 @@ func (o *orchestrator) Reinitialize(ctx context.Context, owner datapath.BaseProg
 
 	if err := o.addHostDeviceAddr(hostDev1, nodeIPv4, nodeIPv6); err != nil {
 		return err
+	}
+
+	if option.Config.EnableHealthDatapath {
+		_ = o.params.Sysctl.WriteInt("net.core.fb_tunnels_only_for_init_net", 2)
+
+		if err := o.setupIPIPDevices(option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
+			return fmt.Errorf("unable to create ipip encapsulation devices for health datapath")
+		}
 	}
 
 	if err := o.setupTunnelDevice(tunnelConfig); err != nil {

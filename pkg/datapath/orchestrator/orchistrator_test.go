@@ -376,3 +376,54 @@ func TestAddHostDeviceAddr(t *testing.T) {
 		return nil
 	})
 }
+
+func TestSetupIPIPDevices(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+
+	ns := netns.NewNetNS(t)
+
+	orch := newOrchestrator(orchestratorParams{
+		Netlink: newRealNetlink(),
+		Logger:  logging.DefaultLogger,
+		Sysctl:  sysctl,
+		Mtu: &fakeMTU{
+			mtu: 1500,
+		},
+	})
+
+	ns.Do(func() error {
+		err := orch.setupIPIPDevices(true, true)
+		require.NoError(t, err)
+
+		_, err = vnl.LinkByName(defaults.IPIPv4Device)
+		require.NoError(t, err)
+
+		_, err = vnl.LinkByName(defaults.IPIPv6Device)
+		require.NoError(t, err)
+
+		_, err = vnl.LinkByName("cilium_tunl")
+		require.NoError(t, err)
+
+		_, err = vnl.LinkByName("cilium_ip6tnl")
+		require.NoError(t, err)
+
+		_, err = vnl.LinkByName("tunl0")
+		require.Error(t, err)
+
+		_, err = vnl.LinkByName("ip6tnl0")
+		require.Error(t, err)
+
+		err = orch.setupIPIPDevices(false, false)
+		require.NoError(t, err)
+
+		_, err = vnl.LinkByName(defaults.IPIPv4Device)
+		require.Error(t, err)
+
+		_, err = vnl.LinkByName(defaults.IPIPv6Device)
+		require.Error(t, err)
+
+		return nil
+	})
+}

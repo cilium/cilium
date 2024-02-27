@@ -10,12 +10,9 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -89,48 +86,6 @@ func TestAttachRemoveTCProgram(t *testing.T) {
 
 		err = netlink.LinkDel(dummy)
 		require.NoError(t, err)
-
-		return nil
-	})
-}
-
-func TestSetupIPIPDevices(t *testing.T) {
-	testutils.PrivilegedTest(t)
-
-	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-
-	ns := netns.NewNetNS(t)
-
-	ns.Do(func() error {
-		err := setupIPIPDevices(sysctl, true, true)
-		require.NoError(t, err)
-
-		_, err = netlink.LinkByName(defaults.IPIPv4Device)
-		require.NoError(t, err)
-
-		_, err = netlink.LinkByName(defaults.IPIPv6Device)
-		require.NoError(t, err)
-
-		_, err = netlink.LinkByName("cilium_tunl")
-		require.NoError(t, err)
-
-		_, err = netlink.LinkByName("cilium_ip6tnl")
-		require.NoError(t, err)
-
-		_, err = netlink.LinkByName("tunl0")
-		require.Error(t, err)
-
-		_, err = netlink.LinkByName("ip6tnl0")
-		require.Error(t, err)
-
-		err = setupIPIPDevices(sysctl, false, false)
-		require.NoError(t, err)
-
-		_, err = netlink.LinkByName(defaults.IPIPv4Device)
-		require.Error(t, err)
-
-		_, err = netlink.LinkByName(defaults.IPIPv6Device)
-		require.Error(t, err)
 
 		return nil
 	})
