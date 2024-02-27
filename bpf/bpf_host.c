@@ -1447,8 +1447,14 @@ skip_host_firewall:
 	 * to the stack for XFRM encryption.
 	 */
 	ret = do_encrypt_overlay(ctx);
-	if (ret == CTX_ACT_REDIRECT)
+	if (ret == CTX_ACT_REDIRECT) {
+		/* we are redirecting back into the stack, so TRACE_TO_STACK
+		 * for tracepoint
+		 */
+		send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0,
+				  0, TRACE_REASON_ENCRYPT_OVERLAY, 0);
 		return ret;
+	}
 	else if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
