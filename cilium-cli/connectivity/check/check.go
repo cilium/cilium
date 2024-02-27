@@ -88,8 +88,6 @@ type Parameters struct {
 	HelmChartDirectory   string
 	HelmValuesSecretName string
 
-	DeleteCiliumOnNodes []string
-
 	Retry      uint
 	RetryDelay time.Duration
 

@@ -18,7 +18,6 @@ import (
 
 	"github.com/blang/semver/v4"
 	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -52,7 +51,6 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
-	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 type Client struct {
@@ -525,10 +523,6 @@ func (c *Client) GetDaemonSet(ctx context.Context, namespace, name string, opts 
 
 func (c *Client) ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error) {
 	return c.Clientset.AppsV1().DaemonSets(namespace).List(ctx, o)
-}
-
-func (c *Client) DeleteDaemonSet(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
-	return c.Clientset.AppsV1().DaemonSets(namespace).Delete(ctx, name, opts)
 }
 
 func (c *Client) CheckDaemonSetStatus(ctx context.Context, namespace, deployment string) error {
@@ -1051,39 +1045,6 @@ func (c *Client) CreateIngress(ctx context.Context, namespace string, ingress *n
 
 func (c *Client) DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.NetworkingV1().IngressClasses().Delete(ctx, name, opts)
-}
-
-// GetHelmState is a wrapper function that gets cilium-cli-helm-values secret from Kubernetes API
-// server, and converts its fields from byte array to their corresponding data types.
-func (c *Client) GetHelmState(ctx context.Context, namespace string, secretName string) (*helm.State, error) {
-	helmSecret, err := c.GetSecret(ctx, namespace, secretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve helm values secret %s/%s: %w", namespace, secretName, err)
-	}
-	versionBytes, ok := helmSecret.Data[defaults.HelmChartVersionSecretKeyName]
-	if !ok {
-		return nil, fmt.Errorf("unable to retrieve helm chart version from secret %s/%s: %w", namespace, secretName, err)
-	}
-	versionString := string(versionBytes)
-	version, err := utils.ParseCiliumVersion(versionString)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse helm chart version from secret %s/%s: %s %w", namespace, secretName, versionString, err)
-	}
-
-	yamlSecret, ok := helmSecret.Data[defaults.HelmValuesSecretKeyName]
-	if !ok {
-		return nil, fmt.Errorf("unable to retrieve helm values from secret %s/%s: %w", namespace, secretName, err)
-	}
-
-	values, err := chartutil.ReadValues(yamlSecret)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse helm values from secret %s/%s: %w", namespace, secretName, err)
-	}
-	return &helm.State{
-		Secret:  helmSecret,
-		Version: version,
-		Values:  values,
-	}, nil
 }
 
 // GetHelmValues is the function for cilium cli sysdump to collect the helm values from the release directly
