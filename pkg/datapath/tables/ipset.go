@@ -7,12 +7,20 @@ import (
 	"net/netip"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
 )
+
+type AddrSet = container.ImmSet[netip.Addr]
+
+func NewAddrSet(addrs ...netip.Addr) AddrSet {
+	return container.NewImmSetFunc(
+		netip.Addr.Compare,
+		addrs...,
+	)
+}
 
 var (
 	IPSetNameIndex = statedb.Index[*IPSet, string]{
@@ -40,8 +48,8 @@ func (s *IPSet) TableHeader() []string {
 }
 
 func (s *IPSet) TableRow() []string {
-	ss := make([]string, 0, len(s.Addrs))
-	for addr := range s.Addrs {
+	ss := make([]string, 0, s.Addrs.Len())
+	for _, addr := range s.Addrs.AsSlice() {
 		ss = append(ss, addr.String())
 	}
 	return []string{s.Name, s.Family, strings.Join(ss, ","), s.Status.String()}
@@ -50,7 +58,7 @@ func (s *IPSet) TableRow() []string {
 type IPSet struct {
 	Name   string
 	Family string
-	Addrs  sets.Set[netip.Addr]
+	Addrs  AddrSet
 
 	Status reconciler.Status
 }
@@ -69,23 +77,19 @@ func (s *IPSet) WithStatus(newStatus reconciler.Status) *IPSet {
 }
 
 func (s *IPSet) WithAddrs(addrs ...netip.Addr) *IPSet {
-	s2 := &IPSet{
+	return &IPSet{
 		Name:   s.Name,
 		Family: s.Family,
-		Addrs:  s.Addrs.Clone(),
+		Addrs:  s.Addrs.Insert(addrs...),
 		Status: s.Status,
 	}
-	s2.Addrs.Insert(addrs...)
-	return s2
 }
 
 func (s *IPSet) WithoutAddrs(addrs ...netip.Addr) *IPSet {
-	s2 := &IPSet{
+	return &IPSet{
 		Name:   s.Name,
 		Family: s.Family,
-		Addrs:  s.Addrs.Clone(),
+		Addrs:  s.Addrs.Delete(addrs...),
 		Status: s.Status,
 	}
-	s2.Addrs.Delete(addrs...)
-	return s2
 }

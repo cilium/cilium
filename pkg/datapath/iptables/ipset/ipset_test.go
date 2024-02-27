@@ -17,7 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -36,9 +35,9 @@ Revision: 6
 Header: family inet hashsize 1024 maxelem 65536 bucketsize 12 initval 0x4d9d24f1
 Size in memory: 216
 References: 0
-Number of entries: {{len $addrs}}
+Number of entries: {{len $addrs.AsSlice}}
 Members:
-{{range $addr, $value := $addrs -}}{{$addr}}
+{{range $idx, $addr := $addrs.AsSlice -}}{{$addr}}
 {{else}}{{end}}{{end}}`
 
 func TestManager(t *testing.T) {
@@ -46,7 +45,7 @@ func TestManager(t *testing.T) {
 
 	var mgr Manager
 
-	ipsets := make(map[string]sets.Set[netip.Addr])
+	ipsets := make(map[string]tables.AddrSet)
 	var mu lock.Mutex // protect the ipsets map
 
 	tmpl := template.Must(template.New("ipsets").Parse(textTmpl))
@@ -87,7 +86,7 @@ func TestManager(t *testing.T) {
 							switch subCommand {
 							case "create":
 								if _, found := ipsets[name]; !found {
-									ipsets[name] = sets.New[netip.Addr]()
+									ipsets[name] = tables.NewAddrSet()
 								}
 								return nil, nil
 							case "destroy":
@@ -101,26 +100,27 @@ func TestManager(t *testing.T) {
 									return nil, fmt.Errorf("ipset %s not found", name)
 								}
 								var bb bytes.Buffer
-								if err := tmpl.Execute(&bb, ipsets); err != nil {
+								if err := tmpl.Execute(&bb, map[string]tables.AddrSet{name: ipsets[name]}); err != nil {
 									return nil, err
 								}
-								return bb.Bytes(), nil
+								b := bb.Bytes()
+								return b, nil
 							case "add":
 								if _, found := ipsets[name]; !found {
 									return nil, fmt.Errorf("ipset %s not found", name)
 								}
 								addr := netip.MustParseAddr(arg[len(arg)-2])
-								ipsets[name].Insert(addr)
+								ipsets[name] = ipsets[name].Insert(addr)
 								return nil, nil
 							case "del":
 								if _, found := ipsets[name]; !found {
 									return nil, fmt.Errorf("ipset %s not found", name)
 								}
 								addr := netip.MustParseAddr(arg[len(arg)-2])
-								if _, found := ipsets[name][addr]; !found {
+								if !ipsets[name].Has(addr) {
 									return nil, nil
 								}
-								ipsets[name].Delete(addr)
+								ipsets[name] = ipsets[name].Delete(addr)
 								return nil, nil
 							default:
 								return nil, fmt.Errorf("unexpected ipset subcommand %s", arg[1])
@@ -141,14 +141,14 @@ func TestManager(t *testing.T) {
 	testCases := []struct {
 		name     string
 		action   func()
-		expected map[string]sets.Set[netip.Addr]
+		expected map[string]tables.AddrSet
 	}{
 		{
 			name:   "check Cilium ipsets exist",
 			action: func() {},
-			expected: map[string]sets.Set[netip.Addr]{
-				CiliumNodeIPSetV4: sets.New[netip.Addr](),
-				CiliumNodeIPSetV6: sets.New[netip.Addr](),
+			expected: map[string]tables.AddrSet{
+				CiliumNodeIPSetV4: tables.NewAddrSet(),
+				CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
@@ -156,11 +156,11 @@ func TestManager(t *testing.T) {
 			action: func() {
 				mgr.AddToIPSet(CiliumNodeIPSetV4, INetFamily, netip.MustParseAddr("1.1.1.1"))
 			},
-			expected: map[string]sets.Set[netip.Addr]{
-				CiliumNodeIPSetV4: sets.New(
+			expected: map[string]tables.AddrSet{
+				CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("1.1.1.1"),
 				),
-				CiliumNodeIPSetV6: sets.New[netip.Addr](),
+				CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
@@ -168,12 +168,12 @@ func TestManager(t *testing.T) {
 			action: func() {
 				mgr.AddToIPSet(CiliumNodeIPSetV4, INetFamily, netip.MustParseAddr("2.2.2.2"))
 			},
-			expected: map[string]sets.Set[netip.Addr]{
-				CiliumNodeIPSetV4: sets.New(
+			expected: map[string]tables.AddrSet{
+				CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("1.1.1.1"),
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: sets.New[netip.Addr](),
+				CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
@@ -181,12 +181,12 @@ func TestManager(t *testing.T) {
 			action: func() {
 				mgr.AddToIPSet(CiliumNodeIPSetV4, INetFamily, netip.MustParseAddr("2.2.2.2"))
 			},
-			expected: map[string]sets.Set[netip.Addr]{
-				CiliumNodeIPSetV4: sets.New(
+			expected: map[string]tables.AddrSet{
+				CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("1.1.1.1"),
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: sets.New[netip.Addr](),
+				CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
@@ -194,11 +194,11 @@ func TestManager(t *testing.T) {
 			action: func() {
 				mgr.RemoveFromIPSet(CiliumNodeIPSetV4, netip.MustParseAddr("1.1.1.1"))
 			},
-			expected: map[string]sets.Set[netip.Addr]{
-				CiliumNodeIPSetV4: sets.New(
+			expected: map[string]tables.AddrSet{
+				CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: sets.New[netip.Addr](),
+				CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
@@ -206,11 +206,11 @@ func TestManager(t *testing.T) {
 			action: func() {
 				mgr.RemoveFromIPSet(CiliumNodeIPSetV4, netip.MustParseAddr("3.3.3.3"))
 			},
-			expected: map[string]sets.Set[netip.Addr]{
-				CiliumNodeIPSetV4: sets.New(
+			expected: map[string]tables.AddrSet{
+				CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: sets.New[netip.Addr](),
+				CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 		{
@@ -218,11 +218,11 @@ func TestManager(t *testing.T) {
 			action: func() {
 				mgr.AddToIPSet(CiliumNodeIPSetV6, INet6Family, netip.MustParseAddr("cafe::1"))
 			},
-			expected: map[string]sets.Set[netip.Addr]{
-				CiliumNodeIPSetV4: sets.New(
+			expected: map[string]tables.AddrSet{
+				CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: sets.New(
+				CiliumNodeIPSetV6: tables.NewAddrSet(
 					netip.MustParseAddr("cafe::1"),
 				),
 			},
@@ -232,11 +232,11 @@ func TestManager(t *testing.T) {
 			action: func() {
 				mgr.RemoveFromIPSet(CiliumNodeIPSetV6, netip.MustParseAddr("cafe::1"))
 			},
-			expected: map[string]sets.Set[netip.Addr]{
-				CiliumNodeIPSetV4: sets.New(
+			expected: map[string]tables.AddrSet{
+				CiliumNodeIPSetV4: tables.NewAddrSet(
 					netip.MustParseAddr("2.2.2.2"),
 				),
-				CiliumNodeIPSetV6: sets.New[netip.Addr](),
+				CiliumNodeIPSetV6: tables.NewAddrSet(),
 			},
 		},
 	}
@@ -257,13 +257,14 @@ func TestManager(t *testing.T) {
 					return false
 				}
 				for name, expectedAddrs := range tc.expected {
+					t.Logf("expected: %#v, actual: %#v", expectedAddrs, ipsets[name])
 					addrs, found := ipsets[name]
 					if !found || !addrs.Equal(expectedAddrs) {
 						return false
 					}
 				}
 				return true
-			}, 10*time.Second, 5*time.Millisecond)
+			}, 1*time.Second, 50*time.Millisecond)
 		})
 	}
 
@@ -273,7 +274,7 @@ func TestManager(t *testing.T) {
 func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	ipsets := make(map[string]sets.Set[netip.Addr])
+	ipsets := make(map[string]tables.AddrSet)
 	var mu lock.Mutex // protect the ipsets map
 
 	hive := hive.New(
@@ -328,8 +329,8 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 
 	// create ipv4 and ipv6 node ipsets to simulate stale entries from previous Cilium run
 	withLocked(&mu, func() {
-		ipsets[CiliumNodeIPSetV4] = sets.New[netip.Addr](netip.MustParseAddr("2.2.2.2"))
-		ipsets[CiliumNodeIPSetV6] = sets.New[netip.Addr](netip.MustParseAddr("cafe::1"))
+		ipsets[CiliumNodeIPSetV4] = tables.NewAddrSet(netip.MustParseAddr("2.2.2.2"))
+		ipsets[CiliumNodeIPSetV6] = tables.NewAddrSet(netip.MustParseAddr("cafe::1"))
 	})
 
 	assert.NoError(t, hive.Start(context.Background()))
@@ -342,7 +343,7 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 
 	// create a custom ipset (not managed by Cilium)
 	withLocked(&mu, func() {
-		ipsets["unmanaged-ipset"] = sets.New[netip.Addr]()
+		ipsets["unmanaged-ipset"] = tables.NewAddrSet()
 	})
 
 	assert.NoError(t, hive.Stop(context.Background()))
@@ -363,29 +364,29 @@ func withLocked(m *lock.Mutex, f func()) {
 func TestIPSetList(t *testing.T) {
 	testCases := []struct {
 		name     string
-		ipsets   map[string]sets.Set[netip.Addr]
-		expected sets.Set[netip.Addr]
+		ipsets   map[string]tables.AddrSet
+		expected tables.AddrSet
 	}{
 		{
 			name: "empty ipset",
-			ipsets: map[string]sets.Set[netip.Addr]{
-				"ciliumtest": sets.New[netip.Addr](),
+			ipsets: map[string]tables.AddrSet{
+				"ciliumtest": tables.NewAddrSet(),
 			},
-			expected: sets.New[netip.Addr](),
+			expected: tables.NewAddrSet(),
 		},
 		{
 			name: "ipset with a single IP",
-			ipsets: map[string]sets.Set[netip.Addr]{
-				"ciliumtest": sets.New[netip.Addr](netip.MustParseAddr("1.1.1.1")),
+			ipsets: map[string]tables.AddrSet{
+				"ciliumtest": tables.NewAddrSet(netip.MustParseAddr("1.1.1.1")),
 			},
-			expected: sets.New[netip.Addr](netip.MustParseAddr("1.1.1.1")),
+			expected: tables.NewAddrSet(netip.MustParseAddr("1.1.1.1")),
 		},
 		{
 			name: "ipset with multiple IPs",
-			ipsets: map[string]sets.Set[netip.Addr]{
-				"ciliumtest": sets.New[netip.Addr](netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2")),
+			ipsets: map[string]tables.AddrSet{
+				"ciliumtest": tables.NewAddrSet(netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2")),
 			},
-			expected: sets.New[netip.Addr](netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2")),
+			expected: tables.NewAddrSet(netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2")),
 		},
 	}
 

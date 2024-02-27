@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -69,7 +68,7 @@ func (m *manager) AddToIPSet(name string, family Family, addrs ...netip.Addr) {
 		obj = &tables.IPSet{
 			Name:   name,
 			Family: string(family),
-			Addrs:  sets.New(addrs...),
+			Addrs:  tables.NewAddrSet(addrs...),
 			Status: reconciler.StatusPending(),
 		}
 	} else {
@@ -146,7 +145,7 @@ func (m *manager) onStart(ctx cell.HookContext) error {
 		if _, _, err := m.table.Insert(txn, &tables.IPSet{
 			Name:   CiliumNodeIPSetV4,
 			Family: string(INetFamily),
-			Addrs:  sets.New[netip.Addr](),
+			Addrs:  tables.NewAddrSet(),
 			Status: reconciler.StatusPending(),
 		}); err != nil {
 			return fmt.Errorf("error while inserting ipset %s entry in stateDB table", CiliumNodeIPSetV4)
@@ -156,7 +155,7 @@ func (m *manager) onStart(ctx cell.HookContext) error {
 		if _, _, err := m.table.Insert(txn, &tables.IPSet{
 			Name:   CiliumNodeIPSetV6,
 			Family: string(INet6Family),
-			Addrs:  sets.New[netip.Addr](),
+			Addrs:  tables.NewAddrSet(),
 			Status: reconciler.StatusPending(),
 		}); err != nil {
 			return fmt.Errorf("error while inserting ipset %s entry in stateDB table", CiliumNodeIPSetV6)
@@ -201,13 +200,13 @@ func (i *ipset) remove(ctx context.Context, name string) error {
 	return nil
 }
 
-func (i *ipset) list(ctx context.Context, name string) (sets.Set[netip.Addr], error) {
+func (i *ipset) list(ctx context.Context, name string) (tables.AddrSet, error) {
 	out, err := i.run(ctx, "list", name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list ipset %s: %w", name, err)
+		return tables.AddrSet{}, fmt.Errorf("failed to list ipset %s: %w", name, err)
 	}
 
-	addrs := sets.New[netip.Addr]()
+	addrs := tables.NewAddrSet()
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -215,10 +214,10 @@ func (i *ipset) list(ctx context.Context, name string) (sets.Set[netip.Addr], er
 		if err != nil {
 			continue
 		}
-		addrs.Insert(addr)
+		addrs = addrs.Insert(addr)
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to scan ipset %s: %w", name, err)
+		return tables.AddrSet{}, fmt.Errorf("failed to scan ipset %s: %w", name, err)
 	}
 	return addrs, nil
 }
