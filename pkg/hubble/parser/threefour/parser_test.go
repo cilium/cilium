@@ -845,6 +845,17 @@ func TestDecodeIsReply(t *testing.T) {
 	assert.Nil(t, f.GetIsReply())
 	assert.Equal(t, false, f.GetReply())
 
+	// TRACE_TO_STACK Encrypted Overlay
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Source:   hostEP,
+		ObsPoint: monitorAPI.TraceToStack,
+		Reason:   monitor.TraceReasonEncryptOverlay,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Nil(t, f.GetIsReply())
+	assert.Equal(t, false, f.GetReply())
+
 	// PolicyVerdictNotify forward statically assumes is_reply=false
 	pvn := monitor.PolicyVerdictNotify{
 		Type:    byte(monitorAPI.MessageTypePolicyVerdict),

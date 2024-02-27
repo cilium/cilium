@@ -54,6 +54,7 @@ enum trace_reason {
 	TRACE_REASON_UNKNOWN,
 	TRACE_REASON_SRV6_ENCAP,
 	TRACE_REASON_SRV6_DECAP,
+	TRACE_REASON_ENCRYPT_OVERLAY,
 	/* Note: TRACE_REASON_ENCRYPTED is used as a mask. Beware if you add
 	 * new values below it, they would match with that mask.
 	 */

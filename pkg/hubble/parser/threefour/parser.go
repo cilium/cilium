@@ -481,6 +481,7 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)
+			// GH-31226: currently broken for monitor.TraceReasonEncryptOverlay showing INGRESS
 			if isSourceEP != isReply {
 				return pb.TrafficDirection_EGRESS
 			}
