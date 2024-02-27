@@ -27,20 +27,20 @@ type endpointMetadata struct {
 // endpointID is based on endpoint's UID
 type endpointID = types.UID
 
-func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels labels.Labels) (*endpointMetadata, error) {
+func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels labels.Labels) (endpointMetadata, error) {
 	var addrs []netip.Addr
 
 	if endpoint.UID == "" {
 		// this can happen when CiliumEndpointSlices are in use - which is not supported in the EGW yet
-		return nil, fmt.Errorf("endpoint has empty UID")
+		return endpointMetadata{}, fmt.Errorf("endpoint has empty UID")
 	}
 
 	if endpoint.Networking == nil {
-		return nil, fmt.Errorf("endpoint has no networking metadata")
+		return endpointMetadata{}, fmt.Errorf("endpoint has no networking metadata")
 	}
 
 	if len(endpoint.Networking.Addressing) == 0 {
-		return nil, fmt.Errorf("failed to get valid endpoint IPs")
+		return endpointMetadata{}, fmt.Errorf("failed to get valid endpoint IPs")
 	}
 
 	for _, pair := range endpoint.Networking.Addressing {
@@ -54,10 +54,10 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels label
 	}
 
 	if endpoint.Identity == nil {
-		return nil, fmt.Errorf("endpoint has no identity metadata")
+		return endpointMetadata{}, fmt.Errorf("endpoint has no identity metadata")
 	}
 
-	data := &endpointMetadata{
+	data := endpointMetadata{
 		ips:    addrs,
 		labels: identityLabels.K8sStringMap(),
 		id:     endpoint.UID,

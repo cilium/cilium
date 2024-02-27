@@ -116,7 +116,7 @@ type Manager struct {
 	policyConfigs map[policyID]*PolicyConfig
 
 	// epDataStore stores endpointId to endpoint metadata mapping
-	epDataStore map[endpointID]*endpointMetadata
+	epDataStore map[endpointID]endpointMetadata
 
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
@@ -215,7 +215,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
-		epDataStore:                   make(map[endpointID]*endpointMetadata),
+		epDataStore:                   make(map[endpointID]endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
 		policyMap:                     p.PolicyMap,
@@ -430,10 +430,6 @@ func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
 }
 
 func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
-	var epData *endpointMetadata
-	var err error
-	var identityLabels labels.Labels
-
 	manager.Lock()
 	defer manager.Unlock()
 
@@ -443,15 +439,15 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 		logfields.K8sUID:          endpoint.UID,
 	})
 
-	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
-		logger.WithError(err).
-			Warning("Failed to get identity labels for endpoint")
+	identityLabels, err := manager.getIdentityLabels(uint32(endpoint.Identity.ID))
+	if err != nil {
+		logger.WithError(err).Warning("Failed to get identity labels for endpoint")
 		return err
 	}
 
-	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
-		logger.WithError(err).
-			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
+	epData, err := getEndpointMetadata(endpoint, identityLabels)
+	if err != nil {
+		logger.WithError(err).Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
 		return nil
 	}
 

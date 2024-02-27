@@ -56,7 +56,7 @@ type PolicyConfig struct {
 
 	policyGwConfig *policyGatewayConfig
 
-	matchedEndpoints map[endpointID]*endpointMetadata
+	matchedEndpoints map[endpointID]endpointMetadata
 	gatewayConfig    gatewayConfig
 }
 
@@ -76,11 +76,11 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 }
 
 // updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
-	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
+func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]endpointMetadata) {
+	config.matchedEndpoints = make(map[endpointID]endpointMetadata)
 
 	for _, endpoint := range epDataStore {
-		if config.matchesEndpointLabels(endpoint) {
+		if config.matchesEndpointLabels(&endpoint) {
 			config.matchedEndpoints[endpoint.id] = endpoint
 		}
 	}
@@ -263,7 +263,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		endpointSelectors: endpointSelectorList,
 		dstCIDRs:          dstCidrList,
 		excludedCIDRs:     excludedCIDRs,
-		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
+		matchedEndpoints:  make(map[endpointID]endpointMetadata),
 		policyGwConfig:    policyGwc,
 		id: types.NamespacedName{
 			Name: name,
