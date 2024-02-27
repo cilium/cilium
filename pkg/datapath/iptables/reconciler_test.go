@@ -62,9 +62,9 @@ func TestReconciliationLoop(t *testing.T) {
 					localNodeStore: store_,
 					db:             db_,
 					devices:        devices_,
-					proxies:        make(chan proxyInfo),
-					addNoTrackPod:  make(chan noTrackPodInfo),
-					delNoTrackPod:  make(chan noTrackPodInfo),
+					proxies:        make(chan reconciliationRequest[proxyInfo]),
+					addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+					delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
 				}
 			}),
 		),
@@ -200,11 +200,14 @@ func TestReconciliationLoop(t *testing.T) {
 		{
 			name: "add first proxy",
 			action: func() {
-				params.proxies <- proxyInfo{
-					name:        "proxy-test-1",
-					port:        9090,
-					isIngress:   false,
-					isLocalOnly: true,
+				params.proxies <- reconciliationRequest[proxyInfo]{
+					info: proxyInfo{
+						name:        "proxy-test-1",
+						port:        9090,
+						isIngress:   false,
+						isLocalOnly: true,
+					},
+					updated: make(chan struct{}),
 				}
 			},
 			expected: desiredState{
@@ -226,11 +229,14 @@ func TestReconciliationLoop(t *testing.T) {
 		{
 			name: "add second proxy",
 			action: func() {
-				params.proxies <- proxyInfo{
-					name:        "proxy-test-2",
-					port:        9091,
-					isIngress:   true,
-					isLocalOnly: false,
+				params.proxies <- reconciliationRequest[proxyInfo]{
+					info: proxyInfo{
+						name:        "proxy-test-2",
+						port:        9091,
+						isIngress:   true,
+						isLocalOnly: false,
+					},
+					updated: make(chan struct{}),
 				}
 			},
 			expected: desiredState{
@@ -260,8 +266,20 @@ func TestReconciliationLoop(t *testing.T) {
 		{
 			name: "add no track pods",
 			action: func() {
-				params.addNoTrackPod <- noTrackPodInfo{netip.MustParseAddr("1.2.3.4"), 10001}
-				params.addNoTrackPod <- noTrackPodInfo{netip.MustParseAddr("11.22.33.44"), 10002}
+				params.addNoTrackPod <- reconciliationRequest[noTrackPodInfo]{
+					info: noTrackPodInfo{
+						ip:   netip.MustParseAddr("1.2.3.4"),
+						port: 10001,
+					},
+					updated: make(chan struct{}),
+				}
+				params.addNoTrackPod <- reconciliationRequest[noTrackPodInfo]{
+					info: noTrackPodInfo{
+						ip:   netip.MustParseAddr("11.22.33.44"),
+						port: 10002,
+					},
+					updated: make(chan struct{}),
+				}
 			},
 			expected: desiredState{
 				installRules: true,
@@ -294,7 +312,13 @@ func TestReconciliationLoop(t *testing.T) {
 		{
 			name: "remove no track pod",
 			action: func() {
-				params.delNoTrackPod <- noTrackPodInfo{netip.MustParseAddr("1.2.3.4"), 10001}
+				params.delNoTrackPod <- reconciliationRequest[noTrackPodInfo]{
+					info: noTrackPodInfo{
+						ip:   netip.MustParseAddr("1.2.3.4"),
+						port: 10001,
+					},
+					updated: make(chan struct{}),
+				}
 			},
 			expected: desiredState{
 				installRules: true,

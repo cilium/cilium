@@ -57,7 +57,7 @@ type Proxy interface {
 type IptablesManager interface {
 	// InstallProxyRules creates the necessary datapath config (e.g., iptables
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
-	InstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string)
+	InstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) <-chan struct{}
 
 	// SupportsOriginalSourceAddr tells if the datapath supports
 	// use of original source addresses in proxy upstream
@@ -77,8 +77,8 @@ type IptablesManager interface {
 	// will be executed to install NOTRACK rules.  The rules installed by
 	// this function is very specific, for now, the only user is
 	// node-local-dns pods.
-	InstallNoTrackRules(ip netip.Addr, port uint16)
+	InstallNoTrackRules(ip netip.Addr, port uint16) <-chan struct{}
 
 	// See comments for InstallNoTrackRules.
-	RemoveNoTrackRules(ip netip.Addr, port uint16)
+	RemoveNoTrackRules(ip netip.Addr, port uint16) <-chan struct{}
 }

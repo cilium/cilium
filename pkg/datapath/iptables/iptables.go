@@ -279,9 +279,9 @@ type reconcilerParams struct {
 	localNodeStore *node.LocalNodeStore
 	db             *statedb.DB
 	devices        statedb.Table[*tables.Device]
-	proxies        chan proxyInfo
-	addNoTrackPod  chan noTrackPodInfo
-	delNoTrackPod  chan noTrackPodInfo
+	proxies        chan reconciliationRequest[proxyInfo]
+	addNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
+	delNoTrackPod  chan reconciliationRequest[noTrackPodInfo]
 }
 
 type params struct {
@@ -315,9 +315,9 @@ func newIptablesManager(p params) *Manager {
 			localNodeStore: p.LocalNodeStore,
 			db:             p.DB,
 			devices:        p.Devices,
-			proxies:        make(chan proxyInfo),
-			addNoTrackPod:  make(chan noTrackPodInfo),
-			delNoTrackPod:  make(chan noTrackPodInfo),
+			proxies:        make(chan reconciliationRequest[proxyInfo]),
+			addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+			delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
 		},
 		haveIp6tables:    true,
 		cniConfigManager: p.CNIConfigManager,
@@ -989,27 +989,37 @@ func (m *Manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 // installed upon agent bootstrap (via function addNoTrackPodTrafficRules) and this function will be skipped.
 // When InstallNoConntrackIptRules is not set, this function will be executed to install NOTRACK rules.
 // The rules installed by this function is very specific, for now, the only user is node-local-dns pods.
-func (m *Manager) InstallNoTrackRules(ip netip.Addr, port uint16) {
+func (m *Manager) InstallNoTrackRules(ip netip.Addr, port uint16) <-chan struct{} {
+	reconciled := make(chan struct{})
+
 	if ip.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
 		ip.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
-		return
+		close(reconciled)
+		return reconciled
 	}
 
-	m.reconcilerParams.addNoTrackPod <- noTrackPodInfo{ip, port}
+	m.reconcilerParams.addNoTrackPod <- reconciliationRequest[noTrackPodInfo]{noTrackPodInfo{ip, port}, reconciled}
+	return reconciled
 }
 
 // See comments for InstallNoTrackRules.
-func (m *Manager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
+func (m *Manager) RemoveNoTrackRules(ip netip.Addr, port uint16) <-chan struct{} {
+	reconciled := make(chan struct{})
+
 	if ip.Is4() && skipPodTrafficConntrack(false, m.sharedCfg.InstallNoConntrackIptRules) ||
 		ip.Is6() && skipPodTrafficConntrack(true, m.sharedCfg.InstallNoConntrackIptRules) {
-		return
+		close(reconciled)
+		return reconciled
 	}
 
-	m.reconcilerParams.delNoTrackPod <- noTrackPodInfo{ip, port}
+	m.reconcilerParams.delNoTrackPod <- reconciliationRequest[noTrackPodInfo]{noTrackPodInfo{ip, port}, reconciled}
+	return reconciled
 }
 
-func (m *Manager) InstallProxyRules(proxyPort uint16, isIngress, isLocalOnly bool, name string) {
-	m.reconcilerParams.proxies <- proxyInfo{name, proxyPort, isIngress, isLocalOnly}
+func (m *Manager) InstallProxyRules(proxyPort uint16, isIngress, isLocalOnly bool, name string) <-chan struct{} {
+	reconciled := make(chan struct{})
+	m.reconcilerParams.proxies <- reconciliationRequest[proxyInfo]{proxyInfo{name, proxyPort, isIngress, isLocalOnly}, reconciled}
+	return reconciled
 }
 
 func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) error {
