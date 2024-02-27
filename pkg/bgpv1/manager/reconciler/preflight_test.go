@@ -247,7 +247,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	require.NoError(t, err)
 
 	diffstore.Upsert(obj)
-	reconciler := NewLBServiceReconciler(diffstore, epDiffStore)
+	reconciler := NewServiceReconciler(diffstore, epDiffStore)
 	err = reconciler.Reconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 
@@ -269,7 +269,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update LB service
-	reconciler = NewLBServiceReconciler(diffstore, epDiffStore)
+	reconciler = NewServiceReconciler(diffstore, epDiffStore)
 	err = reconciler.Reconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 }

@@ -434,8 +434,8 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 	}
 }
 
-// Test_LBEgressAdvertisement validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
-func Test_LBEgressAdvertisement(t *testing.T) {
+// Test_LBEgressAdvertisementWithLoadBalancerIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
+func Test_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
@@ -599,6 +599,9 @@ func Test_LBEgressAdvertisement(t *testing.T) {
 			},
 		},
 	}
+	fixture.config.policy.Spec.VirtualRouters[0].ServiceAdvertisements = []v2alpha1.BGPServiceAddressType{
+		v2alpha1.BGPLoadBalancerIPAddr,
+	}
 	_, err = fixture.policyClient.Update(testCtx, &fixture.config.policy, meta_v1.UpdateOptions{})
 	require.NoError(t, err)
 
@@ -609,6 +612,203 @@ func Test_LBEgressAdvertisement(t *testing.T) {
 			srvObj := newLBServiceObj(lbSrvConfig{
 				name:      step.srvName,
 				ingressIP: step.ingressIP,
+			})
+
+			if step.op == "add" {
+				err = tracker.Add(&srvObj)
+			} else {
+				err = tracker.Update(slim_metav1.Unversioned.WithResource("services"), &srvObj, "")
+			}
+			require.NoError(t, err, step.description)
+
+			// validate expected result
+			receivedEvents, err := gobgpPeers[0].getRouteEvents(testCtx, len(step.expectedRouteEvents))
+			require.NoError(t, err, step.description)
+
+			// match events in any order
+			require.ElementsMatch(t, step.expectedRouteEvents, receivedEvents, step.description)
+		})
+	}
+}
+
+// Test_LBEgressAdvertisementWithClusterIP validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
+func Test_LBEgressAdvertisementWithClusterIP(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	var steps = []struct {
+		description         string
+		srvName             string
+		clusterIP           string
+		op                  string // add or update
+		expectedRouteEvents []routeEvent
+	}{
+		{
+			description: "advertise service IP",
+			srvName:     "service-a",
+			clusterIP:   "10.100.1.1",
+			op:          "add",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.100.1.1",
+					prefixLen:   32,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "withdraw service IP",
+			srvName:     "service-a",
+			clusterIP:   "",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.100.1.1",
+					prefixLen:   32,
+					isWithdrawn: true,
+				},
+			},
+		},
+		{
+			description: "re-advertise service IP",
+			srvName:     "service-a",
+			clusterIP:   "10.100.1.1",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.100.1.1",
+					prefixLen:   32,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "update service IP",
+			srvName:     "service-a",
+			clusterIP:   "10.200.1.1",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.100.1.1",
+					prefixLen:   32,
+					isWithdrawn: true,
+				},
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "10.200.1.1",
+					prefixLen:   32,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "advertise v6 service IP",
+			srvName:     "service-b",
+			clusterIP:   "cccc::1",
+			op:          "add",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "cccc::1",
+					prefixLen:   128,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "withdraw v6 service IP",
+			srvName:     "service-b",
+			clusterIP:   "",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "cccc::1",
+					prefixLen:   128,
+					isWithdrawn: true,
+				},
+			},
+		},
+		{
+			description: "re-advertise v6 service IP",
+			srvName:     "service-b",
+			clusterIP:   "cccc::1",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "cccc::1",
+					prefixLen:   128,
+					isWithdrawn: false,
+				},
+			},
+		},
+		{
+			description: "update v6 service IP",
+			srvName:     "service-b",
+			clusterIP:   "dddd::1",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "cccc::1",
+					prefixLen:   128,
+					isWithdrawn: true,
+				},
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "dddd::1",
+					prefixLen:   128,
+					isWithdrawn: false,
+				},
+			},
+		},
+	}
+
+	testCtx, testDone := context.WithTimeout(context.Background(), maxTestDuration)
+	defer testDone()
+
+	// setup topology
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
+	require.NoError(t, err)
+	require.Len(t, gobgpPeers, 1)
+	defer cleanup()
+
+	// setup neighbor
+	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
+	require.NoError(t, err)
+
+	// wait for peering to come up
+	err = gobgpPeers[0].waitForSessionState(testCtx, []string{"ESTABLISHED"})
+	require.NoError(t, err)
+
+	// setup bgp policy with service selection
+	fixture.config.policy.Spec.VirtualRouters[0].ServiceSelector = &slim_metav1.LabelSelector{
+		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+			// always true match
+			{
+				Key:      "somekey",
+				Operator: "NotIn",
+				Values:   []string{"not-somekey"},
+			},
+		},
+	}
+	fixture.config.policy.Spec.VirtualRouters[0].ServiceAdvertisements = []v2alpha1.BGPServiceAddressType{
+		v2alpha1.BGPClusterIPAddr,
+	}
+	_, err = fixture.policyClient.Update(testCtx, &fixture.config.policy, meta_v1.UpdateOptions{})
+	require.NoError(t, err)
+
+	tracker := fixture.fakeClientSet.SlimFakeClientset.Tracker()
+
+	for _, step := range steps {
+		t.Run(step.description, func(t *testing.T) {
+			srvObj := newClusterIPServiceObj(clusterIPSrvConfig{
+				name:      step.srvName,
+				clusterIP: step.clusterIP,
 			})
 
 			if step.op == "add" {

@@ -1169,6 +1169,23 @@ func (in *CiliumBGPVirtualRouter) DeepEqual(other *CiliumBGPVirtualRouter) bool 
 		}
 	}
 
+	if ((in.ServiceAdvertisements != nil) && (other.ServiceAdvertisements != nil)) || ((in.ServiceAdvertisements == nil) != (other.ServiceAdvertisements == nil)) {
+		in, other := &in.ServiceAdvertisements, &other.ServiceAdvertisements
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.Neighbors != nil) && (other.Neighbors != nil)) || ((in.Neighbors == nil) != (other.Neighbors == nil)) {
 		in, other := &in.Neighbors, &other.Neighbors
 		if other == nil {
