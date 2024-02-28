@@ -24,10 +24,10 @@ func NewCIDRTrie[T any]() *CIDRTrie[T] {
 }
 
 // Lookup returns the longest matched value for a given address.
-func (c *CIDRTrie[T]) Lookup(addr netip.Addr) T {
+func (c *CIDRTrie[T]) Lookup(addr netip.Addr) (T, bool) {
 	if !addr.IsValid() {
 		var def T
-		return def
+		return def, false
 	}
 	bits := addr.BitLen()
 	prefix := netip.PrefixFrom(addr, bits)
