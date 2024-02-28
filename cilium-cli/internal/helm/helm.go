@@ -20,10 +20,9 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
 
-	semver2 "github.com/blang/semver/v4"
+	"github.com/blang/semver/v4"
 	helm "github.com/cilium/charts"
 	"github.com/cilium/cilium/pkg/versioncheck"
-	"golang.org/x/mod/semver"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -58,7 +57,7 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-func newChartFromEmbeddedFile(ciliumVersion semver2.Version) (*chart.Chart, error) {
+func newChartFromEmbeddedFile(ciliumVersion semver.Version) (*chart.Chart, error) {
 	helmTgz, err := helm.HelmFS.ReadFile(fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
 	if err != nil {
 		return nil, fmt.Errorf("cilium version not found: %w", err)
@@ -74,7 +73,7 @@ func newChartFromDirectory(directory string) (*chart.Chart, error) {
 
 // newChartFromRemoteWithCache fetches the chart from remote repository, the chart file
 // is then stored in the local cache directory for future usage.
-func newChartFromRemoteWithCache(ciliumVersion semver2.Version, repository string) (*chart.Chart, error) {
+func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string) (*chart.Chart, error) {
 	cacheDir, err := ciliumCacheDir()
 	if err != nil {
 		return nil, err
@@ -200,9 +199,9 @@ func ParseVals(helmStrValues []string) (map[string]interface{}, error) {
 	return helmValues, nil
 }
 
-// ListVersions returns a list of available Helm chart versions (with "v" prefix) sorted by semver in ascending order.
-func ListVersions() ([]string, error) {
-	var versions []string
+// ListVersions returns a list of available Helm chart versions sorted by semver in ascending order.
+func ListVersions() ([]semver.Version, error) {
+	var versions []semver.Version
 	re := regexp.MustCompile(`^cilium-(.+)\.tgz$`)
 	entries, err := helm.HelmFS.ReadDir(".")
 	if err != nil {
@@ -211,8 +210,12 @@ func ListVersions() ([]string, error) {
 	for _, entry := range entries {
 		match := re.FindStringSubmatch(entry.Name())
 		if len(match) == 2 {
-			// semver.Sort expects a leading "v" in version strings.
-			versions = append(versions, "v"+match[1])
+			version, err := semver.Parse(match[1])
+			if err != nil {
+				// Ignore old charts that don't follow semver (v1.{6,7,8,9}-dev).
+				continue
+			}
+			versions = append(versions, version)
 		}
 	}
 	semver.Sort(versions)
@@ -220,7 +223,7 @@ func ListVersions() ([]string, error) {
 }
 
 // ResolveHelmChartVersion resolves Helm chart version based on --version, --chart-directory, and --repository flags.
-func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string) (semver2.Version, *chart.Chart, error) {
+func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string) (semver.Version, *chart.Chart, error) {
 	// If repository is empty, set it to the default Helm repository ("https://helm.cilium.io") for backward compatibility.
 	if repository == "" {
 		repository = defaults.HelmRepository
@@ -233,15 +236,15 @@ func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string)
 	// Get the chart version from the local Helm chart specified with --chart-directory flag.
 	localChart, err := newChartFromDirectory(chartDirectoryFlag)
 	if err != nil {
-		return semver2.Version{}, nil, fmt.Errorf("failed to load Helm chart directory %s: %s", chartDirectoryFlag, err)
+		return semver.Version{}, nil, fmt.Errorf("failed to load Helm chart directory %s: %s", chartDirectoryFlag, err)
 	}
 	return versioncheck.MustVersion(localChart.Metadata.Version), localChart, nil
 }
 
-func resolveChartVersion(versionFlag string, repository string) (semver2.Version, *chart.Chart, error) {
+func resolveChartVersion(versionFlag string, repository string) (semver.Version, *chart.Chart, error) {
 	version, err := utils.ParseCiliumVersion(versionFlag)
 	if err != nil {
-		return semver2.Version{}, nil, err
+		return semver.Version{}, nil, err
 	}
 
 	// If the repository is the default repository ("https://helm.cilium.io"), check embedded charts first.
@@ -252,13 +255,13 @@ func resolveChartVersion(versionFlag string, repository string) (semver2.Version
 		}
 
 		if !errors.Is(err, fs.ErrNotExist) {
-			return semver2.Version{}, nil, err
+			return semver.Version{}, nil, err
 		}
 	}
 
 	helmChart, err := newChartFromRemoteWithCache(version, repository)
 	if err != nil {
-		return semver2.Version{}, nil, err
+		return semver.Version{}, nil, err
 	}
 	return version, helmChart, nil
 }
