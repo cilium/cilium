@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/sirupsen/logrus"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/statedb"
 	"github.com/cilium/cilium/pkg/api"
@@ -34,12 +35,13 @@ func (h *dumpHandler) Handle(params restapi.GetStatedbDumpParams) middleware.Res
 
 // REST API handler for '/statedb/query' to perform remote Get() and LowerBound()
 // queries against the database from 'cilium-dbg'.
-func newQueryHandler(db *DB) restapi.GetStatedbQueryTableHandler {
-	return &queryHandler{db}
+func newQueryHandler(db *DB, log logrus.FieldLogger) restapi.GetStatedbQueryTableHandler {
+	return &queryHandler{db, log}
 }
 
 type queryHandler struct {
-	db *DB
+	db  *DB
+	log logrus.FieldLogger
 }
 
 // /statedb/query
@@ -62,7 +64,11 @@ func (h *queryHandler) Handle(params restapi.GetStatedbQueryTableParams) middlew
 			if err := enc.Encode(obj.revision); err != nil {
 				return err
 			}
-			return enc.Encode(obj.data)
+			if err := enc.Encode(obj.data); err != nil {
+				h.log.WithError(err).Errorf("Failed to Gob encode object %T", obj.data)
+				return err
+			}
+			return nil
 		}
 		runQuery(indexTxn, params.Lowerbound, queryKey, onObject)
 	})
