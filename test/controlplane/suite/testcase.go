@@ -61,15 +61,16 @@ type ControlPlaneTest struct {
 	agentHandle         *agentHandle
 	operatorHandle      *operatorHandle
 	Datapath            *fakeDatapath.FakeDatapath
-	establishedWatchers sync.Map
+	establishedWatchers *sync.Map
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
 	clients, _ := k8sClient.NewFakeClientset()
-	clients.KubernetesFakeClientset = addFieldSelection(clients.KubernetesFakeClientset)
-	clients.SlimFakeClientset = addFieldSelection(clients.SlimFakeClientset)
-	clients.CiliumFakeClientset = addFieldSelection(clients.CiliumFakeClientset)
-	clients.APIExtFakeClientset = addFieldSelection(clients.APIExtFakeClientset)
+	var w sync.Map
+	clients.KubernetesFakeClientset = augmentTracker(clients.KubernetesFakeClientset, t, &w)
+	clients.SlimFakeClientset = augmentTracker(clients.SlimFakeClientset, t, &w)
+	clients.CiliumFakeClientset = augmentTracker(clients.CiliumFakeClientset, t, &w)
+	clients.APIExtFakeClientset = augmentTracker(clients.APIExtFakeClientset, t, &w)
 	fd := clients.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(k8sVersion)
 
@@ -89,10 +90,11 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	}
 
 	return &ControlPlaneTest{
-		t:        t,
-		nodeName: nodeName,
-		clients:  clients,
-		trackers: trackers,
+		t:                   t,
+		nodeName:            nodeName,
+		clients:             clients,
+		trackers:            trackers,
+		establishedWatchers: &w,
 	}
 }
 
@@ -258,33 +260,6 @@ func (cpt *ControlPlaneTest) Get(gvr schema.GroupVersionResource, ns, name strin
 	return nil, err
 }
 
-// RecordWatchers intercepts 'Watch' calls on the fake k8s clientsets. The reason we need to do this
-// is the following: The k8s object tracker's implementation of Watch is not equivalent to Watch on
-// a real api-server, as it does not respect the ResourceVersion from whence to start the watch. As
-// a consequence, when informers (or reflectors) call ListAndWatch, they miss events which occur
-// between the end of List and the establishment of Watch.
-//
-// To decrease the likelihood of this race occurring in the control plane tests, we install a
-// mechanism to wait for watchers of specific resources: see also EnsureWatchers. This isn't a
-// complete fix - if multiple watchers for the same resource are established, this may give false
-// positives.
-func (cpt *ControlPlaneTest) RecordWatchers() *ControlPlaneTest {
-	reaction := func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
-		r := action.GetResource().Resource
-		if _, ok := cpt.establishedWatchers.Load(r); ok {
-			cpt.t.Logf("WARNING: Multiple watches for resource %s intercepted. This highlights a potential cause for flakes", r)
-		}
-		cpt.establishedWatchers.Store(r, struct{}{})
-		return false, nil, nil
-	}
-
-	cpt.clients.SlimFakeClientset.PrependWatchReactor("*", reaction)
-	cpt.clients.KubernetesFakeClientset.PrependWatchReactor("*", reaction)
-	cpt.clients.CiliumFakeClientset.PrependWatchReactor("*", reaction)
-	cpt.clients.APIExtFakeClientset.PrependWatchReactor("*", reaction)
-	return cpt
-}
-
 // EnsureWatchers delays progress of the test until watchers for resources have been established on
 // the clientset.
 func (cpt *ControlPlaneTest) EnsureWatchers(resources ...string) *ControlPlaneTest {
@@ -330,6 +305,7 @@ func (cpt *ControlPlaneTest) DeleteObjects(objs ...k8sRuntime.Object) *ControlPl
 }
 
 func (cpt *ControlPlaneTest) Eventually(check func() error) *ControlPlaneTest {
+	cpt.t.Helper()
 	if err := retryUptoDuration(check, validationTimeout); err != nil {
 		cpt.t.Fatal(err)
 	}
@@ -337,6 +313,7 @@ func (cpt *ControlPlaneTest) Eventually(check func() error) *ControlPlaneTest {
 }
 
 func (cpt *ControlPlaneTest) Execute(task func() error) *ControlPlaneTest {
+	cpt.t.Helper()
 	if err := task(); err != nil {
 		cpt.t.Fatal(err)
 	}
@@ -556,9 +533,19 @@ func filterList(obj k8sRuntime.Object, restrictions k8sTesting.ListRestrictions)
 	}
 }
 
-// addFieldSelection augments the fake clientset to support filtering with a field selector
-// in List and Watch actions
-func addFieldSelection[T fakeWithTracker](f T) T {
+// augmentTracker augments the fake clientset to support filtering with a field selector
+// in List and Watch actions, as well as recording which watchers have been established.
+// The reason we need to do this is the following: The k8s object tracker's implementation
+// of Watch is not equivalent to Watch on a real api-server, as it does not respect the
+// ResourceVersion from whence to start the watch. As a consequence, when informers (or
+// reflectors) call ListAndWatch, they miss events which occur between the end of List and
+// the establishment of Watch.
+//
+// To decrease the likelihood of this race occurring in the control plane tests, we
+// install a mechanism to wait for watchers of specific resources: see also
+// EnsureWatchers. This isn't a complete fix - if multiple watchers for the same resource
+// are established, this may give false positives.
+func augmentTracker[T fakeWithTracker](f T, t *testing.T, watchers *sync.Map) T {
 	o := f.Tracker()
 	objectReaction := k8sTesting.ObjectReaction(o)
 
@@ -585,6 +572,11 @@ func addFieldSelection[T fakeWithTracker](f T) T {
 			if err != nil {
 				return false, nil, err
 			}
+			if _, ok := watchers.Load(gvr.Resource); ok {
+				t.Logf("Multiple watches for resource %q intercepted. This highlights a potential cause for flakes", gvr.Resource)
+			}
+			watchers.Store(gvr.Resource, struct{}{})
+
 			fw := &filteringWatcher{
 				parent:       watch,
 				restrictions: w.GetWatchRestrictions(),
