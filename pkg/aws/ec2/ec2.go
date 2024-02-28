@@ -27,6 +27,18 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
+const (
+	SubnetFullErrMsgStr = "There aren't sufficient free Ipv4 addresses or prefixes"
+
+	// InsufficientPrefixesInSubnetStr AWS error code for insufficient /28 prefixes in a subnet, possibly due to
+	// fragmentation
+	InsufficientPrefixesInSubnetStr = "InsufficientCidrBlocks"
+
+	// InvalidParameterValueStr sort of catch-all error code from AWS to indicate request params are invalid. Often,
+	// requires looking at the error message to get the actual reason. See SubnetFullErrMsgStr for example.
+	InvalidParameterValueStr = "InvalidParameterValue"
+)
+
 // Client represents an EC2 API client
 type Client struct {
 	ec2Client           *ec2.Client

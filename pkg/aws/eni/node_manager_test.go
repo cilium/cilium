@@ -160,7 +160,8 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 	const instanceID = "i-testNodeManagerDefaultAllocation-0"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	pdTestSubnet := *testSubnet
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{&pdTestSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, true)
@@ -198,6 +199,23 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 		totalPrefixes += len(eni.Prefixes)
 	}
 	c.Assert(totalPrefixes, check.Equals, 2)
+
+	// Test fallback to /32 IPs when /28 blocks aren't available
+	//
+	// Set available IPs to a value insufficient to allocate a /28 block, but enough for /32 IPs to resolve
+	// pre-allocate deficit.
+	pdTestSubnet.AvailableAddresses = 15
+	ec2api.UpdateSubnets([]*ipamTypes.Subnet{&pdTestSubnet})
+
+	// Use 25 out of 32 IPs
+	mngr.Upsert(updateCiliumNode(cn, 32, 25))
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node = mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	// Should allocate only 1 additional IP after fallback, not an entire /28 prefix
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 33)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 25)
 }
 
 // TestNodeManagerENIWithSGTags tests ENI allocation + association with a SG based on tags
