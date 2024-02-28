@@ -342,7 +342,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			if (!vtep)
 				goto skip_vtep;
 			if (vtep->tunnel_endpoint) {
-				if (identity_is_world_ipv4(*identity))
+				if (!identity_is_world_ipv4(*identity))
 					return DROP_INVALID_VNI;
 			}
 		}
