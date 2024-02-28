@@ -422,10 +422,10 @@ Users (Alphabetically)
       L: https://mux.com
       Q: @dilyevsky
       
-    * N: NetBird
+    * N: 
       D: NetBird uses Cilium to compile BPF to Go for cross-platform DNS management and NAT traversal
       U: bpf2go to compile a C source file into eBPF bytecode and then to Go
-      L: https://netbird.io
+      L: https://netbird.io/knowledge-hub/using-xdp-ebpf-to-share-default-dns-port-between-resolvers
       Q: @braginini
       
     * N: NETWAYS Web Services
