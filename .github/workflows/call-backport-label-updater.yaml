@@ -1,7 +1,7 @@
 ---
   name: Call Backport Label Updater
   on:
-    pull_request_target:
+    pull_request:
       types:
         - closed
       branches:
