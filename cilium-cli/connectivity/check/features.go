@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/blang/semver/v4"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
 )
@@ -252,13 +252,13 @@ func (ct *ConnectivityTest) detectCiliumVersion(ctx context.Context) error {
 	if assumeCiliumVersion := ct.Params().AssumeCiliumVersion; assumeCiliumVersion != "" {
 		ct.Warnf("Assuming Cilium version %s for connectivity tests", assumeCiliumVersion)
 		var err error
-		ct.CiliumVersion, err = utils.ParseCiliumVersion(assumeCiliumVersion)
+		ct.CiliumVersion, err = semver.ParseTolerant(assumeCiliumVersion)
 		if err != nil {
 			return err
 		}
 	} else if minVersion, err := ct.DetectMinimumCiliumVersion(ctx); err != nil {
 		ct.Warnf("Unable to detect Cilium version, assuming %v for connectivity tests: %s", defaults.Version, err)
-		ct.CiliumVersion, err = utils.ParseCiliumVersion(defaults.Version)
+		ct.CiliumVersion, err = semver.ParseTolerant(defaults.Version)
 		if err != nil {
 			return err
 		}

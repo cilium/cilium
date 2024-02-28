@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 type ipsecKey struct {
@@ -53,7 +52,7 @@ func (s *Encrypt) IPsecRotateKey(ctx context.Context) error {
 	}
 
 	if s.params.IPsecKeyPerNode != "" {
-		newKey.spiSuffix = utils.MustParseBool(s.params.IPsecKeyPerNode)
+		newKey.spiSuffix = mustParseBool(s.params.IPsecKeyPerNode)
 	}
 
 	patch := []byte(`{"stringData":{"keys":"` + newKey.String() + `"}}`)
@@ -193,4 +192,12 @@ func generateRandomHex(size int) (string, error) {
 		random.WriteString(fmt.Sprintf("%02x", c))
 	}
 	return random.String(), nil
+}
+
+func mustParseBool(v string) bool {
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse string [%s] to bool: %s", v, err))
+	}
+	return b
 }

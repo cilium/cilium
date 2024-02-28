@@ -17,9 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
-
 	"github.com/blang/semver/v4"
 	helm "github.com/cilium/charts"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -33,6 +30,8 @@ import (
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/strvals"
+
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 var settings = cli.New()
@@ -242,7 +241,7 @@ func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string)
 }
 
 func resolveChartVersion(versionFlag string, repository string) (semver.Version, *chart.Chart, error) {
-	version, err := utils.ParseCiliumVersion(versionFlag)
+	version, err := semver.ParseTolerant(versionFlag)
 	if err != nil {
 		return semver.Version{}, nil, err
 	}
