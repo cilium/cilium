@@ -40,7 +40,6 @@ func testGracefulTermination(t *testing.T) {
 	test.
 		UpdateObjectsFromFile(abs("init.yaml")).
 		SetupEnvironment().
-		RecordWatchers().
 		StartAgent(modConfig).
 		EnsureWatchers("endpointslices", "services").
 

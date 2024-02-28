@@ -40,7 +40,6 @@ func init() {
 					test.
 						UpdateObjectsFromFile(abs("init.yaml")).
 						SetupEnvironment().
-						RecordWatchers().
 						StartAgent(modConfig).
 						EnsureWatchers("endpointslices", "pods", "services").
 						UpdateObjectsFromFile(abs("state1.yaml")).
