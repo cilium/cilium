@@ -50,7 +50,6 @@ import (
 	tetragonClientset "github.com/cilium/tetragon/pkg/k8s/client/clientset/versioned"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/helm"
 )
 
 type Client struct {
@@ -852,11 +851,8 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 	return &podVersion, nil
 }
 
-func (c *Client) GetRunningCiliumVersion(namespace string) (string, error) {
-	release, err := helm.Get(c.HelmActionConfig, helm.GetParameters{
-		Namespace: namespace,
-		Name:      defaults.HelmReleaseName,
-	})
+func (c *Client) GetRunningCiliumVersion() (string, error) {
+	release, err := action.NewGet(c.HelmActionConfig).Run(defaults.HelmReleaseName)
 	if err != nil {
 		return "", err
 	}
