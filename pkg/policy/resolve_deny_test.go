@@ -177,7 +177,12 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	require.EqualValues(t, &expectedEndpointPolicy, policy)
+	// policyMapState cannot be compared via DeepEqual
+	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
+		policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = nil
+	expectedEndpointPolicy.policyMapState = nil
+	require.Equal(t, policy, &expectedEndpointPolicy)
 }
 
 func TestL3WithLocalHostWildcardd(t *testing.T) {
@@ -262,7 +267,12 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	require.EqualValues(t, &expectedEndpointPolicy, policy)
+	// policyMapState cannot be compared via DeepEqual
+	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
+		policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = nil
+	expectedEndpointPolicy.policyMapState = nil
+	require.Equal(t, policy, &expectedEndpointPolicy)
 }
 
 func TestMapStateWithIngressDenyWildcard(t *testing.T) {
@@ -360,7 +370,12 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	require.EqualValues(t, &expectedEndpointPolicy, policy)
+	// policyMapState cannot be compared via DeepEqual
+	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
+		policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = nil
+	expectedEndpointPolicy.policyMapState = nil
+	require.Equal(t, policy, &expectedEndpointPolicy)
 }
 
 func TestMapStateWithIngressDeny(t *testing.T) {
@@ -524,5 +539,10 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	policy.policyMapChanges.mutex = lock.Mutex{}
-	require.EqualValues(t, &expectedEndpointPolicy, policy)
+	// policyMapState cannot be compared via DeepEqual
+	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
+		policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = nil
+	expectedEndpointPolicy.policyMapState = nil
+	require.Equal(t, policy, &expectedEndpointPolicy)
 }
