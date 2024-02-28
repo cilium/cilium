@@ -98,7 +98,7 @@ type EgressCommonRule struct {
 	//     - 'sg-XXXXXXXXXXXXX'
 	//
 	// +kubebuilder:validation:Optional
-	ToGroups []ToGroups `json:"toGroups,omitempty"`
+	ToGroups []Groups `json:"toGroups,omitempty"`
 
 	// ToNodes is a list of nodes identified by an
 	// EndpointSelector to which endpoints subject to the rule is allowed to communicate.
