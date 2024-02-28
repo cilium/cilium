@@ -129,6 +129,17 @@ func HasDefaultRoute(tbl statedb.Table[*Route], rxn statedb.ReadTxn, linkIndex i
 	return false
 }
 
+func GetDefaultRoutes(tbl statedb.Table[*Route], rxn statedb.ReadTxn) []*Route {
+	iter, _ := tbl.LowerBound(rxn, RouteIDIndex.Query(RouteID{
+		unix.RT_TABLE_MAIN,
+		0,
+		zeroPrefixV4,
+	}))
+	return statedb.Collect(statedb.Filter(iter, func(r *Route) bool {
+		return r.Dst == zeroPrefixV4 || r.Dst == zeroPrefixV6
+	}))
+}
+
 var (
 	zeroPrefixV4 = netip.PrefixFrom(netip.IPv4Unspecified(), 0)
 	zeroPrefixV6 = netip.PrefixFrom(netip.IPv6Unspecified(), 0)

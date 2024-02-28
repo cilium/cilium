@@ -18,8 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -94,51 +92,6 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
 	return fw.Flush()
-}
-
-func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
-	// AWS ENI mode requires symmetric routing, see
-	// iptables.addCiliumENIRules().
-	// The default AWS daemonset installs the following rules that are used
-	// for NodePort traffic between nodes:
-	//
-	// # sysctl -w net.ipv4.conf.eth0.rp_filter=2
-	// # iptables -t mangle -A PREROUTING -i eth0 -m comment --comment "AWS, primary ENI" -m addrtype --dst-type LOCAL --limit-iface-in -j CONNMARK --set-xmark 0x80/0x80
-	// # iptables -t mangle -A PREROUTING -i eni+ -m comment --comment "AWS, primary ENI" -j CONNMARK --restore-mark --nfmask 0x80 --ctmask 0x80
-	// # ip rule add fwmark 0x80/0x80 lookup main
-	//
-	// It marks packets coming from another node through eth0, and restores
-	// the mark on the return path to force a lookup into the main routing
-	// table. Without these rules, the "ip rules" set by the cilium-cni
-	// plugin tell the host to lookup into the table related to the VPC for
-	// which the CIDR used by the endpoint has been configured.
-	//
-	// We want to reproduce equivalent rules to ensure correct routing.
-	if !option.Config.EnableIPv4 {
-		return sysSettings, nil
-	}
-
-	iface, err := route.NodeDeviceWithDefaultRoute(option.Config.EnableIPv4, option.Config.EnableIPv6)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find interface with default route: %w", err)
-	}
-
-	retSettings := append(sysSettings, tables.Sysctl{
-		Name:      fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface.Attrs().Name),
-		Val:       "2",
-		IgnoreErr: false,
-	})
-	if err := route.ReplaceRule(route.Rule{
-		Priority: linux_defaults.RulePriorityNodeport,
-		Mark:     linux_defaults.MarkMultinodeNodeport,
-		Mask:     linux_defaults.MaskMultinodeNodeport,
-		Table:    route.MainTable,
-		Protocol: linux_defaults.RTProto,
-	}); err != nil {
-		return nil, fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
-	}
-
-	return retSettings, nil
 }
 
 func cleanIngressQdisc() error {
@@ -315,13 +268,6 @@ func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	defer func() { firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
-
-	if option.Config.IPAM == ipamOption.IPAMENI {
-		var err error
-		if sysSettings, err = addENIRules(sysSettings); err != nil {
-			return fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
-		}
-	}
 
 	// Any code that relies on sysctl settings being applied needs to be called after this.
 	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
