@@ -113,7 +113,7 @@ func reconciliationLoop(
 	removeNoTrackRules func(addr netip.Addr, port uint16) error,
 ) error {
 	// The minimum interval between reconciliation attempts
-	const minReconciliationInterval = time.Second / 5
+	const minReconciliationInterval = time.Second / 20
 
 	state := desiredState{
 		installRules: installIptRules,
