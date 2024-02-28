@@ -50,7 +50,7 @@ func (tu *trieUint[K, T]) Delete(prefix uint, k K) bool {
 	return tu.t.Delete(prefix, tu.getKey(k))
 }
 
-func (tu *trieUint[K, T]) Lookup(k K) T {
+func (tu *trieUint[K, T]) Lookup(k K) (T, bool) {
 	return tu.t.Lookup(tu.getKey(k))
 }
 
