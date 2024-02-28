@@ -9,11 +9,15 @@ import (
 	"io"
 	"os"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium-cli/install"
 )
 
@@ -114,6 +118,41 @@ func newCmdUninstallWithHelm() *cobra.Command {
 				cc.UninstallResources(ctx, params.Wait)
 			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
+			var hubbleParams = hubble.Parameters{
+				Writer: os.Stdout,
+				Wait:   true,
+			}
+
+			if params.Wait {
+				// Disable Hubble, then wait for Pods to terminate before uninstalling Cilium.
+				// This guarantees that relay Pods are terminated fully via Cilium (rather than
+				// being queued for deletion) before uninstalling Cilium.
+				fmt.Printf("⌛ Waiting to disable Hubble before uninstalling Cilium\n")
+				if err := hubble.DisableWithHelm(ctx, k8sClient, hubbleParams); err != nil {
+					fmt.Printf("⚠ ️ Failed to disable Hubble prior to uninstalling Cilium: %s\n", err)
+				}
+				for {
+					ps, err := k8sClient.ListPods(ctx, hubbleParams.Namespace, metav1.ListOptions{
+						LabelSelector: "k8s-app=hubble-relay",
+					})
+					if err != nil {
+						if k8sErrors.IsNotFound(err) {
+							break
+						}
+						fatalf("Unable to list pods waiting for hubble-relay to stop: %s", err)
+					}
+					if len(ps.Items) == 0 {
+						break
+					}
+					select {
+					case <-inctimer.After(defaults.WaitRetryInterval):
+					case <-ctx.Done():
+						fatalf("Timed out waiting for Hubble Pods to terminate")
+					}
+				}
+			}
+
+			fmt.Printf("⌛ Uninstalling Cilium\n")
 			if err := uninstaller.UninstallWithHelm(ctx, k8sClient.HelmActionConfig); err != nil {
 				fatalf("Unable to uninstall Cilium:  %s", err)
 			}
