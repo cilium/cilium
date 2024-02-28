@@ -423,8 +423,8 @@ Users (Alphabetically)
       Q: @dilyevsky
       
     * N: NetBird
-      D: NetBird is an open-source WireGuard-based peer-to-peer private network and a centralized access control system.
-      U: Cross-platform DNS management and NAT traversal.
+      D: NetBird uses Cilium to compile BPF to Go for cross-platform DNS management and NAT traversal
+      U: bpf2go to compile a C source file into eBPF bytecode and then to Go
       L: https://netbird.io
       Q: @braginini
       
