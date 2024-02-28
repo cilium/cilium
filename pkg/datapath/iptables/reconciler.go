@@ -113,7 +113,7 @@ func reconciliationLoop(
 	removeNoTrackRules func(addr netip.Addr, port uint16) error,
 ) error {
 	// The minimum interval between reconciliation attempts
-	const minReconciliationInterval = time.Second / 5
+	const minReconciliationInterval = 200 * time.Millisecond
 
 	state := desiredState{
 		installRules: installIptRules,
@@ -140,6 +140,15 @@ func reconciliationLoop(
 	stateChanged := true
 
 	firstInit := true
+
+	if err := updateRules(state, firstInit); err != nil {
+		health.Degraded("iptables rules update failed", err)
+		// Keep stateChanged=true and firstInit=true to try again on the next tick.
+	} else {
+		health.OK("iptables rules update completed")
+		firstInit = false
+		stateChanged = false
+	}
 
 	// list of pending channels waiting for reconciliation
 	var updatedChs []chan<- struct{}
