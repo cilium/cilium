@@ -16,6 +16,8 @@ type netlink interface {
 	AddrReplace(link vnl.Link, addr *vnl.Addr) error
 	LinkDel(link vnl.Link) error
 	LinkSetName(link vnl.Link, name string) error
+	QdiscList(link vnl.Link) ([]vnl.Qdisc, error)
+	QdiscDel(qdisc vnl.Qdisc) error
 }
 
 func newRealNetlink() netlink {

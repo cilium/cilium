@@ -90,6 +90,23 @@ func (o *orchestrator) Reinitialize(ctx context.Context, owner datapath.BaseProg
 		}
 	}
 
+	sysSettings := []tables.Sysctl{
+		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
+		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
+		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
+		{Name: "kernel.unprivileged_bpf_disabled", Val: "1", IgnoreErr: true},
+		{Name: "kernel.timer_migration", Val: "0", IgnoreErr: true},
+	}
+	// Any code that relies on sysctl settings being applied needs to be called after this.
+	if err := o.params.Sysctl.ApplySettings(sysSettings); err != nil {
+		return err
+	}
+
+	if err := o.cleanIngressQdisc(); err != nil {
+		o.params.Logger.WithError(err).Warn("Unable to clean up ingress qdiscs")
+		return err
+	}
+
 	return o.params.Loader.Reinitialize(ctx, owner, tunnelConfig, deviceMTU, iptMgr, p)
 }
 

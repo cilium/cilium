@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -92,31 +91,6 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
 	return fw.Flush()
-}
-
-func cleanIngressQdisc() error {
-	for _, iface := range option.Config.GetDevices() {
-		link, err := netlink.LinkByName(iface)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
-		}
-		qdiscs, err := netlink.QdiscList(link)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve qdisc list of link %s: %q", iface, err)
-		}
-		for _, q := range qdiscs {
-			if q.Type() != "ingress" {
-				continue
-			}
-			err = netlink.QdiscDel(q)
-			if err != nil {
-				return fmt.Errorf("failed to delete ingress qdisc of link %s: %q", iface, err)
-			} else {
-				log.WithField(logfields.Device, iface).Info("Removed prior present ingress qdisc from device so that Cilium's datapath can be loaded")
-			}
-		}
-	}
-	return nil
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
@@ -254,30 +228,12 @@ func (l *loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	sysSettings := []tables.Sysctl{
-		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
-		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
-		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
-		{Name: "kernel.unprivileged_bpf_disabled", Val: "1", IgnoreErr: true},
-		{Name: "kernel.timer_migration", Val: "0", IgnoreErr: true},
-	}
-
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	o.GetCompilationLock().Lock()
 	defer o.GetCompilationLock().Unlock()
 	defer func() { firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
-
-	// Any code that relies on sysctl settings being applied needs to be called after this.
-	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
-		return err
-	}
-
-	if err := cleanIngressQdisc(); err != nil {
-		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
-		return err
-	}
 
 	if err := l.writeNodeConfigHeader(o); err != nil {
 		log.WithError(err).Error("Unable to write node config header")
