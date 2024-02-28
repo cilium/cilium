@@ -22,9 +22,9 @@ package bitlpm
 // [least significant bit]: https://en.wikipedia.org/wiki/Bit_numbering#Least_significant_bit
 // [longest prefix match algorithm]: https://en.wikipedia.org/wiki/Longest_prefix_match
 type Trie[K, T any] interface {
-	// Lookup returns the longest prefix match to a specific
+	// Lookup returns the longest prefix match for a specific
 	// key.
-	Lookup(key K) T
+	Lookup(key K) (v T, ok bool)
 	// Ancestors iterates over every prefix-key pair that contains
 	// the prefix-key argument pair. If the Ancestors function argument
 	// returns false the iteration will stop. Ancestors will iterate
@@ -103,15 +103,19 @@ type node[K, T any] struct {
 
 // Lookup returns the value for the key with longest prefix match to the given
 // key.
-func (t *trie[K, T]) Lookup(k Key[K]) T {
+func (t *trie[K, T]) Lookup(k Key[K]) (T, bool) {
 	// default return value
-	var empty T
+	var (
+		empty T
+		ok    bool
+	)
 	ret := &empty
 	t.traverse(t.maxPrefix, k, func(currentNode *node[K, T], matchLen uint) bool {
 		ret = &currentNode.value
+		ok = true
 		return true
 	})
-	return *ret
+	return *ret, ok
 }
 
 // Ancestors calls the function argument for every prefix/key/value in the trie
