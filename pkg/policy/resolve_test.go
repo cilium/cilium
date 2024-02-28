@@ -352,6 +352,12 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	require.EqualValues(t, &expectedEndpointPolicy, policy)
+	// policyMapState cannot be compared via DeepEqual
+	// c.Assert(policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState), checker.Equals, true,
+	// 	check.Commentf("%s", policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState)))
+	// policy.policyMapState = nil
+	// expectedEndpointPolicy.policyMapState = nil
+	// c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
@@ -449,6 +455,12 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	require.EqualValues(t, &expectedEndpointPolicy, policy)
+	// policyMapState cannot be compared via DeepEqual
+	// c.Assert(policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState), checker.Equals, true,
+	// 	check.Commentf("%s", policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState)))
+	// policy.policyMapState = nil
+	// expectedEndpointPolicy.policyMapState = nil
+	// c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
@@ -545,6 +557,12 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	require.Equal(t, &expectedEndpointPolicy, policy)
+	// policyMapState cannot be compared via DeepEqual
+	// c.Assert(policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState), checker.Equals, true,
+	// 	check.Commentf("%s", policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState)))
+	// policy.policyMapState = nil
+	// expectedEndpointPolicy.policyMapState = nil
+	// c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
 func TestMapStateWithIngress(t *testing.T) {
@@ -717,6 +735,12 @@ func TestMapStateWithIngress(t *testing.T) {
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
+	// policyMapState cannot be compared via DeepEqual
+	// c.Assert(policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState), checker.Equals, true,
+	// 	check.Commentf("%s", policy.policyMapState.Diff(nil, expectedEndpointPolicy.policyMapState)))
+	// policy.policyMapState = nil
+	// expectedEndpointPolicy.policyMapState = nil
+	// c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
 func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
