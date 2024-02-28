@@ -347,8 +347,8 @@ spec:
                         and the rule can select by multiple sub directives: \n Example:
                         toGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
                       items:
-                        description: ToGroups structure to store all kinds of new
-                          integrations that needs a new derivative policy.
+                        description: Groups structure to store all kinds of new integrations
+                          that needs a new derivative policy.
                         properties:
                           aws:
                             description: AWSGroup is an structure that can be used
@@ -1264,8 +1264,8 @@ spec:
                         and the rule can select by multiple sub directives: \n Example:
                         toGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
                       items:
-                        description: ToGroups structure to store all kinds of new
-                          integrations that needs a new derivative policy.
+                        description: Groups structure to store all kinds of new integrations
+                          that needs a new derivative policy.
                         properties:
                           aws:
                             description: AWSGroup is an structure that can be used
@@ -1786,6 +1786,36 @@ spec:
                         - none
                         - kube-apiserver
                         type: string
+                      type: array
+                    fromGroups:
+                      description: "FromGroups is a directive that allows the integration
+                        with multiple outside providers. Currently, only AWS is supported,
+                        and the rule can select by multiple sub directives: \n Example:
+                        FromGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
+                      items:
+                        description: Groups structure to store all kinds of new integrations
+                          that needs a new derivative policy.
+                        properties:
+                          aws:
+                            description: AWSGroup is an structure that can be used
+                              to whitelisting information from AWS integration
+                            properties:
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              region:
+                                type: string
+                              securityGroupsIds:
+                                items:
+                                  type: string
+                                type: array
+                              securityGroupsNames:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                        type: object
                       type: array
                     fromNodes:
                       description: FromNodes is a list of nodes identified by an EndpointSelector
@@ -2428,9 +2458,9 @@ spec:
                     members are set, all of them need to match in order for the rule
                     to take effect. The exception to this rule is FromRequires field;
                     the effects of any Requires field in any rule will apply to all
-                    other rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet
-                    and FromEntities are mutually exclusive. Only one of these members
-                    may be present within an individual rule."
+                    other rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet,
+                    FromGroups and FromEntities are mutually exclusive. Only one of
+                    these members may be present within an individual rule."
                   properties:
                     fromCIDR:
                       description: "FromCIDR is a list of IP blocks which the endpoint
@@ -2587,6 +2617,36 @@ spec:
                         - none
                         - kube-apiserver
                         type: string
+                      type: array
+                    fromGroups:
+                      description: "FromGroups is a directive that allows the integration
+                        with multiple outside providers. Currently, only AWS is supported,
+                        and the rule can select by multiple sub directives: \n Example:
+                        FromGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
+                      items:
+                        description: Groups structure to store all kinds of new integrations
+                          that needs a new derivative policy.
+                        properties:
+                          aws:
+                            description: AWSGroup is an structure that can be used
+                              to whitelisting information from AWS integration
+                            properties:
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              region:
+                                type: string
+                              securityGroupsIds:
+                                items:
+                                  type: string
+                                type: array
+                              securityGroupsNames:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                        type: object
                       type: array
                     fromNodes:
                       description: FromNodes is a list of nodes identified by an EndpointSelector
@@ -3210,7 +3270,7 @@ spec:
                           supported, and the rule can select by multiple sub directives:
                           \n Example: toGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
                         items:
-                          description: ToGroups structure to store all kinds of new
+                          description: Groups structure to store all kinds of new
                             integrations that needs a new derivative policy.
                           properties:
                             aws:
@@ -4142,7 +4202,7 @@ spec:
                           supported, and the rule can select by multiple sub directives:
                           \n Example: toGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
                         items:
-                          description: ToGroups structure to store all kinds of new
+                          description: Groups structure to store all kinds of new
                             integrations that needs a new derivative policy.
                           properties:
                             aws:
@@ -4670,6 +4730,36 @@ spec:
                           - none
                           - kube-apiserver
                           type: string
+                        type: array
+                      fromGroups:
+                        description: "FromGroups is a directive that allows the integration
+                          with multiple outside providers. Currently, only AWS is
+                          supported, and the rule can select by multiple sub directives:
+                          \n Example: FromGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
+                        items:
+                          description: Groups structure to store all kinds of new
+                            integrations that needs a new derivative policy.
+                          properties:
+                            aws:
+                              description: AWSGroup is an structure that can be used
+                                to whitelisting information from AWS integration
+                              properties:
+                                labels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                region:
+                                  type: string
+                                securityGroupsIds:
+                                  items:
+                                    type: string
+                                  type: array
+                                securityGroupsNames:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                          type: object
                         type: array
                       fromNodes:
                         description: FromNodes is a list of nodes identified by an
@@ -5324,8 +5414,8 @@ spec:
                       to match in order for the rule to take effect. The exception
                       to this rule is FromRequires field; the effects of any Requires
                       field in any rule will apply to all other rules as well. \n
-                      - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are
-                      mutually exclusive. Only one of these members may be present
+                      - FromEndpoints, FromCIDR, FromCIDRSet, FromGroups and FromEntities
+                      are mutually exclusive. Only one of these members may be present
                       within an individual rule."
                     properties:
                       fromCIDR:
@@ -5484,6 +5574,36 @@ spec:
                           - none
                           - kube-apiserver
                           type: string
+                        type: array
+                      fromGroups:
+                        description: "FromGroups is a directive that allows the integration
+                          with multiple outside providers. Currently, only AWS is
+                          supported, and the rule can select by multiple sub directives:
+                          \n Example: FromGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
+                        items:
+                          description: Groups structure to store all kinds of new
+                            integrations that needs a new derivative policy.
+                          properties:
+                            aws:
+                              description: AWSGroup is an structure that can be used
+                                to whitelisting information from AWS integration
+                              properties:
+                                labels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                region:
+                                  type: string
+                                securityGroupsIds:
+                                  items:
+                                    type: string
+                                  type: array
+                                securityGroupsNames:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                          type: object
                         type: array
                       fromNodes:
                         description: FromNodes is a list of nodes identified by an
