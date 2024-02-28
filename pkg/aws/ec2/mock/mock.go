@@ -9,6 +9,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
+	"github.com/cilium/cilium/pkg/aws/ec2"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ip"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 
+	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -424,7 +426,10 @@ func assignPrefixToENI(e *API, eni *eniTypes.ENI, prefixes int32) error {
 	}
 
 	if int(prefixes)*option.ENIPDBlockSizeIPv4 > subnet.AvailableAddresses {
-		return fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
+		return &smithy.GenericAPIError{
+			Code:    ec2.InvalidParameterValueStr,
+			Message: ec2.SubnetFullErrMsgStr,
+		}
 	}
 
 	for i := int32(0); i < prefixes; i++ {
