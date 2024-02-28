@@ -254,12 +254,11 @@ func init() {
 			SetupEnvironment(func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
 				operatorCfg.SkipCNPStatusStartupClean = true
 			}).
-			RecordWatchers().
 			StartAgent().
-			StartOperator().
 			EnsureWatchers("nodes", "ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies").
-			Execute(func() error { return applyDummyCNPs(test) }).
-			Eventually(func() error { return validateCNPs(test) })
+			StartOperator().
+			Execute(func() error { t.Helper(); return applyDummyCNPs(test) }).
+			Eventually(func() error { t.Helper(); return validateCNPs(test) })
 
 		test.StopAgent()
 		test.StopOperator()
@@ -271,12 +270,11 @@ func init() {
 			SetupEnvironment(func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
 				operatorCfg.SkipCNPStatusStartupClean = false
 			}).
-			RecordWatchers().
 			StartAgent().
-			StartOperator().
 			EnsureWatchers("nodes", "ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies").
-			Execute(func() error { return applyDummyCNPs(test) }).
-			Eventually(func() error { return validateCNPsAfterGC(test) })
+			StartOperator().
+			Execute(func() error { t.Helper(); return applyDummyCNPs(test) }).
+			Eventually(func() error { t.Helper(); return validateCNPsAfterGC(test) })
 
 		test.StopAgent()
 		test.StopOperator()
