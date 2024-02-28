@@ -317,20 +317,3 @@ func Upgrade(
 
 	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, params.Chart, params.Values)
 }
-
-// GetParameters contains parameters for helm get operation.
-type GetParameters struct {
-	// Namespace in which the Helm release is installed.
-	Namespace string
-	// Name of the Helm release to get.
-	Name string
-}
-
-// Get returns the Helm release specified by GetParameters.
-func Get(
-	actionConfig *action.Configuration,
-	params GetParameters,
-) (*release.Release, error) {
-	helmClient := action.NewGet(actionConfig)
-	return helmClient.Run(params.Name)
-}

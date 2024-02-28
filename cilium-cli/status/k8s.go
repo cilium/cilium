@@ -16,13 +16,13 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/workerpool"
+	"helm.sh/helm/v3/pkg/action"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/k8s"
 )
 
@@ -532,10 +532,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 			if !ok {
 				return fmt.Errorf("failed to initialize Helm client")
 			}
-			release, err := helm.Get(client.HelmActionConfig, helm.GetParameters{
-				Namespace: k.params.Namespace,
-				Name:      defaults.HelmReleaseName,
-			})
+			release, err := action.NewGet(client.HelmActionConfig).Run(defaults.HelmReleaseName)
 			if err != nil {
 				return err
 			}
