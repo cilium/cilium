@@ -39,7 +39,6 @@ func testHostPort(t *testing.T) {
 	test.
 		UpdateObjectsFromFile(abs("init.yaml")).
 		SetupEnvironment(modConfig).
-		RecordWatchers().
 		StartAgent().
 		EnsureWatchers("pods").
 
