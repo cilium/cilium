@@ -4,10 +4,15 @@
 package types
 
 import (
+	"math/bits"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
+
+// MapStatePrefixLen is the length, in bits, of the Key when converted
+// to binary minus the sizeof the identity field (which is not indexed).
+const MapStatePrefixLen = uint(32)
 
 // Key is the userspace representation of a policy key in BPF. It is
 // intentionally duplicated from pkg/maps/policymap to avoid pulling in the
@@ -56,6 +61,55 @@ func (k Key) PortProtoIsBroader(c Key) bool {
 // two keys are exactly equal.
 func (k Key) PortProtoIsEqual(c Key) bool {
 	return k.DestPort == c.DestPort && k.Nexthdr == c.Nexthdr
+}
+
+// PrefixLength returns the prefix lenth of the key
+// for indexing it.
+func (k Key) PrefixLength() uint {
+	p := MapStatePrefixLen
+	if k.DestPort == 0 {
+		p -= 16
+		// We can only mask Nexthdr
+		// if DestPort is also masked.
+		if k.Nexthdr == 0 {
+			p -= 8
+		}
+	}
+	return p
+}
+
+// CommonPrefix implements the CommonPrefix method for the
+// bitlpm.Key interface. Identity is not indexed and is instead,
+// saved as a simple map per TrafficDirection-Protocol-Port index
+// key.
+func (k Key) CommonPrefix(b Key) uint {
+	v := bits.LeadingZeros8(k.TrafficDirection ^ b.TrafficDirection)
+	if v != 8 {
+		return uint(v)
+	}
+	v += bits.LeadingZeros8(k.Nexthdr ^ b.Nexthdr)
+	if v != 16 {
+		return uint(v)
+	}
+	return uint(v + bits.LeadingZeros16(k.DestPort^b.DestPort))
+}
+
+// BitValueAt implements the BitValueAt method for the
+// bitlpm.Key interface.
+func (k Key) BitValueAt(i uint) uint8 {
+	if i < 8 {
+		return min(k.TrafficDirection&(1<<(7-i)), 1)
+	}
+	if i < 16 {
+		return min(k.Nexthdr&(1<<(7-(i-8))), 1)
+	}
+	return uint8(min(k.DestPort&(1<<(15-(i-16))), 1))
+}
+
+// Value implements the Value method for the
+// bitlpm.Key interface.
+func (k Key) Value() Key {
+	return k
 }
 
 type Keys map[Key]struct{}
