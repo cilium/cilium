@@ -173,6 +173,7 @@ func updatePrometheusMetrics(key *Key, values *Values) {
 // aggregating it into drops (by drop reason and direction) and
 // forwards (by direction) with the prometheus server.
 func SyncMetricsMap(ctx context.Context) error {
+	// TODO for a real backport: Merge all values for the same dropreason and direction
 	return Metrics.IterateWithCallback(func(key *Key, values *Values) {
 		updatePrometheusMetrics(key, values)
 	})
