@@ -26,25 +26,21 @@ const (
 )
 
 type metricsRow struct {
-	reasonCode int
+	reasonCode uint8
 	reasonDesc string
 	direction  string
-	packets    int
-	bytes      int
-}
-
-type jsonMetricValues struct {
-	Packets uint64 `json:"packets"`
-	Bytes   uint64 `json:"bytes"`
+	packets    uint64
+	bytes      uint64
 }
 
 type jsonMetric struct {
-	Reason      uint64                      `json:"reason"`
-	Description string                      `json:"description"`
-	Values      map[string]jsonMetricValues `json:"values"`
+	Reason    string `json:"reason"`
+	Direction string `json:"direction"`
+	Packets   uint64 `json:"packets"`
+	Bytes     uint64 `json:"bytes"`
 }
 
-type jsonMetrics []jsonMetric
+type jsonMetrics []*jsonMetric
 
 var bpfMetricsListCmd = &cobra.Command{
 	Use:   "list",
@@ -81,31 +77,41 @@ func listJSONMetrics(bpfMetricsList []*metricsRow) {
 		return
 	}
 
-	metricsByReason := map[int]jsonMetric{}
+	// All keys in the metrics map that have these fields in common will have
+	// their byte and packet counters summed and presented as a single metric.
+	// This is to allow newer Cilium versions to make use of the reserved bits
+	// in the metricsmap key without breaking older versions of the agent. From
+	// the old agent's perspective, this would cause duplicate metrics to appear.
+	type key struct {
+		reason    string
+		direction string
+	}
+
+	metrics := make(map[key]*jsonMetric)
 
 	for _, row := range bpfMetricsList {
-		if _, ok := metricsByReason[row.reasonCode]; !ok {
-			metricsByReason[row.reasonCode] = jsonMetric{
-				Reason:      uint64(row.reasonCode),
-				Description: monitorAPI.DropReason(uint8(row.reasonCode)),
-				Values:      map[string]jsonMetricValues{},
+		k := key{
+			reason:    monitorAPI.DropReason(row.reasonCode),
+			direction: strings.ToLower(row.direction),
+		}
+
+		if _, ok := metrics[k]; !ok {
+			metrics[k] = &jsonMetric{
+				Reason:    monitorAPI.DropReason(row.reasonCode),
+				Direction: strings.ToLower(row.direction),
 			}
 		}
 
-		direction := strings.ToLower(row.direction)
-
-		metricsByReason[row.reasonCode].Values[direction] = jsonMetricValues{
-			Packets: uint64(row.packets),
-			Bytes:   uint64(row.bytes),
-		}
+		metrics[k].Packets += row.packets
+		metrics[k].Bytes += row.bytes
 	}
 
-	metrics := jsonMetrics{}
-	for _, v := range metricsByReason {
-		metrics = append(metrics, v)
+	var out jsonMetrics
+	for _, v := range metrics {
+		out = append(out, v)
 	}
 
-	if err := command.PrintOutput(metrics); err != nil {
+	if err := command.PrintOutput(out); err != nil {
 		fmt.Fprintf(os.Stderr, "error getting output of map in %s: %s\n", command.OutputOptionString(), err)
 		os.Exit(1)
 	}
@@ -147,7 +153,13 @@ func listHumanReadableMetrics(bpfMetricsList []*metricsRow) {
 }
 
 func extractRow(key *metricsmap.Key, values *metricsmap.Values) *metricsRow {
-	return &metricsRow{int(key.Reason), key.DropForwardReason(), key.Direction(), int(values.Count()), int(values.Bytes())}
+	return &metricsRow{
+		key.Reason,
+		key.DropForwardReason(),
+		key.Direction(),
+		values.Count(),
+		values.Bytes(),
+	}
 }
 
 func init() {

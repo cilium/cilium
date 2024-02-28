@@ -384,6 +384,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	ciliumCommands := []string{
 		fmt.Sprintf("cilium-dbg debuginfo --output=markdown,json -f --output-directory=%s", cmdDir),
 		"cilium-dbg metrics list",
+		"cilium-dbg bpf metrics list",
 		"cilium-dbg fqdn cache list",
 		"cilium-dbg config -a",
 		"cilium-dbg encrypt status",
