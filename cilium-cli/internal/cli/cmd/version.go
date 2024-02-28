@@ -43,7 +43,7 @@ func newCmdVersion() *cobra.Command {
 			if clientOnly {
 				return nil
 			}
-			version, err := k8sClient.GetRunningCiliumVersion(namespace)
+			version, err := k8sClient.GetRunningCiliumVersion()
 			if err != nil {
 				fmt.Printf("cilium image (running): unknown. Unable to obtain cilium version. Reason: %s\n", err.Error())
 			} else {
