@@ -42,7 +42,7 @@ loop:
 				continue loop
 			}
 		}
-		have := trie.Lookup(prefixes[name].Addr())
+		have, _ := trie.Lookup(prefixes[name].Addr())
 		if have != name {
 			t.Errorf("Lookup(%s) returned %s want %s", prefixes[name].String(), have, name)
 		}
@@ -92,7 +92,9 @@ loop:
 			"0",
 		},
 	} {
-		assert.Equal(t, tc.v, trie.Lookup(netip.MustParsePrefix(tc.k).Addr()))
+		v, ok := trie.Lookup(netip.MustParsePrefix(tc.k).Addr())
+		assert.True(t, ok)
+		assert.Equal(t, tc.v, v)
 	}
 
 }

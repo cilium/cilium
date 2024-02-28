@@ -241,7 +241,7 @@ func TestUnsignedLookup(t *testing.T) {
 				// purpose of the loop condition as some tests
 				// overflow uint16 causing an infinite loop.
 				for p := uint(start); p <= uint(end); p++ {
-					got := ut.Lookup(uint16(p))
+					got, _ := ut.Lookup(uint16(p))
 					if entry != got {
 						t.Fatalf("Looking up key %d, expected entry %q, but got %q", p, entry, got)
 					}
@@ -251,14 +251,14 @@ func TestUnsignedLookup(t *testing.T) {
 			start := firstRange.start
 			end := lastRange.end
 			for p := uint(0); p < uint(start); p++ {
-				got := ut.Lookup(uint16(p))
-				if got != "" {
+				got, ok := ut.Lookup(uint16(p))
+				if ok {
 					t.Fatalf("Looking up key %d, expected no entry, but got %q", p, got)
 				}
 			}
 			for p := uint(end) + 1; p <= uint(65535); p++ {
-				got := ut.Lookup(uint16(p))
-				if got != "" {
+				got, ok := ut.Lookup(uint16(p))
+				if ok {
 					t.Fatalf("Looking up key %d, expected no entry, but got %q", p, got)
 				}
 			}
@@ -633,8 +633,8 @@ func BenchmarkTrieLookup(b *testing.B) {
 	for i := uint32(0); i < 255; i++ {
 		upperOct := i << 8
 		for t := uint32(0); t < 255; t++ {
-			st := tri.Lookup(0xffff_0000 | upperOct | t)
-			if st == nil {
+			_, ok := tri.Lookup(0xffff_0000 | upperOct | t)
+			if !ok {
 				b.Fatal("expected valid lookup, but got nil")
 			}
 		}
