@@ -47,6 +47,12 @@ func (e *Endpoint) GetK8sNamespaceAndPodName() string {
 // for this endpoint (without the namespace)
 // Returns an empty string if the endpoint does not belong to a pod.
 func (e *Endpoint) GetK8sCEPName() string {
+	if cepName, ok := e.properties[PropertyCEPName]; ok {
+		cepNameStr, ok := cepName.(string)
+		if ok {
+			return cepNameStr
+		}
+	}
 	// all fields are const after creation
 
 	// Endpoints which have not opted out of legacy identifiers will continue
