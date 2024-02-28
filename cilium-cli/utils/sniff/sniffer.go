@@ -136,15 +136,12 @@ func (sniffer *Sniffer) Validate(ctx context.Context, a *check.Action) {
 		a.Failf("Captured unexpected packets (count=%s)", strings.TrimRight(count.String(), "\n\r"))
 		a.Infof("Capture executed on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), strings.Join(sniffer.cmd, " "))
 
-		// If debug mode is enabled, dump the captured pkts
-		if a.DebugEnabled() {
-			cmd := []string{"/bin/sh", "-c", fmt.Sprintf("tcpdump -r %s 2>/dev/null", sniffer.dumpPath)}
-			out, err := sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", cmd)
-			if err != nil {
-				a.Fatalf("Failed to retrieve tcpdump output on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
-			}
-			a.Debugf("Captured packets:\n%s", out.String())
+		cmd := []string{"/bin/sh", "-c", fmt.Sprintf("tcpdump -r %s 2>/dev/null", sniffer.dumpPath)}
+		out, err := sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", cmd)
+		if err != nil {
+			a.Fatalf("Failed to retrieve tcpdump output on %s (%s): %s", sniffer.target.String(), sniffer.target.NodeName(), err)
 		}
+		a.Infof("Captured packets:\n%s", out.String())
 	}
 
 	if strings.HasPrefix(count.String(), "0 packets") && sniffer.mode == ModeSanity {
