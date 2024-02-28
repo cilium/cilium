@@ -90,7 +90,6 @@ func init() {
 				test.
 					UpdateObjectsFromFile(abs("init.yaml")).
 					SetupEnvironment().
-					RecordWatchers().
 					StartAgent(modConfig).
 					EnsureWatchers("nodes").
 					ClearEnvironment()
