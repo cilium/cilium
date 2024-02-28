@@ -964,9 +964,10 @@ func (ct *ConnectivityTest) UninstallResources(ctx context.Context, wait bool) {
 	ct.Logf("🔥 Deleting %s namespace...", ct.params.TestNamespace)
 	ct.client.DeleteNamespace(ctx, ct.params.TestNamespace, metav1.DeleteOptions{})
 
-	// To avoid cases where test pods are stuck in terminating state because
-	// cni (cilium) pods were deleted sooner, wait until test pods are deleted
-	// before moving onto deleting cilium pods.
+	// If test Pods are not deleted prior to uninstalling Cilium then the CNI deletes
+	// may be queued by cilium-cni. This can cause error to be logged when re-installing
+	// Cilium later.
+	// Thus we wait for all cilium-test Pods to fully terminate before proceeding.
 	if wait {
 		ct.Logf("⌛ Waiting for %s namespace to be terminated...", ct.params.TestNamespace)
 		for {
