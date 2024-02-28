@@ -14,8 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 )
 
-func GetToGroupsRule() ToGroups {
-	return ToGroups{
+func GetToGroupsRule() Groups {
+	return Groups{
 		AWS: &AWSGroup{
 			Labels: map[string]string{
 				"test": "a",
@@ -37,7 +37,7 @@ func GetCallBackWithRule(ips ...string) GroupProviderFunc {
 		}
 	}
 
-	return func(ctx context.Context, group *ToGroups) ([]netip.Addr, error) {
+	return func(ctx context.Context, group *Groups) ([]netip.Addr, error) {
 		return netIPs, nil
 	}
 }
@@ -82,7 +82,7 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithUniqueCIDRRule(c *C) {
 }
 
 func (s *PolicyAPITestSuite) TestGetCIDRSetWithError(c *C) {
-	cb := func(ctx context.Context, group *ToGroups) ([]netip.Addr, error) {
+	cb := func(ctx context.Context, group *Groups) ([]netip.Addr, error) {
 		return []netip.Addr{}, fmt.Errorf("Invalid credentials")
 	}
 	RegisterToGroupsProvider(AWSProvider, cb)
