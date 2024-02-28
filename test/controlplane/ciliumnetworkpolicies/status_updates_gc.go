@@ -247,7 +247,6 @@ func init() {
 		test.
 			UpdateObjects(initialObjects...).
 			SetupEnvironment().
-			RecordWatchers().
 			// check that CNPs contain status updates info before starting agent and operator
 			Eventually(func() error { return validateCNPs(test) }).
 			StartAgent(func(_ *option.DaemonConfig) {}).
@@ -270,7 +269,6 @@ func init() {
 		test.
 			UpdateObjects(initialObjects...).
 			SetupEnvironment().
-			RecordWatchers().
 			// check that CNPs contain status updates info before starting agent and operator
 			Eventually(func() error { return validateCNPs(test) }).
 			StartAgent(func(_ *option.DaemonConfig) {}).
