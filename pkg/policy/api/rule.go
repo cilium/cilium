@@ -240,5 +240,21 @@ func (r *Rule) CreateDerivative(ctx context.Context) (*Rule, error) {
 		}
 		newRule.EgressDeny = append(newRule.EgressDeny, *derivativeEgressDenyRule)
 	}
+
+	for _, ingressRule := range r.Ingress {
+		derivativeIngressRule, err := ingressRule.CreateDerivative(ctx)
+		if err != nil {
+			return newRule, err
+		}
+		newRule.Ingress = append(newRule.Ingress, *derivativeIngressRule)
+	}
+
+	for _, ingressDenyRule := range r.IngressDeny {
+		derivativeDenyIngressRule, err := ingressDenyRule.CreateDerivative(ctx)
+		if err != nil {
+			return newRule, err
+		}
+		newRule.IngressDeny = append(newRule.IngressDeny, *derivativeDenyIngressRule)
+	}
 	return newRule, nil
 }
