@@ -85,6 +85,12 @@ const (
 	// PropertySkipBPFRegeneration will mark the endpoint to skip ebpf
 	// regeneration.
 	PropertySkipBPFRegeneration = "property-skip-bpf-regeneration"
+
+	// PropertyCEPOwner will be able to store the CEP owner for this endpoint.
+	PropertyCEPOwner = "property-cep-owner"
+
+	// PropertyCEPName contains the CEP name for this endpoint.
+	PropertyCEPName = "property-cep-name"
 )
 
 var (
@@ -1332,6 +1338,13 @@ type CEPOwnerInterface interface {
 // GetCEPOwner retrieves the cep owner related to this endpoint which will be,
 // by default, the pod associated with this endpoint.
 func (e *Endpoint) GetCEPOwner() CEPOwnerInterface {
+	if cepOwnerInt, ok := e.properties[PropertyCEPOwner]; ok {
+		cepOwner, ok := cepOwnerInt.(CEPOwnerInterface)
+		if ok {
+			return cepOwner
+		}
+	}
+
 	return e.GetPod()
 }
 
