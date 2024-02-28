@@ -32,6 +32,9 @@ type Parameters struct {
 
 	// UIOpenBrowser will automatically open browser if true
 	UIOpenBrowser bool
+
+	// Wait will cause Helm upgrades related to disabling Hubble to wait.
+	Wait bool
 }
 
 func (p *Parameters) Log(format string, a ...interface{}) {
@@ -74,6 +77,7 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 		Values:      vals,
 		ResetValues: false,
 		ReuseValues: true,
+		Wait:        params.Wait,
 	}
 	_, err = helm.Upgrade(ctx, k8sClient.HelmActionConfig, upgradeParams)
 	return err
