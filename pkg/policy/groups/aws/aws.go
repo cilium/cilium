@@ -27,7 +27,7 @@ func init() {
 }
 
 // GetIPsFromGroup will return the list of the IPs for the given group filter
-func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]netip.Addr, error) {
+func GetIPsFromGroup(ctx context.Context, group *api.Groups) ([]netip.Addr, error) {
 	result := []netip.Addr{}
 	if group.AWS == nil {
 		return result, fmt.Errorf("no aws data available")

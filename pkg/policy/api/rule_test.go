@@ -41,7 +41,7 @@ func getEgressRuleWithToGroups() *Rule {
 		Egress: []EgressRule{
 			{
 				EgressCommonRule: EgressCommonRule{
-					ToGroups: []ToGroups{
+					ToGroups: []Groups{
 						GetToGroupsRule(),
 					},
 				},
@@ -55,7 +55,7 @@ func getEgressDenyRuleWithToGroups() *Rule {
 		EgressDeny: []EgressDenyRule{
 			{
 				EgressCommonRule: EgressCommonRule{
-					ToGroups: []ToGroups{
+					ToGroups: []Groups{
 						GetToGroupsRule(),
 					},
 				},

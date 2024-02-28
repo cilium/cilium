@@ -43,7 +43,7 @@ func (s *GroupsTestSuite) TestCorrectDerivativeName(c *C) {
 	c.Assert(
 		cnpDerivedPolicy.ObjectMeta.Name,
 		Equals,
-		fmt.Sprintf("%s-togroups-%s", name, cnp.ObjectMeta.UID))
+		fmt.Sprintf("%s-groups-%s", name, cnp.ObjectMeta.UID))
 
 	// Test clusterwide policy helper functions
 	ccnpName := "ccnp-test"
@@ -54,11 +54,11 @@ func (s *GroupsTestSuite) TestCorrectDerivativeName(c *C) {
 	c.Assert(
 		ccnpDerivedPolicy.ObjectMeta.Name,
 		Equals,
-		fmt.Sprintf("%s-togroups-%s", ccnpName, ccnp.ObjectMeta.UID),
+		fmt.Sprintf("%s-groups-%s", ccnpName, ccnp.ObjectMeta.UID),
 	)
 }
 
-func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
+func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNogroups(c *C) {
 	egressRule := []api.EgressRule{
 		{
 			ToPorts: []api.PortRule{
@@ -93,7 +93,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 }
 
 func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
-	cb := func(ctx context.Context, group *api.ToGroups) ([]netip.Addr, error) {
+	cb := func(ctx context.Context, group *api.Groups) ([]netip.Addr, error) {
 		return []netip.Addr{netip.MustParseAddr("192.168.1.1")}, nil
 	}
 
@@ -107,7 +107,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
 				},
 			},
 			EgressCommonRule: api.EgressCommonRule{
-				ToGroups: []api.ToGroups{
+				ToGroups: []api.Groups{
 					{
 						AWS: &api.AWSGroup{
 							Labels: map[string]string{

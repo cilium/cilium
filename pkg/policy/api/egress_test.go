@@ -23,7 +23,7 @@ func (s *PolicyAPITestSuite) TestRequiresDerivativeRuleWithoutToGroups(c *C) {
 
 func (s *PolicyAPITestSuite) TestRequiresDerivativeRuleWithToGroups(c *C) {
 	eg := EgressRule{}
-	eg.ToGroups = []ToGroups{
+	eg.ToGroups = []Groups{
 		GetToGroupsRule(),
 	}
 	c.Assert(eg.RequiresDerivative(), Equals, true)
@@ -48,14 +48,14 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithoutToGroups(c *C) {
 }
 
 func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsWitInvalidRegisterCallback(c *C) {
-	cb := func(ctx context.Context, group *ToGroups) ([]netip.Addr, error) {
+	cb := func(ctx context.Context, group *Groups) ([]netip.Addr, error) {
 		return []netip.Addr{}, fmt.Errorf("Invalid error")
 	}
 	RegisterToGroupsProvider(AWSProvider, cb)
 
 	eg := &EgressRule{
 		EgressCommonRule: EgressCommonRule{
-			ToGroups: []ToGroups{
+			ToGroups: []Groups{
 				GetToGroupsRule(),
 			},
 		},
@@ -70,7 +70,7 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsAndToPorts(c *C
 
 	eg := &EgressRule{
 		EgressCommonRule: EgressCommonRule{
-			ToGroups: []ToGroups{
+			ToGroups: []Groups{
 				GetToGroupsRule(),
 			},
 		},
@@ -93,7 +93,7 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeWithoutErrorAndNoIPs(c *C) {
 
 	eg := &EgressRule{
 		EgressCommonRule: EgressCommonRule{
-			ToGroups: []ToGroups{
+			ToGroups: []Groups{
 				GetToGroupsRule(),
 			},
 		},
