@@ -625,7 +625,7 @@ func (lbmap *LBBPFMap) deleteServiceLocked(key ServiceKey) error {
 	_, _, found := table.First(txn, ServiceIndex.Query(key.String()))
 	if found {
 		table.Insert(txn, &Service{
-			K:      key,
+			K:      key.ToNetwork(),
 			Status: reconciler.StatusPendingDelete(),
 		})
 		txn.Commit()
@@ -685,8 +685,8 @@ func (lbmap *LBBPFMap) updateServiceEndpoint(key ServiceKey, value ServiceValue)
 
 	txn := lbmap.params.DB.WriteTxn(table)
 	table.Insert(txn, &Service{
-		K:      key,
-		V:      value,
+		K:      key.ToNetwork(),
+		V:      value.ToNetwork(),
 		Status: reconciler.StatusPending(),
 	})
 	txn.Commit()

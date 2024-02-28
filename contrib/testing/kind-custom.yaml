@@ -1,0 +1,8 @@
+prometheus:
+  enabled: true
+  metrics: ['+cilium_reconciler_incremental_total', '+cilium_reconciler_incremental_duration_seconds', '+cilium_reconciler_incremental_errors_total', '+cilium_reconciler_incremental_errors_current']
+
+operator:
+  prometheus:
+    enabled: true
+

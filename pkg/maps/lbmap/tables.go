@@ -95,11 +95,11 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 }
 
 func (s *Service) Key() encoding.BinaryMarshaler {
-	return ops.StructBinaryMarshaler{Target: s.K.ToNetwork()}
+	return ops.StructBinaryMarshaler{Target: s.K}
 }
 
 func (s *Service) Value() encoding.BinaryMarshaler {
-	return ops.StructBinaryMarshaler{Target: s.V.ToNetwork()}
+	return ops.StructBinaryMarshaler{Target: s.V}
 }
 
 func (s *Service) GetStatus() reconciler.Status {

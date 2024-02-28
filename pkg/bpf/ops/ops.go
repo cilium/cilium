@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding"
 	"errors"
+	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -37,6 +38,9 @@ type StructBinaryMarshaler struct {
 
 func (m StructBinaryMarshaler) MarshalBinary() ([]byte, error) {
 	v := reflect.ValueOf(m.Target)
+	if v.Kind() != reflect.Pointer {
+		return nil, fmt.Errorf("%T is a %s, expected pointer to a struct", m.Target, v.Kind())
+	}
 	size := int(v.Type().Elem().Size())
 	return unsafe.Slice((*byte)(v.UnsafePointer()), size), nil
 }

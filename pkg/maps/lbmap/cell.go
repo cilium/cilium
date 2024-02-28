@@ -16,7 +16,7 @@ import (
 
 var Cell = cell.Module(
 	"lbmap",
-	"Load-balancer BPF maps",
+	"Load-balancer BPF maps and reconciliation",
 
 	cell.Provide(
 		initMaps,
