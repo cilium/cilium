@@ -165,10 +165,11 @@ func (k *K8sInstaller) listVersions() error {
 	}
 	// Iterate backwards to print the newest version first.
 	for i := len(versions) - 1; i >= 0; i-- {
-		if versions[i] == defaults.Version {
-			fmt.Println(versions[i], "(default)")
+		version := "v" + versions[i].String()
+		if version == defaults.Version {
+			fmt.Println(version, "(default)")
 		} else {
-			fmt.Println(versions[i])
+			fmt.Println(version)
 		}
 	}
 	return err
