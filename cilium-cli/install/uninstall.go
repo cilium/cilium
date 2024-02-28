@@ -48,6 +48,9 @@ func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *action.Configuration) error {
 	helmClient := action.NewUninstall(actionConfig)
 	helmClient.Wait = k.params.Wait
+	if k.params.Wait {
+		helmClient.DeletionPropagation = "foreground"
+	}
 	helmClient.Timeout = k.params.Timeout
 	if _, err := helmClient.Run(defaults.HelmReleaseName); err != nil {
 		return err
