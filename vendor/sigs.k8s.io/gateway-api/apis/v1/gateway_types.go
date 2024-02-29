@@ -186,7 +186,6 @@ type GatewaySpec struct {
 	// +listMapKey=name
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=64
-	// +kubebuilder:validation:XValidation:message="tls must be specified for protocols ['HTTPS', 'TLS']",rule="self.all(l, l.protocol in ['HTTPS', 'TLS'] ? has(l.tls) : true)"
 	// +kubebuilder:validation:XValidation:message="tls must not be specified for protocols ['HTTP', 'TCP', 'UDP']",rule="self.all(l, l.protocol in ['HTTP', 'TCP', 'UDP'] ? !has(l.tls) : true)"
 	// +kubebuilder:validation:XValidation:message="tls mode must be Terminate for protocol HTTPS",rule="self.all(l, (l.protocol == 'HTTPS' && has(l.tls)) ? (l.tls.mode == '' || l.tls.mode == 'Terminate') : true)"
 	// +kubebuilder:validation:XValidation:message="hostname must not be specified for protocols ['TCP', 'UDP']",rule="self.all(l, l.protocol in ['TCP', 'UDP']  ? (!has(l.hostname) || l.hostname == '') : true)"
@@ -376,18 +375,19 @@ const (
 
 // GatewayTLSConfig describes a TLS configuration.
 //
-// +kubebuilder:validation:XValidation:message="certificateRefs must be specified when TLSModeType is Terminate",rule="self.mode == 'Terminate' ? size(self.certificateRefs) > 0 : true"
+// +kubebuilder:validation:XValidation:message="certificateRefs or options must be specified when mode is Terminate",rule="self.mode == 'Terminate' ? size(self.certificateRefs) > 0 || size(self.options) > 0 : true"
 type GatewayTLSConfig struct {
 	// Mode defines the TLS behavior for the TLS session initiated by the client.
 	// There are two possible modes:
 	//
-	// - Terminate: The TLS session between the downstream client
-	//   and the Gateway is terminated at the Gateway. This mode requires
-	//   certificateRefs to be set and contain at least one element.
+	// - Terminate: The TLS session between the downstream client and the
+	//   Gateway is terminated at the Gateway. This mode requires certificates
+	//   to be specified in some way, such as populating the certificateRefs
+	//   field.
 	// - Passthrough: The TLS session is NOT terminated by the Gateway. This
 	//   implies that the Gateway can't decipher the TLS stream except for
-	//   the ClientHello message of the TLS protocol.
-	//   CertificateRefs field is ignored in this mode.
+	//   the ClientHello message of the TLS protocol. The certificateRefs field
+	//   is ignored in this mode.
 	//
 	// Support: Core
 	//
@@ -701,8 +701,10 @@ const (
 	// true.
 	GatewayReasonProgrammed GatewayConditionReason = "Programmed"
 
-	// This reason is used with the "Programmed" and "Accepted" conditions when the Gateway is
-	// syntactically or semantically invalid.
+	// This reason is used with the "Programmed" and "Accepted" conditions when
+	// the Gateway is syntactically or semantically invalid. For example, this
+	// could include unspecified TLS configuration, or some unrecognized or
+	// invalid values in the TLS configuration.
 	GatewayReasonInvalid GatewayConditionReason = "Invalid"
 
 	// This reason is used with the "Programmed" condition when the

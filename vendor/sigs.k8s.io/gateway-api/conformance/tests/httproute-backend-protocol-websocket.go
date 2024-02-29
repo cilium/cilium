@@ -57,7 +57,7 @@ var HTTPRouteBackendProtocolWebSocket = suite.ConformanceTest{
 		maxTimeToConsistency := suite.TimeoutConfig.MaxTimeToConsistency
 
 		t.Run("websocket connection should reach backend", func(t *testing.T) {
-			http.AwaitConvergence(t, threshold, maxTimeToConsistency, func(elapsed time.Duration) bool {
+			http.AwaitConvergence(t, threshold, maxTimeToConsistency, func(_ time.Duration) bool {
 				origin := fmt.Sprintf("ws://gateway/%s", t.Name())
 				remote := fmt.Sprintf("ws://%s/ws", gwAddr)
 

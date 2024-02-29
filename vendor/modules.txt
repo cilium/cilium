@@ -2122,17 +2122,19 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v1.0.1-0.20240227011055-72f679c7c672
+# sigs.k8s.io/gateway-api v1.0.1-0.20240305045206-346e951245f2
 ## explicit; go 1.21
 sigs.k8s.io/gateway-api/apis/v1
 sigs.k8s.io/gateway-api/apis/v1alpha2
 sigs.k8s.io/gateway-api/apis/v1beta1
 sigs.k8s.io/gateway-api/conformance
 sigs.k8s.io/gateway-api/conformance/apis/v1alpha1
+sigs.k8s.io/gateway-api/conformance/echo-basic/grpcechoserver
 sigs.k8s.io/gateway-api/conformance/tests
 sigs.k8s.io/gateway-api/conformance/utils/config
 sigs.k8s.io/gateway-api/conformance/utils/echo
 sigs.k8s.io/gateway-api/conformance/utils/flags
+sigs.k8s.io/gateway-api/conformance/utils/grpc
 sigs.k8s.io/gateway-api/conformance/utils/http
 sigs.k8s.io/gateway-api/conformance/utils/kubernetes
 sigs.k8s.io/gateway-api/conformance/utils/roundtripper
