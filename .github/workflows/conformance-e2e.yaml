@@ -271,6 +271,7 @@ jobs:
           test-name: e2e-conformance
           image-version: ${{ matrix.kernel }}
           host-mount: ./
+          image: 'kind-ci'
           cpu: 4
           dns-resolver: '1.1.1.1'
           install-dependencies: 'true'
