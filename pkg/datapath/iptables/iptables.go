@@ -949,7 +949,7 @@ func (m *Manager) RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	return nil
 }
 
-func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error {
+func (m *Manager) InstallProxyRules(ctx context.Context, proxyPort uint16, localOnly bool, name string) error {
 	if m.haveBPFSocketAssign {
 		log.WithField("port", proxyPort).
 			Debug("Skipping proxy rule install due to BPF support")

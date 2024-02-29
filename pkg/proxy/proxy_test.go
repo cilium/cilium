@@ -26,7 +26,7 @@ var _ = Suite(&ProxySuite{})
 
 type MockDatapathUpdater struct{}
 
-func (m *MockDatapathUpdater) InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error {
+func (m *MockDatapathUpdater) InstallProxyRules(ctx context.Context, proxyPort uint16, localOnly bool, name string) error {
 	return nil
 }
 
