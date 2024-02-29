@@ -44,9 +44,10 @@ fi
 # functions.
 #
 required_files=$(
-	grep -E 'send_drop_notify(|_error|_ext|_error_ext)?' bpf/*.c bpf/lib/*.h |
+	grep -E 'send_drop_notify(|_error|_ext|_error_ext)?|update_(trace_)?metrics|send_trace_notify' bpf/*.c bpf/lib/*.h |
 	cut -f1 -d: |
 	sort -u |
+	grep -v "metrics.h" |
 	xargs -n1 basename
 )
 
@@ -66,7 +67,7 @@ done
 #
 for f in $defined_files; do
 	if ! grep --silent -w "$f" <<<"$required_files"; then
-		echo "$0: $f is not using send_drop_notify*, please remove it from ${source_info_h}" >&2
+		echo "$0: $f is not using send_drop_notify*, update_(trace_)metrics or send_trace_notify, please remove it from ${source_info_h}" >&2
 		retval=1
 	fi
 done

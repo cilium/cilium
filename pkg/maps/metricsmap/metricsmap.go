@@ -69,9 +69,13 @@ var direction = map[uint8]string{
 
 // Key must be in sync with struct metrics_key in <bpf/lib/common.h>
 type Key struct {
-	Reason   uint8     `align:"reason"`
-	Dir      uint8     `align:"dir"`
-	Reserved [3]uint16 `align:"reserved"`
+	Reason uint8 `align:"reason"`
+	Dir    uint8 `align:"dir"`
+	// Line contains the line number of the metrics statement.
+	Line uint16 `align:"line"`
+	// File is the number of the source file containing the metrics statement.
+	File     uint8    `align:"file"`
+	Reserved [3]uint8 `align:"reserved"`
 }
 
 // Value must be in sync with struct metrics_value in <bpf/lib/common.h>
@@ -110,6 +114,11 @@ func (k *Key) Direction() string {
 // DropForwardReason gets the forwarded/dropped reason in human readable string format
 func (k *Key) DropForwardReason() string {
 	return monitorAPI.DropReason(k.Reason)
+}
+
+// FileName returns the filename where the event occurred, in string format.
+func (k *Key) FileName() string {
+	return monitorAPI.BPFFileName(k.File)
 }
 
 // IsDrop checks if the reason is drop or not.
