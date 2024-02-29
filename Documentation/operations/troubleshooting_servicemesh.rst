@@ -104,8 +104,7 @@ note that any change of Cilium flags requires a restart of the Cilium agent and 
 
 .. note::
 
-    The Ingress traffic is always allowed to pass through Cilium, regardless of the related
-    CiliumNetworkPolicy for underlying pods or endpoints.
+    The originating source IP is used for enforcing ingress traffic.
 
 The request normally traverses from LoadBalancer service to pre-assigned port of your
 node, then gets forwarded to the Cilium Envoy proxy, and finally gets proxied to the actual
