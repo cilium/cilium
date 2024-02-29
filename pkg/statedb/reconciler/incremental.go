@@ -84,6 +84,11 @@ func (r *reconciler[Obj]) incremental(ctx context.Context, txn statedb.ReadTxn, 
 	if len(round.errs) > 0 {
 		return newRevision, watch, fmt.Errorf("incremental: %w", joinErrors(round.errs))
 	}
+
+	if len(r.retries.items) > 0 {
+		return newRevision, watch, fmt.Errorf("incremental: %d objects waiting for retry", len(r.retries.items))
+	}
+
 	return newRevision, watch, nil
 }
 
