@@ -594,7 +594,7 @@ func toPathMatch(match gatewayv1.HTTPRouteMatch) model.StringMatch {
 }
 
 func toGRPCPathMatch(match gatewayv1alpha2.GRPCRouteMatch) model.StringMatch {
-	if match.Method.Service == nil || match.Method == nil {
+	if match.Method == nil || match.Method.Service == nil {
 		return model.StringMatch{}
 	}
 
