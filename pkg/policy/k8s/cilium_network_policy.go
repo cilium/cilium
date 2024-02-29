@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -61,6 +60,13 @@ func (p *PolicyWatcher) onUpsert(
 	}
 	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
 
+	// check if this cnp was referencing or is now referencing at least one ToServices rule
+	if hasToServices(cnp) {
+		p.toServicesPolicies[key] = struct{}{}
+	} else {
+		delete(p.toServicesPolicies, key)
+	}
+
 	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID)
 }
 
@@ -73,8 +79,15 @@ func (p *PolicyWatcher) onDelete(
 	err := p.deleteCiliumNetworkPolicyV2(cnp, resourceID)
 	delete(p.cnpCache, key)
 
+	// Clear CIDRGroupRef index
 	delete(p.cidrGroupPolicies, key)
 	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
+
+	// Clear ToServices index
+	for svcID := range p.cnpByServiceID {
+		p.clearCNPForService(key, svcID)
+	}
+	delete(p.toServicesPolicies, key)
 
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
@@ -102,6 +115,9 @@ func (p *PolicyWatcher) resolveCiliumNetworkPolicyRefs(
 	p.resolveCIDRGroupRef(translatedCNP)
 	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
+	// Resolve ToService references
+	p.resolveToServices(key, translatedCNP)
+
 	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 	if err == nil {
 		p.cnpCache[key] = cnp
@@ -121,17 +137,12 @@ func (p *PolicyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 
 	rules, policyImportErr := cnp.Parse()
 	if policyImportErr == nil {
-		policyImportErr = k8s.PreprocessRules(rules, p.K8sSvcCache)
-		// Replace all rules with the same name, namespace and
-		// resourceTypeCiliumNetworkPolicy
-		if policyImportErr == nil {
-			_, policyImportErr = p.policyManager.PolicyAdd(rules, &policy.AddOptions{
-				ReplaceWithLabels:   cnp.GetIdentityLabels(),
-				Source:              source.CustomResource,
-				ProcessingStartTime: initialRecvTime,
-				Resource:            resourceID,
-			})
-		}
+		_, policyImportErr = p.policyManager.PolicyAdd(rules, &policy.AddOptions{
+			ReplaceWithLabels:   cnp.GetIdentityLabels(),
+			Source:              source.CustomResource,
+			ProcessingStartTime: initialRecvTime,
+			Resource:            resourceID,
+		})
 	}
 
 	if policyImportErr != nil {

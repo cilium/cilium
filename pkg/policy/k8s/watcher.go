@@ -27,8 +27,9 @@ type PolicyWatcher struct {
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
 
-	policyManager PolicyManager
-	K8sSvcCache   *k8s.ServiceCache
+	policyManager         PolicyManager
+	svcCache              serviceCache
+	svcCacheNotifications <-chan k8s.ServiceNotification
 
 	CiliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
@@ -45,6 +46,9 @@ type PolicyWatcher struct {
 	cidrGroupCache map[string]*cilium_api_v2alpha1.CiliumCIDRGroup
 	// cidrGroupPolicies is the set of policies that are referencing CiliumCIDRGroup objects.
 	cidrGroupPolicies map[resource.Key]struct{}
+	// cidrGroupPolicies is the set of policies that contain ToServices references
+	toServicesPolicies map[resource.Key]struct{}
+	cnpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
 }
 
 func (p *PolicyWatcher) watchResources(ctx context.Context) {
@@ -57,6 +61,7 @@ func (p *PolicyWatcher) watchResources(ctx context.Context) {
 		cnpEvents := p.CiliumNetworkPolicies.Events(ctx)
 		ccnpEvents := p.CiliumClusterwideNetworkPolicies.Events(ctx)
 		cidrGroupEvents := p.CiliumCIDRGroups.Events(ctx)
+		serviceEvents := p.svcCacheNotifications
 
 		for {
 			select {
@@ -170,8 +175,18 @@ func (p *PolicyWatcher) watchResources(ctx context.Context) {
 					err = p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
 				}
 				event.Done(err)
+			case event, ok := <-serviceEvents:
+				if !ok {
+					serviceEvents = nil
+					break
+				}
+
+				switch event.Action {
+				case k8s.UpdateService, k8s.DeleteService:
+					p.onServiceEvent(event)
+				}
 			}
-			if knpEvents == nil && cnpEvents == nil && ccnpEvents == nil && cidrGroupEvents == nil {
+			if knpEvents == nil && cnpEvents == nil && ccnpEvents == nil && cidrGroupEvents == nil && serviceEvents == nil {
 				return
 			}
 		}

@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -49,6 +50,10 @@ type PolicyManager interface {
 	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
 }
 
+type serviceCache interface {
+	ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) bool)
+}
+
 type PolicyWatcherParams struct {
 	cell.In
 
@@ -75,10 +80,12 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 		return // skip watcher if K8s is not enabled
 	}
 
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
+	// We want to subscribe before the start hook is invoked in order to not miss
+	// any events
+	ctx, cancel := context.WithCancel(context.Background())
+	svcCacheNotifications := stream.ToChannel(ctx, p.ServiceCache.Notifications(),
+		stream.WithBufferSize(int(p.Config.K8sServiceCacheSize)))
+
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(startCtx cell.HookContext) error {
 			policyManager, err := p.PolicyManager.Await(startCtx)
@@ -86,13 +93,13 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 				return err
 			}
 
-			ctx, cancel = context.WithCancel(context.Background())
 			w := &PolicyWatcher{
 				log:                              p.Logger,
 				config:                           p.Config,
 				k8sResourceSynced:                p.K8sResourceSynced,
 				k8sAPIGroups:                     p.K8sAPIGroups,
-				K8sSvcCache:                      p.ServiceCache,
+				svcCache:                         p.ServiceCache,
+				svcCacheNotifications:            svcCacheNotifications,
 				policyManager:                    policyManager,
 				CiliumNetworkPolicies:            p.CiliumNetworkPolicies,
 				CiliumClusterwideNetworkPolicies: p.CiliumClusterwideNetworkPolicies,
@@ -102,6 +109,9 @@ func startK8sPolicyWatcher(p PolicyWatcherParams) {
 				cnpCache:          make(map[resource.Key]*types.SlimCNP),
 				cidrGroupCache:    make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup),
 				cidrGroupPolicies: make(map[resource.Key]struct{}),
+
+				toServicesPolicies: make(map[resource.Key]struct{}),
+				cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
 			}
 
 			w.watchResources(ctx)
