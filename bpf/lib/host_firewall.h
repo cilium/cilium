@@ -115,9 +115,9 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
-	verdict = policy_can_egress6(ctx, tuple, ct_buffer->l4_off, HOST_ID,
-				     dst_sec_identity, &policy_match_type,
-				     &audited, ext_err, &proxy_port);
+	verdict = policy_can_egress6(ctx, &POLICY_MAP, tuple, ct_buffer->l4_off, HOST_ID,
+				     dst_sec_identity, &policy_match_type, &audited, ext_err,
+				     &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, tunnel_endpoint, auth_type);
@@ -235,8 +235,9 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		goto out;
 
 	/* Perform policy lookup */
-	verdict = policy_can_ingress6(ctx, tuple, ct_buffer->l4_off, *src_sec_identity, HOST_ID,
-				      &policy_match_type, &audited, ext_err, &proxy_port);
+	verdict = policy_can_ingress6(ctx, &POLICY_MAP, tuple, ct_buffer->l4_off,
+				      *src_sec_identity, HOST_ID, &policy_match_type, &audited,
+				      ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);
@@ -390,7 +391,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
-	verdict = policy_can_egress4(ctx, tuple, ct_buffer->l4_off, HOST_ID,
+	verdict = policy_can_egress4(ctx, &POLICY_MAP, tuple, ct_buffer->l4_off, HOST_ID,
 				     dst_sec_identity, &policy_match_type,
 				     &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
@@ -404,7 +405,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		ct_state_new.proxy_redirect = proxy_port > 0;
 		ct_state_new.from_l7lb = false;
 
-		/* ext_err may contain a value from __policy_can_access, and
+		/* ext_err may contain a value from __eolicy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
 		 * case, it's OK to return ext_err from ct_create4 along with
@@ -512,9 +513,9 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 #  endif
 
 	/* Perform policy lookup */
-	verdict = policy_can_ingress4(ctx, tuple, ct_buffer->l4_off, is_untracked_fragment,
-				      *src_sec_identity, HOST_ID, &policy_match_type,
-				      &audited, ext_err, &proxy_port);
+	verdict = policy_can_ingress4(ctx, &POLICY_MAP, tuple, ct_buffer->l4_off,
+				      is_untracked_fragment, *src_sec_identity, HOST_ID,
+				      &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);
