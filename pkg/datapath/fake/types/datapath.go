@@ -80,7 +80,7 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 	return nil
 }
 
-func (f *FakeDatapath) InstallProxyRules(uint16, bool, bool, string) <-chan struct{} {
+func (f *FakeDatapath) InstallProxyRules(uint16, bool, string) <-chan struct{} {
 	ch := make(chan struct{})
 	close(ch)
 	return ch

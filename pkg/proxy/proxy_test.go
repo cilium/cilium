@@ -26,7 +26,7 @@ var _ = Suite(&ProxySuite{})
 
 type MockDatapathUpdater struct{}
 
-func (m *MockDatapathUpdater) InstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) <-chan struct{} {
+func (m *MockDatapathUpdater) InstallProxyRules(proxyPort uint16, localOnly bool, name string) <-chan struct{} {
 	ch := make(chan struct{})
 	close(ch)
 	return ch

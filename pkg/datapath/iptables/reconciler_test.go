@@ -6,8 +6,10 @@ package iptables
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -78,20 +80,21 @@ func TestReconciliationLoop(t *testing.T) {
 	updateFunc := func(newState desiredState, firstInit bool) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		// copy newState to avoid a race with the reconciler mutating it
 		// and the test asserting the expected values with Eventually
 		state = newState.deepCopy()
+
 		return nil
 	}
-	updateProxyFunc := func(proxyPort uint16, ingress, localOnly bool, name string) error {
+	updateProxyFunc := func(proxyPort uint16, localOnly bool, name string) error {
 		mu.Lock()
 		defer mu.Unlock()
-		state.proxies.Insert(proxyInfo{
+		state.proxies[name] = proxyInfo{
 			name:        name,
 			port:        proxyPort,
-			isIngress:   ingress,
 			isLocalOnly: localOnly,
-		})
+		}
 		return nil
 	}
 	installNoTrackFunc := func(addr netip.Addr, port uint16) error {
@@ -204,7 +207,6 @@ func TestReconciliationLoop(t *testing.T) {
 					info: proxyInfo{
 						name:        "proxy-test-1",
 						port:        9090,
-						isIngress:   false,
 						isLocalOnly: true,
 					},
 					updated: make(chan struct{}),
@@ -218,12 +220,13 @@ func TestReconciliationLoop(t *testing.T) {
 					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
 					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
 				},
-				proxies: sets.New(proxyInfo{
-					name:        "proxy-test-1",
-					port:        9090,
-					isIngress:   false,
-					isLocalOnly: true,
-				}),
+				proxies: map[string]proxyInfo{
+					"proxy-test-1": {
+						name:        "proxy-test-1",
+						port:        9090,
+						isLocalOnly: true,
+					},
+				},
 			},
 		},
 		{
@@ -233,7 +236,6 @@ func TestReconciliationLoop(t *testing.T) {
 					info: proxyInfo{
 						name:        "proxy-test-2",
 						port:        9091,
-						isIngress:   true,
 						isLocalOnly: false,
 					},
 					updated: make(chan struct{}),
@@ -247,20 +249,18 @@ func TestReconciliationLoop(t *testing.T) {
 					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
 					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
 				},
-				proxies: sets.New(
-					proxyInfo{
+				proxies: map[string]proxyInfo{
+					"proxy-test-1": {
 						name:        "proxy-test-1",
 						port:        9090,
-						isIngress:   false,
 						isLocalOnly: true,
 					},
-					proxyInfo{
+					"proxy-test-2": {
 						name:        "proxy-test-2",
 						port:        9091,
-						isIngress:   true,
 						isLocalOnly: false,
 					},
-				),
+				},
 			},
 		},
 		{
@@ -289,20 +289,18 @@ func TestReconciliationLoop(t *testing.T) {
 					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
 					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
 				},
-				proxies: sets.New(
-					proxyInfo{
+				proxies: map[string]proxyInfo{
+					"proxy-test-1": {
 						name:        "proxy-test-1",
 						port:        9090,
-						isIngress:   false,
 						isLocalOnly: true,
 					},
-					proxyInfo{
+					"proxy-test-2": {
 						name:        "proxy-test-2",
 						port:        9091,
-						isIngress:   true,
 						isLocalOnly: false,
 					},
-				),
+				},
 				noTrackPods: sets.New(
 					noTrackPodInfo{netip.MustParseAddr("1.2.3.4"), 10001},
 					noTrackPodInfo{netip.MustParseAddr("11.22.33.44"), 10002},
@@ -328,20 +326,18 @@ func TestReconciliationLoop(t *testing.T) {
 					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
 					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
 				},
-				proxies: sets.New(
-					proxyInfo{
+				proxies: map[string]proxyInfo{
+					"proxy-test-1": {
 						name:        "proxy-test-1",
 						port:        9090,
-						isIngress:   false,
 						isLocalOnly: true,
 					},
-					proxyInfo{
+					"proxy-test-2": {
 						name:        "proxy-test-2",
 						port:        9091,
-						isIngress:   true,
 						isLocalOnly: false,
 					},
-				),
+				},
 				noTrackPods: sets.New(
 					noTrackPodInfo{netip.MustParseAddr("11.22.33.44"), 10002},
 				),
@@ -416,9 +412,10 @@ func assertIptablesState(current, expected desiredState) error {
 		return fmt.Errorf("expected local node info to be %v, found %v",
 			expected.localNodeInfo, current.localNodeInfo)
 	}
-	if !current.proxies.Equal(expected.proxies) {
+	if len(current.proxies) != 0 && len(expected.proxies) != 0 &&
+		!reflect.DeepEqual(current.proxies, expected.proxies) {
 		return fmt.Errorf("expected proxies info to be %v, found %v",
-			expected.proxies.UnsortedList(), current.proxies.UnsortedList())
+			expected.proxies, current.proxies)
 	}
 	if !current.noTrackPods.Equal(expected.noTrackPods) {
 		return fmt.Errorf("expected no tracking pods info to be %v, found %v",
@@ -443,7 +440,7 @@ func (s desiredState) deepCopy() desiredState {
 			ipv4NativeRoutingCIDR: s.localNodeInfo.ipv4NativeRoutingCIDR,
 			ipv6NativeRoutingCIDR: s.localNodeInfo.ipv6NativeRoutingCIDR,
 		},
-		proxies:     s.proxies.Clone(),
+		proxies:     maps.Clone(s.proxies),
 		noTrackPods: s.noTrackPods.Clone(),
 	}
 }

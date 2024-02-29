@@ -24,7 +24,7 @@ type desiredState struct {
 
 	devices       sets.Set[string]
 	localNodeInfo localNodeInfo
-	proxies       sets.Set[proxyInfo]
+	proxies       map[string]proxyInfo
 	noTrackPods   sets.Set[noTrackPodInfo]
 }
 
@@ -92,7 +92,6 @@ type reconciliationRequest[T info] struct {
 type proxyInfo struct {
 	name        string
 	port        uint16
-	isIngress   bool
 	isLocalOnly bool
 }
 
@@ -108,7 +107,7 @@ func reconciliationLoop(
 	installIptRules bool,
 	params *reconcilerParams,
 	updateRules func(state desiredState, firstInit bool) error,
-	updateProxyRules func(proxyPort uint16, ingress, localOnly bool, name string) error,
+	updateProxyRules func(proxyPort uint16, localOnly bool, name string) error,
 	installNoTrackRules func(addr netip.Addr, port uint16) error,
 	removeNoTrackRules func(addr netip.Addr, port uint16) error,
 ) error {
@@ -117,7 +116,7 @@ func reconciliationLoop(
 
 	state := desiredState{
 		installRules: installIptRules,
-		proxies:      sets.New[proxyInfo](),
+		proxies:      make(map[string]proxyInfo),
 		noTrackPods:  sets.New[noTrackPodInfo](),
 	}
 
@@ -180,19 +179,14 @@ stop:
 			if !ok {
 				break stop
 			}
-			if state.proxies.Has(req.info) {
+			if info, ok := state.proxies[req.info.name]; ok && info == req.info {
 				close(req.updated)
 				continue
 			}
 
-			// first, remove previous entries related to the same proxy name (see Manager.addProxyRules)
-			for info := range state.proxies {
-				if info.name == req.info.name {
-					delete(state.proxies, info)
-				}
-			}
-			// then, insert the new proxy
-			state.proxies.Insert(req.info)
+			// if existing, previous rules related to the previous entry for the same proxy name
+			// will be deleted by the manager (see Manager.addProxyRules)
+			state.proxies[req.info.name] = req.info
 
 			if !firstInit {
 				// first init not yet completed, proxy rules will be updated as part of that
@@ -201,7 +195,7 @@ stop:
 				continue
 			}
 
-			if err := updateProxyRules(req.info.port, req.info.isIngress, req.info.isLocalOnly, req.info.name); err != nil {
+			if err := updateProxyRules(req.info.port, req.info.isLocalOnly, req.info.name); err != nil {
 				health.Degraded("iptables proxy rules incremental update failed, will retry a full reconciliation", err)
 				// incremental rules update failed, schedule a full iptables reconciliation
 				stateChanged = true

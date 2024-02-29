@@ -46,7 +46,7 @@ const (
 )
 
 type DatapathUpdater interface {
-	InstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) <-chan struct{}
+	InstallProxyRules(proxyPort uint16, localOnly bool, name string) <-chan struct{}
 	SupportsOriginalSourceAddr() bool
 }
 
@@ -237,7 +237,7 @@ func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) er
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
 		scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.proxyPort)
-		<-p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.ingress, pp.localOnly, name)
+		<-p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.localOnly, name)
 		pp.rulesPort = pp.proxyPort
 	}
 	pp.nRedirects++

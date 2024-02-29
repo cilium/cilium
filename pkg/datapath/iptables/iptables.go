@@ -501,20 +501,6 @@ func (m *Manager) renameChains(prefix string) error {
 	return nil
 }
 
-func (m *Manager) ingressProxyRule(l4Match, markMatch, mark, ip, port, name string) []string {
-	return []string{
-		"-t", "mangle",
-		"-A", ciliumPreMangleChain,
-		"-p", l4Match,
-		"-m", "mark", "--mark", markMatch,
-		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy",
-		"-j", "TPROXY",
-		"--tproxy-mark", mark,
-		"--on-ip", ip,
-		"--on-port", port,
-	}
-}
-
 func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 	// Mark host proxy transparent connections to be routed to the local stack.
 	// This comes before the TPROXY rules in the chain, and setting the mark
@@ -537,51 +523,30 @@ func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 		"--set-mark", toProxyMark}
 }
 
-func (m *Manager) iptIngressProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
+func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
-	ingressMarkMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
+	markMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
 	// TPROXY params
-	ingressProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
-	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
+	tproxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
+	tproxyPort := fmt.Sprintf("%d", proxyPort)
 
-	existingRuleRegex := regexp.MustCompile(fmt.Sprintf("CILIUM_PRE_mangle -p %s -m mark --mark %s.*--on-ip %s", l4proto, ingressMarkMatch, ip))
+	existingRuleRegex := regexp.MustCompile(fmt.Sprintf("-A CILIUM_PRE_mangle -p %s -m mark --mark %s.*--on-ip %s", l4proto, markMatch, ip))
 	if existingRuleRegex.MatchString(rules) {
 		return nil
 	}
 
-	rule := m.ingressProxyRule(l4proto, ingressMarkMatch, ingressProxyMark, ip, ingressProxyPort, name)
-	return prog.runProg(rule)
-}
-
-func (m *Manager) egressProxyRule(l4Match, markMatch, mark, ip, port, name string) []string {
-	return []string{
+	rule := []string{
 		"-t", "mangle",
 		"-A", ciliumPreMangleChain,
-		"-p", l4Match,
+		"-p", l4proto,
 		"-m", "mark", "--mark", markMatch,
 		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy",
 		"-j", "TPROXY",
-		"--tproxy-mark", mark,
+		"--tproxy-mark", tproxyMark,
 		"--on-ip", ip,
-		"--on-port", port,
+		"--on-port", tproxyPort,
 	}
-}
-
-func (m *Manager) iptEgressProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
-	// Match
-	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
-	egressMarkMatch := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy|port)
-	// TPROXY params
-	egressProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
-	egressProxyPort := fmt.Sprintf("%d", proxyPort)
-
-	existingRuleRegex := regexp.MustCompile(fmt.Sprintf("-A CILIUM_PRE_mangle -p %s -m mark --mark %s.*--on-ip %s", l4proto, egressMarkMatch, ip))
-	if existingRuleRegex.MatchString(rules) {
-		return nil
-	}
-
-	rule := m.egressProxyRule(l4proto, egressMarkMatch, egressProxyMark, ip, egressProxyPort, name)
 	return prog.runProg(rule)
 }
 
@@ -809,22 +774,16 @@ func (m *Manager) copyProxyRules(oldChain string, match string) error {
 }
 
 // Redirect packets to the host proxy via TPROXY, as directed by the Cilium
-// datapath bpf programs via skb marks (egress) or DSCP (ingress).
-func (m *Manager) addProxyRules(prog runnable, ip string, proxyPort uint16, ingress bool, name string) error {
+// datapath bpf programs via skb marks.
+func (m *Manager) addProxyRules(prog runnable, ip string, proxyPort uint16, name string) error {
 	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-S"})
 	if err != nil {
 		return err
 	}
 
 	for _, proto := range []string{"tcp", "udp"} {
-		if ingress {
-			if err := m.iptIngressProxyRule(rules, prog, proto, ip, proxyPort, name); err != nil {
-				return err
-			}
-		} else {
-			if err := m.iptEgressProxyRule(rules, prog, proto, ip, proxyPort, name); err != nil {
-				return err
-			}
+		if err := m.iptProxyRule(rules, prog, proto, ip, proxyPort, name); err != nil {
+			return err
 		}
 	}
 
@@ -1016,13 +975,13 @@ func (m *Manager) RemoveNoTrackRules(ip netip.Addr, port uint16) <-chan struct{}
 	return reconciled
 }
 
-func (m *Manager) InstallProxyRules(proxyPort uint16, isIngress, isLocalOnly bool, name string) <-chan struct{} {
+func (m *Manager) InstallProxyRules(proxyPort uint16, isLocalOnly bool, name string) <-chan struct{} {
 	reconciled := make(chan struct{})
-	m.reconcilerParams.proxies <- reconciliationRequest[proxyInfo]{proxyInfo{name, proxyPort, isIngress, isLocalOnly}, reconciled}
+	m.reconcilerParams.proxies <- reconciliationRequest[proxyInfo]{proxyInfo{name, proxyPort, isLocalOnly}, reconciled}
 	return reconciled
 }
 
-func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool, name string) error {
+func (m *Manager) doInstallProxyRules(proxyPort uint16, localOnly bool, name string) error {
 	if m.haveBPFSocketAssign {
 		log.WithField("port", proxyPort).
 			Debug("Skipping proxy rule install due to BPF support")
@@ -1037,12 +996,12 @@ func (m *Manager) doInstallProxyRules(proxyPort uint16, ingress, localOnly bool,
 	}
 
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, ingress, name); err != nil {
+		if err := m.addProxyRules(ip4tables, ipv4, proxyPort, name); err != nil {
 			return err
 		}
 	}
 	if m.sharedCfg.EnableIPv6 {
-		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, ingress, name); err != nil {
+		if err := m.addProxyRules(ip6tables, ipv6, proxyPort, name); err != nil {
 			return err
 		}
 	}
@@ -1520,8 +1479,8 @@ func (m *Manager) doInstallRules(state desiredState, firstInit bool) error {
 			}
 		}
 
-		for proxy := range state.proxies {
-			if err := m.doInstallProxyRules(proxy.port, proxy.isIngress, proxy.isLocalOnly, proxy.name); err != nil {
+		for _, proxy := range state.proxies {
+			if err := m.doInstallProxyRules(proxy.port, proxy.isLocalOnly, proxy.name); err != nil {
 				return fmt.Errorf("cannot install proxy rules for %s: %w", proxy.name, err)
 			}
 		}
