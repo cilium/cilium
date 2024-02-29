@@ -23,6 +23,8 @@ const (
 	directionTitle = "DIRECTION"
 	packetsTitle   = "PACKETS"
 	bytesTitle     = "BYTES"
+	lineTitle      = "LINE"
+	fileTitle      = "FILE"
 )
 
 type metricsRow struct {
@@ -31,6 +33,8 @@ type metricsRow struct {
 	direction  string
 	packets    uint64
 	bytes      uint64
+	line       uint16
+	file       string
 }
 
 type jsonMetric struct {
@@ -38,6 +42,8 @@ type jsonMetric struct {
 	Direction string `json:"direction"`
 	Packets   uint64 `json:"packets"`
 	Bytes     uint64 `json:"bytes"`
+	Line      uint16 `json:"line"`
+	File      string `json:"file"`
 }
 
 type jsonMetrics []*jsonMetric
@@ -85,6 +91,8 @@ func listJSONMetrics(bpfMetricsList []*metricsRow) {
 	type key struct {
 		reason    string
 		direction string
+		line      uint16
+		file      string
 	}
 
 	metrics := make(map[key]*jsonMetric)
@@ -93,12 +101,16 @@ func listJSONMetrics(bpfMetricsList []*metricsRow) {
 		k := key{
 			reason:    monitorAPI.DropReason(row.reasonCode),
 			direction: strings.ToLower(row.direction),
+			line:      row.line,
+			file:      row.file,
 		}
 
 		if _, ok := metrics[k]; !ok {
 			metrics[k] = &jsonMetric{
 				Reason:    monitorAPI.DropReason(row.reasonCode),
 				Direction: strings.ToLower(row.direction),
+				Line:      row.line,
+				File:      row.file,
 			}
 		}
 
@@ -124,13 +136,13 @@ func listHumanReadableMetrics(bpfMetricsList []*metricsRow) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", reasonTitle, directionTitle, packetsTitle, bytesTitle)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", reasonTitle, directionTitle, packetsTitle, bytesTitle, lineTitle, fileTitle)
 
-	const numColumns = 4
+	const numColumns = 6
 	rows := [][numColumns]string{}
 
 	for _, row := range bpfMetricsList {
-		rows = append(rows, [numColumns]string{row.reasonDesc, row.direction, fmt.Sprintf("%d", row.packets), fmt.Sprintf("%d", row.bytes)})
+		rows = append(rows, [numColumns]string{row.reasonDesc, row.direction, fmt.Sprintf("%d", row.packets), fmt.Sprintf("%d", row.bytes), fmt.Sprintf("%d", row.line), row.file})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -146,7 +158,7 @@ func listHumanReadableMetrics(bpfMetricsList []*metricsRow) {
 	})
 
 	for _, r := range rows {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3])
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3], r[4], r[5])
 	}
 
 	w.Flush()
@@ -159,6 +171,8 @@ func extractRow(key *metricsmap.Key, values *metricsmap.Values) *metricsRow {
 		key.Direction(),
 		values.Count(),
 		values.Bytes(),
+		key.Line,
+		key.FileName(),
 	}
 }
 
