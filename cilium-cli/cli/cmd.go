@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium-cli/api"
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/sysdump"
@@ -47,6 +48,9 @@ func NewCiliumCommand(hooks Hooks) *cobra.Command {
 			}
 
 			k8sClient = c
+			ctx := api.SetNamespaceContextValue(context.Background(), namespace)
+			ctx = api.SetK8sClientContextValue(ctx, k8sClient)
+			cmd.SetContext(ctx)
 			return nil
 		},
 		Run: func(cmd *cobra.Command, _ []string) {
