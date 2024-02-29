@@ -1245,6 +1245,12 @@ func (p *Path) GetHash() uint32 {
 	return p.attrsHash
 }
 
+func (p *Path) SetSource(peerInfo *PeerInfo) {
+	if p.info != nil {
+		p.info.source = peerInfo
+	}
+}
+
 func nlriToIPNet(nlri bgp.AddrPrefixInterface) *net.IPNet {
 	switch T := nlri.(type) {
 	case *bgp.IPAddrPrefix:

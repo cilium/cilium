@@ -1,0 +1,15 @@
+# This policy allows packets to all node IPs
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: client-egress-to-cidr-cp-host
+spec:
+  podSelector:
+    matchLabels:
+      kind: client
+  egress:
+    - to:
+{{- range .ControlPlaneCIDRs }}
+        - ipBlock:
+            cidr: {{.}}
+{{- end }}

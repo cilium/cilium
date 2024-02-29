@@ -192,6 +192,21 @@ func toPathAPI(binNlri []byte, binPattrs [][]byte, anyNlri *apb.Any, anyPattrs [
 	return p
 }
 
+func eorToPathAPI(path *table.Path) *api.Path {
+	nlri := path.GetNlri()
+	p := &api.Path{
+		Age:        tspb.New(path.GetTimestamp()),
+		IsWithdraw: path.IsWithdraw,
+		Family:     &api.Family{Afi: api.Family_Afi(nlri.AFI()), Safi: api.Family_Safi(nlri.SAFI())},
+	}
+	if s := path.GetSource(); s != nil {
+		p.SourceAsn = s.AS
+		p.SourceId = s.ID.String()
+		p.NeighborIp = s.Address.String()
+	}
+	return p
+}
+
 func toPathApi(path *table.Path, v *table.Validation, onlyBinary, nlriBinary, attributeBinary bool) *api.Path {
 	var (
 		anyNlri   *apb.Any

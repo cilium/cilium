@@ -273,10 +273,12 @@ func (dest *Destination) Calculate(logger log.Logger, newPath *Path) *Update {
 // we can receive withdraws for such paths and withdrawals may not be
 // stopped by the same policies.
 func (dest *Destination) explicitWithdraw(logger log.Logger, withdraw *Path) *Path {
-	logger.Debug("Removing withdrawals",
-		log.Fields{
-			"Topic": "Table",
-			"Key":   dest.GetNlri().String()})
+	if logger.GetLevel() >= log.DebugLevel {
+		logger.Debug("Removing withdrawals",
+			log.Fields{
+				"Topic": "Table",
+				"Key":   dest.GetNlri().String()})
+	}
 
 	// If we have some withdrawals and no know-paths, it means it is safe to
 	// delete these withdraws.
@@ -328,11 +330,13 @@ func (dest *Destination) implicitWithdraw(logger log.Logger, newPath *Path) {
 		// paths and when doing RouteRefresh (not EnhancedRouteRefresh)
 		// we get same paths again.
 		if newPath.GetSource().Equal(path.GetSource()) && newPath.GetNlri().PathIdentifier() == path.GetNlri().PathIdentifier() {
-			logger.Debug("Implicit withdrawal of old path, since we have learned new path from the same peer",
-				log.Fields{
-					"Topic": "Table",
-					"Key":   dest.GetNlri().String(),
-					"Path":  path})
+			if logger.GetLevel() >= log.DebugLevel {
+				logger.Debug("Implicit withdrawal of old path, since we have learned new path from the same peer",
+					log.Fields{
+						"Topic": "Table",
+						"Key":   dest.GetNlri().String(),
+						"Path":  path})
+			}
 
 			found = i
 			newPath.GetNlri().SetPathLocalIdentifier(path.GetNlri().PathLocalIdentifier())

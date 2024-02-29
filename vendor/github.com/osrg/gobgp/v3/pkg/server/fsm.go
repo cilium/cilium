@@ -537,10 +537,12 @@ func (h *fsmHandler) connectLoop(ctx context.Context, wg *sync.WaitGroup) {
 			timer.Stop()
 			return
 		case <-timer.C:
-			fsm.logger.Debug("try to connect",
-				log.Fields{
-					"Topic": "Peer",
-					"Key":   addr})
+			if fsm.logger.GetLevel() >= log.DebugLevel {
+				fsm.logger.Debug("try to connect",
+					log.Fields{
+						"Topic": "Peer",
+						"Key":   addr})
+			}
 		}
 
 		laddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(localAddress, strconv.Itoa(localPort)))
@@ -583,11 +585,13 @@ func (h *fsmHandler) connectLoop(ctx context.Context, wg *sync.WaitGroup) {
 							"Key":   addr})
 				}
 			} else {
-				fsm.logger.Debug("failed to connect",
-					log.Fields{
-						"Topic": "Peer",
-						"Key":   addr,
-						"Error": err})
+				if fsm.logger.GetLevel() >= log.DebugLevel {
+					fsm.logger.Debug("failed to connect",
+						log.Fields{
+							"Topic": "Peer",
+							"Key":   addr,
+							"Error": err})
+				}
 			}
 		}
 		tick = retry
@@ -1726,16 +1730,18 @@ func (h *fsmHandler) sendMessageloop(ctx context.Context, wg *sync.WaitGroup) er
 			return fmt.Errorf("closed")
 		case bgp.BGP_MSG_UPDATE:
 			update := m.Body.(*bgp.BGPUpdate)
-			fsm.lock.RLock()
-			fsm.logger.Debug("sent update",
-				log.Fields{
-					"Topic":       "Peer",
-					"Key":         fsm.pConf.State.NeighborAddress,
-					"State":       fsm.state.String(),
-					"nlri":        update.NLRI,
-					"withdrawals": update.WithdrawnRoutes,
-					"attributes":  update.PathAttributes})
-			fsm.lock.RUnlock()
+			if fsm.logger.GetLevel() >= log.DebugLevel {
+				fsm.lock.RLock()
+				fsm.logger.Debug("sent update",
+					log.Fields{
+						"Topic":       "Peer",
+						"Key":         fsm.pConf.State.NeighborAddress,
+						"State":       fsm.state.String(),
+						"nlri":        update.NLRI,
+						"withdrawals": update.WithdrawnRoutes,
+						"attributes":  update.PathAttributes})
+				fsm.lock.RUnlock()
+			}
 		default:
 			fsm.lock.RLock()
 			fsm.logger.Debug("sent",
