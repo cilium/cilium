@@ -113,8 +113,6 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 			}
 		}
 
-		// TODO: remove when removing "cluster-name" flag (marked as deprecated),
-		// kept for backwards compatibility
 		if k.params.ClusterName != "" {
 			helmMapOpts["cluster.name"] = k.params.ClusterName
 		}

@@ -8,13 +8,12 @@ CONTEXT1=$(kubectl config view | grep "${CLUSTER_NAME_1}" | head -1 | awk '{prin
 CONTEXT2=$(kubectl config view | grep "${CLUSTER_NAME_2}" | head -1 | awk '{print $2}')
 
 # Install Cilium in cluster1
-# We can't get rid of --cluster-name until we fix https://github.com/cilium/cilium-cli/issues/1347.
 cilium install \
   --version "${CILIUM_VERSION}" \
   --context "${CONTEXT1}" \
   --set loadBalancer.l7.backend=envoy \
   --set tls.secretsBackend=k8s \
-  --cluster-name "${CLUSTER_NAME_1}" \
+  --set cluster.name="${CLUSTER_NAME_1}" \
   --set cluster.id=1 \
   --set bpf.monitorAggregation=none \
   --set ipv4NativeRoutingCIDR=10.0.0.0/9
@@ -32,7 +31,7 @@ cilium install \
   --context "${CONTEXT2}" \
   --set loadBalancer.l7.backend=envoy \
   --set tls.secretsBackend=k8s \
-  --cluster-name "${CLUSTER_NAME_2}" \
+  --set cluster.name="${CLUSTER_NAME_2}" \
   --set cluster.id=2 \
   --set bpf.monitorAggregation=none \
   --set ipv4NativeRoutingCIDR=10.0.0.0/9

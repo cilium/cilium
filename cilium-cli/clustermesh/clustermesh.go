@@ -156,7 +156,7 @@ func (k *K8sClusterMesh) GetClusterConfig(ctx context.Context) error {
 	k.clusterName = clusterName
 
 	if clusterID == "0" || clusterName == "default" {
-		k.Log("⚠️  Cluster not configured for clustermesh, use '--cluster-id' and '--cluster-name' with 'cilium install'. External workloads may still be configured.")
+		k.Log("⚠️  Cluster not configured for clustermesh, use '--set cluster.id' and '--set cluster.name' with 'cilium install'. External workloads may still be configured.")
 	}
 
 	return nil
