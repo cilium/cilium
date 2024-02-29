@@ -507,3 +507,150 @@ spec:
         resources:
           requests:
             cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-infra-backend-v1
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: grpc-infra-backend-v1
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-infra-backend-v1
+  namespace: gateway-conformance-infra
+  labels:
+    app: grpc-infra-backend-v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: grpc-infra-backend-v1
+  template:
+    metadata:
+      labels:
+        app: grpc-infra-backend-v1
+    spec:
+      containers:
+      - name: grpc-infra-backend-v1
+        # TODO: Migrate to gcr.io/k8s-staging-gateway-api once possible
+        image: us-docker.pkg.dev/grpc-testing/testing-images-public/gateway-api/echo-basic:alpha1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: GRPC_ECHO_SERVER
+          value: "1"
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-infra-backend-v2
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: grpc-infra-backend-v2
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-infra-backend-v2
+  namespace: gateway-conformance-infra
+  labels:
+    app: grpc-infra-backend-v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: grpc-infra-backend-v2
+  template:
+    metadata:
+      labels:
+        app: grpc-infra-backend-v2
+    spec:
+      containers:
+      - name: grpc-infra-backend-v2
+        # TODO: Migrate to gcr.io/k8s-staging-gateway-api once possible
+        image: us-docker.pkg.dev/grpc-testing/testing-images-public/gateway-api/echo-basic:alpha1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: GRPC_ECHO_SERVER
+          value: "1"
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-infra-backend-v3
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: grpc-infra-backend-v3
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-infra-backend-v3
+  namespace: gateway-conformance-infra
+  labels:
+    app: grpc-infra-backend-v3
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: grpc-infra-backend-v3
+  template:
+    metadata:
+      labels:
+        app: grpc-infra-backend-v3
+    spec:
+      containers:
+      - name: grpc-infra-backend-v3
+        # TODO: Migrate to gcr.io/k8s-staging-gateway-api once possible
+        image: us-docker.pkg.dev/grpc-testing/testing-images-public/gateway-api/echo-basic:alpha1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: GRPC_ECHO_SERVER
+          value: "1"
+        resources:
+          requests:
+            cpu: 10m

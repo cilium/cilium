@@ -212,6 +212,21 @@ var MeshCoreFeatures = sets.New(
 )
 
 // -----------------------------------------------------------------------------
+// Features - GRPCRoute Conformance (Experimental)
+// -----------------------------------------------------------------------------
+
+const (
+	// This option indicates general support for service mesh
+	SupportGRPCRoute SupportedFeature = "GRPCRoute"
+)
+
+// GRPCRouteCoreFeatures includes all the supported features for GRPCRoute at
+// a Core level of support.
+var GRPCRouteCoreFeatures = sets.New(
+	SupportGRPCRoute,
+)
+
+// -----------------------------------------------------------------------------
 // Features - Compilations
 // -----------------------------------------------------------------------------
 
@@ -227,4 +242,5 @@ var AllFeatures = sets.New[SupportedFeature]().
 	Insert(HTTPRouteExtendedFeatures.UnsortedList()...).
 	Insert(HTTPRouteExperimentalFeatures.UnsortedList()...).
 	Insert(TLSRouteCoreFeatures.UnsortedList()...).
-	Insert(MeshCoreFeatures.UnsortedList()...)
+	Insert(MeshCoreFeatures.UnsortedList()...).
+	Insert(GRPCRouteCoreFeatures.UnsortedList()...)
