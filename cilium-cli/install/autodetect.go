@@ -137,7 +137,6 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 
 	k.Log("ℹ️  Using Cilium version %s", k.chartVersion)
 
-	// "cluster.name" Helm value takes precedence over --cluster-name flag.
 	clusterName := getClusterName(helmValues)
 	if clusterName != "" {
 		k.params.ClusterName = clusterName
