@@ -327,6 +327,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			state := &typeStates[index]
 			watcher := s.watchers[typeURL]
 
+			if nonce == 0 && versionInfo > 0 {
+				requestLog.Debugf("xDS was restarted, setting nonce to %d", versionInfo)
+				nonce = versionInfo
+			}
+
 			// Response nonce is always the same as the response version.
 			// Request version indicates the last acked version. If the
 			// response nonce in the request is different (smaller) than
