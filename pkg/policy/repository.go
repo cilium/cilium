@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/netip"
 	"sync"
 	"sync/atomic"
 
@@ -654,38 +653,6 @@ func (p *Repository) Empty() bool {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	return p.NumRules() == 0
-}
-
-// TranslationResult contains the results of the rule translation
-type TranslationResult struct {
-	// NumToServicesRules is the number of ToServices rules processed while
-	// translating the rules
-	NumToServicesRules int
-
-	// BackendPrefixes contains all egress CIDRs that are to be added
-	// for the translation.
-	PrefixesToAdd []netip.Prefix
-
-	// BackendPrefixes contains all egress CIDRs that are to be removed
-	// for the translation.
-	PrefixesToRelease []netip.Prefix
-}
-
-// TranslateRules traverses rules and applies provided translator to rules
-//
-// Note: Only used by the k8s watcher.
-func (p *Repository) TranslateRules(translator Translator) (*TranslationResult, error) {
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
-
-	result := &TranslationResult{}
-
-	for ruleIndex := range p.rules {
-		if err := translator.Translate(&p.rules[ruleIndex].Rule, result); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
 }
 
 // BumpRevision allows forcing policy regeneration
