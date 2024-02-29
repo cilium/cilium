@@ -266,7 +266,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@6751e90eec40c100f112438fc2c1b1c08405c982
         with:
           test-name: e2e-conformance
           image-version: ${{ matrix.kernel }}
@@ -287,7 +287,7 @@ jobs:
           done
 
       - name: Setup K8s cluster
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@6751e90eec40c100f112438fc2c1b1c08405c982
         with:
           provision: 'false'
           cmd: |
@@ -302,7 +302,7 @@ jobs:
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
       - name: Install Cilium
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@6751e90eec40c100f112438fc2c1b1c08405c982
         with:
           provision: 'false'
           cmd: |
@@ -320,7 +320,7 @@ jobs:
             mkdir -p cilium-junits
 
       - name: Run tests
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@6751e90eec40c100f112438fc2c1b1c08405c982
         with:
           provision: 'false'
           cmd: |
@@ -342,7 +342,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@6751e90eec40c100f112438fc2c1b1c08405c982
         with:
           provision: 'false'
           cmd: |
