@@ -191,6 +191,7 @@ check_l4_policy:
 /**
  * Determine whether the policy allows this traffic on ingress.
  * @arg ctx		Packet to allow or deny
+ * @arg map		Policy map
  * @arg src_id		Source security identity for this packet
  * @arg dst_id		Destination security identity for this packet
  * @arg ethertype	Ethertype of this packet
@@ -208,13 +209,14 @@ check_l4_policy:
  *   - Negative error code if the packet should be dropped
  */
 static __always_inline int
-policy_can_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id, __u16 ethertype,
-		   __u16 dport, __u8 proto, int l4_off, bool is_untracked_fragment,
-		   __u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
+policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
+		   __u16 ethertype, __u16 dport, __u8 proto, int l4_off,
+		   bool is_untracked_fragment, __u8 *match_type, __u8 *audited,
+		   __s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;
 
-	ret = __policy_can_access(&POLICY_MAP, ctx, dst_id, src_id, ethertype, dport,
+	ret = __policy_can_access(map, ctx, dst_id, src_id, ethertype, dport,
 				  proto, l4_off, CT_INGRESS, is_untracked_fragment,
 				  match_type, ext_err, proxy_port);
 	if (ret >= CTX_ACT_OK)
@@ -233,25 +235,26 @@ policy_can_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id, __u16 eth
 	return ret;
 }
 
-static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx,
+static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx, const void *map,
 					       const struct ipv6_ct_tuple *tuple,
 					       int l4_off,  __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
 					       __s8 *ext_err, __u16 *proxy_port)
 {
-	return policy_can_ingress(ctx, src_id, dst_id, ETH_P_IPV6, tuple->dport,
+	return policy_can_ingress(ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
 				 tuple->nexthdr, l4_off, false, match_type, audited,
 				 ext_err, proxy_port);
 }
 
 static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
+		const void *map,
 					       const struct ipv4_ct_tuple *tuple,
 					       int l4_off, bool is_untracked_fragment,
 					       __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
 					       __s8 *ext_err, __u16 *proxy_port)
 {
-	return policy_can_ingress(ctx, src_id, dst_id, ETH_P_IP, tuple->dport,
+	return policy_can_ingress(ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
 				 tuple->nexthdr, l4_off, is_untracked_fragment,
 				 match_type, audited, ext_err, proxy_port);
 }
@@ -264,8 +267,8 @@ static __always_inline bool is_encap(__u16 dport, __u8 proto)
 #endif
 
 static __always_inline int
-policy_can_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id, __u16 ethertype,
-		  __u16 dport, __u8 proto, int l4_off, __u8 *match_type,
+policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
+		  __u16 ethertype, __u16 dport, __u8 proto, int l4_off, __u8 *match_type,
 		  __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;
@@ -274,7 +277,7 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id, __u16 ethe
 	if (src_id != HOST_ID && is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif
-	ret = __policy_can_access(&POLICY_MAP, ctx, src_id, dst_id, ethertype, dport,
+	ret = __policy_can_access(map, ctx, src_id, dst_id, ethertype, dport,
 				  proto, l4_off, CT_EGRESS, false, match_type,
 				  ext_err, proxy_port);
 	if (ret >= 0)
@@ -290,24 +293,24 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id, __u16 ethe
 	return ret;
 }
 
-static __always_inline int policy_can_egress6(struct __ctx_buff *ctx,
+static __always_inline int policy_can_egress6(struct __ctx_buff *ctx, const void *map,
 					      const struct ipv6_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
 					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
 					      __u16 *proxy_port)
 {
-	return policy_can_egress(ctx, src_id, dst_id, ETH_P_IPV6, tuple->dport,
+	return policy_can_egress(ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
 				 tuple->nexthdr, l4_off, match_type, audited,
 				 ext_err, proxy_port);
 }
 
-static __always_inline int policy_can_egress4(struct __ctx_buff *ctx,
+static __always_inline int policy_can_egress4(struct __ctx_buff *ctx, const void *map,
 					      const struct ipv4_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
 					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
 					      __u16 *proxy_port)
 {
-	return policy_can_egress(ctx, src_id, dst_id, ETH_P_IP, tuple->dport,
+	return policy_can_egress(ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
 				 tuple->nexthdr, l4_off, match_type, audited,
 				 ext_err, proxy_port);
 }
