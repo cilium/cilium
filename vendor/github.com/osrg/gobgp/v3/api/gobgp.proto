@@ -125,7 +125,7 @@ message WatchEventRequest {
 
   message Table {
     message Filter {
-      enum Type { BEST = 0; ADJIN = 1; POST_POLICY = 2; }
+      enum Type { BEST = 0; ADJIN = 1; POST_POLICY = 2; EOR = 3; }
       Type type = 1;
       bool init = 2;
       string peer_address = 3;

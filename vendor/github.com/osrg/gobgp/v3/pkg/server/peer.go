@@ -136,11 +136,15 @@ func (peer *peer) ID() string {
 	return peer.fsm.pConf.State.NeighborAddress
 }
 
-func (peer *peer) RouterID() string {
+func (peer *peer) routerID() net.IP {
 	peer.fsm.lock.RLock()
 	defer peer.fsm.lock.RUnlock()
-	if peer.fsm.peerInfo.ID != nil {
-		return peer.fsm.peerInfo.ID.String()
+	return peer.fsm.peerInfo.ID
+}
+
+func (peer *peer) RouterID() string {
+	if id := peer.routerID(); id != nil {
+		return id.String()
 	}
 	return ""
 }
@@ -377,7 +381,7 @@ func (peer *peer) filterPathFromSourcePeer(path, old *table.Path) *table.Path {
 	// (whichever is not the new best path), we fail to send a withdraw towards
 	// B, and the route is "stuck".
 	// TODO: considerations for RFC6286
-	if peer.RouterID() != path.GetSource().ID.String() {
+	if !peer.routerID().Equal(path.GetSource().ID) {
 		return path
 	}
 
@@ -403,11 +407,13 @@ func (peer *peer) filterPathFromSourcePeer(path, old *table.Path) *table.Path {
 			return old.Clone(true)
 		}
 	}
-	peer.fsm.logger.Debug("From me, ignore",
-		log.Fields{
-			"Topic": "Peer",
-			"Key":   peer.ID(),
-			"Data":  path})
+	if peer.fsm.logger.GetLevel() >= log.DebugLevel {
+		peer.fsm.logger.Debug("From me, ignore",
+			log.Fields{
+				"Topic": "Peer",
+				"Key":   peer.ID(),
+				"Data":  path})
+	}
 	return nil
 }
 
@@ -477,13 +483,17 @@ func (peer *peer) updatePrefixLimitConfig(c []oc.AfiSafi) error {
 func (peer *peer) handleUpdate(e *fsmMsg) ([]*table.Path, []bgp.RouteFamily, *bgp.BGPMessage) {
 	m := e.MsgData.(*bgp.BGPMessage)
 	update := m.Body.(*bgp.BGPUpdate)
-	peer.fsm.logger.Debug("received update",
-		log.Fields{
-			"Topic":       "Peer",
-			"Key":         peer.fsm.pConf.State.NeighborAddress,
-			"nlri":        update.NLRI,
-			"withdrawals": update.WithdrawnRoutes,
-			"attributes":  update.PathAttributes})
+
+	if peer.fsm.logger.GetLevel() >= log.DebugLevel {
+		peer.fsm.logger.Debug("received update",
+			log.Fields{
+				"Topic":       "Peer",
+				"Key":         peer.fsm.pConf.State.NeighborAddress,
+				"nlri":        update.NLRI,
+				"withdrawals": update.WithdrawnRoutes,
+				"attributes":  update.PathAttributes})
+	}
+
 	peer.fsm.lock.Lock()
 	peer.fsm.pConf.Timers.State.UpdateRecvTime = time.Now().Unix()
 	peer.fsm.lock.Unlock()
