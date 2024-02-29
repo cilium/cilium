@@ -46,6 +46,10 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 					Key:    metricsmap.Key{Reason: 132, Dir: 2},
 					Values: metricsmap.Values{{Count: 1, Bytes: 1}},
 				},
+				{
+					Key:    metricsmap.Key{Reason: 140, Dir: 2, Line: 1337, File: 1},
+					Values: metricsmap.Values{{Count: 400, Bytes: 4000}},
+				},
 			},
 		),
 	}
@@ -58,24 +62,39 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 		return strings.ToLower(metricsmap.MetricDirection(uint8(d)))
 	}
 
+	file := func(f uint8) string {
+		return monitorAPI.BPFFileName(f)
+	}
+
 	want := jsonMetrics{
 		{
 			Reason:    reason(0),
 			Direction: dir(1),
 			Packets:   100,
 			Bytes:     1000,
+			File:      file(0),
 		},
 		{
 			Reason:    reason(0),
 			Direction: dir(2),
 			Packets:   200,
 			Bytes:     2000,
+			File:      file(0),
 		},
 		{
 			Reason:    reason(132),
 			Direction: dir(2),
 			Packets:   301,
 			Bytes:     3001,
+			File:      file(0),
+		},
+		{
+			Reason:    reason(140),
+			Direction: dir(2),
+			Line:      1337,
+			File:      file(1),
+			Packets:   400,
+			Bytes:     4000,
 		},
 	}
 
