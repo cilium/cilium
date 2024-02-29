@@ -485,7 +485,7 @@ Inspecting profiles can help identify CPU bottlenecks and memory leaks.
 
 To capture a profile, take a :ref:`sysdump <sysdump>` of the cluster with the
 Cilium CLI or more directly, use the ``cilium-bugtool`` command that is
-included in the Cilium image:
+included in the Cilium image after enabling ``pprof`` in the Cilium ConfigMap:
 
 .. code-block:: shell-session
 
