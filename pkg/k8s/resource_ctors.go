@@ -13,7 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/identity/key"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -26,6 +28,14 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/node"
+)
+
+const (
+	ByKeyIndex = "by-key-index"
+)
+
+var (
+	IdentityKeyFunc = (&key.GlobalIdentity{}).PutKeyFromMap
 )
 
 // Config defines the configuration options for k8s resources.
@@ -133,7 +143,25 @@ func CiliumIdentityResource(lc cell.Lifecycle, cs client.Clientset, opts ...func
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumIdentityList](cs.CiliumV2().CiliumIdentities()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw, resource.WithMetric("CiliumIdentityList")), nil
+
+	indexers := cache.Indexers{
+		ByKeyIndex: GetIdentitiesByKeyFunc(IdentityKeyFunc),
+	}
+
+	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw,
+			resource.WithMetric("CiliumIdentityList"),
+			resource.WithIndexers(indexers),
+		),
+		nil
+}
+
+func GetIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorKey) func(obj interface{}) ([]string, error) {
+	return func(obj interface{}) ([]string, error) {
+		if identity, ok := obj.(*cilium_api_v2.CiliumIdentity); ok {
+			return []string{keyFunc(identity.SecurityLabels).GetKey()}, nil
+		}
+		return []string{}, fmt.Errorf("object other than CiliumIdentity was pushed to the store")
+	}
 }
 
 func NetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_networkingv1.NetworkPolicy], error) {

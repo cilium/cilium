@@ -16,6 +16,8 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
@@ -93,4 +95,43 @@ func CiliumBGPNodeConfigOverrideResource(lc cell.Lifecycle, cs client.Clientset,
 		opts...,
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride](lc, lw, resource.WithMetric("CiliumBGPNodeConfigOverride")), nil
+}
+
+func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods("")),
+		opts...,
+	)
+
+	indexers := cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+	}
+
+	return resource.New[*slim_corev1.Pod](lc, lw,
+			resource.WithMetric("Pod"),
+			resource.WithIndexers(indexers),
+			resource.WithTransform[*slim_corev1.Pod, *slim_corev1.Pod](TransformToPod),
+		),
+		nil
+}
+
+func TransformToPod(pod *slim_corev1.Pod) (*slim_corev1.Pod, error) {
+	p := &slim_corev1.Pod{
+		TypeMeta: pod.TypeMeta,
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:            pod.Name,
+			Namespace:       pod.Namespace,
+			ResourceVersion: pod.ResourceVersion,
+		},
+		Spec: slim_corev1.PodSpec{
+			NodeName: pod.Spec.NodeName,
+		},
+		Status: slim_corev1.PodStatus{
+			Phase: pod.Status.Phase,
+		},
+	}
+	return p, nil
 }
