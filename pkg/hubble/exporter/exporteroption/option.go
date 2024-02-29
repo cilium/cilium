@@ -6,6 +6,8 @@ package exporteroption
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
@@ -61,9 +63,9 @@ func WithCompress() Option {
 }
 
 // WithAllowListFilter sets allowlist filter for the exporter.
-func WithAllowList(f []*flowpb.FlowFilter) Option {
+func WithAllowList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
 	return func(o *Options) error {
-		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters)
+		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters(log))
 		if err != nil {
 			return err
 		}
@@ -73,9 +75,9 @@ func WithAllowList(f []*flowpb.FlowFilter) Option {
 }
 
 // WithDenyListFilter sets denylist filter for the exporter.
-func WithDenyList(f []*flowpb.FlowFilter) Option {
+func WithDenyList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
 	return func(o *Options) error {
-		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters)
+		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters(log))
 		if err != nil {
 			return err
 		}
