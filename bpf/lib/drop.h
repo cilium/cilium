@@ -163,10 +163,6 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 	__DROP_REASON(err) | ((__u8)(__ext_err < -128 ? 0 : __ext_err) << 8); \
 })
 
-#include "../source_names_to_ids.h"
-
-#define __MAGIC_FILE__ (__u8)__source_file_name_to_id(__FILE_NAME__)
-
 #define send_drop_notify(ctx, src, dst, dst_id, reason, exitcode, direction) \
 	_send_drop_notify(__MAGIC_FILE__, __LINE__, ctx, src, dst, dst_id, \
 			  __DROP_REASON(reason), exitcode, direction)

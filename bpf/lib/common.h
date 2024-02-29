@@ -18,6 +18,8 @@
 #include "config.h"
 #include "tunnel.h"
 
+#include "source_info.h"
+
 #ifndef AF_INET
 #define AF_INET 2
 #endif
