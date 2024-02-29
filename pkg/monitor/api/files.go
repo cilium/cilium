@@ -14,6 +14,8 @@ var files = map[uint8]string{
 	2: "bpf_lxc.c",
 	3: "bpf_overlay.c",
 	4: "bpf_xdp.c",
+	5: "bpf_sock.c",
+	6: "bpf_network.c",
 
 	// header files from bpf/lib/
 	101: "arp.h",
@@ -24,6 +26,11 @@ var files = map[uint8]string{
 	106: "lb.h",
 	107: "encrypt.h",
 	108: "mcast.h",
+	109: "ipv4.h",
+	110: "conntrack.h",
+	111: "l3.h",
+	112: "trace.h",
+	113: "encap.h",
 
 	// @@ source files list end
 }
