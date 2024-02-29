@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 type Tracing int
@@ -110,9 +109,4 @@ func (s *SearchContext) WithLogger(log io.Writer) *SearchContext {
 		result.Trace = TRACE_ENABLED
 	}
 	return &result
-}
-
-// Translator is an interface for altering policy rules
-type Translator interface {
-	Translate(*api.Rule, *TranslationResult) error
 }

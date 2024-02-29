@@ -72,7 +72,6 @@ func (f *fakePolicyManager) PolicyDelete(labels labels.LabelArray, opts *policy.
 
 type fakePolicyRepository struct {
 	OnGetSelectorCache func() *policy.SelectorCache
-	OnTranslateRules   func(translator policy.Translator) (*policy.TranslationResult, error)
 }
 
 func (f *fakePolicyRepository) GetSelectorCache() *policy.SelectorCache {
@@ -80,13 +79,6 @@ func (f *fakePolicyRepository) GetSelectorCache() *policy.SelectorCache {
 		return f.OnGetSelectorCache()
 	}
 	panic("OnGetSelectorCache() (*policy.SelectorCache) was called and is not set!")
-}
-
-func (f *fakePolicyRepository) TranslateRules(translator policy.Translator) (*policy.TranslationResult, error) {
-	if f.OnTranslateRules != nil {
-		return f.OnTranslateRules(translator)
-	}
-	panic("OnTranslateRules(policy.Translator) (*policy.TranslationResult, error) was called and is not set!")
 }
 
 type fakeSvcManager struct {
@@ -110,107 +102,6 @@ func (f *fakeSvcManager) UpsertService(p *loadbalancer.SVC) (bool, loadbalancer.
 		return f.OnUpsertService(p)
 	}
 	panic("OnUpsertService() was called and is not set!")
-}
-
-func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
-	ep1stApply := &slim_corev1.Endpoints{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-		},
-		Subsets: []slim_corev1.EndpointSubset{
-			{
-				Addresses: []slim_corev1.EndpointAddress{{IP: "10.0.0.2"}},
-				Ports: []slim_corev1.EndpointPort{
-					{
-						Name:     "http-test-svc",
-						Port:     8080,
-						Protocol: slim_corev1.ProtocolTCP,
-					},
-				},
-			},
-		},
-	}
-	ep2ndApply := ep1stApply.DeepCopy()
-	ep2ndApply.Subsets[0].Addresses = append(
-		ep2ndApply.Subsets[0].Addresses,
-		slim_corev1.EndpointAddress{IP: "10.0.0.3"},
-	)
-
-	policyManagerCalls := 0
-	policyManager := &fakePolicyManager{
-		OnTriggerPolicyUpdates: func(force bool, reason string) {
-			policyManagerCalls++
-		},
-	}
-	policyRepositoryCalls := 0
-	policyRepository := &fakePolicyRepository{
-		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
-			rt, ok := tr.(k8s.RuleTranslator)
-			c.Assert(ok, Equals, true)
-			switch policyRepositoryCalls {
-			case 0:
-				parsedEPs := k8s.ParseEndpoints(ep1stApply)
-				c.Assert(rt.NewEndpoint.Backends, checker.DeepEquals, parsedEPs.Backends)
-			case 1:
-				parsedEPs := k8s.ParseEndpoints(ep2ndApply)
-				c.Assert(rt.NewEndpoint.Backends, checker.DeepEquals, parsedEPs.Backends)
-			default:
-				c.Assert(policyRepositoryCalls, Not(Equals), 0, Commentf("policy repository was called more times than expected!"))
-			}
-			policyRepositoryCalls++
-
-			return &policy.TranslationResult{NumToServicesRules: 1}, nil
-		},
-	}
-
-	dp := fakeTypes.NewDatapath()
-	w := NewK8sWatcher(
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		policyManager,
-		policyRepository,
-		nil,
-		dp,
-		nil,
-		nil,
-		&fakeWatcherConfiguration{},
-		testipcache.NewMockIPCache(),
-		nil,
-		emptyResources,
-		k8s.NewServiceCache(dp.LocalNodeAddressing()),
-		nil,
-	)
-	go w.k8sServiceHandler()
-	swg := lock.NewStoppableWaitGroup()
-
-	k8sSvc := &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
-			},
-		},
-		Spec: slim_corev1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Type:      slim_corev1.ServiceTypeClusterIP,
-		},
-	}
-
-	w.K8sSvcCache.UpdateService(k8sSvc, swg)
-	w.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
-	// Running a 2nd update should also trigger a new policy update
-	w.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
-
-	swg.Stop()
-	swg.Wait()
-
-	c.Assert(policyRepositoryCalls, Equals, 2)
-	c.Assert(policyManagerCalls, Equals, 2)
 }
 
 func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
@@ -451,11 +342,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{
-		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
-			return &policy.TranslationResult{NumToServicesRules: 1}, nil
-		},
-	}
+	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
@@ -622,11 +509,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{
-		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
-			return &policy.TranslationResult{NumToServicesRules: 1}, nil
-		},
-	}
+	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls := 0
 
@@ -1090,11 +973,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{
-		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
-			return &policy.TranslationResult{NumToServicesRules: 1}, nil
-		},
-	}
+	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
@@ -1406,11 +1285,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{
-		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
-			return &policy.TranslationResult{NumToServicesRules: 1}, nil
-		},
-	}
+	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 	wantSvcUpsertManagerCalls := len(upsert1stWanted) + len(upsert2ndWanted)
@@ -1717,11 +1592,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{
-		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
-			return &policy.TranslationResult{NumToServicesRules: 1}, nil
-		},
-	}
+	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 	wantSvcUpsertManagerCalls := len(upsert1stWanted) + len(upsert2ndWanted)
@@ -2630,11 +2501,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		OnTriggerPolicyUpdates: func(force bool, reason string) {
 		},
 	}
-	policyRepository := &fakePolicyRepository{
-		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
-			return &policy.TranslationResult{NumToServicesRules: 1}, nil
-		},
-	}
+	policyRepository := &fakePolicyRepository{}
 
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 

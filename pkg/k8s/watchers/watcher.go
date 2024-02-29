@@ -132,7 +132,6 @@ type policyManager interface {
 
 type policyRepository interface {
 	GetSelectorCache() *policy.SelectorCache
-	TranslateRules(translator policy.Translator) (*policy.TranslationResult, error)
 }
 
 type svcManager interface {
