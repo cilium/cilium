@@ -1,7 +1,18 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
-#ifndef HEADER_NAMES_TO_IDS_H_
-#define HEADER_NAMES_TO_IDS_H_
+#pragma once
+
+#ifndef BPF_TEST
+#define __MAGIC_FILE__ (__u8)__id_for_file(__FILE_NAME__)
+#define __MAGIC_LINE__ __LINE__
+#else
+/* bpf tests assert that metrics get updated by performing a map lookup.
+ * This cannot work if the metrics key has dynamic components like line/file
+ * info, so disable this during tests.
+ */
+#define __MAGIC_FILE__ 0
+#define __MAGIC_LINE__ 0
+#endif
 
 #define _strcase_(id, known_name) do {			\
 	if (!__builtin_strcmp(header_name, known_name))	\
@@ -9,15 +20,15 @@
 	} while (0)
 
 /*
- * The __source_file_name_to_id function is used inside lib/drop.h to encode
- * source file information with drop info messages. It must be always inlined,
- * otherwise clang won't translate this to a constexpr.
+ * __id_for_file is used by __MAGIC_FILE__ to encode source file information in
+ * drop notifications and forward/drop metrics. It must be inlined, otherwise
+ * clang won't translate this to a constexpr.
  *
  * The following list of files is static, but it is validated during build with
  * the pkg/datapath/loader/check-sources.sh tool.
  */
 static __always_inline int
-__source_file_name_to_id(const char *const header_name)
+__id_for_file(const char *const header_name)
 {
 	/* @@ source files list begin */
 
@@ -41,5 +52,3 @@ __source_file_name_to_id(const char *const header_name)
 }
 
 #undef _strcase_
-
-#endif /* HEADER_NAMES_TO_IDS_H_ */
