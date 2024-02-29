@@ -6,7 +6,7 @@ set -e
 # Install Cilium
 cilium install \
   --version "${CILIUM_VERSION}" \
-  --cluster-name "${CLUSTER_NAME}" \
+  --set cluster.name="${CLUSTER_NAME}" \
   --wait=false \
   --set loadBalancer.l7.backend=envoy \
   --set tls.secretsBackend=k8s \
