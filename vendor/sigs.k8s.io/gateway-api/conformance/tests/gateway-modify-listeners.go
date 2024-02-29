@@ -149,7 +149,7 @@ var GatewayModifyListeners = suite.ConformanceTest{
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 
 			mutate := original.DeepCopy()
-			require.Equalf(t, 2, len(mutate.Spec.Listeners), "the gateway must have 2 listeners")
+			require.Lenf(t, mutate.Spec.Listeners, 2, "the gateway must have 2 listeners")
 
 			// remove the "https" Gateway listener, leaving only the "http" listener
 			var newListeners []v1.Listener
