@@ -188,6 +188,9 @@ external software and protocols:
   subsystems such as xfrm (IPsec), iptables / nftables, tc. Maintain the
   control plane layers that populate most eBPF maps; account for endianness
   and system architecture impacts on the datapath code.
+- `@cilium/sig-encryption <https://github.com/orgs/cilium/teams/sig-encryption>`__:
+  Review all control and data plane logic related to encryption (IPSec and
+  WireGuard).
 - `@cilium/sig-hubble <https://github.com/orgs/cilium/teams/sig-hubble>`__:
   Review all Cilium and Hubble code related to observing system events,
   exporting those via gRPC protocols outside the node and outside the
