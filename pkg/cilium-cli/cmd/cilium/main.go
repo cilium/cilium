@@ -10,9 +10,11 @@ import (
 	"github.com/cilium/cilium-cli/api"
 	"github.com/cilium/cilium-cli/cli"
 	_ "github.com/cilium/cilium-cli/logging" // necessary to disable unwanted cfssl log messages
+
+	"github.com/cilium/cilium/pkg/cilium-cli/hooks"
 )
 
-var cliHooks api.Hooks = &api.NopHooks{}
+var cliHooks api.Hooks = &hooks.Hooks{}
 
 func main() {
 	command := cli.NewCiliumCommand(cliHooks)

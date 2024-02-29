@@ -152,8 +152,8 @@ github.com/cilium/charts v0.0.0-20240326201248-7ea270ce07af h1:3PCFK/jYhdKKBUU+s
 github.com/cilium/charts v0.0.0-20240326201248-7ea270ce07af/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/checkmate v1.0.3 h1:CQC5eOmlAZeEjPrVZY3ZwEBH64lHlx9mXYdUehEwI5w=
 github.com/cilium/checkmate v1.0.3/go.mod h1:KiBTasf39/F2hf2yAmHw21YFl3hcEyP4Yk6filxc12A=
-github.com/cilium/cilium-cli v0.16.5-0.20240330201922-4e5287de9da8 h1:bxSYhmAV9142hlWHbsDy2d8YXL/Kq9wThvNzHGa3tpw=
-github.com/cilium/cilium-cli v0.16.5-0.20240330201922-4e5287de9da8/go.mod h1:ZR+7ILuBI+WTNHwSY6QeQXYQq98mk5Q5QnBHon3wqWs=
+github.com/cilium/cilium-cli v0.16.5-0.20240329223842-ca8a3b278f51 h1:u6jBrx5R/OuXk4FZS0G6RIABDgrfHIzPQ6SJwTqyZIg=
+github.com/cilium/cilium-cli v0.16.5-0.20240329223842-ca8a3b278f51/go.mod h1:ZeDpNMXL2X1O9dj8FJOTGwx9Bk/RutaEwvH3JNAFWRk=
 github.com/cilium/controller-tools v0.8.0-2 h1:QkYiSOyZz4Aww7JrvoH/8DjuEZ/Hlq2VREWe2Sb2NTQ=
 github.com/cilium/controller-tools v0.8.0-2/go.mod h1:qE2DXhVOiEq5ijmINcFbqi9GZrrUjzB1TuJU0xa6eoY=
 github.com/cilium/coverbee v0.3.2 h1:RaJN5OaHf/M8tmeLemHmdO0H5bFUhvtTAoYbStDIX14=
