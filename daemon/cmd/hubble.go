@@ -198,8 +198,8 @@ func (d *Daemon) launchHubble() {
 			exporteroption.WithPath(option.Config.HubbleExportFilePath),
 			exporteroption.WithMaxSizeMB(option.Config.HubbleExportFileMaxSizeMB),
 			exporteroption.WithMaxBackups(option.Config.HubbleExportFileMaxBackups),
-			exporteroption.WithAllowList(option.Config.HubbleExportAllowlist),
-			exporteroption.WithDenyList(option.Config.HubbleExportDenylist),
+			exporteroption.WithAllowList(log, option.Config.HubbleExportAllowlist),
+			exporteroption.WithDenyList(log, option.Config.HubbleExportDenylist),
 			exporteroption.WithFieldMask(option.Config.HubbleExportFieldmask),
 		}
 		if option.Config.HubbleExportFileCompress {

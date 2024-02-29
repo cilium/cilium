@@ -6,6 +6,8 @@ package filters
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
@@ -123,24 +125,27 @@ func BuildFilterList(ctx context.Context, ff []*flowpb.FlowFilter, auxFilters []
 }
 
 // DefaultFilters is the list of default filters
-var DefaultFilters = []OnBuildFilter{
-	&UUIDFilter{},
-	&EventTypeFilter{},
-	&VerdictFilter{},
-	&ReplyFilter{},
-	&IdentityFilter{},
-	&ProtocolFilter{},
-	&IPFilter{},
-	&PodFilter{},
-	&WorkloadFilter{},
-	&ServiceFilter{},
-	&FQDNFilter{},
-	&LabelsFilter{},
-	&PortFilter{},
-	&HTTPFilter{},
-	&TCPFilter{},
-	&NodeNameFilter{},
-	&IPVersionFilter{},
-	&TraceIDFilter{},
-	&TrafficDirectionFilter{},
+func DefaultFilters(log logrus.FieldLogger) []OnBuildFilter {
+	return []OnBuildFilter{
+		&UUIDFilter{},
+		&EventTypeFilter{},
+		&VerdictFilter{},
+		&ReplyFilter{},
+		&IdentityFilter{},
+		&ProtocolFilter{},
+		&IPFilter{},
+		&PodFilter{},
+		&WorkloadFilter{},
+		&ServiceFilter{},
+		&FQDNFilter{},
+		&LabelsFilter{},
+		&PortFilter{},
+		&HTTPFilter{},
+		&TCPFilter{},
+		&NodeNameFilter{},
+		&IPVersionFilter{},
+		&TraceIDFilter{},
+		&TrafficDirectionFilter{},
+		&CELExpressionFilter{log: log},
+	}
 }

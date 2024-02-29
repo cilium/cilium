@@ -113,8 +113,8 @@ func (d *DynamicExporter) applyNewConfig(ctx context.Context, flowlog *FlowLogCo
 		exporteroption.WithPath(flowlog.FilePath),
 		exporteroption.WithMaxSizeMB(d.maxFileSizeMB),
 		exporteroption.WithMaxBackups(d.maxBackups),
-		exporteroption.WithAllowList(flowlog.IncludeFilters),
-		exporteroption.WithDenyList(flowlog.ExcludeFilters),
+		exporteroption.WithAllowList(d.logger, flowlog.IncludeFilters),
+		exporteroption.WithDenyList(d.logger, flowlog.ExcludeFilters),
 		exporteroption.WithFieldMask(flowlog.FieldMask),
 	}
 

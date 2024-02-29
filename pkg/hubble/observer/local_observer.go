@@ -257,7 +257,8 @@ func (s *LocalObserverServer) GetFlows(
 		}
 	}
 
-	filterList := append(filters.DefaultFilters, s.opts.OnBuildFilter...)
+	log := s.GetLogger()
+	filterList := append(filters.DefaultFilters(log), s.opts.OnBuildFilter...)
 	whitelist, err := filters.BuildFilterList(ctx, req.Whitelist, filterList)
 	if err != nil {
 		return err
@@ -268,7 +269,6 @@ func (s *LocalObserverServer) GetFlows(
 	}
 
 	start := time.Now()
-	log := s.GetLogger()
 	ring := s.GetRingBuffer()
 
 	i := uint64(0)
