@@ -8,10 +8,10 @@ spec:
   - name: same-namespace
   rules:
   - backendRefs:
-  # This points to a Service with the following ServicePort
-  # - protocol: TCP
-  #   appProtocol: kubernetes.io/h2c
-  #   port: 8081
-  #   targetPort: 3001
+    # This points to a Service with the following ServicePort
+    # - protocol: TCP
+    #   appProtocol: kubernetes.io/h2c
+    #   port: 8081
+    #   targetPort: 3001
     - name: infra-backend-v1
       port: 8081

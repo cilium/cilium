@@ -31,12 +31,14 @@ import (
 	"k8s.io/gengo/namer"
 	"k8s.io/gengo/types"
 	openapi "k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	"k8s.io/klog/v2"
 )
 
 // This is the comment tag that carries parameters for open API generation.
 const tagName = "k8s:openapi-gen"
+const markerPrefix = "k8s:validation:"
 const tagOptional = "optional"
 const tagDefault = "default"
 
@@ -353,10 +355,75 @@ func (g openAPITypeWriter) generateCall(t *types.Type) error {
 	return g.Error()
 }
 
+func (g openAPITypeWriter) generateValueValidations(vs *spec.SchemaProps) error {
+
+	if vs == nil {
+		return nil
+	}
+	args := generator.Args{
+		"ptrTo": &types.Type{
+			Name: types.Name{
+				Package: "k8s.io/utils/ptr",
+				Name:    "To",
+			}},
+		"spec": vs,
+	}
+	if vs.Minimum != nil {
+		g.Do("Minimum: $.ptrTo|raw$[float64]($.spec.Minimum$),\n", args)
+	}
+	if vs.Maximum != nil {
+		g.Do("Maximum: $.ptrTo|raw$[float64]($.spec.Maximum$),\n", args)
+	}
+	if vs.ExclusiveMinimum {
+		g.Do("ExclusiveMinimum: true,\n", args)
+	}
+	if vs.ExclusiveMaximum {
+		g.Do("ExclusiveMaximum: true,\n", args)
+	}
+	if vs.MinLength != nil {
+		g.Do("MinLength: $.ptrTo|raw$[int64]($.spec.MinLength$),\n", args)
+	}
+	if vs.MaxLength != nil {
+		g.Do("MaxLength: $.ptrTo|raw$[int64]($.spec.MaxLength$),\n", args)
+	}
+
+	if vs.MinProperties != nil {
+		g.Do("MinProperties: $.ptrTo|raw$[int64]($.spec.MinProperties$),\n", args)
+	}
+	if vs.MaxProperties != nil {
+		g.Do("MaxProperties: $.ptrTo|raw$[int64]($.spec.MaxProperties$),\n", args)
+	}
+	if len(vs.Pattern) > 0 {
+		p, err := json.Marshal(vs.Pattern)
+		if err != nil {
+			return err
+		}
+		g.Do("Pattern: $.$,\n", string(p))
+	}
+	if vs.MultipleOf != nil {
+		g.Do("MultipleOf: $.ptrTo|raw$[float64]($.spec.MultipleOf$),\n", args)
+	}
+	if vs.MinItems != nil {
+		g.Do("MinItems: $.ptrTo|raw$[int64]($.spec.MinItems$),\n", args)
+	}
+	if vs.MaxItems != nil {
+		g.Do("MaxItems: $.ptrTo|raw$[int64]($.spec.MaxItems$),\n", args)
+	}
+	if vs.UniqueItems {
+		g.Do("UniqueItems: true,\n", nil)
+	}
+	return nil
+}
+
 func (g openAPITypeWriter) generate(t *types.Type) error {
 	// Only generate for struct type and ignore the rest
 	switch t.Kind {
 	case types.Struct:
+		overrides, err := ParseCommentTags(t, t.CommentLines, markerPrefix)
+		if err != nil {
+			return err
+		}
+
 		hasV2Definition := hasOpenAPIDefinitionMethod(t)
 		hasV2DefinitionTypeAndFormat := hasOpenAPIDefinitionMethods(t)
 		hasV3OneOfTypes := hasOpenAPIV3OneOfMethod(t)
@@ -376,8 +443,12 @@ func (g openAPITypeWriter) generate(t *types.Type) error {
 				"SchemaProps: spec.SchemaProps{\n", args)
 			g.generateDescription(t.CommentLines)
 			g.Do("Type:$.type|raw${}.OpenAPISchemaType(),\n"+
-				"Format:$.type|raw${}.OpenAPISchemaFormat(),\n"+
-				"},\n"+
+				"Format:$.type|raw${}.OpenAPISchemaFormat(),\n", args)
+			err = g.generateValueValidations(&overrides.SchemaProps)
+			if err != nil {
+				return err
+			}
+			g.Do("},\n"+
 				"},\n"+
 				"})\n}\n\n", args)
 			return nil
@@ -388,18 +459,27 @@ func (g openAPITypeWriter) generate(t *types.Type) error {
 				"SchemaProps: spec.SchemaProps{\n", args)
 			g.generateDescription(t.CommentLines)
 			g.Do("OneOf:common.GenerateOpenAPIV3OneOfSchema($.type|raw${}.OpenAPIV3OneOfTypes()),\n"+
-				"Format:$.type|raw${}.OpenAPISchemaFormat(),\n"+
+				"Format:$.type|raw${}.OpenAPISchemaFormat(),\n", args)
+			err = g.generateValueValidations(&overrides.SchemaProps)
+			if err != nil {
+				return err
+			}
+			g.Do(
 				"},\n"+
-				"},\n"+
-				"},", args)
+					"},\n"+
+					"},", args)
 			// generate v2 def.
 			g.Do("$.OpenAPIDefinition|raw${\n"+
 				"Schema: spec.Schema{\n"+
 				"SchemaProps: spec.SchemaProps{\n", args)
 			g.generateDescription(t.CommentLines)
 			g.Do("Type:$.type|raw${}.OpenAPISchemaType(),\n"+
-				"Format:$.type|raw${}.OpenAPISchemaFormat(),\n"+
-				"},\n"+
+				"Format:$.type|raw${}.OpenAPISchemaFormat(),\n", args)
+			err = g.generateValueValidations(&overrides.SchemaProps)
+			if err != nil {
+				return err
+			}
+			g.Do("},\n"+
 				"},\n"+
 				"})\n}\n\n", args)
 			return nil
@@ -409,8 +489,12 @@ func (g openAPITypeWriter) generate(t *types.Type) error {
 				"SchemaProps: spec.SchemaProps{\n", args)
 			g.generateDescription(t.CommentLines)
 			g.Do("Type:$.type|raw${}.OpenAPISchemaType(),\n"+
-				"Format:$.type|raw${}.OpenAPISchemaFormat(),\n"+
-				"},\n"+
+				"Format:$.type|raw${}.OpenAPISchemaFormat(),\n", args)
+			err = g.generateValueValidations(&overrides.SchemaProps)
+			if err != nil {
+				return err
+			}
+			g.Do("},\n"+
 				"},\n"+
 				"}\n}\n\n", args)
 			return nil
@@ -418,9 +502,14 @@ func (g openAPITypeWriter) generate(t *types.Type) error {
 			// having v3 oneOf types without custom v2 type or format does not make sense.
 			return fmt.Errorf("type %q has v3 one of types but not v2 type or format", t.Name)
 		}
+
 		g.Do("return $.OpenAPIDefinition|raw${\nSchema: spec.Schema{\nSchemaProps: spec.SchemaProps{\n", args)
 		g.generateDescription(t.CommentLines)
 		g.Do("Type: []string{\"object\"},\n", nil)
+		err = g.generateValueValidations(&overrides.SchemaProps)
+		if err != nil {
+			return err
+		}
 
 		// write members into a temporary buffer, in order to postpone writing out the Properties field. We only do
 		// that if it is not empty.
@@ -740,6 +829,14 @@ func (g openAPITypeWriter) generateProperty(m *types.Member, parent *types.Type)
 	omitEmpty := strings.Contains(reflect.StructTag(m.Tags).Get("json"), "omitempty")
 	if err := g.generateDefault(m.CommentLines, m.Type, omitEmpty, parent); err != nil {
 		return fmt.Errorf("failed to generate default in %v: %v: %v", parent, m.Name, err)
+	}
+	overrides, err := ParseCommentTags(m.Type, m.CommentLines, markerPrefix)
+	if err != nil {
+		return err
+	}
+	err = g.generateValueValidations(&overrides.SchemaProps)
+	if err != nil {
+		return err
 	}
 	t := resolveAliasAndPtrType(m.Type)
 	// If we can get a openAPI type and format for this type, we consider it to be simple property

@@ -141,7 +141,7 @@ func (d *DefaultRoundTripper) h2cPriorKnowledgeTransport(request Request) (http.
 
 	transport := &http2.Transport{
 		AllowHTTP: true,
-		DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+		DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
 			var d net.Dialer
 			return d.DialContext(ctx, network, addr)
 		},
@@ -176,7 +176,7 @@ func (d *DefaultRoundTripper) defaultRoundTrip(request Request, transport http.R
 	client := &http.Client{}
 
 	if request.UnfollowRedirect {
-		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		}
 	}

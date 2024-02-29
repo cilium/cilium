@@ -26,15 +26,14 @@ spec:
     spec:
       containers:
       - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231214-v1.0.0-140-gf544a46e
         imagePullPolicy: IfNotPresent
         args:
         - --tcp=9090
-        - --port=80
         - --port=8080
         - --grpc=7070
-        - --port=443
-        - --tls=443
+        - --port=8443
+        - --tls=8443
         - --crt=/cert.crt
         - --key=/cert.key
 ---
@@ -51,11 +50,13 @@ spec:
   - name: http
     port: 80
     appProtocol: http
+    targetPort: 8080
   - name: http-alt
     port: 8080
     appProtocol: http
   - name: https
     port: 443
+    targetPort: 8443
   - name: tcp
     port: 9090
   - name: grpc
@@ -82,15 +83,14 @@ spec:
     spec:
       containers:
       - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231214-v1.0.0-140-gf544a46e
         imagePullPolicy: IfNotPresent
         args:
         - --tcp=9090
-        - --port=80
         - --port=8080
         - --grpc=7070
-        - --port=443
-        - --tls=443
+        - --port=8443
+        - --tls=8443
         - --crt=/cert.crt
         - --key=/cert.key
 ---
@@ -107,11 +107,13 @@ spec:
   - name: http
     port: 80
     appProtocol: http
+    targetPort: 8080
   - name: http-alt
     port: 8080
     appProtocol: http
   - name: https
     port: 443
+    targetPort: 8443
   - name: tcp
     port: 9090
   - name: grpc
@@ -130,11 +132,13 @@ spec:
   - name: http
     port: 80
     appProtocol: http
+    targetPort: 8080
   - name: http-alt
     port: 8080
     appProtocol: http
   - name: https
     port: 443
+    targetPort: 8443
   - name: tcp
     port: 9090
   - name: grpc
@@ -168,5 +172,5 @@ spec:
     spec:
       containers:
       - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231024-v1.0.0-rc1-33-g9c830e50
+        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231214-v1.0.0-140-gf544a46e
         imagePullPolicy: IfNotPresent
