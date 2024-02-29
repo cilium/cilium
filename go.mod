@@ -270,4 +270,6 @@ replace (
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
 	sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.8.0-2
+	// for testing purpose only
+	sigs.k8s.io/gateway-api => github.com/gnossen/gateway-api v0.4.1-0.20240228221112-67fa5ca69201
 )

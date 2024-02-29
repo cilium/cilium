@@ -2068,17 +2068,19 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v1.0.1-0.20240227011055-72f679c7c672
+# sigs.k8s.io/gateway-api v1.0.1-0.20240227011055-72f679c7c672 => github.com/gnossen/gateway-api v0.4.1-0.20240228221112-67fa5ca69201
 ## explicit; go 1.21
 sigs.k8s.io/gateway-api/apis/v1
 sigs.k8s.io/gateway-api/apis/v1alpha2
 sigs.k8s.io/gateway-api/apis/v1beta1
 sigs.k8s.io/gateway-api/conformance
 sigs.k8s.io/gateway-api/conformance/apis/v1alpha1
+sigs.k8s.io/gateway-api/conformance/echo-basic/grpcechoserver
 sigs.k8s.io/gateway-api/conformance/tests
 sigs.k8s.io/gateway-api/conformance/utils/config
 sigs.k8s.io/gateway-api/conformance/utils/echo
 sigs.k8s.io/gateway-api/conformance/utils/flags
+sigs.k8s.io/gateway-api/conformance/utils/grpc
 sigs.k8s.io/gateway-api/conformance/utils/http
 sigs.k8s.io/gateway-api/conformance/utils/kubernetes
 sigs.k8s.io/gateway-api/conformance/utils/roundtripper
@@ -2106,3 +2108,4 @@ sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.8.0-2
+# sigs.k8s.io/gateway-api => github.com/gnossen/gateway-api v0.4.1-0.20240228221112-67fa5ca69201
