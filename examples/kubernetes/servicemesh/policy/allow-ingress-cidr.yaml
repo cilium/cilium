@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "allow-cidr"
+spec:
+  description: "Allow all the traffic originating from a specific CIDR"
+  endpointSelector: {}
+  ingress:
+  - fromCIDRSet:
+    # Please update the CIDR to match your environment
+    - cidr: 172.18.0.1/32
