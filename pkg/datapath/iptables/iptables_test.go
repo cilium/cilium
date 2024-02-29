@@ -223,7 +223,7 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	}
 
 	// Adds new proxy rules
-	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, false, "cilium-dns-egress")
+	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, "cilium-dns-egress")
 	err := mockIp4tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 
@@ -256,7 +256,7 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	}
 
 	// Nothing to add
-	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, false, "cilium-dns-egress")
+	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, "cilium-dns-egress")
 	err = mockIp4tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 
@@ -297,7 +297,7 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	}
 
 	// New port number, adds new ones, deletes stale rules. Does not touch OLD_ chains
-	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37380, false, "cilium-dns-egress")
+	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37380, "cilium-dns-egress")
 	err = mockIp4tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 
@@ -338,7 +338,7 @@ func (s *iptablesTestSuite) TestAddProxyRulesv4(c *check.C) {
 	}
 
 	// Same port number, new IP, adds new ones, deletes stale rules. Does not touch OLD_ chains
-	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, false, "cilium-dns-egress")
+	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37379, "cilium-dns-egress")
 	err = mockIp4tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 }
@@ -420,7 +420,7 @@ func (s *iptablesTestSuite) TestAddProxyRulesv6(c *check.C) {
 	}
 
 	// Adds new proxy rules
-	mockManager.addProxyRules(mockIp6tables, "::1", 43477, false, "cilium-dns-egress")
+	mockManager.addProxyRules(mockIp6tables, "::1", 43477, "cilium-dns-egress")
 	err := mockIp6tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 
@@ -453,7 +453,7 @@ func (s *iptablesTestSuite) TestAddProxyRulesv6(c *check.C) {
 	}
 
 	// Nothing to add
-	mockManager.addProxyRules(mockIp6tables, "::1", 43477, false, "cilium-dns-egress")
+	mockManager.addProxyRules(mockIp6tables, "::1", 43477, "cilium-dns-egress")
 	err = mockIp6tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 
@@ -494,7 +494,7 @@ func (s *iptablesTestSuite) TestAddProxyRulesv6(c *check.C) {
 	}
 
 	// New port number, adds new ones, deletes stale rules. Does not touch OLD_ chains
-	mockManager.addProxyRules(mockIp6tables, "::1", 43479, false, "cilium-dns-egress")
+	mockManager.addProxyRules(mockIp6tables, "::1", 43479, "cilium-dns-egress")
 	err = mockIp6tables.checkExpectations()
 	c.Assert(err, check.IsNil)
 }
