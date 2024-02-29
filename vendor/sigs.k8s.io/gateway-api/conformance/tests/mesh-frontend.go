@@ -59,7 +59,7 @@ var MeshFrontend = suite.ConformanceTest{
 			{
 				TestCaseName: "Send to pod IP",
 				Request: http.Request{
-					Host:   v2.Address,
+					Host:   http.Ipv6SafeHost(v2.Address) + ":8080",
 					Method: "GET",
 				},
 				Response: http.Response{
