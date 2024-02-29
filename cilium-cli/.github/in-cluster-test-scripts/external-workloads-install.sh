@@ -4,10 +4,9 @@ set -x
 set -e
 
 # Install Cilium in cluster
-# We can't get rid of --cluster-name until we fix https://github.com/cilium/cilium-cli/issues/1347.
 cilium install \
   --version "${CILIUM_VERSION}" \
-  --cluster-name "${CLUSTER_NAME}" \
+  --set cluster.name="${CLUSTER_NAME}" \
   --set bpf.monitorAggregation=none \
   --datapath-mode=tunnel \
   --set kubeProxyReplacement=strict \
