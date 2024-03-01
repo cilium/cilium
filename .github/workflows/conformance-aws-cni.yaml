@@ -174,6 +174,7 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
+          go-mod-directory: '.'
 
       - name: Install kubectl
         run: |

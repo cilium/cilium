@@ -265,6 +265,7 @@ jobs:
           ci-version: ${{ env.cilium_cli_ci_version }}
           binary-name: cilium-cli
           binary-dir: ./
+          go-mod-directory: '.'
 
       - name: Set Kind params
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
