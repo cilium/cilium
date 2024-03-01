@@ -433,6 +433,51 @@ func TestDecodeL7HTTPWithInvalidURL(t *testing.T) {
 	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
 }
 
+func TestDecodeL7HTTPWithNilURL(t *testing.T) {
+	lr := &accesslog.LogRecord{
+		Type:                accesslog.TypeRequest,
+		Timestamp:           fakeTimestamp,
+		NodeAddressInfo:     fakeNodeInfo,
+		ObservationPoint:    accesslog.Ingress,
+		SourceEndpoint:      fakeSourceEndpoint,
+		DestinationEndpoint: fakeDestinationEndpoint,
+		IPVersion:           accesslog.VersionIPv4,
+		Verdict:             accesslog.VerdictForwarded,
+		TransportProtocol:   accesslog.TransportProtocol(u8proto.TCP),
+		ServiceInfo:         nil,
+		DropReason:          nil,
+		HTTP: &accesslog.LogRecordHTTP{
+			Code:     0,
+			Method:   "POST",
+			URL:      nil,
+			Protocol: "HTTP/1.1",
+			Headers: http.Header{
+				"Host":        {"myhost"},
+				"Traceparent": {"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
+			},
+		},
+	}
+
+	parser, err := New(log, nil, nil, nil, nil)
+	require.NoError(t, err)
+
+	f := &flowpb.Flow{}
+	err = parser.Decode(lr, f)
+	require.NoError(t, err)
+
+	assert.Equal(t, &flowpb.HTTP{
+		Code:     0,
+		Method:   "POST",
+		Url:      "",
+		Protocol: "HTTP/1.1",
+		Headers: []*flowpb.HTTPHeader{
+			{Key: "Host", Value: "myhost"},
+			{Key: "Traceparent", Value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
+		},
+	}, f.GetL7().GetHttp())
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
+}
+
 func TestDecodeL7HTTPRequestRemoveUrlQuery(t *testing.T) {
 	requestPath, err := url.Parse("http://myhost/some/path?foo=bar")
 	require.NoError(t, err)
