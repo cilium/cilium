@@ -69,7 +69,7 @@ func (r *reconciler[Obj]) incremental(ctx context.Context, txn statedb.ReadTxn, 
 	round.processRetries(maps.Clone(r.labels))
 
 	// Finally commit the status updates.
-	watch := round.commitStatus()
+	watch := round.commitStatus(newRevision)
 
 	if round.numReconciled >= r.Config.IncrementalRoundSize {
 		// Round size limit was hit, use a closed watch channel to retrigger
@@ -77,8 +77,11 @@ func (r *reconciler[Obj]) incremental(ctx context.Context, txn statedb.ReadTxn, 
 		watch = closedWatchChannel
 	}
 
+	// FIXME: Misleading as we might double-count!
+	currentErrors := len(round.errs) + len(round.retries.items)
+
 	r.Metrics.IncrementalReconciliationTotalErrors.With(r.labels).Add(float64(len(round.errs)))
-	r.Metrics.IncrementalReconciliationCurrentErrors.With(r.labels).Set(float64(len(round.errs)))
+	r.Metrics.IncrementalReconciliationCurrentErrors.With(r.labels).Set(float64(currentErrors))
 	r.Metrics.IncrementalReconciliationCount.With(r.labels).Add(1)
 
 	if len(round.errs) > 0 {
@@ -265,7 +268,7 @@ func (round *incrementalRound[Obj]) processSingle(obj Obj, rev statedb.Revision,
 
 }
 
-func (round *incrementalRound[Obj]) commitStatus() <-chan struct{} {
+func (round *incrementalRound[Obj]) commitStatus(newRevision statedb.Revision) <-chan struct{} {
 	wtxn := round.db.WriteTxn(round.table)
 	defer wtxn.Commit()
 
@@ -285,14 +288,14 @@ func (round *incrementalRound[Obj]) commitStatus() <-chan struct{} {
 		round.table.CompareAndSwap(wtxn, result.rev, round.config.WithObjectStatus(obj, result.status))
 
 		if result.status.Kind == StatusKindError {
-			// Reconciling the object failed, so add it to be retried now that it's
+			// Reconciling the object failed, so add it to be retried now that its
 			// status is updated.
 			round.retries.Add(obj)
 		}
 	}
 
 	watch := closedWatchChannel
-	if round.oldRevision == revBeforeWrite {
+	if newRevision == revBeforeWrite {
 		// No changes happened between the ReadTxn and this WriteTxn. Grab a new
 		// watch channel of the root to only watch for new changes after
 		// this write.

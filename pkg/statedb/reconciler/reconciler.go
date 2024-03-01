@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
 	"github.com/cilium/cilium/pkg/time"
@@ -30,6 +31,9 @@ func Register[Obj comparable](p Params[Obj]) error {
 func New[Obj comparable](p Params[Obj]) (Reconciler[Obj], error) {
 	if err := p.Config.validate(); err != nil {
 		return nil, err
+	}
+	if p.Config.RateLimiter == nil {
+		p.Config.RateLimiter = rate.NewLimiter(50*time.Millisecond, 10)
 	}
 
 	idx := p.Table.PrimaryIndexer()
@@ -119,9 +123,7 @@ func (r *reconciler[Obj]) loop(ctx context.Context, health cell.HealthReporter) 
 	fullReconciliation := false
 
 	for {
-		if r.Config.RateLimiter != nil {
-			r.Config.RateLimiter.Wait(ctx)
-		}
+		r.Config.RateLimiter.Wait(ctx)
 
 		// Wait for trigger
 		select {

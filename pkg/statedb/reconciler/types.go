@@ -187,7 +187,7 @@ func (s Status) String() string {
 		deleteText = " (delete)"
 	}
 	if s.Kind == StatusKindError {
-		return fmt.Sprintf("Error%s: %s (%s ago)", s.Error, deleteText, time.Now().Sub(s.UpdatedAt))
+		return fmt.Sprintf("Error%s: %s (%s ago)", deleteText, s.Error, time.Now().Sub(s.UpdatedAt))
 	}
 	return fmt.Sprintf("%s%s (%s ago)", s.Kind, deleteText, time.Now().Sub(s.UpdatedAt))
 }
