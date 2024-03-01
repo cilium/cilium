@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/cilium/cilium-cli/k8s"
 	"os"
 	"os/signal"
 	"regexp"
@@ -15,15 +14,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium-cli/cli"
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/sysdump"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium-cli/cli"
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/sysdump"
-
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Hooks to extend the default cilium-cli command with additional functionality.
@@ -198,7 +198,7 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.ExternalOtherIP, "external-other-ip", "1.0.0.1", "Other IP to use as external target in connectivity tests")
 	cmd.Flags().StringSliceVar(&params.NodeCIDRs, "node-cidr", nil, "one or more CIDRs that cover all nodes in the cluster")
 	cmd.Flags().StringVar(&params.JunitFile, "junit-file", "", "Generate junit report and write to file")
-	cmd.Flags().StringToStringVar(&params.JunitProperties, "junit-property", map[string]string{}, "Add key=value properties to the generated junit file")
+	cmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &params.JunitProperties, nil), "junit-property", "Add key=value properties to the generated junit file")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().BoolVar(&params.IncludeUnsafeTests, "include-unsafe-tests", false, "Include tests which can modify cluster nodes state")
@@ -279,7 +279,7 @@ func newCmdConnectivityPerf(hooks Hooks) *cobra.Command {
 
 func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
-	flags.StringToStringVar(&params.NodeSelector, "node-selector", map[string]string{}, "Restrict connectivity pods to nodes matching this label")
+	flags.Var(option.NewNamedMapOptions("node-selector", &params.NodeSelector, nil), "node-selector", "Restrict connectivity pods to nodes matching this label")
 	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in")
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
 }
