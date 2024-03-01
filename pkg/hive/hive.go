@@ -103,7 +103,7 @@ func New(cells ...cell.Cell) *Hive {
 		lc.Append(cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
 				updateStats()
-				hp.Subscribe(ctx, func(u cell.Update) {
+				hp.Subscribe(context.Background(), func(u cell.Update) {
 					updateStats()
 				}, func(err error) {})
 				return nil

@@ -162,6 +162,10 @@ func NewHealthProvider() Health {
 		byLevel:        make(map[Level]uint64),
 		running:        true,
 	}
+	// Seed the level counters so we always report a metric.
+	p.byLevel[StatusUnknown] = 0
+	p.byLevel[StatusOK] = 0
+	p.byLevel[StatusDegraded] = 0
 	p.obs, p.emit, p.complete = stream.Multicast[Update]()
 
 	return p
