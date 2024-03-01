@@ -351,7 +351,8 @@ jobs:
           cd test/
           tar -xf /tmp/.ginkgo-build/test.tgz
 
-      - name: Get Node DMESG (Pre)
+      - name: Get Node DMESG (Temporary - for testing)
+        uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
         shell: bash
         run: |
           for node in $(docker ps --format json | jq -r '.ID'); do docker exec $node dmesg ; done
@@ -415,11 +416,20 @@ jobs:
                -cilium.provision-k8s=false \
                -cilium.operator-suffix=-ci
 
-      - name: Get Node DMESG 
+
+      # In the rare case that we're having unexpected issues with our Kind cluster prevent cilium pods from
+      # starting, print out some debug info here. Otherwise, test sysdumps only cover exec'ing into pods to
+      # fetch info.
+      - name: Dump Cluster Data 
+        uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
         if: ${{ always() }}
         shell: bash
         run: |
-          for node in $(docker ps --format json | jq -r '.ID'); do docker exec $node dmesg ; done
+          for node in $(docker ps --format json | jq -r '.ID'); do
+            echo "Getting data for: $node"
+            docker exec $node dmesg
+            docker exec $node cat /proc/mounts
+          done
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
