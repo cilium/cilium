@@ -423,15 +423,6 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host
-            kubectl get pods --all-namespaces -o wide
-            tar -zcf "test_results-${{ env.job_name }}.tar.gz" /host/test/test_results
-
-      - name: Fetch artifacts
-        if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
         uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
         with:
           provision: 'false'
