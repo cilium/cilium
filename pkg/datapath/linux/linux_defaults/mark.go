@@ -52,6 +52,12 @@ const (
 	// to a proxy.
 	MagicMarkIsToProxy uint32 = 0x0200
 
+	MagicMarkSNATDone int = 0x0300
+
+	// MagicMarkOverlay is set by the to-overlay program, and can be used
+	// to identify cilium-managed overlay traffic.
+	MagicMarkOverlay int = 0x0400
+
 	// MagicMarkProxyEgressEPID determines that the traffic is sourced from
 	// the proxy which is capturing traffic before it is subject to egress
 	// policy enforcement that must be done after the proxy. The identity
