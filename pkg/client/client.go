@@ -322,6 +322,12 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	if sr.Kvstore != nil {
 		fmt.Fprintf(w, "KVStore:\t%s\t%s\n", sr.Kvstore.State, sr.Kvstore.Msg)
 	}
+	if sr.ConfigSettings != nil {
+		fmt.Fprintf(w, "Agent configuration:\t%s\n", sr.ConfigSettings.Message)
+		for _, d := range sr.ConfigSettings.Deltas {
+			fmt.Fprintf(w, "%s\t  o %s\n", strings.Repeat(" ", 10), d)
+		}
+	}
 	if sr.ContainerRuntime != nil {
 		fmt.Fprintf(w, "ContainerRuntime:\t%s\t%s\n",
 			sr.ContainerRuntime.State, sr.ContainerRuntime.Msg)

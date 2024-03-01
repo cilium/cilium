@@ -824,6 +824,43 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 			},
 		},
 		{
+			Name: "config-settings",
+			Interval: func(int) time.Duration {
+				return 1 * time.Minute
+			},
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if !d.clientset.IsEnabled() || option.Config == nil {
+					return nil, fmt.Errorf("preconditions failed: no clientset or settings")
+				}
+				return newSettingsDelta(ctx, d)
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err != nil {
+					d.statusResponse.ConfigSettings = &models.ConfigSettings{
+						Message: status.Err.Error(),
+					}
+					return
+				}
+				sd, ok := status.Data.(settingsDelta)
+				if !ok {
+					log.Errorf("settings status update failed. expecting settingsDelta but got %T", status.Data)
+					return
+				}
+				if sd.hasDeltas() {
+					d.statusResponse.ConfigSettings = &models.ConfigSettings{
+						Deltas:  sd.deltas,
+						Message: "Agent configuration state differ from desired state. Agent needs restart",
+					}
+				} else {
+					d.statusResponse.ConfigSettings = &models.ConfigSettings{Message: "Ok"}
+				}
+			},
+		},
+
+		{
 			Name: "kubernetes",
 			Interval: func(failures int) time.Duration {
 				if failures > 0 {

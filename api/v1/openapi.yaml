@@ -2050,6 +2050,9 @@ definitions:
       kvstore:
         description: Status of key/value datastore
         "$ref": "#/definitions/Status"
+      config-settings:
+        description: Status of configmap settings synchronization
+        "$ref": "#/definitions/ConfigSettings"
       cni-file:
         description: Status of the CNI configuration file
         "$ref": "#/definitions/Status"
@@ -2156,6 +2159,21 @@ definitions:
       msg:
         type: string
         description: Human readable status/error/warning message
+  ConfigSettings:
+    description: |-
+      Status of the agent vs configmap settings
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      deltas:
+        description: Collection of config settings deltas
+        type: array
+        items:
+          type: string
+      message:
+        type: string
+        description: Human readable settings summary
   HostFirewall:
     description: |-
       Status of the host firewall
