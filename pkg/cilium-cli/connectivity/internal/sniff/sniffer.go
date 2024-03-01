@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium-cli/utils/lock"
 
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Mode configures the Sniffer validation mode.

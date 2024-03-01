@@ -11,7 +11,6 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

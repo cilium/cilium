@@ -10,8 +10,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/utils/features"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -22,9 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

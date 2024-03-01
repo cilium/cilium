@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/cilium/cilium-cli/cli"
 	"github.com/cilium/cilium-cli/defaults"
@@ -24,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Hooks to extend the default cilium-cli command with additional functionality.

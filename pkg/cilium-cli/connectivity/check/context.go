@@ -14,13 +14,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/perf/common"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
@@ -31,7 +29,9 @@ import (
 
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/internal/junit"
+	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/perf/common"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // ConnectivityTest is the root context of the connectivity test suite

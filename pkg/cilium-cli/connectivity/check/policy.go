@@ -10,11 +10,9 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/k8s"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,8 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/k8s"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 /* How many times we should retry getting the policy revisions before

@@ -9,16 +9,16 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium-cli/utils/wait"
-	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
-
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // bpfEgressGatewayPolicyEntry represents an entry in the BPF egress gateway policy map
