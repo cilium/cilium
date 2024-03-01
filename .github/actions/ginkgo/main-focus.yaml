@@ -50,6 +50,7 @@ include:
 
   ###
   # K8sAgentPolicyTest Clusterwide policies Test clusterwide connectivity with policies
+  # K8sAgentPolicyTest Clusterwide policies Tests connectivity with default-allow policies
   # K8sAgentPolicyTest External services To Services first endpoint creation
   # K8sAgentPolicyTest External services To Services first endpoint creation match service by labels
   # K8sAgentPolicyTest External services To Services first policy
@@ -82,6 +83,8 @@ include:
   # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests DNS proxy visibility without policy
   # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests HTTP proxy visibility without policy
   # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests proxy visibility interactions with policy lifecycle operations
+  # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests proxy visibility with L7 default-allow rules
+  # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests proxy visibility with L7 rules
   # K8sPolicyTestExtended Validate toEntities KubeAPIServer Allows connection to KubeAPIServer
   # K8sPolicyTestExtended Validate toEntities KubeAPIServer Denies connection to KubeAPIServer
   # K8sPolicyTestExtended Validate toEntities KubeAPIServer Still allows connection to KubeAPIServer with a duplicate policy
