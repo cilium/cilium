@@ -80,7 +80,7 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf(
-		`curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %d --max-time %d %s -w "%s"`,
+		`curl -k --path-as-is -s -D /dev/stderr --fail --connect-timeout %d --max-time %d %s -w "%s"`,
 		CurlConnectTimeout, CurlMaxTimeout, endpoint, statsInfo)
 }
 
@@ -91,7 +91,7 @@ func CurlFailNoStats(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf(
-		`curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[2]d %[3]s`,
+		`curl -k --path-as-is -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[2]d %[3]s`,
 		CurlConnectTimeout, CurlMaxTimeout, endpoint)
 }
 
@@ -106,7 +106,7 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 	}
 
 	return fmt.Sprintf(
-		`curl --path-as-is -s  -D /dev/stderr --output /dev/stderr -w '%%{http_code}' --connect-timeout %d %s`,
+		`curl -k --path-as-is -s  -D /dev/stderr --output /dev/stderr -w '%%{http_code}' --connect-timeout %d %s`,
 		CurlConnectTimeout, endpoint)
 }
 
@@ -126,7 +126,7 @@ func CurlWithRetries(endpoint string, retries int, fail bool, optionalValues ...
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf(
-		`curl --path-as-is -s  -D /dev/stderr --output /dev/stderr --retry %d %s`,
+		`curl -k --path-as-is -s  -D /dev/stderr --output /dev/stderr --retry %d %s`,
 		retries, endpoint)
 }
 
@@ -140,7 +140,7 @@ func CurlTimeout(endpoint string, timeout time.Duration, optionalValues ...inter
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf(
-		`curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %d --max-time %d %s -w "%s"`,
+		`curl -k --path-as-is -s -D /dev/stderr --fail --connect-timeout %d --max-time %d %s -w "%s"`,
 		timeout, timeout, endpoint, statsInfo)
 }
 
