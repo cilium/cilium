@@ -25,10 +25,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var nodeSvcLBClass = "io.cilium/node"
+const (
+	ciliumIngressLabelKey = "cilium.io/ingress"
+	ciliumGatewayLabelKey = annotation.Prefix + ".gateway" + "/owning-gateway"
+)
+
+var (
+	nodeSvcLBClass                 = annotation.Prefix + "/node"
+	nodeSvcLBMatchLabelsAnnotation = annotation.Prefix + ".nodeipam" + "/match-labels"
+)
 
 type nodeSvcLBReconciler struct {
 	client.Client
@@ -161,6 +170,11 @@ func (r nodeSvcLBReconciler) isServiceSupported(service *corev1.Service) bool {
 
 // getRelevantNodes get all the nodes in the matching EndpointSlices for a specified service
 func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.Service) ([]corev1.Node, error) {
+	scopedLog := r.Logger.WithFields(logrus.Fields{
+		logfields.Controller: "node-service-lb",
+		logfields.Resource:   client.ObjectKeyFromObject(svc),
+	})
+
 	selectedNodes := sets.Set[string]{}
 	serviceReq, _ := labels.NewRequirement(discoveryv1.LabelServiceName, selection.Equals, []string{svc.Name})
 
@@ -170,6 +184,43 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 	var epSliceList discoveryv1.EndpointSliceList
 	if err := r.List(ctx, &epSliceList, &client.ListOptions{Namespace: svc.Namespace, LabelSelector: selector}); err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
+	}
+
+	var nodes corev1.NodeList
+
+	// Special handling for "virtual" Endpoints like Gateways and Ingresses
+	// If the Service has either label that Cilium injects, use all nodes, or filter by Annotation value
+	// https://github.com/cilium/cilium/pull/30038#issuecomment-1970423094
+	managedLabels := sets.New[string](ciliumIngressLabelKey, ciliumGatewayLabelKey)
+	for key := range svc.Labels {
+		if managedLabels.Has(key) {
+			// Look for the presence of the Node filter. If the Annotation is set, parse it to
+			// ensure validity, then use in call to obtain the relevant subset of nodes
+			var lo = client.ListOptions{}
+			if val, ok := svc.Annotations[nodeSvcLBMatchLabelsAnnotation]; ok {
+				if parsedLabels, err := labels.Parse(val); err == nil {
+					lo.LabelSelector = parsedLabels
+				} else {
+					scopedLog.WithError(err).Error("Invalid Node selector syntax")
+					return nil, err
+				}
+			}
+
+			if err := r.List(ctx, &nodes, &lo); err != nil {
+				return []corev1.Node{}, err
+			}
+
+			if len(nodes.Items) == 0 {
+				scopedLog.WithFields(logrus.Fields{logfields.Labels: lo.LabelSelector}).Warning("No Nodes found with configured Label selector")
+			}
+
+			return nodes.Items, nil
+		}
+	}
+
+	// Regular LoadBalancer Service handling starts here
+	if err := r.List(ctx, &nodes); err != nil {
+		return []corev1.Node{}, err
 	}
 
 	for _, item := range epSliceList.Items {
@@ -183,11 +234,6 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 
 			selectedNodes.Insert(*endpoint.NodeName)
 		}
-	}
-
-	var nodes corev1.NodeList
-	if err := r.List(ctx, &nodes); err != nil {
-		return []corev1.Node{}, err
 	}
 
 	var relevantNodes []corev1.Node
