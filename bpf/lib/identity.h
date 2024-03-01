@@ -11,8 +11,8 @@ static __always_inline bool identity_in_range(__u32 identity, __u32 range_start,
 	return range_start <= identity && identity <= range_end;
 }
 
-#define IDENTITY_SCOPE_MASK 0xFF000000
-#define IDENTITY_SCOPE_REMOTE_NODE 0x02000000
+#define IDENTITY_LOCAL_SCOPE_MASK 0xFF000000
+#define IDENTITY_LOCAL_SCOPE_REMOTE_NODE 0x02000000
 
 static __always_inline bool identity_is_remote_node(__u32 identity)
 {
@@ -37,7 +37,7 @@ static __always_inline bool identity_is_remote_node(__u32 identity)
 	 */
 	return identity == REMOTE_NODE_ID ||
 		identity == KUBE_APISERVER_NODE_ID ||
-		(identity & IDENTITY_SCOPE_MASK) == IDENTITY_SCOPE_REMOTE_NODE;
+		(identity & IDENTITY_LOCAL_SCOPE_MASK) == IDENTITY_LOCAL_SCOPE_REMOTE_NODE;
 }
 
 static __always_inline bool identity_is_node(__u32 identity)
