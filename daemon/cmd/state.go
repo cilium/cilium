@@ -114,7 +114,7 @@ func (d *Daemon) getPodForEndpoint(ep *endpoint.Endpoint) error {
 		err error
 	)
 	if option.Config.EnableHighScaleIPcache {
-		pod, _, _, _, _, err = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
+		pod, _, err = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
 	} else {
 		d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
 		pod, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
