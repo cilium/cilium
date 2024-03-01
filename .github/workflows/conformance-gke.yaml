@@ -153,7 +153,7 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --cluster-name=${{ env.clusterName }}-${{ matrix.config.index }} \
+            --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.config.index }} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set loadBalancer.l7.backend=envoy \
