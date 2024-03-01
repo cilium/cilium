@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/cilium/cilium-cli/api"
+	"github.com/cilium/cilium-cli/cli"
+	_ "github.com/cilium/cilium-cli/logging" // necessary to disable unwanted cfssl log messages
+)
+
+var cliHooks api.Hooks = &api.NopHooks{}
+
+func main() {
+	command := cli.NewCiliumCommand(cliHooks)
+	if err := command.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

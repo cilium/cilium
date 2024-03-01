@@ -168,6 +168,8 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
+          local-path: './pkg/cilium-cli'
+          go-mod-directory: '.'
 
       - name: Login to Azure
         uses: azure/login@8c334a195cbb38e46038007b304988d888bf676a # v2.0.0
