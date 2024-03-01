@@ -706,6 +706,8 @@ out:
 __section_entry
 int cil_to_overlay(struct __ctx_buff *ctx)
 {
+	bool snat_done __maybe_unused = ctx_snat_done(ctx);
+	struct trace_ctx __maybe_unused trace;
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
 
@@ -725,12 +727,6 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	}
 #endif
 
-#ifdef ENABLE_NODEPORT
-	if (ctx_snat_done(ctx)) {
-		ret = CTX_ACT_OK;
-		goto out;
-	}
-
 	/* This must be after above ctx_snat_done, since the MARK_MAGIC_CLUSTER_ID
 	 * is a super set of the MARK_MAGIC_SNAT_DONE. They will never be used together,
 	 * but SNAT check should always take presedence.
@@ -738,6 +734,15 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	cluster_id = ctx_get_cluster_id_mark(ctx);
 #endif
+
+	ctx_set_overlay_mark(ctx);
+
+#ifdef ENABLE_NODEPORT
+	if (snat_done) {
+		ret = CTX_ACT_OK;
+		goto out;
+	}
+
 	ret = handle_nat_fwd(ctx, cluster_id);
 out:
 #endif

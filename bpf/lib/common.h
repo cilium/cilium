@@ -49,7 +49,7 @@
 
 #if defined(ENCAP_IFINDEX) || defined(ENABLE_EGRESS_GATEWAY) || \
     (defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
-#define HAVE_ENCAP
+#define HAVE_ENCAP	1
 
 /* NOT_VTEP_DST is passed to an encapsulation function when the
  * destination of the tunnel is not a VTEP.
@@ -675,6 +675,7 @@ enum metric_dir {
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
+#define MARK_MAGIC_OVERLAY		0x0400
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
