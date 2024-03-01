@@ -351,6 +351,11 @@ jobs:
           cd test/
           tar -xf /tmp/.ginkgo-build/test.tgz
 
+      - name: Get Node DMESG (Pre)
+        shell: bash
+        run: |
+          for node in $(docker ps --format json | jq -r '.ID'); do docker exec $node dmesg ; done
+
       - name: Run tests
         id: run-tests
         timeout-minutes: 40
@@ -409,6 +414,21 @@ jobs:
                -cilium.kubeconfig=/root/.kube/config \
                -cilium.provision-k8s=false \
                -cilium.operator-suffix=-ci
+
+      - name: Get Node DMESG 
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          for node in $(docker ps --format json | jq -r '.ID'); do docker exec $node dmesg ; done
+
+      - name: Fetch artifacts
+        if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            kubectl get pods --all-namespaces -o wide
+            tar -zcf "test_results-${{ env.job_name }}.tar.gz" /host/test/test_results
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
