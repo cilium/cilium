@@ -22,43 +22,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/pkg/cilium-cli/hooks"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// Hooks to extend the default cilium-cli command with additional functionality.
-type Hooks interface {
-	ConnectivityTestHooks
-	SysdumpHooks
-}
-
-// ConnectivityTestHooks to extend cilium-cli with additional connectivity tests and related flags.
-type ConnectivityTestHooks interface {
-	connectivity.Hooks
-	// AddConnectivityTestFlags is an hook to register additional connectivity test flags.
-	AddConnectivityTestFlags(flags *pflag.FlagSet)
-}
-
-// SysdumpHooks to extend cilium-cli with additional sysdump tasks and related flags.
-type SysdumpHooks interface {
-	AddSysdumpFlags(flags *pflag.FlagSet)
-	AddSysdumpTasks(*sysdump.Collector) error
-}
-
-type NopHooks struct{}
-
-var _ Hooks = &NopHooks{}
-
-func (*NopHooks) AddSysdumpFlags(*pflag.FlagSet)                                  {}
-func (*NopHooks) AddSysdumpTasks(*sysdump.Collector) error                        { return nil }
-func (*NopHooks) AddConnectivityTestFlags(*pflag.FlagSet)                         {}
-func (*NopHooks) AddConnectivityTests(*check.ConnectivityTest) error              { return nil }
-func (*NopHooks) DetectFeatures(context.Context, *check.ConnectivityTest) error   { return nil }
-func (*NopHooks) SetupAndValidate(context.Context, *check.ConnectivityTest) error { return nil }
-
 var errInternal = errors.New("encountered internal error, exiting")
 
-func NewCmdConnectivity(hooks Hooks) *cobra.Command {
+func NewCmdConnectivity(hooks hooks.Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connectivity michi",
 		Short: "Connectivity troubleshooting",
@@ -82,7 +53,7 @@ var params = check.Parameters{
 
 var tests []string
 
-func RunE(hooks Hooks) func(cmd *cobra.Command, args []string) error {
+func RunE(hooks hooks.Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		fmt.Println("michi says hello")
 		namespace, ok := cmd.Context().Value("namespace").(string)
@@ -162,7 +133,7 @@ func RunE(hooks Hooks) func(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
+func newCmdConnectivityTest(hooks hooks.Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Validate connectivity in cluster  by michi",
@@ -249,7 +220,7 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	return cmd
 }
 
-func newCmdConnectivityPerf(hooks Hooks) *cobra.Command {
+func newCmdConnectivityPerf(hooks hooks.Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "perf",
 		Short: "Test network performance",
