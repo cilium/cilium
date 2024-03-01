@@ -29,7 +29,7 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: filteredValue})
 		}
 	}
-	uri, _ := url.Parse(http.URL.String())
+	uri := cloneURL(http.URL)
 	filterURL(uri, opts.HubbleRedactSettings)
 
 	if flowType == accesslog.TypeRequest {
@@ -56,7 +56,7 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 }
 
 func (p *Parser) httpSummary(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, flow *flowpb.Flow) string {
-	uri, _ := url.Parse(http.URL.String())
+	uri := cloneURL(http.URL)
 	filterURL(uri, p.opts.HubbleRedactSettings)
 	httpRequest := http.Method + " " + uri.String()
 	switch flowType {
@@ -117,4 +117,18 @@ func filterURL(uri *url.URL, redactSettings options.HubbleRedactSettings) {
 			uri.Fragment = ""
 		}
 	}
+}
+
+// cloneURL return a copy of the given URL. Copied from src/net/http/clone.go.
+func cloneURL(u *url.URL) *url.URL {
+	if u == nil {
+		return nil
+	}
+	u2 := new(url.URL)
+	*u2 = *u
+	if u.User != nil {
+		u2.User = new(url.Userinfo)
+		*u2.User = *u.User
+	}
+	return u2
 }
