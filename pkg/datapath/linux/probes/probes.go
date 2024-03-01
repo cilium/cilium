@@ -700,8 +700,7 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 // writeSkbHeader defines macros for bpf/include/bpf/features_skb.h
 func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
 	featuresSkb := map[string]bool{
-		"HAVE_CHANGE_TAIL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnSkbChangeTail}],
-		"HAVE_CSUM_LEVEL":  probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
+		"HAVE_CSUM_LEVEL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
 	}
 
 	return writeFeatureHeader(writer, featuresSkb, false)
