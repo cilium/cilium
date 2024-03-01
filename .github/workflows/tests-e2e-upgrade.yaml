@@ -318,8 +318,9 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
-          binary-name: cilium-cli
           binary-dir: ./
+          local-path: './cilium-cli'
+          go-mod-directory: '.'
 
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@a4311c6d054de3008bdf9195b0fabf6ee60d8bdd # v0.0.17
@@ -386,10 +387,10 @@ jobs:
           cmd: |
             cd /host/
 
-            ./cilium-cli install \
+            ./cilium install \
               ${{ steps.cilium-stable-config.outputs.config }}
 
-            ./cilium-cli status --wait
+            ./cilium status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
@@ -403,7 +404,7 @@ jobs:
             # Create pods which establish long lived connections. It will be used by
             # subsequent connectivity tests with --include-conn-disrupt-test to catch any
             # interruption in such flows.
-            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+            ./cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
               --conn-disrupt-dispatch-interval 0ms
 
       - name: Upgrade Cilium
@@ -413,10 +414,10 @@ jobs:
           cmd: |
             cd /host/
 
-            ./cilium-cli upgrade \
+            ./cilium upgrade \
               ${{ steps.cilium-newest-config.outputs.config }}
 
-            ./cilium-cli status --wait
+            ./cilium status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
@@ -433,7 +434,7 @@ jobs:
             fi
 
             # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            ./cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --include-conn-disrupt-test \
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
@@ -443,7 +444,7 @@ jobs:
               \$EXTRA
 
             # --flush-ct interrupts the flows, so we need to set up again.
-            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+            ./cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
               --conn-disrupt-dispatch-interval 0ms
 
       - name: Downgrade Cilium ${{ env.cilium_stable_version }}
@@ -453,10 +454,10 @@ jobs:
           cmd: |
             cd /host/
 
-            ./cilium-cli upgrade \
+            ./cilium upgrade \
               ${{ steps.cilium-stable-config.outputs.config }}
 
-            ./cilium-cli status --wait
+            ./cilium status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
@@ -474,7 +475,7 @@ jobs:
 
             kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
 
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            ./cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --include-conn-disrupt-test \
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
@@ -492,9 +493,9 @@ jobs:
             cd /host
             kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
             kubectl get pods --all-namespaces -o wide
-            ./cilium-cli status
+            ./cilium status
             mkdir -p cilium-sysdumps
-            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+            ./cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
             # To debug https://github.com/cilium/cilium/issues/26062
             head -n -0 /proc/buddyinfo /proc/pagetypeinfo
 

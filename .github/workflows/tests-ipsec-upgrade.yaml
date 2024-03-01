@@ -293,8 +293,9 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
-          binary-name: cilium-cli
           binary-dir: ./
+          local-path: './cilium-cli'
+          go-mod-directory: '.'
 
       - name: Set Kind params
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -357,10 +358,10 @@ jobs:
 
           mkdir -p cilium-junits
 
-          ./cilium-cli install \
+          ./cilium install \
             ${{ steps.cilium-stable-config.outputs.config }}
 
-          ./cilium-cli status --wait
+          ./cilium status --wait
           kubectl get pods --all-namespaces -o wide
           # TODO: After Cilium 1.15 release, update to cilium-dbg
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium status
@@ -372,7 +373,7 @@ jobs:
           # Create pods which establish long lived connections. It will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
-          ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+          ./cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
             --conn-disrupt-dispatch-interval 0ms
 
       - name: Upgrade Cilium & Test (${{ matrix.name }})
@@ -381,10 +382,10 @@ jobs:
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
           operation-cmd: |
-            ./cilium-cli upgrade \
+            ./cilium upgrade \
               ${{ steps.cilium-newest-config.outputs.config }}
 
-            ./cilium-cli status --wait
+            ./cilium status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
@@ -394,10 +395,10 @@ jobs:
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
           operation-cmd: |
-            ./cilium-cli upgrade \
+            ./cilium upgrade \
               ${{ steps.cilium-stable-config.outputs.config }}
 
-            ./cilium-cli status --wait
+            ./cilium status --wait
             kubectl get pods --all-namespaces -o wide
             # TODO: After Cilium 1.15 release, update to cilium-dbg
             kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium status
@@ -407,9 +408,9 @@ jobs:
         shell: bash
         run: |
           kubectl get pods --all-namespaces -o wide
-          ./cilium-cli status
+          ./cilium status
           mkdir -p cilium-sysdumps
-          ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+          ./cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
 
       - name: Upload artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}

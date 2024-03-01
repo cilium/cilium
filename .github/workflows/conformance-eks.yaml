@@ -179,6 +179,8 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
+          local-path: './cilium-cli'
+          go-mod-directory: '.'
 
       - name: Install kubectl
         run: |
@@ -272,17 +274,18 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
-          binary-name: cilium-cli
           binary-dir: ./
+          local-path: './cilium-cli'
+          go-mod-directory: '.'
 
       - name: Install Cilium
         id: install-cilium
         run: |
-          ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+          ./cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium to be ready
         run: |
-          ./cilium-cli status --wait --wait-duration=10m
+          ./cilium status --wait --wait-duration=10m
           kubectl get pods -n kube-system
 
       - name: Check that AWS leftover iptables chains have been removed
@@ -298,7 +301,7 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          ./cilium-cli hubble port-forward&
+          ./cilium hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
@@ -308,7 +311,7 @@ jobs:
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
         run: |
-          ./cilium-cli connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          ./cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
@@ -325,8 +328,8 @@ jobs:
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           kubectl get pods --all-namespaces -o wide
-          ./cilium-cli status
-          ./cilium-cli sysdump --output-filename cilium-sysdump-final-${{ join(matrix.*, '-') }}
+          ./cilium status
+          ./cilium sysdump --output-filename cilium-sysdump-final-${{ join(matrix.*, '-') }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
