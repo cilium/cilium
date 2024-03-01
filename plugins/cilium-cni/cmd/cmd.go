@@ -104,11 +104,11 @@ func ipv6IsEnabled(ipam *models.IPAMResponse) bool {
 		return false
 	}
 
-	if ipam.HostAddressing != nil && ipam.HostAddressing.IPV6 != nil {
-		return ipam.HostAddressing.IPV6.Enabled
+	if ipam.HostAddressing == nil || ipam.HostAddressing.IPV6 == nil {
+		return false
 	}
 
-	return true
+	return ipam.HostAddressing.IPV6.Enabled
 }
 
 func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
@@ -116,11 +116,11 @@ func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
 		return false
 	}
 
-	if ipam.HostAddressing != nil && ipam.HostAddressing.IPV4 != nil {
-		return ipam.HostAddressing.IPV4.Enabled
+	if ipam.HostAddressing == nil || ipam.HostAddressing.IPV4 == nil {
+		return false
 	}
 
-	return true
+	return ipam.HostAddressing.IPV4.Enabled
 }
 
 func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfigurationStatus, error) {
@@ -205,7 +205,8 @@ func allocateIPsWithDelegatedPlugin(
 		if ipv4 := ipNet.IP.To4(); ipv4 != nil {
 			ipam.Address.IPV4 = ipNet.String()
 			ipam.IPV4 = &models.IPAMAddressResponse{IP: ipv4.String()}
-		} else {
+		} else if conf.Addressing.IPV6 != nil {
+			// assign ipam ipv6 address only if agent ipv6 config is enabled
 			ipam.Address.IPV6 = ipNet.String()
 			ipam.IPV6 = &models.IPAMAddressResponse{IP: ipNet.IP.String()}
 		}
@@ -560,7 +561,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			ipConfig *cniTypesV1.IPConfig
 			routes   []*cniTypes.Route
 		)
-		if ipv6IsEnabled(ipam) {
+		if ipv6IsEnabled(ipam) && conf.Addressing.IPV6 != nil {
 			ep.Addressing.IPV6 = ipam.Address.IPV6
 			ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
 			ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
@@ -575,7 +576,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			res.Routes = append(res.Routes, routes...)
 		}
 
-		if ipv4IsEnabled(ipam) {
+		if ipv4IsEnabled(ipam) && conf.Addressing.IPV4 != nil {
 			ep.Addressing.IPV4 = ipam.Address.IPV4
 			ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
 			ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
