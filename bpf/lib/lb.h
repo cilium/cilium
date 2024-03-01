@@ -342,11 +342,13 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
+#ifdef ENABLE_LOCAL_REDIRECT_POLICY
 static __always_inline
 bool lb4_svc_is_localredirect(const struct lb4_service *svc)
 {
 	return svc->flags2 & SVC_FLAG_LOCALREDIRECT;
 }
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline
 bool lb4_svc_is_l7loadbalancer(const struct lb4_service *svc __maybe_unused)
