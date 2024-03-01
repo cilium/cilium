@@ -7,8 +7,6 @@
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
 
-#include <bpf/verifier.h>
-
 #include "common.h"
 #include "utils.h"
 #include "ipv4.h"
@@ -282,20 +280,17 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 	struct ct_entry *entry;
 
-	relax_verifier();
-
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
 		if (!ct_entry_matches_types(entry, ct_entry_types, ct_state))
 			goto ct_new;
 
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
-#ifdef HAVE_LARGE_INSN_LIMIT
 		if (dir == CT_SERVICE && syn &&
 		    ct_entry_closing(entry) &&
 		    ct_entry_expired_rebalance(entry))
 			goto ct_new;
-#endif
+
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 

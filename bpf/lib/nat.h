@@ -36,13 +36,8 @@ struct nat_entry {
 	__u64 pad2;		/* Future use. */
 };
 
-#ifdef HAVE_LARGE_INSN_LIMIT
-# define SNAT_COLLISION_RETRIES		128
-# define SNAT_SIGNAL_THRES		64
-#else
-# define SNAT_COLLISION_RETRIES		32
-# define SNAT_SIGNAL_THRES		16
-#endif
+#define SNAT_COLLISION_RETRIES		128
+#define SNAT_SIGNAL_THRES		64
 
 #define snat_v4_needs_masquerade_hook(ctx, target) 0
 
