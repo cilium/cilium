@@ -11,6 +11,12 @@ inputs:
   local-path:
     description: 'Path to the local copy of the Cilium CLI repository'
     default: '*/cilium-cli'
+  go-mod-directory:
+    description: >
+      Override the directory that contains go.mod when building the Cilium CLI
+      from the source. By default, This action assumes that go.mod is in the
+      directory specified in the local-path parameter. Set this parameter to '.'
+      if go.mod is in the top-level directory.
   binary-dir:
     description: 'Directory to store Cilium CLI executable'
     required: true
@@ -32,14 +38,21 @@ runs:
       run: |
         CLI_PATH=$(find . -iwholename '${{ inputs.local-path }}' -type d -not -path './.git/*' -not -path './vendor/*' | head -n 1)
         echo path="${CLI_PATH}" >> $GITHUB_OUTPUT
+        if [[ -z "${{ inputs.go-mod-directory }}" ]]; then
+          echo go-mod-path="${CLI_PATH}/go.mod" >> $GITHUB_OUTPUT
+          echo go-sum-path="${CLI_PATH}/go.sum" >> $GITHUB_OUTPUT
+        else
+          echo go-mod-path="${{ inputs.go-mod-directory }}/go.mod" >> $GITHUB_OUTPUT
+          echo go-sum-path="${{ inputs.go-mod-directory }}/go.sum" >> $GITHUB_OUTPUT
+        fi
 
     - name: Setup Go
       uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
       if: ${{ steps.build-cli.outputs.path != '' }}
       with:
-        go-version-file: '${{ steps.build-cli.outputs.path }}/go.mod'
+        go-version-file: '${{ steps.build-cli.outputs.go-mod-path }}'
         cache: true
-        cache-dependency-path: '${{ steps.build-cli.outputs.path }}/go.sum'
+        cache-dependency-path: '${{ steps.build-cli.outputs.go-sum-path }}'
 
     - name: Build Cilium CLI from source
       if: ${{ steps.build-cli.outputs.path != '' }}
