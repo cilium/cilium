@@ -148,7 +148,7 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --cluster-name=${{ env.clusterName }} \
+            --helm-set cluster.name=${{ env.clusterName }} \
             --datapath-mode=tunnel \
             --helm-set kubeProxyReplacement=true"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \

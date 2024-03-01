@@ -151,7 +151,7 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --cluster-name=${{ env.name }} \
+            --helm-set cluster.name=${{ env.name }} \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
             --helm-set=azure.resourceGroup=${{ env.name }}"
