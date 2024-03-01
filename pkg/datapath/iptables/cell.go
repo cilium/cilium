@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -15,6 +16,11 @@ import (
 var Cell = cell.Module(
 	"iptables",
 	"Handle iptables-related configuration for Cilium",
+
+	// Manage "cilium_node_set_v4" and "cilium_node_set_v6" kernel IP sets to
+	// collect IPv4 and IPv6 node addresses (respectively) and exclude traffic to
+	// those IPs from being masqueraded.
+	ipset.Cell,
 
 	cell.Config(defaultConfig),
 	cell.ProvidePrivate(func(
