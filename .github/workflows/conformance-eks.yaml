@@ -140,7 +140,7 @@ jobs:
             OWNER="${OWNER/./-}"
           fi
 
-          CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
+          CILIUM_INSTALL_DEFAULTS="--helm-set=cluster.name=${{ env.clusterName }} \
             --chart-directory=./untrusted/install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
