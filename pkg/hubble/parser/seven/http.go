@@ -29,8 +29,7 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: filteredValue})
 		}
 	}
-	uri := cloneURL(http.URL)
-	filterURL(uri, opts.HubbleRedactSettings)
+	uri := filteredURL(http.URL, opts.HubbleRedactSettings)
 
 	if flowType == accesslog.TypeRequest {
 		// Set only fields that are relevant for requests.
@@ -56,8 +55,7 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 }
 
 func (p *Parser) httpSummary(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, flow *flowpb.Flow) string {
-	uri := cloneURL(http.URL)
-	filterURL(uri, p.opts.HubbleRedactSettings)
+	uri := filteredURL(http.URL, p.opts.HubbleRedactSettings)
 	httpRequest := http.Method + " " + uri.String()
 	switch flowType {
 	case accesslog.TypeRequest:
@@ -101,22 +99,27 @@ func filterHeader(key string, value string, redactSettings options.HubbleRedactS
 	return value
 }
 
-// filterURL receives the observed URL and a set of Hubble redact settings and
-// conditionally redacts sensitive values.
+// filteredURL return a copy of the given URL potentially mutated depending on
+// Hubble redact settings.
 // If configured and user info exists, it removes the password from the flow.
 // If configured, it removes the URL's query parts from the flow.
-func filterURL(uri *url.URL, redactSettings options.HubbleRedactSettings) {
-	if uri != nil {
-		if redactSettings.RedactHTTPUserInfo && uri.User != nil {
-			if _, ok := uri.User.Password(); ok {
-				uri.User = url.UserPassword(uri.User.Username(), defaults.SensitiveValueRedacted)
-			}
-		}
-		if redactSettings.RedactHTTPQuery {
-			uri.RawQuery = ""
-			uri.Fragment = ""
+func filteredURL(uri *url.URL, redactSettings options.HubbleRedactSettings) *url.URL {
+	if uri == nil {
+		// NOTE: return a non-nil URL so that we can always call String() on
+		// it.
+		return &url.URL{}
+	}
+	u2 := cloneURL(uri)
+	if redactSettings.RedactHTTPUserInfo && u2.User != nil {
+		if _, ok := u2.User.Password(); ok {
+			u2.User = url.UserPassword(u2.User.Username(), defaults.SensitiveValueRedacted)
 		}
 	}
+	if redactSettings.RedactHTTPQuery {
+		u2.RawQuery = ""
+		u2.Fragment = ""
+	}
+	return u2
 }
 
 // cloneURL return a copy of the given URL. Copied from src/net/http/clone.go.
