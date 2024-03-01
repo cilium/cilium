@@ -91,7 +91,7 @@ following filter Annotation:
 Configuring Resources for Node IPAM LB
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Ingress Controller**
+**Cilium Ingress Controller**
 
 Use the following Helm values to enabling Node IPAM LB for the shared Ingress Controller:
 
@@ -114,7 +114,7 @@ value in your Helm Chart.
 
 Using Node IPAM LB with dedicated Ingresses has not been tested!
 
-**Gateway API**
+**Cilium Gateway API**
 
 See the :doc:`servicemesh/gateway-api/gateway-api` Documentation for more fully configuring the appropriate resources.
 As an example, you can add the Annotation to the ``spec.infrastructure.annotations`` field where it will be copied to
