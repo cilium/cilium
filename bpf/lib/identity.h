@@ -231,4 +231,13 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 }
 #endif /* __ctx_is == __ctx_skb */
 
+/**
+ * identity_is_local is used to determine whether an identity is locally
+ * allocated.
+ */
+static __always_inline bool identity_is_local(__u32 identity)
+{
+	return (identity & IDENTITY_LOCAL_SCOPE_MASK) != 0;
+}
+
 #endif
