@@ -117,6 +117,8 @@ func init() {
 		"vtep_value":             {vtep.VtepEndpointInfo{}},
 		"auth_key":               {authmap.AuthKey{}},
 		"auth_info":              {authmap.AuthInfo{}},
+		"skip_lb4_key":           {lbmap.SkipLB4Key{}},
+		"skip_lb6_key":           {lbmap.SkipLB6Key{}},
 	})
 
 	registerToCheckSizes(map[string][]any{
