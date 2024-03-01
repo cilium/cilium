@@ -338,6 +338,13 @@ jobs:
 
           mkdir -p cilium-junits
 
+      - name: pwru run
+        uses: cilium/pwru/actions/pwru-run@main
+        with:
+          pwru-flags: --output-meta --output-tuple --filter-track-skb
+          pwru-pcap-filter: 'ip6 and tcp and ip6[53]&0x3f&0x2!=0'
+          nodename: kind-worker #
+
       - name: Run tests
         shell: bash
         run: |
@@ -353,8 +360,15 @@ jobs:
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
+            --test north-south-loadbalancing/ -v \
             --junit-property github_job_step="Run tests (${{ matrix.name }})" \
             --request-timeout 30s
+
+      - name: pwru log
+        uses: cilium/pwru/actions/pwru-log@main
+        if: ${{ !success() }}
+        with:
+          testname: ${{ join(matrix.*, ',') }}
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}

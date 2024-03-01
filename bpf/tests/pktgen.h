@@ -19,6 +19,7 @@
 #include <linux/if_ether.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/icmpv6.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
  * without having to come up with custom addresses.
@@ -418,6 +419,13 @@ struct tcphdr *pktgen__push_default_tcphdr(struct pktgen *builder)
 	return hdr;
 }
 
+static __always_inline
+__attribute__((warn_unused_result))
+struct icmp6hdr *pktgen__push_icmp6hdr(struct pktgen *builder)
+{
+	return pktgen__push_rawhdr(builder, sizeof(struct icmp6hdr), PKT_LAYER_ICMPV6);
+}
+
 /* Push an empty ESP header onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
@@ -684,6 +692,39 @@ pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 
 	l4->source = sport;
 	l4->dest = dport;
+
+	return l4;
+}
+
+static __always_inline struct icmp6hdr *
+pktgen__push_ipv6_icmp6_packet(struct pktgen *builder,
+			       __u8 *smac, __u8 *dmac,
+			       __u8 *saddr, __u8 *daddr,
+			       __u8 icmp6_type)
+{
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	struct icmp6hdr *l4;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_ipv6hdr(builder);
+	if (!l3)
+		return NULL;
+
+	ipv6hdr__set_addrs(l3, saddr, daddr);
+
+	l4 = pktgen__push_icmp6hdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->icmp6_type = icmp6_type;
+	l4->icmp6_code = 0;
+	l4->icmp6_cksum = 0;
 
 	return l4;
 }
