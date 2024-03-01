@@ -5,7 +5,7 @@ package seven
 
 import (
 	"fmt"
-	neturl "net/url"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -29,8 +29,8 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: filteredValue})
 		}
 	}
-	url, _ := neturl.Parse(http.URL.String())
-	filterURL(url, opts.HubbleRedactSettings)
+	uri, _ := url.Parse(http.URL.String())
+	filterURL(uri, opts.HubbleRedactSettings)
 
 	if flowType == accesslog.TypeRequest {
 		// Set only fields that are relevant for requests.
@@ -38,7 +38,7 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 			Http: &flowpb.HTTP{
 				Method:   http.Method,
 				Protocol: http.Protocol,
-				Url:      url.String(),
+				Url:      uri.String(),
 				Headers:  headers,
 			},
 		}
@@ -49,16 +49,16 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 			Code:     uint32(http.Code),
 			Method:   http.Method,
 			Protocol: http.Protocol,
-			Url:      url.String(),
+			Url:      uri.String(),
 			Headers:  headers,
 		},
 	}
 }
 
 func (p *Parser) httpSummary(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, flow *flowpb.Flow) string {
-	url, _ := neturl.Parse(http.URL.String())
-	filterURL(url, p.opts.HubbleRedactSettings)
-	httpRequest := http.Method + " " + url.String()
+	uri, _ := url.Parse(http.URL.String())
+	filterURL(uri, p.opts.HubbleRedactSettings)
+	httpRequest := http.Method + " " + uri.String()
 	switch flowType {
 	case accesslog.TypeRequest:
 		return fmt.Sprintf("%s %s", http.Protocol, httpRequest)
@@ -105,16 +105,16 @@ func filterHeader(key string, value string, redactSettings options.HubbleRedactS
 // conditionally redacts sensitive values.
 // If configured and user info exists, it removes the password from the flow.
 // If configured, it removes the URL's query parts from the flow.
-func filterURL(url *neturl.URL, redactSettings options.HubbleRedactSettings) {
-	if url != nil {
-		if redactSettings.RedactHTTPUserInfo && url.User != nil {
-			if _, ok := url.User.Password(); ok {
-				url.User = neturl.UserPassword(url.User.Username(), defaults.SensitiveValueRedacted)
+func filterURL(uri *url.URL, redactSettings options.HubbleRedactSettings) {
+	if uri != nil {
+		if redactSettings.RedactHTTPUserInfo && uri.User != nil {
+			if _, ok := uri.User.Password(); ok {
+				uri.User = url.UserPassword(uri.User.Username(), defaults.SensitiveValueRedacted)
 			}
 		}
 		if redactSettings.RedactHTTPQuery {
-			url.RawQuery = ""
-			url.Fragment = ""
+			uri.RawQuery = ""
+			uri.Fragment = ""
 		}
 	}
 }
