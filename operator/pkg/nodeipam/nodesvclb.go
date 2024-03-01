@@ -190,15 +190,15 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 		return []corev1.Node{}, err
 	}
 
-	relevantsNodes := []corev1.Node{}
+	var relevantNodes []corev1.Node
 	for _, node := range nodes.Items {
 		if !selectedNodes.Has(node.Name) {
 			continue
 		}
 
-		relevantsNodes = append(relevantsNodes, node)
+		relevantNodes = append(relevantNodes, node)
 	}
-	return relevantsNodes, nil
+	return relevantNodes, nil
 }
 
 // getNodeLoadBalancerIngresses get all the load balancer ingresses with the specified nodes
