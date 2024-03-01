@@ -235,6 +235,7 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 	return NULL;
 }
 
+#ifdef ENABLE_LOCAL_REDIRECT_POLICY
 /* Service translation logic for a local-redirect service can cause packets to
  * be looped back to a service node-local backend after translation. This can
  * happen when the node-local backend itself tries to connect to the service
@@ -283,6 +284,7 @@ sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx __maybe_unused,
 #endif /* HAVE_SOCKET_LOOKUP */
 	return false;
 }
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full,
@@ -407,9 +409,11 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -EHOSTUNREACH;
 	}
 
+#ifdef ENABLE_LOCAL_REDIRECT_POLICY
 	if (lb4_svc_is_localredirect(svc) &&
 	    sock4_skip_xlate_if_same_netns(ctx_full, backend))
 		return -ENXIO;
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
