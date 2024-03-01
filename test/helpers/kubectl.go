@@ -2207,8 +2207,10 @@ func (kub *Kubectl) RedeployKubernetesDnsIfNecessary(force bool) {
 	if err == nil && !force {
 		ginkgoext.By("Kubernetes DNS is up and operational")
 		return
-	} else {
+	} else if err != nil {
 		ginkgoext.By("Kubernetes DNS is not ready: %s", err)
+	} else {
+		ginkgoext.By("Kubernetes DNS is not ready (force=%v)", force)
 	}
 
 	ginkgoext.By("Restarting Kubernetes DNS (-l %s)", kubeDNSLabel)
