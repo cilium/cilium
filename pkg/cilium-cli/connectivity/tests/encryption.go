@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/versioncheck"
-
 	"github.com/cilium/cilium-cli/utils/features"
+
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/internal/sniff"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 type requestType int

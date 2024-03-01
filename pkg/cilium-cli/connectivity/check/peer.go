@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/cilium/cilium/api/v1/flow"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
+	corev1 "k8s.io/api/core/v1"
+
+	"github.com/cilium/cilium/api/v1/flow"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 // TestPeer is the abstraction used for all peer types (pods, services, IPs,

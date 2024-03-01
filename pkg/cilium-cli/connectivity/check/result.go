@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	dto "github.com/prometheus/client_model/go"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 )
 
 type Result struct {
