@@ -15,10 +15,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type ciliumEnvoyConfigManager interface {
@@ -36,6 +36,8 @@ type cecManager struct {
 	xdsServer      envoy.XDSServer
 	backendSyncer  *envoyServiceBackendSyncer
 	resourceParser *cecResourceParser
+
+	envoyConfigTimeout time.Duration
 }
 
 func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
@@ -44,14 +46,16 @@ func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
 	xdsServer envoy.XDSServer,
 	backendSyncer *envoyServiceBackendSyncer,
 	resourceParser *cecResourceParser,
+	envoyConfigTimeout time.Duration,
 ) *cecManager {
 	return &cecManager{
-		logger:         logger,
-		policyUpdater:  policyUpdater,
-		serviceManager: serviceManager,
-		xdsServer:      xdsServer,
-		backendSyncer:  backendSyncer,
-		resourceParser: resourceParser,
+		logger:             logger,
+		policyUpdater:      policyUpdater,
+		serviceManager:     serviceManager,
+		xdsServer:          xdsServer,
+		backendSyncer:      backendSyncer,
+		resourceParser:     resourceParser,
+		envoyConfigTimeout: envoyConfigTimeout,
 	}
 }
 
@@ -68,7 +72,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 		return fmt.Errorf("malformed Envoy config: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), r.envoyConfigTimeout)
 	defer cancel()
 	if err := r.xdsServer.UpsertEnvoyResources(ctx, resources); err != nil {
 		return fmt.Errorf("failed to upsert envoy resources: %w", err)
@@ -175,7 +179,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 		return fmt.Errorf("failed to update k8s service redirects: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), r.envoyConfigTimeout)
 	defer cancel()
 	if err := r.xdsServer.UpdateEnvoyResources(ctx, oldResources, newResources); err != nil {
 		return fmt.Errorf("failed to update Envoy resources: %w", err)
@@ -273,7 +277,7 @@ func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, ce
 		return fmt.Errorf("failed to delete k8s service redirects: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.Config.EnvoyConfigTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), r.envoyConfigTimeout)
 	defer cancel()
 	if err := r.xdsServer.DeleteEnvoyResources(ctx, resources); err != nil {
 		return fmt.Errorf("failed to delete Envoy resources: %w", err)

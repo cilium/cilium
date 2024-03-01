@@ -694,9 +694,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableEnvoyConfig, false, "Enable Envoy Config CRDs")
 	option.BindEnv(vp, option.EnableEnvoyConfig)
 
-	flags.Duration(option.EnvoyConfigTimeout, defaults.EnvoyConfigTimeout, "Timeout duration for Envoy Config acknowledgements")
-	option.BindEnv(vp, option.EnvoyConfigTimeout)
-
 	flags.String(option.IPMasqAgentConfigPath, "/etc/config/ip-masq-agent", "ip-masq-agent configuration file path")
 	option.BindEnv(vp, option.IPMasqAgentConfigPath)
 
