@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: httpbin
+  labels:
+    app.kubernetes.io/name: httpbin
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: httpbin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: httpbin
+    spec:
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  labels:
+    bgp: "true"
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: httpbin
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: "default"
+spec:
+  blocks:
+  - cidr: "10.3.0.0/24"
