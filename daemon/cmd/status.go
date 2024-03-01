@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ratelimitmetricsmap"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -857,6 +858,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 				} else {
 					d.statusResponse.ConfigSettings = &models.ConfigSettings{Message: "Ok"}
 				}
+				metrics.ConfigSettingsMismatch.WithLabelValues(sd.md5).Set(float64(sd.deltaCount()))
 			},
 		},
 
