@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/filters"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -788,7 +789,7 @@ func (a *Action) waitForRelay(ctx context.Context, client observer.ObserverClien
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("hubble server status failure: %w", ctx.Err())
-		case <-time.After(time.Second):
+		case <-inctimer.After(time.Second):
 			a.Debug("retrying hubble relay server status request")
 		}
 	}
