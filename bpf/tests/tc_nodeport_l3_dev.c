@@ -12,7 +12,6 @@
 #define ENABLE_HOST_ROUTING
 #define ENABLE_IPV4
 #define ENABLE_IPV6
-#define SKIP_ICMPV6_NS_HANDLING
 
 #define TEST_IP_LOCAL		v4_pod_one
 #define TEST_IP_REMOTE		v4_pod_two
