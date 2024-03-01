@@ -2511,6 +2511,23 @@ func init() {
         }
       }
     },
+    "ConfigSettings": {
+      "description": "Status of the agent vs configmap settings\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "deltas": {
+          "description": "Collection of config settings deltas",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "message": {
+          "description": "Human readable settings summary",
+          "type": "string"
+        }
+      }
+    },
     "ConfigurationMap": {
       "description": "Map of configuration key/value pairs.\n",
       "type": "object",
@@ -5122,6 +5139,10 @@ func init() {
         "cni-file": {
           "description": "Status of the CNI configuration file",
           "$ref": "#/definitions/Status"
+        },
+        "config-settings": {
+          "description": "Status of configmap settings synchronization",
+          "$ref": "#/definitions/ConfigSettings"
         },
         "container-runtime": {
           "description": "Status of local container runtime",
@@ -8309,6 +8330,23 @@ func init() {
         }
       }
     },
+    "ConfigSettings": {
+      "description": "Status of the agent vs configmap settings\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "deltas": {
+          "description": "Collection of config settings deltas",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "message": {
+          "description": "Human readable settings summary",
+          "type": "string"
+        }
+      }
+    },
     "ConfigurationMap": {
       "description": "Map of configuration key/value pairs.\n",
       "type": "object",
@@ -11457,6 +11495,10 @@ func init() {
         "cni-file": {
           "description": "Status of the CNI configuration file",
           "$ref": "#/definitions/Status"
+        },
+        "config-settings": {
+          "description": "Status of configmap settings synchronization",
+          "$ref": "#/definitions/ConfigSettings"
         },
         "container-runtime": {
           "description": "Status of local container runtime",
