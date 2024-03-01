@@ -9,8 +9,6 @@
 #include <ep_config.h>
 #include <node_config.h>
 
-#include <bpf/verifier.h>
-
 #include <linux/icmpv6.h>
 
 #define IS_BPF_LXC 1
@@ -1870,7 +1868,6 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 	 * Do not redirect again if the packet is coming from the egress proxy.
 	 * Always redirect connections that originated from L7 LB.
 	 */
-	relax_verifier();
 	/* Skip policy enforcement for return traffic. */
 	if (ret == CT_REPLY || ret == CT_RELATED) {
 		if (ct_state_is_from_l7lb(ct_state) ||

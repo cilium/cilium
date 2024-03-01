@@ -13,8 +13,6 @@
 
 #include "lib/common.h"
 
-#define HAVE_LARGE_INSN_LIMIT
-
 #define htonl bpf_htonl
 #define ntohl bpf_ntohl
 

@@ -7,7 +7,6 @@
 
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define HAVE_LARGE_INSN_LIMIT
 
 #include "node_config.h"
 #include "lib/common.h"
