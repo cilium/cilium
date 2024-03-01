@@ -148,7 +148,7 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --cluster-name=${{ env.clusterName }} \
+            --helm-set=cluster.name=${{ env.clusterName }} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \

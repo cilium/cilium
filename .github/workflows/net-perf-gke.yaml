@@ -127,7 +127,7 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --cluster-name=${{ env.clusterName }}-${{ matrix.index }} \
+            --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.index }} \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set=debug.enabled=false \
             --helm-set=bpf.monitorAggregation=maximum \
