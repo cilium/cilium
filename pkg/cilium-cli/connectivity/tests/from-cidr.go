@@ -8,8 +8,8 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 )
 
 // FromCIDRToPod generates HTTP request from each node without Cilium to the

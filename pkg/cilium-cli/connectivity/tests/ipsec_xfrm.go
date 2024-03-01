@@ -13,9 +13,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 )
 
 const (

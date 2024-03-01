@@ -15,8 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/jsonpath"
 
-	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 )
 
 func CiliumHealth() check.Scenario {

@@ -625,13 +625,13 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 
 	// Tests with deny policy
 	ct.NewTest("echo-ingress-from-other-client-deny").
-		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
-		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
+		WithCiliumPolicy(allowAllEgressPolicyYAML).                 // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML).                // Allow all ingress traffic
 		WithCiliumPolicy(echoIngressFromOtherClientDenyPolicyYAML). // Deny other client contact echo
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
 			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
-			tests.ClientToClient(),                                     // Client to client should be allowed
+			tests.ClientToClient(), // Client to client should be allowed
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") &&
@@ -643,8 +643,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 
 	// This policy denies ICMP ingress to client only from other client
 	ct.NewTest("client-ingress-from-other-client-icmp-deny").
-		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
-		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
+		WithCiliumPolicy(allowAllEgressPolicyYAML).      // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML).     // Allow all ingress traffic
 		WithCiliumPolicy(echoIngressICMPDenyPolicyYAML). // Deny ICMP traffic from client to another client
 		WithFeatureRequirements(features.RequireEnabled(features.ICMPPolicy)).
 		WithScenarios(
@@ -661,8 +661,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 
 	// This policy denies port 8080 from client to echo
 	ct.NewTest("client-egress-to-echo-deny").
-		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
-		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
+		WithCiliumPolicy(allowAllEgressPolicyYAML).         // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML).        // Allow all ingress traffic
 		WithCiliumPolicy(clientEgressToEchoDenyPolicyYAML). // Deny client to echo traffic via port 8080
 		WithScenarios(
 			tests.ClientToClient(), // Client to client traffic should be allowed
@@ -679,7 +679,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 
 	// This policy denies port http-8080 from client to echo, but allows traffic from client2 to echo
 	ct.NewTest("client-ingress-to-echo-named-port-deny").
-		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
+		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
 		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
 		WithCiliumPolicy(clientEgressToEchoDenyNamedPortPolicyYAML).
 		WithScenarios(
@@ -696,7 +696,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 
 	// This policy denies port 8080 from client to echo (using label match expression), but allows traffic from client2
 	ct.NewTest("client-egress-to-echo-expression-deny").
-		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
+		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
 		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
 		WithCiliumPolicy(clientEgressToEchoExpressionDenyPolicyYAML).
 		WithScenarios(
@@ -713,7 +713,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 
 	// This policy denies port 8080 from client with service account selector to echo, but not from client2
 	ct.NewTest("client-with-service-account-egress-to-echo-deny").
-		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
+		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
 		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
 		WithCiliumPolicy(clientWithServiceAccountEgressToEchoDenyPolicyYAML).
 		WithScenarios(
@@ -730,7 +730,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 
 	// This policy denies port 8080 from client to endpoint with service account, but not from client2
 	ct.NewTest("client-egress-to-echo-service-account-deny").
-		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
+		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
 		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
 		WithCiliumPolicy(clientEgressToEchoServiceAccountDenyPolicyYAML).
 		WithScenarios(
@@ -910,7 +910,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 	// Test L7 HTTP with different methods introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-method").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).      // DNS resolution only
 		WithCiliumPolicy(clientEgressL7HTTPMethodPolicyYAML). // L7 allow policy with HTTP introspection (POST only)
 		WithScenarios(
 			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"})),
@@ -918,7 +918,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
-				(a.Destination().Port() == 8080) {             // port 8080 is traffic to echo Pod.
+				(a.Destination().Port() == 8080) { // port 8080 is traffic to echo Pod.
 				if a.Destination().HasLabel("other", "echo") { //we are POSTing only other echo
 					egress = check.ResultOK
 
@@ -936,7 +936,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 	// Test L7 HTTP introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).                     // DNS resolution only
 		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPPolicyYAML"]). // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPod(),
@@ -964,7 +964,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, extra Hooks) error {
 	// Test L7 HTTP named port introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-named-port").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).                              // DNS resolution only
 		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPNamedPortPolicyYAML"]). // L7 allow policy with HTTP introspection (named port)
 		WithScenarios(
 			tests.PodToPod(),

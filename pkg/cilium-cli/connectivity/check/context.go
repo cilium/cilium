@@ -17,10 +17,10 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/perf/common"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/perf/common"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"

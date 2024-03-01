@@ -13,11 +13,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 )
 
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
