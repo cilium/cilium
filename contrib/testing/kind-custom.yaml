@@ -6,3 +6,5 @@ operator:
   prometheus:
     enabled: true
 
+bpf:
+  lbMapMax: 50

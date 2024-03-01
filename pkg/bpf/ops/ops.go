@@ -56,7 +56,11 @@ func NewMapOps[KV KeyValue](m *ebpf.Map) (reconciler.Operations[KV], reconciler.
 
 // Delete implements reconciler.Operations.
 func (ops *mapOps[KV]) Delete(ctx context.Context, txn statedb.ReadTxn, entry KV) error {
-	return ops.m.Delete(entry.Key())
+	err := ops.m.Delete(entry.Key())
+	if errors.Is(err, ebpf.ErrKeyNotExist) {
+		err = nil
+	}
+	return err
 }
 
 type keyIterator struct {
@@ -106,6 +110,9 @@ func (ops *mapOps[KV]) Prune(ctx context.Context, txn statedb.ReadTxn, iter stat
 	for key := mapIter.Next(); key != nil; key = mapIter.Next() {
 		if !desiredKeys.Has(string(key)) {
 			if err := ops.m.Delete(key); err != nil {
+				if errors.Is(err, ebpf.ErrKeyNotExist) {
+					err = nil
+				}
 				errs = append(errs, err)
 			}
 		}

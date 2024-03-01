@@ -253,7 +253,7 @@ func (k *Service4Key) String() string {
 	if kHost.Scope == loadbalancer.ScopeInternal {
 		addr += "/i"
 	}
-	addr += fmt.Sprintf("[%d]", k.BackendSlot)
+	addr += fmt.Sprintf(" [%d]", k.BackendSlot)
 	return addr
 }
 
