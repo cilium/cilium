@@ -36,7 +36,7 @@ const (
 
 var (
 	nodeSvcLBClass                 = annotation.Prefix + "/node"
-	nodeSvcLBMatchLabelsAnnotation = annotation.Prefix + ".nodeipam" + "/match-labels"
+	nodeSvcLBMatchLabelsAnnotation = annotation.Prefix + ".nodeipam" + "/match-node-labels"
 )
 
 type nodeSvcLBReconciler struct {

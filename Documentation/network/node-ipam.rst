@@ -58,7 +58,7 @@ Selecting Nodes to Listen for Gateway and Ingress Requests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To restrict the Nodes that should listen for incoming traffic for Cilium Gateway and Ingress Services, you may
-add an annotation, ``io.cilium.nodeipam/match-labels``, to the Service. The value of the annotation is a
+add an annotation, ``io.cilium.nodeipam/match-node-labels``, to the Service. The value of the annotation is a
 `Label Selector <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors>`__.
 
 .. note::
@@ -71,7 +71,7 @@ Control Plane nodes, you may use this Label Selector: ``!node-role.kubernetes.io
 The Annotation would be configured as follows:
 
 .. parsed-literal::
-   io.cilium.nodeipam/match-labels="!node-role.kubernetes.io/control-plane"
+   io.cilium.nodeipam/match-node-labels="!node-role.kubernetes.io/control-plane"
 
 To verify the Nodes that would be returned, run the following command in your terminal:
 
@@ -86,7 +86,7 @@ It is possible to combine multiple filters. For example, Nodes where the Label `
 following filter Annotation:
 
 .. parsed-literal::
-   io.cilium.nodeipam/match-labels="beehive.local/node in (hive1,hive2),honey=yes,!bears"
+   io.cilium.nodeipam/match-node-labels="beehive.local/node in (hive1,hive2),honey=yes,!bears"
 
 Configuring Resources for Node IPAM LB
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -105,7 +105,7 @@ Use the following Helm values to enabling Node IPAM LB for the shared Ingress Co
        loadBalancerClass: io.cilium/node
    # Annotation is optional. Enable to limit Load Balancer IPs to the desired Nodes.
        annotations:
-         io.cilium.nodeipam/match-labels: "..."
+         io.cilium.nodeipam/match-node-labels: "..."
 
 Node IPAM LB support for dedicated Ingress resources is not directly possible.
 See the Warning in the Gateway API section below for more details on how to possibly configure a policy to update
@@ -137,6 +137,6 @@ To specify the annotation to be automatically copied from the Gateway to Service
    # Annotation is optional. Enable to limit Load Balancer IPs to the desired Nodes.
      infrastructure:
        annotations:
-         io.cilium.nodeipam/match-labels: "..."
+         io.cilium.nodeipam/match-node-labels: "..."
      listeners:
      - <...snip...>
