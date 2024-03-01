@@ -4,7 +4,8 @@ on:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   container-scan:
@@ -26,7 +27,7 @@ jobs:
           - image: {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile}
             branch: v1.14
     steps:
-      - name: Checkout
+      - name: Checkout branch
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ matrix.branch }}
@@ -43,9 +44,15 @@ jobs:
           file: ${{ matrix.image.dockerfile }}
           build-args: |
             OPERATOR_VARIANT=${{ matrix.image.name }}
+      - name: Checkout VEX data
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          path: vex
+          sparse-checkout: .openvex.json
       - name: Scan image
         uses: anchore/scan-action@3343887d815d7b07465f6fdcd395bd66508d486a # v3.6.4
         with:
           image: ${{ matrix.image.name }}:${{ matrix.branch }}
           output-format: table
-          severity-cutoff: critical
+          severity-cutoff: high
+          vex: vex/.openvex.json
