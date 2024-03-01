@@ -4,9 +4,7 @@
 package manager
 
 import (
-	"net"
-
-	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -21,9 +19,6 @@ var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
-	cell.ProvidePrivate(func(iptMgr *iptables.Manager) ipsetManager {
-		return iptMgr
-	}),
 	cell.Metric(NewNodeMetrics),
 )
 
@@ -75,15 +70,10 @@ type NodeManager interface {
 	StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors)
 }
 
-type ipsetManager interface {
-	AddToNodeIpset(nodeIP net.IP)
-	RemoveFromNodeIpset(nodeIP net.IP)
-}
-
 func newAllNodeManager(
 	lc cell.Lifecycle,
 	ipCache *ipcache.IPCache,
-	ipsetMgr ipsetManager,
+	ipsetMgr ipset.Manager,
 	nodeMetrics *nodeMetrics,
 	healthScope cell.Scope,
 ) (NodeManager, error) {
