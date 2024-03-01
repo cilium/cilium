@@ -38,10 +38,9 @@ each other via that port.
 
 .. note::
 
-   When running in the tunneling mode (i.e. with VXLAN or Geneve), pod to pod
-   traffic will be sent only over the WireGuard tunnel which means that the
-   packets will bypass the other tunnel, and thus they will be encapsulated
-   only once.
+   When running in tunnel routing mode, pod to pod traffic is encapsulated twice.
+   It is first sent to the VXLAN / Geneve tunnel interface, and then subsequently
+   also encapsulated by the WireGuard tunnel.
 
 Enable WireGuard in Cilium
 ==========================
