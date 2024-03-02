@@ -893,9 +893,6 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 			if err != nil {
 				return fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
 			}
-			if port.ContainerPort < 1 || port.ContainerPort > 65535 {
-				return fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
-			}
 			if k8sMeta.NamedPorts == nil {
 				k8sMeta.NamedPorts = make(ciliumTypes.NamedPortMap)
 			}
