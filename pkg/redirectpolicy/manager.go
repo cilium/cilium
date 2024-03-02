@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -829,13 +828,6 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) (*podMe
 		for _, port := range container.Ports {
 			if port.Name == "" {
 				continue
-			}
-			if _, err := u8proto.ParseProtocol(string(port.Protocol)); err != nil {
-				return nil, err
-			}
-			if port.ContainerPort < 1 || port.ContainerPort > 65535 {
-				return nil, fmt.Errorf("invalid container port %v",
-					port.ContainerPort)
 			}
 			namedPorts[port.Name] = lb.NewL4Addr(lb.L4Type(port.Protocol),
 				uint16(port.ContainerPort))
