@@ -10,24 +10,33 @@ import (
 
 	mycmd "github.com/cilium/cilium/pkg/cilium-cli/cmd"
 	"github.com/cilium/cilium/pkg/cilium-cli/hooks"
-
-	cmd3 "github.com/cilium/cilium-cli/internal/cli/cmd"
-	"github.com/cilium/cilium-cli/k8s"
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium-cli/k8s"
 )
 
-// The following variables are set at compile time via LDFLAGS.
 var (
+	ContextName string
+	Namespace   string
+	K8sClient   *k8s.Client
 	// Version is the software version.
+	// The following variables are set at compile time via LDFLAGS.
 	Version string
 )
 
+// SetVersion sets the Version string for the cilium command
+func SetVersion(v string) {
+	Version = v
+}
+
+// NewDefaultCiliumCommand returns a new "cilium" cli cobra command without any additional hooks.
 func NewDefaultCiliumCommand() *cobra.Command {
 	return NewCiliumCommand(&hooks.NopHooks{})
 }
 
+// NewCiliumCommand returns a new "cilium" cli cobra command registering all the additional input hooks.
 func NewCiliumCommand(hooks hooks.Hooks) *cobra.Command {
-	cmd3.SetVersion(Version)
+	SetVersion(Version)
 	cmd := &cobra.Command{
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// return early for commands that don't require the kubernetes client
@@ -39,15 +48,15 @@ func NewCiliumCommand(hooks hooks.Hooks) *cobra.Command {
 				return nil
 			}
 
-			c, err := k8s.NewClient(cmd3.ContextName, "", cmd3.Namespace)
+			c, err := k8s.NewClient(ContextName, "", Namespace)
 			if err != nil {
 				return fmt.Errorf("unable to create Kubernetes client: %w", err)
 			}
 
-			cmd3.K8sClient = c
-			ctx := context.WithValue(context.Background(), "namespace", cmd3.Namespace)
-			ctx = context.WithValue(ctx, "k8sClient", cmd3.K8sClient)
-			ctx = context.WithValue(ctx, "version", cmd3.Version)
+			K8sClient = c
+			ctx := context.WithValue(context.Background(), "namespace", Namespace)
+			ctx = context.WithValue(ctx, "k8sClient", K8sClient)
+			ctx = context.WithValue(ctx, "version", Version)
 			cmd.SetContext(ctx)
 			return nil
 		},
@@ -77,10 +86,22 @@ cilium connectivity test`,
 		SilenceUsage:  true, // avoid showing help when usage is correct but an error occurred
 	}
 
-	cmd.PersistentFlags().StringVar(&cmd3.ContextName, "context", "", "Kubernetes configuration context")
-	cmd.PersistentFlags().StringVarP(&cmd3.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
+	cmd.PersistentFlags().StringVar(&ContextName, "context", "", "Kubernetes configuration context")
+	cmd.PersistentFlags().StringVarP(&Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 
 	cmd.AddCommand(
+		newCmdBgp(),
+		newCmdClusterMesh(),
+		newCmdConfig(),
+		newCmdContext(),
+		newCmdEncrypt(),
+		newCmdHubble(),
+		newCmdStatus(),
+		newCmdSysdump(hooks),
+		newCmdVersion(),
+		newCmdInstallWithHelm(),
+		newCmdUninstallWithHelm(),
+		newCmdUpgradeWithHelm(),
 		mycmd.NewCmdConnectivity(hooks),
 	)
 

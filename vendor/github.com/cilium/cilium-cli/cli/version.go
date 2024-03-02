@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package cli
 
 import (
 	"fmt"
@@ -33,7 +33,7 @@ func getLatestStableVersion() string {
 func newCmdVersion() *cobra.Command {
 	var clientOnly bool
 	cmd := &cobra.Command{
-		Use:   "Version",
+		Use:   "version",
 		Short: "Display detailed Version information",
 		Long:  `Displays information about the Version of this software.`,
 		RunE: func(_ *cobra.Command, _ []string) error {

@@ -19,7 +19,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/cilium/checkmate v1.0.3
-	github.com/cilium/cilium-cli v0.15.24-0.20240302041548-520dae90179b
+	github.com/cilium/cilium-cli v0.15.24-0.20240302045218-1a35fa2753f3
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
 	github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
