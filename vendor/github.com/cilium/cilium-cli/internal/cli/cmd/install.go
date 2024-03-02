@@ -23,7 +23,7 @@ import (
 
 // addCommonInstallFlags adds install command flags that are shared between classic and helm mode.
 func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
-	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
+	cmd.Flags().StringVar(&params.Version, "Version", defaults.Version, "Cilium Version to install")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | native | aws-eni | gke | azure | aks-byocni } (default: autodetected).")
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
 	cmd.Flags().StringSliceVar(&params.NodesWithoutCilium, "nodes-without-cilium", []string{}, "List of node names on which Cilium will not be installed. In Helm installation mode, it's assumed that the no-schedule node labels are present and that the infrastructure has set up routing on these nodes to provide connectivity within the Cilium cluster.")
@@ -31,7 +31,7 @@ func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
 
 // addCommonUninstallFlags adds uninstall command flags that are shared between classic and helm mode.
 func addCommonUninstallFlags(cmd *cobra.Command, params *install.UninstallParameters) {
-	cmd.Flags().StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to uninstall Cilium tests from")
+	cmd.Flags().StringVar(&params.TestNamespace, "test-Namespace", defaults.ConnectivityCheckNamespace, "Namespace to uninstall Cilium tests from")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for uninstallation to have completed")
 }
 
@@ -67,17 +67,17 @@ cilium install
 cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {
 				params.Writer = io.Discard
 			}
-			installer, err := install.NewK8sInstaller(k8sClient, params)
+			installer, err := install.NewK8sInstaller(K8sClient, params)
 			if err != nil {
 				return err
 			}
 			cmd.SilenceUsage = true
-			if err := installer.InstallWithHelm(context.Background(), k8sClient); err != nil {
+			if err := installer.InstallWithHelm(context.Background(), K8sClient); err != nil {
 				fatalf("Unable to install Cilium: %s", err)
 			}
 			return nil
@@ -100,21 +100,21 @@ func newCmdUninstallWithHelm() *cobra.Command {
 		Short: "Uninstall Cilium using Helm",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 			ctx := context.Background()
 
-			cc, err := check.NewConnectivityTest(k8sClient, check.Parameters{
-				CiliumNamespace: namespace,
+			cc, err := check.NewConnectivityTest(K8sClient, check.Parameters{
+				CiliumNamespace: Namespace,
 				TestNamespace:   params.TestNamespace,
 				FlowValidation:  check.FlowValidationModeDisabled,
 				Writer:          os.Stdout,
-			}, version)
+			}, Version)
 			if err != nil {
 				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s\n", err)
 			} else {
 				cc.UninstallResources(ctx, params.Wait)
 			}
-			uninstaller := install.NewK8sUninstaller(k8sClient, params)
+			uninstaller := install.NewK8sUninstaller(K8sClient, params)
 			var hubbleParams = hubble.Parameters{
 				Writer: os.Stdout,
 				Wait:   true,
@@ -125,11 +125,11 @@ func newCmdUninstallWithHelm() *cobra.Command {
 				// This guarantees that relay Pods are terminated fully via Cilium (rather than
 				// being queued for deletion) before uninstalling Cilium.
 				fmt.Printf("⌛ Waiting to disable Hubble before uninstalling Cilium\n")
-				if err := hubble.DisableWithHelm(ctx, k8sClient, hubbleParams); err != nil {
+				if err := hubble.DisableWithHelm(ctx, K8sClient, hubbleParams); err != nil {
 					fmt.Printf("⚠ ️ Failed to disable Hubble prior to uninstalling Cilium: %s\n", err)
 				}
 				for {
-					ps, err := k8sClient.ListPods(ctx, hubbleParams.Namespace, metav1.ListOptions{
+					ps, err := K8sClient.ListPods(ctx, hubbleParams.Namespace, metav1.ListOptions{
 						LabelSelector: "k8s-app=hubble-relay",
 					})
 					if err != nil {
@@ -150,7 +150,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 			}
 
 			fmt.Printf("⌛ Uninstalling Cilium\n")
-			if err := uninstaller.UninstallWithHelm(ctx, k8sClient.HelmActionConfig); err != nil {
+			if err := uninstaller.UninstallWithHelm(ctx, K8sClient.HelmActionConfig); err != nil {
 				fatalf("Unable to uninstall Cilium:  %s", err)
 			}
 			return nil
@@ -172,25 +172,25 @@ func newCmdUpgradeWithHelm() *cobra.Command {
 		Long: `Upgrade a Cilium installation in a Kubernetes cluster using Helm
 
 Examples:
-# Upgrade Cilium to the latest version, using existing parameters
+# Upgrade Cilium to the latest Version, using existing parameters
 cilium upgrade
 
-# Upgrade Cilium to the latest version and also set cluster name and ID
+# Upgrade Cilium to the latest Version and also set cluster name and ID
 # to prepare for multi-cluster capabilities.
 cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {
 				params.Writer = io.Discard
 			}
-			installer, err := install.NewK8sInstaller(k8sClient, params)
+			installer, err := install.NewK8sInstaller(K8sClient, params)
 			if err != nil {
 				return err
 			}
 			cmd.SilenceUsage = true
-			if err := installer.UpgradeWithHelm(context.Background(), k8sClient); err != nil {
+			if err := installer.UpgradeWithHelm(context.Background(), K8sClient); err != nil {
 				fatalf("Unable to upgrade Cilium: %s", err)
 			}
 			return nil

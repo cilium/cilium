@@ -12,17 +12,17 @@ import (
 func newCmdContext() *cobra.Command {
 	cmd := &cobra.Command{
 		Run: func(_ *cobra.Command, _ []string) {
-			if contextName == "" {
-				contextName = k8sClient.RawConfig.CurrentContext
+			if ContextName == "" {
+				ContextName = K8sClient.RawConfig.CurrentContext
 			}
 
-			fmt.Printf("Context: %s\n", contextName)
+			fmt.Printf("Context: %s\n", ContextName)
 
-			if context, ok := k8sClient.RawConfig.Contexts[contextName]; ok {
+			if context, ok := K8sClient.RawConfig.Contexts[ContextName]; ok {
 				fmt.Printf("Cluster: %s\n", context.Cluster)
 				fmt.Printf("Auth: %s\n", context.AuthInfo)
 
-				if cluster, ok := k8sClient.RawConfig.Clusters[context.Cluster]; ok {
+				if cluster, ok := K8sClient.RawConfig.Clusters[context.Cluster]; ok {
 					fmt.Printf("Host: %s\n", cluster.Server)
 					fmt.Printf("TLS server name: %s\n", cluster.TLSServerName)
 					fmt.Printf("CA path: %s\n", cluster.CertificateAuthority)
@@ -30,7 +30,7 @@ func newCmdContext() *cobra.Command {
 					fmt.Printf("❌ Cluster %s not found in configuration\n", context.Cluster)
 				}
 			} else {
-				fmt.Printf("❌ Context %s not found in configuration\n", contextName)
+				fmt.Printf("❌ Context %s not found in configuration\n", ContextName)
 			}
 		},
 		Use:   "context",

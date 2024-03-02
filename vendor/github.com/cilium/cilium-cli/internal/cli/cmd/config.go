@@ -39,9 +39,9 @@ func newCmdConfigView() *cobra.Command {
 		Short: "View current configuration",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 
-			check := config.NewK8sConfig(k8sClient, params)
+			check := config.NewK8sConfig(K8sClient, params)
 			out, err := check.View(context.Background())
 			if err != nil {
 				fatalf("Unable to view config:  %s", err)
@@ -65,9 +65,9 @@ func newCmdConfigSet() *cobra.Command {
 		Long:  ``,
 		Args:  cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 
-			check := config.NewK8sConfig(k8sClient, params)
+			check := config.NewK8sConfig(K8sClient, params)
 			if err := check.Set(context.Background(), args[0], args[1], params); err != nil {
 				fatalf("Unable to set config:  %s", err)
 			}
@@ -90,9 +90,9 @@ func newCmdConfigDelete() *cobra.Command {
 		Long:  ``,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 
-			check := config.NewK8sConfig(k8sClient, params)
+			check := config.NewK8sConfig(K8sClient, params)
 			if err := check.Delete(context.Background(), args[0], params); err != nil {
 				fatalf("Unable to delete config:  %s", err)
 			}

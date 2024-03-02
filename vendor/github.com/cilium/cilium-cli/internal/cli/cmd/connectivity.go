@@ -51,7 +51,7 @@ var tests []string
 
 func RunE(hooks Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		params.CiliumNamespace = namespace
+		params.CiliumNamespace = Namespace
 
 		for _, test := range tests {
 			if strings.HasPrefix(test, "!") {
@@ -70,7 +70,7 @@ func RunE(hooks Hooks) func(cmd *cobra.Command, args []string) error {
 		}
 
 		// Instantiate the test harness.
-		cc, err := check.NewConnectivityTest(k8sClient, params, version)
+		cc, err := check.NewConnectivityTest(K8sClient, params, Version)
 		if err != nil {
 			return err
 		}
@@ -132,19 +132,19 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.AgentDaemonSetName, "agent-daemonset-name", defaults.AgentDaemonSetName, "Name of cilium agent daemonset")
 	cmd.Flags().StringVar(&params.AgentPodSelector, "agent-pod-selector", defaults.AgentPodSelector, "Label on cilium-agent pods to select with")
 	cmd.Flags().StringVar(&params.CiliumPodSelector, "cilium-pod-selector", defaults.CiliumPodSelector, "Label selector matching all cilium-related pods")
-	cmd.Flags().Var(&params.NamespaceAnnotations, "namespace-annotations", "Add annotations to the connectivity test namespace, e.g. '{\"foo\":\"bar\"}'")
-	cmd.Flags().MarkHidden("namespace-annotations")
+	cmd.Flags().Var(&params.NamespaceAnnotations, "Namespace-annotations", "Add annotations to the connectivity test Namespace, e.g. '{\"foo\":\"bar\"}'")
+	cmd.Flags().MarkHidden("Namespace-annotations")
 	cmd.Flags().MarkHidden("deployment-pod-annotations")
 	cmd.Flags().StringVar(&params.MultiCluster, "multi-cluster", "", "Test across clusters to given context")
 	cmd.Flags().StringSliceVar(&tests, "test", []string{}, "Run tests that match one of the given regular expressions, skip tests by starting the expression with '!', target Scenarios with e.g. '/pod-to-cidr'")
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
 	cmd.Flags().BoolVar(&params.AllFlows, "all-flows", false, "Print all flows during flow validation")
-	cmd.Flags().StringVar(&params.AssumeCiliumVersion, "assume-cilium-version", "", "Assume Cilium version for connectivity tests")
+	cmd.Flags().StringVar(&params.AssumeCiliumVersion, "assume-cilium-Version", "", "Assume Cilium Version for connectivity tests")
 	cmd.Flags().BoolVarP(&params.Verbose, "verbose", "v", false, "Show informational messages and don't buffer any lines")
 	cmd.Flags().BoolVarP(&params.Timestamp, "timestamp", "t", false, "Show timestamp in messages")
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
 	cmd.Flags().StringVar(&params.ExternalTarget, "external-target", "one.one.one.one", "Domain name to use as external target in connectivity tests")
-	cmd.Flags().StringVar(&params.ExternalTargetCANamespace, "external-target-ca-namespace", defaults.ConnectivityCheckNamespace, "Namespace of the CA secret for the external target. Used by client-egress-l7-tls test cases.")
+	cmd.Flags().StringVar(&params.ExternalTargetCANamespace, "external-target-ca-Namespace", defaults.ConnectivityCheckNamespace, "Namespace of the CA secret for the external target. Used by client-egress-l7-tls test cases.")
 	cmd.Flags().StringVar(&params.ExternalTargetCAName, "external-target-ca-name", "cabundle", "Name of the CA secret for the external target. Used by client-egress-l7-tls test cases.")
 	cmd.Flags().StringVar(&params.ExternalCIDR, "external-cidr", "1.0.0.0/8", "CIDR to use as external target in connectivity tests")
 	cmd.Flags().StringVar(&params.ExternalIP, "external-ip", "1.1.1.1", "IP to use as external target in connectivity tests")
@@ -159,9 +159,9 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.K8sLocalHostTest, "k8s-localhost-test", false, "Include tests which test for policy enforcement for the k8s entity on its own host")
 	cmd.Flags().MarkHidden("k8s-localhost-test")
 
-	cmd.Flags().StringVar(&params.K8sVersion, "k8s-version", "", "Kubernetes server version in case auto-detection fails")
+	cmd.Flags().StringVar(&params.K8sVersion, "k8s-Version", "", "Kubernetes server Version in case auto-detection fails")
 	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
-	cmd.Flags().StringVar(&params.HelmValuesSecretName, "helm-values-secret-name", defaults.HelmValuesSecretName, "Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed")
+	cmd.Flags().StringVar(&params.HelmValuesSecretName, "helm-values-secret-name", defaults.HelmValuesSecretName, "Secret name to store the auto-generated helm values file. The Namespace is the same as where Cilium will be installed")
 
 	cmd.Flags().StringVar(&params.CurlImage, "curl-image", defaults.ConnectivityCheckAlpineCurlImage, "Image path to use for curl")
 	cmd.Flags().StringVar(&params.JSONMockImage, "json-mock-image", defaults.ConnectivityCheckJSONMockImage, "Image path to use for json mock")
@@ -176,7 +176,7 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 
 	cmd.Flags().BoolVar(&params.CollectSysdumpOnFailure, "collect-sysdump-on-failure", false, "Collect sysdump after a test fails")
 
-	InitSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-", hooks)
+	sysdump.InitSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-", hooks)
 
 	cmd.Flags().BoolVar(&params.IncludeConnDisruptTest, "include-conn-disrupt-test", false, "Include conn disrupt test")
 	cmd.Flags().BoolVar(&params.ConnDisruptTestSetup, "conn-disrupt-test-setup", false, "Set up conn disrupt test dependencies")
@@ -233,6 +233,6 @@ func newCmdConnectivityPerf(hooks Hooks) *cobra.Command {
 func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	flags.StringToStringVar(&params.NodeSelector, "node-selector", map[string]string{}, "Restrict connectivity pods to nodes matching this label")
-	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in")
+	flags.StringVar(&params.TestNamespace, "test-Namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in")
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
 }

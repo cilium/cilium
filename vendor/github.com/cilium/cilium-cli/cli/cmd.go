@@ -5,13 +5,15 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"os"
 
+	mycmd "github.com/cilium/cilium/pkg/cilium-cli/cmd"
+	"github.com/cilium/cilium/pkg/cilium-cli/hooks"
+
+	cmd3 "github.com/cilium/cilium-cli/internal/cli/cmd"
+	"github.com/cilium/cilium-cli/k8s"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
-	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/internal/cli/cmd"
-	"github.com/cilium/cilium-cli/sysdump"
 )
 
 // The following variables are set at compile time via LDFLAGS.
@@ -22,32 +24,69 @@ var (
 
 // NewDefaultCiliumCommand returns a new "cilium" cli cobra command without any additional hooks.
 func NewDefaultCiliumCommand() *cobra.Command {
-	return NewCiliumCommand(&NopHooks{})
+	return NewCiliumCommand(&hooks.NopHooks{})
 }
 
-// NewCiliumCommand returns a new "cilium" cli cobra command registering all the additional input hooks.
-func NewCiliumCommand(hooks Hooks) *cobra.Command {
-	cmd.SetVersion(Version)
-	return cmd.NewCiliumCommand(hooks)
-}
+func NewCiliumCommand(hooks hooks.Hooks) *cobra.Command {
+	cmd3.SetVersion(Version)
+	cmd := &cobra.Command{
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// return early for commands that don't require the kubernetes client
+			if !cmd.HasParent() { // this is root
+				return nil
+			}
+			switch cmd.Name() {
+			case "completion", "help":
+				return nil
+			}
 
-type (
-	Hooks                 = cmd.Hooks
-	ConnectivityTestHooks = cmd.ConnectivityTestHooks
-	SysdumpHooks          = cmd.SysdumpHooks
-)
+			c, err := k8s.NewClient(cmd3.ContextName, "", cmd3.Namespace)
+			if err != nil {
+				return fmt.Errorf("unable to create Kubernetes client: %w", err)
+			}
 
-type NopHooks struct{}
+			cmd3.K8sClient = c
+			ctx := context.WithValue(context.Background(), "namespace", cmd3.Namespace)
+			ctx = context.WithValue(ctx, "k8sClient", cmd3.K8sClient)
+			ctx = context.WithValue(ctx, "version", cmd3.Version)
+			cmd.SetContext(ctx)
+			return nil
+		},
+		Run: func(cmd *cobra.Command, _ []string) {
+			cmd.Help()
+		},
+		Use:   "cilium",
+		Short: "Cilium provides eBPF-based Networking, Security, and Observability for Kubernetes",
+		Long: `CLI to install, manage, & troubleshooting Cilium clusters running Kubernetes.
 
-var _ Hooks = &NopHooks{}
+Cilium is a CNI for Kubernetes to provide secure network connectivity and
+load-balancing with excellent visibility using eBPF
 
-func (*NopHooks) AddSysdumpFlags(*pflag.FlagSet)                                  {}
-func (*NopHooks) AddSysdumpTasks(*sysdump.Collector) error                        { return nil }
-func (*NopHooks) AddConnectivityTestFlags(*pflag.FlagSet)                         {}
-func (*NopHooks) AddConnectivityTests(*check.ConnectivityTest) error              { return nil }
-func (*NopHooks) DetectFeatures(context.Context, *check.ConnectivityTest) error   { return nil }
-func (*NopHooks) SetupAndValidate(context.Context, *check.ConnectivityTest) error { return nil }
+Examples:
+# Install Cilium in current Kubernetes context
+cilium install
 
-func InitSysdumpFlags(command *cobra.Command, options *sysdump.Options, optionPrefix string, hooks cmd.SysdumpHooks) {
-	cmd.InitSysdumpFlags(command, options, optionPrefix, hooks)
+# Check status of Cilium
+cilium status
+
+# Enable the Hubble observability layer
+cilium hubble enable
+
+# Perform a connectivity test
+cilium connectivity test`,
+		SilenceErrors: true, // this is being handled in main, no need to duplicate error messages
+		SilenceUsage:  true, // avoid showing help when usage is correct but an error occurred
+	}
+
+	cmd.PersistentFlags().StringVar(&cmd3.ContextName, "context", "", "Kubernetes configuration context")
+	cmd.PersistentFlags().StringVarP(&cmd3.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
+
+	cmd.AddCommand(
+		mycmd.NewCmdConnectivity(hooks),
+	)
+
+	cmd.SetOut(os.Stdout)
+	cmd.SetErr(os.Stderr)
+
+	return cmd
 }

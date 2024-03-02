@@ -38,11 +38,11 @@ func newCmdPortForwardCommand() *cobra.Command {
 		Short: "Forward the relay port to the local machine",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Context = contextName
-			params.Namespace = namespace
+			params.Context = ContextName
+			params.Namespace = Namespace
 			ctx := context.Background()
 
-			if err := params.RelayPortForwardCommand(ctx, k8sClient); err != nil {
+			if err := params.RelayPortForwardCommand(ctx, K8sClient); err != nil {
 				fatalf("Unable to port forward: %s", err)
 			}
 			return nil
@@ -63,8 +63,8 @@ func newCmdUI() *cobra.Command {
 		Use:   "ui",
 		Short: "Open the Hubble UI",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Context = contextName
-			params.Namespace = namespace
+			params.Context = ContextName
+			params.Namespace = Namespace
 
 			if err := params.UIPortForwardCommand(); err != nil {
 				fatalf("Unable to port forward: %s", err)
@@ -95,9 +95,9 @@ func newCmdHubbleEnableWithHelm() *cobra.Command {
 		Short: "Enable Hubble observability using Helm",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 			ctx := context.Background()
-			if err := hubble.EnableWithHelm(ctx, k8sClient, params); err != nil {
+			if err := hubble.EnableWithHelm(ctx, K8sClient, params); err != nil {
 				fatalf("Unable to enable Hubble: %s", err)
 			}
 			return nil
@@ -118,9 +118,9 @@ func newCmdHubbleDisableWithHelm() *cobra.Command {
 		Short: "Disable Hubble observability using Helm",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 			ctx := context.Background()
-			if err := hubble.DisableWithHelm(ctx, k8sClient, params); err != nil {
+			if err := hubble.DisableWithHelm(ctx, K8sClient, params); err != nil {
 				fatalf("Unable to disable Hubble:  %s", err)
 			}
 			return nil

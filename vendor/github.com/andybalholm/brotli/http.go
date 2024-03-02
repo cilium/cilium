@@ -11,15 +11,7 @@ import (
 // the Accept-Encoding header, sets the Content-Encoding header, and returns a
 // WriteCloser that implements that compression. The Close method must be called
 // before the current HTTP handler returns.
-//
-// Due to https://github.com/golang/go/issues/31753, the response will not be
-// compressed unless you set a Content-Type header before you call
-// HTTPCompressor.
 func HTTPCompressor(w http.ResponseWriter, r *http.Request) io.WriteCloser {
-	if w.Header().Get("Content-Type") == "" {
-		return nopCloser{w}
-	}
-
 	if w.Header().Get("Vary") == "" {
 		w.Header().Set("Vary", "Accept-Encoding")
 	}
@@ -28,7 +20,7 @@ func HTTPCompressor(w http.ResponseWriter, r *http.Request) io.WriteCloser {
 	switch encoding {
 	case "br":
 		w.Header().Set("Content-Encoding", "br")
-		return NewWriter(w)
+		return NewWriterV2(w, DefaultCompression)
 	case "gzip":
 		w.Header().Set("Content-Encoding", "gzip")
 		return gzip.NewWriter(w)
@@ -180,8 +172,8 @@ func init() {
 		var t octetType
 		isCtl := c <= 31 || c == 127
 		isChar := 0 <= c && c <= 127
-		isSeparator := strings.IndexRune(" \t\"(),/:;<=>?@[]\\{}", rune(c)) >= 0
-		if strings.IndexRune(" \t\r\n", rune(c)) >= 0 {
+		isSeparator := strings.ContainsRune(" \t\"(),/:;<=>?@[]\\{}", rune(c))
+		if strings.ContainsRune(" \t\r\n", rune(c)) {
 			t |= isSpace
 		}
 		if isChar && !isCtl && !isSeparator {

@@ -36,9 +36,9 @@ func newCmdBgpPeers() *cobra.Command {
 		Short:   "Lists BGP peering state",
 		Long:    "This command lists the BGP state from all nodes in the cluster - requires cilium >= v1.13.2",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
+			params.CiliumNamespace = Namespace
 
-			s := bgp.NewStatus(k8sClient, params)
+			s := bgp.NewStatus(K8sClient, params)
 			err := s.GetPeeringState(context.Background())
 			if err != nil {
 				fatalf("Unable to get peering status: %s", err)
@@ -73,9 +73,9 @@ func newCmdBgpRoutes() *cobra.Command {
     cilium bgp routes advertised ipv4 unicast peer 10.0.0.1`,
 
 		RunE: func(_ *cobra.Command, args []string) error {
-			params.CiliumNamespace = namespace
+			params.CiliumNamespace = Namespace
 
-			s := bgp.NewStatus(k8sClient, params)
+			s := bgp.NewStatus(K8sClient, params)
 			err := s.GetRoutes(context.Background(), args)
 			if err != nil {
 				fatalf("Unable to get BGP routes: %s", err)

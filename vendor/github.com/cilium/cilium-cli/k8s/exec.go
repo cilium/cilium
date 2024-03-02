@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/k8s/internal"
 )
 
 type ExecResult struct {
@@ -57,7 +57,7 @@ func (c *Client) execInPodWithWriters(connCtx, killCmdCtx context.Context, p Exe
 	var stdin io.ReadCloser
 	if p.TTY {
 		// CtrlCReader sends Ctrl-C/D sequence if context is cancelled
-		stdin = utils.NewCtrlCReader(killCmdCtx)
+		stdin = internal.NewCtrlCReader(killCmdCtx)
 		// Graceful close of stdin once we are done, no Ctrl-C is sent
 		// if execution finishes before the context expires.
 		defer stdin.Close()

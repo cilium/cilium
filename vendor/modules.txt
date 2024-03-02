@@ -87,9 +87,10 @@ github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils
 github.com/aliyun/alibaba-cloud-sdk-go/services/ecs
 github.com/aliyun/alibaba-cloud-sdk-go/services/vpc
-# github.com/andybalholm/brotli v1.0.1
-## explicit; go 1.12
+# github.com/andybalholm/brotli v1.1.0
+## explicit; go 1.13
 github.com/andybalholm/brotli
+github.com/andybalholm/brotli/matchfinder
 # github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df
 ## explicit; go 1.18
 github.com/antlr/antlr4/runtime/Go/antlr/v4
@@ -227,7 +228,7 @@ github.com/cilium/charts
 # github.com/cilium/checkmate v1.0.3
 ## explicit; go 1.11
 github.com/cilium/checkmate
-# github.com/cilium/cilium-cli v0.15.24-0.20240301004821-74ed94d621b7
+# github.com/cilium/cilium-cli v0.15.24-0.20240301232707-b227c2e85212
 ## explicit; go 1.22.0
 github.com/cilium/cilium-cli/bgp
 github.com/cilium/cilium-cli/cli
@@ -250,6 +251,7 @@ github.com/cilium/cilium-cli/internal/cli/cmd
 github.com/cilium/cilium-cli/internal/helm
 github.com/cilium/cilium-cli/internal/utils
 github.com/cilium/cilium-cli/k8s
+github.com/cilium/cilium-cli/k8s/internal
 github.com/cilium/cilium-cli/status
 github.com/cilium/cilium-cli/sysdump
 github.com/cilium/cilium-cli/utils/features
@@ -821,7 +823,7 @@ github.com/go-openapi/runtime/yamlpc
 # github.com/go-openapi/spec v0.20.14
 ## explicit; go 1.19
 github.com/go-openapi/spec
-# github.com/go-openapi/strfmt v0.22.0
+# github.com/go-openapi/strfmt v0.22.1
 ## explicit; go 1.19
 github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.22.9
@@ -1511,8 +1513,8 @@ go.etcd.io/etcd/client/v3/credentials
 go.etcd.io/etcd/client/v3/internal/endpoint
 go.etcd.io/etcd/client/v3/internal/resolver
 go.etcd.io/etcd/client/v3/yaml
-# go.mongodb.org/mongo-driver v1.13.1
-## explicit; go 1.13
+# go.mongodb.org/mongo-driver v1.14.0
+## explicit; go 1.18
 go.mongodb.org/mongo-driver/bson
 go.mongodb.org/mongo-driver/bson/bsoncodec
 go.mongodb.org/mongo-driver/bson/bsonoptions

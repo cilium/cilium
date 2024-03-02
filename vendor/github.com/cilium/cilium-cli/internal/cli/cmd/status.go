@@ -24,9 +24,9 @@ func newCmdStatus() *cobra.Command {
 		Short: "Display status",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
+			params.Namespace = Namespace
 
-			collector, err := status.NewK8sStatusCollector(k8sClient, params)
+			collector, err := status.NewK8sStatusCollector(K8sClient, params)
 			if err != nil {
 				return err
 			}

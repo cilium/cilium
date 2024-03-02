@@ -13,7 +13,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cilium/cilium-cli/cli"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/sysdump"
@@ -194,7 +193,7 @@ func newCmdConnectivityTest(hooks hooks.Hooks) *cobra.Command {
 
 	cmd.Flags().BoolVar(&params.CollectSysdumpOnFailure, "collect-sysdump-on-failure", false, "Collect sysdump after a test fails")
 
-	cli.InitSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-", hooks)
+	sysdump.InitSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-", hooks)
 
 	cmd.Flags().BoolVar(&params.IncludeConnDisruptTest, "include-conn-disrupt-test", false, "Include conn disrupt test")
 	cmd.Flags().BoolVar(&params.ConnDisruptTestSetup, "conn-disrupt-test-setup", false, "Set up conn disrupt test dependencies")
