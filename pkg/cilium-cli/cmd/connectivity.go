@@ -55,15 +55,15 @@ var tests []string
 func RunE(hooks hooks.Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		fmt.Println("michi says hello")
-		namespace, ok := cmd.Context().Value("namespace").(string)
+		namespace, ok := cmd.Context().Value(defaults.NamespaceKey{}).(string)
 		if !ok {
 			return fmt.Errorf("failed to get namespace")
 		}
-		k8sClient, ok := cmd.Context().Value("k8sClient").(*k8s.Client)
+		k8sClient, ok := cmd.Context().Value(defaults.K8sClientKey{}).(*k8s.Client)
 		if !ok {
 			return fmt.Errorf("failed to get k8sClient")
 		}
-		version, ok := cmd.Context().Value("version").(string)
+		version, ok := cmd.Context().Value(defaults.VersionKey{}).(string)
 		if !ok {
 			return fmt.Errorf("failed to get version")
 		}

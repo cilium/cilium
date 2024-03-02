@@ -228,7 +228,7 @@ github.com/cilium/charts
 # github.com/cilium/checkmate v1.0.3
 ## explicit; go 1.11
 github.com/cilium/checkmate
-# github.com/cilium/cilium-cli v0.15.24-0.20240302045218-1a35fa2753f3
+# github.com/cilium/cilium-cli v0.15.24-0.20240302051350-9e920187bb7c
 ## explicit; go 1.22.0
 github.com/cilium/cilium-cli/bgp
 github.com/cilium/cilium-cli/cli

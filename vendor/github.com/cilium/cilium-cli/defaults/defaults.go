@@ -157,3 +157,7 @@ var (
 		"inbound_state_invalid",  // XfrmInStateInvalid
 	}
 )
+
+type NamespaceKey struct{}
+type K8sClientKey struct{}
+type VersionKey struct{}

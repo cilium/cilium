@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/cilium-cli/hooks"
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
 )
 
@@ -54,9 +55,9 @@ func NewCiliumCommand(hooks hooks.Hooks) *cobra.Command {
 			}
 
 			K8sClient = c
-			ctx := context.WithValue(context.Background(), "namespace", Namespace)
-			ctx = context.WithValue(ctx, "k8sClient", K8sClient)
-			ctx = context.WithValue(ctx, "version", Version)
+			ctx := context.WithValue(context.Background(), defaults.NamespaceKey{}, Namespace)
+			ctx = context.WithValue(ctx, defaults.K8sClientKey{}, K8sClient)
+			ctx = context.WithValue(ctx, defaults.VersionKey{}, Version)
 			cmd.SetContext(ctx)
 			return nil
 		},
