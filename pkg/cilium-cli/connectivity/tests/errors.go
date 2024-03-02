@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium-cli/utils/features"
+
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 )
 

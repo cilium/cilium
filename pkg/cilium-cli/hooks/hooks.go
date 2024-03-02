@@ -5,10 +5,12 @@ package hooks
 
 import (
 	"context"
+
 	"github.com/cilium/cilium-cli/sysdump"
+	"github.com/spf13/pflag"
+
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity"
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
-	"github.com/spf13/pflag"
 )
 
 // ConnectivityTestHooks to extend cilium-cli with additional connectivity tests and related flags.

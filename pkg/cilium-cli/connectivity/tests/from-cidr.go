@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium-cli/utils/features"
+
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 )
 

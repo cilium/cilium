@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/utils/features"
+
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 )
 

@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium-cli/utils/features"
+
 	"github.com/cilium/cilium/pkg/cilium-cli/connectivity/check"
 )
 
