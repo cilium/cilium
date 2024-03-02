@@ -22,7 +22,6 @@ var (
 	Version string
 )
 
-// NewDefaultCiliumCommand returns a new "cilium" cli cobra command without any additional hooks.
 func NewDefaultCiliumCommand() *cobra.Command {
 	return NewCiliumCommand(&hooks.NopHooks{})
 }

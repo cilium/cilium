@@ -16,7 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/pkg/cilium-cli/hooks"
+	"github.com/spf13/pflag"
+
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/workerpool"
 	"github.com/mholt/archiver/v3"
@@ -2533,7 +2534,7 @@ func detectCiliumSPIRENamespace(k KubernetesClient) (string, error) {
 	return "", fmt.Errorf("failed to detect Cilium SPIRE namespace, could not find Cilium SPIRE installation in namespaces: %v", DefaultCiliumSPIRENamespaces)
 }
 
-func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string, hooks hooks.SysdumpHooks) {
+func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string, hooks SysdumpHooks) {
 	cmd.Flags().StringVar(&options.CiliumLabelSelector,
 		optionPrefix+"cilium-label-selector", DefaultCiliumLabelSelector,
 		"The labels used to target Cilium pods")
@@ -2638,4 +2639,10 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 		"Retry limit for file copying operations. If set to -1, copying will be retried indefinitely. Useful for collecting sysdump while on unreliable connection.")
 
 	hooks.AddSysdumpFlags(cmd.Flags())
+}
+
+// SysdumpHooks to extend cilium-cli with additional sysdump tasks and related flags.
+type SysdumpHooks interface {
+	AddSysdumpFlags(flags *pflag.FlagSet)
+	AddSysdumpTasks(*Collector) error
 }

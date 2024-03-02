@@ -23,7 +23,7 @@ var (
 	}
 )
 
-func newCmdSysdump(hooks SysdumpHooks) *cobra.Command {
+func newCmdSysdump(hooks sysdump.SysdumpHooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sysdump",
 		Short: "Collects information required to troubleshoot issues with Cilium and Hubble",

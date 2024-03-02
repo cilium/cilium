@@ -228,21 +228,12 @@ github.com/cilium/charts
 # github.com/cilium/checkmate v1.0.3
 ## explicit; go 1.11
 github.com/cilium/checkmate
-# github.com/cilium/cilium-cli v0.15.24-0.20240301232707-b227c2e85212
+# github.com/cilium/cilium-cli v0.15.24-0.20240302041548-520dae90179b
 ## explicit; go 1.22.0
 github.com/cilium/cilium-cli/bgp
 github.com/cilium/cilium-cli/cli
 github.com/cilium/cilium-cli/clustermesh
 github.com/cilium/cilium-cli/config
-github.com/cilium/cilium-cli/connectivity
-github.com/cilium/cilium-cli/connectivity/check
-github.com/cilium/cilium-cli/connectivity/filters
-github.com/cilium/cilium-cli/connectivity/internal/junit
-github.com/cilium/cilium-cli/connectivity/internal/sniff
-github.com/cilium/cilium-cli/connectivity/manifests/template
-github.com/cilium/cilium-cli/connectivity/perf/benchmarks/netperf
-github.com/cilium/cilium-cli/connectivity/perf/common
-github.com/cilium/cilium-cli/connectivity/tests
 github.com/cilium/cilium-cli/defaults
 github.com/cilium/cilium-cli/encrypt
 github.com/cilium/cilium-cli/hubble
