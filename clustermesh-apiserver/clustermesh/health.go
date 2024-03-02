@@ -48,21 +48,5 @@ func healthEndpoints(params healthParameters) []health.EndpointFunc {
 				}
 			},
 		},
-		{
-			Path: "/healthz",
-			HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
-				statusCode := http.StatusOK
-				reply := "ok"
-
-				if _, err := params.Clientset.Discovery().ServerVersion(); err != nil {
-					statusCode = http.StatusInternalServerError
-					reply = err.Error()
-				}
-				w.WriteHeader(statusCode)
-				if _, err := w.Write([]byte(reply)); err != nil {
-					params.Logger.WithError(err).Error("Failed to respond to /healthz request")
-				}
-			},
-		},
 	}
 }
