@@ -144,11 +144,12 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@31978899db553757c996f0ec5b207a8a16f40869 # v0.15.23
+        uses: cilium/cilium-cli@4bafb53ef9564c86e31abd3885a9c27ca96ac75e
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
+          go-mod-directory: '.'
 
       - name: Install Cilium
         id: install-cilium
