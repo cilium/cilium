@@ -48,7 +48,7 @@ linters-settings:
     enable:
       - nilness
   goimports:
-    local-prefixes: github.com/cilium/cilium
+    local-prefixes: github.com/cilium/cilium/
   staticcheck:
     go: "1.20"
   unused:
