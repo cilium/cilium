@@ -19,7 +19,9 @@ import (
 // the Reserved Instance Marketplace, they will be excluded from these results.
 // This is to ensure that you do not purchase your own Reserved Instances. For more
 // information, see Reserved Instance Marketplace (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html)
-// in the Amazon EC2 User Guide.
+// in the Amazon EC2 User Guide. The order of the elements in the response,
+// including those within nested structures, might vary. Applications should not
+// assume the elements appear in a particular order.
 func (c *Client) DescribeReservedInstancesOfferings(ctx context.Context, params *DescribeReservedInstancesOfferingsInput, optFns ...func(*Options)) (*DescribeReservedInstancesOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesOfferingsInput{}

@@ -12,8 +12,9 @@ import (
 	"time"
 )
 
-// Describes Capacity Block offerings available for purchase. With Capacity
-// Blocks, you purchase a specific instance type for a period of time.
+// Describes Capacity Block offerings available for purchase in the Amazon Web
+// Services Region that you're currently using. With Capacity Blocks, you purchase
+// a specific instance type for a period of time.
 func (c *Client) DescribeCapacityBlockOfferings(ctx context.Context, params *DescribeCapacityBlockOfferingsInput, optFns ...func(*Options)) (*DescribeCapacityBlockOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeCapacityBlockOfferingsInput{}

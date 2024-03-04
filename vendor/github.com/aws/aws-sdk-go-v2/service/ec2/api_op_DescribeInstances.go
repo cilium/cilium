@@ -31,7 +31,9 @@ import (
 // rare case where an Availability Zone is experiencing a service disruption and
 // you specify instance IDs that are in the affected zone, or do not specify any
 // instance IDs at all, the call fails. If you describe instances and specify only
-// instance IDs that are in an unaffected zone, the call works normally.
+// instance IDs that are in an unaffected zone, the call works normally. The order
+// of the elements in the response, including those within nested structures, might
+// vary. Applications should not assume the elements appear in a particular order.
 func (c *Client) DescribeInstances(ctx context.Context, params *DescribeInstancesInput, optFns ...func(*Options)) (*DescribeInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeInstancesInput{}

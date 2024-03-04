@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"mime"
 	"net/http"
@@ -142,7 +143,7 @@ func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
 				return nil, fmt.Errorf("tls client priv key: %v", err)
 			}
 		default:
-			return nil, fmt.Errorf("tls client priv key: unsupported key type")
+			return nil, errors.New("tls client priv key: unsupported key type")
 		}
 
 		block = pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes}

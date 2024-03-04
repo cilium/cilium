@@ -4480,7 +4480,12 @@ type FleetLaunchTemplateOverrides struct {
 	// The ID of the subnet in which to launch the instances.
 	SubnetId *string
 
-	// The number of units provided by the specified instance type.
+	// The number of units provided by the specified instance type. When specifying
+	// weights, the price used in the lowest-price and price-capacity-optimized
+	// allocation strategies is per unit hour (where the instance price is divided by
+	// the specified weight). However, if all the specified weights are above the
+	// requested TargetCapacity , resulting in only 1 instance being launched, the
+	// price used is per instance hour.
 	WeightedCapacity *float64
 
 	noSmithyDocumentSerde
@@ -4534,7 +4539,12 @@ type FleetLaunchTemplateOverridesRequest struct {
 	// ID.
 	SubnetId *string
 
-	// The number of units provided by the specified instance type.
+	// The number of units provided by the specified instance type. When specifying
+	// weights, the price used in the lowest-price and price-capacity-optimized
+	// allocation strategies is per unit hour (where the instance price is divided by
+	// the specified weight). However, if all the specified weights are above the
+	// requested TargetCapacity , resulting in only 1 instance being launched, the
+	// price used is per instance hour.
 	WeightedCapacity *float64
 
 	noSmithyDocumentSerde
@@ -6774,14 +6784,16 @@ type InstanceRequirements struct {
 	// previous generation instance types that match your attributes. When Amazon EC2
 	// selects instance types with your attributes, it will exclude instance types
 	// whose price exceeds your specified threshold. The parameter accepts an integer,
-	// which Amazon EC2 interprets as a percentage. To indicate no price protection
-	// threshold, specify a high value, such as 999999 . If you set DesiredCapacityType
-	// to vcpu or memory-mib , the price protection threshold is based on the per vCPU
-	// or per memory price instead of the per instance price. Only one of
+	// which Amazon EC2 interprets as a percentage. If you set DesiredCapacityType to
+	// vcpu or memory-mib , the price protection threshold is based on the per vCPU or
+	// per memory price instead of the per instance price. Only one of
 	// SpotMaxPricePercentageOverLowestPrice or
 	// MaxSpotPriceAsPercentageOfOptimalOnDemandPrice can be specified. If you don't
-	// specify either, then SpotMaxPricePercentageOverLowestPrice is used and the
-	// value for that parameter defaults to 100 .
+	// specify either, Amazon EC2 will automatically apply optimal price protection to
+	// consistently select from a wide range of instance types. To indicate no price
+	// protection threshold for Spot Instances, meaning you want to consider all
+	// instance types that match your attributes, include one of these parameters and
+	// specify a high value, such as 999999 .
 	MaxSpotPriceAsPercentageOfOptimalOnDemandPrice *int32
 
 	// The minimum and maximum amount of memory per vCPU, in GiB. Default: No minimum
@@ -6827,16 +6839,18 @@ type InstanceRequirements struct {
 	// priced previous generation instance types that match your attributes. When
 	// Amazon EC2 selects instance types with your attributes, it will exclude instance
 	// types whose Spot price exceeds your specified threshold. The parameter accepts
-	// an integer, which Amazon EC2 interprets as a percentage. To indicate no price
-	// protection threshold, specify a high value, such as 999999 . If you set
+	// an integer, which Amazon EC2 interprets as a percentage. If you set
 	// TargetCapacityUnitType to vcpu or memory-mib , the price protection threshold is
 	// applied based on the per-vCPU or per-memory price instead of the per-instance
 	// price. This parameter is not supported for GetSpotPlacementScores (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html)
 	// and GetInstanceTypesFromInstanceRequirements (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements.html)
 	// . Only one of SpotMaxPricePercentageOverLowestPrice or
 	// MaxSpotPriceAsPercentageOfOptimalOnDemandPrice can be specified. If you don't
-	// specify either, then SpotMaxPricePercentageOverLowestPrice is used and the
-	// value for that parameter defaults to 100 . Default: 100
+	// specify either, Amazon EC2 will automatically apply optimal price protection to
+	// consistently select from a wide range of instance types. To indicate no price
+	// protection threshold for Spot Instances, meaning you want to consider all
+	// instance types that match your attributes, include one of these parameters and
+	// specify a high value, such as 999999 . Default: 100
 	SpotMaxPricePercentageOverLowestPrice *int32
 
 	// The minimum and maximum amount of total local storage, in GB. Default: No
@@ -7019,14 +7033,16 @@ type InstanceRequirementsRequest struct {
 	// previous generation instance types that match your attributes. When Amazon EC2
 	// selects instance types with your attributes, it will exclude instance types
 	// whose price exceeds your specified threshold. The parameter accepts an integer,
-	// which Amazon EC2 interprets as a percentage. To indicate no price protection
-	// threshold, specify a high value, such as 999999 . If you set DesiredCapacityType
-	// to vcpu or memory-mib , the price protection threshold is based on the per vCPU
-	// or per memory price instead of the per instance price. Only one of
+	// which Amazon EC2 interprets as a percentage. If you set DesiredCapacityType to
+	// vcpu or memory-mib , the price protection threshold is based on the per vCPU or
+	// per memory price instead of the per instance price. Only one of
 	// SpotMaxPricePercentageOverLowestPrice or
 	// MaxSpotPriceAsPercentageOfOptimalOnDemandPrice can be specified. If you don't
-	// specify either, then SpotMaxPricePercentageOverLowestPrice is used and the
-	// value for that parameter defaults to 100 .
+	// specify either, Amazon EC2 will automatically apply optimal price protection to
+	// consistently select from a wide range of instance types. To indicate no price
+	// protection threshold for Spot Instances, meaning you want to consider all
+	// instance types that match your attributes, include one of these parameters and
+	// specify a high value, such as 999999 .
 	MaxSpotPriceAsPercentageOfOptimalOnDemandPrice *int32
 
 	// The minimum and maximum amount of memory per vCPU, in GiB. Default: No minimum
@@ -7071,16 +7087,18 @@ type InstanceRequirementsRequest struct {
 	// priced previous generation instance types that match your attributes. When
 	// Amazon EC2 selects instance types with your attributes, it will exclude instance
 	// types whose Spot price exceeds your specified threshold. The parameter accepts
-	// an integer, which Amazon EC2 interprets as a percentage. To indicate no price
-	// protection threshold, specify a high value, such as 999999 . If you set
+	// an integer, which Amazon EC2 interprets as a percentage. If you set
 	// TargetCapacityUnitType to vcpu or memory-mib , the price protection threshold is
 	// applied based on the per-vCPU or per-memory price instead of the per-instance
 	// price. This parameter is not supported for GetSpotPlacementScores (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html)
 	// and GetInstanceTypesFromInstanceRequirements (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements.html)
 	// . Only one of SpotMaxPricePercentageOverLowestPrice or
 	// MaxSpotPriceAsPercentageOfOptimalOnDemandPrice can be specified. If you don't
-	// specify either, then SpotMaxPricePercentageOverLowestPrice is used and the
-	// value for that parameter defaults to 100 . Default: 100
+	// specify either, Amazon EC2 will automatically apply optimal price protection to
+	// consistently select from a wide range of instance types. To indicate no price
+	// protection threshold for Spot Instances, meaning you want to consider all
+	// instance types that match your attributes, include one of these parameters and
+	// specify a high value, such as 999999 . Default: 100
 	SpotMaxPricePercentageOverLowestPrice *int32
 
 	// The minimum and maximum amount of total local storage, in GB. Default: No
@@ -7302,7 +7320,7 @@ type InstanceTopology struct {
 	InstanceType *string
 
 	// The network nodes. The nodes are hashed based on your account. Instances from
-	// different accounts running under the same droplet will return a different hashed
+	// different accounts running under the same server will return a different hashed
 	// list of strings.
 	NetworkNodes []string
 
@@ -9393,7 +9411,12 @@ type LaunchTemplateOverrides struct {
 	// The ID of the subnet in which to launch the instances.
 	SubnetId *string
 
-	// The number of units provided by the specified instance type.
+	// The number of units provided by the specified instance type. When specifying
+	// weights, the price used in the lowest-price and price-capacity-optimized
+	// allocation strategies is per unit hour (where the instance price is divided by
+	// the specified weight). However, if all the specified weights are above the
+	// requested TargetCapacity , resulting in only 1 instance being launched, the
+	// price used is per instance hour.
 	WeightedCapacity *float64
 
 	noSmithyDocumentSerde
@@ -13669,10 +13692,10 @@ type ScheduledInstancesNetworkInterface struct {
 	// VPC. The public IPv4 address can only be assigned to a network interface for
 	// eth0, and can only be assigned to a new network interface, not an existing one.
 	// You cannot specify more than one network interface in the request. If launching
-	// into a default subnet, the default value is true . Starting on February 1, 2024,
-	// Amazon Web Services will charge for all public IPv4 addresses, including public
-	// IPv4 addresses associated with running instances and Elastic IP addresses. For
-	// more information, see the Public IPv4 Address tab on the Amazon VPC pricing page (http://aws.amazon.com/vpc/pricing/)
+	// into a default subnet, the default value is true . Amazon Web Services charges
+	// for all public IPv4 addresses, including public IPv4 addresses associated with
+	// running instances and Elastic IP addresses. For more information, see the Public
+	// IPv4 Address tab on the Amazon VPC pricing page (http://aws.amazon.com/vpc/pricing/)
 	// .
 	AssociatePublicIpAddress *bool
 

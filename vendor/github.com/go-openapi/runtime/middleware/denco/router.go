@@ -2,6 +2,7 @@
 package denco
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -71,7 +72,7 @@ func (rt *Router) Lookup(path string) (data interface{}, params Params, found bo
 func (rt *Router) Build(records []Record) error {
 	statics, params := makeRecords(records)
 	if len(params) > MaxSize {
-		return fmt.Errorf("denco: too many records")
+		return errors.New("denco: too many records")
 	}
 	if rt.SizeHint < 0 {
 		rt.SizeHint = 0
@@ -331,7 +332,7 @@ func (da *doubleArray) arrange(records []*record, idx, depth int, usedBase map[i
 	}
 	base = da.findBase(siblings, idx, usedBase)
 	if base > MaxSize {
-		return -1, nil, nil, fmt.Errorf("denco: too many elements of internal slice")
+		return -1, nil, nil, errors.New("denco: too many elements of internal slice")
 	}
 	da.setBase(idx, base)
 	return base, siblings, leaf, err
@@ -392,7 +393,7 @@ func makeSiblings(records []*record, depth int) (sib []sibling, leaf *record, er
 		case pc == c:
 			continue
 		default:
-			return nil, nil, fmt.Errorf("denco: BUG: routing table hasn't been sorted")
+			return nil, nil, errors.New("denco: BUG: routing table hasn't been sorted")
 		}
 		if n > 0 {
 			sib[n-1].end = i
