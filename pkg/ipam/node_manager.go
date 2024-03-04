@@ -165,15 +165,16 @@ type nodeMap map[string]*Node
 
 // NodeManager manages all nodes with ENIs
 type NodeManager struct {
-	mutex              lock.RWMutex
-	nodes              nodeMap
-	instancesAPI       AllocationImplementation
-	k8sAPI             CiliumNodeGetterUpdater
-	metricsAPI         MetricsAPI
-	parallelWorkers    int64
-	releaseExcessIPs   bool
-	stableInstancesAPI bool
-	prefixDelegation   bool
+	mutex                lock.RWMutex
+	nodes                nodeMap
+	instancesAPI         AllocationImplementation
+	k8sAPI               CiliumNodeGetterUpdater
+	metricsAPI           MetricsAPI
+	parallelWorkers      int64
+	releaseExcessIPs     bool
+	stableInstancesAPI   bool
+	prefixDelegation     bool
+	ipv6PrefixDelegation bool
 }
 
 func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
@@ -186,19 +187,20 @@ func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) t
 
 // NewNodeManager returns a new NodeManager
 func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI,
-	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation bool) (*NodeManager, error) {
+	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation, ipv6prefixDelegation bool) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1
 	}
 
 	mngr := &NodeManager{
-		nodes:            nodeMap{},
-		instancesAPI:     instancesAPI,
-		k8sAPI:           k8sAPI,
-		metricsAPI:       metrics,
-		parallelWorkers:  parallelWorkers,
-		releaseExcessIPs: releaseExcessIPs,
-		prefixDelegation: prefixDelegation,
+		nodes:                nodeMap{},
+		instancesAPI:         instancesAPI,
+		k8sAPI:               k8sAPI,
+		metricsAPI:           metrics,
+		parallelWorkers:      parallelWorkers,
+		releaseExcessIPs:     releaseExcessIPs,
+		prefixDelegation:     prefixDelegation,
+		ipv6PrefixDelegation: ipv6prefixDelegation,
 	}
 
 	// Assume readiness, the initial blocking resync in Start() will update
@@ -288,6 +290,13 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 				ipsMarkedForRelease: make(map[string]time.Time),
 				ipReleaseStatus:     make(map[string]string),
 			},
+		}
+
+		if n.ipv6PrefixDelegation {
+			node.ipv6Alloc = ipAllocAttrs{
+				ipsMarkedForRelease: make(map[string]time.Time),
+				ipReleaseStatus:     make(map[string]string),
+			}
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -423,7 +432,7 @@ func (n *NodeManager) Get(nodeName string) *Node {
 	return node
 }
 
-// GetNodesByIPWatermarkLocked returns all nodes that require addresses to be
+// GetNodesByIPWatermarkLocked returns all nodes that require IPv4 addresses to be
 // allocated or released, sorted by the number of addresses needed to be operated
 // in descending order. Number of addresses to be released is negative value
 // so that nodes with IP deficit are resolved first
