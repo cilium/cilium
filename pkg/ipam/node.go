@@ -86,7 +86,8 @@ type Node struct {
 	// ipv4Alloc represents IPv4-specific allocation attributes for this node
 	ipv4Alloc ipAllocAttrs
 
-	// TODO: Add support for IPv6 allocation: https://github.com/cilium/cilium/issues/19251
+	// ipv6Alloc represents IPv6-specific allocation attributes for this node
+	ipv6Alloc ipAllocAttrs
 
 	// resyncNeeded is set to the current time when a resync with the EC2
 	// API is required. The timestamp is required to ensure that this is

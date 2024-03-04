@@ -79,7 +79,7 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		return nil, fmt.Errorf("unable to create Azure client: %w", err)
 	}
 	instances := azureIPAM.NewInstancesManager(azureClient)
-	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics, operatorOption.Config.ParallelAllocWorkers, false, false)
+	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics, operatorOption.Config.ParallelAllocWorkers, false, false, false)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize Azure node manager: %w", err)
 	}
