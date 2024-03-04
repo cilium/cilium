@@ -3,4 +3,4 @@
 package ec2
 
 // goModuleVersion is the tagged release for this module
-const goModuleVersion = "1.149.1"
+const goModuleVersion = "1.149.2"

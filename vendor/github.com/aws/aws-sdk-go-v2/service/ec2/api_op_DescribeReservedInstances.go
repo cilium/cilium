@@ -13,7 +13,9 @@ import (
 
 // Describes one or more of the Reserved Instances that you purchased. For more
 // information about Reserved Instances, see Reserved Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-on-demand-reserved-instances.html)
-// in the Amazon EC2 User Guide.
+// in the Amazon EC2 User Guide. The order of the elements in the response,
+// including those within nested structures, might vary. Applications should not
+// assume the elements appear in a particular order.
 func (c *Client) DescribeReservedInstances(ctx context.Context, params *DescribeReservedInstancesInput, optFns ...func(*Options)) (*DescribeReservedInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesInput{}

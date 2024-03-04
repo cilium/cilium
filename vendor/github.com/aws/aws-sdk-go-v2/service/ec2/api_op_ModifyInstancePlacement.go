@@ -15,7 +15,7 @@ import (
 // following:
 //   - Modify the affinity between an instance and a Dedicated Host (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-overview.html)
 //     . When affinity is set to host and the instance is not associated with a
-//     specific Dedicated Host, the next time the instance is launched, it is
+//     specific Dedicated Host, the next time the instance is started, it is
 //     automatically associated with the host on which it lands. If the instance is
 //     restarted or rebooted, this relationship persists.
 //   - Change the Dedicated Host with which an instance is associated.
@@ -49,7 +49,8 @@ type ModifyInstancePlacementInput struct {
 	// This member is required.
 	InstanceId *string
 
-	// The affinity setting for the instance.
+	// The affinity setting for the instance. For more information, see Host affinity (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-dedicated-hosts-work.html#dedicated-hosts-affinity)
+	// in the Amazon EC2 User Guide.
 	Affinity types.Affinity
 
 	// The Group Id of a placement group. You must specify the Placement Group Group

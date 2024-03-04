@@ -91,7 +91,7 @@ type DescribeSpotPriceHistoryInput struct {
 type DescribeSpotPriceHistoryOutput struct {
 
 	// The token to include in another request to get the next page of items. This
-	// value is null when there are no more items to return.
+	// value is an empty string ( "" ) or null when there are no more items to return.
 	NextToken *string
 
 	// The historical Spot prices.
