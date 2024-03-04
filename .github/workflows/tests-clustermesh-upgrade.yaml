@@ -231,7 +231,8 @@ jobs:
 
       # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
       # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
-      # Additionally, this is also required to workaround #23283.
+      # Additionally, this is also required to workaround
+      # https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247.
       - name: Configure the coredns nameservers
         run: |
           COREDNS_PATCH="
