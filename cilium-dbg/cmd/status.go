@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -17,6 +18,9 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
+	"github.com/cilium/cilium/pkg/healthv2"
+	healthTypes "github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // statusCmd represents the daemon_status command
@@ -104,8 +108,27 @@ func statusDaemon() {
 			}
 		}
 		if healthEnabled {
+			table := statedb.NewRemoteTable[healthTypes.Status](client, "health")
+			ss := []healthTypes.Status{}
+			iter, errChan := table.LowerBound(context.Background(), healthv2.PrimaryIndex.Query("agent"))
+
+			if iter != nil {
+				err := statedb.ProcessEach[healthTypes.Status](
+					iter,
+					func(obj healthTypes.Status, rev statedb.Revision) error {
+						ss = append(ss, obj)
+						return nil
+					})
+				if err != nil {
+					return
+				}
+			}
+			if err := <-errChan; err != nil {
+				Fatalf("Failed while streaming remote health data table: %s", err)
+			}
+
 			healthPkg.GetAndFormatHealthStatus(w, true, allHealth, healthLines)
-			healthPkg.GetAndFormatModulesHealth(w, client.Daemon, allHealth)
+			healthPkg.GetAndFormatModulesHealth(w, ss, allHealth)
 		} else {
 			fmt.Fprint(w, "Cluster health:\t\tProbe disabled\n")
 		}

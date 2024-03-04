@@ -127,9 +127,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// /healthz/
 	out.DaemonGetHealthzHandler = wrapAPIHandler(dp, getHealthzHandler)
 
-	// /heath
-	out.DaemonGetHealthHandler = wrapAPIHandler(dp, getHealthHandler)
-
 	// /cluster/nodes
 	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
 
