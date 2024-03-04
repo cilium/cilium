@@ -29,6 +29,8 @@ clustermesh:
       pullPolicy: Never
     service:
       nodePort: 32380
+    readinessProbe:
+      periodSeconds: 1
     kvstoremesh:
       readinessProbe:
         periodSeconds: 1

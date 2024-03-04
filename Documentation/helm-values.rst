@@ -640,6 +640,10 @@
      - The priority class to use for clustermesh-apiserver
      - string
      - ``""``
+   * - :spelling:ignore:`clustermesh.apiserver.readinessProbe`
+     - Configuration for the clustermesh-apiserver readiness probe.
+     - object
+     - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.replicas`
      - Number of replicas run for the clustermesh-apiserver deployment.
      - int
