@@ -265,13 +265,13 @@ func compareMetricFamilies(got, expected []*dto.MetricFamily, metricNames ...str
 // result.
 func compare(got, want []*dto.MetricFamily) error {
 	var gotBuf, wantBuf bytes.Buffer
-	enc := expfmt.NewEncoder(&gotBuf, expfmt.FmtText)
+	enc := expfmt.NewEncoder(&gotBuf, expfmt.NewFormat(expfmt.TypeTextPlain))
 	for _, mf := range got {
 		if err := enc.Encode(mf); err != nil {
 			return fmt.Errorf("encoding gathered metrics failed: %w", err)
 		}
 	}
-	enc = expfmt.NewEncoder(&wantBuf, expfmt.FmtText)
+	enc = expfmt.NewEncoder(&wantBuf, expfmt.NewFormat(expfmt.TypeTextPlain))
 	for _, mf := range want {
 		if err := enc.Encode(mf); err != nil {
 			return fmt.Errorf("encoding expected metrics failed: %w", err)
