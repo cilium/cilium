@@ -39,7 +39,7 @@ func (o *GetServiceIDReader) ReadResponse(response runtime.ClientResponse, consu
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /service/{id}] GetServiceID", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -80,11 +80,6 @@ func (o *GetServiceIDOK) IsServerError() bool {
 // IsCode returns true when this get service Id o k response a status code equal to that given
 func (o *GetServiceIDOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get service Id o k response
-func (o *GetServiceIDOK) Code() int {
-	return 200
 }
 
 func (o *GetServiceIDOK) Error() string {
@@ -147,11 +142,6 @@ func (o *GetServiceIDNotFound) IsServerError() bool {
 // IsCode returns true when this get service Id not found response a status code equal to that given
 func (o *GetServiceIDNotFound) IsCode(code int) bool {
 	return code == 404
-}
-
-// Code gets the status code for the get service Id not found response
-func (o *GetServiceIDNotFound) Code() int {
-	return 404
 }
 
 func (o *GetServiceIDNotFound) Error() string {

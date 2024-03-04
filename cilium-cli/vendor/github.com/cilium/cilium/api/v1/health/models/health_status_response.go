@@ -116,11 +116,6 @@ func (m *HealthStatusResponse) ContextValidate(ctx context.Context, formats strf
 func (m *HealthStatusResponse) contextValidateLocal(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Local != nil {
-
-		if swag.IsZero(m.Local) { // not required
-			return nil
-		}
-
 		if err := m.Local.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("local")
@@ -139,11 +134,6 @@ func (m *HealthStatusResponse) contextValidateNodes(ctx context.Context, formats
 	for i := 0; i < len(m.Nodes); i++ {
 
 		if m.Nodes[i] != nil {
-
-			if swag.IsZero(m.Nodes[i]) { // not required
-				return nil
-			}
-
 			if err := m.Nodes[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))

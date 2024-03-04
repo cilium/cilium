@@ -138,11 +138,6 @@ func (m *ProxyStatistics) ContextValidate(ctx context.Context, formats strfmt.Re
 func (m *ProxyStatistics) contextValidateStatistics(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Statistics != nil {
-
-		if swag.IsZero(m.Statistics) { // not required
-			return nil
-		}
-
 		if err := m.Statistics.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("statistics")

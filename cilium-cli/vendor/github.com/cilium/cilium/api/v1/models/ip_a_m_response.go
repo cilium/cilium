@@ -170,7 +170,6 @@ func (m *IPAMResponse) ContextValidate(ctx context.Context, formats strfmt.Regis
 func (m *IPAMResponse) contextValidateAddress(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Address != nil {
-
 		if err := m.Address.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("address")
@@ -187,7 +186,6 @@ func (m *IPAMResponse) contextValidateAddress(ctx context.Context, formats strfm
 func (m *IPAMResponse) contextValidateHostAddressing(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.HostAddressing != nil {
-
 		if err := m.HostAddressing.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-addressing")
@@ -204,11 +202,6 @@ func (m *IPAMResponse) contextValidateHostAddressing(ctx context.Context, format
 func (m *IPAMResponse) contextValidateIPV4(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.IPV4 != nil {
-
-		if swag.IsZero(m.IPV4) { // not required
-			return nil
-		}
-
 		if err := m.IPV4.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv4")
@@ -225,11 +218,6 @@ func (m *IPAMResponse) contextValidateIPV4(ctx context.Context, formats strfmt.R
 func (m *IPAMResponse) contextValidateIPV6(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.IPV6 != nil {
-
-		if swag.IsZero(m.IPV6) { // not required
-			return nil
-		}
-
 		if err := m.IPV6.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv6")

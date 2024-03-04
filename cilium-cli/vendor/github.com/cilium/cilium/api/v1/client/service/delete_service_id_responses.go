@@ -51,7 +51,7 @@ func (o *DeleteServiceIDReader) ReadResponse(response runtime.ClientResponse, co
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[DELETE /service/{id}] DeleteServiceID", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -91,11 +91,6 @@ func (o *DeleteServiceIDOK) IsServerError() bool {
 // IsCode returns true when this delete service Id o k response a status code equal to that given
 func (o *DeleteServiceIDOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the delete service Id o k response
-func (o *DeleteServiceIDOK) Code() int {
-	return 200
 }
 
 func (o *DeleteServiceIDOK) Error() string {
@@ -149,11 +144,6 @@ func (o *DeleteServiceIDForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
-// Code gets the status code for the delete service Id forbidden response
-func (o *DeleteServiceIDForbidden) Code() int {
-	return 403
-}
-
 func (o *DeleteServiceIDForbidden) Error() string {
 	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdForbidden ", 403)
 }
@@ -203,11 +193,6 @@ func (o *DeleteServiceIDNotFound) IsServerError() bool {
 // IsCode returns true when this delete service Id not found response a status code equal to that given
 func (o *DeleteServiceIDNotFound) IsCode(code int) bool {
 	return code == 404
-}
-
-// Code gets the status code for the delete service Id not found response
-func (o *DeleteServiceIDNotFound) Code() int {
-	return 404
 }
 
 func (o *DeleteServiceIDNotFound) Error() string {
@@ -260,11 +245,6 @@ func (o *DeleteServiceIDFailure) IsServerError() bool {
 // IsCode returns true when this delete service Id failure response a status code equal to that given
 func (o *DeleteServiceIDFailure) IsCode(code int) bool {
 	return code == 500
-}
-
-// Code gets the status code for the delete service Id failure response
-func (o *DeleteServiceIDFailure) Code() int {
-	return 500
 }
 
 func (o *DeleteServiceIDFailure) Error() string {

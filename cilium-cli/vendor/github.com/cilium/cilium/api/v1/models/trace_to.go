@@ -115,11 +115,6 @@ func (m *TraceTo) contextValidateDports(ctx context.Context, formats strfmt.Regi
 	for i := 0; i < len(m.Dports); i++ {
 
 		if m.Dports[i] != nil {
-
-			if swag.IsZero(m.Dports[i]) { // not required
-				return nil
-			}
-
 			if err := m.Dports[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("dports" + "." + strconv.Itoa(i))

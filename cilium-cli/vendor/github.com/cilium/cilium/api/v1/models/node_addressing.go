@@ -107,11 +107,6 @@ func (m *NodeAddressing) ContextValidate(ctx context.Context, formats strfmt.Reg
 func (m *NodeAddressing) contextValidateIPV4(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.IPV4 != nil {
-
-		if swag.IsZero(m.IPV4) { // not required
-			return nil
-		}
-
 		if err := m.IPV4.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv4")
@@ -128,11 +123,6 @@ func (m *NodeAddressing) contextValidateIPV4(ctx context.Context, formats strfmt
 func (m *NodeAddressing) contextValidateIPV6(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.IPV6 != nil {
-
-		if swag.IsZero(m.IPV6) { // not required
-			return nil
-		}
-
 		if err := m.IPV6.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv6")

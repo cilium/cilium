@@ -45,7 +45,7 @@ func (o *GetFqdnCacheReader) ReadResponse(response runtime.ClientResponse, consu
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /fqdn/cache] GetFqdnCache", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -86,11 +86,6 @@ func (o *GetFqdnCacheOK) IsServerError() bool {
 // IsCode returns true when this get fqdn cache o k response a status code equal to that given
 func (o *GetFqdnCacheOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get fqdn cache o k response
-func (o *GetFqdnCacheOK) Code() int {
-	return 200
 }
 
 func (o *GetFqdnCacheOK) Error() string {
@@ -154,11 +149,6 @@ func (o *GetFqdnCacheBadRequest) IsCode(code int) bool {
 	return code == 400
 }
 
-// Code gets the status code for the get fqdn cache bad request response
-func (o *GetFqdnCacheBadRequest) Code() int {
-	return 400
-}
-
 func (o *GetFqdnCacheBadRequest) Error() string {
 	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheBadRequest  %+v", 400, o.Payload)
 }
@@ -217,11 +207,6 @@ func (o *GetFqdnCacheNotFound) IsServerError() bool {
 // IsCode returns true when this get fqdn cache not found response a status code equal to that given
 func (o *GetFqdnCacheNotFound) IsCode(code int) bool {
 	return code == 404
-}
-
-// Code gets the status code for the get fqdn cache not found response
-func (o *GetFqdnCacheNotFound) Code() int {
-	return 404
 }
 
 func (o *GetFqdnCacheNotFound) Error() string {

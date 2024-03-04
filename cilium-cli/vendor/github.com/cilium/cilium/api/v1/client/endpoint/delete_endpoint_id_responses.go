@@ -63,7 +63,7 @@ func (o *DeleteEndpointIDReader) ReadResponse(response runtime.ClientResponse, c
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[DELETE /endpoint/{id}] DeleteEndpointID", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -103,11 +103,6 @@ func (o *DeleteEndpointIDOK) IsServerError() bool {
 // IsCode returns true when this delete endpoint Id o k response a status code equal to that given
 func (o *DeleteEndpointIDOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the delete endpoint Id o k response
-func (o *DeleteEndpointIDOK) Code() int {
-	return 200
 }
 
 func (o *DeleteEndpointIDOK) Error() string {
@@ -160,11 +155,6 @@ func (o *DeleteEndpointIDErrors) IsServerError() bool {
 // IsCode returns true when this delete endpoint Id errors response a status code equal to that given
 func (o *DeleteEndpointIDErrors) IsCode(code int) bool {
 	return code == 206
-}
-
-// Code gets the status code for the delete endpoint Id errors response
-func (o *DeleteEndpointIDErrors) Code() int {
-	return 206
 }
 
 func (o *DeleteEndpointIDErrors) Error() string {
@@ -230,11 +220,6 @@ func (o *DeleteEndpointIDInvalid) IsCode(code int) bool {
 	return code == 400
 }
 
-// Code gets the status code for the delete endpoint Id invalid response
-func (o *DeleteEndpointIDInvalid) Code() int {
-	return 400
-}
-
 func (o *DeleteEndpointIDInvalid) Error() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdInvalid  %+v", 400, o.Payload)
 }
@@ -295,11 +280,6 @@ func (o *DeleteEndpointIDForbidden) IsCode(code int) bool {
 	return code == 403
 }
 
-// Code gets the status code for the delete endpoint Id forbidden response
-func (o *DeleteEndpointIDForbidden) Code() int {
-	return 403
-}
-
 func (o *DeleteEndpointIDForbidden) Error() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdForbidden ", 403)
 }
@@ -351,11 +331,6 @@ func (o *DeleteEndpointIDNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
-// Code gets the status code for the delete endpoint Id not found response
-func (o *DeleteEndpointIDNotFound) Code() int {
-	return 404
-}
-
 func (o *DeleteEndpointIDNotFound) Error() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdNotFound ", 404)
 }
@@ -405,11 +380,6 @@ func (o *DeleteEndpointIDTooManyRequests) IsServerError() bool {
 // IsCode returns true when this delete endpoint Id too many requests response a status code equal to that given
 func (o *DeleteEndpointIDTooManyRequests) IsCode(code int) bool {
 	return code == 429
-}
-
-// Code gets the status code for the delete endpoint Id too many requests response
-func (o *DeleteEndpointIDTooManyRequests) Code() int {
-	return 429
 }
 
 func (o *DeleteEndpointIDTooManyRequests) Error() string {

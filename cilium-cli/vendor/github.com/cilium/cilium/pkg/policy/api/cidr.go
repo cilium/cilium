@@ -35,8 +35,7 @@ type CIDRRule struct {
 
 	// CIDRGroupRef is a reference to a CiliumCIDRGroup object.
 	// A CiliumCIDRGroup contains a list of CIDRs that the endpoint, subject to
-	// the rule, can (Ingress/Egress) or cannot (IngressDeny/EgressDeny) receive
-	// connections from.
+	// the rule, can (Ingress/Egress) or cannot (IngressDeny) receive connections from.
 	//
 	// +kubebuilder:validation:OneOf
 	CIDRGroupRef CIDRGroupRef `json:"cidrGroupRef,omitempty"`

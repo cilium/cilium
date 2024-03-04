@@ -94,11 +94,6 @@ func (m *BgpRoute) contextValidatePaths(ctx context.Context, formats strfmt.Regi
 	for i := 0; i < len(m.Paths); i++ {
 
 		if m.Paths[i] != nil {
-
-			if swag.IsZero(m.Paths[i]) { // not required
-				return nil
-			}
-
 			if err := m.Paths[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("paths" + "." + strconv.Itoa(i))

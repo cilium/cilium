@@ -69,7 +69,7 @@ func (o *PutServiceIDReader) ReadResponse(response runtime.ClientResponse, consu
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[PUT /service/{id}] PutServiceID", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -109,11 +109,6 @@ func (o *PutServiceIDOK) IsServerError() bool {
 // IsCode returns true when this put service Id o k response a status code equal to that given
 func (o *PutServiceIDOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the put service Id o k response
-func (o *PutServiceIDOK) Code() int {
-	return 200
 }
 
 func (o *PutServiceIDOK) Error() string {
@@ -167,11 +162,6 @@ func (o *PutServiceIDCreated) IsCode(code int) bool {
 	return code == 201
 }
 
-// Code gets the status code for the put service Id created response
-func (o *PutServiceIDCreated) Code() int {
-	return 201
-}
-
 func (o *PutServiceIDCreated) Error() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdCreated ", 201)
 }
@@ -221,11 +211,6 @@ func (o *PutServiceIDForbidden) IsServerError() bool {
 // IsCode returns true when this put service Id forbidden response a status code equal to that given
 func (o *PutServiceIDForbidden) IsCode(code int) bool {
 	return code == 403
-}
-
-// Code gets the status code for the put service Id forbidden response
-func (o *PutServiceIDForbidden) Code() int {
-	return 403
 }
 
 func (o *PutServiceIDForbidden) Error() string {
@@ -278,11 +263,6 @@ func (o *PutServiceIDInvalidFrontend) IsServerError() bool {
 // IsCode returns true when this put service Id invalid frontend response a status code equal to that given
 func (o *PutServiceIDInvalidFrontend) IsCode(code int) bool {
 	return code == 460
-}
-
-// Code gets the status code for the put service Id invalid frontend response
-func (o *PutServiceIDInvalidFrontend) Code() int {
-	return 460
 }
 
 func (o *PutServiceIDInvalidFrontend) Error() string {
@@ -346,11 +326,6 @@ func (o *PutServiceIDInvalidBackend) IsCode(code int) bool {
 	return code == 461
 }
 
-// Code gets the status code for the put service Id invalid backend response
-func (o *PutServiceIDInvalidBackend) Code() int {
-	return 461
-}
-
 func (o *PutServiceIDInvalidBackend) Error() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdInvalidBackend  %+v", 461, o.Payload)
 }
@@ -412,11 +387,6 @@ func (o *PutServiceIDFailure) IsCode(code int) bool {
 	return code == 500
 }
 
-// Code gets the status code for the put service Id failure response
-func (o *PutServiceIDFailure) Code() int {
-	return 500
-}
-
 func (o *PutServiceIDFailure) Error() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdFailure  %+v", 500, o.Payload)
 }
@@ -476,11 +446,6 @@ func (o *PutServiceIDUpdateBackendFailure) IsServerError() bool {
 // IsCode returns true when this put service Id update backend failure response a status code equal to that given
 func (o *PutServiceIDUpdateBackendFailure) IsCode(code int) bool {
 	return code == 501
-}
-
-// Code gets the status code for the put service Id update backend failure response
-func (o *PutServiceIDUpdateBackendFailure) Code() int {
-	return 501
 }
 
 func (o *PutServiceIDUpdateBackendFailure) Error() string {
