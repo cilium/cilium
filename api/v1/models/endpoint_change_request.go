@@ -67,6 +67,9 @@ type EndpointChangeRequest struct {
 	// Kubernetes pod name
 	K8sPodName string `json:"k8s-pod-name,omitempty"`
 
+	// Kubernetes pod UID
+	K8sUID string `json:"k8s-uid,omitempty"`
+
 	// Labels describing the identity
 	Labels Labels `json:"labels,omitempty"`
 

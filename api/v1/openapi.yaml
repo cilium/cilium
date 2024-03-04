@@ -1523,6 +1523,9 @@ definitions:
       k8s-namespace:
         description: Kubernetes namespace name
         type: string
+      k8s-uid:
+        description: Kubernetes pod UID
+        type: string
       datapath-map-id:
         description: ID of datapath tail call map
         type: integer
