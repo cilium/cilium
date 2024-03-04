@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/healthv2"
+	"github.com/cilium/cilium/pkg/healthv2/types"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
@@ -97,6 +99,7 @@ func init() {
 		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
 		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
 		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
+		statedbTableCommand[types.Status](healthv2.HealthTableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

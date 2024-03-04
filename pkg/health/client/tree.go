@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/healthv2/types"
 )
 
 const (
@@ -30,17 +32,19 @@ type node struct {
 	val, meta string
 	parent    *node
 	nodes     []*node
+	report    *types.Status
 }
 
-func (n *node) addNode(v string) *node {
-	return n.addNodeWithMeta(v, "")
+func (n *node) addNode(v string, r *types.Status) *node {
+	return n.addNodeWithMeta(v, "", r)
 }
 
-func (n *node) addNodeWithMeta(v, m string) *node {
+func (n *node) addNodeWithMeta(v, m string, r *types.Status) *node {
 	node := node{
 		parent: n,
 		val:    v,
 		meta:   m,
+		report: r,
 	}
 	n.nodes = append(n.nodes, &node)
 
