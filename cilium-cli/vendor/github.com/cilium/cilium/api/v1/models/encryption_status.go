@@ -165,11 +165,6 @@ func (m *EncryptionStatus) ContextValidate(ctx context.Context, formats strfmt.R
 func (m *EncryptionStatus) contextValidateIpsec(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Ipsec != nil {
-
-		if swag.IsZero(m.Ipsec) { // not required
-			return nil
-		}
-
 		if err := m.Ipsec.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipsec")
@@ -186,11 +181,6 @@ func (m *EncryptionStatus) contextValidateIpsec(ctx context.Context, formats str
 func (m *EncryptionStatus) contextValidateWireguard(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Wireguard != nil {
-
-		if swag.IsZero(m.Wireguard) { // not required
-			return nil
-		}
-
 		if err := m.Wireguard.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("wireguard")

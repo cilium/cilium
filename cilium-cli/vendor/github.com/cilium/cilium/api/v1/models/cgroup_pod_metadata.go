@@ -94,11 +94,6 @@ func (m *CgroupPodMetadata) contextValidateContainers(ctx context.Context, forma
 	for i := 0; i < len(m.Containers); i++ {
 
 		if m.Containers[i] != nil {
-
-			if swag.IsZero(m.Containers[i]) { // not required
-				return nil
-			}
-
 			if err := m.Containers[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("containers" + "." + strconv.Itoa(i))
