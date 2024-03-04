@@ -72,6 +72,13 @@ type IngressCommonRule struct {
 	// +kubebuilder:validation:Optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
 
+	// FromNodes is a list of nodes identified by an
+	// EndpointSelector which are allowed to communicate with the endpoint
+	// subject to the rule.
+	//
+	// +kubebuilder:validation:Optional
+	FromNodes []EndpointSelector `json:"fromNodes,omitempty"`
+
 	// TODO: Move this to the policy package
 	// (https://github.com/cilium/cilium/issues/8353)
 	aggregatedSelectors EndpointSelectorSlice `json:"-"`
@@ -175,12 +182,21 @@ type IngressDenyRule struct {
 // FromEndpoints is not aggregated due to requirement folding in
 // GetSourceEndpointSelectorsWithRequirements()
 func (i *IngressCommonRule) SetAggregatedSelectors() {
+	// Goroutines can race setting i.aggregatedSelectors, but they will all compute the same result, so it does not matter.
+
+	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
+	if (i.FromCIDR != nil && len(i.FromCIDR) == 0) ||
+		(i.FromCIDRSet != nil && len(i.FromCIDRSet) == 0) ||
+		(i.FromEntities != nil && len(i.FromEntities) == 0) {
+		i.aggregatedSelectors = nil
+		return
+	}
+
 	res := make(EndpointSelectorSlice, 0, len(i.FromEntities)+len(i.FromCIDR)+len(i.FromCIDRSet))
 	res = append(res, i.FromEntities.GetAsEndpointSelectors()...)
 	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
 	res = append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
-	// Goroutines can race setting this, but they will all compute
-	// the same result, so it does not matter.
+
 	i.aggregatedSelectors = res
 }
 
@@ -190,7 +206,14 @@ func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requireme
 	if i.aggregatedSelectors == nil {
 		i.SetAggregatedSelectors()
 	}
-	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.aggregatedSelectors))
+
+	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
+	if i.aggregatedSelectors == nil || (i.FromEndpoints != nil && len(i.FromEndpoints) == 0) ||
+		(i.FromNodes != nil && len(i.FromNodes) == 0) {
+		return nil
+	}
+
+	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.aggregatedSelectors)+len(i.FromNodes))
 	if len(requirements) > 0 && len(i.FromEndpoints) > 0 {
 		for idx := range i.FromEndpoints {
 			sel := *i.FromEndpoints[idx].DeepCopy()
@@ -203,6 +226,7 @@ func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requireme
 		}
 	} else {
 		res = append(res, i.FromEndpoints...)
+		res = append(res, i.FromNodes...)
 	}
 
 	return append(res, i.aggregatedSelectors...)

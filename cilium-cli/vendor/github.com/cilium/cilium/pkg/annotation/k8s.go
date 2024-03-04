@@ -31,6 +31,15 @@ const (
 	// IPAMPrefix is the common prefix for IPAM related annotations.
 	IPAMPrefix = "ipam.cilium.io"
 
+	// LBIPAMPrefix is the common prefix for LB IPAM related annotations.
+	LBIPAMPrefix = "lbipam.cilium.io"
+
+	// CNIPrefix is the common prefix for CNI related annotations.
+	CNIPrefix = "cni.cilium.io"
+
+	// PodAnnotationMAC is used to store the MAC address of the Pod.
+	PodAnnotationMAC = CNIPrefix + "/mac-address"
+
 	// PolicyName / PolicyNameAlias is an optional annotation to the NetworkPolicy
 	// resource which specifies the name of the policy node to which all
 	// rules should be applied to.
@@ -138,6 +147,14 @@ const (
 	// IPAMIPv6PoolKey is the annotation name used to store the IPAM IPv6 pool name from
 	// which workloads should allocate their IP from
 	IPAMIPv6PoolKey = IPAMPrefix + "/ipv6-pool"
+
+	LBIPAMIPsKey     = LBIPAMPrefix + "/ips"
+	LBIPAMIPKeyAlias = Prefix + "/lb-ipam-ips"
+
+	LBIPAMSharingKey                  = LBIPAMPrefix + "/sharing-key"
+	LBIPAMSharingKeyAlias             = Prefix + "/lb-ipam-sharing-key"
+	LBIPAMSharingAcrossNamespace      = LBIPAMPrefix + "/sharing-cross-namespace"
+	LBIPAMSharingAcrossNamespaceAlias = Prefix + "/lb-ipam-sharing-cross-namespace"
 )
 
 var (

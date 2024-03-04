@@ -95,8 +95,7 @@ There are several hooks to customize the behavior of the go-restful package.
 - Trace logging
 - Compression
 - Encoders for other serializers
-- Use [jsoniter](https://github.com/json-iterator/go) by building this package using a build tag, e.g. `go build -tags=jsoniter .` 
-- Use the package variable `TrimRightSlashEnabled` (default true) to control the behavior of matching routes that end with a slash `/` 
+- Use the package variable `TrimRightSlashEnabled` (default true) to control the behavior of matching routes that end with a slash `/`
 
 ## Resources
 

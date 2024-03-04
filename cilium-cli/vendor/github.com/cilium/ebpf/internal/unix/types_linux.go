@@ -25,6 +25,7 @@ const (
 	EACCES     = linux.EACCES
 	EILSEQ     = linux.EILSEQ
 	EOPNOTSUPP = linux.EOPNOTSUPP
+	ESTALE     = linux.ESTALE
 )
 
 const (
@@ -39,6 +40,7 @@ const (
 	BPF_F_MMAPABLE            = linux.BPF_F_MMAPABLE
 	BPF_F_INNER_MAP           = linux.BPF_F_INNER_MAP
 	BPF_F_KPROBE_MULTI_RETURN = linux.BPF_F_KPROBE_MULTI_RETURN
+	BPF_F_UPROBE_MULTI_RETURN = linux.BPF_F_UPROBE_MULTI_RETURN
 	BPF_OBJ_NAME_LEN          = linux.BPF_OBJ_NAME_LEN
 	BPF_TAG_SIZE              = linux.BPF_TAG_SIZE
 	BPF_RINGBUF_BUSY_BIT      = linux.BPF_RINGBUF_BUSY_BIT

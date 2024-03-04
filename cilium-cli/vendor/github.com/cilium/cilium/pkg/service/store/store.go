@@ -8,6 +8,8 @@ import (
 	"net/netip"
 	"path"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -85,8 +87,8 @@ func (s *ClusterService) String() string {
 }
 
 // NamespaceServiceName returns the namespace and service name
-func (s *ClusterService) NamespaceServiceName() string {
-	return s.Namespace + "/" + s.Name
+func (s *ClusterService) NamespaceServiceName() types.NamespacedName {
+	return types.NamespacedName{Name: s.Name, Namespace: s.Namespace}
 }
 
 // GetKeyName returns the kvstore key to be used for the global service

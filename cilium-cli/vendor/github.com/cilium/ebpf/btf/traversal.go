@@ -87,6 +87,43 @@ func (po *postorderIterator) Next() bool {
 	return po.Type != nil
 }
 
+// modifyGraphPreorder allows modifying every Type in a graph.
+//
+// fn is invoked in preorder for every unique Type in a graph. See [Type] for the definition
+// of equality. Every occurrence of node is substituted with its replacement.
+//
+// If cont is true, fn is invoked for every child of replacement. Otherwise
+// traversal stops.
+//
+// Returns the substitution of the root node.
+func modifyGraphPreorder(root Type, fn func(node Type) (replacement Type, cont bool)) Type {
+	sub, cont := fn(root)
+	replacements := map[Type]Type{root: sub}
+
+	// This is a preorder traversal.
+	var walk func(*Type)
+	walk = func(node *Type) {
+		sub, visited := replacements[*node]
+		if visited {
+			*node = sub
+			return
+		}
+
+		sub, cont := fn(*node)
+		replacements[*node] = sub
+		*node = sub
+
+		if cont {
+			walkType(*node, walk)
+		}
+	}
+
+	if cont {
+		walkType(sub, walk)
+	}
+	return sub
+}
+
 // walkType calls fn on each child of typ.
 func walkType(typ Type, fn func(*Type)) {
 	// Explicitly type switch on the most common types to allow the inliner to

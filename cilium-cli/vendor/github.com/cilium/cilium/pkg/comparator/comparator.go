@@ -8,11 +8,6 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 )
 
-// Compare compares two interfaces and emits a unified diff as string
-func Compare(a, b interface{}) string {
-	return CompareWithNames(a, b, "a", "b")
-}
-
 // CompareWithNames compares two interfaces and emits a unified diff as string
 func CompareWithNames(a, b interface{}, nameA, nameB string) string {
 	stringA := pretty.Sprintf("%# v", a)
@@ -30,42 +25,6 @@ func CompareWithNames(a, b interface{}, nameA, nameB string) string {
 		return err.Error()
 	}
 	return "Unified diff:\n" + out
-}
-
-// MapStringEquals returns true if both maps are equal.
-func MapStringEquals(m1, m2 map[string]string) bool {
-	switch {
-	case m1 == nil && m2 == nil:
-		return true
-	case m1 == nil && m2 != nil,
-		m1 != nil && m2 == nil,
-		len(m1) != len(m2):
-		return false
-	}
-	for k1, v1 := range m1 {
-		if v2, ok := m2[k1]; !ok || v2 != v1 {
-			return false
-		}
-	}
-	return true
-}
-
-// MapBoolEquals returns true if both maps are equal.
-func MapBoolEquals(m1, m2 map[string]bool) bool {
-	switch {
-	case m1 == nil && m2 == nil:
-		return true
-	case m1 == nil && m2 != nil,
-		m1 != nil && m2 == nil,
-		len(m1) != len(m2):
-		return false
-	}
-	for k1, v1 := range m1 {
-		if v2, ok := m2[k1]; !ok || v2 != v1 {
-			return false
-		}
-	}
-	return true
 }
 
 // MapStringEqualsIgnoreKeys returns true if both maps have the same values for

@@ -14,12 +14,13 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/mackerelio/go-osstat/memory"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
@@ -396,9 +397,6 @@ const (
 
 	// Restore restores state, if possible, from previous daemon
 	Restore = "restore"
-
-	// SidecarIstioProxyImage regular expression matching compatible Istio sidecar istio-proxy container image names
-	SidecarIstioProxyImage = "sidecar-istio-proxy-image"
 
 	// SocketPath sets daemon's socket path to listen for connections
 	SocketPath = "socket-path"
@@ -818,14 +816,6 @@ const (
 	// endpoints that are no longer alive and healthy.
 	EndpointGCInterval = "endpoint-gc-interval"
 
-	// This option turns off switching from full pods informer to node's local pods informer
-	// when CEP CRD is disabled and kvstore is used.
-	// Switching from full pods informer to node's local pods informer is considered default behaviour
-	// and this option allows us to change it back to having full pods informer all the time.
-	// It's meant to be mitigation only in case if endpoint synchronization from kvstore has some bugs
-	// and we actually need to watch all pods all the time.
-	LegacyTurnOffK8sEventHandover = "legacy-turn-off-k8s-event-handover"
-
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 = "ipv4-service-loopback-address"
 
@@ -892,6 +882,10 @@ const (
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = "auto-create-cilium-node-resource"
 
+	// ExcludeNodeLabelPatterns allows for excluding unnecessary labels from being propagated from k8s node to cilium
+	// node object. This allows for avoiding unnecessary events being broadcast to all nodes in the cluster.
+	ExcludeNodeLabelPatterns = "exclude-node-label-patterns"
+
 	// IPv4NativeRoutingCIDR describes a v4 CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "ipv4-native-routing-cidr"
 
@@ -932,6 +926,9 @@ const (
 
 	// PolicyAuditModeArg argument enables policy audit mode.
 	PolicyAuditModeArg = "policy-audit-mode"
+
+	// PolicyAccountingArg argument enable policy accounting.
+	PolicyAccountingArg = "policy-accounting"
 
 	// EnableHubble enables hubble in the agent.
 	EnableHubble = "enable-hubble"
@@ -1040,27 +1037,19 @@ const (
 	// HubbleRedactHttpHeadersDeny controls which http headers will be redacted from flows
 	HubbleRedactHttpHeadersDeny = "hubble-redact-http-headers-deny"
 
+	// HubbleDropEvents controls whether Hubble should create v1.Events
+	// for packet drops related to pods
+	HubbleDropEvents = "hubble-drop-events"
+
+	// HubbleDropEventsInterval controls the minimum time between emitting events
+	// with the same source and destination IP
+	HubbleDropEventsInterval = "hubble-drop-events-interval"
+
+	// HubbleDropEventsReasons controls which drop reasons to emit events for
+	HubbleDropEventsReasons = "hubble-drop-events-reasons"
+
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
-
-	// EndpointStatus enables population of information in the
-	// CiliumEndpoint.Status resource
-	EndpointStatus = "endpoint-status"
-
-	// EndpointStatusPolicy enables CiliumEndpoint.Status.Policy
-	EndpointStatusPolicy = "policy"
-
-	// EndpointStatusHealth enables CiliumEndpoint.Status.Health
-	EndpointStatusHealth = "health"
-
-	// EndpointStatusControllers enables CiliumEndpoint.Status.Controllers
-	EndpointStatusControllers = "controllers"
-
-	// EndpointStatusLog enables CiliumEndpoint.Status.Log
-	EndpointStatusLog = "log"
-
-	// EndpointStatusState enables CiliumEndpoint.Status.State
-	EndpointStatusState = "state"
 
 	// EnableIPv4FragmentsTrackingName is the name of the option to enable
 	// IPv4 fragments tracking for L4-based lookups. Needs LRU map support.
@@ -1164,15 +1153,6 @@ const (
 	// Flag to enable BGP control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
 
-	// EnvoySecretsNamespace is the namespace having secrets used by CEC.
-	EnvoySecretsNamespace = "envoy-secrets-namespace"
-
-	// IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller.
-	IngressSecretsNamespace = "ingress-secrets-namespace"
-
-	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API.
-	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
-
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -1194,6 +1174,13 @@ const (
 
 	// PolicyCIDRMatchMode defines the entities that CIDR selectors can reach
 	PolicyCIDRMatchMode = "policy-cidr-match-mode"
+
+	// EnableNodeSelectorLabels enables use of the node label based identity
+	EnableNodeSelectorLabels = "enable-node-selector-labels"
+
+	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
+	// EnableNodeSelectorLabels)
+	NodeLabels = "node-labels"
 )
 
 // Default string arguments
@@ -1435,10 +1422,6 @@ type DaemonConfig struct {
 
 	// RestoreState enables restoring the state from previous running daemons.
 	RestoreState bool
-
-	// EnableHostIPRestore enables restoring the host IPs based on state
-	// left behind by previous Cilium runs.
-	EnableHostIPRestore bool
 
 	KeepConfig bool // Keep configuration of existing endpoints when starting up.
 
@@ -1763,7 +1746,6 @@ type DaemonConfig struct {
 	KVStoreOpt                    map[string]string
 	LabelPrefixFile               string
 	Labels                        []string
-	LegacyTurnOffK8sEventHandover bool
 	LogDriver                     []string
 	LogOpt                        map[string]string
 	Logstash                      bool
@@ -2104,6 +2086,10 @@ type DaemonConfig struct {
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource bool
 
+	// ExcludeNodeLabelPatterns allows for excluding unnecessary labels from being propagated from k8s node to cilium
+	// node object. This allows for avoiding unnecessary events being broadcast to all nodes in the cluster.
+	ExcludeNodeLabelPatterns []*regexp.Regexp
+
 	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR *cidr.CIDR
 
@@ -2143,6 +2129,9 @@ type DaemonConfig struct {
 	// audit mode packets affected by policies will not be dropped.
 	// Policy related decisions can be checked via the poicy verdict messages.
 	PolicyAuditMode bool
+
+	// PolicyAccounting enable policy accounting
+	PolicyAccounting bool
 
 	// EnableHubble specifies whether to enable the hubble server.
 	EnableHubble bool
@@ -2251,9 +2240,16 @@ type DaemonConfig struct {
 	// HubbleRedactHttpHeadersDeny controls which http headers will be redacted from flows
 	HubbleRedactHttpHeadersDeny []string
 
-	// EndpointStatus enables population of information in the
-	// CiliumEndpoint.Status resource
-	EndpointStatus map[string]struct{}
+	// HubbleDropEvents controls whether Hubble should create v1.Events
+	// for packet drops related to pods
+	HubbleDropEvents bool
+
+	// HubbleDropEventsInterval controls the minimum time between emitting events
+	// with the same source and destination IP
+	HubbleDropEventsInterval time.Duration
+
+	// HubbleDropEventsReasons controls which drop reasons to emit events for
+	HubbleDropEventsReasons []string
 
 	// EnableIPv4FragmentsTracking enables IPv4 fragments tracking for
 	// L4-based lookups. Needs LRU map support.
@@ -2426,6 +2422,13 @@ type DaemonConfig struct {
 
 	// ServiceNoBackendResponse determines how we handle traffic to a service with no backends.
 	ServiceNoBackendResponse string
+
+	// EnableNodeSelectorLabels enables use of the node label based identity
+	EnableNodeSelectorLabels bool
+
+	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
+	// EnableNodeSelectorLabels)
+	NodeLabels []string
 }
 
 var (
@@ -2437,7 +2440,6 @@ var (
 		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
 		IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
-		EnableHostIPRestore:             defaults.EnableHostIPRestore,
 		EnableHealthChecking:            defaults.EnableHealthChecking,
 		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
 		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
@@ -2447,7 +2449,6 @@ var (
 		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
 		EnableSCTP:                      defaults.EnableSCTP,
 		EnableL7Proxy:                   defaults.EnableL7Proxy,
-		EndpointStatus:                  make(map[string]struct{}),
 		DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
 		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
 		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
@@ -2675,13 +2676,6 @@ func (c *DaemonConfig) UnreachableRoutesEnabled() bool {
 	return c.EnableUnreachableRoutes
 }
 
-// EndpointStatusIsEnabled returns true if a particular EndpointStatus* feature
-// is enabled
-func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
-	_, ok := c.EndpointStatus[option]
-	return ok
-}
-
 // CiliumNamespaceName returns the name of the namespace in which Cilium is
 // deployed in
 func (c *DaemonConfig) CiliumNamespaceName() string {
@@ -2720,6 +2714,12 @@ func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
 		}
 	}
 	return false
+}
+
+// PerNodeLabelsEnabled returns true if per-node labels feature
+// is enabled
+func (c *DaemonConfig) PerNodeLabelsEnabled() bool {
+	return c.EnableNodeSelectorLabels
 }
 
 func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
@@ -2867,13 +2867,6 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 		return fmt.Errorf("KVstoreLeaseTTL does not lie in required range(%ds, %ds)",
 			int64(defaults.LockLeaseTTL.Seconds()),
 			int64(defaults.KVstoreLeaseMaxTTL.Seconds()))
-	}
-
-	allowedEndpointStatusValues := EndpointStatusValuesMap()
-	for enabledEndpointStatus := range c.EndpointStatus {
-		if _, ok := allowedEndpointStatusValues[enabledEndpointStatus]; !ok {
-			return fmt.Errorf("unknown endpoint-status option '%s'", enabledEndpointStatus)
-		}
 	}
 
 	if c.EnableVTEP {
@@ -3078,7 +3071,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))
-	c.LegacyTurnOffK8sEventHandover = vp.GetBool(LegacyTurnOffK8sEventHandover)
 	c.K8sSyncTimeout = vp.GetDuration(K8sSyncTimeoutName)
 	c.AllocatorListTimeout = vp.GetDuration(AllocatorListTimeoutName)
 	c.K8sWatcherEndpointSelector = vp.GetString(K8sWatcherEndpointSelector)
@@ -3126,7 +3118,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.RouteMetric = vp.GetInt(RouteMetric)
 	c.RunDir = vp.GetString(StateDir)
 	c.ExternalEnvoyProxy = vp.GetBool(ExternalEnvoyProxy)
-	c.SidecarIstioProxyImage = vp.GetString(SidecarIstioProxyImage)
 	c.SocketPath = vp.GetString(SocketPath)
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
 	c.Version = vp.GetString(Version)
@@ -3139,6 +3130,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.CTMapEntriesTimeoutSYN = vp.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = vp.GetDuration(CTMapEntriesTimeoutFINName)
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
+	c.PolicyAccounting = vp.GetBool(PolicyAccountingArg)
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
 	c.CRDWaitTimeout = vp.GetDuration(CRDWaitTimeout)
@@ -3380,10 +3372,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.NodeEncryptionOptOutLabels = sel
 	}
 
-	for _, option := range vp.GetStringSlice(EndpointStatus) {
-		c.EndpointStatus[option] = struct{}{}
-	}
-
 	if err := c.parseExcludedLocalAddresses(vp.GetStringSlice(ExcludeLocalAddress)); err != nil {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
 	}
@@ -3504,6 +3492,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleRedactKafkaApiKey = vp.GetBool(HubbleRedactKafkaApiKey)
 	c.HubbleRedactHttpHeadersAllow = vp.GetStringSlice(HubbleRedactHttpHeadersAllow)
 	c.HubbleRedactHttpHeadersDeny = vp.GetStringSlice(HubbleRedactHttpHeadersDeny)
+	c.HubbleDropEvents = vp.GetBool(HubbleDropEvents)
+	c.HubbleDropEventsInterval = vp.GetDuration(HubbleDropEventsInterval)
+	c.HubbleDropEventsReasons = vp.GetStringSlice(HubbleDropEventsReasons)
 
 	// Hidden options
 	c.CompilerFlags = vp.GetStringSlice(CompilerFlags)
@@ -3531,20 +3522,22 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
 
-	// Envoy secrets namespaces to watch
-	params := []string{EnvoySecretsNamespace, IngressSecretsNamespace, GatewayAPISecretsNamespace}
-	var nsList = make([]string, 0, len(params))
-	for _, param := range params {
-		ns := vp.GetString(param)
-		if ns != "" {
-			nsList = append(nsList, ns)
-		}
-	}
-	c.EnvoySecretNamespaces = nsList
-
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
+	c.EnableNodeSelectorLabels = vp.GetBool(EnableNodeSelectorLabels)
+	c.NodeLabels = vp.GetStringSlice(NodeLabels)
+
+	// Parse node label patterns
+	nodeLabelPatterns := vp.GetStringSlice(ExcludeNodeLabelPatterns)
+	for _, pattern := range nodeLabelPatterns {
+		r, err := regexp.Compile(pattern)
+		if err != nil {
+			log.WithError(err).Errorf("Unable to compile exclude node label regex pattern %s", pattern)
+			continue
+		}
+		c.ExcludeNodeLabelPatterns = append(c.ExcludeNodeLabelPatterns, r)
+	}
 }
 
 func (c *DaemonConfig) populateDevices(vp *viper.Viper) {
@@ -3824,7 +3817,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	// to 98% of the total memory being allocated for BPF maps.
 	dynamicSizeRatio := vp.GetFloat64(MapEntriesGlobalDynamicSizeRatioName)
 	if 0.0 < dynamicSizeRatio && dynamicSizeRatio <= 1.0 {
-		vms, err := mem.VirtualMemory()
+		vms, err := memory.Get()
 		if err != nil || vms == nil {
 			log.WithError(err).Fatal("Failed to get system memory")
 		}
@@ -4221,26 +4214,6 @@ func getDefaultMonitorQueueSize(numCPU int) int {
 		monitorQueueSize = defaults.MonitorQueueSizePerCPUMaximum
 	}
 	return monitorQueueSize
-}
-
-// EndpointStatusValues returns all available EndpointStatus option values
-func EndpointStatusValues() []string {
-	return []string{
-		EndpointStatusControllers,
-		EndpointStatusHealth,
-		EndpointStatusLog,
-		EndpointStatusPolicy,
-		EndpointStatusState,
-	}
-}
-
-// EndpointStatusValuesMap returns all EndpointStatus option values as a map
-func EndpointStatusValuesMap() (values map[string]struct{}) {
-	values = map[string]struct{}{}
-	for _, v := range EndpointStatusValues() {
-		values[v] = struct{}{}
-	}
-	return
 }
 
 // MightAutoDetectDevices returns true if the device auto-detection might take
