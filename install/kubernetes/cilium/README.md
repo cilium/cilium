@@ -177,7 +177,9 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.kvstoremesh.extraArgs | list | `[]` | Additional KVStoreMesh arguments. |
 | clustermesh.apiserver.kvstoremesh.extraEnv | list | `[]` | Additional KVStoreMesh environment variables. |
 | clustermesh.apiserver.kvstoremesh.extraVolumeMounts | list | `[]` | Additional KVStoreMesh volumeMounts. |
+| clustermesh.apiserver.kvstoremesh.healthPort | int | `9881` | TCP port for the KVStoreMesh health API. |
 | clustermesh.apiserver.kvstoremesh.lifecycle | object | `{}` | lifecycle setting for the KVStoreMesh container |
+| clustermesh.apiserver.kvstoremesh.readinessProbe | object | `{}` | Configuration for the KVStoreMesh readiness probe. |
 | clustermesh.apiserver.kvstoremesh.resources | object | `{}` | Resource requests and limits for the KVStoreMesh container |
 | clustermesh.apiserver.kvstoremesh.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | KVStoreMesh Security context |
 | clustermesh.apiserver.lifecycle | object | `{}` | lifecycle setting for the apiserver container |
