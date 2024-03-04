@@ -148,23 +148,26 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, hdrlen;
-	__u8 nexthdr;
+	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
+	if (is_defined(ENABLE_HOST_FIREWALL) || !from_host) {
+		__u8 nexthdr = ip6->nexthdr;
+		int hdrlen;
 
-	if (likely(nexthdr == IPPROTO_ICMPV6)) {
-		ret = icmp6_host_handle(ctx, ETH_HLEN + hdrlen, ext_err, !from_host);
-		if (ret == SKIP_HOST_FIREWALL)
-			goto skip_host_firewall;
-		if (IS_ERR(ret))
-			return ret;
+		hdrlen = ipv6_hdrlen(ctx, &nexthdr);
+		if (hdrlen < 0)
+			return hdrlen;
+
+		if (likely(nexthdr == IPPROTO_ICMPV6)) {
+			ret = icmp6_host_handle(ctx, ETH_HLEN + hdrlen, ext_err, !from_host);
+			if (ret == SKIP_HOST_FIREWALL)
+				goto skip_host_firewall;
+			if (IS_ERR(ret))
+				return ret;
+		}
 	}
 
 #ifdef ENABLE_NODEPORT
