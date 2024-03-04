@@ -98,6 +98,17 @@ const (
 	// HubbleRedactKafkaApiKey controls if the Kafka API key will be redacted from flows
 	HubbleRedactKafkaApiKey = false
 
+	// HubbleDropEventsEnabled controls whether Hubble should create v1.Events
+	// for packet drops related to pods
+	HubbleDropEventsEnabled = false
+
+	// HubbleDropEventsInterval controls the minimum time between emitting events
+	// with the same source and destination IP
+	HubbleDropEventsInterval = 2 * time.Minute
+
+	// HubbleDropEventsReasons controls which drop reasons to emit events for
+	HubbleDropEventsReasons = "auth_required,policy_denied"
+
 	// MonitorSockPath1_2 is the path to the UNIX domain socket used to
 	// distribute BPF and agent events to listeners.
 	// This is the 1.2 protocol version.
@@ -113,10 +124,6 @@ const (
 	// DeleteQueueLockfile is the file used to synchronize access of the queue directory between
 	// the agent and the CNI plugin processes
 	DeleteQueueLockfile = DeleteQueueDir + "/lockfile"
-
-	// EnableHostIPRestore controls whether the host IP should be restored
-	// from previous state automatically
-	EnableHostIPRestore = true
 
 	// BPFFSRoot is the default path where BPFFS should be mounted
 	BPFFSRoot = "/sys/fs/bpf"
@@ -341,8 +348,6 @@ const (
 	// connection tracking garbage collection
 	ConntrackGCStartingInterval = 5 * time.Minute
 
-	LegacyTurnOffK8sEventHandover = false
-
 	// LoopbackIPv4 is the default address for service loopback
 	LoopbackIPv4 = "169.254.42.1"
 
@@ -556,6 +561,9 @@ const (
 	// identity in a numeric identity. Values > 255 will decrease the number of
 	// allocatable identities.
 	MaxConnectedClusters = 255
+
+	// EnableNodeSelectorLabels is the default value for option.EnableNodeSelectorLabels
+	EnableNodeSelectorLabels = false
 )
 
 var (

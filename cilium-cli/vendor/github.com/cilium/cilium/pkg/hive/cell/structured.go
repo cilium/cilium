@@ -50,6 +50,9 @@ type Scope interface {
 	// Thus it is preferable for all reporters to be Stopped first, before calling Close.
 	Close()
 
+	// Realize schedules an immediate realization of the status.
+	Realize()
+
 	scope() *subReporter
 }
 
@@ -215,6 +218,12 @@ func (s *scope) Close() {
 	s.base.removeTreeLocked(s.id)
 	s.base.Unlock()
 	s.scheduleRealize()
+}
+
+func (s *scope) Realize() {
+	s.base.Lock()
+	s.realizeSync()
+	s.base.Unlock()
 }
 
 // A scope can be removed if it has no references and all child scopes can be removed.

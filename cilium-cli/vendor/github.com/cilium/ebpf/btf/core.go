@@ -43,7 +43,15 @@ func (f *COREFixup) Apply(ins *asm.Instruction) error {
 	if f.poison {
 		const badRelo = 0xbad2310
 
-		*ins = asm.BuiltinFunc(badRelo).Call()
+		// Relocation is poisoned, replace the instruction with an invalid one.
+
+		if ins.OpCode.IsDWordLoad() {
+			// Replace a dword load with a invalid dword load to preserve instruction size.
+			*ins = asm.LoadImm(asm.R10, badRelo, asm.DWord)
+		} else {
+			// Replace all single size instruction with a invalid call instruction.
+			*ins = asm.BuiltinFunc(badRelo).Call()
+		}
 		return nil
 	}
 
@@ -159,12 +167,17 @@ func (k coreKind) String() string {
 // CORERelocate calculates changes needed to adjust eBPF instructions for differences
 // in types.
 //
+// resolveLocalTypeID is called for each local type which requires a stable TypeID.
+// Calling the function with the same type multiple times must produce the same
+// result. It is the callers responsibility to ensure that the relocated instructions
+// are loaded with matching BTF.
+//
 // Returns a list of fixups which can be applied to instructions to make them
 // match the target type(s).
 //
 // Fixups are returned in the order of relos, e.g. fixup[i] is the solution
 // for relos[i].
-func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder) ([]COREFixup, error) {
+func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder, resolveLocalTypeID func(Type) (TypeID, error)) ([]COREFixup, error) {
 	if target == nil {
 		var err error
 		target, _, err = kernelSpec()
@@ -173,8 +186,8 @@ func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder) ([
 		}
 	}
 
-	if bo != target.byteOrder {
-		return nil, fmt.Errorf("can't relocate %s against %s", bo, target.byteOrder)
+	if bo != target.imm.byteOrder {
+		return nil, fmt.Errorf("can't relocate %s against %s", bo, target.imm.byteOrder)
 	}
 
 	type reloGroup struct {
@@ -194,14 +207,15 @@ func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder) ([
 				return nil, fmt.Errorf("%s: unexpected accessor %v", relo.kind, relo.accessor)
 			}
 
+			id, err := resolveLocalTypeID(relo.typ)
+			if err != nil {
+				return nil, fmt.Errorf("%s: get type id: %w", relo.kind, err)
+			}
+
 			result[i] = COREFixup{
-				kind:  relo.kind,
-				local: uint64(relo.id),
-				// NB: Using relo.id as the target here is incorrect, since
-				// it doesn't match the BTF we generate on the fly. This isn't
-				// too bad for now since there are no uses of the local type ID
-				// in the kernel, yet.
-				target: uint64(relo.id),
+				kind:   relo.kind,
+				local:  uint64(relo.id),
+				target: uint64(id),
 			}
 			continue
 		}
@@ -221,7 +235,7 @@ func CORERelocate(relos []*CORERelocation, target *Spec, bo binary.ByteOrder) ([
 			return nil, fmt.Errorf("relocate unnamed or anonymous type %s: %w", localType, ErrNotSupported)
 		}
 
-		targets := target.namedTypes[newEssentialName(localTypeName)]
+		targets := target.imm.namedTypes[newEssentialName(localTypeName)]
 		fixups, err := coreCalculateFixups(group.relos, target, targets, bo)
 		if err != nil {
 			return nil, fmt.Errorf("relocate %s: %w", localType, err)
@@ -245,13 +259,13 @@ var errIncompatibleTypes = errors.New("incompatible types")
 //
 // The best target is determined by scoring: the less poisoning we have to do
 // the better the target is.
-func coreCalculateFixups(relos []*CORERelocation, targetSpec *Spec, targets []Type, bo binary.ByteOrder) ([]COREFixup, error) {
+func coreCalculateFixups(relos []*CORERelocation, targetSpec *Spec, targets []TypeID, bo binary.ByteOrder) ([]COREFixup, error) {
 	bestScore := len(relos)
 	var bestFixups []COREFixup
-	for _, target := range targets {
-		targetID, err := targetSpec.TypeID(target)
+	for _, targetID := range targets {
+		target, err := targetSpec.TypeByID(targetID)
 		if err != nil {
-			return nil, fmt.Errorf("target type ID: %w", err)
+			return nil, fmt.Errorf("look up target: %w", err)
 		}
 
 		score := 0 // lower is better
@@ -903,7 +917,7 @@ func coreAreTypesCompatible(localType Type, targetType Type) error {
 		targetType = UnderlyingType(*t)
 
 		if reflect.TypeOf(localType) != reflect.TypeOf(targetType) {
-			return fmt.Errorf("type mismatch: %w", errIncompatibleTypes)
+			return fmt.Errorf("type mismatch between %v and %v: %w", localType, targetType, errIncompatibleTypes)
 		}
 
 		switch lv := (localType).(type) {

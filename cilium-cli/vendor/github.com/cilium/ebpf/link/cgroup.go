@@ -143,8 +143,7 @@ func (cg *progAttachCgroup) Update(prog *ebpf.Program) error {
 		// Atomically replacing multiple programs requires at least
 		// 5.5 (commit 7dd68b3279f17921 "bpf: Support replacing cgroup-bpf
 		// program in MULTI mode")
-		args.Flags |= uint32(flagReplace)
-		args.Replace = cg.current
+		args.Anchor = ReplaceProgram(cg.current)
 	}
 
 	if err := RawAttachProgram(args); err != nil {

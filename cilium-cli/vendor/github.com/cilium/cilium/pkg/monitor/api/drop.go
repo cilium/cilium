@@ -94,6 +94,9 @@ var errors = map[uint8]string{
 	196: "TTL exceeded",
 	197: "No node ID found",
 	198: "Rate limited",
+	199: "IGMP handled",
+	200: "IGMP subscribed",
+	201: "Multicast handled",
 	202: "Host datapath not ready",
 }
 

@@ -53,7 +53,7 @@ type ProgramOptions struct {
 	// verifier output enabled. Upon error, the program load will be repeated
 	// with LogLevelBranch and the given (or default) LogSize value.
 	//
-	// Setting this to a non-zero value will unconditionally enable the verifier
+	// Unless LogDisabled is set, setting this to a non-zero value will enable the verifier
 	// log, populating the [ebpf.Program.VerifierLog] field on successful loads
 	// and including detailed verifier errors if the program is rejected. This
 	// will always allocate an output buffer, but will result in only a single
@@ -242,14 +242,26 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 	insns := make(asm.Instructions, len(spec.Instructions))
 	copy(insns, spec.Instructions)
 
-	handle, fib, lib, err := btf.MarshalExtInfos(insns)
-	if err != nil && !errors.Is(err, btf.ErrNotSupported) {
-		return nil, fmt.Errorf("load ext_infos: %w", err)
+	var b btf.Builder
+	if err := applyRelocations(insns, opts.KernelTypes, spec.ByteOrder, &b); err != nil {
+		return nil, fmt.Errorf("apply CO-RE relocations: %w", err)
 	}
-	if handle != nil {
-		defer handle.Close()
 
-		attr.ProgBtfFd = uint32(handle.FD())
+	errExtInfos := haveProgramExtInfos()
+	if !b.Empty() && errors.Is(errExtInfos, ErrNotSupported) {
+		// There is at least one CO-RE relocation which relies on a stable local
+		// type ID.
+		// Return ErrNotSupported instead of E2BIG if there is no BTF support.
+		return nil, errExtInfos
+	}
+
+	if errExtInfos == nil {
+		// Only add func and line info if the kernel supports it. This allows
+		// BPF compiled with modern toolchains to work on old kernels.
+		fib, lib, err := btf.MarshalExtInfos(insns, &b)
+		if err != nil {
+			return nil, fmt.Errorf("marshal ext_infos: %w", err)
+		}
 
 		attr.FuncInfoRecSize = btf.FuncInfoSize
 		attr.FuncInfoCnt = uint32(len(fib)) / btf.FuncInfoSize
@@ -260,8 +272,14 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 		attr.LineInfo = sys.NewSlicePointer(lib)
 	}
 
-	if err := applyRelocations(insns, opts.KernelTypes, spec.ByteOrder); err != nil {
-		return nil, fmt.Errorf("apply CO-RE relocations: %w", err)
+	if !b.Empty() {
+		handle, err := btf.NewHandle(&b)
+		if err != nil {
+			return nil, fmt.Errorf("load BTF: %w", err)
+		}
+		defer handle.Close()
+
+		attr.ProgBtfFd = uint32(handle.FD())
 	}
 
 	kconfig, err := resolveKconfigReferences(insns)
@@ -703,10 +721,6 @@ func (p *Program) run(opts *RunOptions) (uint32, time.Duration, error) {
 		Cpu:         opts.CPU,
 	}
 
-	if attr.Repeat == 0 {
-		attr.Repeat = 1
-	}
-
 retry:
 	for {
 		err := sys.ProgRun(&attr)
@@ -715,7 +729,7 @@ retry:
 		}
 
 		if errors.Is(err, unix.EINTR) {
-			if attr.Repeat == 1 {
+			if attr.Repeat <= 1 {
 				// Older kernels check whether enough repetitions have been
 				// executed only after checking for pending signals.
 				//

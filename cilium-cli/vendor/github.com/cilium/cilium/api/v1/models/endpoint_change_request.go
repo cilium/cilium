@@ -79,6 +79,9 @@ type EndpointChangeRequest struct {
 	// Whether policy enforcement is enabled or not
 	PolicyEnabled bool `json:"policy-enabled,omitempty"`
 
+	// Properties is used to store information about the endpoint at creation. Useful for tests.
+	Properties map[string]interface{} `json:"properties,omitempty"`
+
 	// Current state of endpoint
 	// Required: true
 	State *EndpointState `json:"state"`

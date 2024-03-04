@@ -21,16 +21,7 @@ type Value struct {
 // KeyValuePairs is a map of key=value pairs
 type KeyValuePairs map[string]Value
 
-// Capabilities is a bitmask to indicate the capabilities of a backend
-type Capabilities uint32
-
 const (
-	// CapabilityCreateIfExists is true if CreateIfExists is functional
-	CapabilityCreateIfExists Capabilities = 1 << 0
-
-	// CapabilityDeleteOnZeroCount is true if DeleteOnZeroCount is functional
-	CapabilityDeleteOnZeroCount Capabilities = 1 << 1
-
 	// BaseKeyPrefix is the base prefix that should be used for all keys
 	BaseKeyPrefix = "cilium"
 
