@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"runtime"
 	"sync"
 
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
+
+	"github.com/cilium/cilium/pkg/netns"
 )
 
 var (
@@ -23,16 +23,18 @@ var (
 // On unexpected probe results this function will terminate with log.Fatal().
 func HaveManagedNeighbors() error {
 	managedNeighborOnce.Do(func() {
-		ch := make(chan struct{})
+		ns, err := netns.New()
+		if err != nil {
+			managedNeighborResult = fmt.Errorf("create netns: %w", err)
+			return
+		}
+		defer ns.Close()
 
 		// In order to call haveManagedNeighbors safely, it has to be started
-		// in a goroutine, so we can make sure the goroutine ends when the function exits.
-		// This makes sure the underlying OS thread exits if we fail to restore it to the original netns.
-		go func() {
-			managedNeighborResult = haveManagedNeighbors()
-			close(ch)
-		}()
-		<-ch // wait for probe to finish
+		// in a standalone netns
+		managedNeighborResult = ns.Do(func() error {
+			return haveManagedNeighbors()
+		})
 
 		// if we encounter a different error than ErrNotSupported, terminate the agent.
 		if managedNeighborResult != nil && !errors.Is(managedNeighborResult, ErrNotSupported) {
@@ -44,32 +46,6 @@ func HaveManagedNeighbors() error {
 }
 
 func haveManagedNeighbors() (outer error) {
-	runtime.LockOSThread()
-	oldns, err := netns.Get()
-	if err != nil {
-		return fmt.Errorf("failed to get current netns: %w", err)
-	}
-	defer oldns.Close()
-
-	newns, err := netns.New()
-	if err != nil {
-		return fmt.Errorf("failed to create new netns: %w", err)
-	}
-	defer newns.Close()
-	defer func() {
-		// defer closes over named return variable err
-		if nerr := netns.Set(oldns); nerr != nil {
-			// The current goroutine is locked to an OS thread and we've failed
-			// to undo state modifications to the thread. Returning without unlocking
-			// the goroutine will make sure the underlying OS thread dies.
-			outer = fmt.Errorf("error setting thread back to its original netns: %w (original error: %s)", nerr, outer)
-			return
-		}
-		// only now that we have successfully changed the thread back to its
-		// original state (netns) we can safely unlock the goroutine from its OS thread.
-		runtime.UnlockOSThread()
-	}()
-
 	// Use a veth device instead of a dummy to avoid the kernel having to modprobe
 	// the dummy kmod, which could potentially be compiled out. veth is currently
 	// a hard dependency for Cilium, so safe to assume the module is available if

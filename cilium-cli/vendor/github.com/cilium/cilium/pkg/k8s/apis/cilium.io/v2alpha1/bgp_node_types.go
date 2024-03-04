@@ -26,6 +26,7 @@ type CiliumBGPNodeConfig struct {
 	Spec CiliumBGPNodeSpec `json:"spec"`
 
 	// Status is the most recently observed status of the CiliumBGPNodeConfig.
+	// +kubebuilder:validation:Optional
 	Status CiliumBGPNodeStatus `json:"status"`
 }
 
@@ -135,10 +136,10 @@ type CiliumBGPNodePeer struct {
 type CiliumBGPNodeStatus struct {
 	// BGPInstances is the status of the BGP instances on the node.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +listType=map
 	// +listMapKey=name
-	BGPInstances []CiliumBGPNodeInstanceStatus `json:"bgpInstances"`
+	BGPInstances []CiliumBGPNodeInstanceStatus `json:"bgpInstances,omitempty"`
 }
 
 type CiliumBGPNodeInstanceStatus struct {

@@ -111,6 +111,13 @@ func parseToCiliumIngressCommonRule(namespace string, es api.EndpointSelector, i
 		}
 	}
 
+	if ing.FromNodes != nil {
+		retRule.FromNodes = make([]api.EndpointSelector, len(ing.FromNodes))
+		for j, node := range ing.FromNodes {
+			retRule.FromNodes[j] = api.NewESFromK8sLabelSelector("", node.LabelSelector)
+		}
+	}
+
 	if ing.FromCIDR != nil {
 		retRule.FromCIDR = make([]api.CIDR, len(ing.FromCIDR))
 		copy(retRule.FromCIDR, ing.FromCIDR)
@@ -214,6 +221,13 @@ func parseToCiliumEgressCommonRule(namespace string, es api.EndpointSelector, eg
 	if egr.ToEntities != nil {
 		retRule.ToEntities = make([]api.Entity, len(egr.ToEntities))
 		copy(retRule.ToEntities, egr.ToEntities)
+	}
+
+	if egr.ToNodes != nil {
+		retRule.ToNodes = make([]api.EndpointSelector, len(egr.ToNodes))
+		for j, node := range egr.ToNodes {
+			retRule.ToNodes[j] = api.NewESFromK8sLabelSelector("", node.LabelSelector)
+		}
 	}
 
 	if egr.ToGroups != nil {

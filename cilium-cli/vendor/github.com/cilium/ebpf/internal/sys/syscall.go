@@ -139,6 +139,17 @@ const (
 	BPF_F_MMAPABLE
 	BPF_F_PRESERVE_ELEMS
 	BPF_F_INNER_MAP
+	BPF_F_LINK
+	BPF_F_PATH_FD
+)
+
+// Flags used by bpf_mprog.
+const (
+	BPF_F_REPLACE = 1 << (iota + 2)
+	BPF_F_BEFORE
+	BPF_F_AFTER
+	BPF_F_ID
+	BPF_F_LINK_MPROG = 1 << 13 // aka BPF_F_LINK
 )
 
 // wrappedErrno wraps syscall.Errno to prevent direct comparisons with

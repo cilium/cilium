@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -74,6 +75,13 @@ type CiliumEnvoyConfigSpec struct {
 	//
 	// +kubebuilder:validation:Required
 	Resources []XDSResource `json:"resources,omitempty"`
+
+	// NodeSelector is a label selector that determines to which nodes
+	// this configuration applies.
+	// If nil, then this config applies to all nodes.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSelector *slim_metav1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 
 type Service struct {

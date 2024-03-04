@@ -258,6 +258,7 @@ type jobOneShotOpt func(*jobOneShot)
 
 // WithRetry option configures a one shot job to retry `times` amount of times. Each retry attempt the `backoff`
 // ratelimiter is consulted to check how long the job should wait before making another attempt.
+// If `times` is <0, then the job is retried forever.
 func WithRetry(times int, backoff workqueue.RateLimiter) jobOneShotOpt {
 	return func(jos *jobOneShot) {
 		jos.retry = times
@@ -321,7 +322,7 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, scope cell
 	defer cancel()
 
 	var err error
-	for i := 0; i <= jos.retry; i++ {
+	for i := 0; jos.retry < 0 || i <= jos.retry; i++ {
 		var timeout time.Duration
 		if i != 0 {
 			timeout = jos.backoff.When(jos)

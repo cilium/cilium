@@ -65,7 +65,14 @@ const (
 	BPF_TCX_INGRESS                    AttachType = 46
 	BPF_TCX_EGRESS                     AttachType = 47
 	BPF_TRACE_UPROBE_MULTI             AttachType = 48
-	__MAX_BPF_ATTACH_TYPE              AttachType = 49
+	BPF_CGROUP_UNIX_CONNECT            AttachType = 49
+	BPF_CGROUP_UNIX_SENDMSG            AttachType = 50
+	BPF_CGROUP_UNIX_RECVMSG            AttachType = 51
+	BPF_CGROUP_UNIX_GETPEERNAME        AttachType = 52
+	BPF_CGROUP_UNIX_GETSOCKNAME        AttachType = 53
+	BPF_NETKIT_PRIMARY                 AttachType = 54
+	BPF_NETKIT_PEER                    AttachType = 55
+	__MAX_BPF_ATTACH_TYPE              AttachType = 56
 )
 
 type Cmd uint32
@@ -351,46 +358,48 @@ const (
 	BPF_LINK_TYPE_NETFILTER      LinkType = 10
 	BPF_LINK_TYPE_TCX            LinkType = 11
 	BPF_LINK_TYPE_UPROBE_MULTI   LinkType = 12
-	MAX_BPF_LINK_TYPE            LinkType = 13
+	BPF_LINK_TYPE_NETKIT         LinkType = 13
+	MAX_BPF_LINK_TYPE            LinkType = 14
 )
 
 type MapType uint32
 
 const (
-	BPF_MAP_TYPE_UNSPEC                    MapType = 0
-	BPF_MAP_TYPE_HASH                      MapType = 1
-	BPF_MAP_TYPE_ARRAY                     MapType = 2
-	BPF_MAP_TYPE_PROG_ARRAY                MapType = 3
-	BPF_MAP_TYPE_PERF_EVENT_ARRAY          MapType = 4
-	BPF_MAP_TYPE_PERCPU_HASH               MapType = 5
-	BPF_MAP_TYPE_PERCPU_ARRAY              MapType = 6
-	BPF_MAP_TYPE_STACK_TRACE               MapType = 7
-	BPF_MAP_TYPE_CGROUP_ARRAY              MapType = 8
-	BPF_MAP_TYPE_LRU_HASH                  MapType = 9
-	BPF_MAP_TYPE_LRU_PERCPU_HASH           MapType = 10
-	BPF_MAP_TYPE_LPM_TRIE                  MapType = 11
-	BPF_MAP_TYPE_ARRAY_OF_MAPS             MapType = 12
-	BPF_MAP_TYPE_HASH_OF_MAPS              MapType = 13
-	BPF_MAP_TYPE_DEVMAP                    MapType = 14
-	BPF_MAP_TYPE_SOCKMAP                   MapType = 15
-	BPF_MAP_TYPE_CPUMAP                    MapType = 16
-	BPF_MAP_TYPE_XSKMAP                    MapType = 17
-	BPF_MAP_TYPE_SOCKHASH                  MapType = 18
-	BPF_MAP_TYPE_CGROUP_STORAGE_DEPRECATED MapType = 19
-	BPF_MAP_TYPE_CGROUP_STORAGE            MapType = 19
-	BPF_MAP_TYPE_REUSEPORT_SOCKARRAY       MapType = 20
-	BPF_MAP_TYPE_PERCPU_CGROUP_STORAGE     MapType = 21
-	BPF_MAP_TYPE_QUEUE                     MapType = 22
-	BPF_MAP_TYPE_STACK                     MapType = 23
-	BPF_MAP_TYPE_SK_STORAGE                MapType = 24
-	BPF_MAP_TYPE_DEVMAP_HASH               MapType = 25
-	BPF_MAP_TYPE_STRUCT_OPS                MapType = 26
-	BPF_MAP_TYPE_RINGBUF                   MapType = 27
-	BPF_MAP_TYPE_INODE_STORAGE             MapType = 28
-	BPF_MAP_TYPE_TASK_STORAGE              MapType = 29
-	BPF_MAP_TYPE_BLOOM_FILTER              MapType = 30
-	BPF_MAP_TYPE_USER_RINGBUF              MapType = 31
-	BPF_MAP_TYPE_CGRP_STORAGE              MapType = 32
+	BPF_MAP_TYPE_UNSPEC                           MapType = 0
+	BPF_MAP_TYPE_HASH                             MapType = 1
+	BPF_MAP_TYPE_ARRAY                            MapType = 2
+	BPF_MAP_TYPE_PROG_ARRAY                       MapType = 3
+	BPF_MAP_TYPE_PERF_EVENT_ARRAY                 MapType = 4
+	BPF_MAP_TYPE_PERCPU_HASH                      MapType = 5
+	BPF_MAP_TYPE_PERCPU_ARRAY                     MapType = 6
+	BPF_MAP_TYPE_STACK_TRACE                      MapType = 7
+	BPF_MAP_TYPE_CGROUP_ARRAY                     MapType = 8
+	BPF_MAP_TYPE_LRU_HASH                         MapType = 9
+	BPF_MAP_TYPE_LRU_PERCPU_HASH                  MapType = 10
+	BPF_MAP_TYPE_LPM_TRIE                         MapType = 11
+	BPF_MAP_TYPE_ARRAY_OF_MAPS                    MapType = 12
+	BPF_MAP_TYPE_HASH_OF_MAPS                     MapType = 13
+	BPF_MAP_TYPE_DEVMAP                           MapType = 14
+	BPF_MAP_TYPE_SOCKMAP                          MapType = 15
+	BPF_MAP_TYPE_CPUMAP                           MapType = 16
+	BPF_MAP_TYPE_XSKMAP                           MapType = 17
+	BPF_MAP_TYPE_SOCKHASH                         MapType = 18
+	BPF_MAP_TYPE_CGROUP_STORAGE_DEPRECATED        MapType = 19
+	BPF_MAP_TYPE_CGROUP_STORAGE                   MapType = 19
+	BPF_MAP_TYPE_REUSEPORT_SOCKARRAY              MapType = 20
+	BPF_MAP_TYPE_PERCPU_CGROUP_STORAGE_DEPRECATED MapType = 21
+	BPF_MAP_TYPE_PERCPU_CGROUP_STORAGE            MapType = 21
+	BPF_MAP_TYPE_QUEUE                            MapType = 22
+	BPF_MAP_TYPE_STACK                            MapType = 23
+	BPF_MAP_TYPE_SK_STORAGE                       MapType = 24
+	BPF_MAP_TYPE_DEVMAP_HASH                      MapType = 25
+	BPF_MAP_TYPE_STRUCT_OPS                       MapType = 26
+	BPF_MAP_TYPE_RINGBUF                          MapType = 27
+	BPF_MAP_TYPE_INODE_STORAGE                    MapType = 28
+	BPF_MAP_TYPE_TASK_STORAGE                     MapType = 29
+	BPF_MAP_TYPE_BLOOM_FILTER                     MapType = 30
+	BPF_MAP_TYPE_USER_RINGBUF                     MapType = 31
+	BPF_MAP_TYPE_CGRP_STORAGE                     MapType = 32
 )
 
 type ProgType uint32
@@ -462,6 +471,15 @@ const (
 	BPF_STATS_RUN_TIME StatsType = 0
 )
 
+type TcxActionBase int32
+
+const (
+	TCX_NEXT     TcxActionBase = -1
+	TCX_PASS     TcxActionBase = 0
+	TCX_DROP     TcxActionBase = 2
+	TCX_REDIRECT TcxActionBase = 7
+)
+
 type XdpAction uint32
 
 const (
@@ -498,7 +516,7 @@ type LinkInfo struct {
 	Id     LinkID
 	ProgId uint32
 	_      [4]byte
-	Extra  [32]uint8
+	Extra  [40]uint8
 }
 
 type MapInfo struct {
@@ -702,6 +720,26 @@ func LinkCreateKprobeMulti(attr *LinkCreateKprobeMultiAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
+type LinkCreateNetfilterAttr struct {
+	ProgFd         uint32
+	TargetFd       uint32
+	AttachType     AttachType
+	Flags          uint32
+	Pf             uint32
+	Hooknum        uint32
+	Priority       int32
+	NetfilterFlags uint32
+	_              [32]byte
+}
+
+func LinkCreateNetfilter(attr *LinkCreateNetfilterAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
 type LinkCreatePerfEventAttr struct {
 	ProgFd     uint32
 	TargetFd   uint32
@@ -712,6 +750,25 @@ type LinkCreatePerfEventAttr struct {
 }
 
 func LinkCreatePerfEvent(attr *LinkCreatePerfEventAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
+type LinkCreateTcxAttr struct {
+	ProgFd           uint32
+	TargetIfindex    uint32
+	AttachType       AttachType
+	Flags            uint32
+	RelativeFdOrId   uint32
+	_                [4]byte
+	ExpectedRevision uint64
+	_                [32]byte
+}
+
+func LinkCreateTcx(attr *LinkCreateTcxAttr) (*FD, error) {
 	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
 	if err != nil {
 		return nil, err
@@ -731,6 +788,29 @@ type LinkCreateTracingAttr struct {
 }
 
 func LinkCreateTracing(attr *LinkCreateTracingAttr) (*FD, error) {
+	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	if err != nil {
+		return nil, err
+	}
+	return NewFD(int(fd))
+}
+
+type LinkCreateUprobeMultiAttr struct {
+	ProgFd           uint32
+	TargetFd         uint32
+	AttachType       AttachType
+	Flags            uint32
+	Path             Pointer
+	Offsets          Pointer
+	RefCtrOffsets    Pointer
+	Cookies          Pointer
+	Count            uint32
+	UprobeMultiFlags uint32
+	Pid              uint32
+	_                [4]byte
+}
+
+func LinkCreateUprobeMulti(attr *LinkCreateUprobeMultiAttr) (*FD, error) {
 	fd, err := BPF(BPF_LINK_CREATE, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
 	if err != nil {
 		return nil, err
@@ -971,13 +1051,13 @@ func ObjPin(attr *ObjPinAttr) error {
 }
 
 type ProgAttachAttr struct {
-	TargetFd         uint32
-	AttachBpfFd      uint32
-	AttachType       uint32
-	AttachFlags      uint32
-	ReplaceBpfFd     uint32
-	RelativeFd       uint32
-	ExpectedRevision uint64
+	TargetFdOrIfindex uint32
+	AttachBpfFd       uint32
+	AttachType        uint32
+	AttachFlags       uint32
+	ReplaceBpfFd      uint32
+	RelativeFdOrId    uint32
+	ExpectedRevision  uint64
 }
 
 func ProgAttach(attr *ProgAttachAttr) error {
@@ -997,9 +1077,13 @@ func ProgBindMap(attr *ProgBindMapAttr) error {
 }
 
 type ProgDetachAttr struct {
-	TargetFd    uint32
-	AttachBpfFd uint32
-	AttachType  uint32
+	TargetFdOrIfindex uint32
+	AttachBpfFd       uint32
+	AttachType        uint32
+	AttachFlags       uint32
+	_                 [4]byte
+	RelativeFdOrId    uint32
+	ExpectedRevision  uint64
 }
 
 func ProgDetach(attr *ProgDetachAttr) error {
@@ -1065,17 +1149,17 @@ func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
 }
 
 type ProgQueryAttr struct {
-	TargetFd        uint32
-	AttachType      AttachType
-	QueryFlags      uint32
-	AttachFlags     uint32
-	ProgIds         Pointer
-	ProgCount       uint32
-	_               [4]byte
-	ProgAttachFlags Pointer
-	LinkIds         Pointer
-	LinkAttachFlags Pointer
-	Revision        uint64
+	TargetFdOrIfindex uint32
+	AttachType        AttachType
+	QueryFlags        uint32
+	AttachFlags       uint32
+	ProgIds           Pointer
+	Count             uint32
+	_                 [4]byte
+	ProgAttachFlags   Pointer
+	LinkIds           Pointer
+	LinkAttachFlags   Pointer
+	Revision          uint64
 }
 
 func ProgQuery(attr *ProgQueryAttr) error {
@@ -1137,10 +1221,22 @@ type NetNsLinkInfo struct {
 	AttachType AttachType
 }
 
+type NetfilterLinkInfo struct {
+	Pf       uint32
+	Hooknum  uint32
+	Priority int32
+	Flags    uint32
+}
+
 type RawTracepointLinkInfo struct {
 	TpName    Pointer
 	TpNameLen uint32
 	_         [4]byte
+}
+
+type TcxLinkInfo struct {
+	Ifindex    uint32
+	AttachType AttachType
 }
 
 type TracingLinkInfo struct {

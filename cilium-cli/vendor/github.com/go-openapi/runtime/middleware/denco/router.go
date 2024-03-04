@@ -29,13 +29,13 @@ const (
 
 // Router represents a URL router.
 type Router struct {
+	param *doubleArray
 	// SizeHint expects the maximum number of path parameters in records to Build.
 	// SizeHint will be used to determine the capacity of the memory to allocate.
 	// By default, SizeHint will be determined from given records to Build.
 	SizeHint int
 
 	static map[string]interface{}
-	param  *doubleArray
 }
 
 // New returns a new Router.
@@ -197,24 +197,29 @@ func (da *doubleArray) lookup(path string, params []Param, idx int) (*node, []Pa
 	if next := nextIndex(da.bc[idx].Base(), TerminationCharacter); next < len(da.bc) && da.bc[next].Check() == TerminationCharacter {
 		return da.node[da.bc[next].Base()], params, true
 	}
+
 BACKTRACKING:
 	for j := len(indices) - 1; j >= 0; j-- {
 		i, idx := int(indices[j]>>32), int(indices[j]&0xffffffff)
 		if da.bc[idx].IsSingleParam() {
-			idx := nextIndex(da.bc[idx].Base(), ParamCharacter) //nolint:govet
-			if idx >= len(da.bc) {
+			nextIdx := nextIndex(da.bc[idx].Base(), ParamCharacter)
+			if nextIdx >= len(da.bc) {
 				break
 			}
+
 			next := NextSeparator(path, i)
-			params := append(params, Param{Value: path[i:next]})                 //nolint:govet
-			if nd, params, found := da.lookup(path[next:], params, idx); found { //nolint:govet
-				return nd, params, true
+			nextParams := params
+			nextParams = append(nextParams, Param{Value: path[i:next]})
+			if nd, nextNextParams, found := da.lookup(path[next:], nextParams, nextIdx); found {
+				return nd, nextNextParams, true
 			}
 		}
+
 		if da.bc[idx].IsWildcardParam() {
-			idx := nextIndex(da.bc[idx].Base(), WildcardCharacter) //nolint:govet
-			params := append(params, Param{Value: path[i:]})       //nolint:govet
-			return da.node[da.bc[idx].Base()], params, true
+			nextIdx := nextIndex(da.bc[idx].Base(), WildcardCharacter)
+			nextParams := params
+			nextParams = append(nextParams, Param{Value: path[i:]})
+			return da.node[da.bc[nextIdx].Base()], nextParams, true
 		}
 	}
 	return nil, nil, false

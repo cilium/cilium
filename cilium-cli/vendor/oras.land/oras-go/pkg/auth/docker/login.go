@@ -19,7 +19,7 @@ import (
 	"context"
 
 	ctypes "github.com/docker/cli/cli/config/types"
-	"github.com/docker/docker/api/types"
+	apiregistry "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/registry"
 
 	iface "oras.land/oras-go/pkg/auth"
@@ -51,7 +51,7 @@ func (c *Client) LoginWithOpts(options ...iface.LoginOption) error {
 
 func (c *Client) login(settings *iface.LoginSettings) error {
 	hostname := resolveHostname(settings.Hostname)
-	cred := types.AuthConfig{
+	cred := apiregistry.AuthConfig{
 		Username:      settings.Username,
 		ServerAddress: hostname,
 	}

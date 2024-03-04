@@ -128,8 +128,17 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 			logfields.K8sNodeIP:        k8sNodeIP,
 		}).Info("Received own node information from API server")
 
+		// If the host does not have an IPv6 address, return an error
+		if option.Config.EnableIPv6 && nodeIP6 == nil {
+			log.WithFields(logrus.Fields{
+				logfields.NodeName:         n.Name,
+				logfields.IPAddr + ".ipv4": nodeIP4,
+				logfields.IPAddr + ".ipv6": nodeIP6,
+			}).Error("No IPv6 support on node as ipv6 address is nil")
+			return fmt.Errorf("node %s does not have an IPv6 address", n.Name)
+		}
+
 		useNodeCIDR(n)
-		restoreRouterHostIPs(n, log)
 	} else {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested
@@ -141,30 +150,4 @@ func WaitForNodeInformation(ctx context.Context, log logrus.FieldLogger, localNo
 	// Annotate addresses will occur later since the user might
 	// want to specify them manually
 	return nil
-}
-
-// restoreRouterHostIPs restores (sets) the router IPs found from the
-// Kubernetes resource.
-//
-// Note that it does not validate the correctness of the IPs, as that is done
-// later in the daemon initialization when node.AutoComplete() is called.
-func restoreRouterHostIPs(n *nodeTypes.Node, log logrus.FieldLogger) {
-	if !option.Config.EnableHostIPRestore {
-		return
-	}
-
-	router4 := n.GetCiliumInternalIP(false)
-	router6 := n.GetCiliumInternalIP(true)
-	if router4 != nil {
-		node.SetInternalIPv4Router(router4)
-	}
-	if router6 != nil {
-		node.SetIPv6Router(router6)
-	}
-	if router4 != nil || router6 != nil {
-		log.WithFields(logrus.Fields{
-			logfields.IPv4: router4,
-			logfields.IPv6: router6,
-		}).Info("Restored router IPs from node information")
-	}
 }

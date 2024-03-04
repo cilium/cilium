@@ -28,7 +28,7 @@ import (
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/transport"
-	"github.com/docker/docker/api/types"
+	apiregistry "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/registry"
 	"github.com/docker/go-connections/tlsconfig"
@@ -41,7 +41,7 @@ import (
 // They are not exposed in the docker/registry package that's why they are copied here
 
 type loginCredentialStore struct {
-	authConfig *types.AuthConfig
+	authConfig *apiregistry.AuthConfig
 }
 
 func (lcs loginCredentialStore) Basic(*url.URL) (string, string) {
@@ -59,7 +59,7 @@ func (lcs loginCredentialStore) SetRefreshToken(u *url.URL, service, token strin
 // loginWithTLS tries to login to the v2 registry server.
 // A custom tls.Config is used to override the default TLS configuration of the different registry endpoints.
 // The tls.Config is created using the provided certificate, certificate key and certificate authority.
-func (c *Client) loginWithTLS(ctx context.Context, service *registry.Service, certFile, keyFile, caFile string, authConfig *types.AuthConfig, userAgent string) (string, string, error) {
+func (c *Client) loginWithTLS(ctx context.Context, service *registry.Service, certFile, keyFile, caFile string, authConfig *apiregistry.AuthConfig, userAgent string) (string, string, error) {
 	tlsConfig, err := tlsconfig.Client(tlsconfig.Options{CAFile: caFile, CertFile: certFile, KeyFile: keyFile})
 	if err != nil {
 		return "", "", err
@@ -119,7 +119,7 @@ func (c *Client) getEndpoints(address string, service *registry.Service) ([]regi
 // loginV2 tries to login to the v2 registry server. The given registry
 // endpoint will be pinged to get authorization challenges. These challenges
 // will be used to authenticate against the registry to validate credentials.
-func loginV2(authConfig *types.AuthConfig, endpoint registry.APIEndpoint, userAgent string) (string, string, error) {
+func loginV2(authConfig *apiregistry.AuthConfig, endpoint registry.APIEndpoint, userAgent string) (string, string, error) {
 	var (
 		endpointStr          = strings.TrimRight(endpoint.URL.String(), "/") + "/v2/"
 		modifiers            = registry.Headers(userAgent, nil)

@@ -62,18 +62,6 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 	return ns + "/" + obj.GetName()
 }
 
-// IngressConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
-type IngressConfiguration interface {
-	// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
-	K8sIngressControllerEnabled() bool
-}
-
-// GatewayAPIConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
-type GatewayAPIConfiguration interface {
-	// K8sGatewayAPIEnabled returns true if gateway API is enabled in Cilium
-	K8sGatewayAPIEnabled() bool
-}
-
 // PolicyConfiguration is the required configuration for K8s NetworkPolicy
 type PolicyConfiguration interface {
 	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
@@ -216,11 +204,18 @@ func GetClusterIPByFamily(ipFamily slim_corev1.IPFamily, service *slim_corev1.Se
 	return ""
 }
 
+// nameLabelsGetter is an interface that returns the name and the labels for
+// the namespace.
+type nameLabelsGetter interface {
+	GetName() string
+	GetLabels() map[string]string
+}
+
 // SanitizePodLabels makes sure that no important pod labels were overridden manually
-func SanitizePodLabels(labels map[string]string, namespace *slim_corev1.Namespace, serviceAccount, clusterName string) map[string]string {
+func SanitizePodLabels(podLabels map[string]string, namespace nameLabelsGetter, serviceAccount, clusterName string) map[string]string {
 	sanitizedLabels := make(map[string]string)
 
-	for k, v := range labels {
+	for k, v := range podLabels {
 		sanitizedLabels[k] = v
 	}
 	// Sanitize namespace labels
@@ -228,7 +223,7 @@ func SanitizePodLabels(labels map[string]string, namespace *slim_corev1.Namespac
 		sanitizedLabels[joinPath(k8sconst.PodNamespaceMetaLabels, k)] = v
 	}
 	// Sanitize namespace name label
-	sanitizedLabels[k8sconst.PodNamespaceLabel] = namespace.ObjectMeta.Name
+	sanitizedLabels[k8sconst.PodNamespaceLabel] = namespace.GetName()
 	// Sanitize service account name
 	if serviceAccount != "" {
 		sanitizedLabels[k8sconst.PolicyLabelServiceAccount] = serviceAccount

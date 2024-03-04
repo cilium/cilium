@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -74,7 +74,7 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 	if !ok {
 		value = svc.ObjectMeta.Annotations[v1.AnnotationTopologyMode]
 	}
-	return strings.ToLower(value) == "auto"
+	return !(value == "" || value == "disabled" || value == "Disabled")
 }
 
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
@@ -657,8 +657,8 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 		len(s.K8sExternalIPs) == 0 &&
 		len(s.LoadBalancerIPs) == 0 &&
 		len(s.LoadBalancerSourceRanges) == 0 &&
-		comparator.MapStringEquals(s.Labels, svc.Labels) &&
-		comparator.MapStringEquals(s.Selector, svc.Selector) &&
+		maps.Equal(s.Labels, svc.Labels) &&
+		maps.Equal(s.Selector, svc.Selector) &&
 		!s.SessionAffinity &&
 		s.SessionAffinityTimeoutSec == 0 &&
 		s.Type == loadbalancer.SVCTypeClusterIP {
