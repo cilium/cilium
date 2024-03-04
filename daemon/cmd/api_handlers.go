@@ -31,7 +31,6 @@ type handlersOut struct {
 	DaemonGetClusterNodesHandler       daemon.GetClusterNodesHandler
 	DaemonGetConfigHandler             daemon.GetConfigHandler
 	DaemonGetDebuginfoHandler          daemon.GetDebuginfoHandler
-	DaemonGetHealthHandler             daemon.GetHealthHandler
 	DaemonGetHealthzHandler            daemon.GetHealthzHandler
 	DaemonGetMapHandler                daemon.GetMapHandler
 	DaemonGetMapNameEventsHandler      daemon.GetMapNameEventsHandler
