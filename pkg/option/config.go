@@ -44,9 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "config")
-)
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "config")
 
 const (
 	// AgentHealthPort is the TCP port for agent health status API
@@ -433,6 +431,9 @@ const (
 
 	// ToFQDNsMinTTL is the minimum time, in seconds, to use DNS data for toFQDNs policies.
 	ToFQDNsMinTTL = "tofqdns-min-ttl"
+
+	// ToFQDNsActiveConnectionsTTL is the time for which connections should be idle for after the DNS TTL expires
+	ToFQDNsActiveConnectionsTTL = "tofqdns-active-connections-ttl"
 
 	// ToFQDNsProxyPort is the global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
 	ToFQDNsProxyPort = "tofqdns-proxy-port"
@@ -1761,23 +1762,24 @@ type DaemonConfig struct {
 	DeriveMasqIPAddrFromDevice  string
 	IPMasqAgentConfigPath       string
 
-	EnableBPFClockProbe     bool
-	EnableIPv4EgressGateway bool
-	EnableEnvoyConfig       bool
-	EnableIngressController bool
-	EnableGatewayAPI        bool
-	EnvoyConfigTimeout      time.Duration
-	InstallIptRules         bool
-	MonitorAggregation      string
-	PreAllocateMaps         bool
-	IPv6NodeAddr            string
-	IPv4NodeAddr            string
-	SidecarIstioProxyImage  string
-	SocketPath              string
-	TracePayloadlen         int
-	Version                 string
-	PrometheusServeAddr     string
-	ToFQDNsMinTTL           int
+	EnableBPFClockProbe         bool
+	EnableIPv4EgressGateway     bool
+	EnableEnvoyConfig           bool
+	EnableIngressController     bool
+	EnableGatewayAPI            bool
+	EnvoyConfigTimeout          time.Duration
+	InstallIptRules             bool
+	MonitorAggregation          string
+	PreAllocateMaps             bool
+	IPv6NodeAddr                string
+	IPv4NodeAddr                string
+	SidecarIstioProxyImage      string
+	SocketPath                  string
+	TracePayloadlen             int
+	Version                     string
+	PrometheusServeAddr         string
+	ToFQDNsMinTTL               int
+	ToFQDNsActiveConnectionsTTL int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules
@@ -2431,56 +2433,54 @@ type DaemonConfig struct {
 	NodeLabels []string
 }
 
-var (
-	// Config represents the daemon configuration
-	Config = &DaemonConfig{
-		CreationTime:                    time.Now(),
-		Opts:                            NewIntOptions(&DaemonOptionLibrary),
-		Monitor:                         &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
-		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
-		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
-		IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
-		EnableHealthChecking:            defaults.EnableHealthChecking,
-		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
-		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
-		EnableHealthCheckNodePort:       defaults.EnableHealthCheckNodePort,
-		EnableIPv4:                      defaults.EnableIPv4,
-		EnableIPv6:                      defaults.EnableIPv6,
-		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
-		EnableSCTP:                      defaults.EnableSCTP,
-		EnableL7Proxy:                   defaults.EnableL7Proxy,
-		DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
-		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
-		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
-		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
-		IPAllocationTimeout:             defaults.IPAllocationTimeout,
-		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
-		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriod,
-		FixedIdentityMapping:            make(map[string]string),
-		KVStoreOpt:                      make(map[string]string),
-		LogOpt:                          make(map[string]string),
-		LoopbackIPv4:                    defaults.LoopbackIPv4,
-		EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
-		AnnotateK8sNode:                 defaults.AnnotateK8sNode,
-		K8sServiceCacheSize:             defaults.K8sServiceCacheSize,
-		AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
-		IdentityAllocationMode:          IdentityAllocationModeKVstore,
-		AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
-		EnableWellKnownIdentities:       defaults.EnableWellKnownIdentities,
-		AllocatorListTimeout:            defaults.AllocatorListTimeout,
-		EnableICMPRules:                 defaults.EnableICMPRules,
-		UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
+// Config represents the daemon configuration
+var Config = &DaemonConfig{
+	CreationTime:                    time.Now(),
+	Opts:                            NewIntOptions(&DaemonOptionLibrary),
+	Monitor:                         &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+	IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
+	IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
+	IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
+	EnableHealthChecking:            defaults.EnableHealthChecking,
+	EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
+	EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
+	EnableHealthCheckNodePort:       defaults.EnableHealthCheckNodePort,
+	EnableIPv4:                      defaults.EnableIPv4,
+	EnableIPv6:                      defaults.EnableIPv6,
+	EnableIPv6NDP:                   defaults.EnableIPv6NDP,
+	EnableSCTP:                      defaults.EnableSCTP,
+	EnableL7Proxy:                   defaults.EnableL7Proxy,
+	DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
+	ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
+	KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
+	KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
+	IPAllocationTimeout:             defaults.IPAllocationTimeout,
+	IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
+	IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriod,
+	FixedIdentityMapping:            make(map[string]string),
+	KVStoreOpt:                      make(map[string]string),
+	LogOpt:                          make(map[string]string),
+	LoopbackIPv4:                    defaults.LoopbackIPv4,
+	EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
+	AnnotateK8sNode:                 defaults.AnnotateK8sNode,
+	K8sServiceCacheSize:             defaults.K8sServiceCacheSize,
+	AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
+	IdentityAllocationMode:          IdentityAllocationModeKVstore,
+	AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
+	EnableWellKnownIdentities:       defaults.EnableWellKnownIdentities,
+	AllocatorListTimeout:            defaults.AllocatorListTimeout,
+	EnableICMPRules:                 defaults.EnableICMPRules,
+	UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
 
-		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
+	K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
-		ExternalClusterIP:      defaults.ExternalClusterIP,
-		EnableVTEP:             defaults.EnableVTEP,
-		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
-		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
-		PolicyCIDRMatchMode:    defaults.PolicyCIDRMatchMode,
-		MaxConnectedClusters:   defaults.MaxConnectedClusters,
-	}
-)
+	ExternalClusterIP:      defaults.ExternalClusterIP,
+	EnableVTEP:             defaults.EnableVTEP,
+	EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
+	EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
+	PolicyCIDRMatchMode:    defaults.PolicyCIDRMatchMode,
+	MaxConnectedClusters:   defaults.MaxConnectedClusters,
+}
 
 // GetIPv4NativeRoutingCIDR returns the native routing CIDR if configured
 func (c *DaemonConfig) GetIPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
@@ -3279,6 +3279,12 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			ToFQDNsMaxDeferredConnectionDeletes)
 	}
 	switch {
+	case vp.IsSet(ToFQDNsActiveConnectionsTTL): // set by user
+		c.ToFQDNsActiveConnectionsTTL = vp.GetInt(ToFQDNsActiveConnectionsTTL)
+	default:
+		c.ToFQDNsActiveConnectionsTTL = defaults.ToFQDNsActiveConnectionsTTL
+	}
+	switch {
 	case vp.IsSet(ToFQDNsMinTTL): // set by user
 		c.ToFQDNsMinTTL = vp.GetInt(ToFQDNsMinTTL)
 	default:
@@ -3837,8 +3843,8 @@ func (c *DaemonConfig) SetMapElementSizes(
 	sizeofCTElement,
 	sizeofNATElement,
 	sizeofNeighElement,
-	sizeofSockRevElement int) {
-
+	sizeofSockRevElement int,
+) {
 	c.SizeofCTElement = sizeofCTElement
 	c.SizeofNATElement = sizeofNATElement
 	c.SizeofNeighElement = sizeofNeighElement
@@ -3885,24 +3891,21 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 	// option, disable dynamic sizing for this map and use the
 	// provided size.
 	if !vp.IsSet(CTMapEntriesGlobalTCPName) {
-		c.CTMapEntriesGlobalTCP =
-			getEntries(CTMapEntriesGlobalTCPDefault, LimitTableAutoGlobalTCPMin, LimitTableMax)
+		c.CTMapEntriesGlobalTCP = getEntries(CTMapEntriesGlobalTCPDefault, LimitTableAutoGlobalTCPMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v",
 			CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP)
 	} else {
 		log.Debugf("option %s set by user to %v", CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP)
 	}
 	if !vp.IsSet(CTMapEntriesGlobalAnyName) {
-		c.CTMapEntriesGlobalAny =
-			getEntries(CTMapEntriesGlobalAnyDefault, LimitTableAutoGlobalAnyMin, LimitTableMax)
+		c.CTMapEntriesGlobalAny = getEntries(CTMapEntriesGlobalAnyDefault, LimitTableAutoGlobalAnyMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v",
 			CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny)
 	} else {
 		log.Debugf("option %s set by user to %v", CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny)
 	}
 	if !vp.IsSet(NATMapEntriesGlobalName) {
-		c.NATMapEntriesGlobal =
-			getEntries(NATMapEntriesGlobalDefault, LimitTableAutoNatGlobalMin, LimitTableMax)
+		c.NATMapEntriesGlobal = getEntries(NATMapEntriesGlobalDefault, LimitTableAutoNatGlobalMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v",
 			NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 		if c.NATMapEntriesGlobal > c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny {
@@ -3926,8 +3929,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 		log.Debugf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
 	}
 	if !vp.IsSet(SockRevNatEntriesName) {
-		c.SockRevNatEntries =
-			getEntries(SockRevNATMapEntriesDefault, LimitTableAutoSockRevNatMin, LimitTableMax)
+		c.SockRevNatEntries = getEntries(SockRevNATMapEntriesDefault, LimitTableAutoSockRevNatMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v",
 			SockRevNatEntriesName, c.SockRevNatEntries)
 	} else {
