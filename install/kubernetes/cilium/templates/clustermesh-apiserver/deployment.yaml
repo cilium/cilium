@@ -210,9 +210,9 @@ spec:
           httpGet:
             path: /readyz
             port: apiserv-health
-          periodSeconds: 30
-          initialDelaySeconds: 5
-          timeoutSeconds: 5
+          {{- with .Values.clustermesh.apiserver.readinessProbe }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
         {{- with .Values.clustermesh.apiserver.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}

@@ -2562,6 +2562,8 @@ clustermesh:
       pullPolicy: "Always"
     # -- TCP port for the clustermesh-apiserver health API.
     healthPort: 9880
+    # -- Configuration for the clustermesh-apiserver readiness probe.
+    readinessProbe: {}
     etcd:
       # The etcd binary is included in the clustermesh API server image, so the same image from above is reused.
       # Independent override isn't supported, because clustermesh-apiserver is tested against the etcd version it is
