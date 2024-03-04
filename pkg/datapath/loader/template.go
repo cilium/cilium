@@ -259,6 +259,10 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 		result["LXC_ID"] = uint64(ep.GetID())
 	}
 
+	if option.Config.EnableLocalRedirectPolicy {
+		result["enable_local_redirect_policy"] = 1
+	}
+
 	// Contrary to IPV4_MASQUERADE, we cannot use a simple #define and
 	// avoid introducing a symbol in stubs.h for IPV6_MASQUERADE. So the
 	// symbol is present in the template object as long as IPv6 BPF

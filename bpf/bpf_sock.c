@@ -25,6 +25,8 @@
 # define HOST_NETNS_COOKIE   get_netns_cookie(NULL)
 #endif
 
+DECLARE_CONFIG(bool, enable_local_redirect_policy, "Enable the local redirect policy feature");
+
 static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 {
 	/* Check for 127.0.0.0/8 range, RFC3330. */
@@ -407,9 +409,11 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -EHOSTUNREACH;
 	}
 
-	if (lb4_svc_is_localredirect(svc) &&
-	    sock4_skip_xlate_if_same_netns(ctx_full, backend))
-		return -ENXIO;
+	if (CONFIG(enable_local_redirect_policy)) {
+		if (lb4_svc_is_localredirect(svc) &&
+		    sock4_skip_xlate_if_same_netns(ctx_full, backend))
+			return -ENXIO;
+	}
 
 	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
