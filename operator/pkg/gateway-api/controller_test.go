@@ -498,9 +498,9 @@ func Test_onlyStatusChanged(t *testing.T) {
 						Status: gatewayv1.GatewayClassStatus{
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayv1.GatewayConditionScheduled),
+									Type:               string(gatewayv1.GatewayConditionAccepted),
 									Status:             metav1.ConditionTrue,
-									Reason:             string(gatewayv1.GatewayReasonScheduled),
+									Reason:             string(gatewayv1.GatewayReasonAccepted),
 									LastTransitionTime: metav1.NewTime(time.Now()),
 								},
 							},
@@ -518,9 +518,9 @@ func Test_onlyStatusChanged(t *testing.T) {
 						Status: gatewayv1.GatewayStatus{
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayv1.GatewayConditionScheduled),
+									Type:               string(gatewayv1.GatewayConditionAccepted),
 									Status:             metav1.ConditionTrue,
-									Reason:             string(gatewayv1.GatewayReasonScheduled),
+									Reason:             string(gatewayv1.GatewayReasonAccepted),
 									LastTransitionTime: metav1.NewTime(time.Now()),
 								},
 							},
@@ -530,9 +530,9 @@ func Test_onlyStatusChanged(t *testing.T) {
 						Status: gatewayv1.GatewayStatus{
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayv1.GatewayConditionScheduled),
+									Type:               string(gatewayv1.GatewayConditionAccepted),
 									Status:             metav1.ConditionTrue,
-									Reason:             string(gatewayv1.GatewayReasonScheduled),
+									Reason:             string(gatewayv1.GatewayReasonAccepted),
 									LastTransitionTime: metav1.NewTime(time.Now()),
 								},
 							},
@@ -562,9 +562,9 @@ func Test_onlyStatusChanged(t *testing.T) {
 						Status: gatewayv1.GatewayStatus{
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayv1.GatewayConditionScheduled),
+									Type:               string(gatewayv1.GatewayConditionAccepted),
 									Status:             metav1.ConditionTrue,
-									Reason:             string(gatewayv1.GatewayReasonScheduled),
+									Reason:             string(gatewayv1.GatewayReasonAccepted),
 									LastTransitionTime: metav1.NewTime(time.Now()),
 								},
 							},
@@ -582,9 +582,9 @@ func Test_onlyStatusChanged(t *testing.T) {
 						Status: gatewayv1.GatewayStatus{
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayv1.GatewayConditionScheduled),
+									Type:               string(gatewayv1.GatewayConditionAccepted),
 									Status:             metav1.ConditionTrue,
-									Reason:             string(gatewayv1.GatewayReasonScheduled),
+									Reason:             string(gatewayv1.GatewayReasonAccepted),
 									LastTransitionTime: metav1.NewTime(time.Now()),
 								},
 							},
@@ -594,9 +594,9 @@ func Test_onlyStatusChanged(t *testing.T) {
 						Status: gatewayv1.GatewayStatus{
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayv1.GatewayConditionScheduled),
+									Type:               string(gatewayv1.GatewayConditionAccepted),
 									Status:             metav1.ConditionTrue,
-									Reason:             string(gatewayv1.GatewayReasonScheduled),
+									Reason:             string(gatewayv1.GatewayReasonAccepted),
 									LastTransitionTime: metav1.NewTime(time.Now()),
 								},
 							},
