@@ -2925,6 +2925,10 @@ func init() {
           "description": "Kubernetes pod name",
           "type": "string"
         },
+        "k8s-uid": {
+          "description": "Kubernetes pod UID",
+          "type": "string"
+        },
         "labels": {
           "description": "Labels describing the identity",
           "$ref": "#/definitions/Labels"
@@ -8766,6 +8770,10 @@ func init() {
         },
         "k8s-pod-name": {
           "description": "Kubernetes pod name",
+          "type": "string"
+        },
+        "k8s-uid": {
+          "description": "Kubernetes pod UID",
           "type": "string"
         },
         "labels": {

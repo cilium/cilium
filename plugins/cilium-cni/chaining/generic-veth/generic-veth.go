@@ -188,6 +188,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		ContainerInterfaceName: vethLXCName,
 		K8sPodName:             string(pluginCtx.CniArgs.K8S_POD_NAME),
 		K8sNamespace:           string(pluginCtx.CniArgs.K8S_POD_NAMESPACE),
+		K8sUID:                 string(pluginCtx.CniArgs.K8S_POD_UID),
 		SyncBuildEndpoint:      true,
 		DatapathConfiguration: &models.EndpointDatapathConfiguration{
 			// aws-cni requires ARP passthrough between Linux and

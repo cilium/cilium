@@ -291,6 +291,10 @@ type Endpoint struct {
 	// Immutable after Endpoint creation.
 	K8sNamespace string
 
+	// K8sUID is the Kubernetes UID of the pod. Passed directly from the CNI.
+	// Immutable after Endpoint creation.
+	K8sUID string
+
 	// pod
 	pod atomic.Pointer[slim_corev1.Pod]
 
@@ -1264,6 +1268,14 @@ func (e *Endpoint) GetK8sNamespace() string {
 	return ns
 }
 
+// GetK8sUID returns the UID of the pod if the endpoint represents a Kubernetes
+// pod.
+func (e *Endpoint) GetK8sUID() string {
+	// const after creation
+	uid := e.K8sUID
+	return uid
+}
+
 // SetPod sets the pod related to this endpoint.
 func (e *Endpoint) SetPod(pod *slim_corev1.Pod) {
 	e.pod.Store(pod)
@@ -1722,8 +1734,14 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 
 	pod, k8sMetadata, err := resolveMetadata(ns, podName)
-	if err != nil {
+	switch {
+	case err != nil:
 		e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
+		fallthrough
+	case e.K8sUID != "" && e.K8sUID != string(pod.GetUID()):
+		if err == nil {
+			err = errors.New("metadata resolver: pod store out-of-date")
+		}
 		// If we were unable to fetch the k8s endpoints then
 		// we will mark the endpoint with the init identity.
 		if !restoredEndpoint {
