@@ -153,6 +153,9 @@ type Statistics struct {
 	// IPv4 represents IPv4-specific statistics.
 	IPv4 IPStatistics
 
+	// IPv6 represents IPv6-specific statistics.
+	IPv6 IPStatistics
+
 	// EmptyInterfaceSlots is the number of empty interface slots available
 	// for interfaces to be attached.
 	EmptyInterfaceSlots int
