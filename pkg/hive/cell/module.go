@@ -83,20 +83,6 @@ func (m *module) fullModuleID(parent FullModuleID) FullModuleID {
 	return parent.append(m.moduleID())
 }
 
-type reporterHooks struct {
-	rootScope *scope
-}
-
-func (r *reporterHooks) Start(ctx HookContext) error {
-	r.rootScope.start()
-	return nil
-}
-
-func (r *reporterHooks) Stop(ctx HookContext) error {
-	flushAndClose(r.rootScope, "Hive shutting down")
-	return nil
-}
-
 type wipHealthV2Shim struct {
 	healthv2Types.Health
 }
