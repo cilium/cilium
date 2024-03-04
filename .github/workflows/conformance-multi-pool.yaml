@@ -120,7 +120,8 @@ jobs:
           #  - Multi-pool IPAM only supports endpoint routes, thus we disable
           #    the local-node-route.
           #  - helm/kind-action does not support BPF host routing, so we fall
-          #    back on legacy host routing (#23283)
+          #    back on legacy host routing
+          #    (https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247)
           #  - iptables-based masquerading does not support multiple non-masquerade
           #    CIDRs. Thus, we enable BPF masquerading where we can add multiple
           #    non-masquerade CIDRs.
