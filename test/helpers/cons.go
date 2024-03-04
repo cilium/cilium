@@ -268,8 +268,6 @@ const (
 	cantRecreateMasterKey      = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
 	cantUpdateCRDIdentity      = "Unable update CRD identity information with a reference for this node" // cf. https://github.com/cilium/cilium/issues/29739
 	cantDeleteFromPolicyMap    = "cilium_call_policy: delete: key does not exist"                        // cf. https://github.com/cilium/cilium/issues/29754
-	deprecatedEnvoyRuntimeKey  = "Usage of the deprecated runtime key overload.global_downstream_max_connections"
-	noConnLimitEnvoy           = "There is no configured limit to the number of allowed active downstream connections"
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
 
@@ -342,7 +340,7 @@ var badLogMessages = map[string][]string{
 		failedPeerSync, unableRestoreRouterIP, routerIPReallocated,
 		cantFindIdentityInCache, kubeApiserverConnLost1, kubeApiserverConnLost2, heartbeatTimedOut,
 		keyAllocFailedFoundMaster, cantRecreateMasterKey, cantUpdateCRDIdentity,
-		cantDeleteFromPolicyMap, deprecatedEnvoyRuntimeKey, noConnLimitEnvoy, failedToListCRDs},
+		cantDeleteFromPolicyMap, failedToListCRDs},
 }
 
 var ciliumCLICommands = map[string]string{
