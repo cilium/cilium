@@ -847,31 +847,6 @@ func init() {
         }
       }
     },
-    "/health": {
-      "get": {
-        "description": "Returns modules health and status information of the Cilium daemon.\n",
-        "tags": [
-          "daemon"
-        ],
-        "summary": "Get modules health of Cilium daemon",
-        "parameters": [
-          {
-            "type": "boolean",
-            "description": "Brief is a brief representation of the Cilium status.\n",
-            "name": "brief",
-            "in": "header"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/ModulesHealth"
-            }
-          }
-        }
-      }
-    },
     "/healthz": {
       "get": {
         "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration and Hubble.\n",
@@ -4230,43 +4205,6 @@ func init() {
         }
       }
     },
-    "ModuleHealth": {
-      "description": "Report module health status",
-      "properties": {
-        "last-ok": {
-          "description": "Time at which the last OK check occurred",
-          "type": "string"
-        },
-        "last-updated": {
-          "description": "Time of last health update",
-          "type": "string"
-        },
-        "level": {
-          "description": "Describes the health status level",
-          "type": "string"
-        },
-        "message": {
-          "description": "Reports the associated health message",
-          "type": "string"
-        },
-        "module-id": {
-          "description": "Describes the module identitier",
-          "type": "string"
-        }
-      }
-    },
-    "ModulesHealth": {
-      "description": "Reports health status of agent's modules",
-      "properties": {
-        "modules": {
-          "description": "List out modules health status",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ModuleHealth"
-          }
-        }
-      }
-    },
     "MonitorStatus": {
       "description": "Status of the node monitor",
       "properties": {
@@ -6508,31 +6446,6 @@ func init() {
             "description": "Invalid request (error parsing parameters)",
             "schema": {
               "$ref": "#/definitions/Error"
-            }
-          }
-        }
-      }
-    },
-    "/health": {
-      "get": {
-        "description": "Returns modules health and status information of the Cilium daemon.\n",
-        "tags": [
-          "daemon"
-        ],
-        "summary": "Get modules health of Cilium daemon",
-        "parameters": [
-          {
-            "type": "boolean",
-            "description": "Brief is a brief representation of the Cilium status.\n",
-            "name": "brief",
-            "in": "header"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/ModulesHealth"
             }
           }
         }
@@ -10490,43 +10403,6 @@ func init() {
         "value": {
           "description": "Value of the metric",
           "type": "number"
-        }
-      }
-    },
-    "ModuleHealth": {
-      "description": "Report module health status",
-      "properties": {
-        "last-ok": {
-          "description": "Time at which the last OK check occurred",
-          "type": "string"
-        },
-        "last-updated": {
-          "description": "Time of last health update",
-          "type": "string"
-        },
-        "level": {
-          "description": "Describes the health status level",
-          "type": "string"
-        },
-        "message": {
-          "description": "Reports the associated health message",
-          "type": "string"
-        },
-        "module-id": {
-          "description": "Describes the module identitier",
-          "type": "string"
-        }
-      }
-    },
-    "ModulesHealth": {
-      "description": "Reports health status of agent's modules",
-      "properties": {
-        "modules": {
-          "description": "List out modules health status",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ModuleHealth"
-          }
         }
       }
     },
