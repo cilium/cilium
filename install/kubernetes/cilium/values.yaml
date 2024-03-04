@@ -2598,6 +2598,10 @@ clustermesh:
       # -- Enable KVStoreMesh. KVStoreMesh caches the information retrieved
       # from the remote clusters in the local etcd instance.
       enabled: false
+      # -- TCP port for the KVStoreMesh health API.
+      healthPort: 9881
+      # -- Configuration for the KVStoreMesh readiness probe.
+      readinessProbe: {}
       # -- Additional KVStoreMesh arguments.
       extraArgs: []
       # -- Additional KVStoreMesh environment variables.
