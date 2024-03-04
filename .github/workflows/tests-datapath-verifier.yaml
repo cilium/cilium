@@ -70,19 +70,19 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '4.19-20240215.093821'
+          - kernel: '4.19-20240221.111541'
             ci-kernel: '419'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.4-20240215.093821'
+          - kernel: '5.4-20240221.111541'
             ci-kernel: '54'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20240215.093821'
+          - kernel: '5.10-20240221.111541'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20240215.093821'
+          - kernel: '5.15-20240221.111541'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20240215.093821'
+          - kernel: '6.1-20240221.111541'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.6-20240221.111541'
