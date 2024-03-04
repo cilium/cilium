@@ -52,25 +52,6 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/StatusResponse"
-  "/health":
-    get:
-      summary: Get modules health of Cilium daemon
-      description: |
-        Returns modules health and status information of the Cilium daemon.
-      tags:
-        - daemon
-      parameters:
-      - name: brief
-        description: |
-          Brief is a brief representation of the Cilium status.
-        in: header
-        required: false
-        type: boolean
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/ModulesHealth"
   "/config":
     get:
       summary: Get configuration of Cilium daemon
@@ -1434,33 +1415,6 @@ parameters:
     type: string
 
 definitions:
-  ModulesHealth:
-    description: Reports health status of agent's modules
-    properties:
-      modules:
-        description: List out modules health status
-        type: array
-        items:
-          "$ref": "#/definitions/ModuleHealth"
-  ModuleHealth:
-    description: Report module health status
-    properties:
-      module-id:
-        description: Describes the module identitier
-        type: string
-      level:
-        description: Describes the health status level
-        type: string
-      message:
-        description: Reports the associated health message
-        type: string
-      last-ok:
-        description: Time at which the last OK check occurred
-        type: string
-      last-updated:
-        description: Time of last health update
-        type: string
-
   Endpoint:
     description: An endpoint is a namespaced network interface to which cilium applies policies
     type: object
