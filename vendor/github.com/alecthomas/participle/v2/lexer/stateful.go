@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,14 +17,101 @@ var (
 	backrefReplace = regexp.MustCompile(`(\\+)(\d)`)
 )
 
-// Option for modifying how the Lexer works.
-type Option func(d *StatefulDefinition)
-
 // A Rule matching input and possibly changing state.
 type Rule struct {
-	Name    string
-	Pattern string
-	Action  Action
+	Name    string `json:"name"`
+	Pattern string `json:"pattern"`
+	Action  Action `json:"action"`
+}
+
+var _ json.Marshaler = &Rule{}
+var _ json.Unmarshaler = &Rule{}
+
+type jsonRule struct {
+	Name    string          `json:"name,omitempty"`
+	Pattern string          `json:"pattern,omitempty"`
+	Action  json.RawMessage `json:"action,omitempty"`
+}
+
+func (r *Rule) UnmarshalJSON(data []byte) error {
+	jrule := jsonRule{}
+	err := json.Unmarshal(data, &jrule)
+	if err != nil {
+		return err
+	}
+	r.Name = jrule.Name
+	r.Pattern = jrule.Pattern
+	jaction := struct {
+		Kind string `json:"kind"`
+	}{}
+	if jrule.Action == nil {
+		return nil
+	}
+	err = json.Unmarshal(jrule.Action, &jaction)
+	if err != nil {
+		return fmt.Errorf("could not unmarshal action %q: %w", string(jrule.Action), err)
+	}
+	var action Action
+	switch jaction.Kind {
+	case "push":
+		actual := ActionPush{}
+		if err := json.Unmarshal(jrule.Action, &actual); err != nil {
+			return err
+		}
+		action = actual
+	case "pop":
+		actual := ActionPop{}
+		if err := json.Unmarshal(jrule.Action, &actual); err != nil {
+			return err
+		}
+		action = actual
+	case "include":
+		actual := include{}
+		if err := json.Unmarshal(jrule.Action, &actual); err != nil {
+			return err
+		}
+		action = actual
+	case "":
+	default:
+		return fmt.Errorf("unknown action %q", jaction.Kind)
+	}
+	r.Action = action
+	return nil
+}
+
+func (r *Rule) MarshalJSON() ([]byte, error) {
+	jrule := jsonRule{
+		Name:    r.Name,
+		Pattern: r.Pattern,
+	}
+	if r.Action != nil {
+		actionData, err := json.Marshal(r.Action)
+		if err != nil {
+			return nil, fmt.Errorf("failed to map action: %w", err)
+		}
+		jaction := map[string]interface{}{}
+		err = json.Unmarshal(actionData, &jaction)
+		if err != nil {
+			return nil, fmt.Errorf("failed to map action: %w", err)
+		}
+		switch r.Action.(type) {
+		case nil:
+		case ActionPop:
+			jaction["kind"] = "pop"
+		case ActionPush:
+			jaction["kind"] = "push"
+		case include:
+			jaction["kind"] = "include"
+		default:
+			return nil, fmt.Errorf("unsupported action %T", r.Action)
+		}
+		actionJSON, err := json.Marshal(jaction)
+		if err != nil {
+			return nil, err
+		}
+		jrule.Action = actionJSON
+	}
+	return json.Marshal(&jrule)
 }
 
 // Rules grouped by name.
@@ -52,19 +140,8 @@ type RulesAction interface {
 	applyRules(state string, rule int, rules compiledRules) error
 }
 
-// InitialState overrides the default initial state of "Root".
-func InitialState(state string) Option {
-	return func(d *StatefulDefinition) {
-		d.initialState = state
-	}
-}
-
-// MatchLongest causes the Lexer to continue checking rules past the first match.
-// If any subsequent rule has a longer match, it will be used instead.
-func MatchLongest() Option {
-	return func(d *StatefulDefinition) {
-		d.matchLongest = true
-	}
+type validatingRule interface {
+	validate(rules Rules) error
 }
 
 // ActionPop pops to the previous state when the Rule matches.
@@ -92,13 +169,22 @@ var ReturnRule = Rule{"returnToParent", "", nil}
 func Return() Rule { return ReturnRule }
 
 // ActionPush pushes the current state and switches to "State" when the Rule matches.
-type ActionPush struct{ State string }
+type ActionPush struct {
+	State string `json:"state"`
+}
 
 func (p ActionPush) applyAction(lexer *StatefulLexer, groups []string) error {
 	if groups[0] == "" {
 		return errors.New("did not consume any input")
 	}
 	lexer.stack = append(lexer.stack, lexerState{name: p.State, groups: groups})
+	return nil
+}
+
+func (p ActionPush) validate(rules Rules) error {
+	if _, ok := rules[p.State]; !ok {
+		return fmt.Errorf("push to unknown state %q", p.State)
+	}
 	return nil
 }
 
@@ -110,16 +196,18 @@ func Push(state string) Action {
 	return ActionPush{state}
 }
 
-type include struct{ state string }
+type include struct {
+	State string `json:"state"`
+}
 
 func (i include) applyAction(lexer *StatefulLexer, groups []string) error {
 	panic("should not be called")
 }
 
 func (i include) applyRules(state string, rule int, rules compiledRules) error {
-	includedRules, ok := rules[i.state]
+	includedRules, ok := rules[i.State]
 	if !ok {
-		return fmt.Errorf("invalid include state %q", i.state)
+		return fmt.Errorf("invalid include state %q", i.State)
 	}
 	clone := make([]compiledRule, len(includedRules))
 	copy(clone, includedRules)
@@ -138,13 +226,12 @@ type StatefulDefinition struct {
 	symbols map[string]TokenType
 	// Map of key->*regexp.Regexp
 	backrefCache sync.Map
-	initialState string
 	matchLongest bool
 }
 
 // MustStateful creates a new stateful lexer and panics if it is incorrect.
-func MustStateful(rules Rules, options ...Option) *StatefulDefinition {
-	def, err := New(rules, options...)
+func MustStateful(rules Rules) *StatefulDefinition {
+	def, err := New(rules)
 	if err != nil {
 		panic(err)
 	}
@@ -152,10 +239,15 @@ func MustStateful(rules Rules, options ...Option) *StatefulDefinition {
 }
 
 // New constructs a new stateful lexer from rules.
-func New(rules Rules, options ...Option) (*StatefulDefinition, error) {
+func New(rules Rules) (*StatefulDefinition, error) {
 	compiled := compiledRules{}
 	for key, set := range rules {
 		for i, rule := range set {
+			if validate, ok := rule.Action.(validatingRule); ok {
+				if err := validate.validate(rules); err != nil {
+					return nil, fmt.Errorf("invalid action for rule %q: %w", rule.Name, err)
+				}
+			}
 			pattern := "^(?:" + rule.Pattern + ")"
 			var (
 				re  *regexp.Regexp
@@ -208,14 +300,14 @@ restart:
 		}
 	}
 	d := &StatefulDefinition{
-		initialState: "Root",
-		rules:        compiled,
-		symbols:      symbols,
-	}
-	for _, option := range options {
-		option(d)
+		rules:   compiled,
+		symbols: symbols,
 	}
 	return d, nil
+}
+
+func (d *StatefulDefinition) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.rules)
 }
 
 // Rules returns the user-provided Rules used to construct the lexer.
@@ -234,7 +326,7 @@ func (d *StatefulDefinition) LexString(filename string, s string) (Lexer, error)
 	return &StatefulLexer{
 		def:   d,
 		data:  s,
-		stack: []lexerState{{name: d.initialState}},
+		stack: []lexerState{{name: "Root"}},
 		pos: Position{
 			Filename: filename,
 			Line:     1,
@@ -256,6 +348,7 @@ func (d *StatefulDefinition) Symbols() map[string]TokenType { // nolint: golint
 	return d.symbols
 }
 
+// lexerState stored when switching states in the lexer.
 type lexerState struct {
 	name   string
 	groups []string
@@ -345,12 +438,15 @@ func (l *StatefulLexer) getPattern(candidate compiledRule) (*regexp.Regexp, erro
 	if candidate.RE != nil {
 		return candidate.RE, nil
 	}
-
 	// We don't have a compiled RE. This means there are back-references
 	// that need to be substituted first.
-	parent := l.stack[len(l.stack)-1]
-	key := candidate.Pattern + "\000" + strings.Join(parent.groups, "\000")
-	cached, ok := l.def.backrefCache.Load(key)
+	return BackrefRegex(&l.def.backrefCache, candidate.Pattern, l.stack[len(l.stack)-1].groups)
+}
+
+// BackrefRegex returns a compiled regular expression with backreferences replaced by groups.
+func BackrefRegex(backrefCache *sync.Map, input string, groups []string) (*regexp.Regexp, error) {
+	key := input + "\000" + strings.Join(groups, "\000")
+	cached, ok := backrefCache.Load(key)
 	if ok {
 		return cached.(*regexp.Regexp), nil
 	}
@@ -359,19 +455,19 @@ func (l *StatefulLexer) getPattern(candidate compiledRule) (*regexp.Regexp, erro
 		re  *regexp.Regexp
 		err error
 	)
-	pattern := backrefReplace.ReplaceAllStringFunc(candidate.Pattern, func(s string) string {
+	pattern := backrefReplace.ReplaceAllStringFunc(input, func(s string) string {
 		var rematch = backrefReplace.FindStringSubmatch(s)
 		n, nerr := strconv.ParseInt(rematch[2], 10, 64)
 		if nerr != nil {
 			err = nerr
 			return s
 		}
-		if len(parent.groups) == 0 || int(n) >= len(parent.groups) {
-			err = fmt.Errorf("invalid group %d from parent with %d groups", n, len(parent.groups))
+		if len(groups) == 0 || int(n) >= len(groups) {
+			err = fmt.Errorf("invalid group %d from parent with %d groups", n, len(groups))
 			return s
 		}
 		// concatenate the leading \\\\ which are already escaped to the quoted match.
-		return rematch[1][:len(rematch[1])-1] + regexp.QuoteMeta(parent.groups[n])
+		return rematch[1][:len(rematch[1])-1] + regexp.QuoteMeta(groups[n])
 	})
 	if err == nil {
 		re, err = regexp.Compile("^(?:" + pattern + ")")
@@ -379,6 +475,6 @@ func (l *StatefulLexer) getPattern(candidate compiledRule) (*regexp.Regexp, erro
 	if err != nil {
 		return nil, fmt.Errorf("invalid backref expansion: %q: %s", pattern, err)
 	}
-	l.def.backrefCache.Store(key, re)
+	backrefCache.Store(key, re)
 	return re, nil
 }

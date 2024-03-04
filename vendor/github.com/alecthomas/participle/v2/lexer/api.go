@@ -70,7 +70,7 @@ func NameOfReader(r interface{}) string {
 //
 // eg.
 //
-// 		lex = lexer.Must(lexer.Build(`Symbol = "symbol" .`))
+//	lex = lexer.Must(lexer.Build(`Symbol = "symbol" .`))
 func Must(def Definition, err error) Definition {
 	if err != nil {
 		panic(err)
@@ -112,6 +112,20 @@ func (p *Position) Advance(span string) {
 	} else {
 		p.Column = utf8.RuneCountInString(span[strings.LastIndex(span, "\n"):])
 	}
+}
+
+// Add returns a new Position that is the sum of this position and "pos".
+//
+// This is useful when parsing values from a parent grammar.
+func (p Position) Add(pos Position) Position {
+	p.Line += pos.Line - 1
+	if pos.Line > 1 {
+		p.Column = pos.Column
+	} else {
+		p.Column += pos.Column - 1
+	}
+	p.Offset += pos.Offset
+	return p
 }
 
 func (p Position) GoString() string {
