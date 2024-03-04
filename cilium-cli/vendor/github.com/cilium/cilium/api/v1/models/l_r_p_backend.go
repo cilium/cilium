@@ -78,11 +78,6 @@ func (m *LRPBackend) ContextValidate(ctx context.Context, formats strfmt.Registr
 func (m *LRPBackend) contextValidateBackendAddress(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.BackendAddress != nil {
-
-		if swag.IsZero(m.BackendAddress) { // not required
-			return nil
-		}
-
 		if err := m.BackendAddress.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("backend-address")

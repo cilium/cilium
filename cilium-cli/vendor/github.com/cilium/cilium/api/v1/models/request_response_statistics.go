@@ -107,11 +107,6 @@ func (m *RequestResponseStatistics) ContextValidate(ctx context.Context, formats
 func (m *RequestResponseStatistics) contextValidateRequests(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Requests != nil {
-
-		if swag.IsZero(m.Requests) { // not required
-			return nil
-		}
-
 		if err := m.Requests.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("requests")
@@ -128,11 +123,6 @@ func (m *RequestResponseStatistics) contextValidateRequests(ctx context.Context,
 func (m *RequestResponseStatistics) contextValidateResponses(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Responses != nil {
-
-		if swag.IsZero(m.Responses) { // not required
-			return nil
-		}
-
 		if err := m.Responses.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("responses")

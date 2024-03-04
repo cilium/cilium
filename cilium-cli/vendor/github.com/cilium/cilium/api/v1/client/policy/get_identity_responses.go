@@ -51,7 +51,7 @@ func (o *GetIdentityReader) ReadResponse(response runtime.ClientResponse, consum
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /identity] GetIdentity", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -92,11 +92,6 @@ func (o *GetIdentityOK) IsServerError() bool {
 // IsCode returns true when this get identity o k response a status code equal to that given
 func (o *GetIdentityOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get identity o k response
-func (o *GetIdentityOK) Code() int {
-	return 200
 }
 
 func (o *GetIdentityOK) Error() string {
@@ -159,11 +154,6 @@ func (o *GetIdentityNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
-// Code gets the status code for the get identity not found response
-func (o *GetIdentityNotFound) Code() int {
-	return 404
-}
-
 func (o *GetIdentityNotFound) Error() string {
 	return fmt.Sprintf("[GET /identity][%d] getIdentityNotFound ", 404)
 }
@@ -214,11 +204,6 @@ func (o *GetIdentityUnreachable) IsServerError() bool {
 // IsCode returns true when this get identity unreachable response a status code equal to that given
 func (o *GetIdentityUnreachable) IsCode(code int) bool {
 	return code == 520
-}
-
-// Code gets the status code for the get identity unreachable response
-func (o *GetIdentityUnreachable) Code() int {
-	return 520
 }
 
 func (o *GetIdentityUnreachable) Error() string {
@@ -280,11 +265,6 @@ func (o *GetIdentityInvalidStorageFormat) IsServerError() bool {
 // IsCode returns true when this get identity invalid storage format response a status code equal to that given
 func (o *GetIdentityInvalidStorageFormat) IsCode(code int) bool {
 	return code == 521
-}
-
-// Code gets the status code for the get identity invalid storage format response
-func (o *GetIdentityInvalidStorageFormat) Code() int {
-	return 521
 }
 
 func (o *GetIdentityInvalidStorageFormat) Error() string {

@@ -291,27 +291,20 @@ func PrefixCeil(numIPs int, multiple int) int {
 	return quotient
 }
 
-// PrefixToIps converts the given prefix to an array containing IPs in the provided
-// prefix/CIDR block. When maxIPs is set to 0, the returned array will contain all IPs
-// in the given prefix. Otherwise, the returned array of IPs will be limited to the
-// value of maxIPs starting at the first IP in the provided CIDR. For example, when
-// providing 192.168.1.0/28 as a CIDR with 4 maxIPs, 192.168.1.0, 192.168.1.1,
-// 192.168.1.2, 192.168.1.3 will be returned.
-func PrefixToIps(prefixCidr string, maxIPs int) ([]string, error) {
+// PrefixToIps converts the given prefix to an array containing all IPs in the prefix / CIDR block.
+func PrefixToIps(prefixCidr string) ([]string, error) {
 	var prefixIps []string
 	_, ipNet, err := net.ParseCIDR(prefixCidr)
 	if err != nil {
 		return prefixIps, err
 	}
 	netWithRange := ipNetToRange(*ipNet)
-	// Ensure last IP in the prefix is included
-	for ip := *netWithRange.First; len(prefixIps) < maxIPs || maxIPs == 0; ip = GetNextIP(ip) {
+	for ip := *netWithRange.First; !ip.Equal(*netWithRange.Last); ip = GetNextIP(ip) {
 		prefixIps = append(prefixIps, ip.String())
-		if ip.Equal(*netWithRange.Last) {
-			break
-		}
 	}
 
+	// Add the last IP
+	prefixIps = append(prefixIps, netWithRange.Last.String())
 	return prefixIps, nil
 }
 

@@ -130,11 +130,6 @@ func (m *EndpointNetworking) contextValidateAddressing(ctx context.Context, form
 	for i := 0; i < len(m.Addressing); i++ {
 
 		if m.Addressing[i] != nil {
-
-			if swag.IsZero(m.Addressing[i]) { // not required
-				return nil
-			}
-
 			if err := m.Addressing[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("addressing" + "." + strconv.Itoa(i))
@@ -153,11 +148,6 @@ func (m *EndpointNetworking) contextValidateAddressing(ctx context.Context, form
 func (m *EndpointNetworking) contextValidateHostAddressing(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.HostAddressing != nil {
-
-		if swag.IsZero(m.HostAddressing) { // not required
-			return nil
-		}
-
 		if err := m.HostAddressing.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-addressing")

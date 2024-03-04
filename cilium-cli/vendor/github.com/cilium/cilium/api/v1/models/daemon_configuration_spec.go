@@ -129,10 +129,6 @@ func (m *DaemonConfigurationSpec) ContextValidate(ctx context.Context, formats s
 
 func (m *DaemonConfigurationSpec) contextValidateOptions(ctx context.Context, formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Options) { // not required
-		return nil
-	}
-
 	if err := m.Options.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("options")
