@@ -9,8 +9,8 @@ type SimpleRule struct {
 // MustSimple creates a new Stateful lexer with only a single root state.
 //
 // It panics if there is an error.
-func MustSimple(rules []SimpleRule, options ...Option) *StatefulDefinition {
-	def, err := NewSimple(rules, options...)
+func MustSimple(rules []SimpleRule) *StatefulDefinition {
+	def, err := NewSimple(rules)
 	if err != nil {
 		panic(err)
 	}
@@ -18,10 +18,10 @@ func MustSimple(rules []SimpleRule, options ...Option) *StatefulDefinition {
 }
 
 // NewSimple creates a new Stateful lexer with only a single root state.
-func NewSimple(rules []SimpleRule, options ...Option) (*StatefulDefinition, error) {
+func NewSimple(rules []SimpleRule) (*StatefulDefinition, error) {
 	fullRules := make([]Rule, len(rules))
 	for i, rule := range rules {
 		fullRules[i] = Rule{Name: rule.Name, Pattern: rule.Pattern}
 	}
-	return New(Rules{"Root": fullRules}, options...)
+	return New(Rules{"Root": fullRules})
 }

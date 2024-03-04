@@ -1,0 +1,106 @@
+Copyright Notice and License Terms for
+HDF5 (Hierarchical Data Format 5) Software Library and Utilities
+-----------------------------------------------------------------------------
+
+HDF5 (Hierarchical Data Format 5) Software Library and Utilities
+Copyright (c) 2006-2018, The HDF Group.
+
+NCSA HDF5 (Hierarchical Data Format 5) Software Library and Utilities
+Copyright (c) 1998-2006, The Board of Trustees of the University of Illinois.
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted for any purpose (including commercial purposes)
+provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions, and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions, and the following disclaimer in the documentation
+   and/or materials provided with the distribution.
+
+3. Neither the name of The HDF Group, the name of the University, nor the
+   name of any Contributor may be used to endorse or promote products derived
+   from this software without specific prior written permission from
+   The HDF Group, the University, or the Contributor, respectively.
+
+DISCLAIMER:
+THIS SOFTWARE IS PROVIDED BY THE HDF GROUP AND THE CONTRIBUTORS
+"AS IS" WITH NO WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED. IN NO
+EVENT SHALL THE HDF GROUP OR THE CONTRIBUTORS BE LIABLE FOR ANY DAMAGES
+SUFFERED BY THE USERS ARISING OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+You are under no obligation whatsoever to provide any bug fixes, patches, or
+upgrades to the features, functionality or performance of the source code
+("Enhancements") to anyone; however, if you choose to make your Enhancements
+available either publicly, or directly to The HDF Group, without imposing a
+separate written license agreement for such Enhancements, then you hereby
+grant the following license: a non-exclusive, royalty-free perpetual license
+to install, use, modify, prepare derivative works, incorporate into other
+computer software, distribute, and sublicense such enhancements or derivative
+works thereof, in binary and source code form.
+
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+Limited portions of HDF5 were developed by Lawrence Berkeley National
+Laboratory (LBNL). LBNL's Copyright Notice and Licensing Terms can be
+found here: COPYING_LBNL_HDF5 file in this directory or at
+http://support.hdfgroup.org/ftp/HDF5/releases/COPYING_LBNL_HDF5.
+
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+Contributors:   National Center for Supercomputing Applications (NCSA) at
+the University of Illinois, Fortner Software, Unidata Program Center
+(netCDF), The Independent JPEG Group (JPEG), Jean-loup Gailly and Mark Adler
+(gzip), and Digital Equipment Corporation (DEC).
+
+-----------------------------------------------------------------------------
+
+Portions of HDF5 were developed with support from the Lawrence Berkeley
+National Laboratory (LBNL) and the United States Department of Energy
+under Prime Contract No. DE-AC02-05CH11231.
+
+-----------------------------------------------------------------------------
+
+Portions of HDF5 were developed with support from the University of
+California, Lawrence Livermore National Laboratory (UC LLNL).
+The following statement applies to those portions of the product and must
+be retained in any redistribution of source code, binaries, documentation,
+and/or accompanying materials:
+
+   This work was partially produced at the University of California,
+   Lawrence Livermore National Laboratory (UC LLNL) under contract
+   no. W-7405-ENG-48 (Contract 48) between the U.S. Department of Energy
+   (DOE) and The Regents of the University of California (University)
+   for the operation of UC LLNL.
+
+   DISCLAIMER:
+   This work was prepared as an account of work sponsored by an agency of
+   the United States Government. Neither the United States Government nor
+   the University of California nor any of their employees, makes any
+   warranty, express or implied, or assumes any liability or responsibility
+   for the accuracy, completeness, or usefulness of any information,
+   apparatus, product, or process disclosed, or represents that its use
+   would not infringe privately- owned rights. Reference herein to any
+   specific commercial products, process, or service by trade name,
+   trademark, manufacturer, or otherwise, does not necessarily constitute
+   or imply its endorsement, recommendation, or favoring by the United
+   States Government or the University of California. The views and
+   opinions of authors expressed herein do not necessarily state or reflect
+   those of the United States Government or the University of California,
+   and shall not be used for advertising or product endorsement purposes.
+
+-----------------------------------------------------------------------------
+
+HDF5 is available with the SZIP compression library but SZIP is not part
+of HDF5 and has separate copyright and license terms. See SZIP Compression
+in HDF Products (www.hdfgroup.org/doc_resource/SZIP/) for further details.
+
+-----------------------------------------------------------------------------
+
+
