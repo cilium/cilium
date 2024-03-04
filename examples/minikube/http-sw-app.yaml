@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
       - name: deathstar
-        image: docker.io/cilium/starwars
+        image: quay.io/cilium/starwars
 ---
 apiVersion: v1
 kind: Pod
@@ -47,7 +47,7 @@ metadata:
 spec:
   containers:
   - name: spaceship
-    image: docker.io/cilium/json-mock
+    image: quay.io/cilium/json-mock
 ---
 apiVersion: v1
 kind: Pod
@@ -60,4 +60,4 @@ metadata:
 spec:
   containers:
   - name: spaceship
-    image: docker.io/cilium/json-mock
+    image: quay.io/cilium/json-mock
