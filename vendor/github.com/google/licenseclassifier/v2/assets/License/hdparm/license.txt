@@ -1,0 +1,15 @@
+BSD-Style Open Source License:
+
+You may freely use, modify, and redistribute the hdparm program,
+as either binary or source, or both.
+
+The only condition is that my name and copyright notice
+remain in the source code as-is.
+
+The apt.c file is  Copyright (c) 2009 Jan Friesse <jfriesse@gmail.com>.
+You may use/distribute apt.c freely, under the terms of either
+(your choice) the GNU General Public License version 2,
+ or a BSD style license.
+
+
+Mark Lord (mlord@pobox.com)

@@ -2,15 +2,22 @@ package lexer
 
 // PeekingLexer supports arbitrary lookahead as well as cloning.
 type PeekingLexer struct {
-	rawCursor RawCursor
-	cursor    int
-	eof       Token
-	tokens    []Token
-	elide     map[TokenType]bool
+	Checkpoint
+	tokens []Token
+	elide  map[TokenType]bool
 }
 
 // RawCursor index in the token stream.
 type RawCursor int
+
+// Checkpoint wraps the mutable state of the PeekingLexer.
+//
+// Copying and restoring just this state is a bit faster than copying the entire PeekingLexer.
+type Checkpoint struct {
+	rawCursor  RawCursor // The raw position of the next possibly elided token
+	nextCursor RawCursor // The raw position of the next non-elided token
+	cursor     int       // Index of the next non-elided token among other non-elided tokens
+}
 
 // Upgrade a Lexer to a PeekingLexer with arbitrary lookahead.
 //
@@ -27,12 +34,12 @@ func Upgrade(lex Lexer, elide ...TokenType) (*PeekingLexer, error) {
 		if err != nil {
 			return r, err
 		}
+		r.tokens = append(r.tokens, t)
 		if t.EOF() {
-			r.eof = t
 			break
 		}
-		r.tokens = append(r.tokens, t)
 	}
+	r.advanceToNonElided()
 	return r, nil
 }
 
@@ -42,39 +49,48 @@ func (p *PeekingLexer) Range(rawStart, rawEnd RawCursor) []Token {
 }
 
 // Cursor position in tokens, excluding elided tokens.
-func (p *PeekingLexer) Cursor() int {
-	return p.cursor
+func (c Checkpoint) Cursor() int {
+	return c.cursor
 }
 
 // RawCursor position in tokens, including elided tokens.
-func (p *PeekingLexer) RawCursor() RawCursor {
-	return p.rawCursor
+func (c Checkpoint) RawCursor() RawCursor {
+	return c.rawCursor
 }
 
 // Next consumes and returns the next token.
-func (p *PeekingLexer) Next() Token {
-	for int(p.rawCursor) < len(p.tokens) {
-		t := p.tokens[p.rawCursor]
-		p.rawCursor++
-		if p.elide[t.Type] {
-			continue
-		}
-		p.cursor++
+func (p *PeekingLexer) Next() *Token {
+	t := &p.tokens[p.nextCursor]
+	if t.EOF() {
 		return t
 	}
-	return p.eof
+	p.nextCursor++
+	p.rawCursor = p.nextCursor
+	p.cursor++
+	p.advanceToNonElided()
+	return t
 }
 
-// Peek ahead at the next token.
-func (p *PeekingLexer) Peek() Token {
-	for i := int(p.rawCursor); i < len(p.tokens); i++ {
-		t := p.tokens[i]
-		if p.elide[t.Type] {
-			continue
+// Peek ahead at the next non-elided token.
+func (p *PeekingLexer) Peek() *Token {
+	return &p.tokens[p.nextCursor]
+}
+
+// RawPeek peeks ahead at the next raw token.
+//
+// Unlike Peek, this will include elided tokens.
+func (p *PeekingLexer) RawPeek() *Token {
+	return &p.tokens[p.rawCursor]
+}
+
+// advanceToNonElided advances nextCursor to the closest non-elided token
+func (p *PeekingLexer) advanceToNonElided() {
+	for ; ; p.nextCursor++ {
+		t := &p.tokens[p.nextCursor]
+		if t.EOF() || !p.elide[t.Type] {
+			return
 		}
-		return t
 	}
-	return p.eof
 }
 
 // PeekAny peeks forward over elided and non-elided tokens.
@@ -85,42 +101,33 @@ func (p *PeekingLexer) Peek() Token {
 // The returned RawCursor position is the location of the returned token.
 // Use FastForward to move the internal cursors forward.
 func (p *PeekingLexer) PeekAny(match func(Token) bool) (t Token, rawCursor RawCursor) {
-	tokenCount := RawCursor(len(p.tokens))
-	for i := p.rawCursor; i < tokenCount; i++ {
+	for i := p.rawCursor; ; i++ {
 		t = p.tokens[i]
-		if match(t) || !p.elide[t.Type] {
+		if t.EOF() || match(t) || !p.elide[t.Type] {
 			return t, i
 		}
 	}
-	return p.eof, tokenCount
 }
 
 // FastForward the internal cursors to this RawCursor position.
 func (p *PeekingLexer) FastForward(rawCursor RawCursor) {
-	tokenCount := RawCursor(len(p.tokens))
-	for ; p.rawCursor <= rawCursor && p.rawCursor < tokenCount; p.rawCursor++ {
-		t := p.tokens[p.rawCursor]
-		if p.elide[t.Type] {
-			continue
+	for ; p.rawCursor <= rawCursor; p.rawCursor++ {
+		t := &p.tokens[p.rawCursor]
+		if t.EOF() {
+			break
 		}
-		p.cursor++
+		if !p.elide[t.Type] {
+			p.cursor++
+		}
 	}
+	p.nextCursor = p.rawCursor
+	p.advanceToNonElided()
 }
 
-// RawPeek peeks ahead at the next raw token.
-//
-// Unlike Peek, this will include elided tokens.
-func (p *PeekingLexer) RawPeek() Token {
-	if int(p.rawCursor) < len(p.tokens) {
-		return p.tokens[p.rawCursor]
-	}
-	return p.eof
+func (p *PeekingLexer) MakeCheckpoint() Checkpoint {
+	return p.Checkpoint
 }
 
-// Clone creates a clone of this PeekingLexer at its current token.
-//
-// The parent and clone are completely independent.
-func (p *PeekingLexer) Clone() *PeekingLexer {
-	clone := *p
-	return &clone
+func (p *PeekingLexer) LoadCheckpoint(checkpoint Checkpoint) {
+	p.Checkpoint = checkpoint
 }
