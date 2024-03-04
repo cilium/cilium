@@ -144,6 +144,7 @@ GetDebugEventsResponse contains a Cilium datapath debug events.
 | whitelist | [flow.FlowFilter](#flow-FlowFilter) | repeated | whitelist defines a list of filters which have to match for a flow to be included in the result. If multiple whitelist filters are specified, only one of them has to match for a flow to be included. The whitelist and blacklist can both be specified. In such cases, the set of the returned flows is the set difference `whitelist - blacklist`. In other words, the result will contain all flows matched by the whitelist that are not also simultaneously matched by the blacklist. |
 | since | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Since this time for returned flows. Incompatible with `number`. |
 | until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Until this time for returned flows. Incompatible with `number`. |
+| field_mask | [google.protobuf.FieldMask](#google-protobuf-FieldMask) |  | FieldMask allows clients to limit flow&#39;s fields that will be returned. For example, {paths: [&#34;source.id&#34;, &#34;destination.id&#34;]} will return flows with only these two fields set. |
 | experimental | [GetFlowsRequest.Experimental](#observer-GetFlowsRequest-Experimental) |  |  |
 | extensions | [google.protobuf.Any](#google-protobuf-Any) |  | extensions can be used to add arbitrary additional metadata to GetFlowsRequest. This can be used to extend functionality for other Hubble compatible APIs, or experiment with new functionality without needing to change the public API. |
 
@@ -161,7 +162,7 @@ experimental features is always optional and subject to change.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| field_mask | [google.protobuf.FieldMask](#google-protobuf-FieldMask) |  | FieldMask allows clients to limit flow&#39;s fields that will be returned. For example, {paths: [&#34;source.id&#34;, &#34;destination.id&#34;]} will return flows with only these two fields set. |
+| field_mask | [google.protobuf.FieldMask](#google-protobuf-FieldMask) |  | **Deprecated.** FieldMask allows clients to limit flow&#39;s fields that will be returned. For example, {paths: [&#34;source.id&#34;, &#34;destination.id&#34;]} will return flows with only these two fields set. Deprecated in favor of top-level field_mask. This field will be removed in v1.17. |
 
 
 

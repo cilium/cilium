@@ -457,27 +457,36 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 		r.logger.Debugf("%s\n", string(b))
 	}
 
-	var hasTimeout bool
-	pctx := operation.Context
-	if pctx == nil {
-		pctx = r.Context
-	} else {
-		hasTimeout = true
+	var parentCtx context.Context
+	switch {
+	case operation.Context != nil:
+		parentCtx = operation.Context
+	case r.Context != nil:
+		parentCtx = r.Context
+	default:
+		parentCtx = context.Background()
 	}
-	if pctx == nil {
-		pctx = context.Background()
-	}
-	var ctx context.Context
-	var cancel context.CancelFunc
-	if hasTimeout {
-		ctx, cancel = context.WithCancel(pctx)
+
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if request.timeout == 0 {
+		// There may be a deadline in the context passed to the operation.
+		// Otherwise, there is no timeout set.
+		ctx, cancel = context.WithCancel(parentCtx)
 	} else {
-		ctx, cancel = context.WithTimeout(pctx, request.timeout)
+		// Sets the timeout passed from request params (by default runtime.DefaultTimeout).
+		// If there is already a deadline in the parent context, the shortest will
+		// apply.
+		ctx, cancel = context.WithTimeout(parentCtx, request.timeout)
 	}
 	defer cancel()
 
-	client := operation.Client
-	if client == nil {
+	var client *http.Client
+	if operation.Client != nil {
+		client = operation.Client
+	} else {
 		client = r.client
 	}
 	req = req.WithContext(ctx)

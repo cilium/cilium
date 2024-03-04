@@ -31,6 +31,7 @@ type Opts struct {
 	// GET:/v1/{shelve} and GET:/v1/{book}, where the IDs are "shelve/*" and
 	// /"shelve/*/book/*" respectively.
 	StrictPathParamUniqueness bool
+	SkipSchemataResult        bool
 }
 
 var (

@@ -401,6 +401,11 @@ func (in *CiliumEnvoyConfigSpec) DeepCopyInto(out *CiliumEnvoyConfigSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = new(v1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

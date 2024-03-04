@@ -118,13 +118,20 @@ message GetFlowsRequest {
     // Until this time for returned flows. Incompatible with `number`.
     google.protobuf.Timestamp until = 8;
 
+    // FieldMask allows clients to limit flow's fields that will be returned.
+    // For example, {paths: ["source.id", "destination.id"]} will return flows
+    // with only these two fields set.
+    google.protobuf.FieldMask field_mask = 10;
+
     // Experimental contains fields that are not stable yet. Support for
     // experimental features is always optional and subject to change.
     message Experimental {
         // FieldMask allows clients to limit flow's fields that will be returned.
         // For example, {paths: ["source.id", "destination.id"]} will return flows
         // with only these two fields set.
-        google.protobuf.FieldMask field_mask = 1;
+        // Deprecated in favor of top-level field_mask. This field will be
+        // removed in v1.17.
+        google.protobuf.FieldMask field_mask = 1 [deprecated=true];
     }
     Experimental experimental = 999;
 
