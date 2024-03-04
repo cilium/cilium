@@ -353,9 +353,10 @@ jobs:
 
       - name: Get Node DMESG (Temporary - for testing)
         uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
-        shell: bash
-        run: |
-          for node in $(docker ps --format json | jq -r '.ID'); do docker exec $node dmesg ; done
+        with:
+          provision: 'false'
+          cmd: |
+            for node in $(docker ps --format json | jq -r '.ID'); do docker exec $node dmesg ; done
 
       - name: Run tests
         id: run-tests
@@ -423,13 +424,14 @@ jobs:
       - name: Dump Cluster Data 
         uses: cilium/little-vm-helper@9d758b756305e83718a51b792a5aeabd022a39ec # v0.0.16
         if: ${{ always() }}
-        shell: bash
-        run: |
-          for node in $(docker ps --format json | jq -r '.ID'); do
-            echo "Getting data for: $node"
-            docker exec $node dmesg
-            docker exec $node cat /proc/mounts
-          done
+        with:
+          provision: 'false'
+          cmd: |
+            for node in $(docker ps --format json | jq -r '.ID'); do
+              echo "Getting data for: $node"
+              docker exec $node dmesg
+              docker exec $node cat /proc/mounts
+            done
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
