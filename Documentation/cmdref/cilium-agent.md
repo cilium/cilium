@@ -293,7 +293,7 @@ cilium-agent [flags]
       --preallocate-bpf-maps                                      Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                                   Prepend custom iptables chains instead of appending (default true)
       --procfs string                                             Root's proc filesystem path (default "/proc")
-      --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
+      --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-connect-timeout uint                                Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)
       --proxy-idle-timeout-seconds int                            Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s (default 60)
