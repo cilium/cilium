@@ -1,6 +1,7 @@
 package lbmap
 
 import (
+	"context"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -10,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/reconciler"
@@ -25,6 +27,8 @@ var Cell = cell.Module(
 	),
 
 	cell.ProvidePrivate(
+		job.Registry.NewGroup,
+
 		NewService4Table,
 		NewService6Table,
 		NewBackend4Table,
@@ -80,6 +84,10 @@ var Cell = cell.Module(
 	cell.Invoke(
 		restoreServices,
 		restoreBackends,
+
+		pressureMetrics,
+
+		func(g job.Group, lc cell.Lifecycle) { lc.Append(g) },
 	),
 )
 
@@ -489,4 +497,21 @@ func restoreBackends(lc cell.Lifecycle, cfg *option.DaemonConfig, db *statedb.DB
 			}
 			return nil
 		}})
+}
+
+func pressureMetrics(g job.Group, db *statedb.DB, s4 Service4Table, b4 Backend4Table, _ mapsInitialized) {
+	s4m := metrics.NewBPFMapPressureGauge(Service4MapV2.NonPrefixedName(), 0.0)
+	b4m := metrics.NewBPFMapPressureGauge(Backend4Map.NonPrefixedName(), 0.0)
+
+	g.Add(job.Timer(
+		"pressure-metrics",
+		func(ctx context.Context) error {
+			txn := db.ReadTxn()
+			s4m.Set(float64(s4.NumObjects(txn)) / float64(Service4MapV2.MaxEntries()))
+			b4m.Set(float64(b4.NumObjects(txn)) / float64(Backend4Map.MaxEntries()))
+			return nil
+		},
+		10*time.Second,
+	))
+
 }
