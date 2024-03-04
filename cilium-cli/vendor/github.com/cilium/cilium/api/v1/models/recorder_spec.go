@@ -108,11 +108,6 @@ func (m *RecorderSpec) contextValidateFilters(ctx context.Context, formats strfm
 	for i := 0; i < len(m.Filters); i++ {
 
 		if m.Filters[i] != nil {
-
-			if swag.IsZero(m.Filters[i]) { // not required
-				return nil
-			}
-
 			if err := m.Filters[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("filters" + "." + strconv.Itoa(i))

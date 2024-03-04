@@ -118,11 +118,6 @@ func (m *ClusterStatus) ContextValidate(ctx context.Context, formats strfmt.Regi
 func (m *ClusterStatus) contextValidateCiliumHealth(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.CiliumHealth != nil {
-
-		if swag.IsZero(m.CiliumHealth) { // not required
-			return nil
-		}
-
 		if err := m.CiliumHealth.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ciliumHealth")
@@ -141,11 +136,6 @@ func (m *ClusterStatus) contextValidateNodes(ctx context.Context, formats strfmt
 	for i := 0; i < len(m.Nodes); i++ {
 
 		if m.Nodes[i] != nil {
-
-			if swag.IsZero(m.Nodes[i]) { // not required
-				return nil
-			}
-
 			if err := m.Nodes[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))

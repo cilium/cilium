@@ -90,11 +90,6 @@ func (m *BPFMapStatus) contextValidateMaps(ctx context.Context, formats strfmt.R
 	for i := 0; i < len(m.Maps); i++ {
 
 		if m.Maps[i] != nil {
-
-			if swag.IsZero(m.Maps[i]) { // not required
-				return nil
-			}
-
 			if err := m.Maps[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("maps" + "." + strconv.Itoa(i))

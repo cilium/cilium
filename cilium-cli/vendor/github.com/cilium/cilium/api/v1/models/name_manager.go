@@ -88,11 +88,6 @@ func (m *NameManager) contextValidateFQDNPolicySelectors(ctx context.Context, fo
 	for i := 0; i < len(m.FQDNPolicySelectors); i++ {
 
 		if m.FQDNPolicySelectors[i] != nil {
-
-			if swag.IsZero(m.FQDNPolicySelectors[i]) { // not required
-				return nil
-			}
-
 			if err := m.FQDNPolicySelectors[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("FQDNPolicySelectors" + "." + strconv.Itoa(i))

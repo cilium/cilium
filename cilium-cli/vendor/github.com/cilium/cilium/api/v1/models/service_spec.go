@@ -157,11 +157,6 @@ func (m *ServiceSpec) contextValidateBackendAddresses(ctx context.Context, forma
 	for i := 0; i < len(m.BackendAddresses); i++ {
 
 		if m.BackendAddresses[i] != nil {
-
-			if swag.IsZero(m.BackendAddresses[i]) { // not required
-				return nil
-			}
-
 			if err := m.BackendAddresses[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
@@ -180,11 +175,6 @@ func (m *ServiceSpec) contextValidateBackendAddresses(ctx context.Context, forma
 func (m *ServiceSpec) contextValidateFlags(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Flags != nil {
-
-		if swag.IsZero(m.Flags) { // not required
-			return nil
-		}
-
 		if err := m.Flags.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("flags")
@@ -201,7 +191,6 @@ func (m *ServiceSpec) contextValidateFlags(ctx context.Context, formats strfmt.R
 func (m *ServiceSpec) contextValidateFrontendAddress(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.FrontendAddress != nil {
-
 		if err := m.FrontendAddress.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")

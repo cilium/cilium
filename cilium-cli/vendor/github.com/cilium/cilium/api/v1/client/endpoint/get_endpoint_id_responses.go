@@ -51,7 +51,7 @@ func (o *GetEndpointIDReader) ReadResponse(response runtime.ClientResponse, cons
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /endpoint/{id}] GetEndpointID", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -92,11 +92,6 @@ func (o *GetEndpointIDOK) IsServerError() bool {
 // IsCode returns true when this get endpoint Id o k response a status code equal to that given
 func (o *GetEndpointIDOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get endpoint Id o k response
-func (o *GetEndpointIDOK) Code() int {
-	return 200
 }
 
 func (o *GetEndpointIDOK) Error() string {
@@ -162,11 +157,6 @@ func (o *GetEndpointIDInvalid) IsCode(code int) bool {
 	return code == 400
 }
 
-// Code gets the status code for the get endpoint Id invalid response
-func (o *GetEndpointIDInvalid) Code() int {
-	return 400
-}
-
 func (o *GetEndpointIDInvalid) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdInvalid  %+v", 400, o.Payload)
 }
@@ -227,11 +217,6 @@ func (o *GetEndpointIDNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
-// Code gets the status code for the get endpoint Id not found response
-func (o *GetEndpointIDNotFound) Code() int {
-	return 404
-}
-
 func (o *GetEndpointIDNotFound) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdNotFound ", 404)
 }
@@ -281,11 +266,6 @@ func (o *GetEndpointIDTooManyRequests) IsServerError() bool {
 // IsCode returns true when this get endpoint Id too many requests response a status code equal to that given
 func (o *GetEndpointIDTooManyRequests) IsCode(code int) bool {
 	return code == 429
-}
-
-// Code gets the status code for the get endpoint Id too many requests response
-func (o *GetEndpointIDTooManyRequests) Code() int {
-	return 429
 }
 
 func (o *GetEndpointIDTooManyRequests) Error() string {

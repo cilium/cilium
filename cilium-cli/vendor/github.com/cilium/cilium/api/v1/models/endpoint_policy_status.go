@@ -148,11 +148,6 @@ func (m *EndpointPolicyStatus) contextValidateProxyStatistics(ctx context.Contex
 	for i := 0; i < len(m.ProxyStatistics); i++ {
 
 		if m.ProxyStatistics[i] != nil {
-
-			if swag.IsZero(m.ProxyStatistics[i]) { // not required
-				return nil
-			}
-
 			if err := m.ProxyStatistics[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("proxy-statistics" + "." + strconv.Itoa(i))
@@ -171,11 +166,6 @@ func (m *EndpointPolicyStatus) contextValidateProxyStatistics(ctx context.Contex
 func (m *EndpointPolicyStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Realized != nil {
-
-		if swag.IsZero(m.Realized) { // not required
-			return nil
-		}
-
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
@@ -192,11 +182,6 @@ func (m *EndpointPolicyStatus) contextValidateRealized(ctx context.Context, form
 func (m *EndpointPolicyStatus) contextValidateSpec(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Spec != nil {
-
-		if swag.IsZero(m.Spec) { // not required
-			return nil
-		}
-
 		if err := m.Spec.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("spec")

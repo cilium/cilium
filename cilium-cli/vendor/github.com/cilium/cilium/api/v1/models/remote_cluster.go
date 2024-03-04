@@ -155,11 +155,6 @@ func (m *RemoteCluster) ContextValidate(ctx context.Context, formats strfmt.Regi
 func (m *RemoteCluster) contextValidateConfig(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Config != nil {
-
-		if swag.IsZero(m.Config) { // not required
-			return nil
-		}
-
 		if err := m.Config.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("config")
@@ -176,11 +171,6 @@ func (m *RemoteCluster) contextValidateConfig(ctx context.Context, formats strfm
 func (m *RemoteCluster) contextValidateSynced(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Synced != nil {
-
-		if swag.IsZero(m.Synced) { // not required
-			return nil
-		}
-
 		if err := m.Synced.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("synced")

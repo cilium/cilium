@@ -147,11 +147,6 @@ func (m *Masquerading) ContextValidate(ctx context.Context, formats strfmt.Regis
 func (m *Masquerading) contextValidateEnabledProtocols(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.EnabledProtocols != nil {
-
-		if swag.IsZero(m.EnabledProtocols) { // not required
-			return nil
-		}
-
 		if err := m.EnabledProtocols.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("enabledProtocols")

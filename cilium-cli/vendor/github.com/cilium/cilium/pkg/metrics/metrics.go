@@ -1270,7 +1270,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Subsystem:  SubsystemAPILimiter,
 			Name:       "processed_requests_total",
 			Help:       "Total number of API requests processed",
-		}, []string{"api_call", LabelOutcome, LabelAPIReturnCode}),
+		}, []string{"api_call", LabelOutcome}),
 
 		EndpointPropagationDelay: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_endpoint_propagation_delay_seconds",
@@ -1581,14 +1581,6 @@ func Error2Outcome(err error) string {
 	}
 
 	return LabelValueOutcomeSuccess
-}
-
-// LabelOutcome2Code converts a label outcome to a code
-func LabelOutcome2Code(outcome string) int {
-	if outcome == LabelValueOutcomeSuccess {
-		return 200
-	}
-	return 500
 }
 
 func BoolToFloat64(v bool) float64 {

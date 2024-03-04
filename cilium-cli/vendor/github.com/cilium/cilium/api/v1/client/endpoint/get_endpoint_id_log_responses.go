@@ -51,7 +51,7 @@ func (o *GetEndpointIDLogReader) ReadResponse(response runtime.ClientResponse, c
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /endpoint/{id}/log] GetEndpointIDLog", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -92,11 +92,6 @@ func (o *GetEndpointIDLogOK) IsServerError() bool {
 // IsCode returns true when this get endpoint Id log o k response a status code equal to that given
 func (o *GetEndpointIDLogOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get endpoint Id log o k response
-func (o *GetEndpointIDLogOK) Code() int {
-	return 200
 }
 
 func (o *GetEndpointIDLogOK) Error() string {
@@ -159,11 +154,6 @@ func (o *GetEndpointIDLogInvalid) IsCode(code int) bool {
 	return code == 400
 }
 
-// Code gets the status code for the get endpoint Id log invalid response
-func (o *GetEndpointIDLogInvalid) Code() int {
-	return 400
-}
-
 func (o *GetEndpointIDLogInvalid) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/log][%d] getEndpointIdLogInvalid ", 400)
 }
@@ -215,11 +205,6 @@ func (o *GetEndpointIDLogNotFound) IsCode(code int) bool {
 	return code == 404
 }
 
-// Code gets the status code for the get endpoint Id log not found response
-func (o *GetEndpointIDLogNotFound) Code() int {
-	return 404
-}
-
 func (o *GetEndpointIDLogNotFound) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/log][%d] getEndpointIdLogNotFound ", 404)
 }
@@ -269,11 +254,6 @@ func (o *GetEndpointIDLogTooManyRequests) IsServerError() bool {
 // IsCode returns true when this get endpoint Id log too many requests response a status code equal to that given
 func (o *GetEndpointIDLogTooManyRequests) IsCode(code int) bool {
 	return code == 429
-}
-
-// Code gets the status code for the get endpoint Id log too many requests response
-func (o *GetEndpointIDLogTooManyRequests) Code() int {
-	return 429
 }
 
 func (o *GetEndpointIDLogTooManyRequests) Error() string {
