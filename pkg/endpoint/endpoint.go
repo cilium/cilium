@@ -283,6 +283,10 @@ type Endpoint struct {
 	// Immutable after Endpoint creation.
 	K8sNamespace string
 
+	// K8sUID is the Kubernetes UID of the pod. Passed directly from the CNI.
+	// Immutable after Endpoint creation.
+	K8sUID string
+
 	// pod
 	pod atomic.Pointer[slim_corev1.Pod]
 
@@ -1296,6 +1300,14 @@ func (e *Endpoint) GetK8sNamespace() string {
 	// const after creation
 	ns := e.K8sNamespace
 	return ns
+}
+
+// GetK8sUID returns the UID of the pod if the endpoint represents a Kubernetes
+// pod.
+func (e *Endpoint) GetK8sUID() string {
+	// const after creation
+	uid := e.K8sUID
+	return uid
 }
 
 // SetPod sets the pod related to this endpoint.
