@@ -55,7 +55,8 @@ var testCases = [...]struct {
 func TestUnique(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := Unique(tc.input)
+			input := slices.Clone(tc.input)
+			got := Unique(input)
 			assert.ElementsMatch(t, tc.expected, got)
 		})
 	}
