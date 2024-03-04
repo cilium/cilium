@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
@@ -87,7 +86,10 @@ func CiliumNodeResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*me
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumNode](lc, lw, resource.WithMetric("CiliumNode")), nil
+	return resource.New[*cilium_api_v2.CiliumNode](lc, lw,
+		resource.WithMetric("CiliumNode"),
+		resource.WithStoppableInformer(),
+	), nil
 }
 
 func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
@@ -187,6 +189,54 @@ func CiliumPodIPPoolResource(lc cell.Lifecycle, cs client.Clientset, opts ...fun
 		opts...,
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumPodIPPool](lc, lw, resource.WithMetric("CiliumPodIPPool")), nil
+}
+
+func CiliumBGPPeeringPolicyResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPPeeringPolicyList](cs.CiliumV2alpha1().CiliumBGPPeeringPolicies()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy](lc, lw, resource.WithMetric("CiliumBGPPeeringPolicies")), nil
+}
+
+func CiliumBGPNodeConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPNodeConfigList](cs.CiliumV2alpha1().CiliumBGPNodeConfigs()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumBGPNodeConfig](lc, lw, resource.WithMetric("CiliumBGPNodeConfig")), nil
+}
+
+func CiliumBGPAdvertisementResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPAdvertisement], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPAdvertisementList](cs.CiliumV2alpha1().CiliumBGPAdvertisements()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumBGPAdvertisement](lc, lw, resource.WithMetric("CiliumBGPAdvertisement")), nil
+}
+
+func CiliumBGPPeerConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPPeerConfigList](cs.CiliumV2alpha1().CiliumBGPPeerConfigs()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumBGPPeerConfig](lc, lw, resource.WithMetric("CiliumBGPPeerConfig")), nil
 }
 
 func EndpointsResource(lc cell.Lifecycle, cfg Config, cs client.Clientset) (resource.Resource[*Endpoints], error) {
@@ -303,7 +353,7 @@ func CiliumSlimEndpointResource(lc cell.Lifecycle, cs client.Clientset, _ *node.
 		"localNode": ciliumEndpointLocalPodIndexFunc,
 	}
 	return resource.New[*types.CiliumEndpoint](lc, lw,
-		resource.WithLazyTransform(func() runtime.Object {
+		resource.WithLazyTransform(func() k8sRuntime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
 		}, TransformToCiliumEndpoint),
 		resource.WithMetric("CiliumEndpoint"),
@@ -380,4 +430,26 @@ func CiliumExternalWorkloads(lc cell.Lifecycle, cs client.Clientset, opts ...fun
 		opts...,
 	)
 	return resource.New[*cilium_api_v2.CiliumExternalWorkload](lc, lw, resource.WithMetric("CiliumExternalWorkloads")), nil
+}
+
+func CiliumEnvoyConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumEnvoyConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEnvoyConfigList](cs.CiliumV2().CiliumEnvoyConfigs("")),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumEnvoyConfig](lc, lw, resource.WithMetric("CiliumEnvoyConfig")), nil
+}
+
+func CiliumClusterwideEnvoyConfigResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumClusterwideEnvoyConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumClusterwideEnvoyConfigList](cs.CiliumV2().CiliumClusterwideEnvoyConfigs()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumClusterwideEnvoyConfig](lc, lw, resource.WithMetric("CiliumClusterwideEnvoyConfig")), nil
 }

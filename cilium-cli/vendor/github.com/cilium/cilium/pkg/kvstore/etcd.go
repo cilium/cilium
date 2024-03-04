@@ -739,8 +739,8 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 	return Hint(err)
 }
 
-// Watch starts watching for changes in a prefix
-func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
+// watch starts watching for changes in a prefix
+func (e *etcdClient) watch(ctx context.Context, w *Watcher) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
@@ -1138,85 +1138,6 @@ func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error)
 	return getR.Kvs[0].Value, nil
 }
 
-// GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
-func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
-	lr, err := e.limiter.Wait(ctx)
-	if err != nil {
-		return "", nil, Hint(err)
-	}
-	defer func(duration *spanstat.SpanStat) {
-		increaseMetric(prefix, metricRead, "GetPrefixLocked", duration.EndError(err).Total(), err)
-	}(spanstat.Start())
-
-	opGet := client.OpGet(prefix, client.WithPrefix(), client.WithLimit(1))
-	cmp := lock.Comparator().(client.Cmp)
-	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opGet).Commit()
-	if err == nil && !txnReply.Succeeded {
-		err = ErrLockLeaseExpired
-	}
-
-	if err != nil {
-		lr.Error(err)
-		return "", nil, Hint(err)
-	}
-	lr.Done()
-
-	getR := txnReply.Responses[0].GetResponseRange()
-
-	if getR.Count == 0 {
-		return "", nil, nil
-	}
-	return string(getR.Kvs[0].Key), getR.Kvs[0].Value, nil
-}
-
-// GetPrefix returns the first key which matches the prefix and its value
-func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (k string, bv []byte, err error) {
-	defer func() {
-		Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
-	}()
-	lr, err := e.limiter.Wait(ctx)
-	if err != nil {
-		return "", nil, Hint(err)
-	}
-	defer func(duration *spanstat.SpanStat) {
-		increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
-	}(spanstat.Start())
-
-	getR, err := e.client.Get(ctx, prefix, client.WithPrefix(), client.WithLimit(1))
-	if err != nil {
-		lr.Error(err)
-		return "", nil, Hint(err)
-	}
-	lr.Done()
-
-	if getR.Count == 0 {
-		return "", nil, nil
-	}
-	return string(getR.Kvs[0].Key), getR.Kvs[0].Value, nil
-}
-
-// Set sets value of key
-func (e *etcdClient) Set(ctx context.Context, key string, value []byte) (err error) {
-	defer func() {
-		Trace("Set", err, logrus.Fields{fieldKey: key, fieldValue: string(value)})
-	}()
-	lr, err := e.limiter.Wait(ctx)
-	if err != nil {
-		return Hint(err)
-	}
-	defer func(duration *spanstat.SpanStat) {
-		increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
-	}(spanstat.Start())
-
-	_, err = e.client.Put(ctx, key, string(value))
-	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
-	lr.Error(err)
-	return Hint(err)
-}
-
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
 func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) (err error) {
 	defer func() {
@@ -1267,16 +1188,6 @@ func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
 	}
 
 	return Hint(err)
-}
-
-func (e *etcdClient) createOpPut(key string, value []byte, leaseID client.LeaseID) *client.Op {
-	if leaseID != 0 {
-		op := client.OpPut(key, string(value), client.WithLease(leaseID))
-		return &op
-	}
-
-	op := client.OpPut(key, string(value))
-	return &op
 }
 
 // UpdateIfLocked updates a key if the client is still holding the given lock.
@@ -1432,7 +1343,7 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 	}
 	duration := spanstat.Start()
 
-	req := e.createOpPut(key, value, leaseID)
+	req := client.OpPut(key, string(value), client.WithLease(leaseID))
 	cnds := []client.Cmp{
 		client.Compare(client.Version(key), "=", 0),
 		lock.Comparator().(client.Cmp),
@@ -1443,7 +1354,7 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 	opGets := []client.Op{
 		client.OpGet(key),
 	}
-	txnresp, err := e.client.Txn(ctx).If(cnds...).Then(*req).Else(opGets...).Commit()
+	txnresp, err := e.client.Txn(ctx).If(cnds...).Then(req).Else(opGets...).Commit()
 	increaseMetric(key, metricSet, "CreateOnlyLocked", duration.EndError(err).Total(), err)
 	if err != nil {
 		lr.Error(err)
@@ -1499,10 +1410,10 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 		increaseMetric(key, metricSet, "CreateOnly", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	req := e.createOpPut(key, value, leaseID)
+	req := client.OpPut(key, string(value), client.WithLease(leaseID))
 	cond := client.Compare(client.Version(key), "=", 0)
 
-	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
+	txnresp, err := e.client.Txn(ctx).If(cond).Then(req).Commit()
 
 	if err != nil {
 		lr.Error(err)
@@ -1513,62 +1424,6 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 	lr.Done()
 	return txnresp.Succeeded, nil
 }
-
-// CreateIfExists creates a key with the value only if key condKey exists
-func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) (err error) {
-	defer func() {
-		Trace("CreateIfExists", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldCondition: condKey, fieldAttachLease: lease})
-	}()
-	var leaseID client.LeaseID
-	if lease {
-		leaseID, err = e.leaseManager.GetLeaseID(ctx, key)
-		if err != nil {
-			return Hint(err)
-		}
-	}
-	lr, err := e.limiter.Wait(ctx)
-	if err != nil {
-		return Hint(err)
-	}
-	duration := spanstat.Start()
-
-	req := e.createOpPut(key, value, leaseID)
-	cond := client.Compare(client.Version(condKey), "!=", 0)
-	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
-
-	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
-	if err != nil {
-		lr.Error(err)
-		e.leaseManager.CancelIfExpired(err, leaseID)
-		return Hint(err)
-	}
-	lr.Done()
-
-	if !txnresp.Succeeded {
-		return fmt.Errorf("create was unsuccessful")
-	}
-
-	return nil
-}
-
-// FIXME: When we rebase to etcd 3.3
-//
-// DeleteOnZeroCount deletes the key if no matching keys for prefix exist
-//func (e *etcdClient) DeleteOnZeroCount(key, prefix string) error {
-//	txnresp, err := e.client.Txn(ctx.TODO()).
-//		If(client.Compare(client.Version(prefix).WithPrefix(), "=", 0)).
-//		Then(client.OpDelete(key)).
-//		Commit()
-//	if err != nil {
-//		return err
-//	}
-//
-//	if txnresp.Succeeded == false {
-//		return fmt.Errorf("delete was unsuccessful")
-//	}
-//
-//	return nil
-//}
 
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (v KeyValuePairs, err error) {
@@ -1654,11 +1509,6 @@ func (e *etcdClient) Close(ctx context.Context) {
 	e.lockLeaseManager.Wait()
 }
 
-// GetCapabilities returns the capabilities of the backend
-func (e *etcdClient) GetCapabilities() Capabilities {
-	return Capabilities(CapabilityCreateIfExists)
-}
-
 // Encode encodes a binary slice into a character set that the backend supports
 func (e *etcdClient) Encode(in []byte) (out string) {
 	return string(in)
@@ -1673,7 +1523,7 @@ func (e *etcdClient) Decode(in string) (out []byte, err error) {
 func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string, chanSize int) *Watcher {
 	w := newWatcher(prefix, chanSize)
 
-	go e.Watch(ctx, w)
+	go e.watch(ctx, w)
 
 	return w
 }

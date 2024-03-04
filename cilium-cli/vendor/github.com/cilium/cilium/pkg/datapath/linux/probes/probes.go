@@ -550,6 +550,44 @@ func HaveSKBAdjustRoomL2RoomMACSupport() (err error) {
 	return nil
 }
 
+// HaveDeadCodeElim tests whether the kernel supports dead code elimination.
+func HaveDeadCodeElim() error {
+	spec := ebpf.ProgramSpec{
+		Name: "test",
+		Type: ebpf.XDP,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R1, 0),
+			asm.JEq.Imm(asm.R1, 1, "else"),
+			asm.Mov.Imm(asm.R0, 2),
+			asm.Ja.Label("end"),
+			asm.Mov.Imm(asm.R0, 3).WithSymbol("else"),
+			asm.Return().WithSymbol("end"),
+		},
+	}
+
+	prog, err := ebpf.NewProgram(&spec)
+	if err != nil {
+		return fmt.Errorf("loading program: %w", err)
+	}
+
+	info, err := prog.Info()
+	if err != nil {
+		return fmt.Errorf("get prog info: %w", err)
+	}
+	infoInst, err := info.Instructions()
+	if err != nil {
+		return fmt.Errorf("get instructions: %w", err)
+	}
+
+	for _, inst := range infoInst {
+		if inst.OpCode.Class().IsJump() && inst.OpCode.JumpOp() != asm.Exit {
+			return fmt.Errorf("Jump instruction found in the final program, no dead code elimination performed")
+		}
+	}
+
+	return nil
+}
+
 // HaveIPv6Support tests whether kernel can open an IPv6 socket. This will
 // also implicitly auto-load IPv6 kernel module if available and not yet
 // loaded.
@@ -628,6 +666,7 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.SchedCLS, asm.FnCsumLevel},
 
 		// xdp related probes
+		{ebpf.XDP, asm.FnXdpGetBuffLen},
 		{ebpf.XDP, asm.FnXdpLoadBytes},
 		{ebpf.XDP, asm.FnXdpStoreBytes},
 	}
@@ -676,8 +715,9 @@ func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
 // writeXdpHeader defines macros for bpf/include/bpf/features_xdp.h
 func writeXdpHeader(writer io.Writer, probes *FeatureProbes) error {
 	featuresXdp := map[string]bool{
-		"HAVE_XDP_LOAD_BYTES":  probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
-		"HAVE_XDP_STORE_BYTES": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
+		"HAVE_XDP_GET_BUFF_LEN": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpGetBuffLen}],
+		"HAVE_XDP_LOAD_BYTES":   probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
+		"HAVE_XDP_STORE_BYTES":  probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
 	}
 
 	return writeFeatureHeader(writer, featuresXdp, false)

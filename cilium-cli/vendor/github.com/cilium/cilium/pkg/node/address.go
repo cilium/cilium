@@ -482,10 +482,6 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 // the node_config.h file if is present; or by deriving it from
 // defaults.HostDevice interface, on which only the IPv4 is possible to derive.
 func ExtractCiliumHostIPFromFS() (ipv4GW, ipv6Router net.IP) {
-	if !option.Config.EnableHostIPRestore {
-		return nil, nil
-	}
-
 	nodeConfig := option.Config.GetNodeConfigPath()
 	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
 	if ipv4GW != nil || ipv6Router != nil {

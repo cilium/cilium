@@ -42,8 +42,14 @@ type Path struct {
 
 // NeighborRequest contains neighbor parameters used when enabling or disabling peer
 type NeighborRequest struct {
+	// Deprecated: field kept for backward compatibility.
+	//
+	// Both Neighbor and Peer should not be used at the same time.
+	// Neighbor field is used in BGPv1 and Peer, PeerConfig fields are used in BGPv2.
 	Neighbor *v2alpha1api.CiliumBGPNeighbor
-	VR       *v2alpha1api.CiliumBGPVirtualRouter
+
+	Peer       *v2alpha1api.CiliumBGPNodePeer
+	PeerConfig *v2alpha1api.CiliumBGPPeerConfigSpec
 	// Password is the "AuthSecret" in the Neighbor, fetched from a secret
 	Password string
 }

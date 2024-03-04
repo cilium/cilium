@@ -5,12 +5,12 @@ package k8s
 
 import (
 	"fmt"
+	"maps"
 
 	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/comparator"
 	dpTypes "github.com/cilium/cilium/pkg/datapath/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -45,7 +45,7 @@ func CastInformerEvent[typ any](obj interface{}) *typ {
 
 func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing dpTypes.NodeAddressing) bool {
 	// Service annotations are used to mark services as global, shared, etc.
-	if !comparator.MapStringEquals(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
+	if !maps.Equal(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
 		return false
 	}
 

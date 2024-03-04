@@ -26,9 +26,6 @@ const (
 	// fieldValue is the prefix of the key used in the operation
 	fieldValue = "value"
 
-	// fieldCondition is the condition that requires to be met
-	fieldCondition = "condition"
-
 	// fieldNumEntries is the number of entries in the result
 	fieldNumEntries = "numEntries"
 

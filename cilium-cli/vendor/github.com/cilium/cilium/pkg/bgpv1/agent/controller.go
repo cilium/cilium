@@ -75,6 +75,8 @@ type Controller struct {
 	// BGPMgr is an implementation of the BGPRouterManager interface
 	// and provides a declarative API for configuring BGP peers.
 	BGPMgr BGPRouterManager
+	// PolicyApplied indicates whether the policy is applied to the node or not
+	policyApplied bool
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -189,7 +191,6 @@ func (c *Controller) Run(ctx context.Context) {
 			l.Info("Cilium BGP Control Plane Controller shut down")
 			return
 		case <-c.Sig.Sig:
-			l.Info("Cilium BGP Control Plane Controller woken for reconciliation")
 			if err := c.Reconcile(ctx); err != nil {
 				l.WithError(err).Error("Encountered error during reconciliation")
 			} else {
@@ -287,7 +288,6 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to list CiliumBGPPeeringPolicies")
 	}
-	l.WithField("count", len(policies)).Debug("Successfully listed CiliumBGPPeeringPolicies")
 
 	// perform policy selection based on node.
 	labels := c.LocalCiliumNode.Labels
@@ -298,10 +298,11 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return err
 	}
 	if policy == nil {
-		// no policy was discovered, tell router manager to withdrawal peers if
-		// they are configured.
-		l.Debug("No BGP peering policy applies to this node, any existing BGP sessions will be removed.")
-		c.FullWithdrawal(ctx)
+		if c.policyApplied {
+			l.Info("No CiliumBGPPeeringPolicy applies to this node anymore. Removing all virtual router instances.")
+			c.FullWithdrawal(ctx)
+			c.policyApplied = false
+		}
 		return nil
 	}
 
@@ -315,10 +316,11 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	}
 
 	// call bgp sub-systems required to apply this policy's BGP topology.
-	l.Debug("Asking configured BGPRouterManager to configure peering")
 	if err := c.BGPMgr.ConfigurePeers(ctx, policy, c.LocalCiliumNode); err != nil {
 		return fmt.Errorf("failed to configure BGP peers, cannot apply BGP peering policy: %w", err)
 	}
+
+	c.policyApplied = true
 
 	return nil
 }
