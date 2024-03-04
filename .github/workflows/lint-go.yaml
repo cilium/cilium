@@ -36,6 +36,22 @@ jobs:
           go mod vendor
           test -z "$(git status --porcelain)" || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
 
+  license-check:
+    name: Check third party dependencies licenses
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.22.0
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+      - name: Check for unauthorized dependencies
+        run: go run ./tools/licensecheck ./... 2>/dev/null
+
   golangci:
     name: Lint Source Code
     runs-on: ubuntu-latest
