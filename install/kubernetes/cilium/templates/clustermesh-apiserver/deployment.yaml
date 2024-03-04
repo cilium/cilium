@@ -269,6 +269,7 @@ spec:
         {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
         - --max-connected-clusters={{ .Values.clustermesh.maxConnectedClusters }}
         {{- end }}
+        - --health-port={{ .Values.clustermesh.apiserver.kvstoremesh.healthPort }}
         {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
         - --controller-group-metrics=all
@@ -276,6 +277,13 @@ spec:
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: kvmesh-health
+          {{- with .Values.clustermesh.apiserver.kvstoremesh.readinessProbe }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
         env:
         - name: CLUSTER_NAME
           valueFrom:
@@ -290,8 +298,11 @@ spec:
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
-        {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
         ports:
+        - name: kvmesh-health
+          containerPort: {{ .Values.clustermesh.apiserver.kvstoremesh.healthPort }}
+          protocol: TCP
+        {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
         - name: kvmesh-metrics
           containerPort: {{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
           protocol: TCP

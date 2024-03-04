@@ -508,8 +508,16 @@
      - Additional KVStoreMesh volumeMounts.
      - list
      - ``[]``
+   * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.healthPort`
+     - TCP port for the KVStoreMesh health API.
+     - int
+     - ``9881``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.lifecycle`
      - lifecycle setting for the KVStoreMesh container
+     - object
+     - ``{}``
+   * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.readinessProbe`
+     - Configuration for the KVStoreMesh readiness probe.
      - object
      - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.resources`
