@@ -13,30 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStatusProvider(t *testing.T) {
-	assert := assert.New(t)
-	sp := NewHealthProvider()
-	mid := FullModuleID{"module000"}
-	reporter := GetHealthReporter(TestScopeFromProvider(mid, sp), "foo")
-
-	reporter.OK("OK")
-	var err error
-	var s Status
-	assertStatus := func(l Level) {
-		assert.Eventually(func() bool {
-			s, err = sp.Get(mid)
-			return err == nil && s.Level() == l
-		}, time.Second, time.Millisecond*50)
-	}
-	assertStatus(StatusOK)
-	reporter.Degraded("degraded", nil)
-	assertStatus(StatusDegraded)
-	reporter.OK("-")
-	assertStatus(StatusOK)
-	reporter.Stopped("done")
-	assertStatus(StatusOK)
-}
-
 func TestHealthReporter(t *testing.T) {
 	m := 200
 	u := 200

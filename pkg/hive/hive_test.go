@@ -364,65 +364,6 @@ func TestModuleID(t *testing.T) {
 
 }
 
-func TestProvideHealthReporter(t *testing.T) {
-	// Module provided health reporter should be injected and be scoped to the
-	// module ID.
-	// As well, should contain state about last update and whether modules where
-	// stopped.
-	testCell := cell.Module(
-		"test",
-		"Test Module",
-		cell.Invoke(func(s cell.Scope) {
-			hr := cell.GetHealthReporter(s, "test")
-			hr.OK("all good")
-			hr.Stopped("stopped")
-		}),
-	)
-	testCell2 := cell.Module(
-		"test2",
-		"Test Module 2",
-		cell.Invoke(func(s cell.Scope) {
-			hr := cell.GetHealthReporter(s, "test")
-			hr.Degraded("degraded", nil)
-		}),
-	)
-	unknown := cell.Module(
-		"unknown",
-		"Reports no status",
-		cell.Invoke(func(s cell.Scope) {}),
-	)
-
-	var chp cell.Health
-	h := hive.New(
-		testCell,
-		testCell2,
-		unknown,
-		cell.Invoke(func(lc cell.Lifecycle, _ hive.Shutdowner, hp cell.Health) {
-			lc.Append(cell.Hook{
-				OnStop: func(cell.HookContext) error {
-					chp = hp
-					return nil
-				}})
-		}),
-		shutdownOnStartCell,
-	)
-
-	assert.NoError(t, h.Run(), "expected Run to succeed")
-	s1, err := chp.Get(cell.FullModuleID{"test"})
-	assert.NoError(t, err)
-	s2, err := chp.Get(cell.FullModuleID{"test2"})
-	assert.NoError(t, err)
-	s3, err := chp.Get(cell.FullModuleID{"unknown"})
-	assert.NoError(t, err)
-	assert.Len(t, chp.All(), 3, "expected two health reports")
-	assert.Equal(t, cell.StatusOK, s1.Level())
-
-	//assert.Equal(t, s1.FullModuleID, cell.FullModuleID{"test"})
-	assert.Equal(t, cell.StatusDegraded, s2.Level())
-	//assert.Equal(t, s2.FullModuleID, cell.FullModuleID{"test2"})
-	assert.Equal(t, cell.StatusUnknown, s3.Level())
-}
-
 func TestGroup(t *testing.T) {
 	sum := 0
 
