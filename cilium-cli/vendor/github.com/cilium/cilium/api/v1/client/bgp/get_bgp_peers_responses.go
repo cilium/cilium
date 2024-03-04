@@ -45,7 +45,7 @@ func (o *GetBgpPeersReader) ReadResponse(response runtime.ClientResponse, consum
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /bgp/peers] GetBgpPeers", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -86,11 +86,6 @@ func (o *GetBgpPeersOK) IsServerError() bool {
 // IsCode returns true when this get bgp peers o k response a status code equal to that given
 func (o *GetBgpPeersOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get bgp peers o k response
-func (o *GetBgpPeersOK) Code() int {
-	return 200
 }
 
 func (o *GetBgpPeersOK) Error() string {
@@ -154,11 +149,6 @@ func (o *GetBgpPeersInternalServerError) IsCode(code int) bool {
 	return code == 500
 }
 
-// Code gets the status code for the get bgp peers internal server error response
-func (o *GetBgpPeersInternalServerError) Code() int {
-	return 500
-}
-
 func (o *GetBgpPeersInternalServerError) Error() string {
 	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersInternalServerError  %+v", 500, o.Payload)
 }
@@ -218,11 +208,6 @@ func (o *GetBgpPeersDisabled) IsServerError() bool {
 // IsCode returns true when this get bgp peers disabled response a status code equal to that given
 func (o *GetBgpPeersDisabled) IsCode(code int) bool {
 	return code == 501
-}
-
-// Code gets the status code for the get bgp peers disabled response
-func (o *GetBgpPeersDisabled) Code() int {
-	return 501
 }
 
 func (o *GetBgpPeersDisabled) Error() string {

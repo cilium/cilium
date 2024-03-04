@@ -33,7 +33,7 @@ func (o *GetNodeIdsReader) ReadResponse(response runtime.ClientResponse, consume
 		}
 		return result, nil
 	default:
-		return nil, runtime.NewAPIError("[GET /node/ids] GetNodeIds", response, response.Code())
+		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
 }
 
@@ -74,11 +74,6 @@ func (o *GetNodeIdsOK) IsServerError() bool {
 // IsCode returns true when this get node ids o k response a status code equal to that given
 func (o *GetNodeIdsOK) IsCode(code int) bool {
 	return code == 200
-}
-
-// Code gets the status code for the get node ids o k response
-func (o *GetNodeIdsOK) Code() int {
-	return 200
 }
 
 func (o *GetNodeIdsOK) Error() string {

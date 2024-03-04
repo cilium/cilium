@@ -115,11 +115,6 @@ func (m *FrontendMapping) contextValidateBackends(ctx context.Context, formats s
 	for i := 0; i < len(m.Backends); i++ {
 
 		if m.Backends[i] != nil {
-
-			if swag.IsZero(m.Backends[i]) { // not required
-				return nil
-			}
-
 			if err := m.Backends[i].ContextValidate(ctx, formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backends" + "." + strconv.Itoa(i))
@@ -138,11 +133,6 @@ func (m *FrontendMapping) contextValidateBackends(ctx context.Context, formats s
 func (m *FrontendMapping) contextValidateFrontendAddress(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.FrontendAddress != nil {
-
-		if swag.IsZero(m.FrontendAddress) { // not required
-			return nil
-		}
-
 		if err := m.FrontendAddress.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")
