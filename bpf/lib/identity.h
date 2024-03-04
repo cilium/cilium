@@ -14,6 +14,11 @@ static __always_inline bool identity_in_range(__u32 identity, __u32 range_start,
 #define IDENTITY_LOCAL_SCOPE_MASK 0xFF000000
 #define IDENTITY_LOCAL_SCOPE_REMOTE_NODE 0x02000000
 
+static __always_inline bool identity_is_host(__u32 identity)
+{
+	return identity == HOST_ID;
+}
+
 static __always_inline bool identity_is_remote_node(__u32 identity)
 {
 	/* KUBE_APISERVER_NODE_ID is the reserved identity that corresponds to
@@ -42,7 +47,7 @@ static __always_inline bool identity_is_remote_node(__u32 identity)
 
 static __always_inline bool identity_is_node(__u32 identity)
 {
-	return identity == HOST_ID || identity_is_remote_node(identity);
+	return identity_is_host(identity) || identity_is_remote_node(identity);
 }
 
 /**
