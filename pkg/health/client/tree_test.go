@@ -54,11 +54,11 @@ func TestComputeMaxLevel(t *testing.T) {
 
 func TestTreeAddNode(t *testing.T) {
 	r := newRoot("fred")
-	r.addNode("a")
+	r.addNode("a", nil)
 	b := r.addBranch("b")
-	b.addNode("b1")
-	r.addNode("c")
-	r.addNodeWithMeta("d", "blee")
+	b.addNode("b1", nil)
+	r.addNode("c", nil)
+	r.addNodeWithMeta("d", "blee", nil)
 
 	assert.Equal(t, `fred
 ├── a
@@ -74,7 +74,7 @@ func TestTreeAddBranch(t *testing.T) {
 	r.addBranch("a")
 	b := r.addBranch("b")
 	b1 := b.addBranch("b1")
-	b1.addNode("b1_1")
+	b1.addNode("b1_1", nil)
 	r.addBranch("c")
 	r.addBranchWithMeta("d", "blee")
 
@@ -93,8 +93,8 @@ func TestTreeFind(t *testing.T) {
 	r.addBranch("a")
 	b := r.addBranch("b")
 	b1 := b.addBranch("b1")
-	b11 := b1.addNode("b1_1")
-	c := r.addNode("c")
+	b11 := b1.addNode("b1_1", nil)
+	c := r.addNode("c", nil)
 	r.addBranchWithMeta("d", "blee")
 
 	uu := map[string]struct {
