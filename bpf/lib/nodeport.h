@@ -2972,6 +2972,9 @@ skip_service_lookup:
 		if (identity_is_local(src_sec_identity))
 			return DROP_INVALID_IDENTITY;
 
+		if (identity_is_host(src_sec_identity))
+			return DROP_INVALID_IDENTITY;
+
 		/* lookup with SCOPE_FORWARD: */
 		__ipv4_ct_tuple_reverse(&tuple);
 
