@@ -9,6 +9,7 @@ import (
 
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type accountInfo struct {
@@ -83,14 +84,8 @@ func (k *K8sInstaller) setAzureResourceGroupFromHelmValue() error {
 	if err != nil {
 		return err
 	}
-	azure, ok := values["azure"].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	resourceGroupName, ok := azure["resourceGroup"].(string)
-	if !ok {
-		return nil
-	}
+
+	resourceGroupName, _, _ := unstructured.NestedString(values, "azure", "resourceGroup")
 	if resourceGroupName != "" {
 		k.params.Azure.ResourceGroupName = resourceGroupName
 	}

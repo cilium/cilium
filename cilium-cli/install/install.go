@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
@@ -176,14 +177,7 @@ func (k *K8sInstaller) listVersions() error {
 }
 
 func getChainingMode(values map[string]interface{}) string {
-	cni, ok := values["cni"].(map[string]interface{})
-	if !ok {
-		return ""
-	}
-	chainingMode, ok := cni["chainingMode"].(string)
-	if !ok {
-		return ""
-	}
+	chainingMode, _, _ := unstructured.NestedString(values, "cni", "chainingMode")
 	return chainingMode
 }
 
