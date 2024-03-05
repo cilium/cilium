@@ -17,7 +17,6 @@ import (
 
 func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 	helmMapOpts := map[string]string{}
-	deprecatedCfgOpts := map[string]string{}
 
 	switch {
 	// It's likely that certain helm options have changed since 1.9.0
@@ -142,11 +141,5 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.SpireAgentScheduleAffinity...)
 	}
 
-	// Store all the options passed by --config into helm extraConfig
-	extraConfigMap := map[string]interface{}{}
-	for k, v := range deprecatedCfgOpts {
-		extraConfigMap[k] = v
-	}
-
-	return helm.MergeVals(k.params.HelmOpts, helmMapOpts, nil, extraConfigMap)
+	return helm.MergeVals(k.params.HelmOpts, helmMapOpts)
 }
