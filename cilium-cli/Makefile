@@ -29,7 +29,7 @@ GOLANGCILINT_VERSION = $(shell golangci-lint version --format short 2>/dev/null)
 $(TARGET):
 	$(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
 		-ldflags "$(STRIP_DEBUG) \
-		-X 'github.com/cilium/cilium-cli/cli.Version=${VERSION}'" \
+		-X 'github.com/cilium/cilium-cli/defaults.CLIVersion=${VERSION}'" \
 		-o $(TARGET) \
 		./cmd/cilium
 

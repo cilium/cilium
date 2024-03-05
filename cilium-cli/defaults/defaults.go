@@ -156,4 +156,9 @@ var (
 		"inbound_other",          // XfrmInError
 		"inbound_state_invalid",  // XfrmInStateInvalid
 	}
+
+	// The following variables are set at compile time via LDFLAGS.
+
+	// CLIVersion is the software version of the Cilium CLI.
+	CLIVersion string
 )

@@ -17,15 +17,7 @@ var (
 	namespace   string
 
 	k8sClient *k8s.Client
-
-	// version is the version string of the cilium-cli itself
-	version string
 )
-
-// SetVersion sets the version string for the cilium command
-func SetVersion(v string) {
-	version = v
-}
 
 func NewCiliumCommand(hooks Hooks) *cobra.Command {
 	cmd := &cobra.Command{
