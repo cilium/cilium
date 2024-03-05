@@ -4626,9 +4626,6 @@
       },
       "type": "object"
     },
-    "remoteNodeIdentity": {
-      "type": "boolean"
-    },
     "resourceQuotas": {
       "properties": {
         "cilium": {
