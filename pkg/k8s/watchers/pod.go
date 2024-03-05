@@ -356,12 +356,17 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	newK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(strippedNewLabels, labels.LabelSourceK8s))
 	newPodLabels := newK8sPodLabels.K8sStringMap()
 	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
+	uidChanged := oldK8sPod.UID != newK8sPod.UID
 
 	lrpNeedsReassign := false
 	// The relevant updates are : podIPs and label updates.
 	oldPodIPLen := len(oldK8sPod.Status.PodIP)
 	newPodIPLen := len(newK8sPod.Status.PodIP)
 	switch {
+	case uidChanged:
+		// Consider a UID change the same as a label change in case the pod's
+		// identity needs to be updated, see GH-30409.
+		fallthrough
 	case oldPodIPLen == 0 && newPodIPLen > 0:
 		// PodIPs assigned update
 		fallthrough
@@ -401,7 +406,10 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	}
 
 	for _, podEP := range podEPs {
-		if labelsChanged {
+		if labelsChanged || uidChanged {
+			// Consider a UID change the same as a label change in case the pod's
+			// identity needs to be updated, see GH-30409. Annotations are not
+			// checked for because annotations don't impact identities.
 			err := podEP.UpdateLabelsFrom(oldPodLabels, newPodLabels, labels.LabelSourceK8s)
 			if err != nil {
 				log.WithFields(logrus.Fields{
