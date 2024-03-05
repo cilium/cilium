@@ -70,7 +70,7 @@ func RunE(hooks Hooks) func(cmd *cobra.Command, args []string) error {
 		}
 
 		// Instantiate the test harness.
-		cc, err := check.NewConnectivityTest(k8sClient, params, version)
+		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion)
 		if err != nil {
 			return err
 		}
