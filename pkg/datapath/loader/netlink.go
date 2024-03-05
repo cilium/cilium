@@ -66,6 +66,7 @@ type replaceDatapathOptions struct {
 	elf      string           // path to object file
 	programs []progDefinition // programs that we want to attach/replace
 	xdpMode  string           // XDP driver mode, only applies when attaching XDP programs
+	linkDir  string           // path to bpffs dir holding bpf_links for the device/endpoint
 }
 
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
@@ -85,6 +86,10 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 	// Avoid unnecessarily loading a prog.
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+
+	if opts.linkDir == "" {
+		return nil, errors.New("opts.linkDir not set in replaceDatapath")
 	}
 
 	link, err := netlink.LinkByName(opts.device)
@@ -231,14 +236,23 @@ func replaceDatapath(ctx context.Context, opts replaceDatapathOptions) (_ func()
 	for _, prog := range opts.programs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
 		if opts.xdpMode != "" {
-			linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), link)
-			if err := bpf.MkdirBPF(linkDir); err != nil {
+			if err := bpf.MkdirBPF(opts.linkDir); err != nil {
 				return nil, fmt.Errorf("creating bpffs link dir for device %s: %w", link.Attrs().Name, err)
 			}
 
 			scopedLog.Debug("Attaching XDP program to interface")
-			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, linkDir, xdpConfigModeToFlag(opts.xdpMode))
+			err = attachXDPProgram(link, coll.Programs[prog.progName], prog.progName, opts.linkDir, xdpConfigModeToFlag(opts.xdpMode))
 		} else {
+			// Remove any existing per-device/endpoint bpffs state created by newer
+			// versions of Cilium. tcx bpf_links cannot be overwritten by
+			// netlink-based tc attachments, they are separate hooks. Remove the tcx
+			// link first to avoid tc programs being run twice for every packet. This
+			// cannot be done seamlessly and will cause a small window of connection
+			// interruption.
+			if err := os.RemoveAll(opts.linkDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("removing bpffs link dir for device/endpoint %s: %w", link.Attrs().Name, err)
+			}
+
 			scopedLog.Debug("Attaching TC program to interface")
 			err = attachTCProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction))
 		}

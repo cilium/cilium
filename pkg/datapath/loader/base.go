@@ -207,11 +207,17 @@ func (l *loader) reinitializeIPSec(ctx context.Context) error {
 			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
 		}
 
+		device, err := netlink.LinkByName(iface)
+		if err != nil {
+			return fmt.Errorf("retrieving device %s: %w", iface, err)
+		}
+
 		finalize, err := replaceDatapath(ctx,
 			replaceDatapathOptions{
 				device:   iface,
 				elf:      networkObj,
 				programs: progs,
+				linkDir:  bpffsDeviceLinksDir(bpf.CiliumPath(), device),
 			},
 		)
 		if err != nil {
