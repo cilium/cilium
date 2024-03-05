@@ -679,11 +679,11 @@
    * - :spelling:ignore:`clustermesh.apiserver.service.externalTrafficPolicy`
      - The externalTrafficPolicy of service used for apiserver access.
      - string
-     - ``nil``
+     - ``"Cluster"``
    * - :spelling:ignore:`clustermesh.apiserver.service.internalTrafficPolicy`
      - The internalTrafficPolicy of service used for apiserver access.
      - string
-     - ``nil``
+     - ``"Cluster"``
    * - :spelling:ignore:`clustermesh.apiserver.service.nodePort`
      - Optional port to use as the node port for apiserver access.  WARNING: make sure to configure a different NodePort in each cluster if kube-proxy replacement is enabled, as Cilium is currently affected by a known bug (#24692) when NodePorts are handled by the KPR implementation. If a service with the same NodePort exists both in the local and the remote cluster, all traffic originating from inside the cluster and targeting the corresponding NodePort will be redirected to a local backend, regardless of whether the destination node belongs to the local or the remote cluster.
      - int
@@ -1814,7 +1814,7 @@
      - ``nil``
    * - :spelling:ignore:`hubble.relay.sortBufferLenMax`
      - Max number of flows that can be buffered for sorting before being sent to the client (per request) (e.g. 100).
-     - string
+     - int
      - ``nil``
    * - :spelling:ignore:`hubble.relay.terminationGracePeriodSeconds`
      - Configure termination grace period for hubble relay Deployment.
@@ -2078,8 +2078,8 @@
      - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-ci","tag":"latest","useDigest":false}``
    * - :spelling:ignore:`imagePullSecrets`
      - Configure image pull secrets for pulling container images
-     - string
-     - ``nil``
+     - list
+     - ``[]``
    * - :spelling:ignore:`ingressController.default`
      - Set cilium ingress controller to be the default ingress controller This will let cilium ingress controller route entries without ingress class set
      - bool
@@ -2226,11 +2226,11 @@
      - ``["fd00::/104"]``
    * - :spelling:ignore:`ipam.operator.externalAPILimitBurstSize`
      - The maximum burst size when rate limiting access to external APIs. Also known as the token bucket capacity.
-     - string
+     - int
      - ``20``
    * - :spelling:ignore:`ipam.operator.externalAPILimitQPS`
      - The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity.
-     - string
+     - float
      - ``4.0``
    * - :spelling:ignore:`ipv4.enabled`
      - Enable IPv4 support.

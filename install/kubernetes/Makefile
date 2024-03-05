@@ -30,6 +30,7 @@ DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 HELM_DOCS := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm-docs
 HELM := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm
 YQ := $(DOCKER_RUN) $(YQ_IMAGE)
+HELM_SCHEMA_GEN := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm-schema
 
 LOGO_BASE_URL := https://cdn.jsdelivr.net/gh/cilium
 LOGO_PATH := Documentation/images/logo-solo.svg
@@ -48,7 +49,7 @@ update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the curren
 		| xargs -L 1 $(SED) -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 '$(VERSION)'/g'
 	$(QUIET)$(SED) -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@$(CILIUM_BRANCH)/$(LOGO_PATH);' $(CHART_FILE)
 
-check-values-yaml:
+check-values-yaml: cilium/values.schema.json
 	$(ECHO_CHECK) $@
 	$(QUIET)( $(call generate_values_yaml,$(CILIUM_CHARTS)/$(VALUES_TMPL_FILE_NAME),/dev/stdout) ) \
 		| diff -u - "$(CILIUM_CHARTS)/values.yaml" \
@@ -61,6 +62,10 @@ cilium/values.yaml.tmpl:
 cilium/values.yaml: $(CILIUM_CHARTS)/$(VALUES_TMPL_FILE_NAME) $(ROOT_DIR)/VERSION $(ROOT_DIR)/$(RELATIVE_DIR)/Makefile.digests $(ROOT_DIR)/$(RELATIVE_DIR)/$(MAKEFILE_VALUES)
 	$(ECHO_GEN)$@
 	$(call generate_values_yaml,$(CILIUM_CHARTS)/$(VALUES_TMPL_FILE_NAME),$@)
+
+cilium/values.schema.json: cilium/values.yaml
+	$(ECHO_GEN)$@
+	$(HELM_SCHEMA_GEN) -c cilium --skip-auto-generation title,description,required,default,additionalProperties
 
 update-versions: update-chart cilium/values.yaml # Update the Helm values file to point to the current version.
 
@@ -80,4 +85,4 @@ docs:
 check-docker-images: # Check whether docker images are available for the current version.
 	$(QUIET)$(ROOT_DIR)/contrib/release/check-docker-images.sh "$(CILIUM_VERSION)"
 
-.PHONY: all check-docker-images check-values-yaml cilium/values.yaml cilium/values.yaml.tmpl clean docs lint update-chart update-versions
+.PHONY: all check-docker-images check-values-yaml cilium/values.yaml cilium/values.schema.json cilium/values.yaml.tmpl clean docs lint update-chart update-versions
