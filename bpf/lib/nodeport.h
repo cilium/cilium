@@ -1386,12 +1386,14 @@ skip_service_lookup:
 		/* lookup with SCOPE_FORWARD: */
 		__ipv6_ct_tuple_reverse(&tuple);
 
+		/* only match CT entries that belong to the same service: */
+		ct_state.rev_nat_index = ct_state_new.rev_nat_index;
+
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
 				      &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
-redo:
 			ct_state_new.src_sec_id = WORLD_IPV6_ID;
 			ct_state_new.node_port = 1;
 #ifndef HAVE_FIB_IFINDEX
@@ -1407,9 +1409,9 @@ redo:
 			break;
 		case CT_REOPENED:
 		case CT_ESTABLISHED:
-			if (unlikely(ct_state.rev_nat_index !=
-				     ct_state_new.rev_nat_index))
-				goto redo;
+			/* Note that we don't validate whether the matched CT entry
+			 * has identical values (eg. .ifindex) as set above.
+			 */
 			break;
 		default:
 			return DROP_UNKNOWN_CT;
@@ -2939,13 +2941,15 @@ skip_service_lookup:
 		/* lookup with SCOPE_FORWARD: */
 		__ipv4_ct_tuple_reverse(&tuple);
 
+		/* only match CT entries that belong to the same service: */
+		ct_state.rev_nat_index = ct_state_new.rev_nat_index;
+
 		/* Cache is_fragment in advance, lb4_local may invalidate ip4. */
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, is_fragment,
 				      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
 				      CT_ENTRY_NODEPORT, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
-redo:
 			ct_state_new.src_sec_id = src_sec_identity;
 			ct_state_new.node_port = 1;
 #ifndef HAVE_FIB_IFINDEX
@@ -2961,12 +2965,9 @@ redo:
 			break;
 		case CT_REOPENED:
 		case CT_ESTABLISHED:
-			/* Recreate CT entries, as the existing one is stale and
-			 * belongs to a flow which target a different svc.
+			/* Note that we don't validate whether the matched CT entry
+			 * has identical values (eg. .ifindex) as set above.
 			 */
-			if (unlikely(ct_state.rev_nat_index !=
-				     ct_state_new.rev_nat_index))
-				goto redo;
 			break;
 		default:
 			return DROP_UNKNOWN_CT;
