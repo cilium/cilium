@@ -15,7 +15,7 @@ reapply: monitoring.yaml
 deploy: kind install apply
 
 kind:
-	kind get nodes || (cd ../ && make kind)
+	kind get nodes | grep -q kind-worker || (cd ../ && make kind)
 
 install:
 	cd ../ && make kind-image-fast kind-install-cilium-fast
@@ -35,7 +35,7 @@ port-forward:
 
 run-nginx:
 	kubectl create namespace nginx || true
-	for i in $$(seq 1 40); do kubectl run -n nginx -q nginx$$i --image=nginx  --expose --port=80 & done
+	for i in $$(seq 1 30); do kubectl run -n nginx -q nginx$$i --image=nginx  --expose --port=80 & done
 
 stop-nginx:
 	kubectl delete ns/nginx
