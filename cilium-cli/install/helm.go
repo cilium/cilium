@@ -19,10 +19,7 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 	helmMapOpts := map[string]string{}
 
 	switch {
-	// It's likely that certain helm options have changed since 1.9.0
-	// These were tested for the >=1.11.0. In case something breaks for versions
-	// older than 1.11.0 we will fix it afterwards.
-	case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
+	case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
 		// TODO(aanm) to keep the previous behavior unchanged we will set the number
 		// of the operator replicas to 1. Ideally this should be the default in the helm chart
 		helmMapOpts["operator.replicas"] = "1"
@@ -91,25 +88,13 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 				// Can be removed once we drop support for <1.14.0
 				helmMapOpts["tunnel"] = tunnelDisabled
 			}
-			switch {
-			case versioncheck.MustCompile(">=1.10.0")(k.chartVersion):
-				helmMapOpts["bpf.masquerade"] = "false"
-				helmMapOpts["enableIPv4Masquerade"] = "false"
-				helmMapOpts["enableIPv6Masquerade"] = "false"
-			case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
-				helmMapOpts["masquerade"] = "false"
-			}
+
+			helmMapOpts["bpf.masquerade"] = "false"
+			helmMapOpts["enableIPv4Masquerade"] = "false"
+			helmMapOpts["enableIPv6Masquerade"] = "false"
 
 		case DatapathAKSBYOCNI:
-			switch {
-			case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
-				helmMapOpts["aksbyocni.enabled"] = "true"
-			case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
-				// Manually configure the same ConfigMap options as the new
-				// `aksbyocni` mode does, so that it works transparently.
-				helmMapOpts["ipam.mode"] = ipamClusterPool
-				helmMapOpts["tunnel"] = tunnelVxlan
-			}
+			helmMapOpts["aksbyocni.enabled"] = "true"
 		}
 
 		if k.params.ClusterName != "" {
@@ -119,14 +104,7 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 		// TODO: remove when removing "ipv4-native-routing-cidr" flag (marked as
 		// deprecated), kept for backwards compatibility
 		if k.params.IPv4NativeRoutingCIDR != "" {
-			// NOTE: Cilium v1.11 replaced --native-routing-cidr by
-			// --ipv4-native-routing-cidr
-			switch {
-			case versioncheck.MustCompile(">=1.11.0")(k.chartVersion):
-				helmMapOpts["ipv4NativeRoutingCIDR"] = k.params.IPv4NativeRoutingCIDR
-			case versioncheck.MustCompile(">=1.9.0")(k.chartVersion):
-				helmMapOpts["nativeRoutingCIDR"] = k.params.IPv4NativeRoutingCIDR
-			}
+			helmMapOpts["ipv4NativeRoutingCIDR"] = k.params.IPv4NativeRoutingCIDR
 		}
 
 	default:
