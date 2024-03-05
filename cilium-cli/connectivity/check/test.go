@@ -14,21 +14,10 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioncheck"
-
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/sysdump"
-	"github.com/cilium/cilium-cli/utils/features"
-
-	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/cloudflare/cfssl/cli/genkey"
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
@@ -36,6 +25,13 @@ import (
 	"github.com/cloudflare/cfssl/initca"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/local"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 const (
@@ -124,7 +120,7 @@ type Test struct {
 	knps map[string]*networkingv1.NetworkPolicy
 
 	// Cilium Egress Gateway Policies active during this test.
-	cegps map[string]*v2.CiliumEgressGatewayPolicy
+	cegps map[string]*ciliumv2.CiliumEgressGatewayPolicy
 
 	// Secrets that have to be present during the test.
 	secrets map[string]*corev1.Secret
@@ -605,7 +601,7 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 		pl[i].Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
 
 		// Set the excluded CIDRs
-		pl[i].Spec.ExcludedCIDRs = []v2.IPv4CIDR{}
+		pl[i].Spec.ExcludedCIDRs = []ciliumv2.IPv4CIDR{}
 
 		switch params.ExcludedCIDRsConf {
 		case ExternalNodeExcludedCIDRs:
@@ -614,7 +610,7 @@ func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyPar
 					continue
 				}
 
-				cidr := v2.IPv4CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
+				cidr := ciliumv2.IPv4CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
 				pl[i].Spec.ExcludedCIDRs = append(pl[i].Spec.ExcludedCIDRs, cidr)
 			}
 		}
