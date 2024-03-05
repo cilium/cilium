@@ -1025,7 +1025,8 @@ struct lb6_backend {
 				 * backends that have the same IP address,
 				 * but belong to the different cluster.
 				 */
-	__u8 pad[2];
+	__u8 zone;
+	__u8 pad;
 };
 
 struct lb6_health {
@@ -1084,7 +1085,8 @@ struct lb4_backend {
 				 * backends that have the same IP address,
 				 * but belong to the different cluster.
 				 */
-	__u8 pad[2];
+	__u8 zone;
+	__u8 pad;
 };
 
 struct lb4_health {
