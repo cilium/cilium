@@ -48,7 +48,7 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 			fmt.Sprintf("hubble.ui.enabled=%t", params.UI),
 		},
 	}
-	vals, err := helm.MergeVals(options, nil, nil, nil)
+	vals, err := helm.MergeVals(options, nil)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 	options := values.Options{
 		Values: []string{"hubble.relay.enabled=false", "hubble.ui.enabled=false"},
 	}
-	vals, err := helm.MergeVals(options, nil, nil, nil)
+	vals, err := helm.MergeVals(options, nil)
 	if err != nil {
 		return err
 	}
