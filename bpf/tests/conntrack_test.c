@@ -198,7 +198,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 				  CT_ENTRY_ANY, NULL, true, seen_flags, &monitor);
 		assert(res == CT_REOPENED);
 		assert(monitor == TRACE_PAYLOAD_LEN);
-		assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
+		assert(timeout_in(entry, CT_SYN_TIMEOUT));
 
 		/* Label connection as new if the tuple wasn't previously tracked */
 		tuple.saddr = 123;
