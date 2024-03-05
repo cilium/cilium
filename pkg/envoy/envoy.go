@@ -48,7 +48,7 @@ var (
 
 const (
 	adminSock   = "envoy-admin.sock"
-	ciliumEnvoy = "cilium-envoy"
+	ciliumEnvoy = "cilium-envoy-starter"
 )
 
 // EnableTracing changes Envoy log level to "trace", producing the most logs.
