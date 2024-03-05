@@ -642,8 +642,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		})
 	}
 
-	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
-	policyAPI.InitEntities(params.ClusterInfo.Name, treatRemoteNodeAsHost)
+	policyAPI.InitEntities(params.ClusterInfo.Name)
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
@@ -750,9 +749,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		case !option.Config.EnableNodePort:
 			err = fmt.Errorf("BPF masquerade requires NodePort (--%s=\"true\")",
 				option.EnableNodePort)
-		case !option.Config.EnableRemoteNodeIdentity:
-			err = fmt.Errorf("BPF masquerade requires remote node identities (--%s=\"true\")",
-				option.EnableRemoteNodeIdentity)
 		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.MasqueradeInterfaces, option.Devices)

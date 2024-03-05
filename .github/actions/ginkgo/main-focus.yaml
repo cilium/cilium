@@ -64,7 +64,6 @@ include:
   ###
   # K8sAgentPolicyTest Multi-node policy test validates fromEntities policies Validates fromEntities all policy
   # K8sAgentPolicyTest Multi-node policy test validates fromEntities policies Validates fromEntities cluster policy
-  # K8sAgentPolicyTest Multi-node policy test validates fromEntities policies with remote-node identity disabled Allows from all hosts with cnp fromEntities host policy
   # K8sAgentPolicyTest Multi-node policy test validates fromEntities policies with remote-node identity enabled Validates fromEntities remote-node policy
   # K8sAgentPolicyTest Multi-node policy test with L7 policy using connectivity-check to check datapath
   - focus: "f04-agent-policy-multi-node-1"

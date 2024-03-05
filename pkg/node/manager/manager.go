@@ -432,37 +432,34 @@ func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptK
 
 func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels, hasOverride bool) {
 	nodeLabels = labels.NewFrom(labels.LabelRemoteNode)
-	if m.conf.RemoteNodeIdentitiesEnabled() {
-		if n.IsLocal() {
-			nodeLabels = labels.NewFrom(labels.LabelHost)
-			if m.conf.PolicyCIDRMatchesNodes() {
-				for _, address := range n.IPAddresses {
-					addr, ok := ip.AddrFromIP(address.IP)
-					if ok {
-						bitLen := addr.BitLen()
-						if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
-							m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
-							prefix, err := addr.Prefix(bitLen)
-							if err == nil {
-								cidrLabels := labels.GetCIDRLabels(prefix)
-								nodeLabels.MergeLabels(cidrLabels)
-							}
+	if n.IsLocal() {
+		nodeLabels = labels.NewFrom(labels.LabelHost)
+		if m.conf.PolicyCIDRMatchesNodes() {
+			for _, address := range n.IPAddresses {
+				addr, ok := ip.AddrFromIP(address.IP)
+				if ok {
+					bitLen := addr.BitLen()
+					if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
+						m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
+						prefix, err := addr.Prefix(bitLen)
+						if err == nil {
+							cidrLabels := labels.GetCIDRLabels(prefix)
+							nodeLabels.MergeLabels(cidrLabels)
 						}
 					}
 				}
 			}
-		} else if !identity.NumericIdentity(n.NodeIdentity).IsReservedIdentity() {
-			// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
-			nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
-			hasOverride = true
-		} else if !n.IsLocal() && option.Config.PerNodeLabelsEnabled() {
-			lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
-			filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
-			nodeLabels.MergeLabels(filteredLbls)
 		}
-	} else {
-		nodeLabels = labels.NewFrom(labels.LabelHost)
+	} else if !identity.NumericIdentity(n.NodeIdentity).IsReservedIdentity() {
+		// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
+		nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
+		hasOverride = true
+	} else if !n.IsLocal() && option.Config.PerNodeLabelsEnabled() {
+		lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
+		filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
+		nodeLabels.MergeLabels(filteredLbls)
 	}
+
 	return nodeLabels, hasOverride
 }
 
