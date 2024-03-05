@@ -6,6 +6,10 @@ package source
 // Source describes the source of a definition
 type Source string
 
+func (s Source) String() string {
+	return string(s)
+}
+
 const (
 	// Unspec is used when the source is unspecified
 	Unspec Source = "unspec"

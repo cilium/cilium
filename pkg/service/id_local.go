@@ -51,6 +51,14 @@ func NewIDAllocator(nextID uint32, maxID uint32) *IDAllocator {
 	}
 }
 
+func (alloc *IDAllocator) AcquireID(svc loadbalancer.L3n4Addr) (*loadbalancer.L3n4AddrID, error) {
+	return alloc.acquireLocalID(svc, 0)
+}
+
+func (alloc *IDAllocator) ReleaseID(id loadbalancer.ID) {
+	alloc.deleteLocalID(uint32(id))
+}
+
 func (alloc *IDAllocator) addID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
 	svcID := newID(svc, id)
 	alloc.entitiesID[id] = svcID
