@@ -30,10 +30,9 @@ var (
 	nm         manager.NodeManager
 	mtuConfig  = mtu.NewConfiguration(0, false, false, false, false, 0, nil)
 	fakeConfig = &option.DaemonConfig{
-		RoutingMode:              option.RoutingModeTunnel,
-		EnableRemoteNodeIdentity: true,
-		EnableIPSec:              true,
-		EncryptNode:              true,
+		RoutingMode: option.RoutingModeTunnel,
+		EnableIPSec: true,
+		EncryptNode: true,
 	}
 )
 

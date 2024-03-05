@@ -23,7 +23,7 @@ func (s EntitySlice) matches(ctx labels.LabelArray) bool {
 }
 
 func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
-	InitEntities("cluster1", false)
+	InitEntities("cluster1")
 
 	c.Assert(EntityHost.matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityHost.matches(labels.ParseLabelArray("reserved:host", "id:foo")), Equals, true)
@@ -71,7 +71,7 @@ func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
 }
 
 func (s *PolicyAPITestSuite) TestEntitySliceMatches(c *C) {
-	InitEntities("cluster1", false)
+	InitEntities("cluster1")
 
 	slice := EntitySlice{EntityHost, EntityWorld}
 	c.Assert(slice.matches(labels.ParseLabelArray("reserved:host")), Equals, true)
@@ -88,33 +88,4 @@ func (s *PolicyAPITestSuite) TestEntitySliceMatches(c *C) {
 	c.Assert(slice.matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(slice.matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 	c.Assert(slice.matches(labels.ParseLabelArray("id=foo")), Equals, false)
-}
-
-func (s *PolicyAPITestSuite) TestEntityHostAllowsRemoteNode(c *C) {
-	tests := []struct {
-		name                  string
-		treatRemoteNodeAsHost bool
-		expectedMatches       labels.LabelArray
-		expectedNonMatches    labels.LabelArray
-	}{
-		{
-			"host entity selects remote-node identity",
-			true,
-			labels.ParseLabelArray("reserved:remote-node"),
-			labels.ParseLabelArray("reserved:all"),
-		},
-		{
-			"host entity does not select remote-node identity",
-			false,
-			labels.ParseLabelArray("reserved:host"),
-			labels.ParseLabelArray("reserved:remote-node"),
-		},
-	}
-
-	for _, tt := range tests {
-		InitEntities("cluster1", tt.treatRemoteNodeAsHost)
-		hostSelector := EntitySelectorMapping[EntityHost]
-		c.Assert(hostSelector.Matches(tt.expectedMatches), Equals, true, Commentf("Test Name: %s", tt.name))
-		c.Assert(hostSelector.Matches(tt.expectedNonMatches), Equals, false, Commentf("Test Name: %s", tt.name))
-	}
 }
