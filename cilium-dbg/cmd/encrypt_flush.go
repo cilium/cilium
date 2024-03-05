@@ -75,12 +75,13 @@ func runXFRMFlush() {
 		policies, states = filterXFRMByNodeID(policies, states)
 	}
 
+	confirmationMsg := ""
 	if len(policies) == nbPolicies || len(states) == nbStates {
-		confirmationMsg := "Running this command will delete all XFRM state and/or policies. " +
+		confirmationMsg = "Running this command will delete all XFRM states and/or policies. " +
 			"It will lead to transient connectivity disruption and plain-text pod-to-pod traffic."
-		if !confirmXFRMCleanup(confirmationMsg) {
-			return
-		}
+	}
+	if confirmationMsg != "" && !confirmXFRMCleanup(confirmationMsg) {
+		return
 	}
 
 	nbDeleted := len(states)
