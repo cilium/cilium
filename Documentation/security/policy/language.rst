@@ -325,7 +325,7 @@ host
 remote-node
     Any node in any of the connected clusters other than the local host. This
     also includes all containers running in host-networking mode on remote
-    nodes. (Requires the option ``enable-remote-node-identity`` to be enabled)
+    nodes.
 kube-apiserver
     The kube-apiserver entity represents the kube-apiserver in a Kubernetes
     cluster. This entity represents both deployments of the kube-apiserver:
